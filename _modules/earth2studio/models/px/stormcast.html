@@ -452,6 +452,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">handshake_coords</span><span class="p">,</span>
     <span class="n">handshake_dim</span><span class="p">,</span>
+    <span class="n">handshake_size</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -496,10 +497,6 @@
 <span class="p">]</span>
 
 <span class="n">INVARIANTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lsm&quot;</span><span class="p">,</span> <span class="s2">&quot;orography&quot;</span><span class="p">]</span>
-
-<span class="c1"># Extent of domain in StormCastV1 paper (HRRR Lambert projection indices)</span>
-<span class="n">X_START</span><span class="p">,</span> <span class="n">X_END</span> <span class="o">=</span> <span class="mi">579</span><span class="p">,</span> <span class="mi">1219</span>
-<span class="n">Y_START</span><span class="p">,</span> <span class="n">Y_END</span> <span class="o">=</span> <span class="mi">273</span><span class="p">,</span> <span class="mi">785</span>
 
 
 <div class="viewcode-block" id="StormCast">
@@ -587,8 +584,8 @@
             <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="p">]</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_x</span> <span class="o">=</span> <span class="n">HRRR</span><span class="o">.</span><span class="n">HRRR_X</span><span class="p">[</span><span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lon_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hrrr_y</span> <span class="o">=</span> <span class="n">HRRR</span><span class="o">.</span><span class="n">HRRR_Y</span><span class="p">[</span><span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">hrrr_lat_lim</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">variables</span> <span class="o">=</span> <span class="n">variables</span>
 
@@ -652,8 +649,9 @@
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
         <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">)</span>
-        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_y&quot;</span><span class="p">)</span>
+        <span class="c1"># Index coords are arbitrary as long its on the HRRR grid, so just check size</span>
+        <span class="n">handshake_size</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">handshake_size</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
 
         <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span>

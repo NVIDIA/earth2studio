@@ -500,6 +500,20 @@
 <span class="sd">    model). This data source is provided on a Lambert conformal 3km grid at 1-hour</span>
 <span class="sd">    intervals. The spatial dimensionality of HRRR data is [1059, 1799].</span>
 
+<span class="sd">    The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native</span>
+<span class="sd">    coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import cartopy.crs as ccrs</span>
+
+<span class="sd">        proj_hrrr = ccrs.LambertConformal(</span>
+<span class="sd">            central_longitude=262.5,</span>
+<span class="sd">            central_latitude=38.5,</span>
+<span class="sd">            standard_parallels=(38.5, 38.5),</span>
+<span class="sd">            globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),</span>
+<span class="sd">        )</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    source : str, optional</span>
@@ -534,8 +548,11 @@
     <span class="n">HRRR_BUCKET_NAME</span> <span class="o">=</span> <span class="s2">&quot;noaa-hrrr-bdp-pds&quot;</span>
     <span class="n">MAX_BYTE_SIZE</span> <span class="o">=</span> <span class="mi">5000000</span>
 
-    <span class="n">HRRR_X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1799</span><span class="p">)</span>
-    <span class="n">HRRR_Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1059</span><span class="p">)</span>
+    <span class="c1"># Native LCC coordinates from the HRRR Zarr archive managed by the University of Utah</span>
+    <span class="c1"># https://registry.opendata.aws/noaa-hrrr-pds/</span>
+    <span class="c1"># https://mesowest.utah.edu/html/hrrr/zarr_documentation/html/python_data_loading.html</span>
+    <span class="n">HRRR_X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2697520.1425219304</span><span class="p">,</span> <span class="mf">2696479.8574780696</span><span class="p">,</span> <span class="mi">1799</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">HRRR_Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">1587306.1525566636</span><span class="p">,</span> <span class="mf">1586693.8474433364</span><span class="p">,</span> <span class="mi">1059</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -746,6 +763,8 @@
                 <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">,</span> <span class="s2">&quot;hrrr_x&quot;</span><span class="p">),</span> <span class="n">lon</span><span class="p">),</span>
             <span class="p">},</span>
         <span class="p">)</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;standard_name&quot;</span><span class="p">:</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span> <span class="s2">&quot;axis&quot;</span><span class="p">:</span> <span class="s2">&quot;Y&quot;</span><span class="p">}</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="s2">&quot;hrrr_x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;standard_name&quot;</span><span class="p">:</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span> <span class="s2">&quot;axis&quot;</span><span class="p">:</span> <span class="s2">&quot;X&quot;</span><span class="p">}</span>
 
         <span class="n">async_tasks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">async_tasks</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tasks</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="p">[</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">0</span><span class="p">)],</span> <span class="n">variable</span><span class="p">)</span>
@@ -1288,6 +1307,8 @@
                 <span class="s2">&quot;hrrr_y&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">HRRR_Y</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="s2">&quot;hrrr_y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;standard_name&quot;</span><span class="p">:</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span> <span class="s2">&quot;axis&quot;</span><span class="p">:</span> <span class="s2">&quot;Y&quot;</span><span class="p">}</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="s2">&quot;hrrr_x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;standard_name&quot;</span><span class="p">:</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span> <span class="s2">&quot;axis&quot;</span><span class="p">:</span> <span class="s2">&quot;X&quot;</span><span class="p">}</span>
 
         <span class="n">async_tasks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">async_tasks</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tasks</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
