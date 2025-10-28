@@ -294,7 +294,12 @@ class CDS:
         cache_path = os.path.join(self.cache, filename)
 
         if not pathlib.Path(cache_path).is_file():
-            if variable != "total_precipitation_06":
+            if variable == "total_precipitation_06":
+                # tp06 is a special case, its not in CDS but used by several models
+                # so this specific case handle for this one variable, so intercept this
+                self._download_cds_tp06_grib_cached(time, cache_path)
+                return cache_path
+            else:
                 # Assemble request
                 rbody = {
                     "variable": variable,
@@ -333,9 +338,6 @@ class CDS:
                         sleep(2.0)
                 # Download when ready
                 r.download(cache_path)
-            else:  # variable == "total_precipitation_06"
-                # needs special treatment, see https://github.com/NVIDIA/earth2studio/issues/456
-                self._download_cds_tp06_grib_cached(time, cache_path)
 
         return cache_path
 
@@ -357,24 +359,16 @@ class CDS:
             )
             tp_cache_paths.append(tp_cache_path)
 
-        # using final tp array as base for tp06 since they have same valid_time
+        # Combine into single grib
         tp06_data = xr.open_dataarray(
             tp_cache_paths[-1], engine="cfgrib", backend_kwargs={"indexpath": ""}
         )
-
-        # read tp files
         tp_data = [
             xr.open_dataarray(path, engine="cfgrib", backend_kwargs={"indexpath": ""})
             for path in tp_cache_paths
         ]
-
-        # accumulate 6 hour precip
         tp06_data.values = sum([tp.values for tp in tp_data])
-
-        # only Dataset writes to grib are supported in cfgrib
         tp06_ds = xr.Dataset({"tp06": tp06_data})
-
-        # write to cache
         to_grib(tp06_ds, cache_path, no_warn=True, grib_keys={"edition": 2})
 
     @property
