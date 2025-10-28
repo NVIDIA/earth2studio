@@ -360,15 +360,12 @@ class CDS:
             tp_cache_paths.append(tp_cache_path)
 
         # Combine into single grib
-        tp06_data = xr.open_dataarray(
-            tp_cache_paths[-1], engine="cfgrib", backend_kwargs={"indexpath": ""}
-        )
         tp_data = [
             xr.open_dataarray(path, engine="cfgrib", backend_kwargs={"indexpath": ""})
             for path in tp_cache_paths
         ]
-        tp06_data.values = sum([tp.values for tp in tp_data])
-        tp06_ds = xr.Dataset({"tp06": tp06_data})
+        tp_data[-1].values = np.sum(np.stack([tp.values for tp in tp_data]), axis=0)
+        tp06_ds = xr.Dataset({"tp06": tp_data[-1]})
         to_grib(tp06_ds, cache_path, no_warn=True, grib_keys={"edition": 2})
 
     @property
