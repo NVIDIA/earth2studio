@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 
 import numpy as np
 import torch
@@ -59,6 +59,13 @@ class DatasetModality(IntEnum):
 
     ICON = 0
     ERA5 = 1
+
+
+class TimeStepperFunction(StrEnum):
+    """Supported time-stepper functions"""
+
+    HEUN = "heun"
+    EULER = "euler"
 
 
 @check_optional_dependencies()
@@ -109,9 +116,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
+    time_stepper : TimeStepperFunction, optional
+        Sampler function used to denoise, by default TimeStepperFunction.HEUN
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
+    torch_compile = False
 
     def __init__(
         self,
@@ -123,6 +133,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sigma_min: float = 0.02,
         seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
+        time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN,
     ):
         super().__init__()
 
@@ -131,6 +142,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_max = sigma_max
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
+        self.time_stepper = time_stepper
         self.seed = seed
         self.dataset_modality = dataset_modality
         self._mixture_model = core_model
@@ -255,6 +267,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.core_model.sigma_min = self.sigma_min
         self.core_model.sigma_max = self.sigma_max
         self.core_model.num_steps = self.sampler_steps
+        self.core_model.time_stepper = TimeStepperFunction(self.time_stepper).value
 
         if self.lat_lon:
             x = self.condition_regridder(x.double())
@@ -267,7 +280,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
-            out = self.output_regridder(out.double())
+            out = self.output_regridder(out.contiguous().double())
         # [time, vars, lead, ...] -> [time, lead, vars, ...]
         out = out.transpose(1, 2)
 
