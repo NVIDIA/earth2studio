@@ -57,7 +57,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     ----
     Custom callables can be provided to override default behavior such as skipping
     interpolation or change concatenation logic. This will be required for many
-    diagnostic models.
+    diagnostic models. Refer to this classes internal default functions to understand
+    the required function signature.
 
     Parameters
     ----------
@@ -74,10 +75,10 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         method with interpolation. Signature: Callable[[torch.Tensor, CoordSystem, CoordSystem], torch.Tensor]
     prepare_output_coords : PrepareOutputCoords | None, optional
         Callable to prepare output coordinate system. If None, uses default method
-        which concatenates all variables. Callable[[CoordSystem, CoordSystem], CoordSystem]
+        which concatenates all variables. Callable[[CoordSystem, list[CoordSystem]], CoordSystem]
     prepare_output_tensor : PrepareOutputTensor | None, optional
         Callable to prepare output tensor. If None, uses default method which
-        concatenates all outputs. Signature: Callable[[torch.Tensor, CoordSystem, torch.Tensor, CoordSystem], torch.Tensor]
+        concatenates all outputs. Signature: Callable[[torch.Tensor, CoordSystem, list[torch.Tensor], list[CoordSystem]], torch.Tensor]
     """
 
     def __init__(
