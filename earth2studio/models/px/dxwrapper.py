@@ -138,7 +138,9 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         dx_coords = []
         for model in self.dx_model:
             # This is kinda annnoying at the moment, but I'm not sure of a better way yet
-            coords = self.prepare_dx_input_coords(px_coords, model.input_coords())
+            coords = self.prepare_dx_input_coords(
+                px_coords.copy(), model.input_coords()
+            )
             dx_coords.append(model.output_coords(coords))
         out_coords = self.prepare_output_coords(px_coords, dx_coords)
         return out_coords
@@ -243,7 +245,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             for i, key in enumerate(dx_coords[-1].keys()):
                 handshake_dim(px_coords, key, i)
                 if not key == "variable":
-                    handshake_coords(px_coords, dx_coords, key)
+                    handshake_coords(px_coords, dx_coords[-1], key)
             # Concat all variables
             variables = [px_coords["variable"]] + [
                 coord["variable"] for coord in dx_coords
@@ -286,7 +288,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             for i, key in enumerate(dx_coords[-1].keys()):
                 handshake_dim(px_coords, key, i)
                 if not key == "variable":
-                    handshake_coords(px_coords, dx_coords, key)
+                    handshake_coords(px_coords, dx_coords[-1], key)
+
             x = [px_x] + dx_x
             variables = [px_coords["variable"]] + [
                 coord["variable"] for coord in dx_coords
@@ -335,8 +338,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 px_x, px_coords.copy(), model.input_coords()
             )
             dx_x0, dx_coords0 = model(dx_x0, dx_coords0)
-            dx_x.append(dx_coords0)
-            dx_coords.append(dx_x0)
+            dx_x.append(dx_x0)
+            dx_coords.append(dx_coords0)
         x, coords = self.prepare_output_tensor(px_x, px_coords, dx_x, dx_coords)
         return x, coords
 
@@ -368,8 +371,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                     px_x, px_coords.copy(), model.input_coords()
                 )
                 dx_x0, dx_coords0 = model(dx_x0, dx_coords0)
-                dx_x.append(dx_coords0)
-                dx_coords.append(dx_x0)
+                dx_x.append(dx_x0)
+                dx_coords.append(dx_coords0)
             x, coords = self.prepare_output_tensor(px_x, px_coords, dx_x, dx_coords)
             yield x, coords
 

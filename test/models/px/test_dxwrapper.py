@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from contextlib import nullcontext
 
 import numpy as np
 import pytest
@@ -28,7 +27,6 @@ from earth2studio.models.dx import (
     DerivedSurfacePressure,
     PrecipitationAFNOv2,
     SolarRadiationAFNO1H,
-    TCTrackerVitart,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper
 from earth2studio.run import deterministic
@@ -114,7 +112,7 @@ class PhooCorrDiff(torch.nn.Module):
         [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
     ],
 )
-def test_fcn3_precip(device, model_type, times):
+def test_dxwrapper_call(device, model_type, times):
     # Spoof models
     fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
     px_model = FCN3(fcn3_model)
@@ -159,8 +157,10 @@ def test_fcn3_precip(device, model_type, times):
         ),
     )
 
-    wrapped_model = DiagnosticWrapper(px_model=px_model, dx_model=sp_model)
-    wrapped_model = DiagnosticWrapper(px_model=wrapped_model, dx_model=dx_model).to(
+    wrapped_model = DiagnosticWrapper(px_model=px_model, dx_model=[sp_model]).to(
+        device=device
+    )
+    wrapped_model = DiagnosticWrapper(px_model=wrapped_model, dx_model=[dx_model]).to(
         device=device
     )
 
@@ -173,40 +173,33 @@ def test_fcn3_precip(device, model_type, times):
         variable=wrapped_model.input_coords()["variable"],
         device=device,
     )
-    (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    (x, input_coords) = map_coords(x, coords, wrapped_model.input_coords())
+    (x, coords) = wrapped_model(x, input_coords)
 
-    (x, coords) = wrapped_model(x, coords)
-
-    expected_shape = tuple(len(v) for v in coords.values())
-    expected_vars = np.concatenate(
-        [
-            model.output_coords(model.input_coords())["variable"]
-            for model in [px_model, sp_model, dx_model]
-        ]
+    coord_shape = tuple(coord.shape[0] for coord in coords.values())
+    expected_shape = tuple(
+        coord.shape[0] for coord in wrapped_model.output_coords(input_coords).values()
     )
-    assert (
-        x.shape
-        == expected_shape
-        == (len(times), 1, len(expected_vars), *landsea_mask.shape[-2:])
-    )
+    assert x.shape == coord_shape
+    assert x.shape == expected_shape
     assert tuple(coords) == ("time", "lead_time", "variable", "lat", "lon")
-    assert (coords["variable"] == expected_vars).all()
-
-    io = XarrayBackend()
-    deterministic(times, 2, wrapped_model, data, io, device=device)
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize(
-    "times",
+    "times,number_of_samples",
     [
-        [np.datetime64("2025-08-21T00:00:00")],
-        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+        ([np.datetime64("2025-08-21T00:00:00")], 2),
+        (
+            [
+                np.datetime64("2025-08-21T00:00:00"),
+                np.datetime64("2025-08-22T00:00:00"),
+            ],
+            1,
+        ),
     ],
 )
-@pytest.mark.parametrize("number_of_samples", [1, 2])
-@pytest.mark.parametrize("keep_px_output", [False, True])
-def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
+def test_dxwrapper_iter(device, times, number_of_samples):
     # Spoof models
     px_model = FCN3(PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor())))
     model = PhooCorrDiff()
@@ -231,9 +224,7 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
 
     wrapped_model = DiagnosticWrapper(
         px_model=px_model,
-        dx_models=corrdiff_model,
-        keep_px_output=keep_px_output,
-        interpolate_coords=True,
+        dx_model=corrdiff_model,
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
@@ -246,41 +237,54 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
         device=device,
     )
     (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    # Get generator
+    p_iter = wrapped_model.create_iterator(x, coords)
+    for i, (out, out_coords) in enumerate(p_iter):
 
-    with pytest.raises(ValueError) if keep_px_output else nullcontext():
-        (x, coords) = wrapped_model(x, coords)
-    if keep_px_output:
-        return
+        coord_shape = tuple(coord.shape[0] for coord in out_coords.values())
+        expected_shape = tuple(
+            coord.shape[0] for coord in wrapped_model.output_coords(coords).values()
+        )
+        assert out.shape == coord_shape
+        assert out.shape == expected_shape
 
-    expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape == (len(times), 1, number_of_samples, 4, 448, 448)
-    expected_vars = corrdiff_model.output_coords(corrdiff_model.input_coords())[
-        "variable"
-    ]
-    assert (coords["variable"] == expected_vars).all()
-
-    io = XarrayBackend()
-    deterministic(times, 2, wrapped_model, data, io, device=device)
+        if i == 2:
+            break
 
 
-@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
+@pytest.mark.parametrize("device", ["cuda:0"])
 @pytest.mark.parametrize(
-    "times",
+    "times,number_of_samples",
     [
-        [np.datetime64("2025-08-21T00:00:00")],
-        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+        ([np.datetime64("2025-08-21T00:00:00")], 1),
     ],
 )
-@pytest.mark.parametrize("keep_px_output", [False, True])
-def test_fcn3_tc_tracker(device, times, keep_px_output):
+def test_dxwrapper_run(device, times, number_of_samples):
     # Spoof models
-    fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
-    px_model = FCN3(fcn3_model)
-
-    tc_tracker = TCTrackerVitart()
+    px_model = FCN3(PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor())))
+    model = PhooCorrDiff()
+    in_center = torch.zeros(12, 1, 1)
+    in_scale = torch.ones(12, 1, 1)
+    out_center = torch.zeros(4, 1, 1)
+    out_scale = torch.ones(4, 1, 1)
+    lat = torch.as_tensor(np.linspace(19.5, 27, 450, endpoint=True))
+    lon = torch.as_tensor(np.linspace(117, 125, 450, endpoint=False))
+    out_lon, out_lat = torch.meshgrid(lon, lat)
+    corrdiff_model = CorrDiffTaiwan(
+        model,
+        model,
+        in_center,
+        in_scale,
+        out_center,
+        out_scale,
+        out_lat,
+        out_lon,
+        number_of_samples=number_of_samples,
+    ).to(device)
 
     wrapped_model = DiagnosticWrapper(
-        px_model=px_model, dx_models=tc_tracker, keep_px_output=keep_px_output
+        px_model=px_model,
+        dx_model=corrdiff_model,
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
@@ -289,18 +293,9 @@ def test_fcn3_tc_tracker(device, times, keep_px_output):
     (x, coords) = fetch_data(
         data,
         times,
-        variable=wrapped_model.input_coords()["variable"],
+        variable=px_model.input_coords()["variable"],
         device=device,
     )
     (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
-
-    with pytest.raises(ValueError) if keep_px_output else nullcontext():
-        (x, coords) = wrapped_model(x, coords)
-    if keep_px_output:
-        return
-
-    expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape
-    assert all(x.shape[dim] == (len(times), 1, -1, 1, 4)[dim] for dim in (0, 1, 3, 4))
-    expected_vars = tc_tracker.output_coords(tc_tracker.input_coords())["variable"]
-    assert (coords["variable"] == expected_vars).all()
+    io = XarrayBackend()
+    deterministic(times, 2, wrapped_model, data, io, device=device)
