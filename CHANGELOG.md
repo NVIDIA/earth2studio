@@ -15,17 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CBottle Video prognostic model
 - Exposed backend arguments of netcdf/zarr to datasource_to_file signature
 - Added vertical wind speed support in GFS
+- Added ModelOutputDatasetSource to use written model output to start a new model run
+- Added FCN3 noise handling routines.
 - tp06 support to CDS data source
 
 ### Changed
 
-- Updated CBottle data source to mixture of experts models
+- Updated CBottle data source to mixture of experts models, added additional parameters
+  to load_model to align with other cBottle models.
+- Fixed duplicate geo-potential at surface ids in AIFS, IFS data source and orography
+  source, orography is denoted by lower case `z`
+- Updated package caching default to None, which will default to true for remote
+  packages and false for local packages
+- InferenceOutputSource can now accept an Xarray Dataset directly as an argument
+- InferenceOutputSource returns data consistently in `("time", "lead_time", "variable")`
+  order
+- Added support for ERA5 model levels and additional variables in ARCO data source
+- Changed the HRRR_X and HRRR_Y coordinates of the HRRR data source to match the native
+  LCC coordinates
 
 ### Deprecated
+
+- Added depricated warning for IMERG data source. This will be removed in the next
+  release.
 
 ### Removed
 
 ### Fixed
+
+- Fixed typo: InferenceOuputSource renamed to InferenceOutputSource
+- StormCast ensures that conditioning variables are in the correct order
+- NetCDFBackend unit change to ensure timedeltas are correctly decoded by xarray
 
 ### Security
 
@@ -33,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dropped support for Python 3.10
 - Bumped CBottle (and Earth2Grid) versions
+- Capped JAX version, due to numpy 2.0 requirement conflicting with NV PyTorch containers
+- Temp limit globus-sdk for intake-esgf
 
 ## [0.9.0] - 2025-08-19
 

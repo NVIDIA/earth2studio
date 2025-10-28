@@ -108,10 +108,10 @@ def test_lsm_cache(time, cache):
         np.array([np.datetime64("1993-04-05T00:00")]),
     ],
 )
-def test_zsl_fetch(time):
+def test__fetch(time):
 
     ds = SurfaceGeoPotential(cache=False)
-    data = ds(time, "zsl")
+    data = ds(time, "z")
     shape = data.shape
 
     if isinstance(time, datetime.datetime):
@@ -121,7 +121,7 @@ def test_zsl_fetch(time):
     assert shape[1] == 1
     assert shape[2] == 721
     assert shape[3] == 1440
-    assert np.array_equal(data.coords["variable"].values, np.array(["zsl"]))
+    assert np.array_equal(data.coords["variable"].values, np.array(["z"]))
     assert not np.isnan(data.values).any()
 
 

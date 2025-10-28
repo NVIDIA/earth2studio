@@ -38,7 +38,7 @@ from earth2studio.data import ARCO
         np.array([np.datetime64("1993-04-05T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["u500", "u200"]])
+@pytest.mark.parametrize("variable", ["tcwv", "t136k", ["u500", "u200"]])
 def test_arco_fetch(time, variable):
 
     ds = ARCO(cache=False)

@@ -13,11 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 from datetime import datetime
 from typing import Any
 
+import numpy as np
 import xarray as xr
 from numpy import ndarray
 from pandas import to_datetime
@@ -26,7 +26,7 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class DataArrayFile:
-    """A local xarray dataarray file data source. This file should be compatable with
+    """A local xarray dataarray file data source. This file should be compatible with
     xarray. For example, a netCDF file.
 
     Parameters
@@ -62,8 +62,134 @@ class DataArrayFile:
         return self.da.sel(time=time, variable=variable)
 
 
+class InferenceOutputSource:
+    """Adapt a inference output into a data source.
+
+    This data source loads an existing xarray Dataset, such as a NetCDF file or Zarr
+    store from an Earth2Studio forecast inference pipeline, which can then be filtered
+    to provide a data array give a variable and time.
+    Time, lead_time and variable are expected dimensions to be present in the DataSet.
+
+    Note
+    ----
+    This data source performs automatic transformation of time coordinates based on the
+    time and lead_time coordinates:
+
+    - **If lead_time has length 1**: The single lead_time value is added to all time
+      coordinates to produce valid forecast times (time + lead_time). The lead_time
+      dimension is then removed.
+    - **If time has length 1**: The single time value is broadcast to match the
+      lead_time dimension, then lead_time values are added to produce valid forecast
+      times. The time dimension is removed and lead_time is renamed to time.
+
+    Either time or lead_time must have length 1 after applying the filter_dict
+    - both cannot have length > 1 simultaneously. The resulting dataset will have a
+    single time dimension containing the computed valid forecast timestamps.
+
+    Parameters
+    ----------
+    inference_output : str | xarray.Dataset
+        An Xarray dataset or a path to an xarray-compatible dataset file
+        (e.g., NetCDF/Zarr).
+    filter_dict : dict, optional
+        Dictionary of selections applied before transformation (e.g.
+        ``{"ensemble": 0}``). Coordinates not in the required
+        dimensions are dropped after selection, by default {}
+    **xr_args : Any
+        Additional keyword arguments forwarded to ``xarray.open_dataset``.
+    """
+
+    def __init__(
+        self, inference_output: str | xr.Dataset, filter_dict: dict = {}, **xr_args: Any
+    ):
+        if isinstance(inference_output, str):
+            self.da = xr.open_dataset(inference_output, **xr_args)
+        elif isinstance(inference_output, xr.Dataset):
+            self.da = inference_output
+        else:
+            raise TypeError(
+                f"Expected `inference_output` to be a string or xarray.Dataset, not {type(inference_output)}."
+            )
+        self.da = self.da.to_array("variable")
+
+        # Need to keep these dims, so make then a list if scalar value
+        for k in ("time", "lead_time"):
+            if k in filter_dict and not isinstance(
+                filter_dict[k], (list, tuple, np.ndarray)
+            ):
+                filter_dict[k] = [filter_dict[k]]
+
+        self.da = self.da.sel(filter_dict)
+
+        # The following dimensions and their order is required for the data to be used as a datasource
+        required_dims = ["time", "lead_time", "variable"]
+        # Validate remaining dimensions
+        if not set(required_dims).issubset(set(self.da.dims)):
+            raise ValueError(
+                f"Missing required dims. Data array loaded has dims {self.da.dims} but "
+                + f"needs {required_dims}. Use filter_dict to select a subset of the data."
+            )
+        if len(self.da["time"]) > 1 and len(self.da["lead_time"]) > 1:
+            raise ValueError(
+                "Either time or lead_time should have length of one. "
+                + f"Length of time: {len(self.da['time'])}, lead_time: {len(self.da['lead_time'])}."
+                + "Use filter_dict to select a subset of the data."
+            )
+
+        # ensure ["time", "lead_time", "variable"] ordering of required_dims (other dims unaffected)
+        dims = list(self.da.dims)
+        required_dims_ind = [dims.index(dim) for dim in required_dims]
+        for i, ind in enumerate(sorted(required_dims_ind)):
+            dims[ind] = self.da.dims[required_dims_ind[i]]
+        if dims != list(self.da.dims):
+            self.da = self.da.transpose(*dims)
+
+        # add "time" and "lead_time" so that only "time" remains
+        if self.da["lead_time"].shape[0] == 1:
+            time_array = (
+                self.da.coords["time"].values + self.da.coords["lead_time"].values[0]
+            )
+            self.da = self.da.isel(lead_time=0).drop_vars(["lead_time"])
+            self.da = self.da.assign_coords(time=time_array)
+        else:
+            time_array = np.repeat(
+                self.da.coords["time"].values[0], self.da["lead_time"].shape[0]
+            )
+            time_array = time_array + self.da["lead_time"].values
+            self.da = self.da.isel(time=0).drop_vars(["time"])
+            self.da = self.da.rename({"lead_time": "time"})
+            self.da = self.da.assign_coords(time=time_array)
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve data for specified valid times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            One or more valid forecast timestamps (after ``time + lead_time``
+            transformation).
+        variable : str | list[str] | VariableArray
+            One or more variable names to return.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array subset for the requested ``time`` and ``variable``.
+        """
+        if not (isinstance(time, list) or isinstance(time, ndarray)):
+            time = [time]
+        if not (isinstance(variable, list) or isinstance(variable, ndarray)):
+            variable = [variable]
+
+        return self.da.sel(time=time, variable=variable)
+
+
 class DataSetFile:
-    """A local xarray dataset file data source. This file should be compatable with
+    """A local xarray dataset file data source. This file should be compatible with
     xarray. For example, a netCDF file.
 
     Parameters
@@ -97,11 +223,16 @@ class DataSetFile:
         xr.DataArray
             Loaded data array
         """
+        if not (isinstance(time, list) or isinstance(time, ndarray)):
+            time = [time]
+        if not (isinstance(variable, list) or isinstance(variable, ndarray)):
+            variable = [variable]
+
         return self.da.sel(time=time, variable=variable)
 
 
 class DataArrayDirectory:
-    """A local xarray dataarray directory data source. This file should be compatable with
+    """A local xarray dataarray directory data source. This file should be compatible with
     xarray. For example, a netCDF file. the structure of the directory should be like
     path/to/monthly/files
     |___2020

@@ -133,7 +133,7 @@ class XarrayBackend:
                 self.root[k] = xr.DataArray(
                     data=coords[k],
                     dims=mapping[k],
-                    coords={adjusted_coords[ki] for ki in mapping[k]},
+                    coords={ki: adjusted_coords[ki] for ki in mapping[k]},
                     **xr_kwargs,
                 )
 
