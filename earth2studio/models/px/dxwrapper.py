@@ -30,9 +30,9 @@ from earth2studio.utils.type import CoordSystem
 
 PrepareDxInputCoords = Callable[[CoordSystem, CoordSystem], CoordSystem]
 PrepareDxInputTensor = Callable[[torch.Tensor, CoordSystem, CoordSystem], torch.Tensor]
-PrepareOutputCoords = Callable[[CoordSystem, CoordSystem], CoordSystem]
+PrepareOutputCoords = Callable[[CoordSystem, list[CoordSystem]], CoordSystem]
 PrepareOutputTensor = Callable[
-    [torch.Tensor, CoordSystem, torch.Tensor, CoordSystem], torch.Tensor
+    [torch.Tensor, CoordSystem, list[torch.Tensor], list[CoordSystem]], torch.Tensor
 ]
 
 
