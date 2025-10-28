@@ -109,7 +109,7 @@ class ECMWFOpenDataSource(ABC):
 
     LAT = np.linspace(90, -90, 721)
     LON = np.linspace(0, 359.75, 1440)
-    LEXICON: ECMWFOpenDataLexicon
+    LEXICON: type[ECMWFOpenDataLexicon]
 
     def __init__(
         self,
