@@ -159,9 +159,10 @@ def test_fcn3_precip(device, model_type, times):
         ),
     )
 
-    wrapped_model = DiagnosticWrapper(
-        px_model=px_model, dx_models=[sp_model, dx_model]
-    ).to(device=device)
+    wrapped_model = DiagnosticWrapper(px_model=px_model, dx_model=sp_model)
+    wrapped_model = DiagnosticWrapper(px_model=wrapped_model, dx_model=dx_model).to(
+        device=device
+    )
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)

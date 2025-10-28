@@ -19,11 +19,8 @@ from typing import Literal
 
 import numpy as np
 import torch
-from loguru import logger
 
 from earth2studio.utils.type import CoordSystem
-
-_silence_extrapolation_warning = os.getenv("EARTH2STUDIO_SILENCE_WARNINGS", "False").lower() in ("true", "1", "t")
 
 
 def handshake_dim(
@@ -288,14 +285,6 @@ def map_coords(
             )
 
         if method == "nearest":
-            if min(outc) < min(inc) or max(outc) > max(inc):
-                global _silence_extrapolation_warning
-                if not _silence_extrapolation_warning:
-                    logger.warning(
-                        f"Coordinate {key} will be extrapolated. Future warnings of this kind will be suppressed."
-                    )
-                    _silence_extrapolation_warning = True  # warn only once
-
             # Method = nearest
             c1 = np.repeat(inc[:, np.newaxis], outc.shape[0], axis=1)
             c2 = np.repeat(outc[np.newaxis, :], inc.shape[0], axis=0)
