@@ -23,6 +23,7 @@ from typing import Union, cast
 import cftime
 import numpy as np
 import xarray as xr
+from scipy.interpolate import griddata
 from tqdm.auto import tqdm
 
 # Project-level imports come after stdlib/third-party
@@ -110,8 +111,8 @@ class CMIP6:
         source_id: str,
         table_id: str,
         variant_label: str,
-        file_start: str = None,
-        file_end: str = None,
+        file_start: str | None = None,
+        file_end: str | None = None,
         cache: bool = True,
         verbose: bool = True,
     ):
@@ -127,6 +128,21 @@ class CMIP6:
         # Create catalog
         intake_esgf.conf.set(local_cache=self.cache)
         self.catalog = intake_esgf.ESGFCatalog()
+
+        # Search for all available data (no variable_id filter) - metadata only
+        self._search_catalog(
+            self.catalog,
+            self.experiment_id,
+            self.source_id,
+            self.table_id,
+            self.variant_label,
+            self.file_start,
+            self.file_end,
+        )
+        # Extract available variables from catalog metadata (no data download)
+        self.available_variables: set[str] = set(
+            self.catalog.df["variable_id"].unique()
+        )
 
     def __call__(
         self,
@@ -151,46 +167,31 @@ class CMIP6:
         # Prepare data inputs
         time, variable = prep_data_inputs(time, variable)
 
-        # Convert variable to
-        var_set: set[str] = {CMIP6Lexicon[v][0][0] for v in variable}
-        cmip6_variable_id = list(var_set)
+        # Convert variable to CMIP6 IDs
+        cmip6_ids_set: set[str] = {CMIP6Lexicon.get_item(v)[0][0] for v in variable}
+        cmip6_variable_ids = list(cmip6_ids_set)
 
-        # Search for data
-        try:
-            self.catalog.search(
-                experiment_id=self.experiment_id,
-                source_id=self.source_id,
-                table_id=self.table_id,
-                variable_id=cmip6_variable_id,
-                variant_label=self.variant_label,
-                file_start=self.file_start,
-                file_end=self.file_end,
+        # Validate that requested variables are available
+        if cmip6_ids_set - self.available_variables:  # pragma: no cover
+            raise IndexError(
+                f"Variable(s) {cmip6_ids_set - self.available_variables} not found in CMIP6 dataset. "
+                f"Available variables: {sorted(self.available_variables)}"
             )
-            dsd = self.catalog.to_dataset_dict(
-                prefer_streaming=False, add_measures=False
-            )  # NOTE: it may be better to use streaming however this resulted in lots of errors
-        except Exception as e:
-            raise ValueError(
-                f"Error searching for CMIP6 data: {e}"
-                f"\nExperiment ID: {self.experiment_id}"
-                f"\nSource ID: {self.source_id}"
-                f"\nTable ID: {self.table_id}"
-                f"\nVariant Label: {self.variant_label}"
-                f"\nFile Start: {self.file_start}"
-                f"\nFile End: {self.file_end}"
-            ) from e
 
-        # Assert that we have all the data and no extra dimensions
-        dsd_keys: set[str] = set(dsd.keys())
-        cmip6_ids_set = var_set
-        if dsd_keys - cmip6_ids_set:  # pragma: no cover
-            raise IndexError(
-                f"Variable(s) {cmip6_ids_set - dsd_keys} not found in CMIP6 dataset"
-            )
-        if cmip6_ids_set - dsd_keys:  # pragma: no cover
-            raise IndexError(
-                f"Variable(s) {dsd_keys - cmip6_ids_set} not found in CMIP6 dataset"
-            )
+        # Now download only the requested variables
+        self._search_catalog(
+            self.catalog,
+            self.experiment_id,
+            self.source_id,
+            self.table_id,
+            self.variant_label,
+            self.file_start,
+            self.file_end,
+            variable_id=cmip6_variable_ids,
+        )
+        dsd = self.catalog.to_dataset_dict(
+            prefer_streaming=False, add_measures=False
+        )  # NOTE: it may be better to use streaming however this resulted in lots of errors
 
         # Get lat/lon and calendar from first dataset
         ds = dsd[list(dsd.keys())[0]]
@@ -368,10 +369,7 @@ class CMIP6:
         t0 = CMIP6._convert_times_to_datetime([t0])[0]
         t1 = CMIP6._convert_times_to_datetime([t1])[0]
 
-        if t0 <= time <= t1:
-            return True
-        else:
-            return False
+        return t0 <= time <= t1
 
     @property
     def cache(self) -> str:
@@ -380,6 +378,75 @@ class CMIP6:
         if not self._cache:
             cache_location = os.path.join(cache_location, "tmp_cmip6")
         return cache_location
+
+    @staticmethod
+    def _search_catalog(
+        catalog: "intake_esgf.ESGFCatalog",
+        experiment_id: str,
+        source_id: str,
+        table_id: str,
+        variant_label: str,
+        file_start: str | None = None,
+        file_end: str | None = None,
+        variable_id: list[str] | None = None,
+    ) -> None:
+        """Search the ESGF catalog with consistent error handling.
+
+        Parameters
+        ----------
+        catalog : intake_esgf.ESGFCatalog
+            The catalog to search
+        experiment_id : str
+            CMIP6 experiment identifier
+        source_id : str
+            CMIP6 model identifier
+        table_id : str
+            CMOR table describing variable realm/frequency
+        variant_label : str
+            Ensemble member / initial-condition label
+        file_start : str | None
+            Optional filename prefix filter
+        file_end : str | None
+            Optional filename suffix filter
+        variable_id : list[str] | None
+            Optional list of variable IDs to filter by
+
+        Raises
+        ------
+        ValueError
+            If the search fails with context about the parameters
+        """
+        search_params: dict[str, str | list[str]] = {
+            "experiment_id": experiment_id,
+            "source_id": source_id,
+            "table_id": table_id,
+            "variant_label": variant_label,
+        }
+
+        if file_start is not None:
+            search_params["file_start"] = file_start
+        if file_end is not None:
+            search_params["file_end"] = file_end
+        if variable_id is not None:
+            search_params["variable_id"] = variable_id
+
+        try:
+            catalog.search(**search_params)
+        except Exception as e:
+            error_msg = (
+                f"Error searching for CMIP6 data: {e}\n"
+                f"Experiment ID: {experiment_id}\n"
+                f"Source ID: {source_id}\n"
+                f"Table ID: {table_id}\n"
+                f"Variant Label: {variant_label}"
+            )
+            if file_start:
+                error_msg += f"\nFile Start: {file_start}"
+            if file_end:
+                error_msg += f"\nFile End: {file_end}"
+            if variable_id:
+                error_msg += f"\nVariable ID: {variable_id}"
+            raise ValueError(error_msg) from e
 
     @staticmethod
     def _convert_times_to_cftime(
@@ -465,3 +532,205 @@ class CMIP6:
                 )
 
         return converted
+
+
+@check_optional_dependencies()
+class CMIP6_multi_realm:
+    """CMIP6 data source for Earth2Studio with multiple realms.
+
+    This class allows combining multiple CMIP6 data sources from different realms
+    (e.g., atmosphere, ocean, sea ice) into a single unified interface. Variables
+    are fetched from each source in the order provided, and data on different grids
+    are automatically regridded to a common regular lat/lon grid.
+
+    Parameters
+    ----------
+    cmip6_source_list : list[CMIP6]
+        List of CMIP6 data sources to combine. Variables will be fetched from
+        sources in the order they appear in the list.
+
+    Note
+    ----
+    When multiple sources have different grids, curvilinear grids (e.g., from ocean
+    or sea ice models) will be interpolated to the first regular lat/lon grid found
+    using nearest-neighbor interpolation.
+    """
+
+    def __init__(self, cmip6_source_list: list[CMIP6]):
+        self.cmip6_source_list = cmip6_source_list
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        interp_method: str = "nearest",
+    ) -> xr.DataArray:
+        """Retrieve data from multiple CMIP6 sources and combine into single array.
+
+        This method fetches the requested variables from the available CMIP6 sources,
+        automatically regridding data from different grids to a common grid, and
+        combines all variables into a single DataArray.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for.
+        variable : str | list[str] | VariableArray
+            Variable(s) to retrieve. Each variable will be fetched from the first
+            source in the list that has it available.
+        interp_method : str, optional
+            Interpolation method to use when regridding curvilinear grids to regular
+            grids. Options are 'nearest', 'linear', or 'cubic'. Default is 'nearest'.
+
+        Returns
+        -------
+        xr.DataArray
+            Combined data array with dimensions (time, variable, lat, lon) or
+            (time, variable, j, i) depending on the grid type.
+
+        Note
+        ----
+        Variables are retrieved from sources in the order they appear in
+        cmip6_source_list. If multiple sources contain the same variable,
+        only the first one will be used.
+        """
+        da_list = []
+        var_done = []
+        # get variables from the datasources in the order they are available
+        for cmip6_source in self.cmip6_source_list:
+            # get available variables
+            # Get variable, level, and modifier
+            var_available = []
+            for v in variable:
+                cmip6_entry = CMIP6Lexicon.get_item(v)
+                (cmip6_var, _), _ = cmip6_entry
+                if cmip6_var in cmip6_source.available_variables:
+                    var_available.append(v)
+
+            var_todo = [v for v in var_available if v not in var_done]
+
+            if not var_todo:
+                continue
+
+            da_list.append(cmip6_source(time, var_todo))
+            var_done.extend(var_todo)
+
+        # Regrid all data arrays to a common grid if needed
+        da_list = self._regrid_to_common_grid(da_list, interp_method)
+
+        # Combine all data arrays along variable dimension
+        return xr.concat(da_list, dim="variable")
+
+    def _regrid_to_common_grid(
+        self, da_list: list[xr.DataArray], interp_method: str = "nearest"
+    ) -> list[xr.DataArray]:
+        """Regrid all data arrays to a common regular lat/lon grid.
+
+        Uses the first regular (non-curvilinear) grid as the target.
+        Curvilinear grids (with _lat/_lon coords) are interpolated to this target.
+
+        Parameters
+        ----------
+        da_list : list[xr.DataArray]
+            List of data arrays to regrid
+        interp_method : str, optional
+            Interpolation method ('nearest', 'linear', or 'cubic'). Default is 'nearest'.
+
+        Returns
+        -------
+        list[xr.DataArray]
+            List of regridded data arrays on common grid
+        """
+        if len(da_list) == 1:
+            return da_list
+
+        # Find the target regular grid (first one with 'lat'/'lon' coords)
+        target_idx = None
+        for idx, da in enumerate(da_list):
+            if "lat" in da.coords and "lon" in da.coords:
+                target_idx = idx
+                break
+
+        if target_idx is None:
+            # All grids are curvilinear - use first one as-is
+            return da_list
+
+        target_da = da_list[target_idx]
+        target_lats = target_da["lat"].values
+        target_lons = target_da["lon"].values
+
+        # Regrid curvilinear datasets to target
+        regridded_list = []
+        for da in da_list:
+            if "_lat" in da.coords and "_lon" in da.coords:
+                # Curvilinear grid - needs interpolation
+                regridded = self._interpolate_curvilinear_to_regular(
+                    da, target_lats, target_lons, target_da, interp_method
+                )
+                regridded_list.append(regridded)
+            else:
+                # Already regular grid
+                regridded_list.append(da)
+
+        return regridded_list
+
+    def _interpolate_curvilinear_to_regular(
+        self,
+        da_curvilinear: xr.DataArray,
+        target_lats: np.ndarray,
+        target_lons: np.ndarray,
+        target_da: xr.DataArray,
+        interp_method: str = "nearest",
+    ) -> xr.DataArray:
+        """Interpolate curvilinear grid data to a regular lat/lon grid.
+
+        Parameters
+        ----------
+        da_curvilinear : xr.DataArray
+            Data array with curvilinear grid (_lat, _lon coords)
+        target_lats : np.ndarray
+            Target latitude coordinates
+        target_lons : np.ndarray
+            Target longitude coordinates
+        target_da : xr.DataArray
+            Target data array to match dimensions
+        interp_method : str, optional
+            Interpolation method ('nearest', 'linear', or 'cubic'). Default is 'nearest'.
+
+        Returns
+        -------
+        xr.DataArray
+            Regridded data array on regular grid
+        """
+        # Get source curvilinear coordinates
+        source_lons = da_curvilinear["_lon"].values.flatten()
+        source_lats = da_curvilinear["_lat"].values.flatten()
+        points = np.column_stack((source_lons, source_lats))
+
+        # Create target grid
+        target_lon_grid, target_lat_grid = np.meshgrid(target_lons, target_lats)
+
+        # Prepare output array
+        n_time, n_var = da_curvilinear.shape[:2]
+        n_lat, n_lon = len(target_lats), len(target_lons)
+        regridded_data = np.empty((n_time, n_var, n_lat, n_lon), dtype=np.float32)
+        regridded_data[:] = np.nan
+
+        # Interpolate each time/variable slice
+        values = da_curvilinear.values
+        for i_time in range(n_time):
+            for i_var in range(n_var):
+                slice_values = values[i_time, i_var, :, :].flatten()
+
+                regridded_data[i_time, i_var, :, :] = griddata(
+                    points,
+                    slice_values,
+                    (target_lon_grid, target_lat_grid),
+                    method=interp_method,
+                )
+
+        # Create new DataArray with target coordinates
+        coords = target_da.coords.copy()
+        coords["variable"] = da_curvilinear.coords["variable"]
+
+        return xr.DataArray(regridded_data, dims=target_da.dims, coords=coords)

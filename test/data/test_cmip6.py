@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 from earth2studio.data import CMIP6
+from earth2studio.data.cmip6 import CMIP6_multi_realm
 
 
 @pytest.mark.slow
@@ -178,3 +179,176 @@ def test_cmip6_available(time, source_id, expected):
     )
 
     assert result is expected
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(90)
+def test_cmip6_multi_realm_basic():
+    """Test combining atmospheric and ocean sources."""
+    # Atmospheric source
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    # Ocean source
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6_multi_realm([atmos, ocean])
+
+    time = datetime(2015, 1, 16)
+    variables = ["u10m", "sst"]  # one from each realm
+
+    data = multi(time, variables)
+
+    assert data.shape[0] == 1  # time
+    assert data.shape[1] == 2  # variables
+    assert np.array_equal(data.coords["variable"].values, np.array(variables))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(90)
+def test_cmip6_multi_realm_regridding():
+    """Test that curvilinear ocean grid is regridded to atmospheric grid."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6_multi_realm([atmos, ocean])
+
+    time = datetime(2015, 1, 16)
+    variables = ["u10m", "sst"]
+
+    data = multi(time, variables)
+
+    # Both variables should be on same grid (atmospheric grid)
+    assert "lat" in data.coords
+    assert "lon" in data.coords
+    assert "_lat" not in data.coords  # curvilinear coords should be gone
+    assert "_lon" not in data.coords
+
+    # Both variables should have same spatial dimensions
+    assert data.isel(variable=0).shape == data.isel(variable=1).shape
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(90)
+@pytest.mark.parametrize(
+    "interp_method",
+    [
+        pytest.param("nearest", id="nearest"),
+        pytest.param("linear", id="linear"),
+        pytest.param("cubic", id="cubic"),
+    ],
+)
+def test_cmip6_multi_realm_interp_methods(interp_method):
+    """Test different interpolation methods."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6_multi_realm([atmos, ocean])
+
+    time = datetime(2015, 1, 16)
+    variables = ["u10m", "sst"]
+
+    data = multi(time, variables, interp_method=interp_method)
+
+    assert data.shape[0] == 1
+    assert data.shape[1] == 2
+    # Should not be all NaN
+    assert not np.all(np.isnan(data.values))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(90)
+def test_cmip6_multi_realm_variable_priority():
+    """Test that variables are fetched from first available source."""
+    atmos1 = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    atmos2 = CMIP6(
+        experiment_id="historical",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6_multi_realm([atmos1, atmos2])
+
+    time = datetime(2015, 1, 16)
+    variables = ["u10m"]  # available in both
+
+    data = multi(time, variables)
+
+    # Should succeed and only fetch from first source
+    assert data.shape[0] == 1
+    assert data.shape[1] == 1
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(90)
+def test_cmip6_multi_realm_with_sea_ice():
+    """Test combining atmospheric and sea ice sources."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    sea_ice = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="SImon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6_multi_realm([atmos, sea_ice])
+
+    time = datetime(2015, 1, 16)
+    variables = ["t2m", "siconc"]  # temperature and sea ice concentration
+
+    data = multi(time, variables)
+
+    assert data.shape[0] == 1
+    assert data.shape[1] == 2
+    # Should be on regular grid
+    assert "lat" in data.coords
+    assert "lon" in data.coords
