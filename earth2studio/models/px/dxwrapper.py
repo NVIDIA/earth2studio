@@ -18,12 +18,13 @@ from collections.abc import Callable, Generator, Iterator
 
 import numpy as np
 import torch
+from loguru import logger
 
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, map_coords
+from earth2studio.utils.coords import handshake_coords, handshake_dim, map_coords
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.type import CoordSystem
 
@@ -37,42 +38,52 @@ PrepareOutputTensor = Callable[
 
 class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     """Wraps a prognostic model and one or more diagnostic models into a single
-    prognostic model. This allows diagnostic model outputs to be included in workflows
-    that expect a prognostic model.
+    prognostic model. The micro-pipeline this wrapper encapsulates has the following
+    four steps:
 
-    The outputs of the diagnostic models are concatenated the output of the prognostic
-    in the order given in `dx_models`.
+    1. Execute one step of the prognostic model
+    2. Prepare output of prognostic model for each diagnostic model
+    3. Execute forward pass each diagnostic model
+    4. Prepare outputs of prognostic/diagnostic for final return
 
-    Results will be returned in the coordinate system of the last diagnostic model.
+    The wrapper provides customizable methods for preparing diagnostic model inputs and
+    outputs. If not provided, default methods are have the following requirements:
 
-    Model compatibility requirements:
-    - Input variables of each model in the chain
-      [px_model, dx_models[0], dx_models[1], ...]
-      must be available in the outputs of one of the previous models.
-    - If interpolate_coords == False, the coordinates of each model in the chain
-      must be mappable to the next model using `earth2studio.utils.coords.map_coords`.
-    - If interpolate_coords == True, the coordinates of each model in the chain must
-      be possible to interpolate to the next model using
-      `earth2studio.utils.interp.LatLonInterpolation`.
+    - All diagnostics must have the same output coordinate systems with the exception
+    of the variable dimension
+    - Both the prognostic and diagnostic models must have lat/lon grid systems.
+
+    Note
+    ----
+    Custom callables can be provided to override default behavior such as skipping
+    interpolation or change concatenation logic. This will be required for many
+    diagnostic models.
 
     Parameters
     ----------
     px_model : PrognosticModel
         The prognostic model to use as the base model.
-    dx_model : DiagnosticModel
-        The diagnostic models whose outputs are concatenated to the output of px_model.
-    interpolate_coords : bool, default False
-        Whether to use bilinear interpolation to map spatial coordinates. If False,
-        nearest neighbor interpolation will be used. Must be set to True if any models
-        have 2D latitude/longitude coordinates.
-    keep_px_output : bool, default True
-        Whether to include output of px_model in the input.
+    dx_model : DiagnosticModel | list[DiagnosticModel]
+        Single diagnostic model or list of diagnostic models whose outputs are
+        concatenated to the prognostic model output.
+    prepare_dx_input_coords : PrepareDxInputCoords | None, optional
+        Callable to prepare coordinate system for diagnostic model input. If None,
+        uses default method. Signature: Callable[[CoordSystem, CoordSystem], CoordSystem]
+    prepare_dx_input_tensor : PrepareDxInputTensor | None, optional
+        Callable to prepare tensor for diagnostic model input. If None, uses default
+        method with interpolation. Signature: Callable[[torch.Tensor, CoordSystem, CoordSystem], torch.Tensor]
+    prepare_output_coords : PrepareOutputCoords | None, optional
+        Callable to prepare output coordinate system. If None, uses default method
+        which concatenates all variables. Callable[[CoordSystem, CoordSystem], CoordSystem]
+    prepare_output_tensor : PrepareOutputTensor | None, optional
+        Callable to prepare output tensor. If None, uses default method which
+        concatenates all outputs. Signature: Callable[[torch.Tensor, CoordSystem, torch.Tensor, CoordSystem], torch.Tensor]
     """
 
     def __init__(
         self,
         px_model: PrognosticModel,
-        dx_model: DiagnosticModel,
+        dx_model: DiagnosticModel | list[DiagnosticModel],
         prepare_dx_input_coords: PrepareDxInputCoords | None = None,
         prepare_dx_input_tensor: PrepareDxInputTensor | None = None,
         prepare_output_coords: PrepareOutputCoords | None = None,
@@ -81,7 +92,9 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         super().__init__()
 
         self.px_model = px_model
-        self.dx_model = dx_model
+        if not isinstance(dx_model, list):
+            dx_model = [dx_model]
+        self.dx_model = torch.nn.ModuleList(dx_model)
 
         if prepare_dx_input_coords is None:
             prepare_dx_input_coords = self._default_prepare_dx_input_coords
@@ -122,11 +135,11 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Coordinate system dictionary
         """
         px_coords = self.px_model.output_coords(input_coords)
-        # This is kinda annnoying at the moment, but I'm not sure of a better way yet
-        dx_coords = self.prepare_dx_input_coords(
-            px_coords, self.dx_model.input_coords()
-        )
-        dx_coords = self.dx_model.output_coords(dx_coords)
+        dx_coords = []
+        for model in self.dx_model:
+            # This is kinda annnoying at the moment, but I'm not sure of a better way yet
+            coords = self.prepare_dx_input_coords(px_coords, model.input_coords())
+            dx_coords.append(model.output_coords(coords))
         out_coords = self.prepare_output_coords(px_coords, dx_coords)
         return out_coords
 
@@ -210,7 +223,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return x, coords
 
     def _default_prepare_output_coords(
-        self, px_coords: CoordSystem, dx_coords: CoordSystem
+        self, px_coords: CoordSystem, dx_coords: list[CoordSystem]
     ) -> CoordSystem:
         """Returns the output coordinates of the diagnostic wrapper
 
@@ -227,16 +240,19 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Expected output coords from model for a given time-step
         """
         try:
-            for key in dx_coords.keys():
-                if key == "variable":
-                    continue
-                handshake_coords(px_coords, dx_coords, key)
-            coords = dx_coords
-            coords["variable"] = np.concatenate(
-                [px_coords["variable"], dx_coords["variable"]]
-            )
+            for i, key in enumerate(dx_coords[-1].keys()):
+                handshake_dim(px_coords, key, i)
+                if not key == "variable":
+                    handshake_coords(px_coords, dx_coords, key)
+            # Concat all variables
+            variables = [px_coords["variable"]] + [
+                coord["variable"] for coord in dx_coords
+            ]
         except (KeyError, ValueError):
-            coords = dx_coords
+            variables = [coord["variable"] for coord in dx_coords]
+
+        coords = dx_coords[-1]
+        coords["variable"] = np.concatenate(variables)
         return coords
 
     @torch.inference_mode()
@@ -244,8 +260,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         self,
         px_x: torch.Tensor,
         px_coords: CoordSystem,
-        dx_x: torch.Tensor,
-        dx_coords: CoordSystem,
+        dx_x: list[torch.Tensor],
+        dx_coords: list[CoordSystem],
     ) -> tuple[torch.Tensor, CoordSystem]:
         """This default method will attempt concat the prognostic and diagnostic
         outputs if the coordinate systems will allow it
@@ -256,9 +272,9 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Output of prognostic model from a single step
         px_coords : CoordSystem
             Output coordinates from the prognostic model
-        dx_x:
+        dx_x: list[torch.Tensor]
             Output of diagnostic model
-        dx_coords : CoordSystem
+        dx_coords : list[CoordSystem]
             Diagnostic model input coordinate system
 
         Returns
@@ -267,19 +283,28 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Outputs to be returned by the wrapper
         """
         try:
-            for key in dx_coords.keys():
+            for i, key in enumerate(dx_coords[-1].keys()):
+                handshake_dim(px_coords, key, i)
                 if not key == "variable":
                     handshake_coords(px_coords, dx_coords, key)
-
-            x = torch.concat([px_x, dx_x], dim=list(dx_coords).index("variable"))
-            coords = dx_coords
-            coords["variable"] = np.concatenate(
-                [px_coords["variable"], dx_coords["variable"]]
-            )
+            x = [px_x] + dx_x
+            variables = [px_coords["variable"]] + [
+                coord["variable"] for coord in dx_coords
+            ]
         except (KeyError, ValueError):
             x = dx_x
-            coords = dx_coords
+            variables = [coord["variable"] for coord in dx_coords]
 
+        try:
+            x = torch.concat(x, dim=list(dx_coords[-1]).index("variable"))
+            coords = dx_coords[-1]
+            coords["variable"] = np.concatenate(variables)
+        except Exception as e:
+            logger.error(
+                "Failed to concatenate outputs of diagnostic models. "
+                "The outputs of the models cannot be concatenated."
+            )
+            raise e
         return x, coords
 
     @batch_func()
@@ -303,10 +328,15 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         coords : CoordSystem
         """
         px_x, px_coords = self.px_model(x, coords)
-        dx_x, dx_coords = self.prepare_dx_input_tensor(
-            px_x, px_coords, self.dx_model.input_coords()
-        )
-        dx_x, dx_coords = self.dx_model(dx_x, dx_coords)
+        dx_x = []
+        dx_coords = []
+        for model in self.dx_model:
+            dx_x0, dx_coords0 = self.prepare_dx_input_tensor(
+                px_x, px_coords.copy(), model.input_coords()
+            )
+            dx_x0, dx_coords0 = model(dx_x0, dx_coords0)
+            dx_x.append(dx_coords0)
+            dx_coords.append(dx_x0)
         x, coords = self.prepare_output_tensor(px_x, px_coords, dx_x, dx_coords)
         return x, coords
 
@@ -331,10 +361,15 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             output data tensor and coordinate system dictionary.
         """
         for px_x, px_coords in self.px_model.create_iterator(x, coords):
-            dx_x, dx_coords = self.prepare_dx_input_tensor(
-                px_x, px_coords, self.dx_model.input_coords()
-            )
-            dx_x, dx_coords = self.dx_model(dx_x, dx_coords)
+            dx_x = []
+            dx_coords = []
+            for model in self.dx_model:
+                dx_x0, dx_coords0 = self.prepare_dx_input_tensor(
+                    px_x, px_coords.copy(), model.input_coords()
+                )
+                dx_x0, dx_coords0 = model(dx_x0, dx_coords0)
+                dx_x.append(dx_coords0)
+                dx_coords.append(dx_x0)
             x, coords = self.prepare_output_tensor(px_x, px_coords, dx_x, dx_coords)
             yield x, coords
 
