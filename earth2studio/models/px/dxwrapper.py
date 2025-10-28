@@ -29,10 +29,13 @@ from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.type import CoordSystem
 
 PrepareDxInputCoords = Callable[[CoordSystem, CoordSystem], CoordSystem]
-PrepareDxInputTensor = Callable[[torch.Tensor, CoordSystem, CoordSystem], torch.Tensor]
+PrepareDxInputTensor = Callable[
+    [torch.Tensor, CoordSystem, CoordSystem], tuple[torch.Tensor, CoordSystem]
+]
 PrepareOutputCoords = Callable[[CoordSystem, list[CoordSystem]], CoordSystem]
 PrepareOutputTensor = Callable[
-    [torch.Tensor, CoordSystem, list[torch.Tensor], list[CoordSystem]], torch.Tensor
+    [torch.Tensor, CoordSystem, list[torch.Tensor], list[CoordSystem]],
+    tuple[torch.Tensor, CoordSystem],
 ]
 
 
@@ -69,16 +72,16 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         concatenated to the prognostic model output.
     prepare_dx_input_coords : PrepareDxInputCoords | None, optional
         Callable to prepare coordinate system for diagnostic model input. If None,
-        uses default method. Signature: Callable[[CoordSystem, CoordSystem], CoordSystem]
+        uses default method, by default None
     prepare_dx_input_tensor : PrepareDxInputTensor | None, optional
         Callable to prepare tensor for diagnostic model input. If None, uses default
-        method with interpolation. Signature: Callable[[torch.Tensor, CoordSystem, CoordSystem], torch.Tensor]
+        method with interpolation, by default None
     prepare_output_coords : PrepareOutputCoords | None, optional
         Callable to prepare output coordinate system. If None, uses default method
-        which concatenates all variables. Callable[[CoordSystem, list[CoordSystem]], CoordSystem]
+        which concatenates all variables, by default None
     prepare_output_tensor : PrepareOutputTensor | None, optional
         Callable to prepare output tensor. If None, uses default method which
-        concatenates all outputs. Signature: Callable[[torch.Tensor, CoordSystem, list[torch.Tensor], list[CoordSystem]], torch.Tensor]
+        concatenates all outputs, by default None
     """
 
     def __init__(
@@ -151,7 +154,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         self, px_coords: CoordSystem, dx_coords: CoordSystem
     ) -> CoordSystem:
         """Default coordinate preparation for diagnostic model.
-        Just naively replaces variable, lat, lon coords with thos required by the
+        Just naively replaces variable, lat, lon coords with those required by the
         diagnostic model
 
         Parameters
@@ -254,7 +257,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         except (KeyError, ValueError):
             variables = [coord["variable"] for coord in dx_coords]
 
-        coords = dx_coords[-1]
+        coords = dx_coords[-1].copy()
         coords["variable"] = np.concatenate(variables)
         return coords
 
@@ -301,9 +304,9 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
 
         try:
             x = torch.concat(x, dim=list(dx_coords[-1]).index("variable"))
-            coords = dx_coords[-1]
+            coords = dx_coords[-1].copy()
             coords["variable"] = np.concatenate(variables)
-        except Exception as e:
+        except RuntimeError as e:
             logger.error(
                 "Failed to concatenate outputs of diagnostic models. "
                 "The outputs of the models cannot be concatenated."
