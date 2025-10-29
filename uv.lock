@@ -1585,7 +1585,7 @@ requires-dist = [
     { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "moviepy", marker = "extra == 'sfno'" },
     { name = "nest-asyncio" },
-    { name = "netcdf4", specifier = ">=1.6.4" },
+    { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
     { name = "numcodecs", specifier = "<0.15.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.0.1" },
@@ -1637,7 +1637,7 @@ requires-dist = [
     { name = "torch-harmonics", marker = "extra == 'perturbation'", specifier = ">=0.7.4" },
     { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.8.0" },
     { name = "tqdm", specifier = ">=4.65.0" },
-    { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
+    { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0,<2025.9.1" },
     { name = "zarr", specifier = ">=3.1.0" },
 ]
 provides-extras = ["aifs", "all", "aurora", "aurora-fork", "cbottle", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "solarradiation-afno", "statistics", "stormcast", "windgust-afno"]

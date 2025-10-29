@@ -20,14 +20,14 @@ dependencies = [
     "h5netcdf>=1.0.0",
     "huggingface-hub>=0.27.0",
     "loguru",
-    "netCDF4>=1.6.4",
+    "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "rich",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
     "tqdm>=4.65.0",
-    "xarray[parallel]>=2023.1.0",
+    "xarray[parallel]>=2023.1.0,<2025.9.1", # https://github.com/ecmwf/cfgrib/issues/433
     "zarr>=3.1.0",
     "numcodecs<0.15.0", # TODO: Remove
 ]

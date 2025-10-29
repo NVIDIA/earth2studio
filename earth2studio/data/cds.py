@@ -341,7 +341,9 @@ class CDS:
 
         return cache_path
 
-    def _download_cds_tp06_grib_cached(self, time: datetime, cache_path: str) -> None:
+    def _download_cds_tp06_grib_cached(
+        self, time: datetime, cache_path: str
+    ) -> None:  # pragma: no cover
         """Download total precipitation values for 6 hours preceding time. Combine
         into single grib file to make 6 hour accumulated precipitation, 'tp06'.
 
