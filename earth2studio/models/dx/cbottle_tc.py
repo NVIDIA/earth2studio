@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from enum import IntEnum
 
 import cftime
 import numpy as np
@@ -50,6 +51,13 @@ HPX_LEVEL = 6
 TC_HPX_LEVEL = 3
 
 VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
+
+
+class DatasetModality(IntEnum):
+    """Dataset label"""
+
+    ICON = 0
+    ERA5 = 1
 
 
 @check_optional_dependencies()
@@ -92,10 +100,15 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
     seed : int, optional
-        Random generator seed for latent variables, by default 0
+        Random generator seed for latent variables. If None will use no seed, by default
+        None
+    dataset_modality: DatasetModality, optional
+        Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
+        DatasetModality.ERA5
     """
 
     output_variables = VARIABLES
+    guidance_scale = 0.005  # 0.03 = strong, 0 = no guidance
 
     def __init__(
         self,
@@ -107,6 +120,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         batch_size: int = 4,
         seed: int | None = None,
+        dataset_modality: DatasetModality = DatasetModality.ERA5,
     ):
         super().__init__()
 
@@ -116,6 +130,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
         self.seed = seed
+        self.dataset_modality = dataset_modality
         self._core_model = core_model
         self._class_model = classifier_model
         self.core_model = CBottle3d(core_model, separate_classifier=classifier_model)
@@ -225,9 +240,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int = 0,
+        seed: int | None = None,
     ) -> DiagnosticModel:
-        """Load AI datasource from package
+        """Load diagnostic from package
 
         Parameters
         ----------
@@ -237,15 +252,13 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
             grid. If false, the native nested HealPix grid will be returned, by default
             True
-        input_variables: list[str] | VariableArray
-            List of input variables that will be provided for conditioning the output
-            generation, by default ["u10m", "v10m"]
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
         seed : int, optional
-            Random generator seed for latent variables, by default 0
+            Random generator seed for latent variables. If None, no seed will be used,
+            by default None
 
         Returns
         -------
@@ -270,8 +283,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         sst_ds = xr.open_dataset(
             package.resolve("amip_midmonth_sst.nc"),
-            engine="h5netcdf",
-            storage_options=None,
+            engine="netcdf4",
             cache=False,
         ).load()
 
@@ -290,7 +302,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_coords: torch.Tensor,
         lon_coords: torch.Tensor,
         times: list[datetime] | TimeArray,
-        lat_lon: bool = True,
     ) -> tuple[torch.Tensor, OrderedDict]:
         """Creates a TC guidance tensor from lat/lon coordinates.
 
@@ -315,6 +326,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         times = to_time_array(times)
         device = self.device_buffer.device
         guidance = None
+
+        lat_coords = lat_coords.to(device)
+        lon_coords = lon_coords.to(device)
+
         if self.lat_lon:
             # Convert any longitudes in -180 to 180 range to 0 to 360 range
             lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
@@ -325,12 +340,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 (times.shape[0], 1, 1, 721, 1440), torch.nan, device=device
             ).float()
 
-            lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords).to(
-                device
+            lat_idx = torch.searchsorted(
+                -torch.tensor(lat_grid).to(device), -lat_coords
             )
-            lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords).to(
-                device
-            )
+            lon_idx = torch.searchsorted(torch.tensor(lon_grid).to(device), lon_coords)
             guidance[:, :, :, lat_idx, lon_idx] = 1
 
             coords = OrderedDict(
@@ -348,9 +361,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 torch.nan,
                 device=device,
             )
-            idx = self.core_model.classifier_grid.ang2pix(
-                lon_coords.to(device), lat_coords.to(device)
-            )
+            idx = self.core_model.classifier_grid.ang2pix(lon_coords, lat_coords)
             guidance[:, :, :, idx] = 1
             coords = OrderedDict(
                 {
@@ -443,12 +454,24 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
             indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
             output, cb_coords = self.core_model.sample(
-                batch, guidance_pixels=indices_where_tc, seed=self.seed
+                batch,
+                guidance_pixels=indices_where_tc,
+                seed=self.seed,
+                guidance_scale=self.guidance_scale,
             )
+
+            # If ICON, translate
+            if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
+                output = self.core_model._normalize(output)
+                output = self.core_model._reorder(output)
+                batch["target"] = output
+                output, _ = self.core_model.translate(batch, dataset="icon")
+
             outputs.append(output)
 
         # Concatenate all batches
         output = torch.cat(outputs, dim=0)
+
         if self.lat_lon:
             # Convert back into lat lon
             nlat, nlon = 721, 1440
@@ -480,8 +503,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     def get_cbottle_input(
         self,
         times: list[datetime],
-        n_batch: int = 1,
-        label: int = 1,  # 0 for ICON, 1 for ERA5
+        dataset_modality: DatasetModality = DatasetModality.ERA5,
     ) -> dict[str, torch.Tensor]:
         """Prepares the CBottle inputs
 
@@ -494,8 +516,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         ----------
         time : list[datetime]
             List of times for inference
-        label : int, optional
-            Label ID, by default 1
+        dataset_modality : DatasetModality, optional
+            Dataset modality label, by default DatasetModality.ERA5
 
         Returns
         -------
@@ -503,10 +525,12 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Dictionary of input tensors for CBottle
         """
         self._validate_sst_time(times)
+
+        device = self.device_buffer.device
         time_arr = np.array(times, dtype="datetime64[ns]")
         sst_data = torch.from_numpy(
             self.sst["tosbcs"].interp(time=time_arr, method="linear").values + 273.15
-        ).to(self.device_buffer.device)
+        ).to(device)
         sst_data = self.sst_regridder(sst_data)
 
         cond = encode_sst(sst_data.cpu())
@@ -535,7 +559,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         )
         target[:, nan_channels, ...] = np.nan
 
-        labels = torch.nn.functional.one_hot(torch.tensor(label), num_classes=1024)
+        dataset_modality = DatasetModality(dataset_modality)
+        labels = torch.nn.functional.one_hot(
+            torch.tensor(dataset_modality.value, device=device), num_classes=1024
+        )
         labels = labels.unsqueeze(0).repeat(len(times), 1)
 
         out = {

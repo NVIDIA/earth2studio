@@ -9,11 +9,11 @@ batch_size: 2      # inference batch size
 
 forecast_model:
     architecture: earth2studio.models.px.SFNO   # forecast model class
-    registry: hens_model_registry
+    registry: /output/hens_model_registry
     max_num_checkpoints: 2 # max number of checkpoints which will be used
 
 perturbation:
-    skill_path : hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+    skill_path : /output/hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
     noise_amplification: .35
     perturbed_var: 'z500'
     integration_steps: 3
@@ -29,7 +29,7 @@ cyclone_tracking:
         path_search_window_size: 2
 
 file_output:
-    path: 'outputs_helene'       # directory to which outfiles are written
+    path: '/output/outputs_helene'       # directory to which outfiles are written
     output_vars: ['t2m', 'msl', 'u850', 'v850', 'z500']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
