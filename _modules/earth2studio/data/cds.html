@@ -440,12 +440,13 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">sleep</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cfgrib.xarray_to_grib</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_grib</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
@@ -484,7 +485,7 @@
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CDS.html#earth2studio.data.CDS">[docs]</a>
 <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CDS</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The climate data source (CDS) serving ERA5 re-analysis data. This data soure</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The climate data source (CDS) serving ERA5 re-analysis data. This data source</span>
 <span class="sd">    requires users to have a CDS API access key which can be obtained for free on the</span>
 <span class="sd">    CDS webpage.</span>
 
@@ -568,7 +569,7 @@
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrives CDS data array for given date time by fetching variable grib files</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieves CDS data array for given date time by fetching variable grib files</span>
 <span class="sd">        using the cdsapi package and combining grib files into a single data array.</span>
 
 <span class="sd">        Parameters</span>
@@ -576,7 +577,7 @@
 <span class="sd">        time : datetime</span>
 <span class="sd">            Date time to fetch</span>
 <span class="sd">        variables : list[str]</span>
-<span class="sd">            list of atmosphric variables to fetch. Must be supported in CDS lexicon</span>
+<span class="sd">            list of atmospheric variables to fetch. Must be supported in CDS lexicon</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -718,46 +719,81 @@
         <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="c1"># Assemble request</span>
-            <span class="n">rbody</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
-                <span class="s2">&quot;product_type&quot;</span><span class="p">:</span> <span class="s2">&quot;reanalysis&quot;</span><span class="p">,</span>
-                <span class="c1"># &quot;date&quot;: &quot;2017-12-01/2017-12-02&quot;, (could do time range)</span>
-                <span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
-                <span class="s2">&quot;month&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
-                <span class="s2">&quot;day&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
-                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H:00&quot;</span><span class="p">),</span>
-                <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;grib&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;download_format&quot;</span><span class="p">:</span> <span class="s2">&quot;unarchived&quot;</span><span class="p">,</span>
-            <span class="p">}</span>
-            <span class="k">if</span> <span class="n">dataset_name</span> <span class="o">==</span> <span class="s2">&quot;reanalysis-era5-pressure-levels&quot;</span><span class="p">:</span>
-                <span class="n">rbody</span><span class="p">[</span><span class="s2">&quot;pressure_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">level</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cds_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">rbody</span><span class="p">)</span>
-            <span class="c1"># Queue request</span>
-            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-                <span class="n">r</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
-                <span class="n">reply</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">reply</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Request ID:</span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;state&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span>
-                <span class="k">if</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;completed&quot;</span><span class="p">:</span>
-                    <span class="k">break</span>
-                <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;queued&quot;</span><span class="p">,</span> <span class="s2">&quot;running&quot;</span><span class="p">):</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Request ID: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, sleeping&quot;</span><span class="p">)</span>
-                    <span class="n">sleep</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">,):</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;CDS request fail for: </span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">variable</span> <span class="o">==</span> <span class="s2">&quot;total_precipitation_06&quot;</span><span class="p">:</span>
+                <span class="c1"># tp06 is a special case, its not in CDS but used by several models</span>
+                <span class="c1"># so this specific case handle for this one variable, so intercept this</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_download_cds_tp06_grib_cached</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">cache_path</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Assemble request</span>
+                <span class="n">rbody</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
+                    <span class="s2">&quot;product_type&quot;</span><span class="p">:</span> <span class="s2">&quot;reanalysis&quot;</span><span class="p">,</span>
+                    <span class="c1"># &quot;date&quot;: &quot;2017-12-01/2017-12-02&quot;, (could do time range)</span>
+                    <span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
+                    <span class="s2">&quot;month&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
+                    <span class="s2">&quot;day&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
+                    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H:00&quot;</span><span class="p">),</span>
+                    <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;grib&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;download_format&quot;</span><span class="p">:</span> <span class="s2">&quot;unarchived&quot;</span><span class="p">,</span>
+                <span class="p">}</span>
+                <span class="k">if</span> <span class="n">dataset_name</span> <span class="o">==</span> <span class="s2">&quot;reanalysis-era5-pressure-levels&quot;</span><span class="p">:</span>
+                    <span class="n">rbody</span><span class="p">[</span><span class="s2">&quot;pressure_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">level</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cds_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">rbody</span><span class="p">)</span>
+                <span class="c1"># Queue request</span>
+                <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="n">r</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+                    <span class="n">reply</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">reply</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Request ID:</span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;state&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="p">)</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Message: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reason: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;reason&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">reply</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">)))</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">sleep</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span>
-            <span class="c1"># Download when ready</span>
-            <span class="n">r</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;completed&quot;</span><span class="p">:</span>
+                        <span class="k">break</span>
+                    <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;queued&quot;</span><span class="p">,</span> <span class="s2">&quot;running&quot;</span><span class="p">):</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Request ID: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;request_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, sleeping&quot;</span><span class="p">)</span>
+                        <span class="n">sleep</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">reply</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">,):</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;CDS request fail for: </span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Message: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reason: </span><span class="si">{</span><span class="n">reply</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;reason&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">reply</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">)))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">sleep</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span>
+                <span class="c1"># Download when ready</span>
+                <span class="n">r</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">cache_path</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_download_cds_tp06_grib_cached</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Download total precipitation values for 6 hours preceding time. Combine</span>
+<span class="sd">        into single grib file to make 6 hour accumulated precipitation, &#39;tp06&#39;.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            The time for which to download tp06 data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Download the individual 6-hourly files</span>
+        <span class="n">tp_cache_paths</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]:</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">tp_cache_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_cds_grib_cached</span><span class="p">(</span>
+                <span class="n">dt</span><span class="p">,</span> <span class="s2">&quot;reanalysis-era5-single-levels&quot;</span><span class="p">,</span> <span class="s2">&quot;total_precipitation&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">tp_cache_paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tp_cache_path</span><span class="p">)</span>
+
+        <span class="c1"># Combine into single grib</span>
+        <span class="n">tp_data</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">xr</span><span class="o">.</span><span class="n">open_dataarray</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;indexpath&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">})</span>
+            <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">tp_cache_paths</span>
+        <span class="p">]</span>
+        <span class="n">tp_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">tp</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="n">tp_data</span><span class="p">]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">tp06_ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">({</span><span class="s2">&quot;tp06&quot;</span><span class="p">:</span> <span class="n">tp_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]})</span>
+        <span class="n">to_grib</span><span class="p">(</span><span class="n">tp06_ds</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">,</span> <span class="n">no_warn</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">grib_keys</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;edition&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
