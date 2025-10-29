@@ -643,17 +643,13 @@ wheels = [
 
 [[package]]
 name = "cfgrib"
-version = "0.9.15.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.9.15.1"
+source = { git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433#6a9af3173d7050b5fa5d221755f97e6ecb8c3433" }
 dependencies = [
     { name = "attrs" },
     { name = "click" },
     { name = "eccodes" },
     { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/3b/0ccbbc67866a4a2df570d6bf0f53d6d22220c44e1f3684455b5eae298936/cfgrib-0.9.15.0.tar.gz", hash = "sha256:d455034e19b9560a75d008ba9d09b2d4e65762adfb2e911f28b841f4b9c6b47f", size = 6511752, upload-time = "2024-12-18T11:10:17.728Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/d7/96b4209c99f1fd6c19f502cebe8c91983c23331c380f3f521250f268ae8c/cfgrib-0.9.15.0-py3-none-any.whl", hash = "sha256:469cfd25dc173863795e596263b3b6b5ea1402b1715f2b7b1d4b995b40b32c18", size = 48908, upload-time = "2024-12-18T11:10:13.381Z" },
 ]
 
 [[package]]
@@ -1536,7 +1532,7 @@ requires-dist = [
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
-    { name = "cfgrib", specifier = ">=0.9.10.3" },
+    { name = "cfgrib", git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433" },
     { name = "cftime" },
     { name = "cucim-cu12", marker = "extra == 'all'", specifier = ">=25.4.0" },
     { name = "cucim-cu12", marker = "extra == 'cyclone'", specifier = ">=25.4.0" },
@@ -1585,7 +1581,7 @@ requires-dist = [
     { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "moviepy", marker = "extra == 'sfno'" },
     { name = "nest-asyncio" },
-    { name = "netcdf4", specifier = ">=1.6.4" },
+    { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
     { name = "numcodecs", specifier = "<0.15.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.0.1" },
@@ -6678,16 +6674,16 @@ wheels = [
 
 [[package]]
 name = "xarray"
-version = "2025.9.0"
+version = "2025.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "packaging" },
     { name = "pandas" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/0b/bbb76e05c8e2099baf90e259c29cafe6a525524b1d1da8bfbc39577c043e/xarray-2025.9.0.tar.gz", hash = "sha256:7dd6816fe0062c49c5e9370dd483843bc13e5ed80a47a9ff10baff2b51e070fb", size = 3040318, upload-time = "2025-09-04T04:20:26.296Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/ce/f5dd613ddd0b3f839c59e6c2fa20c62469bf671bf4c92a12b09dc0972326/xarray-2025.10.1.tar.gz", hash = "sha256:3c2b5ad7389825bd624ada5ff26b01ac54b1aae72e2fe0d724d81d40a2bf5785", size = 3058736, upload-time = "2025-10-07T20:25:56.708Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/f0/73c24457c941b8b08f7d090853e40f4b2cdde88b5da721f3f28e98df77c9/xarray-2025.9.0-py3-none-any.whl", hash = "sha256:79f0e25fb39571f612526ee998ee5404d8725a1db3951aabffdb287388885df0", size = 1349595, upload-time = "2025-09-04T04:20:24.36Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/78/4d6d68555a92cb97b4c192759c4ab585c5cb23490f64d4ddf12c66a3b051/xarray-2025.10.1-py3-none-any.whl", hash = "sha256:a4e699433b87a7fac340951bc36648645eeef72bdd915ff055ac2fd99865a73d", size = 1365202, upload-time = "2025-10-07T20:25:54.964Z" },
 ]
 
 [package.optional-dependencies]
