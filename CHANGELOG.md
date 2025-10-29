@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added vertical wind speed support in GFS
 - Added ModelOutputDatasetSource to use written model output to start a new model run
 - Added FCN3 noise handling routines.
+- tp06 support to CDS data source
 
 ### Changed
 
@@ -29,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - InferenceOutputSource can now accept an Xarray Dataset directly as an argument
 - InferenceOutputSource returns data consistently in `("time", "lead_time", "variable")`
   order
+- Added support for ERA5 model levels and additional variables in ARCO data source
+- Changed the HRRR_X and HRRR_Y coordinates of the HRRR data source to match the native
+  LCC coordinates
 
 ### Deprecated
 

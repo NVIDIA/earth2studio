@@ -5,7 +5,7 @@
 As discussed in detail in the {ref}`data_userguide` section, Earth2Studio tracks the
 geo-physical representation of tensor data inside workflows.
 This includes the name of the variable / parameter / property the data represents, which
-is tacked explicitly via Earth2Studios lexicon.
+is tracked explicitly via Earth2Studios lexicon.
 Similar to ECMWF's [parameter database](https://codes.ecmwf.int/grib/param-db/),
 Earth2Studio's lexicon aims to provide an opinioned and explicit list of short variables
 names that is used across the package found in {py:obj}`earth2studio.lexicon.base.E2STUDIO_VOCAB`.
@@ -14,19 +14,40 @@ Many of these names are based on ECMWF's parameter database but not all.
 Below are a few examples:
 
 - `t2m`: Temperature in Kelvin at 2 meters
-- `u10m`: u-component of Zonal winds at 10 meters
-- `v10m`: v-component of Zonal winds at 10 meters
-- `u200`: u-component of Zonal winds at 200 hPa
+- `u10m`: u-component (eastward/zonal) of winds at 10 meters
+- `v10m`: v-component (northward/meridional) of winds at 10 meters
+- `u200`: u-component of winds at 200 hPa
 - `z250`: Geo-potential at 250 hPa
 - `z500`: Geo-potential at 500 hPa
 - `tcwv`: Total column water vapor
 
-:::{admonition} Altitude / Pressure Levels
-:class: tip
-Note that 3D atmospheric variables are sliced to their individual pressure levels.
-This is better suited when working with various AI models that may use different
-pressure levels.
-Levels based on altitude contain an "m" at the end to distinguish height in meters.
+## Altitude / Pressure Levels
+
+Note that there are a variety of ways to represent the vertical coordinates for 3D
+atmospheric variables. The most common method is to slice variables along pressure
+levels (surfaces of constant pressure), and this is considered the "default" in terms
+of variable names within the lexicon (e.g., `z500` is the geo-potential) at the 500 hPa
+pressure level. Variables which are represented based on altitude above the surface
+contain an "m" at the end, to denote height in meters, such as `u10m`.
+
+Some models or workflows, however, require using their own custom vertical coordinate
+which is neither pressure-level nor terrain-following. These are typically referred to
+as "native" or "hybrid" vertical levels, and are defined differently for different
+use-cases. The lexicon supports these custom levels by indexing the vertical level and
+appending a suffix to the variable name to denote it is a custom vertical level, as in
+`u100k` to indicate the u-component of winds at the custom vertical level with index
+100 (indexed by `k`). We leave the choice of suffix up to each use-case, and reserve
+the following special-case suffixes:
+
+- No suffix: assumed to be pressure-level, as in `z500` for geo-potential at 500 hPa level
+- `m`: altitude in meters above the surface
+
+:::{warning}
+Only use custom vertical level data with caution. The definition of these vertical
+levels changes with each data source, model, or use-case, and thus they are not
+necessarily interoperable. Transforming between different custom vertical levels will
+likely require custom interpolation schemes, possibly using pressure-levels as an
+intermediate step.
 :::
 
 ## Datasource Lexicon
