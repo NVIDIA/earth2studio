@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = "==3.11.*"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
@@ -81,8 +81,9 @@ aifs = [
 ]
 aifsens = [
     "anemoi-models==0.5.1",
-    'anemoi-graphs==0.6.2',
+    "anemoi-graphs==0.6.2",
     "earthkit-regrid==0.4.0",
+    "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
 aurora = [
@@ -214,7 +215,7 @@ conflicts = [
     [
       { extra = "aifs" },
       { extra = "aifsens" },
-    ],
+    ]
 ]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
@@ -266,7 +267,6 @@ dev = [
     "types-requests",
     "ruff",
     "pytest-asyncio>=0.26.0",
-    "ipykernel>=6.30.1",
 ]
 docs = [
     "cartopy",
