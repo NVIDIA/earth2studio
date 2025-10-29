@@ -48,6 +48,12 @@ class PrepareInputCoordsDefault:
         CoordSystem
             Prepared coordinate system for diagnostic model
         """
+        # Handling np.empty (free coordinate system)
+        if dx_coords["lat"].shape[0] == 0:
+            dx_coords["lat"] = px_coords["lat"]
+        if dx_coords["lon"].shape[0] == 0:
+            dx_coords["lon"] = px_coords["lon"]
+
         for key, value in dx_coords.items():
             if key in ["variable", "lat", "lon"] and key in px_coords:
                 px_coords[key] = value
@@ -55,7 +61,7 @@ class PrepareInputCoordsDefault:
         return px_coords
 
 
-class PrepareInputTensorDefault(torch.nn.Module):
+class PrepareInputTensorDefault:
     """Prepares output from prognostic model for diagnostic"""
 
     def __init__(self) -> None:
@@ -63,7 +69,7 @@ class PrepareInputTensorDefault(torch.nn.Module):
         self.interp: torch.nn.Module | None = None
 
     @torch.inference_mode()
-    def forward(
+    def __call__(
         self, x: torch.Tensor, px_coords: CoordSystem, dx_coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Prepare tensor for diagnostic model input with interpolation.
