@@ -70,13 +70,13 @@ class ECMWFOpenDataLexicon(metaclass=LexiconType):
         ifs_key = cls.VOCAB[val]
         if ifs_key.split("::")[0] == "gh":
 
-            def mod(x: np.array) -> np.array:
+            def mod(x: np.ndarray) -> np.ndarray:
                 """Modify data value (if necessary)."""
                 return x * 9.81
 
         else:
 
-            def mod(x: np.array) -> np.array:
+            def mod(x: np.ndarray) -> np.ndarray:
                 """Modify data value (if necessary)."""
                 return x
 

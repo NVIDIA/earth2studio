@@ -80,7 +80,7 @@ class ECMWFOpenDataSource(ABC):
         Model to fetch data for, by default "ifs".
     fc_type: str, optional
         Forecast type (e.g., deterministic, control, perturbed). For possible options
-        refer to ECMWF's open data Python SDK, by default "aws".
+        refer to ECMWF's open data Python SDK, by default "fc".
     members: list of int, optional
         List of ensemble members. Set to None, empty list, or [0] for deterministic
         forecasts. By default "aws".
@@ -309,7 +309,7 @@ class ECMWFOpenDataSource(ABC):
             for j, lt in enumerate(lead_time):
                 for k, var in enumerate(variable):
                     try:
-                        ifs_name, modifier = self.LEXICON[var]
+                        ifs_name, modifier = self.LEXICON[var]  # type: ignore[index]
                     except KeyError as e:
                         logger.error(f"Variable {var} not found in lexicon")
                         raise e
@@ -333,7 +333,7 @@ class ECMWFOpenDataSource(ABC):
         self,
         task: ECMWFOpenDataAsyncTask,
         xr_array: xr.DataArray,
-    ) -> xr.DataArray:
+    ) -> None:
         """Small wrapper to pack arrays into the DataArray."""
         grib_file = await self._download_ifs_grib_cached(
             time=task.time,
@@ -492,7 +492,7 @@ class IFS_ENS(ECMWFOpenDataSource):
     """Integrated forecast system (IFS) ENS data on an equirectangular grid at 0.25
     degree resolution.
 
-    The control member"""
+    The control member can only be requested separately from the perturbed members."""
 
     LEXICON = IFSLexicon
 
@@ -567,8 +567,8 @@ class IFS_ENS(ECMWFOpenDataSource):
 
 
 class AIFS(ECMWFOpenDataSource):
-    """Artificial intelligence forecast system (AIFS) SINGLE data on an
-    equirectangular grid at 0.25 degree resolution."""
+    """Artificial intelligence forecast system (AIFS) SINGLE data on an equirectangular
+    grid at 0.25 degree resolution."""
 
     LEXICON = AIFSLexicon
 
@@ -615,8 +615,10 @@ class AIFS(ECMWFOpenDataSource):
 
 
 class AIFS_ENS(ECMWFOpenDataSource):
-    """Artificial intelligence forecast system (AIFS) ENS data on an
-    equirectangular grid at 0.25 degree resolution."""
+    """Artificial intelligence forecast system (AIFS) ENS data on an equirectangular
+    grid at 0.25 degree resolution.
+
+    The control member can only be requested separately from the perturbed members."""
 
     LEXICON = AIFSLexicon
 
@@ -725,8 +727,6 @@ def validate_leadtime(
     ----------
     model : str
         Model name.
-    times : list[datetime]
-        List of date times to fetch data for.
     lead_times : list[timedelta]
         List of lead times to fetch data for.
     interval : int
