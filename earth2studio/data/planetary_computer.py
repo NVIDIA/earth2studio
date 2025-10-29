@@ -16,16 +16,21 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hashlib
 import os
 import pathlib
+import shutil
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Type
+from typing import Any, Callable, Iterator, Mapping, Sequence, Type
 from urllib.parse import urlparse
 
+import nest_asyncio
 import numpy as np
-import requests
 import xarray as xr
+from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.base import LexiconType
@@ -36,105 +41,123 @@ from earth2studio.utils.imports import OptionalDependencyFailure, check_optional
 from earth2studio.utils.type import TimeArray, VariableArray
 
 try:  # pragma: no cover - exercised in integration tests
+    import httpx
     from pystac_client import Client
     import planetary_computer
+    import rioxarray
 except ImportError:  # pragma: no cover - handled by optional dependency guard
     OptionalDependencyFailure("data")
+    httpx = None  # type: ignore[assignment]
     Client = None  # type: ignore[assignment]
     planetary_computer = None  # type: ignore[assignment]
+    rioxarray = None  # type: ignore[assignment]
 
 
 Modifier = Callable[[Any], Any]
 
 
+@dataclass(frozen=True, slots=True)
+class VariableSpec:
+    """Resolved variable request against a lexicon."""
+
+    index: int
+    variable_id: str
+    dataset_key: str
+    modifier: Modifier
+
+
+@dataclass(slots=True)
+class AssetPlan:
+    """Plan describing an asset download and the variables it satisfies."""
+
+    key: str
+    unsigned_href: str
+    signed_href: str
+    media_type: str | None
+    local_path: pathlib.Path
+    variables: list[VariableSpec]
+
+
 @check_optional_dependencies()
 class PlanetaryComputerData:
-    """Generic data source that streams assets from Microsoft Planetary Computer.
+    """Generic Microsoft Planetary Computer data source.
 
-    This helper wraps the Planetary Computer STAC API and downloads assets matching
-    a collection/search query into the standard Earth2Studio xarray interface. It is
-    intentionally lightweight: you provide the STAC collection, which asset within
-    each item should be read (e.g. ``"netcdf"`` or ``"cog"``), and optionally a lexicon
-    describing how Earth2Studio variable names map onto dataset variables. Assets are
-    signed with short-lived SAS tokens via :mod:`planetary_computer` prior to download.
-
-    Parameters
-    ----------
-    collection_id : str
-        STAC collection identifier to query (e.g. ``"noaa-cdr-sea-surface-temperature-optimum-interpolation"``).
-        asset_key : str, optional
-        Asset key within each item to download. The default ``"netcdf"`` accesses the
-        OISST NetCDF files. Any asset readable by :func:`xarray.open_dataset` is
-        supported, by default ``"netcdf"``.
-    lexicon : type[LexiconType]
-        Lexicon providing the mapping between Earth2Studio variable identifiers and
-        dataset variable names/modifiers. All Planetary Computer data sources require a
-        lexicon to translate requested variables to dataset fields.
-    search_kwargs : dict[str, Any] | None, optional
-        Extra arguments forwarded to :meth:`pystac_client.Client.search`. This can
-        include spatial filters (``bbox``), STAC property filters, etc., by default None.
-    search_tolerance : timedelta, optional
-        +/- window added to each requested time when querying STAC (``datetime`` search
-        parameter). Daily collections often store a single timestamp; default 12 hours
-        ensures a match within the same UTC day, by default ``timedelta(hours=12)``.
-    time_coordinate : str, optional
-        Name of the temporal dimension in downloaded assets. If found, it is renamed to
-        ``"time"`` and overwritten with the requested timestamp, by default ``"time"``.
-    cache : bool, optional
-        Cache downloaded assets on disk under ``~/.cache/earth2studio/planetary_computer``.
-        When ``False`` files are deleted after use, by default ``True``.
-    verbose : bool, optional
-        Emit log messages when downloading assets, by default ``True``.
-
-    Notes
-    -----
-    This class focuses on gridded NetCDF assets. Cloud-Optimised GeoTIFF assets can be
-    accessed by setting ``asset_key`` appropriately and providing a modifier that uses
-    :func:`xarray.open_dataset` compatible readers such as ``rioxarray.open_rasterio``.
+    The base class handles STAC searches, concurrent asset downloads and conversion of
+    MPC assets into Earth2Studio's standardized xarray interface. Subclasses configure
+    the collection parameters and can override helper hooks for bespoke behaviour.
     """
 
     STAC_API_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
+    NETCDF_SUFFIXES = {".nc", ".nc4", ".cdf"}
+    GEOTIFF_SUFFIXES = {".tif", ".tiff"}
+    LEVEL_DIMS = {"zlev", "lev", "level", "depth"}
+    OPTIONAL_SINGLETON_DIMS = {"band"}
+
+    DEFAULT_TIMEOUT = 60
+    DEFAULT_RETRIES = 4
+    DEFAULT_ASYNC_TIMEOUT = 600
+    CHUNK_SIZE = 1 << 20
+    USER_AGENT = "earth2studio-planetary-computer"
 
     def __init__(
         self,
         collection_id: str,
         *,
-        asset_key: str = "netcdf",
         lexicon: Type[LexiconType],
-        search_kwargs: dict[str, Any] | None = None,
+        asset_key: str = "netcdf",
+        search_kwargs: Mapping[str, Any] | None = None,
         search_tolerance: timedelta = timedelta(hours=12),
         time_coordinate: str = "time",
+        spatial_dims: Mapping[str, np.ndarray],
+        data_attrs: Mapping[str, Any] | None = None,
         cache: bool = True,
         verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = DEFAULT_TIMEOUT,
+        max_retries: int = DEFAULT_RETRIES,
+        async_timeout: int = DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
-
         self._collection_id = collection_id
         self._asset_key = asset_key
         self._lexicon = lexicon
-        self._search_kwargs = search_kwargs or {}
+        self._search_kwargs = dict(search_kwargs or {})
         self._search_tolerance = search_tolerance
         self._time_coordinate = time_coordinate
+        if not spatial_dims:
+            raise ValueError("At least one spatial dimension must be provided.")
+        self._spatial_dim_names = tuple(spatial_dims.keys())
+        self._spatial_coords = {
+            dim: np.asarray(values, dtype=np.float32) for dim, values in spatial_dims.items()
+        }
+        self._spatial_shape = tuple(len(self._spatial_coords[dim]) for dim in self._spatial_dim_names)
+        self._data_attrs = dict(data_attrs or {})
         self._cache = cache
         self._verbose = verbose
+        self._max_workers = max_workers
+        self._request_timeout = request_timeout
+        self._max_retries = max_retries
+        self._async_timeout = async_timeout
 
         self._client: Client | None = None
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        times, variables = prep_data_inputs(time, variable)
+        """Synchronous entry point matching :class:`~earth2studio.data.base.DataSource`."""
+        nest_asyncio.apply()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-        datasets: list[xr.DataArray] = []
-        for requested_time in times:
-            time_array = self._fetch_time(requested_time, variables)
-            datasets.append(time_array)
-
-        result = xr.concat(datasets, dim="time")
+        result = loop.run_until_complete(
+            asyncio.wait_for(self.fetch(time, variable), timeout=self._async_timeout)
+        )
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
         return result
 
     async def fetch(
@@ -142,160 +165,328 @@ class PlanetaryComputerData:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async interface matching :class:`~earth2studio.data.base.DataSource`."""
-        import asyncio
+        """Async entry point matching :class:`~earth2studio.data.base.DataSource`."""
+        times, variables = prep_data_inputs(time, variable)
 
-        return await asyncio.to_thread(self.__call__, time, variable)
+        # Normalize times and resolve variables
+        normalized_times = [
+            t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t.astimezone(timezone.utc)
+            for t in times
+        ]
+        specs = [self._resolve_variable(index, var) for index, var in enumerate(variables)]
+
+        # Create cache dir if doesnt exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+        # Create DataArray with appropriate dimensions
+        coords: dict[str, Any] = {
+            "time": np.array([np.datetime64(t) for t in normalized_times]),
+            "variable": list(variables),
+        }
+        for dim_name in self._spatial_dim_names:
+            coords[dim_name] = self._spatial_coords[dim_name]
+        xr_array = xr.DataArray(
+            data=np.zeros(
+                (len(times), len(variables), *self._spatial_shape), dtype=np.float32
+            ),
+            dims=["time", "variable", *self._spatial_dim_names],
+            coords=coords,
+            attrs=dict(self._data_attrs),
+        )
+
+        # Create download tasks
+        # Use a fancy tqdm progress bar too
+        timeout = httpx.Timeout(self._request_timeout)
+        limits = httpx.Limits(max_connections=self._max_workers)
+        async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
+            semaphore = asyncio.Semaphore(self._max_workers)
+            with tqdm(
+                total=len(times) * len(variables),
+                disable=not self._verbose,
+                desc=f"Fetching {self._collection_id}",
+            ) as progress:
+                tasks = [
+                    asyncio.create_task(
+                        self._fetch_and_assign(
+                            client=client,
+                            semaphore=semaphore,
+                            requested_time=normalized_times[index],
+                            variables=specs,
+                            xr_array=xr_array,
+                            time_index=index,
+                            progress=progress,
+                        )
+                    )
+                    for index in range(len(times))
+                ]
+                if tasks:
+                    await asyncio.gather(*tasks)
+
+        return xr_array
 
     # ------------------------------------------------------------------
-    # Helpers
+    # Core workflow
     # ------------------------------------------------------------------
-    def _fetch_time(self, requested_time: datetime, variables: list[str]) -> xr.DataArray:
-        normalized_time = self._to_datetime(requested_time)
-        item = self._locate_item(normalized_time)
-        asset = self._extract_asset(item)
+    async def _fetch_and_assign(
+        self,
+        *,
+        client: httpx.AsyncClient,
+        semaphore: asyncio.Semaphore,
+        requested_time: datetime,
+        variables: Sequence[VariableSpec],
+        xr_array: xr.DataArray,
+        time_index: int,
+        progress: tqdm,
+    ) -> None:
+        """Download assets for a single timestamp and populate the output array."""
+        stacked = await self._fetch_time_payload(
+            client, semaphore, requested_time, variables
+        )
+        if stacked.shape != (len(variables), *self._spatial_shape):
+            raise ValueError(
+                f"Unexpected data shape {stacked.shape} for {requested_time.isoformat()} "
+                f"in collection {self._collection_id}; expected {(len(variables), *self._spatial_shape)}."
+            )
+        xr_array[time_index] = stacked
+        progress.update(len(variables))
 
-        signed_asset = planetary_computer.sign(asset)  # type: ignore[union-attr]
-        local_path = self._download_asset(signed_asset.href)
+    async def _fetch_time_payload(
+        self,
+        client: httpx.AsyncClient,
+        semaphore: asyncio.Semaphore,
+        requested_time: datetime,
+        variables: Sequence[VariableSpec],
+    ) -> np.ndarray:
+        """Fetch all requested variables for a timestamp and return stacked numpy data."""
+        item = await asyncio.to_thread(self._locate_item, requested_time)
+        asset_plans = self._prepare_asset_plans(item, variables)
 
-        try:
-            ds = self._open_dataset(local_path)
-        except Exception as error:  # pragma: no cover - xarray handles errors
-            if not self._cache:
-                self._cleanup_file(local_path)
-            raise error
+        download_tasks = [
+            self._ensure_asset_downloaded(client, semaphore, plan)
+            for plan in asset_plans
+            if not plan.local_path.exists()
+        ]
+        if download_tasks:
+            await asyncio.gather(*download_tasks)
 
-        variable_arrays = []
-        for var in variables:
-            dataset_key, modifier = self._resolve_variable(var)
-            if dataset_key not in ds:
-                raise KeyError(
-                    f"Variable '{dataset_key}' not present in dataset for {normalized_time.isoformat()}"
+        data_stack = np.zeros(
+            (len(variables), *self._spatial_shape), dtype=np.float32
+        )
+        filled = [False] * len(variables)
+
+        for plan in asset_plans:
+            with self._open_asset(plan.local_path, plan.media_type) as asset_data:
+                for spec in plan.variables:
+                    array = self._extract_variable_numpy(
+                        asset_data, spec, requested_time
+                    )
+                    data_stack[spec.index] = array
+                    filled[spec.index] = True
+
+        if not all(filled):
+            missing = [
+                variables[idx].variable_id
+                for idx, present in enumerate(filled)
+                if not present
+            ]
+            raise ValueError(
+                f"Failed to extract variables {missing} for {requested_time.isoformat()}"
+            )
+
+        return data_stack
+
+    # ------------------------------------------------------------------
+    # Planning helpers
+    # ------------------------------------------------------------------
+    def _prepare_asset_plans(
+        self,
+        item: Any,
+        variables: Sequence[VariableSpec],
+    ) -> list[AssetPlan]:
+        asset_map = self._select_assets(item, variables)
+        plans: list[AssetPlan] = []
+
+        for asset_key, specs in asset_map.items():
+            if asset_key not in item.assets:
+                raise KeyError(f"Asset '{asset_key}' not available in item {item.id}")
+            asset = item.assets[asset_key]
+            signed_asset = planetary_computer.sign(asset)  # type: ignore[union-attr]
+            unsigned_href = asset.href
+            local_path = self._local_asset_path(unsigned_href)
+            plans.append(
+                AssetPlan(
+                    key=asset_key,
+                    unsigned_href=unsigned_href,
+                    signed_href=signed_asset.href,
+                    media_type=asset.media_type,
+                    local_path=local_path,
+                    variables=list(specs),
                 )
-            da = ds[dataset_key]
-            da = modifier(da)
-            for singleton_dim in [
-                dim
-                for dim in da.dims
-                if da.sizes.get(dim, 0) == 1 and dim in {"zlev", "lev", "level", "depth"}
-            ]:
-                da = da.squeeze(singleton_dim, drop=True)
-            da = self._prepare_time_dimension(da, normalized_time)
-            da = da.expand_dims(dim={"variable": [var]})
-            variable_arrays.append(da)
+            )
+        return plans
 
-        time_data = xr.concat(variable_arrays, dim="variable")
-        # grid dims follow underlying dataset order; ensure 'time' leading for consistency
-        existing_dims = [dim for dim in time_data.dims if dim not in {"time", "variable"}]
-        time_data = time_data.transpose("time", "variable", *existing_dims)
-        if not self._cache:
-            self._cleanup_file(local_path)
-        return time_data.astype(np.float32)
+    def _select_assets(
+        self,
+        item: Any,
+        variables: Sequence[VariableSpec],
+    ) -> Mapping[str, Sequence[VariableSpec]]:
+        """Return mapping of asset key -> variables satisfied by that asset."""
+        return {self._asset_key: variables}
 
-    def _prepare_time_dimension(self, da: xr.DataArray, target_time: datetime) -> xr.DataArray:
-        if self._time_coordinate in da.dims:
-            da = da.rename({self._time_coordinate: "time"})
-            da = da.isel(time=0, drop=True) if da.sizes.get("time", 1) == 1 else da
-        if "time" not in da.dims:
-            da = da.expand_dims(time=[np.datetime64(target_time)])
-        else:
-            da = da.assign_coords(time=[np.datetime64(target_time)])
-            da = da.isel(time=slice(0, 1))
-        return da
+    # ------------------------------------------------------------------
+    # Download helpers
+    # ------------------------------------------------------------------
+    async def _ensure_asset_downloaded(
+        self,
+        client: httpx.AsyncClient,
+        semaphore: asyncio.Semaphore,
+        plan: AssetPlan,
+    ) -> None:
+        plan.local_path.parent.mkdir(parents=True, exist_ok=True)
 
+        async with semaphore:
+            backoff = 1.5
+            attempt = 0
+            while True:
+                try:
+                    async with client.stream(
+                        "GET",
+                        plan.signed_href,
+                        headers={"User-Agent": self.USER_AGENT},
+                    ) as response:
+                        response.raise_for_status()
+                        temp_path = plan.local_path.with_suffix(".tmp")
+                        with temp_path.open("wb") as file_handle:
+                            async for chunk in response.aiter_bytes(self.CHUNK_SIZE):
+                                if chunk:
+                                    file_handle.write(chunk)
+                        temp_path.replace(plan.local_path)
+                    return
+                except Exception as error:
+                    attempt += 1
+                    if attempt >= self._max_retries:
+                        if plan.local_path.exists():
+                            plan.local_path.unlink(missing_ok=True)
+                        raise RuntimeError(
+                            f"Failed to download asset {plan.signed_href}"
+                        ) from error
+                    await asyncio.sleep(backoff)
+                    backoff *= 2
+
+    # ------------------------------------------------------------------
+    # Extraction helpers
+    # ------------------------------------------------------------------
+    def _extract_variable_numpy(
+        self,
+        asset_data: xr.Dataset | xr.DataArray,
+        spec: VariableSpec,
+        target_time: datetime,
+    ) -> np.ndarray:
+        data_array = self._select_variable(asset_data, spec)
+        if self._time_coordinate in data_array.dims and self._time_coordinate != "time":
+            data_array = data_array.rename({self._time_coordinate: "time"})
+
+        if "time" in data_array.dims and data_array.sizes.get("time", 0) > 1:
+            data_array = data_array.sel(time=np.datetime64(target_time), method="nearest")
+        if "time" in data_array.dims:
+            data_array = data_array.isel(time=0, drop=True)
+
+        for dim in list(data_array.dims):
+            if dim in self.LEVEL_DIMS | self.OPTIONAL_SINGLETON_DIMS and data_array.sizes.get(dim, 0) == 1:
+                data_array = data_array.squeeze(dim, drop=True)
+
+        missing_dims = [dim for dim in self._spatial_dim_names if dim not in data_array.dims]
+        if missing_dims:
+            raise KeyError(
+                f"Variable '{spec.variable_id}' missing expected spatial dimensions "
+                f"{missing_dims} in collection {self._collection_id}"
+            )
+
+        data_array = data_array.transpose(*self._spatial_dim_names)
+        array = np.asarray(spec.modifier(data_array.values), dtype=np.float32)
+
+        if array.shape != self._spatial_shape:
+            raise ValueError(
+                f"Modifier for '{spec.variable_id}' returned shape {array.shape}, "
+                f"expected {self._spatial_shape}"
+            )
+
+        return array
+
+    # ------------------------------------------------------------------
+    # STAC helpers
+    # ------------------------------------------------------------------
     def _locate_item(self, when: datetime):
-        client = self._ensure_client()
+        if self._client is None:
+            self._client = Client.open(self.STAC_API_URL)
         start = (when - self._search_tolerance).isoformat()
         end = (when + self._search_tolerance).isoformat()
         datetime_param = f"{start}/{end}"
 
-        search = client.search(
+        search = self._client.search(
             collections=[self._collection_id],
             datetime=datetime_param,
             limit=1,
             **self._search_kwargs,
         )
         try:
-            item = next(search.items())
+            return next(search.items())
         except StopIteration as error:
             raise FileNotFoundError(
-                f"No Planetary Computer item found for {when.isoformat()} within ±{self._search_tolerance}"
+                f"No Planetary Computer item found for {when.isoformat()} "
+                f"within ±{self._search_tolerance}"
             ) from error
-        return item
 
-    def _extract_asset(self, item, asset_key: str | None = None):
-        key = asset_key or self._asset_key
-        if key not in item.assets:
-            raise KeyError(f"Asset '{key}' not available in item {item.id}")
-        return item.assets[key]
-
-    def _download_asset(self, href: str) -> pathlib.Path:
-        parsed = urlparse(href)
-        suffix = pathlib.Path(parsed.path).suffix or ""
-        filename = hashlib.sha256(href.encode()).hexdigest() + suffix
-        local_path = pathlib.Path(self.cache) / filename
-
-        if local_path.exists():
-            return local_path
-
-        if self._verbose:
-            print(f"Downloading Planetary Computer asset {href}")
-
-        response = requests.get(
-            href,
-            stream=True,
-            timeout=60,
-            headers={"User-Agent": "earth2studio-planetary-computer"},
-        )
-        response.raise_for_status()
-
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        with local_path.open("wb") as file_handle:
-            for chunk in response.iter_content(chunk_size=1 << 20):
-                if chunk:
-                    file_handle.write(chunk)
-        return local_path
-
-    def _cleanup_file(self, path: pathlib.Path) -> None:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:  # pragma: no cover - best-effort cleanup
-            return
-        parent = path.parent
-        root = pathlib.Path(self.cache)
-        while parent != root and parent.exists():
-            try:
-                parent.rmdir()
-            except OSError:
-                break
-            parent = parent.parent
-
-    def _resolve_variable(self, variable: str) -> tuple[str, Modifier]:
+    # ------------------------------------------------------------------
+    # Utilities
+    # ------------------------------------------------------------------
+    def _resolve_variable(self, variable: str) -> VariableSpec:
         try:
             dataset_key, modifier = self._lexicon[variable]
         except KeyError as error:
             raise KeyError(
                 f"Variable '{variable}' not supported by {self._lexicon.__name__}"
             ) from error
-        return dataset_key, modifier
+        return VariableSpec(variable, dataset_key, modifier)
 
-    @staticmethod
-    def _identity(array: xr.DataArray) -> xr.DataArray:
-        return array
+    def _local_asset_path(self, href: str) -> pathlib.Path:
+        parsed = urlparse(href)
+        suffix = pathlib.Path(parsed.path).suffix or ""
+        filename = hashlib.sha256(parsed.path.encode()).hexdigest() + suffix
+        return pathlib.Path(self.cache) / filename
 
-    @staticmethod
-    def _to_datetime(value: datetime) -> datetime:
-        if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+    @contextlib.contextmanager
+    def _open_asset(
+        self,
+        local_path: pathlib.Path,
+        media_type: str | None,
+    ) -> Iterator[xr.Dataset | xr.DataArray]:
+        suffix = local_path.suffix.lower()
 
-    def _open_dataset(self, path: pathlib.Path) -> xr.Dataset:
-        return xr.open_dataset(path)
+        if suffix in self.NETCDF_SUFFIXES or (
+            media_type and "netcdf" in media_type.lower()
+        ):
+            dataset = xr.open_dataset(local_path)
+            yield dataset
+            dataset.close()
+            return
 
-    def _ensure_client(self) -> Client:
-        if self._client is None:
-            self._client = Client.open(self.STAC_API_URL)
-        return self._client
+        if suffix in self.GEOTIFF_SUFFIXES or (
+            media_type and "tiff" in media_type.lower()
+        ):
+            data_array = rioxarray.open_rasterio(local_path)
+            yield data_array
+            close_method = getattr(data_array, "close", None)
+            if callable(close_method):
+                close_method()
+            with contextlib.suppress(AttributeError):
+                data_array.rio.close()
+            return
+
+        raise NotImplementedError(
+            f"Unsupported asset format for file '{local_path}'. "
+            "Only NetCDF and GeoTIFF assets are currently supported."
+        )
 
     @property
     def cache(self) -> str:
@@ -303,25 +494,16 @@ class PlanetaryComputerData:
         cache_root = os.path.join(datasource_cache_root(), "planetary_computer")
         if not self._cache:
             cache_root = os.path.join(cache_root, "tmp")
-        os.makedirs(cache_root, exist_ok=True)
         return cache_root
 
 
+# ----------------------------------------------------------------------
+# Concrete data sources
+# ----------------------------------------------------------------------
+
+
 class PlanetaryComputerOISST(PlanetaryComputerData):
-    """Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer.
-
-    Parameters
-    ----------
-    cache : bool, optional
-        Cache downloaded NetCDF files locally. Defaults to ``True``.
-    verbose : bool, optional
-        Print download information while fetching assets. Defaults to ``True``.
-
-    Notes
-    -----
-    Data origin: `NOAA CDR Sea Surface Temperature Optimum Interpolation`
-    <https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation#overview>`_.
-    """
+    """Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer."""
 
     COLLECTION_ID = "noaa-cdr-sea-surface-temperature-optimum-interpolation"
     ASSET_KEY = "netcdf"
@@ -332,6 +514,10 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
         self,
         cache: bool = True,
         verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
@@ -340,26 +526,21 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
             time_coordinate=self.TIME_COORDINATE,
+            spatial_dims={
+                "lat": np.linspace(-89.875, 89.875, 720, dtype=np.float32),
+                "lon": np.linspace(0.125, 359.875, 1440, dtype=np.float32),
+            },
             cache=cache,
             verbose=verbose,
+            max_workers=max_workers,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+            async_timeout=async_timeout,
         )
 
 
 class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
-    """Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.
-
-    Parameters
-    ----------
-    cache : bool, optional
-        Cache downloaded NetCDF files locally. Defaults to ``True``.
-    verbose : bool, optional
-        Print download information while fetching assets. Defaults to ``True``.
-
-    Notes
-    -----
-    Data origin: `Sentinel-3 SYNERGY Aerosol Optical Depth`
-    <https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf>`_.
-    """
+    """Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance."""
 
     COLLECTION_ID = "sentinel-3-synergy-aod-l2-netcdf"
     ASSET_KEY = "ntc-aod"
@@ -370,6 +551,10 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
         self,
         cache: bool = True,
         verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
@@ -378,36 +563,32 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
             time_coordinate=self.TIME_COORDINATE,
+            spatial_dims={
+                "latitude": np.linspace(-90.0, 90.0, 1800, dtype=np.float32),
+                "longitude": np.linspace(-180.0, 180.0, 3600, dtype=np.float32),
+            },
             cache=cache,
             verbose=verbose,
+            max_workers=max_workers,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+            async_timeout=async_timeout,
         )
 
-    def _open_dataset(self, path: pathlib.Path) -> xr.Dataset:
-        ds = xr.open_dataset(path)
-        for coord in ("latitude", "longitude"):
-            if coord in ds and ds[coord].dtype != np.float32:
-                ds[coord] = ds[coord].astype(np.float32)
-        return ds
+    def _extract_variable_numpy(
+        self,
+        asset_data: xr.Dataset | xr.DataArray,
+        spec: VariableSpec,
+        target_time: datetime,
+    ) -> np.ndarray:
+        array = super()._extract_variable_numpy(asset_data, spec, target_time)
+        return array.astype(np.float32, copy=False)
 
 
 class PlanetaryComputerMODISFire(PlanetaryComputerData):
-    """MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).
-
-    Parameters
-    ----------
-    cache : bool, optional
-        Cache downloaded assets locally. Defaults to ``True``.
-    verbose : bool, optional
-        Print download information while fetching assets. Defaults to ``True``.
-
-    Notes
-    -----
-    Data origin: `MODIS Thermal Anomalies/Fire Daily (MOD14A1/MYD14A1)`
-    <https://planetarycomputer.microsoft.com/dataset/modis-14A1-061>`_.
-    """
+    """MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA)."""
 
     COLLECTION_ID = "modis-14A1-061"
-    PRIMARY_ASSET = "FireMask"
     TIME_COORDINATE = "time"
     SEARCH_TOLERANCE = timedelta(hours=12)
     VARIABLE_ASSETS = {
@@ -420,80 +601,52 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
         self,
         cache: bool = True,
         verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
-            asset_key=self.PRIMARY_ASSET,
+            asset_key="FireMask",
             lexicon=MODISFireLexicon,
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
             time_coordinate=self.TIME_COORDINATE,
+            spatial_dims={
+                "y": np.arange(2400, dtype=np.float32),
+                "x": np.arange(2400, dtype=np.float32),
+            },
             cache=cache,
             verbose=verbose,
+            max_workers=max_workers,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+            async_timeout=async_timeout,
         )
 
-    def _open_dataset(self, path: pathlib.Path) -> xr.Dataset:  # pragma: no cover
-        raise NotImplementedError(
-            "PlanetaryComputerMODISFire loads per-variable assets and does not use the base opener"
-        )
-
-    def _fetch_time(self, requested_time: datetime, variables: list[str]) -> xr.DataArray:
-        normalized_time = self._to_datetime(requested_time)
-        item = self._locate_item(normalized_time)
-
-        from collections import defaultdict
-
-        asset_requirements: dict[str, list[tuple[str, str, Modifier]]] = defaultdict(list)
-        for var in variables:
-            dataset_key, modifier = self._resolve_variable(var)
-            asset_key = self.VARIABLE_ASSETS.get(var)
+    def _select_assets(
+        self,
+        item: Any,
+        variables: Sequence[VariableSpec],
+    ) -> Mapping[str, Sequence[VariableSpec]]:
+        asset_map: dict[str, list[VariableSpec]] = {}
+        for spec in variables:
+            asset_key = self.VARIABLE_ASSETS.get(spec.variable_id)
             if asset_key is None:
                 raise KeyError(
-                    f"Asset mapping not defined for MODIS Fire variable '{var}'"
+                    f"Asset mapping not defined for MODIS Fire variable '{spec.variable_id}'"
                 )
-            asset_requirements[asset_key].append((var, dataset_key, modifier))
+            asset_map.setdefault(asset_key, []).append(spec)
+        return asset_map
 
-        per_variable_arrays: list[xr.DataArray] = []
-        for asset_key, requests_for_asset in asset_requirements.items():
-            asset = self._extract_asset(item, asset_key)
-            signed_asset = planetary_computer.sign(asset)  # type: ignore[union-attr]
-            local_path = self._download_asset(signed_asset.href)
-
-            try:
-                import rioxarray  # noqa: PLC0415
-
-                data = rioxarray.open_rasterio(local_path)
-            except Exception as error:  # pragma: no cover
-                if not self._cache:
-                    self._cleanup_file(local_path)
-                raise error
-
-            for var, dataset_key, modifier in requests_for_asset:
-                da = data
-                if "band" in da.dims and da.sizes.get("band") == 1:
-                    da = da.squeeze("band", drop=True)
-                da = da.astype(np.float32)
-                da.name = dataset_key
-                da = modifier(da)
-                da = da.to_dataset(name=dataset_key)[dataset_key]
-                da = da.expand_dims(dim={"variable": [var]})
-                da = self._prepare_time_dimension(da, normalized_time)
-                per_variable_arrays.append(da)
-
-            if not self._cache:
-                self._cleanup_file(local_path)
-
-        result = xr.concat(per_variable_arrays, dim="variable")
-        existing_dims = [dim for dim in result.dims if dim not in {"time", "variable"}]
-        result = result.transpose("time", "variable", *existing_dims)
-        return result.astype(np.float32)
-
-    @staticmethod
-    def _identity(array: xr.DataArray) -> xr.DataArray:
-        return array
-
-    @staticmethod
-    def _to_datetime(value: datetime) -> datetime:
-        if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+    def _select_variable(
+        self,
+        asset_data: xr.Dataset | xr.DataArray,
+        spec: VariableSpec,
+    ) -> xr.DataArray:
+        data_array = super()._select_variable(asset_data, spec)
+        if "band" in data_array.dims and data_array.sizes.get("band", 0) == 1:
+            data_array = data_array.squeeze("band", drop=True)
+        data_array.name = spec.dataset_key
+        return data_array

@@ -60,9 +60,11 @@ data = [
     "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
-    "intake-esgf>=0.9.4",
+    "intake-esgf>=2025.9.26",
     "planetary-computer>=0.5.0",
+    "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
     "pystac-client>=0.9.0",
+    "httpx>=0.28.1",
     "rasterio>=1.3.9",
     "rioxarray>=0.15.5",
     "pyproj>=3.7.1",
@@ -215,7 +217,7 @@ no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.sources]
-cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "9b24c2f81096a340444e7e0966fe93223a4d9532" }
+cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
