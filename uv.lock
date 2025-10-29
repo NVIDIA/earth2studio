@@ -643,17 +643,13 @@ wheels = [
 
 [[package]]
 name = "cfgrib"
-version = "0.9.15.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.9.15.1"
+source = { git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433#6a9af3173d7050b5fa5d221755f97e6ecb8c3433" }
 dependencies = [
     { name = "attrs" },
     { name = "click" },
     { name = "eccodes" },
     { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/3b/0ccbbc67866a4a2df570d6bf0f53d6d22220c44e1f3684455b5eae298936/cfgrib-0.9.15.0.tar.gz", hash = "sha256:d455034e19b9560a75d008ba9d09b2d4e65762adfb2e911f28b841f4b9c6b47f", size = 6511752, upload-time = "2024-12-18T11:10:17.728Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/d7/96b4209c99f1fd6c19f502cebe8c91983c23331c380f3f521250f268ae8c/cfgrib-0.9.15.0-py3-none-any.whl", hash = "sha256:469cfd25dc173863795e596263b3b6b5ea1402b1715f2b7b1d4b995b40b32c18", size = 48908, upload-time = "2024-12-18T11:10:13.381Z" },
 ]
 
 [[package]]
@@ -1536,7 +1532,7 @@ requires-dist = [
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
-    { name = "cfgrib", specifier = ">=0.9.10.3" },
+    { name = "cfgrib", git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433" },
     { name = "cftime" },
     { name = "cucim-cu12", marker = "extra == 'all'", specifier = ">=25.4.0" },
     { name = "cucim-cu12", marker = "extra == 'cyclone'", specifier = ">=25.4.0" },
@@ -1637,7 +1633,7 @@ requires-dist = [
     { name = "torch-harmonics", marker = "extra == 'perturbation'", specifier = ">=0.7.4" },
     { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.8.0" },
     { name = "tqdm", specifier = ">=4.65.0" },
-    { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0,<2025.9.1" },
+    { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.0" },
 ]
 provides-extras = ["aifs", "all", "aurora", "aurora-fork", "cbottle", "climatenet", "corrdiff", "cyclone", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "sfno", "solarradiation-afno", "statistics", "stormcast", "windgust-afno"]
