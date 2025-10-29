@@ -27,6 +27,7 @@ Thus are typically used to generate forecast predictions.
    :template: prognostic.rst
 
    AIFS
+   AIFSENS
    Aurora
    CBottleVideo
    DiagnosticWrapper

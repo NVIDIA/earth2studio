@@ -597,7 +597,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
         x = x[..., self.model.data_indices.data.input.full]
 
-                # Get cos, sin of Julian day
+        # Get cos, sin of Julian day
         cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
             time0, self.longitudes
         )
@@ -736,10 +736,16 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # Collect relevant indices from model (prognostic + forcing)
-        indices = torch.cat([
-            self.model.data_indices.data.input.prognostic,
-            self.model.data_indices.data.input.forcing,
-        ]).sort().values
+        indices = (
+            torch.cat(
+                [
+                    self.model.data_indices.data.input.prognostic,
+                    self.model.data_indices.data.input.forcing,
+                ]
+            )
+            .sort()
+            .values
+        )
 
         # Define unwanted indices (generated forcings)
         generated_forcing_range = torch.arange(92, 101)

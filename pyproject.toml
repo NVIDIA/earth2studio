@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = "==3.11.*"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
@@ -20,7 +20,7 @@ dependencies = [
     "h5netcdf>=1.0.0",
     "huggingface-hub>=0.27.0",
     "loguru",
-    "netCDF4>=1.6.4",
+    "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "rich",
@@ -60,7 +60,8 @@ data = [
     "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
-    "intake-esgf>=0.9.4",
+    "intake-esgf>=2025.9.26",
+    "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
     "pyproj>=3.7.1",
     "scipy>=1.15.2",
 ]
@@ -80,8 +81,9 @@ aifs = [
 ]
 aifsens = [
     "anemoi-models==0.5.1",
-    'anemoi-graphs==0.6.2',
+    "anemoi-graphs==0.6.2",
     "earthkit-regrid==0.4.0",
+    "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
 aurora = [
@@ -213,7 +215,7 @@ conflicts = [
     [
       { extra = "aifs" },
       { extra = "aifsens" },
-    ],
+    ]
 ]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
@@ -221,7 +223,8 @@ no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.sources]
-cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "9b24c2f81096a340444e7e0966fe93223a4d9532" }
+cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
+cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
@@ -264,7 +267,6 @@ dev = [
     "types-requests",
     "ruff",
     "pytest-asyncio>=0.26.0",
-    "ipykernel>=6.30.1",
 ]
 docs = [
     "cartopy",
@@ -332,6 +334,7 @@ concurrency = ["multiprocessing", "thread"]
 source = ["earth2studio"]
 omit = [
     "third_party/*",
+    "earth2studio/data/imerg.py"
 ]
 
 [tool.coverage.report]
