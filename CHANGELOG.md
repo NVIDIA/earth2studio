@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added vertical wind speed support in GFS
 - Added ModelOutputDatasetSource to use written model output to start a new model run
 - Added FCN3 noise handling routines.
+- Added tp06 support to CDS data source.
 - Added IFS_ENS, AIFS, and AIFS_ENS data sources.
 
 ### Changed
