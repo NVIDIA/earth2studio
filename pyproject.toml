@@ -20,7 +20,7 @@ dependencies = [
     "h5netcdf>=1.0.0",
     "huggingface-hub>=0.27.0",
     "loguru",
-    "netCDF4>=1.6.4",
+    "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
     "nest_asyncio", # TODO Remove
     "python-dotenv",
     "rich",
@@ -212,6 +212,7 @@ no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.sources]
+cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
