@@ -25,10 +25,11 @@ from earth2studio.io import XarrayBackend
 from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
+    DerivedWS,
     PrecipitationAFNOv2,
     SolarRadiationAFNO1H,
 )
-from earth2studio.models.px import FCN3, DiagnosticWrapper
+from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
 from earth2studio.run import deterministic
 from earth2studio.utils.coords import map_coords
 
@@ -156,10 +157,11 @@ def test_dxwrapper_call(device, model_type, times):
             {"lat": px_out_coords["lat"], "lon": px_out_coords["lon"]}
         ),
     )
+    ws_model = DerivedWS(levels=["100m"])
 
-    wrapped_model = DiagnosticWrapper(px_model=px_model, dx_model=[sp_model]).to(
-        device=device
-    )
+    wrapped_model = DiagnosticWrapper(
+        px_model=px_model, dx_model=[sp_model, ws_model]
+    ).to(device=device)
     wrapped_model = DiagnosticWrapper(px_model=wrapped_model, dx_model=[dx_model]).to(
         device=device
     )
@@ -201,7 +203,6 @@ def test_dxwrapper_call(device, model_type, times):
 )
 def test_dxwrapper_iter(device, times, number_of_samples):
     # Spoof models
-    px_model = FCN3(PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor())))
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
     in_scale = torch.ones(12, 1, 1)
@@ -220,6 +221,16 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         out_lat,
         out_lon,
         number_of_samples=number_of_samples,
+    ).to(device)
+
+    # Create persistence prognostic model
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=corrdiff_model.input_coords()["variable"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
     ).to(device)
 
     wrapped_model = DiagnosticWrapper(
@@ -260,8 +271,7 @@ def test_dxwrapper_iter(device, times, number_of_samples):
     ],
 )
 def test_dxwrapper_run(device, times, number_of_samples):
-    # Spoof models
-    px_model = FCN3(PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor())))
+
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
     in_scale = torch.ones(12, 1, 1)
@@ -280,6 +290,16 @@ def test_dxwrapper_run(device, times, number_of_samples):
         out_lat,
         out_lon,
         number_of_samples=number_of_samples,
+    ).to(device)
+
+    # Create persistence prognostic model
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=corrdiff_model.input_coords()["variable"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
     ).to(device)
 
     wrapped_model = DiagnosticWrapper(
