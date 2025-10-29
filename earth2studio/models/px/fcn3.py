@@ -21,7 +21,6 @@ from datetime import datetime
 import numpy as np
 import torch
 from loguru import logger
-from packaging.version import Version
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -38,19 +37,20 @@ from earth2studio.utils.type import CoordSystem
 try:
     import torch_harmonics
     from makani.models.model_package import load_model_package
+    from packaging.version import Version
+
+    if Version(torch_harmonics.__version__) >= Version("0.8.1"):
+        from torch_harmonics.disco import cuda_kernels_is_available
+
+        _cuda_extension_available = cuda_kernels_is_available()
+    else:
+        from importlib.util import find_spec
+
+        _cuda_extension_available = find_spec("disco_cuda_extension") is not None
 except ImportError:
     OptionalDependencyFailure("fcn3")
     load_model_package = None
     _cuda_extension_available = False
-
-if Version(torch_harmonics.__version__) >= Version("0.8.1"):
-    from torch_harmonics.disco import cuda_kernels_is_available
-
-    _cuda_extension_available = cuda_kernels_is_available()
-else:
-    from importlib.util import find_spec
-
-    _cuda_extension_available = find_spec("disco_cuda_extension") is not None
 
 
 VARIABLES = [
