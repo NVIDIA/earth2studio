@@ -111,11 +111,15 @@ class PrepareInputTensorDefault:
             else:
                 return (lat, lon)
 
-        (lat0, lon0) = _convert_to_2d(px_coords["lat"], px_coords["lon"])
-        (lat1, lon1) = _convert_to_2d(dx_coords["lat"], dx_coords["lon"])
-
         if self.interp is None:
-            self.interp = LatLonInterpolation(lat0, lon0, lat1, lon1).to(x.device)
+            (lat0, lon0) = _convert_to_2d(px_coords["lat"], px_coords["lon"])
+            (lat1, lon1) = _convert_to_2d(dx_coords["lat"], dx_coords["lon"])
+
+            # Check if coordinates are identical - if so, skip interpolation
+            if np.array_equal(lat0, lat1) and np.array_equal(lon0, lon1):
+                self.interp = lambda x: x
+            else:
+                self.interp = LatLonInterpolation(lat0, lon0, lat1, lon1).to(x.device)
 
         x = self.interp(x)
         coords = px_coords.copy()
