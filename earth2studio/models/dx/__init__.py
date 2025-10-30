@@ -45,7 +45,8 @@ from earth2studio.models.dx.tempest_extremes import (
 from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
 
 __all__ = [
-    "AsyncTempestExtremes" "ClimateNet",
+    "AsyncTempestExtremes",
+    "ClimateNet",
     "CorrDiff",
     "CorrDiffTaiwan",
     "PrecipitationAFNO",
