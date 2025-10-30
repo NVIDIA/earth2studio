@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+import time
 from collections import OrderedDict
 from unittest.mock import patch
 
@@ -494,8 +495,6 @@ def test_async_record_state_waits_for_dump(mock_check):
 
         # Wait a bit and verify record hasn't completed
         record_started.wait(timeout=1)
-        import time
-
         time.sleep(0.1)
         assert not record_completed.is_set()
 
