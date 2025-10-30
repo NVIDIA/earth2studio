@@ -717,6 +717,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
+        _ = self.output_coords(coords)  # Ensure coordinate validation like AIFS
         x = self._prepare_input(x, coords)
         x, coords = self._forward(x, coords)
         x = self._prepare_output(x, coords)
