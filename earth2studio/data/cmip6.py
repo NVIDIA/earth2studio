@@ -80,6 +80,9 @@ class CMIP6:
         Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
+    exact_time_match : bool, optional
+        If True, raise an error when requested times don't match dataset times exactly.
+        If False (default), use nearest neighbor time matching and issue a warning, by default False
 
     Warning
     -------
@@ -101,8 +104,10 @@ class CMIP6:
 
     Note
     ----
-    This data source will retrieve the closest time possible, depending on the
-    experiment this may be significantly different than what was requested.
+    By default, this data source will retrieve the closest time available using nearest
+    neighbor matching. Depending on the experiment and temporal resolution, this may be
+    significantly different than what was requested. Set `exact_time_match=True` to
+    enforce exact time matching if precise timestamps are critical.
     """
 
     def __init__(
@@ -115,6 +120,7 @@ class CMIP6:
         file_end: str | None = None,
         cache: bool = True,
         verbose: bool = True,
+        exact_time_match: bool = False,
     ):
         self.experiment_id = experiment_id
         self.source_id = source_id
@@ -124,6 +130,7 @@ class CMIP6:
         self.file_end = file_end
         self._cache = cache
         self._verbose = verbose
+        self._exact_time_match = exact_time_match
 
         # Create catalog
         intake_esgf.conf.set(local_cache=self.cache)
@@ -226,17 +233,42 @@ class CMIP6:
                 f"\nDataset: {ds}"
             )
 
-        # Find the nearest available times in the first dataset.
-        # Preserve original requested times for reference while sampling nearest data.
+        # Find the available times in the first dataset.
+        # Preserve original requested times for reference while sampling data.
         requested_times = self._convert_times_to_datetime(time)
         selection_times = self._convert_times_to_cftime(
             requested_times, ds.time.dt.calendar
         )
-        ds_nearest = ds.sel(time=selection_times, method="nearest")  # type: ignore[arg-type]
-        selected_times = ds_nearest.time.values  # cftime objects in dataset calendar
+
+        # Select times based on matching mode
+        if self._exact_time_match:
+            # Try exact match
+            try:
+                ds_selected = ds.sel(time=selection_times)  # type: ignore[arg-type]
+            except KeyError as e:
+                # Find which times are missing
+                available_times_cftime = ds.time.values
+                available_times_dt = self._convert_times_to_datetime(
+                    list(available_times_cftime)
+                )
+                missing_times = [
+                    t for t in requested_times if t not in available_times_dt
+                ]
+                raise ValueError(
+                    f"Exact time match required but the following timestamps were not found in the CMIP6 dataset: {missing_times}. "
+                    f"Available times: {available_times_dt[:10]}... (showing first 10). "
+                    f"Set exact_time_match=False to use nearest neighbor matching instead."
+                ) from e
+        else:
+            # Use nearest neighbor matching (default behavior)
+            ds_selected = ds.sel(time=selection_times, method="nearest")  # type: ignore[arg-type]
+
+        # Extract selected times (common for both modes)
+        selected_times = ds_selected.time.values  # cftime objects in dataset calendar
         selected_times_dt = self._convert_times_to_datetime(list(selected_times))
 
-        if not np.array_equal(
+        # Warn if using nearest neighbor and times don't match exactly
+        if not self._exact_time_match and not np.array_equal(
             np.asarray(requested_times, dtype=object),
             np.asarray(selected_times_dt, dtype=object),
         ):
@@ -245,6 +277,7 @@ class CMIP6:
                 "nearest available snapshots have been substituted.",
                 UserWarning,
             )
+
         # Use selected (actual available) times for data subsetting
         selection_times = selected_times
 
@@ -551,13 +584,24 @@ class CMIP6MultiRealm:
     ----------
     cmip6_source_list : list[CMIP6]
         List of CMIP6 data sources to combine. Variables will be fetched from
-        sources in the order they appear in the list.
+        sources in the order they appear in the list. All sources must have the
+        same `exact_time_match` setting.
+
+    Raises
+    ------
+    ValueError
+        If cmip6_source_list is empty or if sources have different exact_time_match settings.
+    TypeError
+        If any item in cmip6_source_list is not a CMIP6 instance.
 
     Note
     ----
     When multiple sources have different grids, curvilinear grids (e.g., from ocean
     or sea ice models) will be interpolated to the first regular lat/lon grid found
     using nearest-neighbor interpolation.
+
+    All CMIP6 sources must be initialized with the same `exact_time_match` setting
+    to ensure consistent time matching behavior across realms.
     """
 
     def __init__(self, cmip6_source_list: list[CMIP6]):
@@ -570,6 +614,16 @@ class CMIP6MultiRealm:
                 raise TypeError(
                     f"Item at index {i} in cmip6_source_list is not a CMIP6 instance. "
                     f"Got {type(source).__name__} instead."
+                )
+
+        # Validate that all sources have the same exact_time_match setting
+        first_exact_time_match = cmip6_source_list[0]._exact_time_match
+        for i, source in enumerate(cmip6_source_list[1:], start=1):
+            if source._exact_time_match != first_exact_time_match:
+                raise ValueError(
+                    f"All CMIP6 sources must have the same exact_time_match setting. "
+                    f"Source 0 has exact_time_match={first_exact_time_match}, "
+                    f"but source {i} has exact_time_match={source._exact_time_match}."
                 )
 
         self.cmip6_source_list = cmip6_source_list

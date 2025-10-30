@@ -389,3 +389,182 @@ def test_cmip6_multi_realm_with_sea_ice():
     # Should be on regular grid
     assert "lat" in data.coords
     assert "lon" in data.coords
+
+
+# Tests for exact_time_match feature
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+def test_cmip6_exact_time_match_fails_on_mismatch():
+    """Test that exact_time_match=True raises ValueError when time doesn't match exactly."""
+    ds = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+        exact_time_match=True,
+    )
+
+    # Request a time that's unlikely to match exactly (mid-month, specific time)
+    time = datetime(2015, 1, 15, 12, 30, 45)
+
+    with pytest.raises(ValueError, match="Exact time match required"):
+        _ = ds(time, ["u10m"])
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+def test_cmip6_exact_time_match_succeeds_on_match():
+    """Test that exact_time_match=True succeeds when time matches exactly."""
+    # First fetch with default to discover exact timestamp
+    ds_default = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+        exact_time_match=False,
+        verbose=False,
+    )
+
+    # Get approximate time
+    approx_time = datetime(2015, 1, 16)
+    data = ds_default(approx_time, ["u10m"])
+    actual_time = data.coords["time"].values[0]
+
+    # Now use exact matching with discovered time
+    ds_exact = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+        exact_time_match=True,
+        verbose=False,
+    )
+
+    data_exact = ds_exact(actual_time, ["u10m"])
+    assert data_exact.shape[0] == 1
+    assert data_exact.shape[1] == 1
+
+
+# Tests for CMIP6MultiRealm exact_time_match validation
+
+
+def test_cmip6_multi_realm_mismatched_exact_time_match():
+    """Test that CMIP6MultiRealm raises error when sources have different exact_time_match settings."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+        exact_time_match=False,
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+        exact_time_match=True,  # Different!
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="All CMIP6 sources must have the same exact_time_match setting",
+    ):
+        CMIP6MultiRealm([atmos, ocean])
+
+
+@pytest.mark.parametrize(
+    "exact_time_match",
+    [
+        pytest.param(False, id="exact_false"),
+        pytest.param(True, id="exact_true"),
+    ],
+)
+def test_cmip6_multi_realm_consistent_exact_time_match(exact_time_match):
+    """Test that CMIP6MultiRealm succeeds when all sources have same exact_time_match setting."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+        exact_time_match=exact_time_match,
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+        exact_time_match=exact_time_match,  # Same!
+    )
+
+    # Should not raise
+    multi = CMIP6MultiRealm([atmos, ocean])
+    assert multi is not None
+
+
+# Tests for CMIP6MultiRealm missing variable validation
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+def test_cmip6_multi_realm_missing_variables():
+    """Test that CMIP6MultiRealm raises error when requested variables are not found."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6MultiRealm([atmos, ocean])
+
+    time = datetime(2015, 1, 16)
+    # Request variables that don't exist in any source
+    variables = ["u10m", "sst", "nonexistent_var"]
+
+    with pytest.raises(
+        ValueError, match="not found in any of the provided CMIP6 sources"
+    ):
+        _ = multi(time, variables)
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+def test_cmip6_multi_realm_all_missing_variables():
+    """Test that CMIP6MultiRealm raises error when none of the requested variables exist."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6MultiRealm([atmos, ocean])
+
+    time = datetime(2015, 1, 16)
+    # Request only variables that don't exist
+    variables = ["fake_var1", "fake_var2"]
+
+    with pytest.raises(ValueError, match="None of the requested variables"):
+        _ = multi(time, variables)
