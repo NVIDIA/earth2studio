@@ -12,12 +12,12 @@
       "defaultOpen": false
     },
     "confidenceScoreSection": {
-      "included": true,
+      "included": false,
       "collapsible": true,
       "defaultOpen": false
     },
     "sequenceDiagramSection": {
-      "included": false,
+      "included": true,
       "collapsible": false,
       "defaultOpen": false
     }
