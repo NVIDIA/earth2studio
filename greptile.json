@@ -1,6 +1,7 @@
 {
     "triggerOnUpdates": false,
     "comment": "Disclaimer: This is AI-generated.",
+    "fixWithAI": false,
     "summarySection": {
       "included": true,
       "collapsible": false,
