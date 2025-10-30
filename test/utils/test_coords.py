@@ -26,7 +26,12 @@ from earth2studio.utils import (
     handshake_dim,
     handshake_size,
 )
-from earth2studio.utils.coords import map_coords, split_coords
+from earth2studio.utils.coords import (
+    cat_coords,
+    map_coords,
+    split_coords,
+    tile_xx_to_yy,
+)
 
 
 @pytest.mark.parametrize(
@@ -420,3 +425,67 @@ def test_convert_multidim_to_singledim_additional():
         ValueError, match="Assumed that if an n-dimensional coordinate exists"
     ):
         convert_multidim_to_singledim(coords)
+
+
+def test_tile_xx_to_yy():
+    """Test tiling function for expanding dimensions"""
+
+    xx = torch.randn(2, 721, 1440)
+    xx_coords = OrderedDict(
+        {
+            "variable": np.array(["z", "lsm"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(3, 4, 5, 721, 1440)
+    yy_coords = OrderedDict(
+        {
+            "ensemble": np.array([0, 1, 2]),
+            "time": np.array([1, 2, 3, 4]),
+            "lead_time": np.array([0, 1, 2, 3, 4]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+
+    # Result should have yy's leading dims + all of xx's dims
+    # yy.shape = (3, 4, 5, 721, 1440), xx.shape = (2, 721, 1440)
+    # n_lead = 5 - 3 = 2, so we prepend yy's first 2 dims to xx
+    # Result shape should be (3, 4, 2, 721, 1440)
+    assert result.shape == (3, 4, 2, 721, 1440)
+    assert "variable" in result_coords
+    assert "time" in result_coords
+
+
+def test_cat_coords():
+    """Test coordinate concatenation"""
+
+    xx = torch.randn(1, 2, 721, 1440)
+    cox = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["u10m", "v10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(1, 1, 721, 1440)
+    coy = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    result, result_coords = cat_coords(xx, cox, yy, coy, dim="variable")
+
+    assert result.shape == (1, 3, 721, 1440)
+    assert len(result_coords["variable"]) == 3
+    assert np.array_equal(result_coords["variable"], ["u10m", "v10m", "msl"])
