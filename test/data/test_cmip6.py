@@ -407,8 +407,8 @@ def test_cmip6_exact_time_match_fails_on_mismatch():
         exact_time_match=True,
     )
 
-    # Request a time that's unlikely to match exactly (mid-month, specific time)
-    time = datetime(2015, 1, 15, 12, 30, 45)
+    # Request a time that's definitely outside the dataset range of ssp585
+    time = datetime(1800, 1, 1)
 
     with pytest.raises(ValueError, match="Exact time match required"):
         _ = ds(time, ["u10m"])
@@ -513,8 +513,12 @@ def test_cmip6_multi_realm_consistent_exact_time_match(exact_time_match):
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
-def test_cmip6_multi_realm_missing_variables():
-    """Test that CMIP6MultiRealm raises error when requested variables are not found."""
+def test_cmip6_multi_realm_partial_missing_variables():
+    """Test that CMIP6MultiRealm raises error when some requested variables are not found.
+
+    Tests the case where some variables are successfully found but others are missing.
+    The error should list which variables were not found.
+    """
     atmos = CMIP6(
         experiment_id="ssp585",
         source_id="CanESM5",
@@ -532,7 +536,7 @@ def test_cmip6_multi_realm_missing_variables():
     multi = CMIP6MultiRealm([atmos, ocean])
 
     time = datetime(2015, 1, 16)
-    # Request variables that don't exist in any source
+    # Mix of valid variables (u10m from atmos, sst from ocean) and invalid (nonexistent_var)
     variables = ["u10m", "sst", "nonexistent_var"]
 
     with pytest.raises(
