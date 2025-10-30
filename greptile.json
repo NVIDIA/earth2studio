@@ -1,14 +1,15 @@
 {
     "triggerOnUpdates": false,
+    "comment": "Disclaimer: This is AI-generated.",
     "summarySection": {
       "included": true,
-      "collapsible": true,
+      "collapsible": false,
       "defaultOpen": false
     },
 
     "issuesTableSection": {
       "included": true,
-      "collapsible": true,
+      "collapsible": false,
       "defaultOpen": false
     },
     "confidenceScoreSection": {
@@ -17,7 +18,7 @@
       "defaultOpen": false
     },
     "sequenceDiagramSection": {
-      "included": true,
+      "included": false,
       "collapsible": false,
       "defaultOpen": false
     }
