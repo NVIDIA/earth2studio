@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 
 from earth2studio.data import CMIP6
-from earth2studio.data.cmip6 import CMIP6_multi_realm
+from earth2studio.data.cmip6 import CMIP6MultiRealm
 
 
 @pytest.mark.slow
@@ -181,6 +181,83 @@ def test_cmip6_available(time, source_id, expected):
     assert result is expected
 
 
+def test_cmip6_multi_realm_empty_list():
+    """Test that empty source list raises ValueError."""
+    with pytest.raises(ValueError, match="cannot be empty"):
+        CMIP6MultiRealm([])
+
+
+def test_cmip6_multi_realm_invalid_type():
+    """Test that non-CMIP6 instances in list raise TypeError."""
+    with pytest.raises(TypeError, match="not a CMIP6 instance"):
+        CMIP6MultiRealm(["not_a_cmip6_source"])
+
+
+def test_cmip6_multi_realm_available_variables():
+    """Test that available_variables returns union of all sources."""
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Amon",
+        variant_label="r1i1p2f1",
+    )
+
+    ocean = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="Omon",
+        variant_label="r1i1p2f1",
+    )
+
+    multi = CMIP6MultiRealm([atmos, ocean])
+
+    # available_variables should be union of both sources
+    assert isinstance(multi.available_variables, set)
+    assert len(multi.available_variables) > 0
+    # Should contain variables from both atmosphere and ocean
+    assert multi.available_variables == (
+        atmos.available_variables | ocean.available_variables
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "time, expected",
+    [
+        pytest.param(datetime(2015, 1, 16), True, id="available"),
+        pytest.param(datetime(1800, 1, 1), False, id="too_early"),
+    ],
+)
+@pytest.mark.xfail(
+    reason="available() downloads large amounts of data to check timestamp availability"
+)
+def test_cmip6_multi_realm_available(time, expected):
+    """Test the CMIP6MultiRealm.available class-method.
+
+    Note: This test uses daily datasets (day and SIday) to ensure timestamp alignment.
+    Marked as xfail because available() downloads significant data (multiple GB).
+    """
+    atmos = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="day",
+        variant_label="r1i1p2f1",
+    )
+
+    # Use daily sea ice data (SIday) to ensure timestamp alignment with day
+    sea_ice = CMIP6(
+        experiment_id="ssp585",
+        source_id="CanESM5",
+        table_id="SIday",
+        variant_label="r1i1p2f1",
+    )
+
+    sources = [atmos, sea_ice]
+    result = CMIP6MultiRealm.available(time, sources)
+
+    assert result is expected
+
+
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(90)
@@ -202,7 +279,7 @@ def test_cmip6_multi_realm_basic():
         variant_label="r1i1p2f1",
     )
 
-    multi = CMIP6_multi_realm([atmos, ocean])
+    multi = CMIP6MultiRealm([atmos, ocean])
 
     time = datetime(2015, 1, 16)
     variables = ["u10m", "sst"]  # one from each realm
@@ -233,7 +310,7 @@ def test_cmip6_multi_realm_regridding():
         variant_label="r1i1p2f1",
     )
 
-    multi = CMIP6_multi_realm([atmos, ocean])
+    multi = CMIP6MultiRealm([atmos, ocean])
 
     time = datetime(2015, 1, 16)
     variables = ["u10m", "sst"]
@@ -248,46 +325,6 @@ def test_cmip6_multi_realm_regridding():
 
     # Both variables should have same spatial dimensions
     assert data.isel(variable=0).shape == data.isel(variable=1).shape
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(90)
-@pytest.mark.parametrize(
-    "interp_method",
-    [
-        pytest.param("nearest", id="nearest"),
-        pytest.param("linear", id="linear"),
-        pytest.param("cubic", id="cubic"),
-    ],
-)
-def test_cmip6_multi_realm_interp_methods(interp_method):
-    """Test different interpolation methods."""
-    atmos = CMIP6(
-        experiment_id="ssp585",
-        source_id="CanESM5",
-        table_id="Amon",
-        variant_label="r1i1p2f1",
-    )
-
-    ocean = CMIP6(
-        experiment_id="ssp585",
-        source_id="CanESM5",
-        table_id="Omon",
-        variant_label="r1i1p2f1",
-    )
-
-    multi = CMIP6_multi_realm([atmos, ocean])
-
-    time = datetime(2015, 1, 16)
-    variables = ["u10m", "sst"]
-
-    data = multi(time, variables, interp_method=interp_method)
-
-    assert data.shape[0] == 1
-    assert data.shape[1] == 2
-    # Should not be all NaN
-    assert not np.all(np.isnan(data.values))
 
 
 @pytest.mark.slow
@@ -309,7 +346,7 @@ def test_cmip6_multi_realm_variable_priority():
         variant_label="r1i1p2f1",
     )
 
-    multi = CMIP6_multi_realm([atmos1, atmos2])
+    multi = CMIP6MultiRealm([atmos1, atmos2])
 
     time = datetime(2015, 1, 16)
     variables = ["u10m"]  # available in both
@@ -340,7 +377,7 @@ def test_cmip6_multi_realm_with_sea_ice():
         variant_label="r1i1p2f1",
     )
 
-    multi = CMIP6_multi_realm([atmos, sea_ice])
+    multi = CMIP6MultiRealm([atmos, sea_ice])
 
     time = datetime(2015, 1, 16)
     variables = ["t2m", "siconc"]  # temperature and sea ice concentration

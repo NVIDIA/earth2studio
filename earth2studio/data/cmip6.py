@@ -335,12 +335,16 @@ class CMIP6:
         variant_label : str
             Ensemble member / initial-condition label such as "r1i1p1f1".
 
+        Warning
+        -------
+        This method downloads data from ESGF servers to verify the time coordinate
+        range. It is not a lightweight metadata-only check.
+
         Notes
         -----
-        The check performs a lightweight ESGF search restricted to a one-day
-        window surrounding *time*.  If any dataset is returned and the target
-        timestamp lies within the dataset's time span, `True` is returned.
-        Otherwise returns `False`.
+        The check performs an ESGF search and downloads at least one file to read
+        its time coordinate bounds. If the target timestamp lies within the dataset's
+        time span, `True` is returned. Otherwise returns `False`.
         """
 
         if isinstance(time, np.datetime64):  # np.datetime64 → datetime
@@ -535,7 +539,7 @@ class CMIP6:
 
 
 @check_optional_dependencies()
-class CMIP6_multi_realm:
+class CMIP6MultiRealm:
     """CMIP6 data source for Earth2Studio with multiple realms.
 
     This class allows combining multiple CMIP6 data sources from different realms
@@ -557,13 +561,28 @@ class CMIP6_multi_realm:
     """
 
     def __init__(self, cmip6_source_list: list[CMIP6]):
+        if not cmip6_source_list:
+            raise ValueError("cmip6_source_list cannot be empty")
+
+        # Validate that all items are CMIP6 instances
+        for i, source in enumerate(cmip6_source_list):
+            if not isinstance(source, CMIP6):
+                raise TypeError(
+                    f"Item at index {i} in cmip6_source_list is not a CMIP6 instance. "
+                    f"Got {type(source).__name__} instead."
+                )
+
         self.cmip6_source_list = cmip6_source_list
+
+        # Collect all available variables from all sources
+        self.available_variables: set[str] = set()
+        for source in cmip6_source_list:
+            self.available_variables.update(source.available_variables)
 
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        interp_method: str = "nearest",
     ) -> xr.DataArray:
         """Retrieve data from multiple CMIP6 sources and combine into single array.
 
@@ -578,9 +597,6 @@ class CMIP6_multi_realm:
         variable : str | list[str] | VariableArray
             Variable(s) to retrieve. Each variable will be fetched from the first
             source in the list that has it available.
-        interp_method : str, optional
-            Interpolation method to use when regridding curvilinear grids to regular
-            grids. Options are 'nearest', 'linear', or 'cubic'. Default is 'nearest'.
 
         Returns
         -------
@@ -593,6 +609,9 @@ class CMIP6_multi_realm:
         Variables are retrieved from sources in the order they appear in
         cmip6_source_list. If multiple sources contain the same variable,
         only the first one will be used.
+
+        Curvilinear grids (ocean/sea ice) are regridded to regular grids using
+        nearest-neighbor interpolation to preserve data coverage near coastlines.
         """
         da_list = []
         var_done = []
@@ -615,26 +634,77 @@ class CMIP6_multi_realm:
             da_list.append(cmip6_source(time, var_todo))
             var_done.extend(var_todo)
 
+        # Check if any variables were found
+        if not da_list:
+            raise ValueError(
+                f"None of the requested variables {variable} were found in any of the provided CMIP6 sources"
+            )
+
         # Regrid all data arrays to a common grid if needed
-        da_list = self._regrid_to_common_grid(da_list, interp_method)
+        da_list = self._regrid_to_common_grid(da_list)
 
         # Combine all data arrays along variable dimension
         return xr.concat(da_list, dim="variable")
 
-    def _regrid_to_common_grid(
-        self, da_list: list[xr.DataArray], interp_method: str = "nearest"
-    ) -> list[xr.DataArray]:
+    @classmethod
+    def available(
+        cls,
+        time: datetime | np.datetime64,
+        cmip6_source_list: list[CMIP6],
+    ) -> bool:
+        """Check if the requested timestamp is available in all sources.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Timestamp to test (UTC).
+        cmip6_source_list : list[CMIP6]
+            List of CMIP6 data sources to check.
+
+        Returns
+        -------
+        bool
+            True if the timestamp is available in all sources, False otherwise.
+
+        Warning
+        -------
+        This method may download data from ESGF servers for each source to check
+        time availability. For multiple sources, this can result in significant
+        data transfer.
+
+        Notes
+        -----
+        This method checks that ALL sources have data available at the requested time,
+        since combining multi-realm data requires data from all sources. Each source
+        is checked by downloading at least one file to verify the time coordinate range.
+        """
+        if not cmip6_source_list:
+            return False
+
+        # Check that ALL sources have data available at the requested time
+        for source in cmip6_source_list:
+            if not CMIP6.available(
+                time,
+                source.experiment_id,
+                source.source_id,
+                source.table_id,
+                source.variant_label,
+            ):
+                return False
+
+        return True
+
+    def _regrid_to_common_grid(self, da_list: list[xr.DataArray]) -> list[xr.DataArray]:
         """Regrid all data arrays to a common regular lat/lon grid.
 
         Uses the first regular (non-curvilinear) grid as the target.
-        Curvilinear grids (with _lat/_lon coords) are interpolated to this target.
+        Curvilinear grids (with _lat/_lon coords) are interpolated to this target
+        using nearest-neighbor interpolation.
 
         Parameters
         ----------
         da_list : list[xr.DataArray]
             List of data arrays to regrid
-        interp_method : str, optional
-            Interpolation method ('nearest', 'linear', or 'cubic'). Default is 'nearest'.
 
         Returns
         -------
@@ -665,7 +735,7 @@ class CMIP6_multi_realm:
             if "_lat" in da.coords and "_lon" in da.coords:
                 # Curvilinear grid - needs interpolation
                 regridded = self._interpolate_curvilinear_to_regular(
-                    da, target_lats, target_lons, target_da, interp_method
+                    da, target_lats, target_lons, target_da
                 )
                 regridded_list.append(regridded)
             else:
@@ -680,9 +750,11 @@ class CMIP6_multi_realm:
         target_lats: np.ndarray,
         target_lons: np.ndarray,
         target_da: xr.DataArray,
-        interp_method: str = "nearest",
     ) -> xr.DataArray:
         """Interpolate curvilinear grid data to a regular lat/lon grid.
+
+        Uses nearest-neighbor interpolation to preserve data coverage near
+        coastlines and avoid NaN expansion issues common with linear/cubic methods.
 
         Parameters
         ----------
@@ -694,8 +766,6 @@ class CMIP6_multi_realm:
             Target longitude coordinates
         target_da : xr.DataArray
             Target data array to match dimensions
-        interp_method : str, optional
-            Interpolation method ('nearest', 'linear', or 'cubic'). Default is 'nearest'.
 
         Returns
         -------
@@ -705,9 +775,9 @@ class CMIP6_multi_realm:
         # Get source curvilinear coordinates
         source_lons = da_curvilinear["_lon"].values.flatten()
         source_lats = da_curvilinear["_lat"].values.flatten()
-        points = np.column_stack((source_lons, source_lats))
+        points = np.column_stack((source_lats, source_lons))
 
-        # Create target grid
+        # Create target grid (note: meshgrid returns lon first, lat second)
         target_lon_grid, target_lat_grid = np.meshgrid(target_lons, target_lats)
 
         # Prepare output array
@@ -725,8 +795,8 @@ class CMIP6_multi_realm:
                 regridded_data[i_time, i_var, :, :] = griddata(
                     points,
                     slice_values,
-                    (target_lon_grid, target_lat_grid),
-                    method=interp_method,
+                    (target_lat_grid, target_lon_grid),
+                    method="nearest",
                 )
 
         # Create new DataArray with target coordinates
