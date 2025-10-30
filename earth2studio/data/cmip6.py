@@ -640,6 +640,22 @@ class CMIP6MultiRealm:
                 f"None of the requested variables {variable} were found in any of the provided CMIP6 sources"
             )
 
+        # Check if ALL requested variables were found
+        var_missing = [v for v in variable if v not in var_done]
+        if var_missing:
+            # Get CMIP6 variable IDs for the missing variables
+            missing_cmip6_vars = []
+            for v in var_missing:
+                cmip6_entry = CMIP6Lexicon.get_item(v)
+                (cmip6_var, _), _ = cmip6_entry
+                missing_cmip6_vars.append(f"{v} (CMIP6: {cmip6_var})")
+
+            raise ValueError(
+                f"Variable(s) {missing_cmip6_vars} not found in any of the provided CMIP6 sources. "
+                f"Found variables: {var_done}. "
+                f"Available variables across all sources: {sorted(self.available_variables)}"
+            )
+
         # Regrid all data arrays to a common grid if needed
         da_list = self._regrid_to_common_grid(da_list)
 
