@@ -459,11 +459,19 @@ def tile_xx_to_yy(
     ------
     ValueError
         If xx has more dimensions than yy
+    ValueError
+        If trailing coordinate keys of yy_coords do not match xx_coords keys
     """
     n_lead = len(yy.shape) - len(xx.shape)
 
     if n_lead < 0:
         raise ValueError("xx must have fewer dimensions than yy.")
+
+    if list(xx_coords.keys()) != list(yy_coords.keys())[-len(xx_coords) :]:
+        raise ValueError(
+            f"Trailing coordinate keys must match: xx_coords keys {list(xx_coords.keys())} "
+            f"!= yy_coords trailing keys {list(yy_coords.keys())[-len(xx_coords):]}"
+        )
 
     out_shape = yy.shape[:n_lead] + tuple([-1 for _ in range(len(xx.shape))])
     out_coords = deepcopy(yy_coords)
