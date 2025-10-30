@@ -26,6 +26,7 @@ except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
 from earth2studio.models.dx import CBottleSR
+from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
 from earth2studio.utils import handshake_dim
 
 
@@ -57,10 +58,11 @@ def mock_cbottle_core_model() -> torch.nn.Module:
     model_config.level = 10  # SR has positional embedding, so HPX level needs to be 10
 
     model = cbottle.models.get_model(model_config)
-    model.sigma_min = 0.002
-    model.sigma_max = 80.0
 
-    return model
+    batch_info = cbottle.datasets.base.BatchInfo(
+        channels=list(CHANNEL_TO_VARIABLE.keys())
+    )
+    return cbottle.inference.SuperResolutionModel(model, batch_info)
 
 
 class TestCBottleSRMock:

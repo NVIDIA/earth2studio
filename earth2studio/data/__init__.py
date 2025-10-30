@@ -37,5 +37,5 @@ from .xr import (
     DataArrayFile,
     DataArrayPathList,
     DataSetFile,
-    InferenceOuputSource,
+    InferenceOutputSource,
 )

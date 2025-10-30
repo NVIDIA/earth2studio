@@ -18,6 +18,7 @@ import asyncio
 import functools
 import os
 import pathlib
+import re
 import shutil
 from datetime import datetime
 
@@ -40,9 +41,10 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 class ARCO:
     """Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data
-    currated by Google. This data is stored in Zarr format and contains 31 surface and
-    pressure level variables (for 37 pressure levels)  on a 0.25 degree lat lon grid.
-    Temporal resolution is 1 hour.
+    currated by Google. This data is stored in Zarr format and contains 31 surface
+    variables, pressure level variables defined on 37 pressure levels, and model level
+    variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat
+    lon grid. Temporal resolution is 1 hour.
 
     Parameters
     ----------
@@ -86,6 +88,9 @@ class ARCO:
             # we will init the group in the call function when we have the loop
             self.zarr_group: zarr.core.group.AsyncGroup | None = None
             self.level_coords = None
+            # Model-level store
+            self.ml_zarr_group: zarr.core.group.AsyncGroup | None = None
+            self.ml_level_coords = None
 
         self.async_timeout = async_timeout
 
@@ -117,12 +122,22 @@ class ARCO:
             }
             fs = AsyncCachingFileSystem(fs=fs, **cache_options, asynchronous=True)
 
+        # Pressure/surface store
         zstore = zarr.storage.FsspecStore(
             fs,
             path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
         )
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
         self.level_coords = await (await self.zarr_group.get("level")).getitem(
+            slice(None)
+        )
+        # Model-level store
+        ml_zstore = zarr.storage.FsspecStore(
+            fs,
+            path="/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1",
+        )
+        self.ml_zarr_group = await zarr.api.asynchronous.open(store=ml_zstore, mode="r")
+        self.ml_level_coords = await (await self.ml_zarr_group.get("hybrid")).getitem(
             slice(None)
         )
 
@@ -249,7 +264,7 @@ class ARCO:
         np.ndarray
             Data
         """
-        if self.zarr_group is None:
+        if self.zarr_group is None or self.ml_zarr_group is None:
             raise ValueError("Zarr group is not initialized")
         # Get time index (vanilla zarr doesnt support date indices)
         time_index = self._get_time_index(time)
@@ -262,9 +277,16 @@ class ARCO:
             logger.error(f"variable id {variable} not found in ARCO lexicon")
             raise e
 
-        arco_variable, level = arco_name.split("::")
+        parts = arco_name.split("::")
+        arco_variable, level = parts[0], (parts[1] if len(parts) > 1 else "")
+        if self._is_mdl_level(variable):
+            zarr_group = self.ml_zarr_group
+            level_coords = self.ml_level_coords
+        else:
+            zarr_group = self.zarr_group
+            level_coords = self.level_coords
 
-        zarr_array = await self.zarr_group.get(arco_variable)
+        zarr_array = await zarr_group.get(arco_variable)
         shape = zarr_array.shape
         # Static variables
         if len(shape) == 2:
@@ -277,7 +299,7 @@ class ARCO:
         # Atmospheric variable
         else:
             # Load levels coordinate system from Zarr store and check
-            level_index = np.searchsorted(self.level_coords, int(level))
+            level_index = np.searchsorted(level_coords, int(level))
             data = await zarr_array.getitem((time_index, level_index))
             output = modifier(data)
 
@@ -338,6 +360,22 @@ class ARCO:
         start_date = datetime(year=1900, month=1, day=1)
         duration = time - start_date
         return int(divmod(duration.total_seconds(), 3600)[0])
+
+    @classmethod
+    def _is_mdl_level(cls, variable: str) -> bool:
+        """Checks if given variable is a model level variable based on the lexicon pattern.
+
+        Parameters
+        ----------
+        variable : str
+            Variable to check
+
+        Returns
+        -------
+        bool
+            If variable is a model level variable
+        """
+        return bool(re.match(r"^[a-zA-Z0-9]+[0-9]+k$", variable))
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:

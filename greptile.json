@@ -1,0 +1,37 @@
+{
+    "comment": "Disclaimer: This is AI-generated, please review response for accuracy",
+    "fixWithAI": false,
+    "commentTypes": [
+      "logic",
+      "syntax",
+      "style"
+    ],
+    "instructions": "",
+    "excludeAuthors": [
+      "dependabot[bot]",
+      "renovate[bot]"
+    ],
+    "ignorePatterns": "greptile.json\n",
+    "summarySection": {
+      "included": true,
+      "collapsible": false,
+      "defaultOpen": false
+    },
+    "triggerOnUpdates": false,
+    "issuesTableSection": {
+      "included": true,
+      "collapsible": true,
+      "defaultOpen": false
+    },
+    "confidenceScoreSection": {
+      "included": true,
+      "collapsible": true,
+      "defaultOpen": false
+    },
+    "sequenceDiagramSection": {
+      "included": false,
+      "collapsible": false,
+      "defaultOpen": false
+    },
+    "shouldUpdateDescription": false
+}
