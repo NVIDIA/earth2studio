@@ -48,14 +48,27 @@ def _can_concat_directly(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool
         return False
 
 
-def _can_concat_with_interp(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool:
+def _can_concat_with_subregion(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool:
     try:
         for i, key in enumerate(dx_coords.keys()):
             handshake_dim(px_coords, key, i)
             if key not in ["variable", "lat", "lon"]:
                 handshake_coords(px_coords, dx_coords, key)
-        return True
-    except (KeyError, ValueError):
+
+        # Check if dx lat/lon is a subregion of px lat/lon (1D grids only)
+        if not px_coords["lat"].ndim == 1 or not px_coords["lon"].ndim == 1:
+            return False
+
+        lat_idx0 = np.where(px_coords["lat"] == dx_coords["lat"][0])[0][0]
+        lat_idx1 = lat_idx0 + dx_coords["lat"].shape[0]
+        lon_idx0 = np.where(px_coords["lon"] == dx_coords["lon"][0])[0][0]
+        lon_idx1 = lon_idx0 + dx_coords["lon"].shape[0]
+
+        return np.all(
+            dx_coords["lat"] == px_coords["lat"][lat_idx0:lat_idx1]
+        ) and np.all(dx_coords["lon"] == px_coords["lon"][lon_idx0:lon_idx1])
+
+    except (KeyError, ValueError, IndexError):
         return False
 
 
@@ -175,7 +188,7 @@ class PrepareOutputCoordsDefault:
         dx_target = dx_coords[-1]
         if _can_concat_directly(px_coords, dx_target):
             variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
-        elif _can_concat_with_interp(px_coords, dx_target):
+        elif _can_concat_with_subregion(px_coords, dx_target):
             variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
         else:
             variables = [c["variable"] for c in dx_coords]
@@ -190,13 +203,9 @@ class PrepareOutputTensorDefault(torch.nn.Module):
     implementation offers the following three strategies for preparing the output:
 
     1. Attempt to concat px outputs and all dx outputs
-    2. Attempt to concat lat/lon interpolated px outputs and all dx outputs
+    2. Attempt to concat lat/lon sub-region px outputs and all dx outputs
     3. Concat just dx outputs
     """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.interp: torch.nn.Module | None = None
 
     @torch.inference_mode()
     def forward(
@@ -230,15 +239,24 @@ class PrepareOutputTensorDefault(torch.nn.Module):
         if _can_concat_directly(px_coords, dx_target):
             x = [px_x] + dx_x
             variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
-        elif _can_concat_with_interp(px_coords, dx_target):
-            if self.interp is None:
-                lat0, lon0 = _convert_to_2d(px_coords["lat"], px_coords["lon"])
-                lat1, lon1 = _convert_to_2d(dx_target["lat"], dx_target["lon"])
-                self.interp = LatLonInterpolation(lat0, lon0, lat1, lon1).to(
-                    px_x.device
-                )
+        elif _can_concat_with_subregion(px_coords, dx_target):
+            # Find the dimension positions of lat and lon in px_coords
+            lat_dim = list(px_coords.keys()).index("lat")
+            lon_dim = list(px_coords.keys()).index("lon")
 
-            x = [self.interp(px_x)] + dx_x
+            # Find the slice indices
+            lat_idx0 = np.where(px_coords["lat"] == dx_target["lat"][0])[0][0]
+            lat_idx1 = lat_idx0 + dx_target["lat"].shape[0]
+            lon_idx0 = np.where(px_coords["lon"] == dx_target["lon"][0])[0][0]
+            lon_idx1 = lon_idx0 + dx_target["lon"].shape[0]
+
+            # Slice px_x along the lat and lon dimensions
+            slices = [slice(None)] * px_x.ndim
+            slices[lat_dim] = slice(lat_idx0, lat_idx1)
+            slices[lon_dim] = slice(lon_idx0, lon_idx1)
+            px_x_sliced = px_x[tuple(slices)]
+
+            x = [px_x_sliced] + dx_x
             variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
         else:
             x = dx_x

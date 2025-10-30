@@ -319,3 +319,249 @@ def test_dxwrapper_run(device, times, number_of_samples):
     (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
     io = XarrayBackend()
     deterministic(times, 2, wrapped_model, data, io, device=device)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output1(device):
+    """Test strategy 1: Direct concatenation when all coords match"""
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create matching coordinate systems
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", np.linspace(-90, 90, 10)),
+            ("lon", np.linspace(0, 360, 20)),
+        ]
+    )
+
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        )
+    ]
+
+    # Create tensors
+    px_x = torch.randn(1, 2, 10, 20, device=device)
+    dx_x = [torch.randn(1, 1, 10, 20, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify shape and concatenation
+    assert x_out.shape == (1, 3, 10, 20)
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip"]
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output2(device):
+    """Test strategy 2: Subregion extraction when dx is a lat/lon subregion of px"""
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create px coords with larger spatial domain
+    lat_px = np.linspace(-90, 90, 20)
+    lon_px = np.linspace(0, 360, 40)
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", lat_px),
+            ("lon", lon_px),
+        ]
+    )
+
+    # Create dx coords with subregion (middle section)
+    lat_dx = lat_px[5:15]  # Contiguous subregion
+    lon_dx = lon_px[10:30]  # Contiguous subregion
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", lat_dx),
+                ("lon", lon_dx),
+            ]
+        )
+    ]
+
+    # Create tensors
+    px_x = torch.randn(1, 2, 20, 40, device=device)
+    dx_x = [torch.randn(1, 1, 10, 20, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify shape and concatenation
+    assert x_out.shape == (1, 3, 10, 20)
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip"]
+
+    # Verify that the sliced region was extracted correctly
+    # The first 2 variables should match the subregion of px_x
+    expected_slice = px_x[:, :, 5:15, 10:30]
+    assert torch.allclose(x_out[:, :2, :, :], expected_slice)
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output3(device):
+
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create incompatible coordinate systems (different time dimension)
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", np.linspace(-90, 90, 10)),
+            ("lon", np.linspace(0, 360, 20)),
+        ]
+    )
+
+    dx_coords = [
+        OrderedDict(
+            [
+                (
+                    "time",
+                    np.array(
+                        [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")]
+                    ),
+                ),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        )
+    ]
+
+    # Create tensors
+    px_x = torch.randn(1, 2, 10, 20, device=device)
+    dx_x = [torch.randn(2, 1, 10, 20, device=device)]
+
+    # Test forward pass
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify only dx outputs are used
+    assert x_out.shape == (2, 1, 10, 20)
+    assert list(coords_out["variable"]) == ["precip"]
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output_subregion(device):
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create px coords
+    lat_px = np.array([0, 10, 20, 30, 40, 50, 60, 70, 80, 90])
+    lon_px = np.linspace(0, 360, 40)
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m"])),
+            ("lat", lat_px),
+            ("lon", lon_px),
+        ]
+    )
+
+    # Create dx coords with non-contiguous lat indices (skip some values)
+    lat_dx = np.array([0, 20, 40, 60, 80])  # Non-contiguous in the array
+    lon_dx = lon_px[10:30]  # Contiguous
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", lat_dx),
+                ("lon", lon_dx),
+            ]
+        )
+    ]
+    px_x = torch.randn(1, 1, 10, 40, device=device)
+    dx_x = [torch.randn(1, 1, 5, 20, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    assert x_out.shape == (1, 1, 5, 20)
+    assert list(coords_out["variable"]) == ["precip"]
+    assert torch.equal(x_out, dx_x[0])
+    assert x_out.device.type == device.split(":")[0]
+
+    # Create a dx with a lat lon domain thats out of bounds of prognostic
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-10, 80, 8)),
+                ("lon", np.linspace(200, 360, 10)),
+            ]
+        )
+    ]
+    px_x = torch.randn(1, 1, 10, 20, device=device)
+    dx_x = [torch.randn(1, 1, 8, 10, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    assert x_out.shape == (1, 1, 8, 10)
+    assert list(coords_out["variable"]) == ["precip"]
+    assert torch.equal(x_out, dx_x[0])
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output_tensor_multiple_dx_models(device):
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", np.linspace(-90, 90, 10)),
+            ("lon", np.linspace(0, 360, 20)),
+        ]
+    )
+
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        ),
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["solar"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        ),
+    ]
+    px_x = torch.randn(1, 2, 10, 20, device=device)
+    dx_x = [
+        torch.randn(1, 1, 10, 20, device=device),
+        torch.randn(1, 1, 10, 20, device=device),
+    ]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify shape and concatenation with multiple dx models
+    assert x_out.shape == (1, 4, 10, 20)
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip", "solar"]
+    assert x_out.device.type == device.split(":")[0]
