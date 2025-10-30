@@ -14,7 +14,7 @@
     },
     "confidenceScoreSection": {
       "included": false,
-      "collapsible": true,
+      "collapsible": false,
       "defaultOpen": false
     },
     "sequenceDiagramSection": {
