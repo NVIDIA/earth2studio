@@ -310,10 +310,12 @@ def test_netcdf4_file(mode: str, device: str, tmp_path: str) -> None:
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])  #
 def test_netcdf4_calendar(device: str, tmp_path: str) -> None:
     time = [np.datetime64("1958-01-31T00:00:00")]
+    lead_time = [np.timedelta64(1, "h")]
     variable = ["t2m", "tcwv"]
     total_coords = OrderedDict(
         {
             "time": np.asarray(time),
+            "lead_time": np.asarray(lead_time),
             "variable": np.asarray(variable),
             "lat": np.linspace(-90, 90, 180),
             "lon": np.linspace(0, 360, 360, endpoint=False),
@@ -333,6 +335,9 @@ def test_netcdf4_calendar(device: str, tmp_path: str) -> None:
     # Check that the calendar matches with xarray and netCDF4
     ds = xarray.open_dataset(tmp_path / "test.nc")
     xarray_time = ds.time[0].values
+    xarray_lead_time = ds.lead_time[0].values
+    assert xarray_time == np.asarray(time)
+    assert xarray_lead_time == np.asarray(lead_time)
 
     # Convert to datetime
     _unix = np.datetime64(0, "s")

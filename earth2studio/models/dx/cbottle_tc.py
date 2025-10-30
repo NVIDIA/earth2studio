@@ -108,6 +108,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     """
 
     output_variables = VARIABLES
+    guidance_scale = 0.005  # 0.03 = strong, 0 = no guidance
 
     def __init__(
         self,
@@ -282,8 +283,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         sst_ds = xr.open_dataset(
             package.resolve("amip_midmonth_sst.nc"),
-            engine="h5netcdf",
-            storage_options=None,
+            engine="netcdf4",
             cache=False,
         ).load()
 
@@ -326,6 +326,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         times = to_time_array(times)
         device = self.device_buffer.device
         guidance = None
+
+        lat_coords = lat_coords.to(device)
+        lon_coords = lon_coords.to(device)
+
         if self.lat_lon:
             # Convert any longitudes in -180 to 180 range to 0 to 360 range
             lon_coords = torch.where(lon_coords < 0, lon_coords + 360, lon_coords)
@@ -336,12 +340,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 (times.shape[0], 1, 1, 721, 1440), torch.nan, device=device
             ).float()
 
-            lat_idx = torch.searchsorted(torch.from_numpy(-lat_grid), -lat_coords).to(
-                device
+            lat_idx = torch.searchsorted(
+                -torch.tensor(lat_grid).to(device), -lat_coords
             )
-            lon_idx = torch.searchsorted(torch.from_numpy(lon_grid), lon_coords).to(
-                device
-            )
+            lon_idx = torch.searchsorted(torch.tensor(lon_grid).to(device), lon_coords)
             guidance[:, :, :, lat_idx, lon_idx] = 1
 
             coords = OrderedDict(
@@ -359,9 +361,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 torch.nan,
                 device=device,
             )
-            idx = self.core_model.classifier_grid.ang2pix(
-                lon_coords.to(device), lat_coords.to(device)
-            )
+            idx = self.core_model.classifier_grid.ang2pix(lon_coords, lat_coords)
             guidance[:, :, :, idx] = 1
             coords = OrderedDict(
                 {
@@ -454,13 +454,18 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
             indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
             output, cb_coords = self.core_model.sample(
-                batch, guidance_pixels=indices_where_tc, seed=self.seed
+                batch,
+                guidance_pixels=indices_where_tc,
+                seed=self.seed,
+                guidance_scale=self.guidance_scale,
             )
 
             # If ICON, translate
             if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
+                output = self.core_model._normalize(output)
+                output = self.core_model._reorder(output)
                 batch["target"] = output
-                output, cb_coords = self.core_model.translate(batch, "icon")
+                output, _ = self.core_model.translate(batch, dataset="icon")
 
             outputs.append(output)
 

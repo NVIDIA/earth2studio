@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import HRRR, Random, fetch_data
 from earth2studio.models.px import StormCast
 from earth2studio.utils import handshake_dim
 
@@ -74,8 +74,8 @@ def test_stormcast_call(time, device):
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
@@ -153,8 +153,8 @@ def test_stormcast_iter(ensemble, device):
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
@@ -248,8 +248,8 @@ def test_stormcast_exceptions(dc, device):
     Y_START, Y_END = 273, 785
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
@@ -294,8 +294,12 @@ def model(model_cache_context) -> StormCast:
 
 @pytest.mark.ci_cache
 @pytest.mark.timeout(360)
+@pytest.mark.parametrize(
+    "cond_dims",
+    [["time", "variable", "lat", "lon"], ["variable", "time", "lat", "lon"]],
+)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_stormcast_package(device, model):
+def test_stormcast_package(cond_dims, device, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2020-04-05T00:00")])
     # Test the cached model package StormCast
@@ -305,13 +309,19 @@ def test_stormcast_package(device, model):
     Y_START, Y_END = 273, 785
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     r = Random(dc)
 
-    r_condition = Random(
+    # returns dimensions in a different order
+    class _RandomWithSpecifiedOrder(Random):
+        def __call__(self, time, variable):
+            x = super().__call__(time, variable)
+            return x.transpose(*cond_dims)
+
+    r_condition = _RandomWithSpecifiedOrder(
         OrderedDict(
             [
                 ("lat", np.linspace(90, -90, num=721, endpoint=True)),
