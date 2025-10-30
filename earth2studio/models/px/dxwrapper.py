@@ -30,6 +30,35 @@ from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.type import CoordSystem
 
 
+def _convert_to_2d(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    if (lat.ndim == 1) and (lon.ndim == 1):
+        return np.meshgrid(lat, lon, indexing="ij")
+    else:
+        return (lat, lon)
+
+
+def _can_concat_directly(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool:
+    try:
+        for i, key in enumerate(dx_coords.keys()):
+            handshake_dim(px_coords, key, i)
+            if key != "variable":
+                handshake_coords(px_coords, dx_coords, key)
+        return True
+    except (KeyError, ValueError):
+        return False
+
+
+def _can_concat_with_interp(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool:
+    try:
+        for i, key in enumerate(dx_coords.keys()):
+            handshake_dim(px_coords, key, i)
+            if key not in ["variable", "lat", "lon"]:
+                handshake_coords(px_coords, dx_coords, key)
+        return True
+    except (KeyError, ValueError):
+        return False
+
+
 class PrepareInputCoordsDefault:
     """Prepares output coords from prognostic model for diagnostic models"""
 
@@ -103,14 +132,6 @@ class PrepareInputTensorDefault:
         if dx_coords["lon"].shape[0] == 0:
             dx_coords["lon"] = px_coords["lon"]
 
-        def _convert_to_2d(
-            lat: np.ndarray, lon: np.ndarray
-        ) -> tuple[np.ndarray, np.ndarray]:
-            if (lat.ndim == 1) and (lon.ndim == 1):
-                return np.meshgrid(lat, lon, indexing="ij")
-            else:
-                return (lat, lon)
-
         if self.interp is None:
             (lat0, lon0) = _convert_to_2d(px_coords["lat"], px_coords["lon"])
             (lat1, lon1) = _convert_to_2d(dx_coords["lat"], dx_coords["lon"])
@@ -151,17 +172,13 @@ class PrepareOutputCoordsDefault:
         CoordSystem
             Expected output coords from model for a given time-step
         """
-        try:
-            for i, key in enumerate(dx_coords[-1].keys()):
-                handshake_dim(px_coords, key, i)
-                if not key == "variable":
-                    handshake_coords(px_coords, dx_coords[-1], key)
-            # Concat all variables
-            variables = [px_coords["variable"]] + [
-                coord["variable"] for coord in dx_coords
-            ]
-        except (KeyError, ValueError):
-            variables = [coord["variable"] for coord in dx_coords]
+        dx_target = dx_coords[-1]
+        if _can_concat_directly(px_coords, dx_target):
+            variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
+        elif _can_concat_with_interp(px_coords, dx_target):
+            variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
+        else:
+            variables = [c["variable"] for c in dx_coords]
 
         coords = dx_coords[-1].copy()
         coords["variable"] = np.concatenate(variables)
@@ -169,7 +186,17 @@ class PrepareOutputCoordsDefault:
 
 
 class PrepareOutputTensorDefault(torch.nn.Module):
-    """Preparing output tensor / coords of the diagnostic wrapper"""
+    """Preparing output tensor / coords of the diagnostic wrapper. This default
+    implementation offers the following three strategies for preparing the output:
+
+    1. Attempt to concat px outputs and all dx outputs
+    2. Attempt to concat lat/lon interpolated px outputs and all dx outputs
+    3. Concat just dx outputs
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.interp: torch.nn.Module | None = None
 
     @torch.inference_mode()
     def forward(
@@ -179,7 +206,7 @@ class PrepareOutputTensorDefault(torch.nn.Module):
         dx_x: list[torch.Tensor],
         dx_coords: list[CoordSystem],
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare output tensor by concatenating prognostic and diagnostic outputs.
+        """Prepare outputs for diagnostic wrapper
 
         Parameters
         ----------
@@ -197,23 +224,29 @@ class PrepareOutputTensorDefault(torch.nn.Module):
         tuple[torch.Tensor, CoordSystem]
             Outputs to be returned by the wrapper
         """
-        try:
-            for i, key in enumerate(dx_coords[-1].keys()):
-                handshake_dim(px_coords, key, i)
-                if not key == "variable":
-                    handshake_coords(px_coords, dx_coords[-1], key)
+        dx_target = dx_coords[-1]
 
+        # Attempt various concat strategies
+        if _can_concat_directly(px_coords, dx_target):
             x = [px_x] + dx_x
-            variables = [px_coords["variable"]] + [
-                coord["variable"] for coord in dx_coords
-            ]
-        except (KeyError, ValueError):
+            variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
+        elif _can_concat_with_interp(px_coords, dx_target):
+            if self.interp is None:
+                lat0, lon0 = _convert_to_2d(px_coords["lat"], px_coords["lon"])
+                lat1, lon1 = _convert_to_2d(dx_target["lat"], dx_target["lon"])
+                self.interp = LatLonInterpolation(lat0, lon0, lat1, lon1).to(
+                    px_x.device
+                )
+
+            x = [self.interp(px_x)] + dx_x
+            variables = [px_coords["variable"]] + [c["variable"] for c in dx_coords]
+        else:
             x = dx_x
-            variables = [coord["variable"] for coord in dx_coords]
+            variables = [c["variable"] for c in dx_coords]
 
         try:
-            x = torch.concat(x, dim=list(dx_coords[-1]).index("variable"))
-            coords = dx_coords[-1].copy()
+            x = torch.concat(x, dim=list(dx_target).index("variable"))
+            coords = dx_target.copy()
             coords["variable"] = np.concatenate(variables)
         except RuntimeError as e:
             logger.error(
@@ -422,7 +455,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
-            Coordinate system, should have dimensions ``[time, variable, *domain_dims]``
+            Input coordinate system
 
         Returns
         ------
