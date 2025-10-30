@@ -678,6 +678,13 @@ class CMIP6MultiRealm:
             Combined data array with dimensions (time, variable, lat, lon) or
             (time, variable, j, i) depending on the grid type.
 
+        Raises
+        ------
+        ValueError
+            If any requested variables are not found in any of the sources.
+        NotImplementedError
+            If all sources use curvilinear grids (at least one regular lat/lon grid required).
+
         Note
         ----
         Variables are retrieved from sources in the order they appear in
@@ -686,6 +693,8 @@ class CMIP6MultiRealm:
 
         Curvilinear grids (ocean/sea ice) are regridded to regular grids using
         nearest-neighbor interpolation to preserve data coverage near coastlines.
+        At least one source with a regular lat/lon grid (typically atmospheric data)
+        is required when combining multiple sources with different grids.
         """
         da_list = []
         var_done = []
@@ -820,6 +829,11 @@ class CMIP6MultiRealm:
         -------
         list[xr.DataArray]
             List of regridded data arrays on common grid
+
+        Raises
+        ------
+        NotImplementedError
+            If all sources use curvilinear grids (no regular lat/lon grid found)
         """
         if len(da_list) == 1:
             return da_list
@@ -832,8 +846,12 @@ class CMIP6MultiRealm:
                 break
 
         if target_idx is None:
-            # All grids are curvilinear - use first one as-is
-            return da_list
+            raise NotImplementedError(
+                "Regridding between multiple curvilinear grids is not yet supported. "
+                "All CMIP6 sources use curvilinear grids. "
+                "At least one source with a regular lat/lon grid"
+                "is required to serve as the target grid for interpolation. "
+            )
 
         target_da = da_list[target_idx]
         target_lats = target_da["lat"].values
