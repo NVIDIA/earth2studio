@@ -77,7 +77,10 @@ class CMIP6:
         Optional filename suffix filters forwarded to ``ESGFCatalog.search`` to
         constrain the final dataset selection. Leave None to accept all, by default None
     cache : bool, optional
-        Cache data source on local memory, by default True
+        Cache data source on local memory, by default True. Multiple CMIP6 instances
+        can safely share the same cache directory as intake-esgf automatically organizes
+        files into detailed subdirectories by project, model, experiment, variant, variable,
+        and version, preventing any conflicts.
     verbose : bool, optional
         Print download progress, by default True
     exact_time_match : bool, optional
@@ -410,10 +413,27 @@ class CMIP6:
 
     @property
     def cache(self) -> str:
-        """Get the appropriate cache location."""
+        """Get the appropriate cache location.
+
+        Note
+        ----
+        Multiple CMIP6 instances can safely share the same base cache directory.
+        The intake-esgf package automatically creates detailed subdirectories within
+        the cache for each unique dataset, organized by project, institution, model,
+        experiment, variant, table, variable, grid, and version. This prevents any
+        cache conflicts between different CMIP6 sources.
+
+        For example, files are cached in paths like:
+        ``<cache>/CMIP6/ScenarioMIP/CCCma/CanESM5/ssp585/r1i1p2f1/day/tas/gn/v20190429/clt_day_CanESM5_ssp585_r1i1p2f1_gn_20150101-21001231.nc``
+
+        Returns
+        -------
+        str
+            Path to cache directory.
+        """
         cache_location = os.path.join(datasource_cache_root(), "cmip6")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_cmip6")
+            cache_location = os.path.join(cache_location, "tmp")
         return cache_location
 
     @staticmethod
@@ -763,6 +783,26 @@ class CMIP6MultiRealm:
                 return False
 
         return True
+
+    @property
+    def cache(self) -> list[str]:
+        """Get cache locations from all CMIP6 sources.
+
+        Returns
+        -------
+        list[str]
+            List of cache directory paths, one for each source in cmip6_source_list.
+            All sources share the same base cache directory (`<root>/cmip6/`), with
+            sources that have `cache=False` using a `tmp/` subdirectory.
+
+        Note
+        ----
+        Multiple CMIP6 sources can safely share the same base cache directory.
+        The intake-esgf package automatically organizes files into detailed
+        subdirectories within the cache, preventing any conflicts between different
+        datasets.
+        """
+        return [source.cache for source in self.cmip6_source_list]
 
     def _regrid_to_common_grid(self, da_list: list[xr.DataArray]) -> list[xr.DataArray]:
         """Regrid all data arrays to a common regular lat/lon grid.
