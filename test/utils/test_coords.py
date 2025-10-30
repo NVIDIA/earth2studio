@@ -445,6 +445,7 @@ def test_tile_xx_to_yy():
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
             "lead_time": np.array([0, 1, 2, 3, 4]),
+            "variable": np.array(["u10m", "v10m"]),
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440),
         }
@@ -459,6 +460,140 @@ def test_tile_xx_to_yy():
     assert result.shape == (3, 4, 2, 721, 1440)
     assert "variable" in result_coords
     assert "time" in result_coords
+
+
+def test_tile_xx_to_yy_failure():
+    """Test that tile_xx_to_yy fails when trailing coordinate keys don't match"""
+    xx = torch.randn(2, 721, 1440)
+    xx_coords = OrderedDict(
+        {
+            "variable": np.array(["z", "lsm"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(3, 4, 5, 721, 1440)
+    # Trailing keys are ["lead_time", "lat", "lon"] but xx_coords has ["variable", "lat", "lon"]
+    yy_coords = OrderedDict(
+        {
+            "ensemble": np.array([0, 1, 2]),
+            "time": np.array([1, 2, 3, 4]),
+            "lead_time": np.array([0, 1, 2, 3, 4]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    with pytest.raises(ValueError, match="Trailing coordinate keys must match"):
+        tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+
+
+def test_tile_xx_to_yy_edge_cases():
+    """Test edge cases for tile_xx_to_yy"""
+    # Test: xx has more dimensions than yy (should fail)
+    xx = torch.randn(2, 3, 4)
+    xx_coords = OrderedDict(
+        {
+            "a": np.array([0, 1]),
+            "b": np.array([0, 1, 2]),
+            "c": np.array([0, 1, 2, 3]),
+        }
+    )
+    yy = torch.randn(2, 3)
+    yy_coords = OrderedDict(
+        {
+            "a": np.array([0, 1]),
+            "b": np.array([0, 1, 2]),
+        }
+    )
+    with pytest.raises(ValueError, match="xx must have fewer dimensions than yy"):
+        tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+
+    # Test: dimension size mismatch for trailing dimensions (same names, different sizes)
+    xx = torch.randn(2, 721, 1440)
+    xx_coords = OrderedDict(
+        {
+            "variable": np.array(["z", "lsm"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    yy = torch.randn(3, 4, 2, 361, 1440)  # Different lat size: 361 vs 721
+    yy_coords = OrderedDict(
+        {
+            "ensemble": np.array([0, 1, 2]),
+            "time": np.array([1, 2, 3, 4]),
+            "variable": np.array(["a", "b"]),
+            "lat": np.linspace(90, -90, 361),  # Different size
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    # This should work because trailing keys match, but coordinate values might differ
+    # The function overwrites yy_coords values with xx_coords values
+    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+    assert result.shape == (3, 4, 2, 721, 1440)
+    assert np.array_equal(result_coords["lat"], xx_coords["lat"])
+
+    # Test: single dimension xx
+    xx = torch.randn(721)
+    xx_coords = OrderedDict({"lat": np.linspace(90, -90, 721)})
+    yy = torch.randn(3, 4, 721)
+    yy_coords = OrderedDict(
+        {
+            "ensemble": np.array([0, 1, 2]),
+            "time": np.array([1, 2, 3, 4]),
+            "lat": np.linspace(90, -90, 721),
+        }
+    )
+    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+    assert result.shape == (3, 4, 721)
+    assert "lat" in result_coords
+
+    # Test: empty tensors (0-sized dimensions)
+    xx = torch.randn(0, 721, 1440)
+    xx_coords = OrderedDict(
+        {
+            "variable": np.array([]),  # Empty array
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    yy = torch.randn(3, 4, 0, 721, 1440)
+    yy_coords = OrderedDict(
+        {
+            "ensemble": np.array([0, 1, 2]),
+            "time": np.array([1, 2, 3, 4]),
+            "variable": np.array([]),  # Empty array
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+    assert result.shape == (3, 4, 0, 721, 1440)
+    assert len(result_coords["variable"]) == 0
+
+    # Test: mismatched coordinate values (same names and sizes, different values)
+    # This should work - it just overwrites with xx_coords values
+    xx = torch.randn(2, 10)
+    xx_coords = OrderedDict(
+        {
+            "a": np.array([0, 1]),
+            "b": np.arange(10),
+        }
+    )
+    yy = torch.randn(3, 2, 10)
+    yy_coords = OrderedDict(
+        {
+            "c": np.array([0, 1, 2]),
+            "a": np.array([10, 20]),  # Different values
+            "b": np.arange(10, 20),  # Different values
+        }
+    )
+    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy, yy_coords)
+    assert result.shape == (3, 2, 10)
+    assert np.array_equal(result_coords["a"], xx_coords["a"])
+    assert np.array_equal(result_coords["b"], xx_coords["b"])
 
 
 def test_cat_coords():
@@ -489,3 +624,92 @@ def test_cat_coords():
     assert result.shape == (1, 3, 721, 1440)
     assert len(result_coords["variable"]) == 3
     assert np.array_equal(result_coords["variable"], ["u10m", "v10m", "msl"])
+
+
+def test_cat_coords_different_dims():
+    """Test concatenation along different dimensions"""
+    # Test concatenation along "time" dimension
+    xx = torch.randn(2, 3, 721, 1440)
+    cox = OrderedDict(
+        {
+            "time": np.array([0, 1]),
+            "variable": np.array(["u10m", "v10m", "msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(1, 3, 721, 1440)
+    coy = OrderedDict(
+        {
+            "time": np.array([2]),
+            "variable": np.array(["u10m", "v10m", "msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    result, result_coords = cat_coords(xx, cox, yy, coy, dim="time")
+    assert result.shape == (3, 3, 721, 1440)
+    assert len(result_coords["time"]) == 3
+    assert np.array_equal(result_coords["time"], [0, 1, 2])
+
+    # Test concatenation along "batch" dimension
+    xx = torch.randn(2, 3, 721, 1440)
+    cox = OrderedDict(
+        {
+            "batch": np.array([0, 1]),
+            "variable": np.array(["u10m", "v10m", "msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(1, 3, 721, 1440)
+    coy = OrderedDict(
+        {
+            "batch": np.array([2]),
+            "variable": np.array(["u10m", "v10m", "msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    result, result_coords = cat_coords(xx, cox, yy, coy, dim="batch")
+    assert result.shape == (3, 3, 721, 1440)
+    assert len(result_coords["batch"]) == 3
+    assert np.array_equal(result_coords["batch"], [0, 1, 2])
+
+
+def test_cat_coords_errors():
+    """Test error cases for cat_coords"""
+    xx = torch.randn(1, 2, 721, 1440)
+    cox = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["u10m", "v10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(1, 1, 721, 1440)
+    coy = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    # Test missing dimension in first coords
+    with pytest.raises(ValueError, match="dim.*is not in coords"):
+        cat_coords(xx, cox, yy, coy, dim="nonexistent")
+
+    # Test missing dimension in second coords
+    cox_with_extra = cox.copy()
+    cox_with_extra["extra_dim"] = np.array([0])
+    xx_extra = torch.randn(1, 2, 1, 721, 1440)
+    with pytest.raises(ValueError, match="dim.*is not in coords"):
+        cat_coords(xx_extra, cox_with_extra, yy, coy, dim="extra_dim")

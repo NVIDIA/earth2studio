@@ -501,7 +501,7 @@ separately by the user. Installation instructions can be found on the
 [TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
 
 By default, `TempestExtremes` binaries are installed to the bin folder of the
-`TempestExtremes` repository. Users can specify paths to executibles by passing
+`TempestExtremes` repository. Users can specify paths to executables by passing
 the detect and stitch commands to the initialisation of the `TempestExtremes`
 class in earth2studio. Examples for both commands are provided in the docstring
 of this class.

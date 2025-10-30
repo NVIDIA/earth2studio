@@ -35,19 +35,19 @@ class TempestExtremes:
     To be compatible with TE, model outputs are buffered as a netcdf file with the
     coordinates (time, lat, lon). Optionally, this netcdf file can be stored in RAM to
     avoid writing large amount of data to disk.
-    Since TE natively only provides a command-line interface, a subporcess is spawned
+    Since TE natively only provides a command-line interface, a subprocess is spawned
     calling TE. To provide users with as much flexibility as possible, the command to
-    execude TE has to be specified by the user and passed to the class during
+    execute TE has to be specified by the user and passed to the class during
     initialisation. Any arguments regarding input and output files will be ignored
     and automatically populated with the files holding the model output.
-    Additionally, this apporach allows the user to point the class to TE executibles
+    Additionally, this approach allows the user to point the class to TE executables
     at any location of the system.
-    TE is purely CPU-based, but for most appliations still faster than producing the
+    TE is purely CPU-based, but for most applications still faster than producing the
     atmospheric data on the GPU. AsyncTempestExtremes provides an implementation in
-    which a CPU thread applies TE to the gerneated data, while the GPU continues
+    which a CPU thread applies TE to the generated data, while the GPU continues
     producing the next prediction.
 
-    The result will be a TE-genereated track file, stored in a user-defined location
+    The result will be a TE-generated track file, stored in a user-defined location
 
     NOTE:
         - currently works on batch size 1 only (currently worked on)
@@ -61,11 +61,11 @@ class TempestExtremes:
     ----------
     detect_cmd : str
         TempestExtremes DetectNodes command with arguments
-        Note that --in_data_list and --out_file_list will be ignored if provdied
+        Note that --in_data_list and --out_file_list will be ignored if provided
         example: "/path/to/DetectNodes --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0"
     stitch_cmd : str
         TempestExtremes StitchNodes command with arguments
-        Note that --in and --out will be ignored if provdied
+        Note that --in and --out will be ignored if provided
         example: "/path/to/StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10"
     input_vars :
         List of variables which are required for the tracking algorithm
@@ -220,8 +220,8 @@ class TempestExtremes:
             + "Don't panic, this is usually an easy fix.[/blue]"
         )
         table.add_row(
-            "[yellow]The TempestExtremes class is marked needing optional dependencies'.\n\n"
-            + "unlike other dependencies, TempestExtremes has to be installed to the system by the user`\n\n"
+            "[yellow]The TempestExtremes class is marked needing optional dependencies.\n\n"
+            + "unlike other dependencies, TempestExtremes has to be installed to the system by the user.\n\n"
             + "For more information, visit the install documentation: \n"
             + f"{doc_url}[/yellow]"
         )
@@ -290,7 +290,12 @@ class TempestExtremes:
                 )  # output for raw data
 
         if use_ram:
-            self.ram_dir = os.path.join("/dev/shm", "cyclone_tracking")  # noqa: S108
+            ram_path = "/dev/shm"  # noqa: S108
+            if not os.path.exists(ram_path):
+                raise ValueError(
+                    "/dev/shm not available. Set use_ram=False and use store_dir to specify a different location."  # noqa: S108
+                )
+            self.ram_dir = os.path.join(ram_path, "cyclone_tracking")
             if DistributedManager().local_rank == 0:
                 os.makedirs(
                     self.ram_dir, exist_ok=True
@@ -373,7 +378,7 @@ class TempestExtremes:
         """Dump raw data from store to NetCDF file.
 
         Morphs the store to TempestExtremes-compatible [time, lat, lon] structure
-        and writes to a (optianlly in-RAM) NetCDF file, which can be ingested by TE.
+        and writes to a (optionally in-RAM) NetCDF file, which can be ingested by TE.
 
         Returns
         -------
@@ -388,7 +393,7 @@ class TempestExtremes:
         ic = self.store.coords["time"][0]
         mems = self.store.coords["ensemble"]
 
-        # morph store to tempes extremes-compatible [time, lat, lon] structure
+        # morph store to TempestExtremes-compatible [time, lat, lon] structure
         lead_times = self.store.coords.pop("lead_time")
         self.store.coords["time"] = [ic + lt for lt in lead_times]
 
@@ -662,7 +667,6 @@ def cleanup_tempest_executor(timeout_per_task: int = 360) -> None:
     ChildProcessError
         If one or more background TempestExtremes tasks failed
     """
-    """Clean up the thread pool executor."""
     global _tempest_executor, _tempest_background_tasks
     with _tempest_executor_lock:
         if _tempest_executor is not None:
