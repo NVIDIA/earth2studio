@@ -82,6 +82,7 @@ def test_ace2era5data_ic_fetch(time, variable):
     assert da.shape[2] == len(ds.lat)
     assert da.shape[3] == len(ds.lon)
     assert np.array_equal(da.coords["variable"].values, np.array(variable))
+    assert not np.isnan(da.values).any()
 
 
 def test_ace2era5data_initial_conditions_year_validation():

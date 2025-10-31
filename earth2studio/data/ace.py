@@ -25,7 +25,10 @@ import xarray as xr
 from earth2studio.data.utils import prep_data_inputs
 from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.models.auto import Package
-from earth2studio.utils.imports import OptionalDependencyFailure
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
@@ -42,6 +45,7 @@ except ImportError:
     ACE_GRID_LON = None
 
 
+@check_optional_dependencies("ace2")
 class ACE2ERA5Data:
     """ACE2-ERA5 data source providing forcing or initial-conditions data.
     Files are downloaded on-demand and cached automatically, or loaded from a user-specified

@@ -207,6 +207,10 @@ conflicts = [
       { extra = "aurora" },
       { extra = "precip-afno" },
     ],
+    [
+      { extra = "aurora" },
+      { extra = "aurora-fork" },
+    ]
 ]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
