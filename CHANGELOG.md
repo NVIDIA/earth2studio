@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for ERA5 model levels and additional variables in ARCO data source
 - Changed the HRRR_X and HRRR_Y coordinates of the HRRR data source to match the native
   LCC coordinates
+- Updated CorrDiffTaiwan model wrapper to use latest PhysicsNeMo APIs.
 
 ### Deprecated
 
