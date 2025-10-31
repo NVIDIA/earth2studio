@@ -563,54 +563,34 @@
 <h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.IFS<a class="headerlink" href="#earth2studio-data-ifs" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.data.IFS">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">IFS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'aws'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ifs.html#IFS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS" title="Link to this definition">#</a></dt>
-<dd><p>The integrated forecast system (IFS) initial state data source provided on an
-equirectangular grid. This data is part of ECMWF’s open data project on AWS. This
-data source is provided on a 0.25 degree lat lon grid at 6-hour intervals for the
-most recent 4 days.</p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">IFS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'aws'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ecmwf.html#IFS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS" title="Link to this definition">#</a></dt>
+<dd><p>Integrated forecast system (IFS) HRES data on an equirectangular grid at 0.25
+degree resolution.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>source</strong> (<em>str</em><em>, </em><em>optional</em>) – Data source to fetch data from. For possible options refer to ECMWF’s open data
-Python SDK, by default “aws”.</p></li>
-<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
+<li><p><strong>source</strong> (<em>Literal</em><em>[</em><em>'aws'</em><em>, </em><em>'ecmwf'</em><em>, </em><em>'azure'</em><em>]</em>)</p></li>
+<li><p><strong>cache</strong> (<em>bool</em>)</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em>)</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em>)</p></li>
 </ul>
 </dd>
 </dl>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This is a remote data source and can potentially download a large amount of data
-to your local machine for large requests.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This data source only fetches the initial state of control forecast of IFS and does
-not fetch an predicted time steps.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Additional information on the data repository can be referenced here:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts">https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts</a></p></li>
-<li><p><a class="reference external" href="https://registry.opendata.aws/ecmwf-forecasts/">https://registry.opendata.aws/ecmwf-forecasts/</a></p></li>
-<li><p><a class="reference external" href="https://console.cloud.google.com/storage/browser/ecmwf-open-data/">https://console.cloud.google.com/storage/browser/ecmwf-open-data/</a></p></li>
-</ul>
-</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.IFS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ifs.html#IFS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Function to get data.</p>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.IFS.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Retrieve ECMWF data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
+<li><p><strong>lead_time</strong> (<em>timedelta</em><em> | </em><em>list</em><em>[</em><em>timedelta</em><em>] </em><em>| </em><em>LeadTimeArray</em>) – Forecast lead times to fetch.</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in IFS lexicon.</p></li>
+return. Must be in the data lexicon.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>IFS weather data array</p>
+<dd class="field-even"><p>ECMWF weather data array</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>xr.DataArray</p>
@@ -619,18 +599,23 @@ return. Must be in IFS lexicon.</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.IFS.available">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ifs.html#IFS.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS.available" title="Link to this definition">#</a></dt>
-<dd><p>Checks if given date time is avaliable in the IFS AWS data store</p>
+<dt class="sig sig-object py" id="earth2studio.data.IFS.fetch">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.IFS.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date time to access</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
+<li><p><strong>lead_time</strong> (<em>timedelta</em><em> | </em><em>list</em><em>[</em><em>timedelta</em><em>] </em><em>| </em><em>LeadTimeArray</em>) – Forecast lead times to fetch.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>If date time is avaiable</p>
+<dd class="field-even"><p>ECMWF weather data array.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>bool</p>
+<dd class="field-odd"><p>xr.DataArray</p>
 </dd>
 </dl>
 </dd></dl>
@@ -688,7 +673,7 @@ return. Must be in IFS lexicon.</p></li>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS"><code class="docutils literal notranslate"><span class="pre">IFS</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS.__call__"><code class="docutils literal notranslate"><span class="pre">IFS.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS.available"><code class="docutils literal notranslate"><span class="pre">IFS.available()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS.fetch"><code class="docutils literal notranslate"><span class="pre">IFS.fetch()</span></code></a></li>
 </ul>
 </li>
 </ul>
