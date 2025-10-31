@@ -1073,7 +1073,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             sampler_fn=sampler_fn,
             img_shape=(H_hr, W_hr),
             img_out_channels=len(self.output_variables),
-            rank_batches=sample_seeds,
+            rank_batches=[sample_seeds],  # Single rank
             img_lr=x,
             device=x.device,
             mean_hr=mean_hr,
