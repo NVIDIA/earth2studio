@@ -64,6 +64,7 @@ data = [
     "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
     "pyproj>=3.7.1",
     "scipy>=1.15.2",
+    "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
