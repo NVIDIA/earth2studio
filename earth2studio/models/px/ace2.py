@@ -18,33 +18,33 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from typing import Any
 
-import numpy as np
 import cftime
+import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.auto import Package, AutoModelMixin
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, handshake_dim, map_coords
-from earth2studio.utils.type import CoordSystem
+from earth2studio.data import ACE2ERA5Data
+from earth2studio.data.ace import ACE_GRID_LAT, ACE_GRID_LON
 from earth2studio.data.base import DataSource
 from earth2studio.data.utils import fetch_data
-from earth2studio.data.ace import (
-    E2S_TO_FME,
-    FME_TO_E2S,
-    ACE_GRID_LAT,
-    ACE_GRID_LON,
-    ACE2ERA5Data,
+from earth2studio.lexicon.ace import ACELexicon
+from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
 )
 from earth2studio.utils.interp import LatLonInterpolation
-from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
+from earth2studio.utils.type import CoordSystem
 
 try:
     # Optional dependency: FME
-    from fme.ace.stepper.single_module import load_stepper
     from fme.ace.data_loading.batch_data import BatchData, PrognosticState
+    from fme.ace.stepper.single_module import load_stepper
 except ImportError:
     OptionalDependencyFailure("ace2")
     BatchData = Any
@@ -52,8 +52,7 @@ except ImportError:
 
 
 def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
-    """Convert np.datetime64[...] array to cftime.DatetimeProlepticGregorian array (vectorized). Only supports up to seconds precision.
-    """
+    """Convert np.datetime64[...] array to cftime.DatetimeProlepticGregorian array (vectorized). Only supports up to seconds precision."""
 
     if len(dt64_array.shape) > 1:
         # Flatten the array before applying conversion
@@ -61,7 +60,7 @@ def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
         dt64_array = dt64_array.reshape(-1)
     else:
         return_shape = None
-        
+
     dt_index = pd.to_datetime(dt64_array)
 
     years = dt_index.year
@@ -74,9 +73,7 @@ def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
     result = np.fromiter(
         (
             cftime.DatetimeProlepticGregorian(y, m, d, H, M, S)
-            for y, m, d, H, M, S in zip(
-                years, months, days, hours, minutes, seconds
-            )
+            for y, m, d, H, M, S in zip(years, months, days, hours, minutes, seconds)
         ),
         dtype=object,
         count=len(dt64_array),
@@ -86,11 +83,13 @@ def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
         result = result.reshape(return_shape)
     return result
 
+
 def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
     """Convert cftime.DatetimeProlepticGregorian array to np.datetime64[s] array (vectorized-safe). Only supports up to seconds precision.
     Out-of-range years become NaT.
     """
-    def _convert_single(t):
+
+    def _convert_single(t: cftime.DatetimeProlepticGregorian) -> np.datetime64:
         if not (1678 <= t.year <= 2261):
             return np.datetime64("NaT")
         return np.datetime64(
@@ -153,30 +152,42 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Variable layouts
         # Inputs expected by stepper (may include prognostic + forcing variables)
-        in_vars = list(self.stepper.prognostic_names) + list(self.stepper._input_only_names)
+        in_vars = list(self.stepper.prognostic_names) + list(
+            self.stepper._input_only_names
+        )
         # Outputs predicted by stepper
         out_vars = list(self.stepper.out_names)
 
-        # Use shared mappings defined in data layer
-        self._e2s_to_fme: dict[str, str] = dict(E2S_TO_FME)
-        self._fme_to_e2s: dict[str, str] = dict(FME_TO_E2S)
+        # Use shared lexicon
+        self.lexicon = ACELexicon
 
         # Establish internal variable orders
         self._all_in_variables_fme = sorted(set(in_vars))
-        self._all_in_variables_e2s = [self._fme_to_e2s[v] for v in self._all_in_variables_fme]
+        self._all_in_variables_e2s = [
+            self.lexicon.get_e2s_from_fme(v) for v in self._all_in_variables_fme
+        ]
 
         self._all_out_variables_fme = out_vars
-        self._all_out_variables_e2s = [self._fme_to_e2s[v] for v in self._all_out_variables_fme]
+        self._all_out_variables_e2s = [
+            self.lexicon.get_e2s_from_fme(v) for v in self._all_out_variables_fme
+        ]
 
         self._forcing_vars_fme = list(self.stepper._input_only_names)
-        if "surface_temperature" in self._all_out_variables_fme and "surface_temperature" not in self._forcing_vars_fme:
+        if (
+            "surface_temperature" in self._all_out_variables_fme
+            and "surface_temperature" not in self._forcing_vars_fme
+        ):
             # ACE2 reuses surface_temperature for both skin temperature of land and ocean
             # `self.stepper._input_only_names` is computed by fme as the set difference of input and prognostic variables,
             # which accidentally drops surface_temperature, so we reinject it here
             self._forcing_vars_fme.append("surface_temperature")
-        self._forcing_vars_e2s = [self._fme_to_e2s[v] for v in self._forcing_vars_fme]
+        self._forcing_vars_e2s = [
+            self.lexicon.get_e2s_from_fme(v) for v in self._forcing_vars_fme
+        ]
         self._prog_vars_fme = list(self.stepper.prognostic_names)
-        self._prog_vars_e2s = [self._fme_to_e2s[v] for v in self._prog_vars_fme]
+        self._prog_vars_e2s = [
+            self.lexicon.get_e2s_from_fme(v) for v in self._prog_vars_fme
+        ]
 
         # External forcing data source
         self.forcing_data_source = forcing_data_source
@@ -184,18 +195,27 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Grid handling
         self.lat = ACE_GRID_LAT
         self.lon = ACE_GRID_LON
-        if not np.allclose(forcing_data_source.lat, self.lat) or not np.allclose(forcing_data_source.lon, self.lon):
-            # Need to regrid forcing data to ACE2 grid
-            lat_in, lon_in = np.meshgrid(forcing_data_source.lat, forcing_data_source.lon, indexing="ij")
-            lat_out, lon_out = np.meshgrid(self.lat, self.lon, indexing="ij")
-            self.regridder = LatLonInterpolation(
-                lat_in=lat_in,
-                lon_in=lon_in,
-                lat_out=lat_out,
-                lon_out=lon_out,
-            )
+        if hasattr(forcing_data_source, "lat") and hasattr(forcing_data_source, "lon"):
+            # Attempt to check for grid compatibility / need to regrid
+            if not np.allclose(forcing_data_source.lat, self.lat) or not np.allclose(
+                forcing_data_source.lon, self.lon
+            ):
+                self.needs_regrid = True
+                # Need to regrid forcing data to ACE2 grid
+                lat_in, lon_in = np.meshgrid(
+                    forcing_data_source.lat, forcing_data_source.lon, indexing="ij"
+                )
+                lat_out, lon_out = np.meshgrid(self.lat, self.lon, indexing="ij")
+                self.regridder = LatLonInterpolation(
+                    lat_in=lat_in,
+                    lon_in=lon_in,
+                    lat_out=lat_out,
+                    lon_out=lon_out,
+                )
+            else:
+                self.needs_regrid = False
         else:
-            self.regridder = None
+            self.needs_regrid = False
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -209,7 +229,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]"),
+                "lead_time": np.array(
+                    [np.timedelta64(0, "h")], dtype="timedelta64[ns]"
+                ),
                 "variable": np.array(self._prog_vars_e2s, dtype=object),
                 "lat": self.lat,
                 "lon": self.lon,
@@ -226,7 +248,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
-        
+
         Returns
         -------
         CoordSystem
@@ -246,7 +268,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return output_coords
 
         test_coords = input_coords.copy()
-        test_coords["lead_time"] = test_coords["lead_time"] - input_coords["lead_time"][0]
+        test_coords["lead_time"] = (
+            test_coords["lead_time"] - input_coords["lead_time"][0]
+        )
         target_input_coords = self.input_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
@@ -256,7 +280,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
 
-        output_coords["lead_time"] = input_coords["lead_time"][0] + output_coords["lead_time"]
+        output_coords["lead_time"] = (
+            input_coords["lead_time"][0] + output_coords["lead_time"]
+        )
         return output_coords
 
     def _tensor_to_batch_data(
@@ -267,7 +293,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing_coords: CoordSystem,
     ) -> tuple[BatchData, PrognosticState]:
         """Pack Earth2Studio (x, coords) into fme BatchData/PrognosticState.
-        
+
         Parameters
         ----------
         x : torch.Tensor
@@ -278,7 +304,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Forcing tensor
         forcing_coords : CoordSystem
             Forcing coordinate system
-        
+
         Returns
         -------
         tuple[BatchData, PrognosticState]
@@ -287,21 +313,29 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Input validation
         if x.ndim != 6:
-            raise ValueError(f"ACE2ERA5 requires input tensor with shape [batch, time, lead_time, variable, lat, lon]")
+            raise ValueError(
+                "ACE2ERA5 requires input tensor with shape [batch, time, lead_time, variable, lat, lon]"
+            )
 
         for c in ["batch", "time", "lat", "lon"]:
             handshake_coords(coords, forcing_coords, c)
 
         # Flatten the time and batch dimensions
         b, t, lt, v, lat, lon = x.shape
-        x = x.reshape(b*t, lt, v, lat, lon)
-        forcing_x = forcing_x.reshape(b*t, len(forcing_coords["lead_time"]), len(forcing_coords["variable"]), lat, lon)
+        x = x.reshape(b * t, lt, v, lat, lon)
+        forcing_x = forcing_x.reshape(
+            b * t,
+            len(forcing_coords["lead_time"]),
+            len(forcing_coords["variable"]),
+            lat,
+            lon,
+        )
 
         # Build data dict with shape [batch, n_times, *domain]
         forcing_data: dict[str, torch.Tensor] = {}
         state_data: dict[str, torch.Tensor] = {}
         for fme_name in self._all_in_variables_fme:
-            e2s_name = self._fme_to_e2s[fme_name]
+            e2s_name = self.lexicon.get_e2s_from_fme(fme_name)
             if fme_name == "surface_temperature":
                 # Skin temperature is used as both forcing and prognostic, depending on if over land or ocean
                 state_idx = list(coords["variable"]).index(e2s_name)
@@ -316,18 +350,33 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 state_data[fme_name] = x[:, :, j, ...]
 
         # Pass a time array and hc_dims to initialize BatchData on device
-        times_forcing = np.stack([coords["time"] + forcing_coords["lead_time"]]*b, axis=0) # includes both time steps
-        times_state = np.stack([coords["time"] + coords["lead_time"]]*b, axis=0) # only includes current (init) time
-        time_da_forcing = xr.DataArray(_npdatetime64_to_cftime(times_forcing), dims=["sample", "time"])
-        time_da_state = xr.DataArray(_npdatetime64_to_cftime(times_state), dims=["sample", "time"])
+        times_forcing = np.stack(
+            [coords["time"] + forcing_coords["lead_time"]] * b, axis=0
+        )  # includes both time steps
+        times_state = np.stack(
+            [coords["time"] + coords["lead_time"]] * b, axis=0
+        )  # only includes current (init) time
+        time_da_forcing = xr.DataArray(
+            _npdatetime64_to_cftime(times_forcing), dims=["sample", "time"]
+        )
+        time_da_state = xr.DataArray(
+            _npdatetime64_to_cftime(times_state), dims=["sample", "time"]
+        )
         hc_dims = ["lat", "lon"]
-        forcing_data = BatchData.new_on_device(data=forcing_data, time=time_da_forcing, horizontal_dims=hc_dims, labels=[set()])
-        state_data = BatchData.new_on_device(data=state_data, time=time_da_state, horizontal_dims=hc_dims, labels=[set()])
+        forcing_data = BatchData.new_on_device(
+            data=forcing_data,
+            time=time_da_forcing,
+            horizontal_dims=hc_dims,
+            labels=[set()],
+        )
+        state_data = BatchData.new_on_device(
+            data=state_data, time=time_da_state, horizontal_dims=hc_dims, labels=[set()]
+        )
         return forcing_data, PrognosticState(state_data)
 
     def _batch_data_to_tensor(self, data: dict[str, torch.Tensor]) -> torch.Tensor:
         """Convert fme BatchData/PrognosticState back to (x, coords) tensor pair.
-        
+
         Parameters
         ----------
         data : dict[str, torch.Tensor]
@@ -374,7 +423,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Run one prognostic step using fme predict_paired API.
-        
+
         Parameters
         ----------
         x : torch.Tensor
@@ -390,12 +439,12 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Validate input lead_time
         if len(coords["lead_time"]) != 1:
-            raise ValueError(
-                "ACE2ERA5 forward expects one input lead_time entry [0h]."
-            )
+            raise ValueError("ACE2ERA5 forward expects one input lead_time entry [0h].")
 
         # Pull forcing data (which is required at both input and output lead times)
-        lead_times = np.array([coords["lead_time"][0], coords["lead_time"][0] + self._dt])
+        lead_times = np.array(
+            [coords["lead_time"][0], coords["lead_time"][0] + self._dt]
+        )
         forcing_x, forcing_coords = fetch_data(
             self.forcing_data_source,
             time=coords["time"],
@@ -404,7 +453,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # Interp to proper coords and stack along batch dimension as required
-        if self.regridder is not None:
+        if self.needs_regrid:
             forcing_x = self.regridder(forcing_x.to(x.device))
             forcing_coords["lat"] = coords["lat"]
             forcing_coords["lon"] = coords["lon"]
@@ -449,7 +498,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Prepare coords: keep time and lead_time (0h) from input, but use output variables
         ic_coords = coords.copy()
-        ic_coords = ic_coords.copy()
         ic_coords["variable"] = np.array(self._all_out_variables_e2s, dtype=object)
 
         # Allocate output filled with NaNs [batch, time, lead_time=1, variable_out, lat, lon]
@@ -476,7 +524,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         """Generator to perform time-integration of ACE2ERA5.
-        
+
         Parameters
         ----------
         x : torch.Tensor
@@ -516,7 +564,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             var_to_idx_in = {v: i for i, v in enumerate(self._prog_vars_e2s)}
             for v in self._prog_vars_e2s:
                 if v in var_to_idx_out:
-                    x_next[:, :, 0, var_to_idx_in[v], ...] = out[:, :, 0, var_to_idx_out[v], ...]
+                    x_next[:, :, 0, var_to_idx_in[v], ...] = out[
+                        :, :, 0, var_to_idx_out[v], ...
+                    ]
 
             x = x_next
 
@@ -589,5 +639,3 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             forcing_data_source=forcing_data_source,
             dt=dt,
         )
-
-

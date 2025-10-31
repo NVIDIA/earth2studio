@@ -72,6 +72,12 @@ statistics = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
+ace2 = [
+    "pandas>=2.3.2",
+    "fme>=2025.10.0",
+    "scipy>=1.15.2",
+    "h5py<=3.14.0",
+]
 aifs = [
     "anemoi-inference[huggingface]==0.4.9",
     "anemoi-models==0.3.1",
@@ -201,15 +207,11 @@ conflicts = [
       { extra = "aurora" },
       { extra = "precip-afno" },
     ],
-    [
-      { extra = "aurora" },
-      { extra = "aurora-fork" },
-    ]
 ]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
-override-dependencies = []
+override-dependencies = ["torch-harmonics>=0.8.0", "imageio>=2.33"] # Workaround for conflict issues with ace2 fme package
 
 [tool.uv.sources]
 cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
