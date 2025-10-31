@@ -19,7 +19,6 @@ import zipfile
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from functools import partial
-from importlib.metadata import version
 from pathlib import Path
 from typing import Literal
 
@@ -83,24 +82,28 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Core pytorch model for diffusion step
     regression_model : torch.nn.Module
         Core pytorch model for regression step
-    lat_grid : torch.Tensor
-        Output latitude grid tensor
-    lon_grid : torch.Tensor
-        Output longitude grid tensor
+    lat_input_grid : torch.Tensor
+        Input latitude grid of size [in_lat, in_lon]
+    lon_input_grid : torch.Tensor
+        Input longitude grid of size [in_lat, in_lon]
+    lat_output_grid : torch.Tensor
+        Output latitude grid of size [out_lat, out_lon]
+    lon_output_grid : torch.Tensor
+        Output latitude grid of size [out_lat, out_lon]
     in_center : torch.Tensor
-        Model input center normalization tensor
+        Model input center normalization tensor of size [in_var]
     in_scale : torch.Tensor
-        Model input scale normalization tensor
-    invariant_center : torch.Tensor
-        Invariant features center normalization tensor
-    invariant_scale : torch.Tensor
-        Invariant features scale normalization tensor
+        Model input scale normalization tensor of size [in_var]
     out_center : torch.Tensor
-        Model output center normalization tensor
+        Model output center normalization tensor of size [out_var]
     out_scale : torch.Tensor
-        Model output scale normalization tensor
+        Model output scale normalization tensor of size [out_var]
     invariants : OrderedDict | None, optional
         Dictionary of invariant features, by default None
+    invariant_center : torch.Tensor | None, optional
+        Model invariant center normalization tensor of size [len(invariants)], by default None
+    invariant_scale : torch.Tensor | None, optional
+        Model invariant scale normalization tensor of size [len(invariants)], by default None
     number_of_samples : int, optional
         Number of high resolution samples to draw from diffusion model, by default 1
     number_of_steps : int, optional
@@ -925,32 +928,15 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         residual = torch.compile(residual)
         regression = torch.compile(regression)
 
-        # Get dataset for lat/lon grid info and centers/stds'
-        try:
-            zarr_version = version("zarr")
-            zarr_major_version = int(zarr_version.split(".")[0])
-        except Exception:
-            # Fallback to older method if version check fails
-            zarr_major_version = 2  # Assume older version if we can't determine
+        store = zarr.storage.LocalStore(
+            str(
+                checkpoint_zip.parent
+                / Path(
+                    "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
+                )
+            )
+        )
 
-        if zarr_major_version >= 3:
-            store = zarr.storage.LocalStore(
-                str(
-                    checkpoint_zip.parent
-                    / Path(
-                        "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
-                    )
-                )
-            )
-        else:
-            store = zarr.storage.DirectoryStore(
-                str(
-                    checkpoint_zip.parent
-                    / Path(
-                        "corrdiff_inference_package/dataset/2023-01-24-cwb-4years_5times.zarr"
-                    )
-                )
-            )
         root = zarr.group(store)
         # Get output lat/lon grid
         out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)

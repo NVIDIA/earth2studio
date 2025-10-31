@@ -78,6 +78,20 @@ class HRRR:
     model). This data source is provided on a Lambert conformal 3km grid at 1-hour
     intervals. The spatial dimensionality of HRRR data is [1059, 1799].
 
+    The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
+    coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
+
+    .. code-block:: python
+
+        import cartopy.crs as ccrs
+
+        proj_hrrr = ccrs.LambertConformal(
+            central_longitude=262.5,
+            central_latitude=38.5,
+            standard_parallels=(38.5, 38.5),
+            globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+        )
+
     Parameters
     ----------
     source : str, optional
@@ -112,8 +126,11 @@ class HRRR:
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
     MAX_BYTE_SIZE = 5000000
 
-    HRRR_X = np.arange(1799)
-    HRRR_Y = np.arange(1059)
+    # Native LCC coordinates from the HRRR Zarr archive managed by the University of Utah
+    # https://registry.opendata.aws/noaa-hrrr-pds/
+    # https://mesowest.utah.edu/html/hrrr/zarr_documentation/html/python_data_loading.html
+    HRRR_X = np.linspace(-2697520.1425219304, 2696479.8574780696, 1799, endpoint=True)
+    HRRR_Y = np.linspace(-1587306.1525566636, 1586693.8474433364, 1059, endpoint=True)
 
     def __init__(
         self,
@@ -319,6 +336,8 @@ class HRRR:
                 "lon": (("hrrr_y", "hrrr_x"), lon),
             },
         )
+        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
+        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
@@ -849,6 +868,8 @@ class HRRR_FX(HRRR):
                 "hrrr_y": self.HRRR_Y,
             },
         )
+        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
+        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, lead_time, variable)

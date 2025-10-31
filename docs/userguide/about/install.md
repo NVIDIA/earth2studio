@@ -29,11 +29,13 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
-:::{admonition} uv install
-:class: note
+:::{dropdown} uv Install
+:color: info
+:icon: archive
+ :animate: fade-in
 
 The use of the latest git release tag for the package install with uv is intentional.
 This will allow uv to handle any complicated dependency conditions and automatically
@@ -44,9 +46,10 @@ but makes installing optional packages much easier down the line.
 
 ## Install Main Branch
 
-To install the latest main branch version of Earth2Studio main branch:
+To install the latest main branch version of Earth2Studio:
 
 ```bash
+pip install hatchling # Optional if install process builds the wheel
 pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio"
 ```
 
@@ -71,8 +74,10 @@ uv run python
 
 ## Optional Dependencies
 
-:::{admonition} uv Package Manager
-:class: tip
+:::{dropdown} uv Package Manager
+:color: info
+:icon: info
+:animate: fade-in
 For developers [uv package manager](https://docs.astral.sh/uv/getting-started/installation/)
 should be used.
 uv is **not required** for just using Earth2Studio thus both pip and uv commands are
@@ -81,8 +86,11 @@ uv commands assume Earth2Studio has already been added to the project using *git
 used in the above sections.
 :::
 
-:::{admonition} uv Package Manager
+:::{admonition} Suggested prerequisites
 :class: warning
+Installing the base package before attempting any optional dependency groups is
+recommended if using pip.
+
 uv commands assume Earth2Studio has already been added to the project with the *git*
 link used in the above sections.
 :::
@@ -101,6 +109,8 @@ Use the optional install commands to add these dependencies.
 Notes: The AIFS model requires additional dependencies for data processing and
 visualization. This includes the use of [flash-attention](https://github.com/Dao-AILab/flash-attention)
 which can take a long time to build on some systems.
+See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for known suggestions/fixes related to this install process.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -170,7 +180,7 @@ be installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
 pip install earth2studio[dlesym]
 ```
 
@@ -204,8 +214,10 @@ uv add earth2studio --extra fcn
 :::::
 :::::{tab-item} FourCastNet 3
 Notes: Recommended to install [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
-with CUDA extensions for best performance. [Modulus-Makani](https://github.com/NVIDIA/modulus-makani.git)
-needs to be installed manually.
+with CUDA extensions for best performance which can take a long time to build on some
+systems.
+See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for known suggestions/fixes related to this install process.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -213,7 +225,7 @@ needs to be installed manually.
 ```bash
 export FORCE_CUDA_EXTENSION=1
 pip install --no-build-isolation torch-harmonics==0.8.0
-pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@28f38e3e929ed1303476518552c64673bbd6f722"
 pip install earth2studio[fcn3]
 ```
 
@@ -320,7 +332,7 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@49280812513d8f1daf872a2e9343855a6adb3acf"
+pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@28f38e3e929ed1303476518552c64673bbd6f722"
 pip install earth2studio[sfno]
 ```
 
@@ -378,16 +390,16 @@ uv add earth2studio --extra interp-modafno
 
 ::::::{tab-set}
 :::::{tab-item} CBottle
-Notes: Additional dependencies needed for CBottle3D data source,
-CBottleInfill diagnostic and CBottleSR diagnostic.
+Notes: Additional dependencies needed for CBottle3D data source, CBottle video
+prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
 pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@aefb10793aa372bae7d0951d627a89e2983fd0ca"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@0b8c6787053dc80f14fbb68a54d6815749c9d0e9"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9250793894f8a9963f6968d62112884869fde3e1"
 pip install earth2studio[cbottle]
 ```
 
@@ -660,21 +672,21 @@ For developer environments, please refer to the {ref}`developer_overview`.
 
 ## uv Project
 
-Using uv is the recommend way to set up a local Python environment for Earth2Studio.
+Using uv is the recommended way to set up a local Python environment for Earth2Studio.
 Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
 the following commands:
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 (pytorch_container_environment)=
@@ -685,7 +697,7 @@ For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvid
 provides a good base with many dependencies already installed and optimized for NVIDIA
 hardware.
 In container instances, using a virtual environment is often [not necessary](https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments).
-It is recommend using the following commands to install using the container's Python
+It is recommended to use the following commands to install using the container's Python
 interpreter:
 
 ```bash
@@ -694,7 +706,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -707,7 +719,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 :::
@@ -732,16 +744,16 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Disable contraint files in the container
+# Disable constraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 ## Conda Environment
 
-It is no longer recommend to use any conda environment manager for Earth2Studio in favor
-of uv if possible.
+It is no longer recommended to use any conda environment manager for Earth2Studio in
+favor of uv if possible.
 This is because the virtual environments set up by uv makes the system-wide conda
 environments not needed unless some system dependencies are required.
 However this demonstrates that in principle Earth2Studio can be installed using standard
@@ -751,7 +763,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.8.1"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.9.0"
 ```
 
 # System Recommendations
@@ -760,7 +772,7 @@ uv pip install --system --break-system-packages "earth2studio@git+https://github
 
 Earth2Studio does not have any specific software version requirements.
 The following are recommended to closely match development and automation environments,
-minimizing the chance for unforeseen incompatibilities:
+minimizing the chance for unexpected incompatibilities:
 
 - OS: Ubuntu 24.04 LTS
 - Python Version: 3.12
@@ -786,7 +798,7 @@ This includes cards such as:
 - B200
 
 We encourage users to experiment on different hardware for their specific needs and
-usecase.
+use case.
 
 (configuration_userguide)=
 

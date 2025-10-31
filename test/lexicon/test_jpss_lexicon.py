@@ -17,18 +17,25 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import IFSLexicon
+from earth2studio.lexicon import JPSSLexicon
 
 
 @pytest.mark.parametrize(
-    "variable", [["t2m"], ["u10m", "v200"], ["msl", "z500", "q700"]]
+    "variable",
+    [["viirs01i"], ["viirs02m", "viirs03m"], ["lst", "aod", "cmask"], ["foo"]],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_ifs_lexicon(variable, device):
-    input = torch.randn(len(variable), 8).to(device)
+def test_jpss_lexicon(variable, device):
+    input = torch.randn(len(variable), 100, 100).to(device)
     for v in variable:
-        label, modifier = IFSLexicon[v]
-        output = modifier(input)
-        assert isinstance(label, str)
-        assert input.shape == output.shape
-        assert input.device == output.device
+        if v != "foo":
+            product_type, folder, dataset, modifier = JPSSLexicon[v]
+            output = modifier(input)
+            assert isinstance(product_type, str)
+            assert isinstance(folder, str)
+            assert isinstance(dataset, str)
+            assert input.shape == output.shape
+            assert input.device == output.device
+        else:
+            with pytest.raises(KeyError):
+                product_type, folder, dataset, modifier = JPSSLexicon[v]

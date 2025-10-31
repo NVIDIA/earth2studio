@@ -22,7 +22,7 @@ from earth2studio.lexicon import GOESLexicon
 
 @pytest.mark.parametrize(
     "variable",
-    [["vis047"], ["vis064", "nir086"], ["ir1035", "ir1120", "ir1230"], ["foo"]],
+    [["abi01c"], ["abi02c", "abi03c"], ["abi13c", "abi14c", "abi15c"], ["foo"]],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_goes_lexicon(variable, device):

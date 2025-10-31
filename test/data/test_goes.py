@@ -34,13 +34,13 @@ from earth2studio.data import GOES
         (
             "goes16",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            "vis047",
+            "abi01c",
             "F",
         ),
         (
             "goes16",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            ["vis064", "nir086"],
+            ["abi02c", "abi03c"],
             "C",
         ),
         (
@@ -49,20 +49,20 @@ from earth2studio.data import GOES
                 datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
                 datetime(year=2022, month=6, day=25, hour=12, minute=10, second=0),
             ],
-            "vis047",
+            "abi01c",
             "C",
         ),
         # GOES-17: Operational from Feb 12, 2019 to Jan 4, 2023
         (
             "goes17",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            "vis047",
+            "abi01c",
             "F",
         ),
         (
             "goes17",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            ["vis064", "nir086"],
+            ["abi02c", "abi03c"],
             "C",
         ),
         (
@@ -71,20 +71,20 @@ from earth2studio.data import GOES
                 datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
                 datetime(year=2022, month=6, day=25, hour=12, minute=5, second=0),
             ],
-            "vis047",
+            "abi01c",
             "C",
         ),
         # GOES-18: Operational from Jan 4, 2023 onwards
         (
             "goes18",
             datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
-            "vis047",
+            "abi01c",
             "F",
         ),
         (
             "goes18",
             datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
-            ["vis064", "nir086"],
+            ["abi02c", "abi03c"],
             "C",
         ),
         (
@@ -93,20 +93,20 @@ from earth2studio.data import GOES
                 datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
                 datetime(year=2023, month=6, day=25, hour=12, minute=10, second=0),
             ],
-            "vis047",
+            "abi01c",
             "C",
         ),
         # GOES-19: Operational from Apr 7, 2025 onwards (future date for testing)
         (
             "goes19",
             datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
-            "vis047",
+            "abi01c",
             "F",
         ),
         (
             "goes19",
             datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
-            ["vis064", "nir086"],
+            ["abi02c", "abi03c"],
             "C",
         ),
         (
@@ -115,7 +115,7 @@ from earth2studio.data import GOES
                 datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
                 datetime(year=2025, month=6, day=25, hour=12, minute=10, second=0),
             ],
-            "vis047",
+            "abi01c",
             "C",
         ),
     ],
@@ -153,7 +153,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
         np.array([np.datetime64("2022-06-25T12:00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", [["vis047", "vis064", "nir086"]])
+@pytest.mark.parametrize("variable", [["abi01c", "abi02c", "abi03c"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_goes_cache(time, variable, cache):
     """Test GOES caching functionality."""
@@ -192,10 +192,10 @@ def test_goes_cache(time, variable, cache):
 @pytest.mark.parametrize(
     "satellite,scan_mode,time,variable,valid",
     [
-        ("goes16", "F", datetime(2022, 6, 25, 12, 0, 0), "vis047", True),
-        ("goes17", "C", datetime(2022, 6, 25, 12, 0, 0), "vis064", True),
-        ("foo", "F", datetime(2022, 6, 25, 12, 0, 0), "vis047", False),
-        ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "vis047", False),
+        ("goes16", "F", datetime(2022, 6, 25, 12, 0, 0), "abi01c", True),
+        ("goes17", "C", datetime(2022, 6, 25, 12, 0, 0), "abi02c", True),
+        ("foo", "F", datetime(2022, 6, 25, 12, 0, 0), "abi01c", False),
+        ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "abi01c", False),
         ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "foo", False),
     ],
 )
@@ -228,7 +228,7 @@ def test_goes_sources(satellite, scan_mode, time, variable, valid):
         datetime(2025, 6, 25, 12, 0, 0),
     ],
 )
-@pytest.mark.parametrize("variable", ["vis047"])
+@pytest.mark.parametrize("variable", ["abi01c"])
 def test_goes_available(time, variable):
     """Test GOES availability checks."""
 

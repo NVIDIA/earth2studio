@@ -69,7 +69,6 @@ class CMIP6Lexicon(metaclass=LexiconType):
             # "ts": ("ts", -1), # skin temperature
             # "siconc": ("siconc", -1), # sea ice concentration (alias of sic)
             # "lsm": ("sftlf", -1), # land-sea mask (for cmip6 this is fraction of land)
-            # "zsl": ("zg", -1),   # geopotential height at mean sea-level
             # "z": ("orog", -1),   # surface geopotential height (orography)
         }
 
