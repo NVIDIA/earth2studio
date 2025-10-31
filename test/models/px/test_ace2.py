@@ -21,7 +21,6 @@ import pytest
 import torch
 
 # pytest.importorskip("fme")
-
 from earth2studio.data import Random, fetch_data  # noqa: E402
 from earth2studio.data.ace import ACE2ERA5Data  # noqa: E402
 from earth2studio.models.px.ace2 import ACE2ERA5  # noqa: E402
@@ -32,7 +31,9 @@ from earth2studio.utils import handshake_dim  # noqa: E402
 def model(model_cache_context) -> ACE2ERA5:
     with model_cache_context():
         package = ACE2ERA5.load_default_package()
-        p = ACE2ERA5.load_model(package, forcing_data_source=ACE2ERA5Data(mode="forcing"))
+        p = ACE2ERA5.load_model(
+            package, forcing_data_source=ACE2ERA5Data(mode="forcing")
+        )
         return p
 
 
@@ -119,5 +120,3 @@ def test_ace2era5_iter(batch, device, model):
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         if i > 2:
             break
-
-

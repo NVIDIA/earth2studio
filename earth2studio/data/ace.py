@@ -12,32 +12,34 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. 
+# limitations under the License.
 
 import os
 from collections.abc import Callable, Sequence
-from typing import Literal
 from datetime import datetime
+from typing import Literal
 
 import numpy as np
 import xarray as xr
 
-from earth2studio.utils.imports import OptionalDependencyFailure
 from earth2studio.data.utils import prep_data_inputs
 from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.models.auto import Package
+from earth2studio.utils.imports import OptionalDependencyFailure
 from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
+    # ACE2 uses F90 regular gaussian grid internally
+    # https://confluence.ecmwf.int/display/OIFS/4.3+OpenIFS%3A+Horizontal+Resolution+and+Configurations
+    # Compute gaussian grid latitudes using legendre polynomials
     from scipy.special import roots_legendre
+
+    ACE_GRID_LAT = np.degrees(np.arcsin(roots_legendre(2 * 90)[0]))
+    ACE_GRID_LON = np.linspace(0.5, 359.5, 4 * 90, endpoint=True)
 except ImportError:
     OptionalDependencyFailure("ace2")
-    roots_legendre = lambda n: (np.zeros(n), None)
-
-# ACE2 uses F90 regular gaussian grid internally
-# https://confluence.ecmwf.int/display/OIFS/4.3+OpenIFS%3A+Horizontal+Resolution+and+Configurations
-ACE_GRID_LAT = np.degrees(np.arcsin(roots_legendre(2 * 90)[0]))
-ACE_GRID_LON = np.linspace(0.5, 359.5, 4 * 90, endpoint=True)
+    ACE_GRID_LAT = None
+    ACE_GRID_LON = None
 
 
 class ACE2ERA5Data:

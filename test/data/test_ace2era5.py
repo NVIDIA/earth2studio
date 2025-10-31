@@ -61,7 +61,7 @@ def test_ace2era5data_forcing_fetch(time, variable):
 @pytest.mark.parametrize(
     "time",
     [
-        datetime.datetime(year=2001, month=1, day=1, hour=0), \
+        datetime.datetime(year=2001, month=1, day=1, hour=0),
         [
             datetime.datetime(year=2020, month=1, day=1, hour=0),
             datetime.datetime(year=2020, month=2, day=1, hour=0),
@@ -88,7 +88,7 @@ def test_ace2era5data_initial_conditions_year_validation():
     ds = ACE2ERA5Data(mode="initial_conditions")
     # 1981 is not an allowed IC year
     with pytest.raises(ValueError):
-        ds(datetime.datetime(year=1981, month=1, day=1, hour=0), ["skt"]) 
+        ds(datetime.datetime(year=1981, month=1, day=1, hour=0), ["skt"])
 
 
 @pytest.mark.slow
@@ -114,4 +114,3 @@ def test_ace2era5data_co2_fn_override():
     # Check each time slice is constant and equals expected
     for i in range(len(times)):
         assert np.allclose(vals[i], expected[i])
-
