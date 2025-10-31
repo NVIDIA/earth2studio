@@ -1019,7 +1019,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         x = (x - self.in_center) / self.in_scale
 
         # Create grid channels
-        # TODO: why do we need this grid concatenated to the input?
         x1 = np.sin(np.linspace(0, 2 * np.pi, 448))
         x2 = np.cos(np.linspace(0, 2 * np.pi, 448))
         y1 = np.sin(np.linspace(0, 2 * np.pi, 448))
@@ -1039,8 +1038,11 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         # Create seeds for each sample
         seed = self.seed if self.seed is not None else np.random.randint(2**32)
-        gen = torch.Generator(device=x.device)
-        gen.manual_seed(seed)
+        if seed:
+            gen = torch.Generator(device=x.device)
+            gen.manual_seed(seed)
+        else:
+            gen = None
         sample_seeds = torch.randint(0, 2**32, (self.number_of_samples,), device=x.device, generator=gen)
 
         sampler_fn = partial(
