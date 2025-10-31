@@ -783,6 +783,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     solver: Literal['euler', 'heun']
         Discretization of diffusion process. Only 'euler' and 'heun'
         are supported. Default is 'euler'
+    seed: int | None, optional
+        Random seed for reproducibility. Default is None.
     """
 
     def __init__(
@@ -798,6 +800,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         number_of_samples: int = 1,
         number_of_steps: int = 8,
         solver: Literal["euler", "heun"] = "euler",
+        seed: int | None = None,
     ):
         super().__init__()
         self.residual_model = residual_model
@@ -821,6 +824,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.number_of_samples = number_of_samples
         self.number_of_steps = number_of_steps
         self.solver = solver
+        self.seed = seed
+        self.output_variables = OUT_VARIABLES  # Default set of output variables
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -1059,7 +1064,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         mean_hr = self.unet_regression(
             self.regression_model,
             img_lr=x,
-            output_channels=len(self.output_variables),
+            output_channels=len(OUT_VARIABLES),
             number_of_samples=self.number_of_samples,
         )
 
@@ -1101,7 +1106,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def unet_regression(
         net: torch.nn.Module,
         img_lr: torch.Tensor,
-        lead_time_label: torch.Tensor,
         output_channels: int,
         number_of_samples: int,
     ) -> torch.Tensor:
@@ -1114,8 +1118,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             U-Net model for regression.
         img_lr : torch.Tensor
             Low-resolution input image of shape (1, C_in, H_hr, W_hr).
-        lead_time_label : torch.Tensor
-            Lead time label of shape (1, 1, 1, 1), or (1,).
         output_channels : int
             Number of output channels C_out.
         number_of_samples : int
@@ -1136,7 +1138,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 img_lr.shape[-2],
                 img_lr.shape[-1],
             ),
-            lead_time_label=lead_time_label
+            lead_time_label=None
         )
 
         return mean_hr
