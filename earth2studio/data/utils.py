@@ -367,6 +367,24 @@ def datasource_cache_root() -> str:
     return default_cache
 
 
+def get_msc_filesystem():
+    """Get MultiStorageAsyncFileSystem class if available, None otherwise.
+    
+    This helper function checks if Multi-Storage Client is available and sets up
+    the MSC configuration if needed. It returns the filesystem class that can be
+    instantiated by the caller, or None if MSC is not available.
+
+    """
+    # Try to import Multi-Storage Client, fallback to None if not available
+    try:
+        from multistorageclient.contrib.async_fs import MultiStorageAsyncFileSystem
+        config_path = Path(__file__).parent / "msc_config.yaml"
+        os.environ["MSC_CONFIG"] = str(config_path)
+        return MultiStorageAsyncFileSystem
+    except ImportError:
+        return None
+
+
 T = TypeVar("T")
 
 
