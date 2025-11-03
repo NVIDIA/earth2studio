@@ -906,7 +906,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/diffusion.mdlus")
             ),
-            override_args={"use_apex_gn": True}
+            override_args={"use_apex_gn": True},
         )
         residual.use_fp16, residual.profile_mode = True, False
         residual = residual.eval()
@@ -919,7 +919,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/regression.mdlus")
             ),
-            override_args={"use_apex_gn": True}
+            override_args={"use_apex_gn": True},
         )
         regression.use_fp16, regression.profile_mode = True, False
         regression = regression.eval()
@@ -1013,7 +1013,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.solver not in ["euler", "heun"]:
             raise ValueError(
-                f"solver must be either 'euler' or 'heun' but got {self.solver}"
+                f"solver must be either 'euler' or 'heun', " f"but got {self.solver}"
             )
 
         # Interpolate
@@ -1048,7 +1048,9 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             gen.manual_seed(seed)
         else:
             gen = None
-        sample_seeds = torch.randint(0, 2**32, (self.number_of_samples,), device=x.device, generator=gen)
+        sample_seeds = torch.randint(
+            0, 2**32, (self.number_of_samples,), device=x.device, generator=gen
+        )
 
         sampler_fn = partial(
             deterministic_sampler,
@@ -1138,7 +1140,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 img_lr.shape[-2],
                 img_lr.shape[-1],
             ),
-            lead_time_label=None
+            lead_time_label=None,
         )
 
         return mean_hr
