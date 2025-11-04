@@ -11,6 +11,7 @@ workflow:
 
 build-ci-env:
   stage: build
+  needs: []
   tags:
   - docker
   extends:
