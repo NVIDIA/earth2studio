@@ -11,13 +11,6 @@ workflow:
 
 build-ci-env:
   stage: build
-  needs:
-    - job: github-clone
-      artifacts: false
-      optional: true
-    - job: gitlab-clone
-      artifacts: false
-      optional: true
   tags:
   - docker
   extends:
@@ -85,7 +78,7 @@ coverage:
   needs:
     - job: pytest
       artifacts: true
-      optional: true
+      optional: false
   tags:
   - docker
   extends:
