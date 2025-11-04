@@ -51,7 +51,7 @@ pytest-full:
 
 .PHONY: pytest-automodels-docker
 pytest-automodels-docker:
-	pytest -s test/models/test_auto_models.py -k test_auto_model_download --model-download
+	pytest -s test/models/test_auto_models.py -k test_auto_model_download --package-download
 
 .PHONY: coverage
 coverage:

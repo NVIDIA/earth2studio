@@ -1,8 +1,10 @@
-FROM nvcr.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+FROM nvcr.io/nvidia/cuda:12.9.0-cudnn-devel-ubuntu24.04
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /uvx /bin/
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    python3-dev \
+    build-essential \
     git \
     make \
     curl \

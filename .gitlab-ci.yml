@@ -76,7 +76,7 @@ test:
 coverage:
   stage: report
   needs:
-    - job: pytest
+    - job: test
       artifacts: true
       optional: false
   tags:
