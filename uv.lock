@@ -1378,6 +1378,7 @@ all = [
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
+    { name = "onnx" },
     { name = "onnxruntime-gpu" },
     { name = "pynvml" },
     { name = "pyproj" },
@@ -1433,11 +1434,14 @@ fcn3 = [
     { name = "moviepy" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
+    { name = "torch-harmonics" },
 ]
 fengwu = [
+    { name = "onnx" },
     { name = "onnxruntime-gpu" },
 ]
 fuxi = [
+    { name = "onnx" },
     { name = "onnxruntime-gpu" },
 ]
 graphcast = [
@@ -1603,6 +1607,9 @@ requires-dist = [
     { name = "omegaconf", marker = "extra == 'all'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'dlesym'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
+    { name = "onnx", marker = "extra == 'all'" },
+    { name = "onnx", marker = "extra == 'fengwu'" },
+    { name = "onnx", marker = "extra == 'fuxi'" },
     { name = "onnxruntime-gpu", marker = "extra == 'all'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'fengwu'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'fuxi'", specifier = ">=1.21.0" },
@@ -1631,6 +1638,7 @@ requires-dist = [
     { name = "torch", specifier = ">=2.5.0" },
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.7.4" },
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.8.0" },
+    { name = "torch-harmonics", marker = "extra == 'fcn3'", specifier = ">=0.8.0" },
     { name = "torch-harmonics", marker = "extra == 'perturbation'", specifier = ">=0.7.4" },
     { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.8.0" },
     { name = "tqdm", specifier = ">=4.65.0" },

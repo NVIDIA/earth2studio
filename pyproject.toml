@@ -102,12 +102,15 @@ fcn3 = [
     "makani",
     "ruamel.yaml>=0.18.14",
     "scipy>=1.10.0",
+    "torch-harmonics>=0.8.0",
     "moviepy"
 ]
 fengwu = [
+    "onnx",
     "onnxruntime-gpu>=1.21.0",
 ]
 fuxi = [
+    "onnx",
     "onnxruntime-gpu>=1.21.0",
 ]
 graphcast = [
