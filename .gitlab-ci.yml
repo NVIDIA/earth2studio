@@ -9,24 +9,6 @@ stages:
 workflow:
    name: $PIPELINE_WORKFLOW_NAME
 
-gitlab-clone:
-  stage: pre
-  rules:
-    - if: $PIPELINE_REPO_SOURCE == "github"
-      when: always
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: always
-    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: always
-    - if: $PIPELINE_REPO_SOURCE != "github" && $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
-      when: always
-    - when: manual
-  tags:
-  - docker
-  extends:
-    - .gitlab:pull
-  image: $CI_IMAGE
-
 build-ci-env:
   stage: build
   needs:
@@ -43,7 +25,6 @@ build-ci-env:
     - .build-env:cache
   script:
     - make setup-ci
-    - make install-docker
 
 format:
   stage: lint
@@ -74,7 +55,7 @@ lint:
     - make lint
     - make license
 
-pytest:
+test:
   stage: test
   needs:
     - job: format
@@ -90,117 +71,19 @@ pytest:
     XLA_PYTHON_CLIENT_PREALLOCATE: false
     # https://docs.jax.dev/en/latest/gpu_memory_allocation.html
   rules:
-    - if: $PIPELINE_TEST_ALL == "true"
-      when: on_success
-    - when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      variables:
+        TESTMON_CACHE_POLICY: pull-push
+    - when: on_success
   script:
-    - make install-docker
-    - make pytest-docker 2>&1 | tee ../pytest.log.full
+    - make pytest 2>&1 | tee ../pytest.log.full
     - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
     - rm ../pytest.log.full
-
-pytest-data:
-  extends:
-    - pytest
-  variables:
-    COVERAGE_SOURCE: earth2studio/data
-    PYTEST_SOURCE: test/data
-  rules:
-    - if: $PIPELINE_TEST_ALL != "true"
-      changes:
-        paths:
-          - $COVERAGE_SOURCE/**/*
-          - $PYTEST_SOURCE/**/*
-        compare_to: 'refs/heads/main'
-      when: on_success
-    - when: never
-  script:
-    - make install-docker
-    - make pytest-submodule-docker 2>&1 | tee ../pytest.log.full
-    # - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
-    # - rm ../pytest.log.full || true
-
-pytest-io:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/io
-    PYTEST_SOURCE: test/io
-
-pytest-lexicon:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/lexicon
-    PYTEST_SOURCE: test/lexicon
-
-pytest-models:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/models
-    PYTEST_SOURCE: test/models
-
-pytest-perturbation:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/perturbation
-    PYTEST_SOURCE: test/perturbation
-
-pytest-run:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio.run
-    PYTEST_SOURCE: test/run
-  rules:
-    - if: $PIPELINE_TEST_ALL != "true"
-      when: on_success
-    - when: never
-
-pytest-statistics:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/statistics
-    PYTEST_SOURCE: test/statistics
-
-pytest-utils:
-  extends:
-    - pytest-data
-  variables:
-    COVERAGE_SOURCE: earth2studio/utils
-    PYTEST_SOURCE: test/utils
 
 coverage:
   stage: report
   needs:
     - job: pytest
-      artifacts: true
-      optional: true
-    - job: pytest-data
-      artifacts: true
-      optional: true
-    - job: pytest-lexicon
-      artifacts: true
-      optional: true
-    - job: pytest-io
-      artifacts: true
-      optional: true
-    - job: pytest-models
-      artifacts: true
-      optional: true
-    - job: pytest-perturbation
-      artifacts: true
-      optional: true
-    - job: pytest-run
-      artifacts: true
-      optional: true
-    - job: pytest-statistics
-      artifacts: true
-      optional: true
-    - job: pytest-utils
       artifacts: true
       optional: true
   tags:

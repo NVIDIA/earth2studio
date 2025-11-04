@@ -249,16 +249,15 @@ class TestFuXiMock:
             p(x, coords)
 
 
-@pytest.mark.ci_cache
+@pytest.mark.package
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_fuxi_package(device, model_cache_context):
+def test_fuxi_package(device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    with model_cache_context():
-        with torch.device(device):
-            package = FuXi.load_default_package()
-            p = FuXi.load_model(package).to(device)
+    with torch.device(device):
+        package = FuXi.load_default_package()
+        p = FuXi.load_model(package).to(device)
 
     dc = p.input_coords()
     del dc["batch"]

@@ -241,7 +241,7 @@ def test_forecast_interpolation_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> InterpModAFNO:
+def model() -> InterpModAFNO:
 
     from earth2studio.models.px.interpmodafno import VARIABLES
 
@@ -252,15 +252,13 @@ def model(model_cache_context) -> InterpModAFNO:
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         },
     )
-    # Test only on cuda device
-    with model_cache_context():
-        # Load the interpolation model
-        interp_package = InterpModAFNO.load_default_package()
-        model = InterpModAFNO.load_model(interp_package, px_model=base_model)
-        return model
+    # Load the interpolation model
+    interp_package = InterpModAFNO.load_default_package()
+    model = InterpModAFNO.load_model(interp_package, px_model=base_model)
+    return model
 
 
-@pytest.mark.ci_cache
+@pytest.mark.package
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_package(device, model):

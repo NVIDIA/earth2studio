@@ -1,17 +1,17 @@
 install:
 	uv sync
-	uv sync --extra all --extra aifs
+	uv sync --extra all
 
 .PHONY: install-docker
 install-docker:
-	uv pip install --system --break-system-packages .[all,aifs] --group dev
-	uv pip install --system --break-system-packages zarr~=3.0
+	uv pip install --system --break-system-packages .[all] --group dev
 
 .PHONY: setup-ci
 setup-ci:
 	uv venv --python=3.12
 	uv sync
 	uv run pre-commit install --install-hooks
+	uv tool install tox --with tox-uv
 
 .PHONY: format
 format:
@@ -43,27 +43,15 @@ license:
 
 .PHONY: pytest
 pytest:
-	uv run coverage run -m pytest --ci-cache --slow test/
+	uvx tox run
 
-.PHONY: pytest-docker
-pytest-docker:
-	coverage run -m pytest --ci-cache --slow test/
-
-.PHONY: pytest-submodule
-pytest-submodule:
-	uv run coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow $(PYTEST_SOURCE)
-
-.PHONY: pytest-submodule-docker
-pytest-submodule-docker:
-	coverage run --source=$(COVERAGE_SOURCE) -m pytest --ci-cache --slow -s $(PYTEST_SOURCE)
+.PHONY: pytest-full
+pytest-full:
+	uvx tox run -- -s --slow --no-testmon
 
 .PHONY: pytest-automodels-docker
 pytest-automodels-docker:
 	pytest -s test/models/test_auto_models.py -k test_auto_model_download --model-download
-
-.PHONY: doctest
-doctest:
-	echo "Skipping doc test"
 
 .PHONY: coverage
 coverage:

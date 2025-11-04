@@ -240,15 +240,13 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> GraphCastSmall:
-    # Test only on cuda device
-    with model_cache_context():
-        package = GraphCastSmall.load_default_package()
-        p = GraphCastSmall.load_model(package)
-        return p
+def model() -> GraphCastSmall:
+    package = GraphCastSmall.load_default_package()
+    p = GraphCastSmall.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
+@pytest.mark.package
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_graphcast_small_package(model, device):
@@ -452,14 +450,13 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
 
 
 @pytest.fixture(scope="function")
-def operational_model(model_cache_context) -> GraphCastOperational:
-    with model_cache_context():
-        package = GraphCastOperational.load_default_package()
-        p = GraphCastOperational.load_model(package)
-        return p
+def operational_model() -> GraphCastOperational:
+    package = GraphCastOperational.load_default_package()
+    p = GraphCastOperational.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
+@pytest.mark.package
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_graphcast_operational_package(operational_model, device):

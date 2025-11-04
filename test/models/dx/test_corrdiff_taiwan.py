@@ -168,15 +168,12 @@ def test_corrdiff_exceptions(x, device):
 
 
 @pytest.mark.xfail  # TODO: REMOVE
-@pytest.mark.ci_cache
+@pytest.mark.package
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_corrdiff_package(device, model_cache_context):
-    # Test the cached model package CorrDiffTaiwan
-    # Only cuda supported
-    with model_cache_context():
-        package = CorrDiffTaiwan.load_default_package()
-        dx = CorrDiffTaiwan.load_model(package).to(device)
+def test_corrdiff_package(device):
+    package = CorrDiffTaiwan.load_default_package()
+    dx = CorrDiffTaiwan.load_model(package).to(device)
 
     x = torch.randn(2, 12, 36, 40).to(device)
     coords = OrderedDict(
