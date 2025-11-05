@@ -124,6 +124,7 @@ interp-modafno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 pangu = [
+    "onnx",
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [

@@ -1459,6 +1459,7 @@ interp-modafno = [
     { name = "nvidia-physicsnemo" },
 ]
 pangu = [
+    { name = "onnx" },
     { name = "onnxruntime-gpu" },
 ]
 perturbation = [
@@ -1618,6 +1619,7 @@ requires-dist = [
     { name = "onnx", marker = "extra == 'all'" },
     { name = "onnx", marker = "extra == 'fengwu'" },
     { name = "onnx", marker = "extra == 'fuxi'" },
+    { name = "onnx", marker = "extra == 'pangu'" },
     { name = "onnxruntime-gpu", marker = "extra == 'all'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'fengwu'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'fuxi'", specifier = ">=1.21.0" },
