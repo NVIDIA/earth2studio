@@ -164,7 +164,7 @@ class PrepareInputTensorDefault:
             x, coords = map_coords(x, coords, dx_coords)
         except Exception as e:
             logger.error(
-                "Mapping between prognostic output and diagnostic input failed. Check coordinate systems are compatable."
+                "Mapping between prognostic output and diagnostic input failed. Check coordinate systems are compatible."
             )
             raise e
 
