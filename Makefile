@@ -1,3 +1,4 @@
+.PHONY: install
 install:
 	uv sync
 	uv sync --extra all
@@ -49,13 +50,17 @@ pytest:
 pytest-full:
 	uvx tox run -- -s --cov --cov-append --slow --package --testmon-noselect
 
+# Select which pytest target to run in CI based on pipeline source
+ifeq ($(CI_PIPELINE_SOURCE),schedule)
+PYTEST_CI_TARGET := pytest-full
+else
+PYTEST_CI_TARGET := pytest
+endif
+
 .PHONY: pytest-ci
 pytest-ci:
-	@if [ "$$CI_PIPELINE_SOURCE" = "schedule" ]; then \
-		$(MAKE) pytest-full; \
-	else \
-		$(MAKE) pytest; \
-	fi
+	uv run python test/_ci/check_gpu.py
+	$(MAKE) $(PYTEST_CI_TARGET)
 
 .PHONY: pytest-automodels-docker
 pytest-automodels-docker:
