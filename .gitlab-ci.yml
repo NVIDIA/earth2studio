@@ -65,8 +65,10 @@ test:
     XLA_PYTHON_CLIENT_PREALLOCATE: false
     # https://docs.jax.dev/en/latest/gpu_memory_allocation.html
   retry:
-    max: 2
-    exit_codes: 123
+    max: 1
+    when:
+      - script_failure
+      - runner_system_failure
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
