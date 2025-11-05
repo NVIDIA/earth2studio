@@ -8,6 +8,7 @@
         "../../.git/",
         "../../.github/",
         "../../.tox/",
+        "../../.cache/",
         "../../.vscode/",
         "../../.pytest_cache/",
         "../../.pre-commit/",
