@@ -68,11 +68,12 @@ test:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
         TESTMON_CACHE_POLICY: pull-push
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      variables:
+        TESTMON_CACHE_POLICY: pull-push
     - when: on_success
   script:
-    - make pytest 2>&1 | tee ../pytest.log.full
-    - grep -A 9999 "=.*short test summary info.*=" ../pytest.log.full > ../blossom.log
-    - rm ../pytest.log.full
+    - make pytest-ci
 
 coverage:
   stage: report

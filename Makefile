@@ -47,7 +47,15 @@ pytest:
 
 .PHONY: pytest-full
 pytest-full:
-	uvx tox run -- -s --slow --testmon-noselect
+	uvx tox run -- -s --cov --cov-append --slow --package --testmon-noselect
+
+.PHONY: pytest-ci
+pytest-ci:
+	@if [ "$$CI_PIPELINE_SOURCE" = "schedule" ]; then \
+		$(MAKE) pytest-full; \
+	else \
+		$(MAKE) pytest; \
+	fi
 
 .PHONY: pytest-automodels-docker
 pytest-automodels-docker:
