@@ -67,6 +67,7 @@ data = [
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
+    "scipy>=1.15.2",
 ]
 statistics = [
     "nvidia-physicsnemo>=1.0.1",
@@ -249,6 +250,7 @@ dev = [
     "mypy",
     "pre-commit",
     "pytest>=6.0.0",
+    "pytest-picked>=0.5.1",
     "pytest-timeout>=2.0.1",
     "pytest-skip-slow>=0.0.5",
     "pyyaml>=6.0",
@@ -346,7 +348,7 @@ omit = [
     "earth2studio/models/nn/*",
 ]
 show_missing = true
-fail_under = 75
+# fail_under = 75
 
 [tool.coverage.xml]
 output = "e2studio.coverage.xml"

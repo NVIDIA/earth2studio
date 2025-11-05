@@ -47,7 +47,7 @@ pytest:
 
 .PHONY: pytest-full
 pytest-full:
-	uvx tox run -- -s --slow --no-testmon
+	uvx tox run -- -s --slow --testmon-noselect
 
 .PHONY: pytest-automodels-docker
 pytest-automodels-docker:
