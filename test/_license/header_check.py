@@ -42,6 +42,8 @@ def get_top_comments(_data):
             break
         elif "from" in line:
             break
+        elif '"""' in line:
+            break
 
     comments = [_data[line] for line in lines_to_extract]
     return comments
