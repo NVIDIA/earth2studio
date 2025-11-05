@@ -38,7 +38,7 @@ repos:
       files: ^test\/.*\.py$
       exclude: |
             (?x)^(
-                ^test\/_license |
+                ^test\/_license\/.*\.py$ |
                 ^test\/_ci\/.*\.py$
             )$
 
