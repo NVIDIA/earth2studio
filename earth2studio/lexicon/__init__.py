@@ -18,15 +18,15 @@ from .arco import ARCOLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cmip6 import CMIP6Lexicon
+from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .goes import GOESLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
-from .ifs import IFSLexicon
 from .imerg import IMERGLexicon
 from .jpss import JPSSLexicon
+from .modis_fire import MODISFireLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .oisst import OISSTLexicon
 from .sentinel3_aod import Sentinel3AODLexicon
-from .modis_fire import MODISFireLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

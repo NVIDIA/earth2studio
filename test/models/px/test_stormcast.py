@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import HRRR, Random, fetch_data
 from earth2studio.models.px import StormCast
 from earth2studio.utils import handshake_dim
 
@@ -74,8 +74,8 @@ def test_stormcast_call(time, device):
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
@@ -153,8 +153,8 @@ def test_stormcast_iter(ensemble, device):
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
@@ -248,8 +248,8 @@ def test_stormcast_exceptions(dc, device):
     Y_START, Y_END = 273, 785
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
@@ -309,8 +309,8 @@ def test_stormcast_package(cond_dims, device, model):
     Y_START, Y_END = 273, 785
     dc = OrderedDict(
         [
-            ("hrrr_y", np.arange(Y_START, Y_END, 1)),
-            ("hrrr_x", np.arange(X_START, X_END, 1)),
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     r = Random(dc)
