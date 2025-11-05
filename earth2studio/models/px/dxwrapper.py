@@ -160,7 +160,13 @@ class PrepareInputTensorDefault:
         coords["lat"] = dx_coords["lat"]
         coords["lon"] = dx_coords["lon"]
         # Map remaining coords
-        x, coords = map_coords(x, coords, dx_coords)
+        try:
+            x, coords = map_coords(x, coords, dx_coords)
+        except Exception as e:
+            logger.error(
+                "Mapping between prognostic output and diagnostic input failed. Check coordinate systems are compatable."
+            )
+            raise e
 
         return x, coords
 
