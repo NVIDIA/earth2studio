@@ -62,9 +62,9 @@ pytest-ci:
 	uv run python test/_ci/check_gpu.py
 	$(MAKE) $(PYTEST_CI_TARGET)
 
-.PHONY: pytest-automodels-docker
-pytest-automodels-docker:
-	pytest -s test/models/test_auto_models.py -k test_auto_model_download --package-download
+.PHONY: pytest-automodels
+pytest-automodels:
+	uv run pytest -s test/models/test_auto_models.py -k test_auto_model_download --package-download
 
 .PHONY: coverage
 coverage:
