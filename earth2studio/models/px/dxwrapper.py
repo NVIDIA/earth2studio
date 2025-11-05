@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from typing import Protocol
 
@@ -434,7 +435,18 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        return self.px_model.input_coords()
+        # Common coords we should always request
+        input_coords = OrderedDict(
+            {
+                "time": np.empty(0),
+                "lead_time": np.empty(0),
+                "variable": np.empty(0),
+            }
+        )
+        for key, value in self.px_model.input_coords().items():
+            input_coords[key] = value
+
+        return input_coords
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
