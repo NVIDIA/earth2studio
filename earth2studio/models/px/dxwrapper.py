@@ -22,7 +22,6 @@ import numpy as np
 import torch
 from loguru import logger
 
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
@@ -435,9 +434,10 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        # Common coords we should always request
+        # Common dim we should always request
         input_coords = OrderedDict(
             {
+                "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.empty(0),
                 "variable": np.empty(0),
@@ -448,7 +448,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
 
         return input_coords
 
-    @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
@@ -472,7 +471,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         out_coords = self.prepare_output_coords(px_coords, dx_coords)
         return out_coords
 
-    @batch_func()
     def __call__(
         self,
         x: torch.Tensor,
