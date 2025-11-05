@@ -231,7 +231,6 @@ def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
 
 
 @pytest.mark.package
-@pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 @pytest.mark.parametrize(
     "model_class,freq",

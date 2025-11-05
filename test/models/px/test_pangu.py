@@ -212,7 +212,6 @@ class TestPanguMock:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize(
     "PanguModel, delta_t",
     [(Pangu24, 24), (Pangu6, 6), (Pangu3, 3)],

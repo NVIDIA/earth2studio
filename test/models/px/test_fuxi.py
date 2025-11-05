@@ -250,7 +250,6 @@ class TestFuXiMock:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fuxi_package(device):
     torch.cuda.empty_cache()

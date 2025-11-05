@@ -79,7 +79,6 @@ def test_afno_windgust(x, device):
 
 
 @pytest.mark.package
-@pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_windgust_package(device):
     package = WindgustAFNO.load_default_package()

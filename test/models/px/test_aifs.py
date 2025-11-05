@@ -300,7 +300,6 @@ def model() -> AIFS:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_aifs_package(device, model):
     torch.cuda.empty_cache()

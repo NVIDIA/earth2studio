@@ -189,7 +189,6 @@ class TestCBottleMock:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(60)
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 @pytest.mark.parametrize("device", ["cuda:0"])
@@ -226,7 +225,6 @@ def test_cbottle_package(time, variable, device):
 
 
 @pytest.mark.package
-@pytest.mark.timeout(60)
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 @pytest.mark.skipif(

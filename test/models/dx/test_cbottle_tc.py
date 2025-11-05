@@ -235,8 +235,6 @@ class TestCBottleTCMock:
 
 
 @pytest.mark.package
-@pytest.mark.slow
-@pytest.mark.timeout(60)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_tc_package(device):
     # Only cuda used here to speed things up, but CPU also works

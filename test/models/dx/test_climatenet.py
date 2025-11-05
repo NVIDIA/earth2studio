@@ -111,7 +111,6 @@ def test_cnet_exceptions(device):
 
 
 @pytest.mark.package
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cnet_package(device):
     # Only cuda supported

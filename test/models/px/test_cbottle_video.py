@@ -229,7 +229,6 @@ class TestCBottleVideoMock:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_video_package(device):
     package = CBottleVideo.load_default_package()

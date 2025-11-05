@@ -71,7 +71,10 @@ test:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
         TESTMON_CACHE_POLICY: pull-push
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $PIPELINE_REPO_SOURCE != "github"
+      variables:
+        EARTH2STUDIO_CACHE_POLICY: pull-push
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
         TESTMON_CACHE_POLICY: pull-push
     - when: on_success

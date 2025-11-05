@@ -265,7 +265,6 @@ def model() -> InterpModAFNO:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_package(device, model):
     """Test loading and using the InterpModAFNO model from a package."""

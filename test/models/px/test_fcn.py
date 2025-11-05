@@ -166,7 +166,6 @@ def model() -> FCN:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fcn_package(model, device):
     torch.cuda.empty_cache()

@@ -246,7 +246,6 @@ def model() -> DLWP:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_dlwp_package(device, model):
     torch.cuda.empty_cache()

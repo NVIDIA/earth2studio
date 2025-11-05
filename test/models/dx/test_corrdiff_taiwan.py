@@ -167,9 +167,7 @@ def test_corrdiff_exceptions(x, device):
         dx(x, wrong_coords)
 
 
-@pytest.mark.xfail  # TODO: REMOVE
 @pytest.mark.package
-@pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_corrdiff_package(device):
     package = CorrDiffTaiwan.load_default_package()

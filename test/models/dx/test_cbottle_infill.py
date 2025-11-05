@@ -270,8 +270,6 @@ class TestCBottleMock:
 
 
 @pytest.mark.package
-@pytest.mark.slow
-@pytest.mark.timeout(30)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_package(device):
     # Test the cached model package

@@ -159,7 +159,6 @@ def model() -> SFNO:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU for now, too slow "cpu",
 def test_sfno_package(device, model):
     torch.cuda.empty_cache()

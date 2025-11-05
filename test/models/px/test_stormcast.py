@@ -291,7 +291,6 @@ def model() -> StormCast:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize(
     "cond_dims",
     [["time", "variable", "lat", "lon"], ["variable", "time", "lat", "lon"]],

@@ -457,7 +457,6 @@ def operational_model() -> GraphCastOperational:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_graphcast_operational_package(operational_model, device):
     torch.cuda.empty_cache()

@@ -201,7 +201,6 @@ class TestFengWuMock:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fengwu_package(device):
     torch.cuda.empty_cache()

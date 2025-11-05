@@ -66,7 +66,6 @@ def test_afno_precip(x, device):
 
 
 @pytest.mark.package
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_afno_precip_package(device):
     package = PrecipitationAFNO.load_default_package()

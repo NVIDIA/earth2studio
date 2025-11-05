@@ -239,7 +239,6 @@ class TestCBottleSRMock:
 
 
 @pytest.mark.package
-@pytest.mark.timeout(60)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_cbottle_sr_package(device):
     """Test the cached model package CBottleSR"""
