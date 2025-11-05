@@ -199,15 +199,16 @@ class ACE2ERA5Data:
                     )
             else:
                 raise ValueError(f"Unknown ACE2 variable dims: {da.dims}")
-            arrays.append(da)
+
+            # Use predefined lat/lon coords which are equivalent up to machine precision
+            # Mitigates errors that would otherwise arise from checks in `handshake_coords`
+            arrays.append(da.assign_coords(lat=self.lat, lon=self.lon))
+
         stacked = xr.concat(arrays, dim="variable")
         stacked = stacked.assign_coords(variable=np.array(var_list_e2s, dtype=object))
         # Ensure canonical dim order
         stacked = stacked.transpose("time", "variable", "lat", "lon")
 
-        # Use predefined lat/lon coords which are equivalent up to machine precision
-        # Mitigates errors that would otherwise arise from checks in `handshake_coords`
-        stacked = stacked.assign_coords(lat=self.lat, lon=self.lon)
         return stacked
 
     async def fetch(

@@ -35,12 +35,6 @@ conflicts = [[
     { package = "earth2studio", extra = "aurora-fork" },
 ]]
 
-[manifest]
-overrides = [
-    { name = "imageio", specifier = ">=2.33" },
-    { name = "torch-harmonics", specifier = ">=0.8.0" },
-]
-
 [[package]]
 name = "absl-py"
 version = "2.3.1"
@@ -1479,8 +1473,10 @@ all = [
     { name = "ecmwf-opendata" },
     { name = "einops" },
     { name = "flax" },
+    { name = "fme" },
     { name = "globus-sdk" },
     { name = "graphcast" },
+    { name = "h5py" },
     { name = "hydra-core" },
     { name = "importlib-metadata" },
     { name = "intake-esgf" },
@@ -1492,6 +1488,7 @@ all = [
     { name = "nvtx" },
     { name = "omegaconf" },
     { name = "onnxruntime-gpu" },
+    { name = "pandas" },
     { name = "pynvml" },
     { name = "pyproj" },
     { name = "ruamel-yaml" },
@@ -1665,7 +1662,8 @@ requires-dist = [
     { name = "flash-attn", marker = "extra == 'aifs'" },
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
-    { name = "fme", marker = "extra == 'ace2'", specifier = ">=2025.10.0" },
+    { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db" },
+    { name = "fme", marker = "extra == 'all'", git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db" },
     { name = "fsspec", specifier = ">=2024.2.0" },
     { name = "gcsfs" },
     { name = "globus-sdk", marker = "extra == 'all'", specifier = "<4.0.0" },
@@ -1675,6 +1673,7 @@ requires-dist = [
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
     { name = "h5py", marker = "extra == 'ace2'", specifier = "<=3.14.0" },
+    { name = "h5py", marker = "extra == 'all'", specifier = "<=3.14.0" },
     { name = "huggingface-hub", specifier = ">=0.27.0" },
     { name = "hydra-core", marker = "extra == 'all'", specifier = ">=1.3.2" },
     { name = "hydra-core", marker = "extra == 'dlesym'", specifier = ">=1.3.2" },
@@ -1720,6 +1719,7 @@ requires-dist = [
     { name = "onnxruntime-gpu", marker = "extra == 'fuxi'", specifier = ">=1.21.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'pangu'", specifier = ">=1.21.0" },
     { name = "pandas", marker = "extra == 'ace2'", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "extra == 'all'", specifier = ">=2.3.2" },
     { name = "pynvml", marker = "extra == 'all'", specifier = ">=12.0.0" },
     { name = "pynvml", marker = "extra == 'sfno'", specifier = ">=12.0.0" },
     { name = "pyproj", marker = "extra == 'all'", specifier = ">=3.7.1" },
@@ -2131,7 +2131,7 @@ wheels = [
 [[package]]
 name = "fme"
 version = "2025.10.0"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db#a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
 dependencies = [
     { name = "cartopy" },
     { name = "dacite" },
@@ -2156,10 +2156,6 @@ dependencies = [
     { name = "wandb", extra = ["media"] },
     { name = "xarray" },
     { name = "zarr" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/a4/5245bfe466bebdb9c90d61030d2e59758fa919feb72d33d6a9c39f2de50f/fme-2025.10.0.tar.gz", hash = "sha256:36d7833fc98d992bf96c798288862159e6013b58afd477496962f8ede98855a6", size = 584079, upload-time = "2025-10-16T18:39:03.569Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/da/b4acc3338b37907d9b8a1a3c34764f1d826c492ea86a335e270406b3b5ce/fme-2025.10.0-py3-none-any.whl", hash = "sha256:c85b6162545a4d8eb34fdbb2325e0fd13138a0d72c34b41c8e5abf4797e9a87d", size = 757846, upload-time = "2025-10-16T18:39:02.092Z" },
 ]
 
 [[package]]
