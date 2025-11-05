@@ -677,17 +677,13 @@ wheels = [
 
 [[package]]
 name = "cfgrib"
-version = "0.9.15.1"
+version = "0.9.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "click" },
     { name = "eccodes" },
     { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/51/cace2747a517667bbbe5fcab1f35958ad05c778251a452c461b8b3649dbe/cfgrib-0.9.15.1.tar.gz", hash = "sha256:d959d8b97e55a63646fa86686b297905ff7f2918a91e3a11d6292dab09598e4d", size = 9746591, upload-time = "2025-09-30T22:46:14.133Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/e8/16c58c57c9ce1474dd1e50090ebd78b008c70fc4f06793da65f9a0aba391/cfgrib-0.9.15.1-py3-none-any.whl", hash = "sha256:f1bee90e86917389be9f767051bf32d00f95f6f4e4312b344567511b3cfd62d2", size = 49123, upload-time = "2025-09-30T22:46:12.206Z" },
 ]
 
 [[package]]
@@ -1641,7 +1637,7 @@ requires-dist = [
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
-    { name = "cfgrib", specifier = ">=0.9.10.3" },
+    { name = "cfgrib", git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433" },
     { name = "cftime" },
     { name = "cucim-cu12", marker = "extra == 'all'", specifier = ">=25.4.0" },
     { name = "cucim-cu12", marker = "extra == 'cyclone'", specifier = ">=25.4.0" },
@@ -1694,7 +1690,7 @@ requires-dist = [
     { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "moviepy", marker = "extra == 'sfno'" },
     { name = "nest-asyncio" },
-    { name = "netcdf4", specifier = ">=1.6.4" },
+    { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
     { name = "numcodecs", specifier = "<0.15.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.0.1" },
