@@ -86,6 +86,7 @@ nsight-systems*
 build/
 mlruns/
 cache/
+.cache/
 
 # Examples
 outputs/
