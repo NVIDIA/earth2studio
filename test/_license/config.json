@@ -7,6 +7,7 @@
         "../../.venv/",
         "../../.git/",
         "../../.github/",
+        "../../.tox/",
         "../../.vscode/",
         "../../.pytest_cache/",
         "../../.pre-commit/",
