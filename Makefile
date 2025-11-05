@@ -1,7 +1,7 @@
 .PHONY: install
 install:
 	uv sync
-	uv sync --extra all,aifs
+	uv sync --extra all --extra aifs
 
 .PHONY: install-docker
 install-docker:
