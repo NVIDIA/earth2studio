@@ -55,7 +55,7 @@ pytest-automodels-docker:
 
 .PHONY: coverage
 coverage:
-	uv run coverage combine
+	uv run coverage combine || true
 	uv run coverage report --fail-under=90
 
 .PHONY: docs

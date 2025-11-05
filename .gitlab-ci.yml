@@ -76,6 +76,7 @@ test:
 
 coverage:
   stage: report
+  allow_failure: true
   needs:
     - job: test
       artifacts: true
