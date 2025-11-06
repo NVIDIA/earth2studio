@@ -1,4 +1,5 @@
 <!-- markdownlint-disable MD024 -->
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -17,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added vertical wind speed support in GFS
 - Added ModelOutputDatasetSource to use written model output to start a new model run
 - Added FCN3 noise handling routines.
-- tp06 support to CDS data source
+- Added tp06 support to CDS data source.
+- Added IFS_ENS, AIFS, and AIFS_ENS data sources.
 
 ### Changed
 
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source, orography is denoted by lower case `z`
 - Updated package caching default to None, which will default to true for remote
   packages and false for local packages
+- Changed IFS to be a forecast data source.
 - InferenceOutputSource can now accept an Xarray Dataset directly as an argument
 - InferenceOutputSource returns data consistently in `("time", "lead_time", "variable")`
   order
