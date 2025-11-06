@@ -43,7 +43,7 @@ def main() -> int:
         return 123
 
     print("[gpu-check] GPU detected by torch")
-    return 123
+    return 0
 
 
 if __name__ == "__main__":
