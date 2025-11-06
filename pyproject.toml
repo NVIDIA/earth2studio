@@ -319,6 +319,7 @@ markers = [
     "cli: marks tests which run CLIs"
 ]
 asyncio_mode = "auto"
+# Need to run testmon in different tox env
 testmon_ignore_dependencies = true
 
 # ==== Coverage.py configuration (ran using pytest-cov) ====
