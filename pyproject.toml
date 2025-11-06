@@ -252,7 +252,6 @@ dev = [
     "pre-commit",
     "pytest>=6.0.0",
     "pytest-cov",
-    "pytest-picked>=0.5.1",
     "pytest-timeout>=2.0.1",
     "pytest-skip-slow>=0.0.5",
     "pytest-testmon>=2.1.3",
