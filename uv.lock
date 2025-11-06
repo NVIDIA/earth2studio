@@ -1674,7 +1674,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.26.0" },
     { name = "pytest-cov" },
     { name = "pytest-skip-slow", specifier = ">=0.0.5" },
-    { name = "pytest-testmon", specifier = ">=2.1.3" },
+    { name = "pytest-testmon", git = "https://github.com/NickGeneva/pytest-testmon.git?rev=48cd5ed1b67bf2f2bd9f63335389f262db472806" },
     { name = "pytest-timeout", specifier = ">=2.0.1" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff" },
@@ -5097,14 +5097,10 @@ wheels = [
 [[package]]
 name = "pytest-testmon"
 version = "2.1.3"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/NickGeneva/pytest-testmon.git?rev=48cd5ed1b67bf2f2bd9f63335389f262db472806#48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 dependencies = [
     { name = "coverage" },
     { name = "pytest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/54/24/b17712bc8b9d9814a30346e5bd76a6c4539f5187455f4e0d99d95f033da6/pytest_testmon-2.1.3.tar.gz", hash = "sha256:dad41aa7d501d74571750da1abd3f6673b63fd9dbf3023bd1623814999018c97", size = 22608, upload-time = "2024-12-22T12:43:28.822Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/08/278800711d937e76ce59105fea1bb739ae5ff5c13583fd064fe3b4e64fa1/pytest_testmon-2.1.3-py3-none-any.whl", hash = "sha256:53ba06d8a90ce24c3a191b196aac72ca4b788beff5eb1c1bffee04dc50ec7105", size = 24994, upload-time = "2024-12-22T12:43:10.173Z" },
 ]
 
 [[package]]

@@ -223,6 +223,7 @@ earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
+pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -319,8 +320,8 @@ markers = [
     "cli: marks tests which run CLIs"
 ]
 asyncio_mode = "auto"
-# Need to run testmon in different tox env
-testmon_ignore_dependencies = true
+# Need to persist testmon in different tox env (ngeneva fork)
+testmon_ignore_system_packages = true
 
 # ==== Coverage.py configuration (ran using pytest-cov) ====
 # See: https://coverage.readthedocs.io/en/latest/config.html
