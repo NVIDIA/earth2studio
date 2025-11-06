@@ -74,8 +74,8 @@ VARIABLES = [
 @check_optional_dependencies()
 class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     """Base class for Solar Radiation AFNO diagnostic models. Predicts the accumulated global surface solar
-    radiation [Jm^-2]. The model uses 31 variables as input and outputs one on a 0.25 degree lat-lon grid
-    (south-pole excluding) [720 x 1440].
+    radiation [Jm^-2]. The model uses 24 variables as input and outputs one on a 0.25 degree lat-lon grid
+    (south-pole including) [721 x 1440].
 
     Parameters
     ----------
