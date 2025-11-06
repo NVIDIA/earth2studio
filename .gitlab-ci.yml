@@ -76,7 +76,7 @@ test:
         EARTH2STUDIO_CACHE_POLICY: pull-push
     - when: on_success
   script:
-    - uv run python test/_ci/check_gpu.py
+    - uv run python test/_ci/check_gpu.py || exit $?
     - make pytest-ci
 
 coverage:
