@@ -44,11 +44,12 @@ from earth2studio.utils.type import CoordSystem
 try:
     # Optional dependency: FME
     from fme.ace.data_loading.batch_data import BatchData, PrognosticState
-    from fme.ace.stepper.single_module import load_stepper
+    from fme.ace.stepper.single_module import Stepper, load_stepper
 except ImportError:
     OptionalDependencyFailure("ace2")
     BatchData = Any
     PrognosticState = Any
+    Stepper = Any
 
 
 def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
@@ -101,7 +102,7 @@ def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
     return vec_convert(cftime_array)
 
 
-@check_optional_dependencies()
+@check_optional_dependencies("ace2")
 class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ACE2-ERA5 prognostic model wrapper.
 
@@ -115,37 +116,36 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Parameters
     ----------
-    checkpoint_path : str
-        Path to a serialized ACE2-ERA5 stepper checkpoint (e.g., tar file).
-    forcing_data_source : DataSource
-        Data source providing forcing data during rollout. Must provide all
-        forcing variables required by ACE2-ERA5:
-        - mtdwswrf: Mean top-downward shortwave radiative flux at TOA (W/m^2), mean
-        - skt: Skin temperature
-        - z: Surface height of topography (m), invariant (from geopotential/g)
-        - land_abs: Land grid cell area fraction invariant
-        - ocean_abs: Ocean grid cell area fraction, NaN-filled to 0.0.
-        - sic_abs: Absolute sea-ice grid cell area fraction, NaN-filled to 0.0.
-        - global_mean_co2: Global mean atmospheric CO2 (ppm), computed via user-supplied time function.
-    dt : numpy.timedelta64, default 6h
-        Model timestep used to advance lead time coordinates.
+    stepper : Stepper
+        ACE2-ERA5 fme.ace.stepper.single_module.Stepper instance loaded from a checkpoint.
+    forcing_data_source : DataSource, optional
+        Data source providing forcing data during rollout. Must provide all forcing variables
+        described in the ACE2-ERA5 paper. Defaults to ACE2ERA5Data(mode="forcing").
+    dt : numpy.timedelta64, optional
+        Model timestep used to advance lead time coordinates. Defaults to 6 hours.
 
     References
     ----------
     - ACE2-ERA5 paper: https://arxiv.org/abs/2411.11268v1
     - ACE2 code: https://github.com/ai2cm/ace
+
+    Warning
+    ----------
+    This model may only be used with input data on the GPU device that the model was loaded on.
+    Specifically, the data must be on the same device as whatever ``torch.cuda.current_device()``
+    was set to when the model package was loaded.
     """
 
     def __init__(
         self,
-        checkpoint_path: str,
-        forcing_data_source: DataSource,
+        stepper: Stepper,
+        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing"),
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ):
         super().__init__()
 
         # Load fme stepper and cache useful metadata
-        self.stepper = load_stepper(checkpoint_path)
+        self.stepper = stepper
 
         # timestep (lead time increment)
         self._dt = dt
@@ -366,8 +366,8 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing_data = BatchData.new_on_device(
             data=forcing_data,
             time=time_da_forcing,
-            horizontal_dims=hc_dims,
             labels=[set()],
+            horizontal_dims=hc_dims,
         )
         state_data = BatchData.new_on_device(
             data=state_data, time=time_da_state, horizontal_dims=hc_dims, labels=[set()]
@@ -623,10 +623,10 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package : Package
             Package to load the model checkpoint from.
         forcing_data_source : DataSource, optional
-            External forcing data source, by default ACE2ERA5Data(mode="forcing").
-            Must provide all forcing variables described in the ACE2-ERA5 paper.
+            External forcing data source. Must provide all forcing variables
+            described in the ACE2-ERA5 paper. Defaults to ACE2ERA5Data(mode="forcing").
         dt : numpy.timedelta64, optional
-            Timestep for advancing lead time coordinates, by default 6 hours.
+            Timestep for advancing lead time coordinates. Defaults to 6 hours.
 
         Returns
         -------
@@ -634,8 +634,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ACE2-ERA5 prognostic model
         """
         checkpoint_path = package.resolve("ace2_era5_ckpt.tar")
+        stepper = load_stepper(checkpoint_path)
         return cls(
-            checkpoint_path=checkpoint_path,
+            stepper=stepper,
             forcing_data_source=forcing_data_source,
             dt=dt,
         )
