@@ -50,8 +50,8 @@ pytest:
 pytest-full:
 	uvx tox run -- -s --cov --cov-append --slow --package --testmon-noselect
 
-# Select which pytest target to run in CI based on pipeline source
-ifeq ($(CI_PIPELINE_SOURCE),schedule)
+# Select which pytest target to run in CI based on environment
+ifneq (,$(filter 1 true TRUE True yes YES on ON,$(CI_PYTEST_ALL)))
 PYTEST_CI_TARGET := pytest-full
 else
 PYTEST_CI_TARGET := pytest
