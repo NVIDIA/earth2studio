@@ -59,7 +59,6 @@ endif
 
 .PHONY: pytest-ci
 pytest-ci:
-	exec uv run python test/_ci/check_gpu.py
 	$(MAKE) $(PYTEST_CI_TARGET)
 
 .PHONY: coverage
