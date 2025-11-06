@@ -434,91 +434,425 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Iterator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticMixin</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">map_coords</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span><span class="p">,</span> <span class="n">map_coords</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.interp</span><span class="w"> </span><span class="kn">import</span> <span class="n">LatLonInterpolation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_convert_to_2d</span><span class="p">(</span><span class="n">lat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">lon</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">lat</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">lon</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_can_concat_directly</span><span class="p">(</span><span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dx_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;variable&quot;</span><span class="p">:</span>
+                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_can_concat_with_subregion</span><span class="p">(</span><span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dx_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="n">handshake_dim</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]:</span>
+                <span class="n">handshake_coords</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="c1"># Check if dx lat/lon is a subregion of px lat/lon (1D grids only)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">lat_idx0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">lat_idx1</span> <span class="o">=</span> <span class="n">lat_idx0</span> <span class="o">+</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">lon_idx0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">lon_idx1</span> <span class="o">=</span> <span class="n">lon_idx0</span> <span class="o">+</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span>
+            <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][</span><span class="n">lat_idx0</span><span class="p">:</span><span class="n">lat_idx1</span><span class="p">]</span>
+        <span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][</span><span class="n">lon_idx0</span><span class="p">:</span><span class="n">lon_idx1</span><span class="p">])</span>
+
+    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareInputCoordsDefault</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Prepares output coords from prognostic model for diagnostic models&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare coordinates for diagnostic model input.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        px_coords : CoordSystem</span>
+<span class="sd">            Output coordinates from the prognostic model</span>
+<span class="sd">        dx_coords : CoordSystem</span>
+<span class="sd">            Diagnostic model input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Prepared coordinate system for diagnostic model</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Handling np.empty (free coordinate system)</span>
+        <span class="k">if</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">px_coords</span><span class="p">:</span>
+                <span class="n">px_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">px_coords</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareInputTensorDefault</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Prepares output from prognostic model for diagnostic&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare tensor for diagnostic model input with interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Output of prognostic model from a single step</span>
+<span class="sd">        px_coords : CoordSystem</span>
+<span class="sd">            Output coordinates from the prognostic model</span>
+<span class="sd">        dx_coords : CoordSystem</span>
+<span class="sd">            Diagnostic model input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Prepared tensor and coordinate system for diagnostic model</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">px_coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;&#39;lat&#39; not found in prognostic model output coordinates&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">px_coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;&#39;lon&#39; not found in prognostic model output coordinates&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;&#39;lat&#39; not found in diagnostic model input coordinates&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;&#39;lon&#39; not found in diagnostic model input coordinates&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Handling np.empty (free coordinate system)</span>
+        <span class="k">if</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="n">lon0</span><span class="p">)</span> <span class="o">=</span> <span class="n">_convert_to_2d</span><span class="p">(</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
+            <span class="p">(</span><span class="n">lat1</span><span class="p">,</span> <span class="n">lon1</span><span class="p">)</span> <span class="o">=</span> <span class="n">_convert_to_2d</span><span class="p">(</span><span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
+
+            <span class="c1"># Check if coordinates are identical - if so, skip interpolation</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="n">lat1</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">lon0</span><span class="p">,</span> <span class="n">lon1</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">interp</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">interp</span> <span class="o">=</span> <span class="n">LatLonInterpolation</span><span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="n">lon0</span><span class="p">,</span> <span class="n">lat1</span><span class="p">,</span> <span class="n">lon1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">px_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dx_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+        <span class="c1"># Map remaining coords</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Mapping between prognostic output and diagnostic input failed. Check coordinate systems are compatible.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareOutputCoordsDefault</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Preparing output coordinates of the diagnostic wrapper&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the output coordinates of the diagnostic wrapper</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        px_coords : CoordSystem</span>
+<span class="sd">            Prognostic coords</span>
+<span class="sd">        dx_coords : list[CoordSystem]</span>
+<span class="sd">            Diagnostic coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Expected output coords from model for a given time-step</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dx_target</span> <span class="o">=</span> <span class="n">dx_coords</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">_can_concat_directly</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_target</span><span class="p">):</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">_can_concat_with_subregion</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_target</span><span class="p">):</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">]</span>
+
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">dx_coords</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">coords</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareOutputTensorDefault</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Preparing output tensor / coords of the diagnostic wrapper. This default</span>
+<span class="sd">    implementation offers the following three strategies for preparing the output:</span>
+
+<span class="sd">    1. Attempt to concat px outputs and all dx outputs</span>
+<span class="sd">    2. Attempt to concat lat/lon sub-region px outputs and all dx outputs</span>
+<span class="sd">    3. Concat just dx outputs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">px_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">dx_x</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">dx_coords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare outputs for diagnostic wrapper</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        px_x : torch.Tensor</span>
+<span class="sd">            Output of prognostic model from a single step</span>
+<span class="sd">        px_coords : CoordSystem</span>
+<span class="sd">            Output coordinates from the prognostic model</span>
+<span class="sd">        dx_x: list[torch.Tensor]</span>
+<span class="sd">            Output of diagnostic model</span>
+<span class="sd">        dx_coords : list[CoordSystem]</span>
+<span class="sd">            Diagnostic model input coordinate system</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Outputs to be returned by the wrapper</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dx_target</span> <span class="o">=</span> <span class="n">dx_coords</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Attempt various concat strategies</span>
+        <span class="k">if</span> <span class="n">_can_concat_directly</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_target</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">px_x</span><span class="p">]</span> <span class="o">+</span> <span class="n">dx_x</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">_can_concat_with_subregion</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_target</span><span class="p">):</span>
+            <span class="c1"># Find the dimension positions of lat and lon in px_coords</span>
+            <span class="n">lat_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">px_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;lat&quot;</span><span class="p">)</span>
+            <span class="n">lon_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">px_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;lon&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Find the slice indices</span>
+            <span class="n">lat_idx0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">dx_target</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">lat_idx1</span> <span class="o">=</span> <span class="n">lat_idx0</span> <span class="o">+</span> <span class="n">dx_target</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">lon_idx0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">dx_target</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">lon_idx1</span> <span class="o">=</span> <span class="n">lon_idx0</span> <span class="o">+</span> <span class="n">dx_target</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># Slice px_x along the lat and lon dimensions</span>
+            <span class="n">slices</span> <span class="o">=</span> <span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="n">px_x</span><span class="o">.</span><span class="n">ndim</span>
+            <span class="n">slices</span><span class="p">[</span><span class="n">lat_dim</span><span class="p">]</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lat_idx0</span><span class="p">,</span> <span class="n">lat_idx1</span><span class="p">)</span>
+            <span class="n">slices</span><span class="p">[</span><span class="n">lon_dim</span><span class="p">]</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lon_idx0</span><span class="p">,</span> <span class="n">lon_idx1</span><span class="p">)</span>
+            <span class="n">px_x_sliced</span> <span class="o">=</span> <span class="n">px_x</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slices</span><span class="p">)]</span>
+
+            <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">px_x_sliced</span><span class="p">]</span> <span class="o">+</span> <span class="n">dx_x</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">px_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">dx_x</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dx_coords</span><span class="p">]</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">dx_target</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">))</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">dx_target</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Failed to concatenate outputs of diagnostic models. &quot;</span>
+                <span class="s2">&quot;The outputs of the models cannot be concatenated.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareDxInputCoords</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Protocol for preparing diagnostic model input coordinates.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareDxInputTensor</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Protocol for preparing diagnostic model input tensor.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span> <span class="o">...</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareOutputCoords</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Protocol for preparing output coordinates.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PrepareOutputTensor</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Protocol for preparing output tensor.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">px_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">px_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">dx_x</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">dx_coords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span> <span class="o">...</span>
 
 
 <div class="viewcode-block" id="DiagnosticWrapper">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html#earth2studio.models.px.DiagnosticWrapper">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DiagnosticWrapper</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Wraps a prognostic model and one or more diagnostic models into a single</span>
-<span class="sd">    prognostic model. This allows diagnostic model outputs to be included in workflows</span>
-<span class="sd">    that expect a prognostic model.</span>
+<span class="sd">    prognostic model. The micro-pipeline this wrapper encapsulates has the following</span>
+<span class="sd">    four steps:</span>
 
-<span class="sd">    The outputs of the diagnostic models are concatenated the output of the prognostic</span>
-<span class="sd">    in the order given in `dx_models`.</span>
+<span class="sd">    1. Execute one step of the prognostic model</span>
+<span class="sd">    2. Prepare output of prognostic model for each diagnostic model</span>
+<span class="sd">    3. Execute forward pass each diagnostic model using the prepare prognostic data</span>
+<span class="sd">    4. Prepare outputs of prognostic/diagnostic for final return</span>
 
-<span class="sd">    Results will be returned in the coordinate system of the last diagnostic model.</span>
+<span class="sd">    The wrapper provides customizable methods for preparing diagnostic model inputs and</span>
+<span class="sd">    outputs. If not provided, default methods are have the following requirements:</span>
 
-<span class="sd">    Model compatibility requirements:</span>
-<span class="sd">    - Input variables of each model in the chain</span>
-<span class="sd">      [px_model, dx_models[0], dx_models[1], ...]</span>
-<span class="sd">      must be available in the outputs of one of the previous models.</span>
-<span class="sd">    - If interpolate_coords == False, the coordinates of each model in the chain</span>
-<span class="sd">      must be mappable to the next model using `earth2studio.utils.coords.map_coords`.</span>
-<span class="sd">    - If interpolate_coords == True, the coordinates of each model in the chain must</span>
-<span class="sd">      be possible to interpolate to the next model using</span>
-<span class="sd">      `earth2studio.utils.interp.LatLonInterpolation`.</span>
+<span class="sd">    - All diagnostics must have the same output coordinate systems with the exception</span>
+<span class="sd">    of the variable dimension</span>
+<span class="sd">    - Both the prognostic and diagnostic models must have lat/lon grid systems.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Custom callables or classes implementing the Protocol interfaces can be provided to</span>
+<span class="sd">    override default behavior such as skipping interpolation or changing concatenation</span>
+<span class="sd">    logic. This will be required for many diagnostic models. The prepare functions must</span>
+<span class="sd">    implement the appropriate Protocol (__call__ method with matching signature):</span>
+
+<span class="sd">    - PrepareDxInputCoords: Prepares coordinate systems</span>
+<span class="sd">    - PrepareDxInputTensor: Prepares tensors with optional interpolation</span>
+<span class="sd">    - PrepareOutputCoords: Prepares final output coordinate systems</span>
+<span class="sd">    - PrepareOutputTensor: Prepares final output tensors</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    px_model : PrognosticModel</span>
 <span class="sd">        The prognostic model to use as the base model.</span>
-<span class="sd">    dx_models : DiagnosticModel | Sequence[DiagnosticModel]</span>
-<span class="sd">        The diagnostic models whose outputs are concatenated to the output of px_model.</span>
-<span class="sd">    interpolate_coords : bool, default False</span>
-<span class="sd">        Whether to use bilinear interpolation to map spatial coordinates. If False,</span>
-<span class="sd">        nearest neighbor interpolation will be used. Must be set to True if any models</span>
-<span class="sd">        have 2D latitude/longitude coordinates.</span>
-<span class="sd">    keep_px_output : bool, default True</span>
-<span class="sd">        Whether to include output of px_model in the input.</span>
+<span class="sd">    dx_model : DiagnosticModel | list[DiagnosticModel]</span>
+<span class="sd">        Single diagnostic model or list of diagnostic models whose outputs are</span>
+<span class="sd">        concatenated to the prognostic model output.</span>
+<span class="sd">    prepare_dx_input_coords : PrepareDxInputCoords | list[PrepareDxInputCoords] | None, optional</span>
+<span class="sd">        Callable or Protocol-implementing object to prepare coordinate system for</span>
+<span class="sd">        diagnostic model input. Can be a single instance (applied to all diagnostics)</span>
+<span class="sd">        or a list (one per diagnostic). If None, uses PrepareInputCoordsDefault for</span>
+<span class="sd">        each diagnostic, by default None</span>
+<span class="sd">    prepare_dx_input_tensor : PrepareDxInputTensor | list[PrepareDxInputTensor] | None, optional</span>
+<span class="sd">        Callable or Protocol-implementing object to prepare tensor for diagnostic model</span>
+<span class="sd">        input. Can be a single instance (applied to all diagnostics) or a list (one per</span>
+<span class="sd">        diagnostic). If None, uses PrepareInputTensorDefault with interpolation for</span>
+<span class="sd">        each diagnostic, by default None</span>
+<span class="sd">    prepare_output_coords : PrepareOutputCoords | None, optional</span>
+<span class="sd">        Callable or Protocol-implementing object to prepare output coordinate system.</span>
+<span class="sd">        If None, uses PrepareOutputCoordsDefault which concatenates all variables,</span>
+<span class="sd">        by default None</span>
+<span class="sd">    prepare_output_tensor : PrepareOutputTensor | None, optional</span>
+<span class="sd">        Callable or Protocol-implementing object to prepare output tensor. If None,</span>
+<span class="sd">        uses PrepareOutputTensorDefault which concatenates all outputs, by default None</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">px_model</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
-        <span class="n">dx_models</span><span class="p">:</span> <span class="n">DiagnosticModel</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DiagnosticModel</span><span class="p">],</span>
-        <span class="n">interpolate_coords</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">keep_px_output</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">dx_model</span><span class="p">:</span> <span class="n">DiagnosticModel</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">DiagnosticModel</span><span class="p">],</span>
+        <span class="n">prepare_dx_input_coords</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">PrepareDxInputCoords</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">PrepareDxInputCoords</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">prepare_dx_input_tensor</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">PrepareDxInputTensor</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">PrepareDxInputTensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">prepare_output_coords</span><span class="p">:</span> <span class="n">PrepareOutputCoords</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">prepare_output_tensor</span><span class="p">:</span> <span class="n">PrepareOutputTensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="c1"># initialize models</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dx_models</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
-            <span class="n">dx_models</span> <span class="o">=</span> <span class="p">[</span><span class="n">dx_models</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span> <span class="o">=</span> <span class="n">dx_models</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dx_models</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least 1 diagnostic model must be provided.&quot;</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">dx_models</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span> <span class="o">=</span> <span class="n">px_model</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># support multiple diagnostic models through recursion,</span>
-            <span class="c1"># keeping the rest of the implementation cleaner</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span> <span class="o">=</span> <span class="n">DiagnosticWrapper</span><span class="p">(</span>
-                <span class="n">px_model</span><span class="p">,</span>
-                <span class="n">dx_models</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">interpolate_coords</span><span class="o">=</span><span class="n">interpolate_coords</span><span class="p">,</span>
-                <span class="n">keep_px_output</span><span class="o">=</span><span class="n">keep_px_output</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span> <span class="o">=</span> <span class="n">px_model</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dx_model</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">dx_model</span> <span class="o">=</span> <span class="p">[</span><span class="n">dx_model</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span><span class="n">dx_model</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">interpolate_coords</span> <span class="o">=</span> <span class="n">interpolate_coords</span>
-        <span class="k">if</span> <span class="n">interpolate_coords</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp</span><span class="p">:</span> <span class="n">LatLonInterpolation</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lat0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lon0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lat1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lon1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">keep_px_output</span> <span class="o">=</span> <span class="n">keep_px_output</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dx_models</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># Set up the prepare / map functions if not provided</span>
+        <span class="c1"># prepare px -&gt; dx coordinates</span>
+        <span class="k">if</span> <span class="n">prepare_dx_input_coords</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">prepare_dx_input_coords</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">PrepareInputCoordsDefault</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span>
+            <span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prepare_dx_input_coords</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">prepare_dx_input_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">prepare_dx_input_coords</span><span class="p">]</span>
+
+        <span class="c1"># prepare px -&gt; dx input tensors</span>
+        <span class="k">if</span> <span class="n">prepare_dx_input_tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">prepare_dx_input_tensor</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">PrepareInputTensorDefault</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span>
+            <span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prepare_dx_input_tensor</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">prepare_dx_input_tensor</span> <span class="o">=</span> <span class="p">[</span><span class="n">prepare_dx_input_tensor</span><span class="p">]</span>
+
+        <span class="c1"># prepare final output tensors</span>
+        <span class="k">if</span> <span class="n">prepare_output_coords</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">prepare_output_coords</span> <span class="o">=</span> <span class="n">PrepareOutputCoordsDefault</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">prepare_output_tensor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">prepare_output_tensor</span> <span class="o">=</span> <span class="n">PrepareOutputTensorDefault</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_coords</span> <span class="o">=</span> <span class="n">prepare_dx_input_coords</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_tensor</span> <span class="o">=</span> <span class="n">prepare_dx_input_tensor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepare_output_coords</span> <span class="o">=</span> <span class="n">prepare_output_coords</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepare_output_tensor</span> <span class="o">=</span> <span class="n">prepare_output_tensor</span>
+
+        <span class="c1"># Validate lengths match number of diagnostic models</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_coords</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Length of prepare_dx_input_coords (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_coords</span><span class="p">)</span><span class="si">}</span><span class="s2">) &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;must match number of diagnostic models (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_tensor</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Length of prepare_dx_input_tensor (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_tensor</span><span class="p">)</span><span class="si">}</span><span class="s2">) &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;must match number of diagnostic models (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of the prognostic model</span>
@@ -528,34 +862,20 @@
 <span class="sd">        CoordSystem</span>
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_dx_grid</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">lat_px_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">lon_px_out</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">lat_dx_in</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">lon_dx_in</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that the diagnostic input lat/lon grids are a subset of the prognostic</span>
-<span class="sd">        output lat/lon grids.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">lat_px_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">lat_px_out</span><span class="p">)</span>
-        <span class="n">lon_px_out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">lon_px_out</span><span class="p">)</span>
-        <span class="n">lat_dx_in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">lat_dx_in</span><span class="p">)</span>
-        <span class="n">lon_dx_in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">lon_dx_in</span><span class="p">)</span>
-        <span class="n">grids_ok</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">(</span><span class="n">lat_dx_in</span> <span class="o">&gt;=</span> <span class="n">lat_px_out</span><span class="o">.</span><span class="n">min</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-            <span class="ow">and</span> <span class="p">(</span><span class="n">lat_dx_in</span> <span class="o">&lt;=</span> <span class="n">lat_px_out</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-            <span class="ow">and</span> <span class="p">(</span><span class="n">lon_dx_in</span> <span class="o">&gt;=</span> <span class="n">lon_px_out</span><span class="o">.</span><span class="n">min</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-            <span class="ow">and</span> <span class="p">(</span><span class="n">lon_dx_in</span> <span class="o">&lt;=</span> <span class="n">lon_px_out</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="c1"># Common dim we should always request</span>
+        <span class="n">input_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">grids_ok</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Output lat/lon grids must be a subset of the input lat/lon grids.&quot;</span>
-            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">input_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
 
-    <span class="nd">@batch_coords</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">input_coords</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model</span>
 
@@ -569,137 +889,84 @@
 <span class="sd">        CoordSystem</span>
 <span class="sd">            Coordinate system dictionary</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="n">out_coords_px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
-        <span class="n">in_coords_dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">in_coords_dx</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># diagnostic model has no specific input grid -&gt; use grid from px model</span>
-            <span class="n">in_coords_dx</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_coords_px</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
-            <span class="n">in_coords_dx</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_coords_px</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
-        <span class="n">out_coords_dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">in_coords_dx</span><span class="p">)</span>
-        <span class="n">out_coords_dx</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_coords_px</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span>
-
-        <span class="c1"># check that diagnostic input grid is contained in the prognostic output grid</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_dx_grid</span><span class="p">(</span>
-            <span class="n">out_coords_px</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
-            <span class="n">out_coords_px</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
-            <span class="n">in_coords_dx</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
-            <span class="n">in_coords_dx</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
-        <span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_px_output</span><span class="p">:</span>
-            <span class="n">variables</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
-                <span class="p">[</span><span class="n">out_coords_px</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span> <span class="n">out_coords_dx</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]]</span>
-            <span class="p">)</span>
-            <span class="n">out_coords_dx</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">variables</span>
-
-        <span class="k">return</span> <span class="n">out_coords_dx</span>
-
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_interpolate</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">in_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">out_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate spatial coordinates.&quot;&quot;&quot;</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">_convert_to_2d</span><span class="p">(</span>
-            <span class="n">lat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">lon</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">lat</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">lon</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">_coords_match</span><span class="p">(</span><span class="n">coord0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">coord1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">(</span><span class="n">coord0</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">coord1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">coord0</span> <span class="o">==</span> <span class="n">coord1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-
-        <span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="n">lon0</span><span class="p">)</span> <span class="o">=</span> <span class="n">_convert_to_2d</span><span class="p">(</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
-        <span class="p">(</span><span class="n">lat1</span><span class="p">,</span> <span class="n">lon1</span><span class="p">)</span> <span class="o">=</span> <span class="n">_convert_to_2d</span><span class="p">(</span><span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
-
-        <span class="n">reuse_interp</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">_coords_match</span><span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp_lat0</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">_coords_match</span><span class="p">(</span><span class="n">lon0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp_lon0</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">_coords_match</span><span class="p">(</span><span class="n">lat1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp_lat1</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">_coords_match</span><span class="p">(</span><span class="n">lon1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp_lon1</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">reuse_interp</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp</span> <span class="o">=</span> <span class="n">LatLonInterpolation</span><span class="p">(</span><span class="n">lat0</span><span class="p">,</span> <span class="n">lon0</span><span class="p">,</span> <span class="n">lat1</span><span class="p">,</span> <span class="n">lon1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
-                <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lat0</span> <span class="o">=</span> <span class="n">lat0</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lon0</span> <span class="o">=</span> <span class="n">lon0</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lat1</span> <span class="o">=</span> <span class="n">lat1</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interp_lon1</span> <span class="o">=</span> <span class="n">lon1</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># needed to keep mypy happy</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-
-        <span class="n">coords</span> <span class="o">=</span> <span class="n">in_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
-        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
-
-        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_concat_diagnostic</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">x_px</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords_px</span><span class="p">:</span> <span class="n">CoordSystem</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run diagnostic model and concatenate output to prognostic model.&quot;&quot;&quot;</span>
-
-        <span class="n">in_coords_dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
-
-        <span class="c1"># convert prognostic model output to diagnostic model grid without dropping</span>
-        <span class="c1"># variables (necessary for concatenating to the diagnostic model output)</span>
-        <span class="n">coords_dx_spatial</span> <span class="o">=</span> <span class="n">in_coords_dx</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">coords_dx_spatial</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords_px</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
-        <span class="n">map_coords_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interpolate</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolate_coords</span> <span class="k">else</span> <span class="n">map_coords</span>
-        <span class="p">(</span><span class="n">x_px</span><span class="p">,</span> <span class="n">coords_px</span><span class="p">)</span> <span class="o">=</span> <span class="n">map_coords_func</span><span class="p">(</span><span class="n">x_px</span><span class="p">,</span> <span class="n">coords_px</span><span class="p">,</span> <span class="n">coords_dx_spatial</span><span class="p">)</span>
-
-        <span class="c1"># select diagnostic input variables and inference diagnostic model</span>
-        <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">(</span><span class="o">*</span><span class="n">map_coords</span><span class="p">(</span><span class="n">x_px</span><span class="p">,</span> <span class="n">coords_px</span><span class="p">,</span> <span class="n">in_coords_dx</span><span class="p">))</span>
-
-        <span class="c1"># concatenate prognostic and diagnostic outputs and coordinates</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_px_output</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">dim_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">dim_name</span> <span class="o">!=</span> <span class="s2">&quot;variable&quot;</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">dim_name</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
-                        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">coords_px</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">dim_name</span><span class="p">)</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;If keep_px_output==True, the outputs of the diagnostic model must be concatenatable to the inputs. Original error message: &#39;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">variable_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">x_px</span><span class="p">,</span> <span class="n">x</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="n">variable_dim</span><span class="p">)</span>
-            <span class="n">variables</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">coords_px</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]])</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">variables</span>
-
-        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">px_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span>
+        <span class="n">dx_coords</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">model</span><span class="p">,</span> <span class="n">prepare_dx_input</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_coords</span><span class="p">):</span>
+            <span class="c1"># This is kinda annnoying at the moment, but I&#39;m not sure of a better way yet</span>
+            <span class="c1"># I wish we could just use prepare_dx_input_tensor but we have no tensors</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">prepare_dx_input</span><span class="p">(</span><span class="n">px_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+            <span class="n">dx_coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+        <span class="n">out_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_output_coords</span><span class="p">(</span><span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out_coords</span>
 
 <div class="viewcode-block" id="DiagnosticWrapper.__call__">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html#earth2studio.models.px.DiagnosticWrapper.__call__">[docs]</a>
-    <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs prognostic model 1 step.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Runs prognostic model 1 step</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">            Input tensor</span>
 <span class="sd">        coords : CoordSystem</span>
-<span class="sd">            Coordinate system, should have dimensions ``[time, variable, *domain_dims]``</span>
+<span class="sd">            Input coordinate system</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        ------</span>
 <span class="sd">        x : torch.Tensor</span>
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_concat_diagnostic</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">))</span></div>
+        <span class="n">px_x</span><span class="p">,</span> <span class="n">px_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">dx_x</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">dx_coords</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">model</span><span class="p">,</span> <span class="n">prepare_dx_input</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_tensor</span><span class="p">):</span>
+            <span class="n">dx_x0</span><span class="p">,</span> <span class="n">dx_coords0</span> <span class="o">=</span> <span class="n">prepare_dx_input</span><span class="p">(</span>
+                <span class="n">px_x</span><span class="p">,</span> <span class="n">px_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">dx_x0</span><span class="p">,</span> <span class="n">dx_coords0</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">dx_x0</span><span class="p">,</span> <span class="n">dx_coords0</span><span class="p">)</span>
+            <span class="n">dx_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dx_x0</span><span class="p">)</span>
+            <span class="n">dx_coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dx_coords0</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_output_tensor</span><span class="p">(</span><span class="n">px_x</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_x</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_default_generator</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a iterator which can be used to perform time-integration of the</span>
+<span class="sd">        prognostic model. Will return the initial condition first (0th step).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            Input coordinate system</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        Iterator[tuple[torch.Tensor, CoordSystem]]</span>
+<span class="sd">            Iterator that generates time-steps of the prognostic model container the</span>
+<span class="sd">            output data tensor and coordinate system dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">px_x</span><span class="p">,</span> <span class="n">px_coords</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+            <span class="n">dx_x</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">dx_coords</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">model</span><span class="p">,</span> <span class="n">prepare_dx_input</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dx_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_dx_input_tensor</span>
+            <span class="p">):</span>
+                <span class="n">dx_x0</span><span class="p">,</span> <span class="n">dx_coords0</span> <span class="o">=</span> <span class="n">prepare_dx_input</span><span class="p">(</span>
+                    <span class="n">px_x</span><span class="p">,</span> <span class="n">px_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+                <span class="p">)</span>
+                <span class="n">dx_x0</span><span class="p">,</span> <span class="n">dx_coords0</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">dx_x0</span><span class="p">,</span> <span class="n">dx_coords0</span><span class="p">)</span>
+                <span class="n">dx_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dx_x0</span><span class="p">)</span>
+                <span class="n">dx_coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dx_coords0</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_output_tensor</span><span class="p">(</span><span class="n">px_x</span><span class="p">,</span> <span class="n">px_coords</span><span class="p">,</span> <span class="n">dx_x</span><span class="p">,</span> <span class="n">dx_coords</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span>
 
 <div class="viewcode-block" id="DiagnosticWrapper.create_iterator">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html#earth2studio.models.px.DiagnosticWrapper.create_iterator">[docs]</a>
@@ -716,15 +983,13 @@
 <span class="sd">        coords : CoordSystem</span>
 <span class="sd">            Input coordinate system</span>
 
-
 <span class="sd">        Yields</span>
 <span class="sd">        ------</span>
 <span class="sd">        Iterator[tuple[torch.Tensor, CoordSystem]]</span>
 <span class="sd">            Iterator that generates time-steps of the prognostic model container the</span>
 <span class="sd">            output data tensor and coordinate system dictionary.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">px_model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
-            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_concat_diagnostic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span></div>
+        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_generator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span></div>
 </div>
 
 </pre></div>

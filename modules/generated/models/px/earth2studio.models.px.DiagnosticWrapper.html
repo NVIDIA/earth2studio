@@ -563,47 +563,67 @@
 <h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DiagnosticWrapper<a class="headerlink" href="#earth2studio-models-px-diagnosticwrapper" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.px.DiagnosticWrapper">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">DiagnosticWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">px_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx_models</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interpolate_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_px_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/dxwrapper.html#DiagnosticWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.DiagnosticWrapper" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">DiagnosticWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">px_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepare_dx_input_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepare_dx_input_tensor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepare_output_coords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prepare_output_tensor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/dxwrapper.html#DiagnosticWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.DiagnosticWrapper" title="Link to this definition">#</a></dt>
 <dd><p>Wraps a prognostic model and one or more diagnostic models into a single
-prognostic model. This allows diagnostic model outputs to be included in workflows
-that expect a prognostic model.</p>
-<p>The outputs of the diagnostic models are concatenated the output of the prognostic
-in the order given in <cite>dx_models</cite>.</p>
-<p>Results will be returned in the coordinate system of the last diagnostic model.</p>
-<p>Model compatibility requirements:
-- Input variables of each model in the chain</p>
-<blockquote>
-<div><p>[px_model, dx_models[0], dx_models[1], …]
-must be available in the outputs of one of the previous models.</p>
-</div></blockquote>
+prognostic model. The micro-pipeline this wrapper encapsulates has the following
+four steps:</p>
+<ol class="arabic simple">
+<li><p>Execute one step of the prognostic model</p></li>
+<li><p>Prepare output of prognostic model for each diagnostic model</p></li>
+<li><p>Execute forward pass each diagnostic model using the prepare prognostic data</p></li>
+<li><p>Prepare outputs of prognostic/diagnostic for final return</p></li>
+</ol>
+<p>The wrapper provides customizable methods for preparing diagnostic model inputs and
+outputs. If not provided, default methods are have the following requirements:</p>
 <ul class="simple">
-<li><p>If interpolate_coords == False, the coordinates of each model in the chain
-must be mappable to the next model using <cite>earth2studio.utils.coords.map_coords</cite>.</p></li>
-<li><p>If interpolate_coords == True, the coordinates of each model in the chain must
-be possible to interpolate to the next model using
-<cite>earth2studio.utils.interp.LatLonInterpolation</cite>.</p></li>
+<li><p>All diagnostics must have the same output coordinate systems with the exception</p></li>
 </ul>
+<p>of the variable dimension
+- Both the prognostic and diagnostic models must have lat/lon grid systems.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Custom callables or classes implementing the Protocol interfaces can be provided to
+override default behavior such as skipping interpolation or changing concatenation
+logic. This will be required for many diagnostic models. The prepare functions must
+implement the appropriate Protocol (__call__ method with matching signature):</p>
+<ul class="simple">
+<li><p>PrepareDxInputCoords: Prepares coordinate systems</p></li>
+<li><p>PrepareDxInputTensor: Prepares tensors with optional interpolation</p></li>
+<li><p>PrepareOutputCoords: Prepares final output coordinate systems</p></li>
+<li><p>PrepareOutputTensor: Prepares final output tensors</p></li>
+</ul>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>px_model</strong> (<em>PrognosticModel</em>) – The prognostic model to use as the base model.</p></li>
-<li><p><strong>dx_models</strong> (<em>DiagnosticModel</em><em> | </em><em>Sequence</em><em>[</em><em>DiagnosticModel</em><em>]</em>) – The diagnostic models whose outputs are concatenated to the output of px_model.</p></li>
-<li><p><strong>interpolate_coords</strong> (<em>bool</em><em>, </em><em>default False</em>) – Whether to use bilinear interpolation to map spatial coordinates. If False,
-nearest neighbor interpolation will be used. Must be set to True if any models
-have 2D latitude/longitude coordinates.</p></li>
-<li><p><strong>keep_px_output</strong> (<em>bool</em><em>, </em><em>default True</em>) – Whether to include output of px_model in the input.</p></li>
+<li><p><strong>dx_model</strong> (<em>DiagnosticModel</em><em> | </em><em>list</em><em>[</em><em>DiagnosticModel</em><em>]</em>) – Single diagnostic model or list of diagnostic models whose outputs are
+concatenated to the prognostic model output.</p></li>
+<li><p><strong>prepare_dx_input_coords</strong> (<em>PrepareDxInputCoords</em><em> | </em><em>list</em><em>[</em><em>PrepareDxInputCoords</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Callable or Protocol-implementing object to prepare coordinate system for
+diagnostic model input. Can be a single instance (applied to all diagnostics)
+or a list (one per diagnostic). If None, uses PrepareInputCoordsDefault for
+each diagnostic, by default None</p></li>
+<li><p><strong>prepare_dx_input_tensor</strong> (<em>PrepareDxInputTensor</em><em> | </em><em>list</em><em>[</em><em>PrepareDxInputTensor</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Callable or Protocol-implementing object to prepare tensor for diagnostic model
+input. Can be a single instance (applied to all diagnostics) or a list (one per
+diagnostic). If None, uses PrepareInputTensorDefault with interpolation for
+each diagnostic, by default None</p></li>
+<li><p><strong>prepare_output_coords</strong> (<em>PrepareOutputCoords</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Callable or Protocol-implementing object to prepare output coordinate system.
+If None, uses PrepareOutputCoordsDefault which concatenates all variables,
+by default None</p></li>
+<li><p><strong>prepare_output_tensor</strong> (<em>PrepareOutputTensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Callable or Protocol-implementing object to prepare output tensor. If None,
+uses PrepareOutputTensorDefault which concatenates all outputs, by default None</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.DiagnosticWrapper.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/dxwrapper.html#DiagnosticWrapper.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.DiagnosticWrapper.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Runs prognostic model 1 step.</p>
+<dd><p>Runs prognostic model 1 step</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinate system, should have dimensions <code class="docutils literal notranslate"><span class="pre">[time,</span> <span class="pre">variable,</span> <span class="pre">*domain_dims]</span></code></p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
