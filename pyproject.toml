@@ -319,6 +319,7 @@ markers = [
     "cli: marks tests which run CLIs"
 ]
 asyncio_mode = "auto"
+testmon_ignore_dependencies = true
 
 # ==== Coverage.py configuration (ran using pytest-cov) ====
 # See: https://coverage.readthedocs.io/en/latest/config.html
