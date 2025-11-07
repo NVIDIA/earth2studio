@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - StormCast ensures that conditioning variables are in the correct order
 - NetCDFBackend unit change to ensure timedeltas are correctly decoded by xarray
 - GFS data source for early 2021 dates
+- Updated corrdiff wrapper for newer physicsnemo performance improvements
 
 ### Security
 
