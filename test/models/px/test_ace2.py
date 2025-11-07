@@ -26,21 +26,134 @@ from earth2studio.models.px.ace2 import ACE2ERA5  # noqa: E402
 from earth2studio.utils import handshake_dim  # noqa: E402
 
 
-@pytest.fixture(scope="function")
-def model(model_cache_context) -> ACE2ERA5:
-    with model_cache_context():
-        return ACE2ERA5.load_model(ACE2ERA5.load_default_package())
+class PhooOutput:
+    prediction: dict = {}
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+class PhooStepper(torch.nn.Module):
+    prognostic_names = [
+        "Q2m",
+        "northward_wind_2",
+        "northward_wind_6",
+        "northward_wind_3",
+        "air_temperature_3",
+        "air_temperature_5",
+        "air_temperature_1",
+        "northward_wind_0",
+        "eastward_wind_2",
+        "surface_temperature",
+        "eastward_wind_6",
+        "northward_wind_5",
+        "eastward_wind_5",
+        "eastward_wind_4",
+        "eastward_wind_7",
+        "air_temperature_6",
+        "specific_total_water_4",
+        "air_temperature_2",
+        "specific_total_water_1",
+        "UGRD10m",
+        "specific_total_water_7",
+        "specific_total_water_5",
+        "northward_wind_1",
+        "specific_total_water_3",
+        "VGRD10m",
+        "PRESsfc",
+        "air_temperature_0",
+        "specific_total_water_2",
+        "eastward_wind_0",
+        "air_temperature_4",
+        "eastward_wind_1",
+        "eastward_wind_3",
+        "northward_wind_4",
+        "specific_total_water_6",
+        "northward_wind_7",
+        "TMP2m",
+        "air_temperature_7",
+        "specific_total_water_0",
+    ]
+    _input_only_names = [
+        "DSWRFtoa",
+        "HGTsfc",
+        "global_mean_co2",
+        "land_fraction",
+        "ocean_fraction",
+        "sea_ice_fraction",
+    ]
+    out_names = [
+        "PRESsfc",
+        "surface_temperature",
+        "air_temperature_0",
+        "air_temperature_1",
+        "air_temperature_2",
+        "air_temperature_3",
+        "air_temperature_4",
+        "air_temperature_5",
+        "air_temperature_6",
+        "air_temperature_7",
+        "specific_total_water_0",
+        "specific_total_water_1",
+        "specific_total_water_2",
+        "specific_total_water_3",
+        "specific_total_water_4",
+        "specific_total_water_5",
+        "specific_total_water_6",
+        "specific_total_water_7",
+        "eastward_wind_0",
+        "eastward_wind_1",
+        "eastward_wind_2",
+        "eastward_wind_3",
+        "eastward_wind_4",
+        "eastward_wind_5",
+        "eastward_wind_6",
+        "eastward_wind_7",
+        "northward_wind_0",
+        "northward_wind_1",
+        "northward_wind_2",
+        "northward_wind_3",
+        "northward_wind_4",
+        "northward_wind_5",
+        "northward_wind_6",
+        "northward_wind_7",
+        "LHTFLsfc",
+        "SHTFLsfc",
+        "PRATEsfc",
+        "ULWRFsfc",
+        "ULWRFtoa",
+        "DLWRFsfc",
+        "DSWRFsfc",
+        "USWRFsfc",
+        "USWRFtoa",
+        "tendency_of_total_water_path_due_to_advection",
+        "TMP850",
+        "h500",
+        "TMP2m",
+        "Q2m",
+        "UGRD10m",
+        "VGRD10m",
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.register_buffer("device_buffer", torch.empty(0))
+
+    def predict_paired(self, ic, forcing_batch):
+        # https://github.com/ai2cm/ace/blob/a40f16bb4d985cdcd3234b1a540b4dd764b933db/fme/ace/data_loading/batch_data.py#L23
+        batch, _, lat, lon = ic._data.data[self.prognostic_names[0]].shape
+        output = PhooOutput()
+        output.prediction = {
+            key: torch.randn(batch, 1, lat, lon, device=self.device_buffer.device)
+            for key in self.out_names
+        }
+        return output, None
+
+
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_ACE2ERA5_call(model, device):
+def test_ACE2ERA5_call(device):
     torch.cuda.empty_cache()
     # Use a single timestamp; forcing source will handle needed adjustments
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    p = model.to(device)
+    p = ACE2ERA5(PhooStepper()).to(device)
 
     # Build a Random data source over the model grid
     dc = p.input_coords()
@@ -73,15 +186,13 @@ def test_ACE2ERA5_call(model, device):
     handshake_dim(out_coords, "time", 0)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
 @pytest.mark.parametrize("batch", [1, 2])
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_ACE2ERA5_iter(batch, device, model):
+def test_ACE2ERA5_iter(batch, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    p = model.to(device)
+    p = ACE2ERA5(PhooStepper()).to(device)
 
     dc = p.input_coords()
     del dc["batch"]
