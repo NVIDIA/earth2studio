@@ -20,10 +20,14 @@ import numpy as np
 import pytest
 import torch
 
-# pytest.importorskip("fme")
-from earth2studio.data import Random, fetch_data  # noqa: E402
-from earth2studio.models.px.ace2 import ACE2ERA5  # noqa: E402
-from earth2studio.utils import handshake_dim  # noqa: E402
+from earth2studio.data import Random, fetch_data
+from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
+from earth2studio.models.px.ace2 import (
+    ACE2ERA5,
+    _cftime_to_npdatetime64,
+    _npdatetime64_to_cftime,
+)
+from earth2studio.utils import handshake_dim
 
 
 class PhooOutput:
@@ -153,7 +157,8 @@ def test_ACE2ERA5_call(device):
     # Use a single timestamp; forcing source will handle needed adjustments
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    p = ACE2ERA5(PhooStepper()).to(device)
+    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
     # Build a Random data source over the model grid
     dc = p.input_coords()
@@ -184,6 +189,8 @@ def test_ACE2ERA5_call(device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+    np.testing.assert_array_equal(out_coords["lat"], ACE_GRID_LAT)
+    np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
 
 
 @pytest.mark.parametrize("batch", [1, 2])
@@ -192,7 +199,8 @@ def test_ACE2ERA5_iter(batch, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    p = ACE2ERA5(PhooStepper()).to(device)
+    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
     dc = p.input_coords()
     del dc["batch"]
@@ -224,6 +232,8 @@ def test_ACE2ERA5_iter(batch, device):
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        np.testing.assert_array_equal(out_coords["lat"], ACE_GRID_LAT)
+        np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
         if i > 2:
             break
 
@@ -269,3 +279,41 @@ def test_ace2era5_package(device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
+
+def test_time_conversion_helpers_roundtrip():
+    dt_in = np.array(
+        [
+            np.datetime64("2001-01-02T03:04:05"),
+            np.datetime64("2020-12-31T23:59:59"),
+        ],
+        dtype="datetime64[s]",
+    )
+
+    cftime_arr = _npdatetime64_to_cftime(dt_in)
+    assert cftime_arr.shape == dt_in.shape
+    dt_out = _cftime_to_npdatetime64(cftime_arr)
+    np.testing.assert_array_equal(dt_out, dt_in)
+
+    # Multi-dimensional shape preserved
+    dt2 = dt_in.reshape(1, 2)
+    cf2 = _npdatetime64_to_cftime(dt2)
+    assert cf2.shape == (1, 2)
+    dt2_back = _cftime_to_npdatetime64(cf2)
+    np.testing.assert_array_equal(dt2_back, dt2)
+
+    # Out-of-range years become NaT in reverse conversion
+    try:
+        import cftime  # local import for test
+    except Exception:
+        pytest.skip("cftime not available")
+    cf_bad = np.array(
+        [
+            cftime.DatetimeProlepticGregorian(3000, 1, 1, 0, 0, 0),  # beyond supported
+            cftime.DatetimeProlepticGregorian(2005, 1, 1, 0, 0, 0),  # valid
+        ],
+        dtype=object,
+    )
+    dt_bad = _cftime_to_npdatetime64(cf_bad)
+    assert np.isnat(dt_bad[0])
+    assert dt_bad[1] == np.datetime64("2005-01-01T00:00:00")

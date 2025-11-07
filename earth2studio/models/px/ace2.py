@@ -88,7 +88,8 @@ def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
 
 def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
     """Convert cftime.DatetimeProlepticGregorian array to np.datetime64[s] array
-    (vectorized-safe). Only supports up to seconds precision. Out-of-range years become NaT.
+    (vectorized-safe). Only supports up to seconds precision. Out-of-range years become
+    NaT.
     """
 
     def _convert_single(t: cftime.DatetimeProlepticGregorian) -> np.datetime64:
