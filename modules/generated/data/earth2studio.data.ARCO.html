@@ -591,6 +591,9 @@ to your local machine for large requests.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://cloud.google.com/storage/docs/public-datasets/era5">https://cloud.google.com/storage/docs/public-datasets/era5</a></p></li>
 </ul>
+<p>The data source will automatically use Multi-Storage Client (MSC) if available,
+otherwise it will fallback to using gcsfs directly. MSC can provide better
+performance for cloud storage access.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.ARCO.__call__">

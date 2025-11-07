@@ -442,17 +442,18 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">gcsfs</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gcsfs</span><span class="w"> </span><span class="kn">import</span> <span class="n">GCSFileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AsyncCachingFileSystem</span><span class="p">,</span>
     <span class="n">datasource_cache_root</span><span class="p">,</span>
+    <span class="n">get_msc_filesystem</span><span class="p">,</span>
     <span class="n">prep_data_inputs</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCOLexicon</span>
@@ -488,13 +489,20 @@
 <span class="sd">    Additional information on the data repository can be referenced here:</span>
 
 <span class="sd">    - https://cloud.google.com/storage/docs/public-datasets/era5</span>
+
+<span class="sd">    The data source will automatically use Multi-Storage Client (MSC) if available,</span>
+<span class="sd">    otherwise it will fallback to using gcsfs directly. MSC can provide better</span>
+<span class="sd">    performance for cloud storage access.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">ARCO_LAT</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
     <span class="n">ARCO_LON</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
     <span class="p">):</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
@@ -523,14 +531,24 @@
 <span class="sd">        ----</span>
 <span class="sd">        Async fsspec expects initialization inside of the execution loop</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>
-            <span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">token</span><span class="o">=</span><span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
-            <span class="n">access</span><span class="o">=</span><span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
-            <span class="n">block_size</span><span class="o">=</span><span class="mi">8</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
-            <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="c1"># Common filesystem configuration parameters</span>
+        <span class="n">fs_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;cache_timeout&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;token&quot;</span><span class="p">:</span> <span class="s2">&quot;anon&quot;</span><span class="p">,</span>  <span class="c1"># noqa: S106 # nosec B106</span>
+            <span class="s2">&quot;access&quot;</span><span class="p">:</span> <span class="s2">&quot;read_only&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;block_size&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span>
+            <span class="s2">&quot;asynchronous&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s2">&quot;skip_instance_cache&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Try to use Multi-Storage Client if available, otherwise fallback to gcsfs</span>
+        <span class="n">MSCFileSystem</span> <span class="o">=</span> <span class="n">get_msc_filesystem</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">MSCFileSystem</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using Multi-Storage Client for ARCO data access&quot;</span><span class="p">)</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">MSCFileSystem</span><span class="p">(</span><span class="o">**</span><span class="n">fs_config</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">GCSFileSystem</span><span class="p">(</span><span class="o">**</span><span class="n">fs_config</span><span class="p">)</span>
+
         <span class="c1"># Need to manually set this here, the reason being that when the file system</span>
         <span class="c1"># defines the weak ref of the client, it needs the loop used to create it.</span>
         <span class="c1"># Otherwise it will try to kill the client with another loop, throwing an error</span>
@@ -833,9 +851,15 @@
             <span class="k">return</span> <span class="kc">False</span>
 
         <span class="c1"># TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC</span>
-        <span class="n">gcs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span><span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># Try to use Multi-Storage Client if available, otherwise fallback to gcsfs</span>
+        <span class="n">MSCFileSystem</span> <span class="o">=</span> <span class="n">get_msc_filesystem</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">MSCFileSystem</span><span class="p">:</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">MSCFileSystem</span><span class="p">(</span><span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">GCSFileSystem</span><span class="p">(</span><span class="n">cache_timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
         <span class="n">gcstore</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">FsspecStore</span><span class="p">(</span>
-            <span class="n">gcs</span><span class="p">,</span>
+            <span class="n">fs</span><span class="p">,</span>
             <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
