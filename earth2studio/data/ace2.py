@@ -42,7 +42,7 @@ try:
     ACE_GRID_LAT = np.degrees(np.arcsin(roots_legendre(2 * 90)[0]))
     ACE_GRID_LON = np.linspace(0.5, 359.5, 4 * 90, endpoint=True)
 except ImportError:
-    OptionalDependencyFailure("ace2")
+    OptionalDependencyFailure("data")
     ACE_GRID_LAT = None
     ACE_GRID_LON = None
 
@@ -58,13 +58,18 @@ class ACE2ERA5Data:
     Parameters
     ----------
     mode : str
-        Either "forcing" or "initial_conditions". Controls which data tree and filenames are used.
-        Defaults to "forcing".
+        Either "forcing" or "initial_conditions". Controls which data tree and filenames
+        are used, by default "initial_conditions".
     co2_fn : Callable[[Sequence[datetime]], np.ndarray] | None, optional
-        Optional function returning CO2 concentration (ppm) for a given UTC datetime as a numpy array.
-        If provided, the global mean CO2 concentration from the source is ignored, and is computed using this function.
-        The function must accept a list of datetimes as input, and return a numpy array of CO2 concentrations of the same length.
-        Defaults to None.
+        Optional function returning CO2 concentration (ppm) for a given UTC datetime as
+        a numpy array. If provided, the global mean CO2 concentration from the source is
+        ignored, and is computed using this function. The function must accept a list of
+        datetimes as input, and return a numpy array of CO2 concentrations of the same
+        length, by default None.
+    cache : bool, optional
+            Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
 
     References
     ----------
@@ -76,7 +81,7 @@ class ACE2ERA5Data:
 
     def __init__(
         self,
-        mode: Literal["forcing", "initial_conditions"] = "forcing",
+        mode: Literal["forcing", "initial_conditions"] = "initial_conditions",
         co2_fn: Callable[[Sequence[datetime]], np.ndarray] | None = None,
         cache: bool = True,
         verbose: bool = True,
@@ -90,31 +95,6 @@ class ACE2ERA5Data:
         self.lon = ACE_GRID_LON
         self._co2_fn = co2_fn
         self._hf_fs = HfFileSystem()
-
-    def _validate_ic_times(self, time_list: list[datetime]) -> None:
-        for t in time_list:
-            if t.year not in self._IC_ALLOWED_YEARS:
-                raise ValueError(
-                    f"Initial condition time year {t.year} is not supported. Allowed years: {self._IC_ALLOWED_YEARS}"
-                )
-            if not (
-                t.day == 1
-                and t.hour == 0
-                and t.minute == 0
-                and t.second == 0
-                and t.microsecond == 0
-            ):
-                raise ValueError(
-                    "Initial condition times must be the first of each month at 00:00 UTC"
-                )
-
-    @property
-    def cache(self) -> str:
-        """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "ace2era5")
-        if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_ace2era5")
-        return cache_location
 
     def __call__(
         self,
@@ -216,9 +196,27 @@ class ACE2ERA5Data:
 
         return stacked
 
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        return self(time, variable)
+    def _validate_ic_times(self, time_list: list[datetime]) -> None:
+        for t in time_list:
+            if t.year not in self._IC_ALLOWED_YEARS:
+                raise ValueError(
+                    f"Initial condition time year {t.year} is not supported. Allowed years: {self._IC_ALLOWED_YEARS}"
+                )
+            if not (
+                t.day == 1
+                and t.hour == 0
+                and t.minute == 0
+                and t.second == 0
+                and t.microsecond == 0
+            ):
+                raise ValueError(
+                    "Initial condition times must be the first of each month at 00:00 UTC"
+                )
+
+    @property
+    def cache(self) -> str:
+        """Get the appropriate cache location."""
+        cache_location = os.path.join(datasource_cache_root(), "ACE2ERA5")
+        if not self._cache:
+            cache_location = os.path.join(cache_location, "tmp_ACE2ERA5")
+        return cache_location

@@ -25,7 +25,7 @@ import torch
 import xarray as xr
 
 from earth2studio.data import ACE2ERA5Data
-from earth2studio.data.ace import ACE_GRID_LAT, ACE_GRID_LON
+from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
 from earth2studio.data.base import DataSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.lexicon.ace import ACELexicon
@@ -53,7 +53,8 @@ except ImportError:
 
 
 def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
-    """Convert np.datetime64[...] array to cftime.DatetimeProlepticGregorian array (vectorized). Only supports up to seconds precision."""
+    """Convert np.datetime64[...] array to cftime.DatetimeProlepticGregorian array
+    (vectorized). Only supports up to seconds precision."""
 
     if len(dt64_array.shape) > 1:
         # Flatten the array before applying conversion
@@ -86,8 +87,8 @@ def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
 
 
 def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
-    """Convert cftime.DatetimeProlepticGregorian array to np.datetime64[s] array (vectorized-safe). Only supports up to seconds precision.
-    Out-of-range years become NaT.
+    """Convert cftime.DatetimeProlepticGregorian array to np.datetime64[s] array
+    (vectorized-safe). Only supports up to seconds precision. Out-of-range years become NaT.
     """
 
     def _convert_single(t: cftime.DatetimeProlepticGregorian) -> np.datetime64:
@@ -119,10 +120,10 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     stepper : Stepper
         ACE2-ERA5 fme.ace.stepper.single_module.Stepper instance loaded from a checkpoint.
     forcing_data_source : DataSource, optional
-        Data source providing forcing data during rollout. Must provide all forcing variables
-        described in the ACE2-ERA5 paper. Defaults to ACE2ERA5Data(mode="forcing").
+        Data source providing forcing data during rollout. Must provide all forcing
+        variables described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
     dt : numpy.timedelta64, optional
-        Model timestep used to advance lead time coordinates. Defaults to 6 hours.
+        Model timestep used to advance lead time coordinates, by default 6 hours.
 
     References
     ----------
@@ -131,9 +132,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Warning
     ----------
-    This model may only be used with input data on the GPU device that the model was loaded on.
-    Specifically, the data must be on the same device as whatever ``torch.cuda.current_device()``
-    was set to when the model package was loaded.
+    This model may only be used with input data on the GPU device that the model was
+    loaded on. Specifically, the data must be on the same device as whatever
+    ``torch.cuda.current_device()`` was set to when the model package was loaded.
     """
 
     def __init__(
@@ -285,6 +286,50 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return output_coords
 
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load default ACE2-ERA5 package from HuggingFace."""
+        return Package(
+            "hf://allenai/ACE2-ERA5",
+            cache_options={
+                "cache_storage": Package.default_cache("ace2era5"),
+                "same_names": True,
+            },
+        )
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(
+        cls,
+        package: Package,
+        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing", verbose=False),
+        dt: np.timedelta64 = np.timedelta64(6, "h"),
+    ) -> PrognosticModel:
+        """Load ACE2-ERA5 prognostic model from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Package to load the model checkpoint from.
+        forcing_data_source : DataSource, optional
+            External forcing data source. Must provide all forcing variables
+            described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
+        dt : numpy.timedelta64, optional
+            Timestep for advancing lead time coordinates, by default 6 hours.
+
+        Returns
+        -------
+        PrognosticModel
+            ACE2-ERA5 prognostic model
+        """
+        checkpoint_path = package.resolve("ace2_era5_ckpt.tar")
+        stepper = load_stepper(checkpoint_path)
+        return cls(
+            stepper=stepper,
+            forcing_data_source=forcing_data_source,
+            dt=dt,
+        )
+
     def _tensor_to_batch_data(
         self,
         x: torch.Tensor,
@@ -395,27 +440,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         y = y.unsqueeze(2)
         return y
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs one prognostic step using fme predict_paired API.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
-
-        return self._forward(x, coords)
-
     @torch.inference_mode()
     def _forward(
         self,
@@ -520,6 +544,26 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return y0, ic_coords
 
     @batch_func()
+    def __call__(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Runs one prognostic step using fme predict_paired API.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 6 hours in the future
+        """
+        return self._forward(x, coords)
+
+    @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
@@ -596,47 +640,3 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Iterator of output tensors and coordinate systems
         """
         yield from self._default_generator(x, coords)
-
-    @classmethod
-    def load_default_package(cls) -> Package:
-        """Load default ACE2-ERA5 package from HuggingFace."""
-        return Package(
-            "hf://allenai/ACE2-ERA5",
-            cache_options={
-                "cache_storage": Package.default_cache("ace2era5"),
-                "same_names": True,
-            },
-        )
-
-    @classmethod
-    @check_optional_dependencies()
-    def load_model(
-        cls,
-        package: Package,
-        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing"),
-        dt: np.timedelta64 = np.timedelta64(6, "h"),
-    ) -> PrognosticModel:
-        """Load ACE2-ERA5 prognostic model from a package.
-
-        Parameters
-        ----------
-        package : Package
-            Package to load the model checkpoint from.
-        forcing_data_source : DataSource, optional
-            External forcing data source. Must provide all forcing variables
-            described in the ACE2-ERA5 paper. Defaults to ACE2ERA5Data(mode="forcing").
-        dt : numpy.timedelta64, optional
-            Timestep for advancing lead time coordinates. Defaults to 6 hours.
-
-        Returns
-        -------
-        PrognosticModel
-            ACE2-ERA5 prognostic model
-        """
-        checkpoint_path = package.resolve("ace2_era5_ckpt.tar")
-        stepper = load_stepper(checkpoint_path)
-        return cls(
-            stepper=stepper,
-            forcing_data_source=forcing_data_source,
-            dt=dt,
-        )

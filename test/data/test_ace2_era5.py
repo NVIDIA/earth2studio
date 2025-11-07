@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import datetime
+import pathlib
+import shutil
 
 import numpy as np
 import pytest
@@ -37,9 +40,9 @@ from earth2studio.data import ACE2ERA5Data
     ],
 )
 @pytest.mark.parametrize("variable", [["skt", "mtdwswrf"], ["global_mean_co2"]])
-def test_ace2era5data_forcing_fetch(time, variable):
+def test_ace2era5_forcing_fetch(time, variable):
 
-    ds = ACE2ERA5Data(mode="forcing")
+    ds = ACE2ERA5Data(mode="forcing", cache=False)
     da = ds(time, variable)
 
     if isinstance(variable, str):
@@ -70,8 +73,8 @@ def test_ace2era5data_forcing_fetch(time, variable):
     ],
 )
 @pytest.mark.parametrize("variable", [["skt", "u3k", "v3k", "u10m"]])
-def test_ace2era5data_ic_fetch(time, variable):
-    ds = ACE2ERA5Data(mode="initial_conditions")
+def test_ace2era5_ic_fetch(time, variable):
+    ds = ACE2ERA5Data(mode="initial_conditions", cache=False)
     da = ds(time, variable)
     if isinstance(variable, str):
         variable = [variable]
@@ -85,7 +88,51 @@ def test_ace2era5data_ic_fetch(time, variable):
     assert not np.isnan(da.values).any()
 
 
-def test_ace2era5data_initial_conditions_year_validation():
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    "time",
+    [np.array([np.datetime64("1979-04-01T00:00")])],
+)
+@pytest.mark.parametrize("variable", [["t2m"]])
+@pytest.mark.parametrize("cache", [True, False])
+def test_ace2era5_cache(time, variable, cache):
+
+    ds = ACE2ERA5Data(cache=cache)
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
+
+    data = ds(time, variable)
+    shape = data.shape
+
+    assert shape[0] == time.shape[0]
+    assert shape[1] == len(variable)
+    assert shape[2] == 180
+    assert shape[3] == 360
+    assert not np.isnan(data.values).any()
+    # Cache should be present
+    assert pathlib.Path(ds.cache).is_dir() == cache
+
+    # Load from cach or refetch
+    data = ds(time, variable[0])
+    shape = data.shape
+
+    assert shape[0] == time.shape[0]
+    assert shape[1] == len(variable)
+    assert shape[2] == 180
+    assert shape[3] == 360
+    assert not np.isnan(data.values).any()
+
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
+
+
+def test_ace2era5_initial_conditions_year_validation():
     ds = ACE2ERA5Data(mode="initial_conditions")
     # 1981 is not an allowed IC year
     with pytest.raises(ValueError):
@@ -95,13 +142,13 @@ def test_ace2era5data_initial_conditions_year_validation():
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
-def test_ace2era5data_co2_fn_override():
+def test_ace2era5_co2_fn_override():
     # Define a CO2 function that returns predictable values per-time
     def co2_fn(times):
         # times is a list of datetimes; return array with ascending values
         return np.array([410.0 + i for i, _ in enumerate(times)], dtype=np.float32)
 
-    ds = ACE2ERA5Data(mode="forcing", co2_fn=co2_fn)
+    ds = ACE2ERA5Data(mode="forcing", co2_fn=co2_fn, cache=False)
     times = [
         datetime.datetime(2001, 1, 1, 0),
         datetime.datetime(2001, 1, 1, 12),
