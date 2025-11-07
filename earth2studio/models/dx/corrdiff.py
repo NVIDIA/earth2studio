@@ -1077,6 +1077,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             img_out_channels=len(self.output_variables),
             rank_batches=[sample_seeds],  # Single rank
             img_lr=x,
+            rank=1,
             device=x.device,
             mean_hr=mean_hr,
         )
@@ -1099,7 +1100,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             device=x.device,
             dtype=torch.float32,
         )
-        for i in range(out.shape[0]):
+        for i in range(x.shape[0]):
             out[i] = self._forward(x[i])
 
         return out, output_coords
