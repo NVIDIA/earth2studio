@@ -59,7 +59,7 @@ class GFS:
     """The global forecast service (GFS) initial state data source provided on an
     equirectangular grid. GFS is a weather forecast model developed by NOAA. This data
     source is provided on a 0.25 degree lat lon grid at 6-hour intervals spanning from
-    Feb 26th 2021 to present date.
+    Jan 1st 2021 to present date.
 
     Parameters
     ----------
