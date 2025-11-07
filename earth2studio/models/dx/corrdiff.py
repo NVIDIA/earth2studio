@@ -906,7 +906,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/diffusion.mdlus")
             ),
-            override_args={"use_apex_gn": True},
+            override_args={"use_apex_gn": False},
         )
         residual.use_fp16, residual.profile_mode = True, False
         residual = residual.eval()
@@ -919,7 +919,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/regression.mdlus")
             ),
-            override_args={"use_apex_gn": True},
+            override_args={"use_apex_gn": False},
         )
         regression.use_fp16, regression.profile_mode = True, False
         regression = regression.eval()
@@ -930,8 +930,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         # Compile models
         torch._dynamo.config.cache_size_limit = 264
         torch._dynamo.reset()
-        residual = torch.compile(residual)
-        regression = torch.compile(regression)
+        # residual = torch.compile(residual)
+        # regression = torch.compile(regression)
 
         store = zarr.storage.LocalStore(
             str(
@@ -944,8 +944,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         root = zarr.group(store)
         # Get output lat/lon grid
-        out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32)
-        out_lon = torch.as_tensor(root["XLONG"][:], dtype=torch.float32)
+        out_lat = torch.as_tensor(root["XLAT"][:], dtype=torch.float32, device=device)
+        out_lon = torch.as_tensor(root["XLONG"][:], dtype=torch.float32, device=device)
 
         # get normalization info
         in_inds = [0, 1, 2, 3, 4, 9, 10, 11, 12, 17, 18, 19]
@@ -953,6 +953,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             torch.as_tensor(
                 root["era5_center"][in_inds],
                 dtype=torch.float32,
+                device=device,
             )
             .unsqueeze(1)
             .unsqueeze(1)
@@ -962,6 +963,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             torch.as_tensor(
                 root["era5_scale"][in_inds],
                 dtype=torch.float32,
+                device=device,
             )
             .unsqueeze(1)
             .unsqueeze(1)
@@ -972,6 +974,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             torch.as_tensor(
                 root["cwb_center"][out_inds],
                 dtype=torch.float32,
+                device=device,
             )
             .unsqueeze(1)
             .unsqueeze(1)
@@ -981,6 +984,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             torch.as_tensor(
                 root["cwb_scale"][out_inds],
                 dtype=torch.float32,
+                device=device,
             )
             .unsqueeze(1)
             .unsqueeze(1)
@@ -1037,9 +1041,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             dtype=torch.float32,
             device=x.device,
         )
-
-        # Concat Grids
-        x = torch.cat((x, grid), dim=1)
+        # Concat grid features (only for regression model)
+        x_reg = torch.cat((x, grid), dim=1)
 
         # Create seeds for each sample
         seed = self.seed if self.seed is not None else np.random.randint(2**32)
@@ -1048,8 +1051,12 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             gen.manual_seed(seed)
         else:
             gen = None
-        sample_seeds = torch.randint(
-            0, 2**32, (self.number_of_samples,), device=x.device, generator=gen
+        sample_seeds = (
+            torch.randint(
+                0, 2**32, (self.number_of_samples,), device=x.device, generator=gen
+            )
+            .cpu()
+            .tolist()
         )
 
         sampler_fn = partial(
@@ -1065,7 +1072,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         mean_hr = self.unet_regression(
             self.regression_model,
-            img_lr=x,
+            img_lr=x_reg,
             output_channels=len(OUT_VARIABLES),
             number_of_samples=self.number_of_samples,
         )
@@ -1075,11 +1082,13 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             sampler_fn=sampler_fn,
             img_shape=(H_hr, W_hr),
             img_out_channels=len(self.output_variables),
-            rank_batches=[sample_seeds],  # Single rank
-            img_lr=x,
+            rank_batches=[sample_seeds],
+            img_lr=x.expand(self.number_of_samples, -1, -1, -1).to(
+                memory_format=torch.channels_last
+            ),
             rank=1,
             device=x.device,
-            mean_hr=mean_hr,
+            mean_hr=mean_hr[0:1],  # Diffusion only takes one mean input
         )
 
         x_hr = mean_hr + res_hr
