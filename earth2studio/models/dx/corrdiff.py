@@ -1046,7 +1046,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
         # Create seeds for each sample
         seed = self.seed if self.seed is not None else np.random.randint(2**32)
-        if seed:
+        if seed is not None:
             gen = torch.Generator(device=x.device)
             gen.manual_seed(seed)
         else:
