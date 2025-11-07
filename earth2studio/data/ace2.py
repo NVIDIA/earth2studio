@@ -101,6 +101,21 @@ class ACE2ERA5Data:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
+        """Function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ACE2 ERA5 lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array from ACE2 ERA5
+        """
         time_list, var_list_e2s = prep_data_inputs(time, variable)
 
         if self._mode == "initial_conditions":
@@ -195,6 +210,28 @@ class ACE2ERA5Data:
             shutil.rmtree(self.cache)
 
         return stacked
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async wrapper function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ACE2 ERA5 lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            Data array from ACE2 ERA5
+        """
+        return self(time, variable)
 
     def _validate_ic_times(self, time_list: list[datetime]) -> None:
         for t in time_list:
