@@ -367,17 +367,25 @@ def datasource_cache_root() -> str:
     return default_cache
 
 
-def get_msc_filesystem():
-    """Get MultiStorageAsyncFileSystem class if available, None otherwise.
-    
-    This helper function checks if Multi-Storage Client is available and sets up
-    the MSC configuration if needed. It returns the filesystem class that can be
-    instantiated by the caller, or None if MSC is not available.
+def get_msc_filesystem() -> filesystem | None:
+    """This helper function checks if Multi-Storage Client is available and sets up
+    the MSC configuration if needed.
 
+    Note
+    ----
+    Can force MSC to not be used with the environment variable EARTH2STUDIO_DISABLE_MSC
+
+    Returns
+    -------
+    filesystem | None
+        Returns multi-storage file system if installed, None otherwise
     """
-    # Try to import Multi-Storage Client, fallback to None if not available
+    if str(os.getenv("EARTH2STUDIO_DISABLE_MSC", "")).strip().lower() in ("1", "true"):
+        return None
+
     try:
         from multistorageclient.contrib.async_fs import MultiStorageAsyncFileSystem
+
         config_path = Path(__file__).parent / "msc_config.yaml"
         os.environ["MSC_CONFIG"] = str(config_path)
         return MultiStorageAsyncFileSystem

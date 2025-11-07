@@ -67,7 +67,7 @@ class ARCO:
     Additional information on the data repository can be referenced here:
 
     - https://cloud.google.com/storage/docs/public-datasets/era5
-    
+
     The data source will automatically use Multi-Storage Client (MSC) if available,
     otherwise it will fallback to using gcsfs directly. MSC can provide better
     performance for cloud storage access.
@@ -118,16 +118,15 @@ class ARCO:
             "asynchronous": True,
             "skip_instance_cache": True,
         }
-        
+
         # Try to use Multi-Storage Client if available, otherwise fallback to gcsfs
         MSCFileSystem = get_msc_filesystem()
         if MSCFileSystem:
             logger.debug("Using Multi-Storage Client for ARCO data access")
             fs = MSCFileSystem(**fs_config)
         else:
-            logger.debug("Multi-Storage Client not available, using gcsfs for ARCO data access")
             fs = GCSFileSystem(**fs_config)
-        
+
         # Need to manually set this here, the reason being that when the file system
         # defines the weak ref of the client, it needs the loop used to create it.
         # Otherwise it will try to kill the client with another loop, throwing an error
