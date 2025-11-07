@@ -59,15 +59,15 @@ class ACE2ERA5Data:
     ----------
     mode : str
         Either "forcing" or "initial_conditions". Controls which data tree and filenames
-        are used, by default "initial_conditions".
+        are used, by default "initial_conditions"
     co2_fn : Callable[[Sequence[datetime]], np.ndarray] | None, optional
         Optional function returning CO2 concentration (ppm) for a given UTC datetime as
         a numpy array. If provided, the global mean CO2 concentration from the source is
         ignored, and is computed using this function. The function must accept a list of
         datetimes as input, and return a numpy array of CO2 concentrations of the same
-        length, by default None.
+        length, by default None
     cache : bool, optional
-            Cache data source on local memory, by default True
+        Cache data source on local memory, by default True
     verbose : bool, optional
         Print download progress, by default True
 
