@@ -129,6 +129,30 @@ uv add earth2studio --extra aifs
 :::
 ::::
 :::::
+:::::{tab-item} AIFS Ensemble
+Notes: The AIFS Ensemble model relies on updated ECMWF checkpoints with ensemble
+sampling support. Similar to the deterministic AIFS variant this extra depends on
+[flash-attention](https://github.com/Dao-AILab/flash-attention), which can take a long
+time to compile. See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
+for compilation tips.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[aifsens] --no-build-isolation
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra aifsens
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Aurora
 Note: The shipped Aurora package has a restricted dependency which is incompatible with
 other Earth2Studio dependencies, thus it is suggested to use the forked variant.
