@@ -30,7 +30,7 @@ from earth2studio.data import GFS, GFS_FX
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(year=2022, month=12, day=25),
+        datetime(year=2021, month=1, day=1),  # Lower limit
         [
             datetime(year=2022, month=1, day=1, hour=6),
             datetime(year=2023, month=2, day=3, hour=18),
