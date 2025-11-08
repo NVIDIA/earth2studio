@@ -1205,6 +1205,8 @@
 <span class="sd">    solver: Literal[&#39;euler&#39;, &#39;heun&#39;]</span>
 <span class="sd">        Discretization of diffusion process. Only &#39;euler&#39; and &#39;heun&#39;</span>
 <span class="sd">        are supported. Default is &#39;euler&#39;</span>
+<span class="sd">    seed: int | None, optional</span>
+<span class="sd">        Random seed for reproducibility. Default is None.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -1220,6 +1222,7 @@
         <span class="n">number_of_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">number_of_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
         <span class="n">solver</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;euler&quot;</span><span class="p">,</span> <span class="s2">&quot;heun&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;euler&quot;</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">residual_model</span> <span class="o">=</span> <span class="n">residual_model</span>
@@ -1243,6 +1246,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span> <span class="o">=</span> <span class="n">number_of_samples</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">number_of_steps</span> <span class="o">=</span> <span class="n">number_of_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="o">=</span> <span class="n">solver</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span> <span class="o">=</span> <span class="n">OUT_VARIABLES</span>  <span class="c1"># Default set of output variables</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system&quot;&quot;&quot;</span>
@@ -1310,7 +1315,7 @@
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package&quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="n">StackedRandomGenerator</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">deterministic_sampler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1327,15 +1332,33 @@
             <span class="nb">str</span><span class="p">(</span>
                 <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
                 <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package/checkpoints/diffusion.mdlus&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+            <span class="p">),</span>
+            <span class="n">override_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;use_apex_gn&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">residual</span><span class="o">.</span><span class="n">use_fp16</span><span class="p">,</span> <span class="n">residual</span><span class="o">.</span><span class="n">profile_mode</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">residual</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
 
         <span class="n">regression</span> <span class="o">=</span> <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
             <span class="nb">str</span><span class="p">(</span>
                 <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
                 <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package/checkpoints/regression.mdlus&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+            <span class="p">),</span>
+            <span class="n">override_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;use_apex_gn&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">regression</span><span class="o">.</span><span class="n">use_fp16</span><span class="p">,</span> <span class="n">regression</span><span class="o">.</span><span class="n">profile_mode</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="n">regression</span> <span class="o">=</span> <span class="n">regression</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">regression</span> <span class="o">=</span> <span class="n">regression</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">regression</span> <span class="o">=</span> <span class="n">regression</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
+
+        <span class="c1"># Compile models</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">_dynamo</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">cache_size_limit</span> <span class="o">=</span> <span class="mi">264</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">_dynamo</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="c1"># residual = torch.compile(residual)</span>
+        <span class="c1"># regression = torch.compile(regression)</span>
 
         <span class="n">store</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">LocalStore</span><span class="p">(</span>
             <span class="nb">str</span><span class="p">(</span>
@@ -1348,8 +1371,8 @@
 
         <span class="n">root</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>
         <span class="c1"># Get output lat/lon grid</span>
-        <span class="n">out_lat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">root</span><span class="p">[</span><span class="s2">&quot;XLAT&quot;</span><span class="p">][:],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="n">out_lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">root</span><span class="p">[</span><span class="s2">&quot;XLONG&quot;</span><span class="p">][:],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">out_lat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">root</span><span class="p">[</span><span class="s2">&quot;XLAT&quot;</span><span class="p">][:],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">out_lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">root</span><span class="p">[</span><span class="s2">&quot;XLONG&quot;</span><span class="p">][:],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
         <span class="c1"># get normalization info</span>
         <span class="n">in_inds</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">]</span>
@@ -1357,6 +1380,7 @@
             <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
                 <span class="n">root</span><span class="p">[</span><span class="s2">&quot;era5_center&quot;</span><span class="p">][</span><span class="n">in_inds</span><span class="p">],</span>
                 <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -1366,6 +1390,7 @@
             <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
                 <span class="n">root</span><span class="p">[</span><span class="s2">&quot;era5_scale&quot;</span><span class="p">][</span><span class="n">in_inds</span><span class="p">],</span>
                 <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -1376,6 +1401,7 @@
             <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
                 <span class="n">root</span><span class="p">[</span><span class="s2">&quot;cwb_center&quot;</span><span class="p">][</span><span class="n">out_inds</span><span class="p">],</span>
                 <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -1385,6 +1411,7 @@
             <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
                 <span class="n">root</span><span class="p">[</span><span class="s2">&quot;cwb_scale&quot;</span><span class="p">][</span><span class="n">out_inds</span><span class="p">],</span>
                 <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -1418,14 +1445,14 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;euler&quot;</span><span class="p">,</span> <span class="s2">&quot;heun&quot;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;solver must be either &#39;euler&#39; or &#39;heun&#39; but got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;solver must be either &#39;euler&#39; or &#39;heun&#39;, &quot;</span> <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
         <span class="c1"># Interpolate</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interpolate</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
         <span class="c1"># Add sample dimension</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_center</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_scale</span>
 
         <span class="c1"># Create grid channels</span>
@@ -1442,47 +1469,59 @@
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="c1"># Concat grid features (only for regression model)</span>
+        <span class="n">x_reg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">grid</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># Concat Grids</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">grid</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># Repeat for sample size</span>
-        <span class="n">sample_seeds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># Create latents</span>
-        <span class="n">rnd</span> <span class="o">=</span> <span class="n">StackedRandomGenerator</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">sample_seeds</span><span class="p">)</span>
-
-        <span class="n">coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
-        <span class="n">img_resolution_x</span> <span class="o">=</span> <span class="n">coord</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">img_resolution_y</span> <span class="o">=</span> <span class="n">coord</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">latents</span> <span class="o">=</span> <span class="n">rnd</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">regression_model</span><span class="o">.</span><span class="n">img_out_channels</span><span class="p">,</span>
-                <span class="n">img_resolution_x</span><span class="p">,</span>
-                <span class="n">img_resolution_y</span><span class="p">,</span>
-            <span class="p">],</span>
-            <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="c1"># Create seeds for each sample</span>
+        <span class="n">seed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">gen</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">gen</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gen</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">sample_seeds</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span>
+                <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,),</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">gen</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
         <span class="p">)</span>
 
-        <span class="n">mean</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unet_regression</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">regression_model</span><span class="p">,</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">latents</span><span class="p">),</span>
-            <span class="n">x</span><span class="p">,</span>
-            <span class="n">num_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_steps</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="n">deterministic_sampler</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">residual_model</span><span class="p">,</span>
-            <span class="n">latents</span><span class="p">,</span>
-            <span class="n">x</span><span class="p">,</span>
-            <span class="n">randn_like</span><span class="o">=</span><span class="n">rnd</span><span class="o">.</span><span class="n">randn_like</span><span class="p">,</span>
+        <span class="n">sampler_fn</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+            <span class="n">deterministic_sampler</span><span class="p">,</span>
             <span class="n">num_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_steps</span><span class="p">,</span>
             <span class="n">solver</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">mean</span> <span class="o">+</span> <span class="n">res</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_scale</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_center</span>
-        <span class="k">return</span> <span class="n">x</span>
+
+        <span class="c1"># Get high-res image shape</span>
+        <span class="n">coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+        <span class="n">H_hr</span> <span class="o">=</span> <span class="n">coord</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">W_hr</span> <span class="o">=</span> <span class="n">coord</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">mean_hr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unet_regression</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">regression_model</span><span class="p">,</span>
+            <span class="n">img_lr</span><span class="o">=</span><span class="n">x_reg</span><span class="p">,</span>
+            <span class="n">output_channels</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">OUT_VARIABLES</span><span class="p">),</span>
+            <span class="n">number_of_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">res_hr</span> <span class="o">=</span> <span class="n">diffusion_step</span><span class="p">(</span>
+            <span class="n">net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">residual_model</span><span class="p">,</span>
+            <span class="n">sampler_fn</span><span class="o">=</span><span class="n">sampler_fn</span><span class="p">,</span>
+            <span class="n">img_shape</span><span class="o">=</span><span class="p">(</span><span class="n">H_hr</span><span class="p">,</span> <span class="n">W_hr</span><span class="p">),</span>
+            <span class="n">img_out_channels</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span>
+            <span class="n">rank_batches</span><span class="o">=</span><span class="p">[</span><span class="n">sample_seeds</span><span class="p">],</span>
+            <span class="n">img_lr</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                <span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span>
+            <span class="p">),</span>
+            <span class="n">rank</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">mean_hr</span><span class="o">=</span><span class="n">mean_hr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">],</span>  <span class="c1"># Diffusion only takes one mean input</span>
+        <span class="p">)</span>
+
+        <span class="n">x_hr</span> <span class="o">=</span> <span class="n">mean_hr</span> <span class="o">+</span> <span class="n">res_hr</span>
+        <span class="n">x_hr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_scale</span> <span class="o">*</span> <span class="n">x_hr</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_center</span>
+        <span class="k">return</span> <span class="n">x_hr</span>
 
 <div class="viewcode-block" id="CorrDiffTaiwan.__call__">
 <a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html#earth2studio.models.dx.CorrDiffTaiwan.__call__">[docs]</a>
@@ -1500,7 +1539,7 @@
             <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
             <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">output_coords</span></div>
@@ -1509,82 +1548,43 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">unet_regression</span><span class="p">(</span>
         <span class="n">net</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-        <span class="n">latents</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">img_lr</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">class_labels</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">randn_like</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">,</span>
-        <span class="n">num_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
-        <span class="n">sigma_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">rho</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
-        <span class="n">S_churn</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">S_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">S_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span>
-        <span class="n">S_noise</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">output_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">number_of_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Perform U-Net regression with temporal sampling.</span>
+<span class="sd">        Perform U-Net regression.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        net : torch.nn.Module</span>
 <span class="sd">            U-Net model for regression.</span>
-<span class="sd">        latents : torch.Tensor</span>
-<span class="sd">            Latent representation.</span>
-<span class="sd">        img_lr : torch.Tensor)</span>
-<span class="sd">            Low-resolution input image.</span>
-<span class="sd">        class_labels : torch.Tensor, optional</span>
-<span class="sd">            Class labels for conditional generation.</span>
-<span class="sd">        randn_like : function, optional</span>
-<span class="sd">            Function for generating random noise.</span>
-<span class="sd">        num_steps : int, optional</span>
-<span class="sd">            Number of time steps for temporal sampling.</span>
-<span class="sd">        sigma_min : float, optional</span>
-<span class="sd">            Minimum noise level.</span>
-<span class="sd">        sigma_max : float, optional</span>
-<span class="sd">            Maximum noise level.</span>
-<span class="sd">        rho : int, optional</span>
-<span class="sd">            Exponent for noise level interpolation.</span>
-<span class="sd">        S_churn : float, optional</span>
-<span class="sd">            Churning parameter.</span>
-<span class="sd">        S_min : float, optional</span>
-<span class="sd">            Minimum churning value.</span>
-<span class="sd">        S_max : float, optional</span>
-<span class="sd">            Maximum churning value.</span>
-<span class="sd">        S_noise : float, optional</span>
-<span class="sd">            Noise level for churning.</span>
+<span class="sd">        img_lr : torch.Tensor</span>
+<span class="sd">            Low-resolution input image of shape (1, C_in, H_hr, W_hr).</span>
+<span class="sd">        output_channels : int</span>
+<span class="sd">            Number of output channels C_out.</span>
+<span class="sd">        number_of_samples : int</span>
+<span class="sd">            Number of samples to generate for the single input batch element.</span>
+<span class="sd">            Only used to expand the shape of the output tensor.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        torch.Tensor: Predicted output at the next time step.</span>
+<span class="sd">        torch.Tensor: Predicted output with shape (number_of_samples, C_out,</span>
+<span class="sd">        H_hr, W_hr).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Adjust noise levels based on what&#39;s supported by the network.</span>
-        <span class="n">sigma_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">sigma_min</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="n">sigma_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">sigma_max</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
-
-        <span class="c1"># Time step discretization.</span>
-        <span class="n">step_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
-            <span class="n">num_steps</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">latents</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">mean_hr</span> <span class="o">=</span> <span class="n">regression_step</span><span class="p">(</span>
+            <span class="n">net</span><span class="o">=</span><span class="n">net</span><span class="p">,</span>
+            <span class="n">img_lr</span><span class="o">=</span><span class="n">img_lr</span><span class="p">,</span>
+            <span class="n">latents_shape</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">number_of_samples</span><span class="p">,</span>
+                <span class="n">output_channels</span><span class="p">,</span>
+                <span class="n">img_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span>
+                <span class="n">img_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="p">),</span>
+            <span class="n">lead_time_label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">t_steps</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">sigma_max</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">rho</span><span class="p">)</span>
-            <span class="o">+</span> <span class="n">step_indices</span>
-            <span class="o">/</span> <span class="p">(</span><span class="n">num_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="o">*</span> <span class="p">(</span><span class="n">sigma_min</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">rho</span><span class="p">)</span> <span class="o">-</span> <span class="n">sigma_max</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">rho</span><span class="p">))</span>
-        <span class="p">)</span> <span class="o">**</span> <span class="n">rho</span>
-        <span class="n">t_steps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">net</span><span class="o">.</span><span class="n">round_sigma</span><span class="p">(</span><span class="n">t_steps</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t_steps</span><span class="p">[:</span><span class="mi">1</span><span class="p">])]</span>
-        <span class="p">)</span>  <span class="c1"># t_N = 0</span>
 
-        <span class="c1"># conditioning</span>
-        <span class="n">x_lr</span> <span class="o">=</span> <span class="n">img_lr</span>
-
-        <span class="c1"># Main sampling loop.</span>
-        <span class="n">x_hat</span> <span class="o">=</span> <span class="n">latents</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">*</span> <span class="n">t_steps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="n">x_next</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">x_hat</span><span class="p">,</span> <span class="n">x_lr</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">x_next</span></div>
+        <span class="k">return</span> <span class="n">mean_hr</span></div>
 
 </pre></div>
 
