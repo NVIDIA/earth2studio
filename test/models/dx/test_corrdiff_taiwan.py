@@ -35,8 +35,14 @@ class PhooCorrDiff(torch.nn.Module):
         self.register_buffer("device_buffer", torch.empty(0))
 
     @property
-    def device(self) -> str:
+    def device(self) -> torch.device:
         return self.device_buffer.device
+
+    @device.setter
+    def device(self, value) -> None:
+        # Accept torch.device or string like "cuda:0"/"cpu"
+        dev = torch.device(value)
+        self.device_buffer = torch.empty(0, device=dev)
 
     def forward(self, x, img_lr, class_labels=None, force_fp32=False, **model_kwargs):
         return x[:, :4]
