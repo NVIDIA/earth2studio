@@ -17,9 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exposed backend arguments of netcdf/zarr to datasource_to_file signature
 - Added vertical wind speed support in GFS
 - Added ModelOutputDatasetSource to use written model output to start a new model run
-- Added FCN3 noise handling routines.
-- Added tp06 support to CDS data source.
+- Added FCN3 noise handling routines
+- Added ACE2-ERA5 model and data source
+- Added tp06 support to CDS data source
 - Added IFS_ENS, AIFS, and AIFS_ENS data sources.
+- Added Multi-Storage Client integration into ARCO data source
 
 ### Changed
 
@@ -36,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for ERA5 model levels and additional variables in ARCO data source
 - Changed the HRRR_X and HRRR_Y coordinates of the HRRR data source to match the native
   LCC coordinates
+- Updated CorrDiffTaiwan model wrapper to use latest PhysicsNeMo APIs.
 
 ### Deprecated
 
@@ -49,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed typo: InferenceOuputSource renamed to InferenceOutputSource
 - StormCast ensures that conditioning variables are in the correct order
 - NetCDFBackend unit change to ensure timedeltas are correctly decoded by xarray
+- GFS data source for early 2021 dates
+- Updated corrdiff wrapper for newer physicsnemo performance improvements
 
 ### Security
 
@@ -58,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped CBottle (and Earth2Grid) versions
 - Capped JAX version, due to numpy 2.0 requirement conflicting with NV PyTorch containers
 - Temp limit globus-sdk for intake-esgf
+- Added multi-storage client into data dependency group
 
 ## [0.9.0] - 2025-08-19
 
