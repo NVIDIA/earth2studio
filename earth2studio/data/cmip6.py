@@ -849,8 +849,8 @@ class CMIP6MultiRealm:
             raise NotImplementedError(
                 "Regridding between multiple curvilinear grids is not yet supported. "
                 "All CMIP6 sources use curvilinear grids. "
-                "At least one source with a regular lat/lon grid"
-                "is required to serve as the target grid for interpolation. "
+                "At least one source with a regular lat/lon grid "
+                "is required to serve as the target grid for interpolation."
             )
 
         target_da = da_list[target_idx]

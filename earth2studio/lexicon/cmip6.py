@@ -140,29 +140,41 @@ class CMIP6Lexicon(metaclass=LexiconType):
         """
         cmip6_key = cls.VOCAB[val]
 
-        if val == "sst":  # sea-surface temperature may be in degC → convert
+        if val in ["sst", "tos"]:  # sea-surface temperature may be in degC → convert
 
             def mod(x: np.ndarray) -> np.ndarray:  # noqa: D401
                 """Ensure SST is returned in kelvin.
 
                 Heuristic: if the data are mostly below 100 we assume degrees
                 Celsius and add 273.15; otherwise we assume already kelvin.
+
+                Note: Both E2S "sst" and "tos" map to CMIP6 "tos", so both need this conversion.
                 """
                 if np.nanmean(x) < 100:  # likely °C
                     return x + 273.15
                 return x
 
-        elif cmip6_key[0] in ["siconc", "clt", "r2m", "hurs", "hursmax", "hursmin"]:
-
+        elif val in ["siconc", "clt", "r2m", "hurs", "hursmax", "hursmin", "snc"]:
+            # Convert concentration/percentage variables from fraction [0-1] to percentage [0-100]
+            # Applies to: cloud cover (clt), relative humidity (r2m/hurs/hursmax/hursmin),
+            # sea ice concentration (siconc), snow cover (snc)
+            # Note: E2S variable "tcc" is NOT included - it expects fraction [0-1], not percentage
             def mod(x: np.ndarray) -> np.ndarray:  # noqa: D401
-                """concentration from fraction to percentage if it is less than 1."""
+                """Convert fraction [0-1] to percentage [0-100] if data is in fraction format.
+
+                Uses heuristic: if mean value < 1, assumes fraction and multiplies by 100.
+                """
                 if np.nanmean(x) < 1:
                     return x * 100.0
                 else:
                     return x  # already in percentage
 
-        elif cmip6_key[0] in ["z", "orog"]:
-
+        elif val == "orog" or (
+            val.startswith("z") and len(val) > 1 and val[1].isdigit()
+        ):
+            # Earth2Studio "z<level>" (e.g., z50, z500) needs conversion from meters to m^2/s^2
+            # Earth2Studio "zg" (geopotential height) does NOT need conversion (already in m)
+            # "orog" (orography/surface geopotential) also needs conversion
             def mod(x: np.ndarray) -> np.ndarray:  # noqa: D401
                 """Convert geopotential height from meters to m^2 s^-2 (potential)."""
                 return x * 9.80665
