@@ -97,6 +97,19 @@ class PhooCorrDiff(torch.nn.Module):
     sigma_min = 0
     sigma_max = float("inf")
 
+    def __init__(self):
+        super().__init__()
+        self.register_buffer("device_buffer", torch.empty(0))
+
+    @property
+    def device(self) -> torch.device:
+        return self.device_buffer.device
+
+    @device.setter
+    def device(self, value) -> None:
+        dev = torch.device(value)
+        self.device_buffer = torch.empty(0, device=dev)
+
     def forward(self, x, img_lr, class_labels=None, force_fp32=False, **model_kwargs):
         return x[:, :4]
 
