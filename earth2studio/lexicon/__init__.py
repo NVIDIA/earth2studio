@@ -25,8 +25,10 @@ from .goes import GOESLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .imerg import IMERGLexicon
 from .jpss import JPSSLexicon
-from .modis_fire import MODISFireLexicon
 from .ncar import NCAR_ERA5Lexicon
-from .oisst import OISSTLexicon
-from .sentinel3_aod import Sentinel3AODLexicon
+from .planetary_computer import (
+    MODISFireLexicon,
+    OISSTLexicon,
+    Sentinel3AODLexicon,
+)
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
