@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added tp06 support to CDS data source
 - Added IFS_ENS, AIFS, and AIFS_ENS data sources.
 - Added Multi-Storage Client integration into ARCO data source
+- Ensemble forecasting with downscaling example
 
 ### Changed
 
