@@ -37,7 +37,7 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
-#   "earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0",
 #   "cartopy",
 # ]
 # ///
