@@ -83,6 +83,6 @@ Computation times
    * - :ref:`sphx_glr_examples_17_io_performance.py` (``17_io_performance.py``)
      - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_18_corrdiff_hens.py` (``18_corrdiff_hens.py``)
+   * - :ref:`sphx_glr_examples_18_ensemble_downscaling.py` (``18_ensemble_downscaling.py``)
      - 00:00.000
      - 0.0
