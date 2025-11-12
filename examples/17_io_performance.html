@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>IO Backend Performance &#8212; Earth2Studio 0.9.0a0 documentation</title>
+    <title>IO Backend Performance &#8212; Earth2Studio 0.10.0a0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=6b888095"></script>
+    <script src="../_static/documentation_options.js?v=3f8aba6c"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -64,11 +64,11 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Extending Earth2Studio" href="extend/index.html" />
+    <link rel="next" title="Ensemble Forecasting with Downscaling" href="18_ensemble_downscaling.html" />
     <link rel="prev" title="CBottle Super Resolution" href="16_cbottle_super_resolution.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.9" />
+  <meta name="docsearch:version" content="0.10" />
   </head>
   
   
@@ -390,6 +390,7 @@
 <li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">IO Backend Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -657,114 +658,115 @@ Here we will chunk the output data based on time and lead_time</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.609 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:15:33.961 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.634 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:15:33.963 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.659 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:15:33.965 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.683 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:15:33.967 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.708 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:15:33.969 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.732 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:15:33.971 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.756 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:15:33.972 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.84it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 40.86it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:40:01.789 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:03,  1.72it/s]
+Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:01,  3.34it/s]
+Fetching GFS data:  57%|█████▋    | 4/7 [00:00&lt;00:00,  6.70it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  8.30it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.814 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+2025-11-12 19:15:35.258 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.837 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:15:35.261 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.862 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+2025-11-12 19:15:35.262 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.886 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:15:35.264 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.909 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:15:35.266 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:01.933 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+2025-11-12 19:15:35.268 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.96it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 41.66it/s]
-2025-07-18 21:40:01.991 | WARNING  | earth2studio.io.zarr:add_array:200 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-07-18 21:40:01.994 | WARNING  | earth2studio.io.zarr:add_array:206 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+
+2025-11-12 19:15:35.270 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:04,  1.31it/s]
+Fetching GFS data:  57%|█████▋    | 4/7 [00:00&lt;00:00,  5.30it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  7.55it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:13,  1.48it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:01&lt;00:13,  1.43it/s]
+Running batch inference:  10%|▉         | 2/21 [00:01&lt;00:12,  1.50it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:02&lt;00:12,  1.49it/s]
+Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:11,  1.50it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:02&lt;00:11,  1.47it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:02&lt;00:11,  1.54it/s]
 
-Running batch inference:  24%|██▍       | 5/21 [00:03&lt;00:10,  1.46it/s]
+Running batch inference:  24%|██▍       | 5/21 [00:03&lt;00:10,  1.53it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:04&lt;00:10,  1.47it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:03&lt;00:09,  1.54it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:04&lt;00:09,  1.49it/s]
+Running batch inference:  33%|███▎      | 7/21 [00:04&lt;00:09,  1.54it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:05&lt;00:08,  1.49it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:05&lt;00:08,  1.51it/s]
 
-Running batch inference:  43%|████▎     | 9/21 [00:06&lt;00:07,  1.51it/s]
+Running batch inference:  43%|████▎     | 9/21 [00:05&lt;00:07,  1.54it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:06&lt;00:07,  1.51it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:06&lt;00:07,  1.53it/s]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:07&lt;00:06,  1.51it/s]
+Running batch inference:  52%|█████▏    | 11/21 [00:07&lt;00:06,  1.55it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:08&lt;00:06,  1.49it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:07&lt;00:05,  1.54it/s]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:08&lt;00:05,  1.51it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:08&lt;00:05,  1.58it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:09&lt;00:04,  1.50it/s]
+Running batch inference:  67%|██████▋   | 14/21 [00:09&lt;00:04,  1.56it/s]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:10&lt;00:03,  1.51it/s]
+Running batch inference:  71%|███████▏  | 15/21 [00:09&lt;00:03,  1.57it/s]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:10&lt;00:03,  1.49it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:10&lt;00:03,  1.58it/s]
 
-Running batch inference:  81%|████████  | 17/21 [00:11&lt;00:02,  1.50it/s]
+Running batch inference:  81%|████████  | 17/21 [00:11&lt;00:02,  1.54it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:12&lt;00:02,  1.49it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:11&lt;00:01,  1.53it/s]
 
-Running batch inference:  90%|█████████ | 19/21 [00:12&lt;00:01,  1.49it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:12&lt;00:01,  1.54it/s]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:13&lt;00:00,  1.49it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:12&lt;00:00,  1.56it/s]
 
-Running batch inference: 100%|██████████| 21/21 [00:14&lt;00:00,  1.48it/s]
+Running batch inference: 100%|██████████| 21/21 [00:13&lt;00:00,  1.55it/s]
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Local zarr store inference time: </span><span class="si">{</span><span class="n">zarr_local_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
@@ -773,7 +775,7 @@ Running batch inference: 100%|██████████| 21/21 [00:14&lt;00
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Local zarr store inference time: 14.517282485961914s
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Local zarr store inference time: 16.341691732406616s
 Uncompressed zarr store size: 1330.78 MB
 </pre></div>
 </div>
@@ -804,114 +806,112 @@ that the output store will be 3x smaller!</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.131 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:15:49.962 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.154 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:15:49.990 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.177 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:15:50.016 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.199 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:15:50.036 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.222 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:15:50.055 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.244 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:15:50.076 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.266 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:15:50.095 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.32it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 44.17it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:40:16.297 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.49it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 45.37it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.319 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:15:50.124 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.341 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+2025-11-12 19:15:50.143 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.364 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:15:50.162 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.386 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+2025-11-12 19:15:50.182 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.408 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+2025-11-12 19:15:50.202 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:16.431 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:15:50.221 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.41it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 44.79it/s]
-2025-07-18 21:40:16.487 | WARNING  | earth2studio.io.zarr:add_array:200 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-07-18 21:40:16.491 | WARNING  | earth2studio.io.zarr:add_array:206 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+
+2025-11-12 19:15:50.240 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.37it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.51it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:01&lt;00:20,  1.04s/it]
+Running batch inference:   5%|▍         | 1/21 [00:01&lt;00:21,  1.06s/it]
 
-Running batch inference:  10%|▉         | 2/21 [00:02&lt;00:21,  1.12s/it]
+Running batch inference:  10%|▉         | 2/21 [00:02&lt;00:20,  1.09s/it]
 
-Running batch inference:  14%|█▍        | 3/21 [00:03&lt;00:20,  1.13s/it]
+Running batch inference:  14%|█▍        | 3/21 [00:03&lt;00:20,  1.12s/it]
 
-Running batch inference:  19%|█▉        | 4/21 [00:04&lt;00:19,  1.14s/it]
+Running batch inference:  19%|█▉        | 4/21 [00:04&lt;00:19,  1.13s/it]
 
-Running batch inference:  24%|██▍       | 5/21 [00:05&lt;00:18,  1.15s/it]
+Running batch inference:  24%|██▍       | 5/21 [00:05&lt;00:18,  1.14s/it]
 
-Running batch inference:  29%|██▊       | 6/21 [00:06&lt;00:17,  1.15s/it]
+Running batch inference:  29%|██▊       | 6/21 [00:06&lt;00:17,  1.14s/it]
 
 Running batch inference:  33%|███▎      | 7/21 [00:07&lt;00:16,  1.15s/it]
 
-Running batch inference:  38%|███▊      | 8/21 [00:09&lt;00:14,  1.15s/it]
+Running batch inference:  38%|███▊      | 8/21 [00:09&lt;00:14,  1.14s/it]
 
-Running batch inference:  43%|████▎     | 9/21 [00:10&lt;00:13,  1.15s/it]
+Running batch inference:  43%|████▎     | 9/21 [00:10&lt;00:13,  1.14s/it]
 
-Running batch inference:  48%|████▊     | 10/21 [00:11&lt;00:12,  1.15s/it]
+Running batch inference:  48%|████▊     | 10/21 [00:11&lt;00:12,  1.14s/it]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:12&lt;00:11,  1.15s/it]
+Running batch inference:  52%|█████▏    | 11/21 [00:12&lt;00:11,  1.13s/it]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:13&lt;00:10,  1.16s/it]
+Running batch inference:  57%|█████▋    | 12/21 [00:13&lt;00:10,  1.13s/it]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:14&lt;00:09,  1.15s/it]
+Running batch inference:  62%|██████▏   | 13/21 [00:14&lt;00:08,  1.12s/it]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:16&lt;00:07,  1.14s/it]
+Running batch inference:  67%|██████▋   | 14/21 [00:15&lt;00:07,  1.12s/it]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:17&lt;00:06,  1.14s/it]
+Running batch inference:  71%|███████▏  | 15/21 [00:16&lt;00:06,  1.12s/it]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:18&lt;00:05,  1.15s/it]
+Running batch inference:  76%|███████▌  | 16/21 [00:18&lt;00:05,  1.12s/it]
 
-Running batch inference:  81%|████████  | 17/21 [00:19&lt;00:04,  1.15s/it]
+Running batch inference:  81%|████████  | 17/21 [00:19&lt;00:04,  1.12s/it]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:20&lt;00:03,  1.14s/it]
+Running batch inference:  86%|████████▌ | 18/21 [00:20&lt;00:03,  1.13s/it]
 
-Running batch inference:  90%|█████████ | 19/21 [00:21&lt;00:02,  1.14s/it]
+Running batch inference:  90%|█████████ | 19/21 [00:21&lt;00:02,  1.11s/it]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:22&lt;00:01,  1.14s/it]
+Running batch inference:  95%|█████████▌| 20/21 [00:22&lt;00:01,  1.12s/it]
 
-Running batch inference: 100%|██████████| 21/21 [00:23&lt;00:00,  1.13s/it]
+Running batch inference: 100%|██████████| 21/21 [00:23&lt;00:00,  1.12s/it]
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Local compressed zarr store inference time: </span><span class="si">{</span><span class="n">zarr_local_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
@@ -920,8 +920,8 @@ Running batch inference: 100%|██████████| 21/21 [00:23&lt;00
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Local compressed zarr store inference time: 24.387450218200684s
-Compressed zarr store size: 413.08 MB
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Local compressed zarr store inference time: 24.032443046569824s
+Compressed zarr store size: 413.09 MB
 </pre></div>
 </div>
 </section>
@@ -939,82 +939,82 @@ a single file.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.522 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:16:13.997 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.545 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:16:14.016 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.567 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:16:14.036 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.590 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:16:14.056 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.613 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:16:14.075 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.636 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:16:14.095 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.659 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:16:14.114 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.29it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.98it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:40:40.689 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.32it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.15it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.712 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:16:14.141 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.734 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:16:14.161 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.756 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:16:14.180 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.779 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+2025-11-12 19:16:14.199 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.802 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+2025-11-12 19:16:14.219 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:40.824 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+2025-11-12 19:16:14.238 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.34it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 44.34it/s]
+
+2025-11-12 19:16:14.257 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.39it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.69it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:16,  1.22it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:15,  1.29it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:03,  5.29it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:03,  5.58it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:01&lt;00:01,  9.48it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:01&lt;00:01, 10.93it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:01&lt;00:00, 12.99it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 15.34it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 17.08it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 18.84it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 20.07it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 21.53it/s]
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Local netcdf store inference time: </span><span class="si">{</span><span class="n">nc_local_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
@@ -1023,7 +1023,7 @@ Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:0
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Local netcdf store inference time: 1.918046236038208s
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Local netcdf store inference time: 1.798389196395874s
 Uncompressed zarr store size: 1330.79 MB
 </pre></div>
 </div>
@@ -1044,120 +1044,118 @@ the data is gone.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.442 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:16:15.796 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.466 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:16:15.816 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.489 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:16:15.836 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.511 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:16:15.856 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.534 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:16:15.876 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.556 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:16:15.895 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.579 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:16:15.915 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.24it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.65it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:40:42.610 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.22it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 50.48it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.632 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:16:15.943 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.660 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+2025-11-12 19:16:15.962 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.684 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+2025-11-12 19:16:15.981 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.708 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:16:16.000 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.731 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:16:16.020 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:42.755 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+2025-11-12 19:16:16.039 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.95it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 41.60it/s]
-2025-07-18 21:40:42.811 | WARNING  | earth2studio.io.zarr:add_array:200 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-07-18 21:40:42.814 | WARNING  | earth2studio.io.zarr:add_array:206 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+
+2025-11-12 19:16:16.059 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.35it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.39it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:11,  1.68it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:10,  1.91it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:01&lt;00:11,  1.68it/s]
+Running batch inference:  10%|▉         | 2/21 [00:01&lt;00:09,  1.90it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:10,  1.69it/s]
+Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:09,  1.94it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:02&lt;00:10,  1.67it/s]
+Running batch inference:  19%|█▉        | 4/21 [00:02&lt;00:08,  1.93it/s]
 
-Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:09,  1.68it/s]
+Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:08,  1.92it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:03&lt;00:08,  1.67it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:03&lt;00:07,  1.91it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:04&lt;00:08,  1.68it/s]
+Running batch inference:  33%|███▎      | 7/21 [00:03&lt;00:07,  1.92it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:04&lt;00:07,  1.67it/s]
+Running batch inference:  38%|███▊      | 8/21 [00:04&lt;00:06,  1.91it/s]
 
-Running batch inference:  43%|████▎     | 9/21 [00:05&lt;00:07,  1.67it/s]
+Running batch inference:  43%|████▎     | 9/21 [00:04&lt;00:06,  1.91it/s]
 
-Running batch inference:  48%|████▊     | 10/21 [00:05&lt;00:06,  1.66it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:05&lt;00:05,  1.91it/s]
 
-Running batch inference:  52%|█████▏    | 11/21 [00:06&lt;00:06,  1.66it/s]
+Running batch inference:  52%|█████▏    | 11/21 [00:05&lt;00:05,  1.93it/s]
 
-Running batch inference:  57%|█████▋    | 12/21 [00:07&lt;00:05,  1.63it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:06&lt;00:04,  1.92it/s]
 
-Running batch inference:  62%|██████▏   | 13/21 [00:07&lt;00:04,  1.65it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:06&lt;00:04,  1.91it/s]
 
-Running batch inference:  67%|██████▋   | 14/21 [00:08&lt;00:04,  1.64it/s]
+Running batch inference:  67%|██████▋   | 14/21 [00:07&lt;00:03,  1.91it/s]
 
-Running batch inference:  71%|███████▏  | 15/21 [00:09&lt;00:03,  1.64it/s]
+Running batch inference:  71%|███████▏  | 15/21 [00:07&lt;00:03,  1.93it/s]
 
-Running batch inference:  76%|███████▌  | 16/21 [00:09&lt;00:03,  1.64it/s]
+Running batch inference:  76%|███████▌  | 16/21 [00:08&lt;00:02,  1.92it/s]
 
-Running batch inference:  81%|████████  | 17/21 [00:10&lt;00:02,  1.66it/s]
+Running batch inference:  81%|████████  | 17/21 [00:08&lt;00:02,  1.92it/s]
 
-Running batch inference:  86%|████████▌ | 18/21 [00:10&lt;00:01,  1.66it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:09&lt;00:01,  1.91it/s]
 
-Running batch inference:  90%|█████████ | 19/21 [00:11&lt;00:01,  1.67it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:09&lt;00:01,  1.92it/s]
 
-Running batch inference:  95%|█████████▌| 20/21 [00:12&lt;00:00,  1.67it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:10&lt;00:00,  1.92it/s]
 
-Running batch inference: 100%|██████████| 21/21 [00:12&lt;00:00,  1.68it/s]
+Running batch inference: 100%|██████████| 21/21 [00:10&lt;00:00,  1.93it/s]
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">In memory zarr store inference time: </span><span class="si">{</span><span class="n">zarr_memory_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>In memory zarr store inference time: 13.024486303329468s
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>In memory zarr store inference time: 11.282497882843018s
 </pre></div>
 </div>
 </section>
@@ -1174,8 +1172,10 @@ users specify <cite>parallel_coords</cite> in the constructor that denote coords
 be written to during inference.
 Typically this might be <cite>time</cite>, <cite>lead_time</cite> and <cite>ensemble</cite>.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">parallel_coords</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">),</span>
-    <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]),</span>
+    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">),</span>
+    <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span>
+    <span class="p">),</span>
 <span class="p">}</span>
 <span class="n">io</span> <span class="o">=</span> <span class="n">AsyncZarrBackend</span><span class="p">(</span>
     <span class="s2">&quot;outputs/17_io_async.zarr&quot;</span><span class="p">,</span>
@@ -1189,538 +1189,284 @@ Typically this might be <cite>time</cite>, <cite>lead_time</cite> and <cite>ense
 <span class="n">zarr_async_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-07-18 21:40:55.462 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-07-18 21:40:55.462 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-2025-07-18 21:40:55.462 | DEBUG    | earth2studio.io.async_zarr:__init__:167 - Setting up Zarr object pool of size 1, may take a bit
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-11-12 19:16:27.074 | DEBUG    | earth2studio.io.async_zarr:__init__:145 - Setting up Zarr object pool of size 1, may take a bit
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.485 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:16:27.102 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.508 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:16:27.121 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.530 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:16:27.141 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.554 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:16:27.161 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.577 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:16:27.180 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.600 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:16:27.200 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.623 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:16:27.220 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.22it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.47it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:40:55.653 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.24it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 50.64it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.676 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:16:27.247 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.698 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:16:27.267 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.721 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+2025-11-12 19:16:27.286 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.743 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:16:27.305 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.766 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+2025-11-12 19:16:27.325 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:40:55.789 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+2025-11-12 19:16:27.344 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.33it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 44.27it/s]
+
+2025-11-12 19:16:27.363 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.39it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.68it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.846 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:27.421 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array ensemble to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.847 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:27.426 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array time to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.847 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array ensemble to zarr store
+2025-11-12 19:16:27.431 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array lead_time to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.850 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array time to zarr store
+2025-11-12 19:16:27.436 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array lat to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.853 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array lead_time to zarr store
+2025-11-12 19:16:27.440 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array lon to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.855 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array lat to zarr store
+2025-11-12 19:16:27.444 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:323 - Initializing array t2m with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.858 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array lon to zarr store
+2025-11-12 19:16:27.448 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:323 - Initializing array tcwv with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:40:55.860 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:345 - Initializing array t2m with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
+2025-11-12 19:16:27.490 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:08,  2.44it/s]
 
-2025-07-18 21:40:55.862 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:345 - Initializing array tcwv with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
 
+2025-11-12 19:16:27.892 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:08,  2.44it/s]
 
-2025-07-18 21:40:55.907 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:07,  2.64it/s]
 
 
-Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
+2025-11-12 19:16:28.263 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:08,  2.24it/s]
 
+Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:07,  2.64it/s]
 
-2025-07-18 21:40:56.322 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:07,  2.56it/s]
 
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:08,  2.24it/s]
+2025-11-12 19:16:28.712 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:40:56.322 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:07,  2.56it/s]
 
+Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:07,  2.38it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:08,  2.24it/s]
 
+2025-11-12 19:16:29.133 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:40:56.362 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:07,  2.38it/s]
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:08,  2.24it/s]
+Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:06,  2.39it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:07,  2.44it/s]
 
+2025-11-12 19:16:29.550 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:40:56.683 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:06,  2.39it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:07,  2.44it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.41it/s]
 
 
-2025-07-18 21:40:56.683 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:29.932 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:07,  2.44it/s]
+Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.41it/s]
 
+Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.53it/s]
 
-2025-07-18 21:40:56.748 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+2025-11-12 19:16:30.344 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:07,  2.44it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:07,  2.52it/s]
+Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.53it/s]
 
+Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.41it/s]
 
-2025-07-18 21:40:57.107 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+2025-11-12 19:16:30.747 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:07,  2.52it/s]
 
+Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.41it/s]
 
-2025-07-18 21:40:57.108 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.49it/s]
 
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:07,  2.52it/s]
+2025-11-12 19:16:31.165 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:40:57.192 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.49it/s]
 
+Running batch inference:  48%|████▊     | 10/21 [00:04&lt;00:04,  2.40it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:01&lt;00:07,  2.52it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:07,  2.37it/s]
+2025-11-12 19:16:31.580 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:40:57.523 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  48%|████▊     | 10/21 [00:04&lt;00:04,  2.40it/s]
 
+Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:04,  2.44it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:07,  2.37it/s]
 
+2025-11-12 19:16:32.006 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:40:57.523 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:04,  2.44it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:07,  2.37it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.40it/s]
 
 
-2025-07-18 21:40:57.583 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+2025-11-12 19:16:32.409 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  19%|█▉        | 4/21 [00:01&lt;00:07,  2.37it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.40it/s]
 
-Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:06,  2.50it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:03,  2.44it/s]
 
 
-2025-07-18 21:40:57.925 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:32.816 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:06,  2.50it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:03,  2.44it/s]
 
+Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.43it/s]
 
-2025-07-18 21:40:57.926 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+2025-11-12 19:16:33.210 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:06,  2.50it/s]
 
+Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.43it/s]
 
-2025-07-18 21:40:57.986 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  71%|███████▏  | 15/21 [00:06&lt;00:02,  2.45it/s]
 
 
-Running batch inference:  24%|██▍       | 5/21 [00:02&lt;00:06,  2.50it/s]
+2025-11-12 19:16:33.631 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.49it/s]
 
+Running batch inference:  71%|███████▏  | 15/21 [00:06&lt;00:02,  2.45it/s]
 
-2025-07-18 21:40:58.290 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:02,  2.50it/s]
 
 
-Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.49it/s]
+2025-11-12 19:16:33.986 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:40:58.291 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:02,  2.50it/s]
 
+Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.50it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.49it/s]
 
+2025-11-12 19:16:34.457 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:40:58.348 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+Running batch inference:  81%|████████  | 17/21 [00:07&lt;00:01,  2.50it/s]
 
-Running batch inference:  29%|██▊       | 6/21 [00:02&lt;00:06,  2.49it/s]
+Running batch inference:  86%|████████▌ | 18/21 [00:07&lt;00:01,  2.40it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.49it/s]
 
+2025-11-12 19:16:34.865 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:40:58.734 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+Running batch inference:  86%|████████▌ | 18/21 [00:07&lt;00:01,  2.40it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.49it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.41it/s]
 
 
-2025-07-18 21:40:58.734 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:35.342 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.49it/s]
+Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.41it/s]
 
+Running batch inference:  95%|█████████▌| 20/21 [00:08&lt;00:00,  2.33it/s]
 
-2025-07-18 21:40:58.794 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+2025-11-12 19:16:35.734 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  33%|███▎      | 7/21 [00:02&lt;00:05,  2.49it/s]
 
-Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.47it/s]
+Running batch inference:  95%|█████████▌| 20/21 [00:08&lt;00:00,  2.33it/s]
 
-
-2025-07-18 21:40:59.102 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.47it/s]
-
-
-2025-07-18 21:40:59.103 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.47it/s]
-
-
-2025-07-18 21:40:59.161 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  38%|███▊      | 8/21 [00:03&lt;00:05,  2.47it/s]
-
-Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.55it/s]
-
-
-2025-07-18 21:40:59.510 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.55it/s]
-
-
-2025-07-18 21:40:59.510 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.55it/s]
-
-
-2025-07-18 21:40:59.557 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  43%|████▎     | 9/21 [00:03&lt;00:04,  2.55it/s]
-
-Running batch inference:  48%|████▊     | 10/21 [00:04&lt;00:04,  2.55it/s]
-
-
-2025-07-18 21:40:59.860 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  48%|████▊     | 10/21 [00:04&lt;00:04,  2.55it/s]
-
-
-2025-07-18 21:40:59.860 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  48%|████▊     | 10/21 [00:04&lt;00:04,  2.55it/s]
-
-
-2025-07-18 21:40:59.914 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  48%|████▊     | 10/21 [00:04&lt;00:04,  2.55it/s]
-
-Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:03,  2.64it/s]
-
-
-2025-07-18 21:41:00.226 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:03,  2.64it/s]
-
-
-2025-07-18 21:41:00.226 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:03,  2.64it/s]
-
-
-2025-07-18 21:41:00.281 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  52%|█████▏    | 11/21 [00:04&lt;00:03,  2.64it/s]
-
-Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.65it/s]
-
-
-2025-07-18 21:41:00.581 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.65it/s]
-
-
-2025-07-18 21:41:00.582 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.65it/s]
-
-
-2025-07-18 21:41:00.625 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  57%|█████▋    | 12/21 [00:04&lt;00:03,  2.65it/s]
-
-Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:02,  2.69it/s]
-
-
-2025-07-18 21:41:00.960 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:02,  2.69it/s]
-
-
-2025-07-18 21:41:00.960 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:02,  2.69it/s]
-
-
-2025-07-18 21:41:01.015 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  62%|██████▏   | 13/21 [00:05&lt;00:02,  2.69it/s]
-
-Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.67it/s]
-
-
-2025-07-18 21:41:01.320 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.67it/s]
-
-
-2025-07-18 21:41:01.320 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.67it/s]
-
-
-2025-07-18 21:41:01.371 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  67%|██████▋   | 14/21 [00:05&lt;00:02,  2.67it/s]
-
-Running batch inference:  71%|███████▏  | 15/21 [00:05&lt;00:02,  2.71it/s]
-
-
-2025-07-18 21:41:01.708 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  71%|███████▏  | 15/21 [00:05&lt;00:02,  2.71it/s]
-
-
-2025-07-18 21:41:01.709 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  71%|███████▏  | 15/21 [00:05&lt;00:02,  2.71it/s]
-
-
-2025-07-18 21:41:01.765 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  71%|███████▏  | 15/21 [00:05&lt;00:02,  2.71it/s]
-
-Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:01,  2.65it/s]
-
-
-2025-07-18 21:41:02.077 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:01,  2.65it/s]
-
-
-2025-07-18 21:41:02.077 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:01,  2.65it/s]
-
-
-2025-07-18 21:41:02.134 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  76%|███████▌  | 16/21 [00:06&lt;00:01,  2.65it/s]
-
-Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.62it/s]
-
-
-2025-07-18 21:41:02.486 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.62it/s]
-
-
-2025-07-18 21:41:02.486 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.62it/s]
-
-
-2025-07-18 21:41:02.541 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  81%|████████  | 17/21 [00:06&lt;00:01,  2.62it/s]
-
-Running batch inference:  86%|████████▌ | 18/21 [00:07&lt;00:01,  2.59it/s]
-
-
-2025-07-18 21:41:02.861 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  86%|████████▌ | 18/21 [00:07&lt;00:01,  2.59it/s]
-
-
-2025-07-18 21:41:02.861 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  86%|████████▌ | 18/21 [00:07&lt;00:01,  2.59it/s]
-
-
-2025-07-18 21:41:02.919 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  86%|████████▌ | 18/21 [00:07&lt;00:01,  2.59it/s]
-
-Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.59it/s]
-
-
-2025-07-18 21:41:03.268 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.59it/s]
-
-
-2025-07-18 21:41:03.268 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.59it/s]
-
-
-2025-07-18 21:41:03.325 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  90%|█████████ | 19/21 [00:07&lt;00:00,  2.59it/s]
-
-Running batch inference:  95%|█████████▌| 20/21 [00:07&lt;00:00,  2.62it/s]
-
-
-2025-07-18 21:41:03.619 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  95%|█████████▌| 20/21 [00:07&lt;00:00,  2.62it/s]
-
-
-2025-07-18 21:41:03.619 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  95%|█████████▌| 20/21 [00:07&lt;00:00,  2.62it/s]
-
-
-2025-07-18 21:41:03.670 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  95%|█████████▌| 20/21 [00:07&lt;00:00,  2.62it/s]
-
-Running batch inference: 100%|██████████| 21/21 [00:08&lt;00:00,  2.59it/s]
+Running batch inference: 100%|██████████| 21/21 [00:08&lt;00:00,  2.37it/s]
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Async zarr store inference time: </span><span class="si">{</span><span class="n">zarr_async_clock</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
@@ -1729,7 +1475,7 @@ Running batch inference: 100%|██████████| 21/21 [00:08&lt;00
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Async zarr store inference time: 8.530067443847656s
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Async zarr store inference time: 8.969738960266113s
 Compressed async zarr store size: 413.07 MB
 </pre></div>
 </div>
@@ -1760,516 +1506,263 @@ compression!</p>
 <span class="n">zarr_nonblocking_async_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-07-18 21:41:04.015 | DEBUG    | earth2studio.io.async_zarr:__init__:167 - Setting up Zarr object pool of size 8, may take a bit
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-11-12 19:16:36.075 | DEBUG    | earth2studio.io.async_zarr:__init__:145 - Setting up Zarr object pool of size 8, may take a bit
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.040 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:16:36.102 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.064 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:16:36.125 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.087 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:16:36.145 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.110 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:16:36.165 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.133 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:16:36.185 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.156 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:16:36.205 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.178 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:16:36.225 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.23it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.53it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:41:04.209 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.04it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 49.17it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.231 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+2025-11-12 19:16:36.252 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.253 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+2025-11-12 19:16:36.272 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.276 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+2025-11-12 19:16:36.291 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.299 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:16:36.310 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.321 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:16:36.329 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:04.344 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:16:36.349 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.35it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 44.36it/s]
+
+2025-11-12 19:16:36.368 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.37it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.51it/s]
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.404 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:36.426 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array ensemble to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.405 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:36.430 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array time to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.405 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array ensemble to zarr store
+2025-11-12 19:16:36.434 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array lead_time to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.408 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array time to zarr store
+2025-11-12 19:16:36.438 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array lat to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.411 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array lead_time to zarr store
+2025-11-12 19:16:36.441 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:289 - Writing coordinate array lon to zarr store
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.414 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array lat to zarr store
+2025-11-12 19:16:36.445 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:323 - Initializing array t2m with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.417 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:311 - Writing coordinate array lon to zarr store
+2025-11-12 19:16:36.447 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:323 - Initializing array tcwv with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
 
 
 Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
 
-2025-07-18 21:41:04.420 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:345 - Initializing array t2m with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
+2025-11-12 19:16:36.504 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
+Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:01, 12.02it/s]
 
+Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:01, 14.27it/s]
 
-2025-07-18 21:41:04.421 | DEBUG    | earth2studio.io.async_zarr:_initialize_arrays:345 - Initializing array tcwv with shape (8, 1, 21, 721, 1440) with chunks (8, 1, 1, 721, 1440) dtype &lt;class &#39;numpy.float32&#39;&gt;
 
+2025-11-12 19:16:36.615 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
+Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:01, 14.27it/s]
 
-2025-07-18 21:41:04.481 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+2025-11-12 19:16:36.695 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:01, 12.24it/s]
 
+Running batch inference:  14%|█▍        | 3/21 [00:00&lt;00:01, 14.27it/s]
 
-2025-07-18 21:41:04.514 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 12.35it/s]
 
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:02,  8.75it/s]
+2025-11-12 19:16:36.793 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:04.514 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 12.35it/s]
 
 
-Running batch inference:   5%|▍         | 1/21 [00:00&lt;00:02,  8.73it/s]
+2025-11-12 19:16:36.858 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:01, 16.07it/s]
 
+Running batch inference:  24%|██▍       | 5/21 [00:00&lt;00:01, 12.35it/s]
 
-2025-07-18 21:41:04.565 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 11.46it/s]
 
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:01, 16.07it/s]
+2025-11-12 19:16:36.965 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:04.573 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 11.46it/s]
 
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:01, 16.07it/s]
+2025-11-12 19:16:37.024 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:04.573 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  33%|███▎      | 7/21 [00:00&lt;00:01, 11.46it/s]
 
+Running batch inference:  38%|███▊      | 8/21 [00:00&lt;00:01, 12.44it/s]
 
-Running batch inference:  10%|▉         | 2/21 [00:00&lt;00:01, 16.07it/s]
 
+2025-11-12 19:16:37.112 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:41:04.630 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+Running batch inference:  38%|███▊      | 8/21 [00:00&lt;00:01, 12.44it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:00&lt;00:01, 16.07it/s]
 
+2025-11-12 19:16:37.164 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:41:04.664 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+Running batch inference:  43%|████▎     | 9/21 [00:00&lt;00:00, 12.44it/s]
 
-Running batch inference:  14%|█▍        | 3/21 [00:00&lt;00:01, 16.07it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 12.64it/s]
 
 
-2025-07-18 21:41:04.664 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:37.245 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  14%|█▍        | 3/21 [00:00&lt;00:01, 16.07it/s]
+Running batch inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 12.64it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 14.35it/s]
 
+2025-11-12 19:16:37.283 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:41:04.715 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+Running batch inference:  52%|█████▏    | 11/21 [00:00&lt;00:00, 12.64it/s]
 
-Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 14.35it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 13.97it/s]
 
 
-2025-07-18 21:41:04.722 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:37.359 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 14.35it/s]
+Running batch inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 13.97it/s]
 
 
-2025-07-18 21:41:04.723 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:16:37.400 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:  19%|█▉        | 4/21 [00:00&lt;00:01, 14.35it/s]
+Running batch inference:  62%|██████▏   | 13/21 [00:00&lt;00:00, 13.97it/s]
 
+Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 14.90it/s]
 
-2025-07-18 21:41:04.766 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+2025-11-12 19:16:37.501 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  24%|██▍       | 5/21 [00:00&lt;00:01, 14.35it/s]
 
+Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 14.90it/s]
 
-2025-07-18 21:41:04.799 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+2025-11-12 19:16:37.538 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  24%|██▍       | 5/21 [00:00&lt;00:01, 14.35it/s]
 
+Running batch inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 14.90it/s]
 
-2025-07-18 21:41:04.799 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.85it/s]
 
 
-Running batch inference:  24%|██▍       | 5/21 [00:00&lt;00:01, 14.35it/s]
+2025-11-12 19:16:37.626 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 14.56it/s]
 
+Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.85it/s]
 
-2025-07-18 21:41:04.850 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
 
+2025-11-12 19:16:37.684 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-Running batch inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 14.56it/s]
 
+Running batch inference:  81%|████████  | 17/21 [00:01&lt;00:00, 14.85it/s]
 
-2025-07-18 21:41:04.858 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 14.31it/s]
 
 
-Running batch inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 14.56it/s]
+2025-11-12 19:16:37.796 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:04.859 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 14.31it/s]
 
 
-Running batch inference:  29%|██▊       | 6/21 [00:00&lt;00:01, 14.56it/s]
+2025-11-12 19:16:37.853 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:04.917 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  90%|█████████ | 19/21 [00:01&lt;00:00, 14.31it/s]
 
+Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 13.60it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:00&lt;00:00, 14.56it/s]
 
+2025-11-12 19:16:37.944 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
-2025-07-18 21:41:04.967 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
 
+Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 13.60it/s]
 
-Running batch inference:  33%|███▎      | 7/21 [00:00&lt;00:00, 14.56it/s]
-
-
-2025-07-18 21:41:04.968 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  33%|███▎      | 7/21 [00:00&lt;00:00, 14.56it/s]
-
-Running batch inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 13.40it/s]
-
-
-2025-07-18 21:41:05.019 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 13.40it/s]
-
-
-2025-07-18 21:41:05.027 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 13.40it/s]
-
-
-2025-07-18 21:41:05.027 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 13.40it/s]
-
-
-2025-07-18 21:41:05.082 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  43%|████▎     | 9/21 [00:00&lt;00:00, 13.40it/s]
-
-
-2025-07-18 21:41:05.118 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  43%|████▎     | 9/21 [00:00&lt;00:00, 13.40it/s]
-
-
-2025-07-18 21:41:05.119 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  43%|████▎     | 9/21 [00:00&lt;00:00, 13.40it/s]
-
-Running batch inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 13.34it/s]
-
-
-2025-07-18 21:41:05.169 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 13.34it/s]
-
-
-2025-07-18 21:41:05.177 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 13.34it/s]
-
-
-2025-07-18 21:41:05.178 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  48%|████▊     | 10/21 [00:00&lt;00:00, 13.34it/s]
-
-
-2025-07-18 21:41:05.215 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  52%|█████▏    | 11/21 [00:00&lt;00:00, 13.34it/s]
-
-
-2025-07-18 21:41:05.258 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  52%|█████▏    | 11/21 [00:00&lt;00:00, 13.34it/s]
-
-
-2025-07-18 21:41:05.258 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  52%|█████▏    | 11/21 [00:00&lt;00:00, 13.34it/s]
-
-Running batch inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 13.70it/s]
-
-
-2025-07-18 21:41:05.302 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 13.70it/s]
-
-
-2025-07-18 21:41:05.313 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 13.70it/s]
-
-
-2025-07-18 21:41:05.313 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  57%|█████▋    | 12/21 [00:00&lt;00:00, 13.70it/s]
-
-
-2025-07-18 21:41:05.352 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  62%|██████▏   | 13/21 [00:00&lt;00:00, 13.70it/s]
-
-
-2025-07-18 21:41:05.399 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  62%|██████▏   | 13/21 [00:00&lt;00:00, 13.70it/s]
-
-
-2025-07-18 21:41:05.399 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  62%|██████▏   | 13/21 [00:00&lt;00:00, 13.70it/s]
-
-Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 13.80it/s]
-
-
-2025-07-18 21:41:05.451 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 13.80it/s]
-
-
-2025-07-18 21:41:05.460 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 13.80it/s]
-
-
-2025-07-18 21:41:05.460 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 13.80it/s]
-
-
-2025-07-18 21:41:05.498 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 13.80it/s]
-
-
-2025-07-18 21:41:05.537 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 13.80it/s]
-
-
-2025-07-18 21:41:05.537 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 13.80it/s]
-
-Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.07it/s]
-
-
-2025-07-18 21:41:05.589 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.07it/s]
-
-
-2025-07-18 21:41:05.597 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.07it/s]
-
-
-2025-07-18 21:41:05.598 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 14.07it/s]
-
-
-2025-07-18 21:41:05.662 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  81%|████████  | 17/21 [00:01&lt;00:00, 14.07it/s]
-
-
-2025-07-18 21:41:05.699 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  81%|████████  | 17/21 [00:01&lt;00:00, 14.07it/s]
-
-
-2025-07-18 21:41:05.699 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  81%|████████  | 17/21 [00:01&lt;00:00, 14.07it/s]
-
-Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.47it/s]
-
-
-2025-07-18 21:41:05.742 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.47it/s]
-
-
-2025-07-18 21:41:05.751 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.47it/s]
-
-
-2025-07-18 21:41:05.751 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 13.47it/s]
-
-
-2025-07-18 21:41:05.790 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  90%|█████████ | 19/21 [00:01&lt;00:00, 13.47it/s]
-
-
-2025-07-18 21:41:05.821 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  90%|█████████ | 19/21 [00:01&lt;00:00, 13.47it/s]
-
-
-2025-07-18 21:41:05.821 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  90%|█████████ | 19/21 [00:01&lt;00:00, 13.47it/s]
-
-Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 14.25it/s]
-
-
-2025-07-18 21:41:05.866 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 14.25it/s]
-
-
-2025-07-18 21:41:05.874 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 14.25it/s]
-
-
-2025-07-18 21:41:05.874 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 14.25it/s]
-
-                                                                        2025-07-18 21:41:05.883 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
-2025-07-18 21:41:05.900 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
-2025-07-18 21:41:05.923 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-2025-07-18 21:41:05.960 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
-2025-07-18 21:41:06.056 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
-2025-07-18 21:41:06.088 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
-2025-07-18 21:41:06.154 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
+                                                                        2025-11-12 19:16:37.954 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:458 - In IO thread pool throttle, limiting
+2025-11-12 19:16:37.993 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
+2025-11-12 19:16:38.015 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:458 - In IO thread pool throttle, limiting
+2025-11-12 19:16:38.112 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:458 - In IO thread pool throttle, limiting
+2025-11-12 19:16:38.167 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:458 - In IO thread pool throttle, limiting
+2025-11-12 19:16:38.230 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:458 - In IO thread pool throttle, limiting
 </pre></div>
 </div>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span>
@@ -2280,8 +1773,8 @@ Running batch inference:  95%|█████████▌| 20/21 [00:01&lt;00
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Non-blocking async zarr store inference time: 2.2350971698760986s
-Compressed non-blocking async zarr store size: 413.07 MB
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Non-blocking async zarr store inference time: 2.1879584789276123s
+Compressed non-blocking async zarr store size: 413.08 MB
 </pre></div>
 </div>
 </section>
@@ -2340,172 +1833,111 @@ to further boost performance.</p>
     <span class="c1"># fs.rm(&quot;earth2studio/ci/example/17_io_async.zarr&quot;, recursive=True)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-07-18 21:41:06.310 | DEBUG    | earth2studio.io.async_zarr:__init__:167 - Setting up Zarr object pool of size 16, may take a bit
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-11-12 19:16:38.294 | DEBUG    | earth2studio.io.async_zarr:__init__:145 - Setting up Zarr object pool of size 16, may take a bit
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.298 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
+2025-11-12 19:17:05.388 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.344 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
+2025-11-12 19:17:05.432 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 295463736-857297
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.367 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
+2025-11-12 19:17:05.462 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.389 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 399402626-989950
+2025-11-12 19:17:05.482 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.412 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 209450878-718645
+2025-11-12 19:17:05.501 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.435 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 422682974-1171397
+2025-11-12 19:17:05.521 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 330483332-833835
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.456 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 251866913-804464
+2025-11-12 19:17:05.540 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221219/18/atmos/gfs.t18z.pgrb2.0p25.f000 410101849-875378
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.55it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 38.83it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-07-18 21:41:51.486 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.79it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 40.48it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.508 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
+2025-11-12 19:17:05.568 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 400334303-985030
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.531 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
+2025-11-12 19:17:05.588 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 331696727-829753
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.553 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
+2025-11-12 19:17:05.607 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.579 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+2025-11-12 19:17:05.626 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 253345828-804505
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.602 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
+2025-11-12 19:17:05.645 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 423575610-1170377
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-07-18 21:41:51.624 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 296814817-852960
+2025-11-12 19:17:05.664 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 410972364-870639
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.21it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.38it/s]
+
+2025-11-12 19:17:05.683 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20221220/00/atmos/gfs.t00z.pgrb2.0p25.f000 210327553-720496
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.44it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 51.99it/s]
 
 
 Running batch inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-
-2025-07-18 21:41:51.680 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Running batch inference:  20%|██        | 1/5 [00:03&lt;00:12,  3.20s/it]
 
 
-2025-07-18 21:41:51.680 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-11-12 19:17:09.004 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-Running batch inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Running batch inference:  20%|██        | 1/5 [00:03&lt;00:12,  3.20s/it]
 
-Running batch inference:  20%|██        | 1/5 [00:05&lt;00:23,  5.80s/it]
-
-
-2025-07-18 21:41:57.549 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  40%|████      | 2/5 [00:07&lt;00:11,  3.72s/it]
 
 
-Running batch inference:  20%|██        | 1/5 [00:05&lt;00:23,  5.80s/it]
+2025-11-12 19:17:13.082 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:57.608 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  40%|████      | 2/5 [00:07&lt;00:11,  3.72s/it]
+
+Running batch inference:  60%|██████    | 3/5 [00:09&lt;00:05,  2.98s/it]
 
 
-Running batch inference:  20%|██        | 1/5 [00:05&lt;00:23,  5.80s/it]
+2025-11-12 19:17:15.190 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:41:57.609 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+Running batch inference:  60%|██████    | 3/5 [00:09&lt;00:05,  2.98s/it]
+
+Running batch inference:  80%|████████  | 4/5 [00:13&lt;00:03,  3.24s/it]
 
 
-Running batch inference:  20%|██        | 1/5 [00:05&lt;00:23,  5.80s/it]
-
-Running batch inference:  40%|████      | 2/5 [00:11&lt;00:17,  5.91s/it]
+2025-11-12 19:17:18.823 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 
 
-2025-07-18 21:42:03.528 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
+Running batch inference:  80%|████████  | 4/5 [00:13&lt;00:03,  3.24s/it]
 
+Running batch inference: 100%|██████████| 5/5 [00:16&lt;00:00,  3.50s/it]
 
-Running batch inference:  40%|████      | 2/5 [00:11&lt;00:17,  5.91s/it]
-
-
-2025-07-18 21:42:03.536 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  40%|████      | 2/5 [00:11&lt;00:17,  5.91s/it]
-
-
-2025-07-18 21:42:03.536 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  40%|████      | 2/5 [00:11&lt;00:17,  5.91s/it]
-
-Running batch inference:  60%|██████    | 3/5 [00:14&lt;00:08,  4.33s/it]
-
-
-2025-07-18 21:42:05.968 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  60%|██████    | 3/5 [00:14&lt;00:08,  4.33s/it]
-
-
-2025-07-18 21:42:06.018 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  60%|██████    | 3/5 [00:14&lt;00:08,  4.33s/it]
-
-
-2025-07-18 21:42:06.018 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  60%|██████    | 3/5 [00:14&lt;00:08,  4.33s/it]
-
-Running batch inference:  80%|████████  | 4/5 [00:15&lt;00:03,  3.29s/it]
-
-
-2025-07-18 21:42:07.664 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-
-
-Running batch inference:  80%|████████  | 4/5 [00:15&lt;00:03,  3.29s/it]
-
-
-2025-07-18 21:42:07.672 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:385 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  80%|████████  | 4/5 [00:15&lt;00:03,  3.29s/it]
-
-
-2025-07-18 21:42:07.673 | WARNING  | earth2studio.io.async_zarr:_scrub_coordinates:391 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
-
-
-Running batch inference:  80%|████████  | 4/5 [00:15&lt;00:03,  3.29s/it]
-
-Running batch inference: 100%|██████████| 5/5 [00:19&lt;00:00,  3.53s/it]
-
-                                                                      2025-07-18 21:42:11.563 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
-2025-07-18 21:42:11.618 | DEBUG    | earth2studio.io.async_zarr:_write:629 - Writing 1 chunks to 2 Zarr arrays
-2025-07-18 21:42:11.928 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:495 - In IO thread pool throttle, limiting
+                                                                      2025-11-12 19:17:22.718 | DEBUG    | earth2studio.io.async_zarr:_limit_pool_size:458 - In IO thread pool throttle, limiting
+2025-11-12 19:17:22.789 | DEBUG    | earth2studio.io.async_zarr:_write:592 - Writing 1 chunks to 2 Zarr arrays
 </pre></div>
 </div>
 </section>
@@ -2555,7 +1987,7 @@ the same.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/17_io_performance.jpg&quot;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_17_io_performance_001.png" srcset="../_images/sphx_glr_17_io_performance_001.png" alt="Comparison of mean t2m across IO Backends, Async Zarr, Non-blocking Async Zarr, Sync Zarr, NetCDF" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 19.780 seconds)</p>
+<img src="../_images/sphx_glr_17_io_performance_001.png" srcset="../_images/sphx_glr_17_io_performance_001.png" alt="Comparison of mean t2m across IO Backends, Async Zarr, Non-blocking Async Zarr, Sync Zarr, NetCDF" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 54.996 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-17-io-performance-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/b01dde9511148e62f7877606218cc4ff/17_io_performance.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">17_io_performance.ipynb</span></code></a></p>
@@ -2591,11 +2023,11 @@ the same.</p>
       </div>
     </a>
     <a class="right-next"
-       href="extend/index.html"
+       href="18_ensemble_downscaling.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Extending Earth2Studio</p>
+        <p class="prev-next-title">Ensemble Forecasting with Downscaling</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

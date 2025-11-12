@@ -72,7 +72,7 @@ from earth2studio.models.dx import CBottleInfill
 
 # Load the default model package which downloads the check point from NGC
 package = CBottle3D.load_default_package()
-cbottle_ds = CBottle3D.load_model(package)
+cbottle_ds = CBottle3D.load_model(package, seed=0)
 # This is an AI data source, so also move it to device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cbottle_ds = cbottle_ds.to(device)
@@ -156,7 +156,7 @@ for ax0 in ax:
     ax0.gridlines()
 
 plt.tight_layout()
-plt.savefig("outputs/12_tcwv_cbottle_datasource.jpg")
+plt.savefig("outputs/15_tcwv_cbottle_datasource.jpg")
 
 # %%
 # Variable Infilling with CBottleInfill Diagnostic
@@ -290,4 +290,4 @@ ax[1, 1].set_title("3 Input Variables Std")
 ax[1, 2].set_title("13 Input Variables Std")
 
 plt.tight_layout()
-plt.savefig("outputs/12_tcwv_cbottle_infill.jpg")
+plt.savefig("outputs/15_tcwv_cbottle_infill.jpg")

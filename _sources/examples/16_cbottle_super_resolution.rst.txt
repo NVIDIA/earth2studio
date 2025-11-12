@@ -49,6 +49,12 @@ In this example you will learn:
     # ///
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 46-53
 
 Set Up
@@ -120,6 +126,18 @@ We need the following components:
     era5_ds = WB2ERA5()
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Downloading cBottle-SR.zip: 0%|          | 0.00/2.46G [00:00<?, ?B/s]    Downloading cBottle-SR.zip: 1%|▏         | 34.5M/2.46G [00:00<00:07, 362MB/s]    Downloading cBottle-SR.zip: 3%|▎         | 87.0M/2.46G [00:00<00:05, 471MB/s]    Downloading cBottle-SR.zip: 5%|▌         | 133M/2.46G [00:00<00:05, 475MB/s]     Downloading cBottle-SR.zip: 8%|▊         | 190M/2.46G [00:00<00:04, 523MB/s]    Downloading cBottle-SR.zip: 10%|▉         | 240M/2.46G [00:00<00:04, 484MB/s]    Downloading cBottle-SR.zip: 11%|█▏        | 287M/2.46G [00:00<00:04, 482MB/s]    Downloading cBottle-SR.zip: 14%|█▎        | 344M/2.46G [00:00<00:04, 517MB/s]    Downloading cBottle-SR.zip: 16%|█▌        | 395M/2.46G [00:00<00:04, 524MB/s]    Downloading cBottle-SR.zip: 18%|█▊        | 446M/2.46G [00:00<00:04, 522MB/s]    Downloading cBottle-SR.zip: 20%|█▉        | 497M/2.46G [00:01<00:04, 524MB/s]    Downloading cBottle-SR.zip: 22%|██▏       | 547M/2.46G [00:01<00:03, 520MB/s]    Downloading cBottle-SR.zip: 24%|██▎       | 597M/2.46G [00:01<00:04, 498MB/s]    Downloading cBottle-SR.zip: 26%|██▌       | 644M/2.46G [00:01<00:04, 491MB/s]    Downloading cBottle-SR.zip: 27%|██▋       | 692M/2.46G [00:01<00:04, 476MB/s]    Downloading cBottle-SR.zip: 29%|██▉       | 739M/2.46G [00:01<00:03, 480MB/s]    Downloading cBottle-SR.zip: 31%|███       | 785M/2.46G [00:01<00:04, 449MB/s]    Downloading cBottle-SR.zip: 33%|███▎      | 830M/2.46G [00:01<00:03, 456MB/s]    Downloading cBottle-SR.zip: 35%|███▍      | 874M/2.46G [00:01<00:03, 440MB/s]    Downloading cBottle-SR.zip: 36%|███▋      | 919M/2.46G [00:02<00:03, 449MB/s]    Downloading cBottle-SR.zip: 38%|███▊      | 962M/2.46G [00:02<00:03, 426MB/s]    Downloading cBottle-SR.zip: 40%|███▉      | 0.98G/2.46G [00:02<00:03, 436MB/s]    Downloading cBottle-SR.zip: 42%|████▏     | 1.02G/2.46G [00:02<00:03, 406MB/s]    Downloading cBottle-SR.zip: 44%|████▎     | 1.07G/2.46G [00:02<00:03, 435MB/s]    Downloading cBottle-SR.zip: 45%|████▌     | 1.11G/2.46G [00:02<00:03, 442MB/s]    Downloading cBottle-SR.zip: 47%|████▋     | 1.16G/2.46G [00:02<00:03, 429MB/s]    Downloading cBottle-SR.zip: 49%|████▊     | 1.20G/2.46G [00:02<00:03, 408MB/s]    Downloading cBottle-SR.zip: 50%|█████     | 1.24G/2.46G [00:02<00:03, 433MB/s]    Downloading cBottle-SR.zip: 52%|█████▏    | 1.29G/2.46G [00:02<00:02, 447MB/s]    Downloading cBottle-SR.zip: 54%|█████▍    | 1.34G/2.46G [00:03<00:02, 465MB/s]    Downloading cBottle-SR.zip: 56%|█████▌    | 1.38G/2.46G [00:03<00:02, 478MB/s]    Downloading cBottle-SR.zip: 58%|█████▊    | 1.43G/2.46G [00:03<00:02, 496MB/s]    Downloading cBottle-SR.zip: 60%|██████    | 1.48G/2.46G [00:03<00:02, 496MB/s]    Downloading cBottle-SR.zip: 62%|██████▏   | 1.53G/2.46G [00:03<00:02, 480MB/s]    Downloading cBottle-SR.zip: 64%|██████▍   | 1.58G/2.46G [00:03<00:01, 499MB/s]    Downloading cBottle-SR.zip: 66%|██████▌   | 1.62G/2.46G [00:03<00:01, 500MB/s]    Downloading cBottle-SR.zip: 68%|██████▊   | 1.68G/2.46G [00:03<00:01, 532MB/s]    Downloading cBottle-SR.zip: 71%|███████   | 1.74G/2.46G [00:03<00:01, 549MB/s]    Downloading cBottle-SR.zip: 73%|███████▎  | 1.79G/2.46G [00:03<00:01, 555MB/s]    Downloading cBottle-SR.zip: 75%|███████▍  | 1.84G/2.46G [00:04<00:01, 511MB/s]    Downloading cBottle-SR.zip: 77%|███████▋  | 1.89G/2.46G [00:04<00:01, 515MB/s]    Downloading cBottle-SR.zip: 79%|███████▉  | 1.94G/2.46G [00:04<00:01, 518MB/s]    Downloading cBottle-SR.zip: 81%|████████  | 2.00G/2.46G [00:04<00:00, 550MB/s]    Downloading cBottle-SR.zip: 83%|████████▎ | 2.05G/2.46G [00:04<00:00, 532MB/s]    Downloading cBottle-SR.zip: 85%|████████▌ | 2.10G/2.46G [00:04<00:00, 539MB/s]    Downloading cBottle-SR.zip: 88%|████████▊ | 2.16G/2.46G [00:04<00:00, 552MB/s]    Downloading cBottle-SR.zip: 90%|████████▉ | 2.21G/2.46G [00:04<00:00, 520MB/s]    Downloading cBottle-SR.zip: 92%|█████████▏| 2.26G/2.46G [00:04<00:00, 532MB/s]    Downloading cBottle-SR.zip: 94%|█████████▍| 2.31G/2.46G [00:05<00:00, 517MB/s]    Downloading cBottle-SR.zip: 96%|█████████▌| 2.36G/2.46G [00:05<00:00, 521MB/s]    Downloading cBottle-SR.zip: 98%|█████████▊| 2.41G/2.46G [00:05<00:00, 533MB/s]    Downloading cBottle-SR.zip: 100%|██████████| 2.46G/2.46G [00:05<00:00, 494MB/s]
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 111-116
 
 Super Resolution on Synthetic Data
@@ -154,6 +172,18 @@ pipeline from data generation to super-resolution enhancement.
     sr_synth_x, sr_synth_coords = cbottle_sr(synth_x, synth_coords)
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Generating cBottle Data:   0%|          | 0/1 [00:00<?, ?it/s]    Generating cBottle Data: 100%|██████████| 1/1 [00:03<00:00,  3.95s/it]    Generating cBottle Data: 100%|██████████| 1/1 [00:03<00:00,  3.95s/it]
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 140-145
 
 Super Resolution on ERA5 Data
@@ -181,6 +211,22 @@ model to predict the missing variables, then perform super resolution.
     # Select the required variables and reshape for super resolution
     infill_x, infill_coords = map_coords(infill_x, infill_coords, cbottle_sr.input_coords())
     sr_infill_x, sr_infill_coords = cbottle_sr(infill_x, infill_coords)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2025-11-12 19:13:54.043 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2025-11-12 19:13:54.043 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
+    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2025-11-12 19:13:54.099 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/89120.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2025-11-12 19:13:54.106 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/89120.0.0 to local cache
+    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]    Fetching WB2 data:  50%|█████     | 1/2 [00:00<00:00,  2.48it/s]    Fetching WB2 data: 100%|██████████| 2/2 [00:00<00:00,  4.95it/s]
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 164-169
@@ -280,6 +326,22 @@ water (tclw) variable as an example.
 
     plt.tight_layout()
     plt.savefig("outputs/16_cbottle_super_resolution.jpg", dpi=150, bbox_inches="tight")
+
+
+
+.. image-sg:: /examples/images/sphx_glr_16_cbottle_super_resolution_001.png
+   :alt: Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)
+   :srcset: /examples/images/sphx_glr_16_cbottle_super_resolution_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (3 minutes 46.978 seconds)
 
 
 .. _sphx_glr_download_examples_16_cbottle_super_resolution.py:
