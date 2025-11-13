@@ -87,12 +87,11 @@ class PlanetaryComputerData:
 
     The base class handles STAC searches, concurrent asset downloads, and conversion of
     MPC assets into Earth2Studio's standardized xarray interface. Subclasses configure
-    the collection parameters and can override helper hooks for bespoke behaviour. In
-    most situations you only need to provide collection metadata, but advanced MPC
-    products may require overriding :meth:`prepare_asset_plans`, :meth:`select_assets`,
-    and :meth:`extract_variable_numpy`. Together these hooks control how STAC items are
-    mapped to local cache entries, how MPC assets are grouped per request, and how raw
-    files are decoded into :class:`numpy.ndarray` payloads ready for stacking.
+    the collection parameters and typically only need to implement
+    :meth:`extract_variable_numpy` to adapt raw fields into numpy arrays. Advanced MPC
+    products can still override :meth:`_prepare_asset_plans` when they require custom
+    asset selection logic, but most data sources work out-of-the-box once spatial
+    metadata and the lexicon are provided.
 
     Parameters
     ----------
@@ -359,11 +358,6 @@ class PlanetaryComputerData:
         """
         # Fetch the full variable stack for this timestamp and write it into the output.
         stacked = await self._fetch_array(client, semaphore, requested_time, variables)
-        if stacked.shape != (len(variables), *self._spatial_shape):
-            raise ValueError(
-                f"Unexpected data shape {stacked.shape} for {requested_time.isoformat()} "
-                f"in collection {self._collection_id}; expected {(len(variables), *self._spatial_shape)}."
-            )
         xr_array[time_index] = stacked
         progress.update(len(variables))
 
@@ -395,7 +389,7 @@ class PlanetaryComputerData:
         # Find the closest STAC item within the configured tolerance.
         item = await asyncio.to_thread(self._locate_item, requested_time)
         # Map requested variables to the assets that serve them.
-        asset_plans = self.prepare_asset_plans(item, variables)
+        asset_plans = self._prepare_asset_plans(item, variables)
 
         # Download any assets that are not yet cached locally.
         download_tasks = [
@@ -419,90 +413,6 @@ class PlanetaryComputerData:
                     data_stack[spec.index] = array
 
         return data_stack
-
-    # ------------------------------------------------------------------
-    # Methods to override for MPC collections
-    # * prepare_asset_plans
-    # * select_assets
-    # * extract_variable_numpy
-    # --------------------------------------------------------
-    def prepare_asset_plans(
-        self,
-        item: Any,
-        variables: Sequence[VariableSpec],
-    ) -> list[AssetPlan]:
-        """Create download plans for the STAC item that fulfil the requested variables.
-
-        Parameters
-        ----------
-        item : pystac.Item
-            STAC item returned by :meth:`_locate_item`, potentially carrying
-            collection-specific metadata.
-        variables : Sequence[VariableSpec]
-            Variable specifications resolved from the lexicon for the current request.
-
-        Returns
-        -------
-        list[AssetPlan]
-            Plans describing which assets to download and which variables they satisfy.
-
-        Notes
-        -----
-        The produced plans drive the remainder of the workflow: :meth:`_fetch_array`
-        iterates over them, :meth:`_downloaded_asset` fetches cache misses, and
-        :meth:`extract_variable_numpy` ultimately materializes the requested numpy
-        arrays.
-        """
-        # Build a mapping of asset key -> variables satisfied by that asset.
-        asset_map = self.select_assets(item, variables)
-        plans: list[AssetPlan] = []
-
-        for asset_key, specs in asset_map.items():
-            if asset_key not in item.assets:
-                raise KeyError(f"Asset '{asset_key}' not available in item {item.id}")
-            asset = item.assets[asset_key]
-            # Planetary Computer returns unsigned HREFs; sign them before download.
-            signed_asset = planetary_computer.sign(asset)  # type: ignore[union-attr]
-            unsigned_href = asset.href
-            local_path = self._local_asset_path(unsigned_href)
-            plans.append(
-                AssetPlan(
-                    key=asset_key,
-                    unsigned_href=unsigned_href,
-                    signed_href=signed_asset.href,
-                    media_type=asset.media_type,
-                    local_path=local_path,
-                    variables=list(specs),
-                )
-            )
-        return plans
-
-    def select_assets(
-        self,
-        item: Any,
-        variables: Sequence[VariableSpec],
-    ) -> Mapping[str, Sequence[VariableSpec]]:
-        """Return a mapping between STAC asset keys and variable specifications.
-
-        Parameters
-        ----------
-        item : pystac.Item
-            STAC item that holds asset metadata for the requested timestamp.
-        variables : Sequence[VariableSpec]
-            Variable specifications that must be sourced from the item.
-
-        Returns
-        -------
-        Mapping[str, Sequence[VariableSpec]]
-            Dictionary keyed by asset identifiers with the variables each asset serves.
-
-        Notes
-        -----
-        The default implementation assumes all variables reside in ``self._asset_key``.
-        Override this method for collections that distribute variables across multiple
-        files (for example, per-band HDF subsets).
-        """
-        return {self._asset_key: variables}
 
     def extract_variable_numpy(
         self,
@@ -531,6 +441,55 @@ class PlanetaryComputerData:
     # ------------------------------------------------------------------
     # Helper methods
     # ------------------------------------------------------------------
+    def _prepare_asset_plans(
+        self,
+        item: Any,
+        variables: Sequence[VariableSpec],
+    ) -> list[AssetPlan]:
+        """Create download plans for the STAC item that fulfil the requested variables.
+
+        Parameters
+        ----------
+        item : pystac.Item
+            STAC item returned by :meth:`_locate_item`, potentially carrying
+            collection-specific metadata.
+        variables : Sequence[VariableSpec]
+            Variable specifications resolved from the lexicon for the current request.
+
+        Returns
+        -------
+        list[AssetPlan]
+            Plans describing which assets to download and which variables they satisfy.
+
+        Notes
+        -----
+        The produced plans drive the remainder of the workflow: :meth:`_fetch_array`
+        iterates over them, :meth:`_downloaded_asset` fetches cache misses, and
+        :meth:`extract_variable_numpy` ultimately materializes the requested numpy
+        arrays.
+
+        This method might be overridden for collections that distribute variables across multiple
+        files (for example, per-band HDF subsets). Currently, this method is not overridden
+        for any collections though.
+        """
+        asset_key = self._asset_key
+        if asset_key not in item.assets:
+            raise KeyError(f"Asset '{asset_key}' not available in item {item.id}")
+        asset = item.assets[asset_key]
+        signed_asset = planetary_computer.sign(asset)  # type: ignore[union-attr]
+        unsigned_href = asset.href
+        local_path = self._local_asset_path(unsigned_href)
+        return [
+            AssetPlan(
+                key=asset_key,
+                unsigned_href=unsigned_href,
+                signed_href=signed_asset.href,
+                media_type=asset.media_type,
+                local_path=local_path,
+                variables=list(variables),
+            )
+        ]
+
     async def _downloaded_asset(
         self,
         client: httpx.AsyncClient,
@@ -890,6 +849,8 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
 
     Parameters
     ----------
+    tile : str
+        Tile identifier (``hXXvYY``) to prioritize during STAC searches.
     cache : bool, default=True
         Whether to retain downloaded assets between calls.
     verbose : bool, default=True
@@ -905,8 +866,8 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
 
     Notes
     -----
-    Specific tile selection (e.g., ``hXXvYY``) is not currently supported; the first
-    available tile returned by the Planetary Computer search is used.
+    Tile searches are best-effort. If no tile identifiers are provided (the default),
+    the first available tile returned by the Planetary Computer search is used.
 
     Dataset reference: https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
     """
@@ -914,6 +875,12 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
     COLLECTION_ID = "modis-14A1-061"
     TIME_COORDINATE = "time"
     SEARCH_TOLERANCE = timedelta(hours=12)
+    TILE_SIZE = 1200
+    PIXEL_SIZE_M = 926.625433138
+    TILE_WIDTH_M = TILE_SIZE * PIXEL_SIZE_M
+    SIN_EARTH_RADIUS = 6371007.181
+    SIN_MIN_X = -20015109.354
+    SIN_MAX_Y = 10007554.677
     VARIABLE_ASSETS = {
         "fire_mask": "FireMask",
         "max_frp": "MaxFRP",
@@ -922,6 +889,7 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
 
     def __init__(
         self,
+        tile: str = "h35v10",
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
@@ -929,16 +897,26 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
         max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
         async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
+        tile = tile.lower()
+        tile_filter = {
+            "filter": {
+                "op": "iLike",
+                "args": [
+                    {"property": "id"},
+                    f"%{tile}%",
+                ],
+            }
+        }
         super().__init__(
             self.COLLECTION_ID,
             asset_key="FireMask",
             lexicon=MODISFireLexicon,
-            search_kwargs=None,
+            search_kwargs=tile_filter,
             search_tolerance=self.SEARCH_TOLERANCE,
             time_coordinate=self.TIME_COORDINATE,
             spatial_dims={
-                "y": np.arange(1200, dtype=np.float32),
-                "x": np.arange(1200, dtype=np.float32),
+                "y": np.arange(self.TILE_SIZE, dtype=np.float32),
+                "x": np.arange(self.TILE_SIZE, dtype=np.float32),
             },
             cache=cache,
             verbose=verbose,
@@ -947,6 +925,39 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
             max_retries=max_retries,
             async_timeout=async_timeout,
         )
+
+    @classmethod
+    def grid(cls, tile: str = "h35v10") -> tuple[np.ndarray, np.ndarray]:
+        """Return latitude/longitude grids (degrees) for the specified MODIS tile.
+
+        Parameters
+        ----------
+        tile : str, default="h35v10"
+            MODIS sinusoidal tile identifier (``hXXvYY``) describing the desired grid.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, numpy.ndarray]
+            Latitude and longitude arrays shaped ``(1200, 1200)`` in degrees.
+        """
+        tile = tile.lower()
+        if len(tile) != 6 or not tile.startswith("h") or tile[3] != "v":
+            raise ValueError("MODIS tile identifiers must look like hXXvYY (e.g., h35v10).")
+        h_idx = int(tile[1:3])
+        v_idx = int(tile[4:])
+        cols = (np.arange(cls.TILE_SIZE, dtype=np.float64) + 0.5) * cls.PIXEL_SIZE_M
+        rows = (np.arange(cls.TILE_SIZE, dtype=np.float64) + 0.5) * cls.PIXEL_SIZE_M
+        x0 = cls.SIN_MIN_X + h_idx * cls.TILE_WIDTH_M
+        y0 = cls.SIN_MAX_Y - v_idx * cls.TILE_WIDTH_M
+        x = np.broadcast_to(x0 + cols, (cls.TILE_SIZE, cls.TILE_SIZE))
+        y = np.broadcast_to((y0 - rows)[:, None], (cls.TILE_SIZE, cls.TILE_SIZE))
+        phi = y / cls.SIN_EARTH_RADIUS
+        lat = np.degrees(phi)
+        cos_phi = np.cos(phi)
+        safe_cos = np.where(np.abs(cos_phi) < 1e-12, np.nan, cos_phi)
+        lon = np.degrees(x / (cls.SIN_EARTH_RADIUS * safe_cos))
+        return lat.astype(np.float32), lon.astype(np.float32)
+
 
     def extract_variable_numpy(
         self,

@@ -31,19 +31,14 @@ class OISSTLexicon(metaclass=LexiconType):
         "sst": (
             "sst",
             lambda array: array + np.float32(273.15),
-        ),
-        "sst_anom": ("anom", lambda array: array),
-        "sst_error": ("err", lambda array: array),
-        "sst_err": ("err", lambda array: array),
-        "sic": ("ice", lambda array: array / np.float32(100.0)),
-        "ice_frac": ("ice", lambda array: array / np.float32(100.0)),
-        "ice_pct": ("ice", lambda array: array),
+        ),  # sea surface temperature (K)
+        "ssta": ("anom", lambda array: array),  # SST anomaly relative to climatology (K)
+        "sstu": ("err", lambda array: array),  # SST analysis uncertainty (K)
+        "sic": ("ice", lambda array: array / np.float32(100.0)),  # sea ice fraction (0-1)
     }
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Modifier]:
-        if val not in cls.VOCAB:
-            raise KeyError(f"Variable {val} not found in OISST lexicon")
         return cls.VOCAB[val]
 
 
@@ -51,34 +46,32 @@ class Sentinel3AODLexicon(metaclass=LexiconType):
     """Lexicon exposing Sentinel-3 SYNERGY aerosol and reflectance variables."""
 
     VOCAB: dict[str, tuple[str, Modifier]] = {
-        "aod_440": ("AOD_440", lambda array: array),
-        "aod_550": ("AOD_550", lambda array: array),
-        "aod_670": ("AOD_670", lambda array: array),
-        "aod_865": ("AOD_865", lambda array: array),
-        "aod_1600": ("AOD_1600", lambda array: array),
-        "aod_2250": ("AOD_2250", lambda array: array),
-        "ssa_440": ("SSA_440", lambda array: array),
-        "ssa_550": ("SSA_550", lambda array: array),
-        "ssa_670": ("SSA_670", lambda array: array),
-        "ssa_865": ("SSA_865", lambda array: array),
-        "ssa_1600": ("SSA_1600", lambda array: array),
-        "surface_reflectance_440": ("Surface_reflectance_440", lambda array: array),
-        "surface_reflectance_550": ("Surface_reflectance_550", lambda array: array),
-        "surface_reflectance_670": ("Surface_reflectance_670", lambda array: array),
-        "surface_reflectance_865": ("Surface_reflectance_865", lambda array: array),
-        "surface_reflectance_1600": ("Surface_reflectance_1600", lambda array: array),
-        "sun_zenith": ("sun_zenith_nadir", lambda array: array),
-        "satellite_zenith": ("satellite_zenith_nadir", lambda array: array),
-        "relative_azimuth": ("relative_azimuth_nadir", lambda array: array),
-        "cloud_fraction": ("cloud_fraction_nadir", lambda array: array),
-        "_lat": ("latitude", lambda array: array),
-        "_lon": ("longitude", lambda array: array),
+        "s3sy01aod": ("AOD_440", lambda array: array),  # AOD band 01 (440 nm)
+        "s3sy02aod": ("AOD_550", lambda array: array),  # AOD band 02 (550 nm)
+        "s3sy03aod": ("AOD_670", lambda array: array),  # AOD band 03 (670 nm)
+        "s3sy04aod": ("AOD_865", lambda array: array),  # AOD band 04 (865 nm)
+        "s3sy05aod": ("AOD_1600", lambda array: array),  # AOD band 05 (1600 nm)
+        "s3sy06aod": ("AOD_2250", lambda array: array),  # AOD band 06 (2250 nm)
+        "s3sy01ssa": ("SSA_440", lambda array: array),  # single-scattering albedo band 01 (440 nm)
+        "s3sy02ssa": ("SSA_550", lambda array: array),  # single-scattering albedo band 02 (550 nm)
+        "s3sy03ssa": ("SSA_670", lambda array: array),  # single-scattering albedo band 03 (670 nm)
+        "s3sy04ssa": ("SSA_865", lambda array: array),  # single-scattering albedo band 04 (865 nm)
+        "s3sy05ssa": ("SSA_1600", lambda array: array),  # single-scattering albedo band 05 (1600 nm)
+        "s3sy01sr": ("Surface_reflectance_440", lambda array: array),  # surface reflectance band 01 (440 nm)
+        "s3sy02sr": ("Surface_reflectance_550", lambda array: array),  # surface reflectance band 02 (550 nm)
+        "s3sy03sr": ("Surface_reflectance_670", lambda array: array),  # surface reflectance band 03 (670 nm)
+        "s3sy04sr": ("Surface_reflectance_865", lambda array: array),  # surface reflectance band 04 (865 nm)
+        "s3sy05sr": ("Surface_reflectance_1600", lambda array: array),  # surface reflectance band 05 (1600 nm)
+        "s3sysunzen": ("sun_zenith_nadir", lambda array: array),  # solar zenith angle (degrees)
+        "s3sysatzen": ("satellite_zenith_nadir", lambda array: array),  # satellite zenith angle (degrees)
+        "s3syrelaz": ("relative_azimuth_nadir", lambda array: array),  # relative azimuth angle (degrees)
+        "s3sycloudfrac": ("cloud_fraction_nadir", lambda array: array),  # cloud fraction (0-1)
+        "s3sy_lat": ("latitude", lambda array: array),  # pixel latitude (degrees)
+        "s3sy_lon": ("longitude", lambda array: array),  # pixel longitude (degrees)
     }
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Modifier]:
-        if val not in cls.VOCAB:
-            raise KeyError(f"Variable {val} not found in Sentinel-3 AOD lexicon")
         return cls.VOCAB[val]
 
 
@@ -86,13 +79,11 @@ class MODISFireLexicon(metaclass=LexiconType):
     """Lexicon exposing MODIS Thermal Anomalies daily fields."""
 
     VOCAB: dict[str, tuple[str, Modifier]] = {
-        "fire_mask": ("fire_mask", lambda array: array),
-        "max_frp": ("max_frp", lambda array: array),
-        "qa": ("qa", lambda array: array),
+        "fmask": ("fire_mask", lambda array: array),  # fire detection mask (0 = background, 9 = high-confidence fire)
+        "mfrp": ("max_frp", lambda array: array),  # maximum fire radiative power per pixel (MW)
+        "qa": ("qa", lambda array: array),  # MODIS thermal anomaly quality assurance bits
     }
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Modifier]:
-        if val not in cls.VOCAB:
-            raise KeyError(f"Variable {val} not found in MODIS Fire lexicon")
         return cls.VOCAB[val]
