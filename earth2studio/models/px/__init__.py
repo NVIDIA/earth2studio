@@ -16,6 +16,7 @@
 
 import warnings
 
+from earth2studio.models.px.ace2 import ACE2ERA5
 from earth2studio.models.px.aifs import AIFS
 from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.base import PrognosticModel

@@ -22,17 +22,18 @@ import re
 import shutil
 from datetime import datetime
 
-import gcsfs
 import nest_asyncio
 import numpy as np
 import xarray as xr
 import zarr
+from gcsfs import GCSFileSystem
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     AsyncCachingFileSystem,
     datasource_cache_root,
+    get_msc_filesystem,
     prep_data_inputs,
 )
 from earth2studio.lexicon import ARCOLexicon
@@ -66,13 +67,20 @@ class ARCO:
     Additional information on the data repository can be referenced here:
 
     - https://cloud.google.com/storage/docs/public-datasets/era5
+
+    The data source will automatically use Multi-Storage Client (MSC) if available,
+    otherwise it will fallback to using gcsfs directly. MSC can provide better
+    performance for cloud storage access.
     """
 
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
 
     def __init__(
-        self, cache: bool = True, verbose: bool = True, async_timeout: int = 600
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
     ):
 
         self._cache = cache
@@ -101,14 +109,24 @@ class ARCO:
         ----
         Async fsspec expects initialization inside of the execution loop
         """
-        fs = gcsfs.GCSFileSystem(
-            cache_timeout=-1,
-            token="anon",  # noqa: S106 # nosec B106
-            access="read_only",
-            block_size=8**20,
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+        # Common filesystem configuration parameters
+        fs_config = {
+            "cache_timeout": -1,
+            "token": "anon",  # noqa: S106 # nosec B106
+            "access": "read_only",
+            "block_size": 8**20,
+            "asynchronous": True,
+            "skip_instance_cache": True,
+        }
+
+        # Try to use Multi-Storage Client if available, otherwise fallback to gcsfs
+        MSCFileSystem = get_msc_filesystem()
+        if MSCFileSystem:
+            logger.debug("Using Multi-Storage Client for ARCO data access")
+            fs = MSCFileSystem(**fs_config)
+        else:
+            fs = GCSFileSystem(**fs_config)
+
         # Need to manually set this here, the reason being that when the file system
         # defines the weak ref of the client, it needs the loop used to create it.
         # Otherwise it will try to kill the client with another loop, throwing an error
@@ -403,9 +421,15 @@ class ARCO:
             return False
 
         # TODO: FIX THIS, FOR ZARR 3.0 THIS IS DANGEROUS NON-ASYNC
-        gcs = gcsfs.GCSFileSystem(cache_timeout=-1)
+        # Try to use Multi-Storage Client if available, otherwise fallback to gcsfs
+        MSCFileSystem = get_msc_filesystem()
+        if MSCFileSystem:
+            fs = MSCFileSystem(cache_timeout=-1)
+        else:
+            fs = GCSFileSystem(cache_timeout=-1)
+
         gcstore = zarr.storage.FsspecStore(
-            gcs,
+            fs,
             path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
         )
 

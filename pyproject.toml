@@ -64,6 +64,7 @@ data = [
     "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
     "pyproj>=3.7.1",
     "scipy>=1.15.2",
+    "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
@@ -72,6 +73,12 @@ statistics = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 # PX Models
+ace2 = [
+    "pandas>=2.3.2",
+    "fme",
+    "scipy>=1.15.2",
+    "h5py<=3.14.0",
+]
 aifs = [
     "anemoi-inference[huggingface]==0.4.9",
     "anemoi-models==0.3.1",
@@ -146,7 +153,7 @@ cbottle = [
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
-    "nvidia-physicsnemo>=1.0.1",
+    "nvidia-physicsnemo>=1.2.0",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
@@ -170,7 +177,7 @@ windgust-afno = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
-    "earth2studio[aurora-fork,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
+    "earth2studio[ace2,aurora-fork,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
 ]
 
@@ -218,6 +225,7 @@ earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
 microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
+fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
 torch = [
   { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
   { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
