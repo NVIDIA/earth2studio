@@ -234,16 +234,12 @@ class TestCBottleTCMock:
             dx._validate_sst_time(invalid_times)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.slow
-@pytest.mark.timeout(60)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_tc_package(device, model_cache_context):
-    # Test the cached model package
+def test_cbottle_tc_package(device):
     # Only cuda used here to speed things up, but CPU also works
-    with model_cache_context():
-        package = CBottleTCGuidance.load_default_package()
-        dx = CBottleTCGuidance.load_model(package, seed=0).to(device)
+    package = CBottleTCGuidance.load_default_package()
+    dx = CBottleTCGuidance.load_model(package, seed=0).to(device)
 
     # Guidance over florida
     lat = 27

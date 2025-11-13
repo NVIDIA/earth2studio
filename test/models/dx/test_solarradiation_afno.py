@@ -230,8 +230,7 @@ def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
         model(x, wrong_coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(30)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 @pytest.mark.parametrize(
     "model_class,freq",
@@ -240,12 +239,10 @@ def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
         (SolarRadiationAFNO6H, "6h"),
     ],
 )
-def test_solarradiation_afno_package(device, model_cache_context, model_class, freq):
-    """Test the cached model package AFNO solar radiation.
-    Only cuda supported."""
-    with model_cache_context():
-        package = model_class.load_default_package()
-        dx = model_class.load_model(package).to(device)
+def test_solarradiation_afno_package(device, model_class, freq):
+    # Only cuda supported
+    package = model_class.load_default_package()
+    dx = model_class.load_model(package).to(device)
     x = torch.randn(2, 1, 1, 24, 721, 1440).to(device)
     coords = OrderedDict(
         {

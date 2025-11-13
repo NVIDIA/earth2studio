@@ -238,8 +238,7 @@ def test_ACE2ERA5_iter(batch, device):
             break
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ace2era5_package(device):
     torch.cuda.empty_cache()

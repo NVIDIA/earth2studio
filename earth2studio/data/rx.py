@@ -234,8 +234,10 @@ class SurfaceGeoPotential(ARCORxBase):
         return super().__call__(time, variable)
 
 
-class CosineSolarZenith:
+class CosineSolarZenith:  # pragma: no cover
     """Cosine of solar zenith angle. Use with caution needs verification.
+
+    TODO: Depricate in favor of putting into model wrappers / other libraries
 
     Note
     ----

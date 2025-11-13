@@ -45,13 +45,13 @@ def model_cache_context():
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--model-download",
+        "--package-download",
         action="store_true",
         default=False,
         help="test auto model package downloads and generate cache",
     )
     parser.addoption(
-        "--ci-cache",
+        "--package",
         action="store_true",
         default=False,
         help="test model packages using CI cache ",
@@ -60,28 +60,36 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", "ci_cache: mark test as requiring model package cache"
+        "markers", "package: mark test as requiring model package cache"
     )
     config.addinivalue_line(
         "markers",
-        "model_download: mark test as requiring a model download from external store",
+        "package_download: mark test as requiring a model download from external store",
     )
 
 
 def pytest_collection_modifyitems(config, items):
 
-    if not config.getoption("--ci-cache"):
-        skip_ci_cache = pytest.mark.skip(
-            reason="need --ci-cache option to model packages from CI cache"
-        )
-        for item in items:
-            if "ci_cache" in item.keywords:
-                item.add_marker(skip_ci_cache)
+    enable_packages = config.getoption("--package") or os.getenv(
+        "EARTH2STUDIO_TEST_PACKAGES", ""
+    ).strip().lower() in ("1", "true", "yes", "on")
 
-    if not config.getoption("--model-download"):
-        skip_model_download = pytest.mark.skip(
-            reason="need --model-download option to run automodel download tests"
+    if not enable_packages:
+        skip_model_package = pytest.mark.skip(
+            reason="need --package option to run model package tests"
         )
         for item in items:
-            if "model_download" in item.keywords:
-                item.add_marker(skip_model_download)
+            if "package" in item.keywords:
+                item.add_marker(skip_model_package)
+
+    enable_download = config.getoption("--package-download") or os.getenv(
+        "EARTH2STUDIO_DOWNLOAD_PACKAGES", ""
+    ).strip().lower() in ("1", "true", "yes", "on")
+
+    if not enable_download:
+        skip_download = pytest.mark.skip(
+            reason="need --package-download option to run package download tests"
+        )
+        for item in items:
+            if "package_download" in item.keywords:
+                item.add_marker(skip_download)

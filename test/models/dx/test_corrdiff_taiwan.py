@@ -181,12 +181,9 @@ def test_corrdiff_exceptions(x, device):
         dx(x, wrong_coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(60)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_corrdiff_package(device, model_cache_context):
-    # Test the cached model package CorrDiffTaiwan
-    # Only cuda supported
+def test_corrdiff_package(device):
     package = CorrDiffTaiwan.load_default_package()
     dx = CorrDiffTaiwan.load_model(package).to(device)
 
