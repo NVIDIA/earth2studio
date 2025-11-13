@@ -147,6 +147,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2507.12144v2
     - https://arxiv.org/abs/2402.16845
+    - https://huggingface.co/nvidia/fourcastnet3
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3
 
     Parameters
@@ -257,7 +258,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "ngc://models/nvidia/earth-2/fourcastnet3@0.1.0",
+            "hf://nvidia/fourcastnet3",
             cache_options={
                 "cache_storage": Package.default_cache("fcn3"),
                 "same_names": True,

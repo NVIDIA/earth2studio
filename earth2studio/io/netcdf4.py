@@ -147,6 +147,7 @@ class NetCDF4Backend:
                 var = self.root.createVariable(name, "i8", (name,))
                 var.units = out_units
                 var.calendar = "gregorian"
+                var.setncattr("dtype", "timedelta64[ns]")  # xarray target dtype
             else:
                 var = self.root.createVariable(name, data.dtype, (name,))
 

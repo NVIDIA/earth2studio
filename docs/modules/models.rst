@@ -26,6 +26,7 @@ Thus are typically used to generate forecast predictions.
    :toctree: generated/models/px/
    :template: prognostic.rst
 
+   ACE2ERA5
    AIFS
    Aurora
    CBottleVideo

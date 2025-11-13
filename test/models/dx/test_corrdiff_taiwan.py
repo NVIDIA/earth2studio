@@ -30,6 +30,20 @@ class PhooCorrDiff(torch.nn.Module):
     sigma_min = 0
     sigma_max = float("inf")
 
+    def __init__(self):
+        super().__init__()
+        self.register_buffer("device_buffer", torch.empty(0))
+
+    @property
+    def device(self) -> torch.device:
+        return self.device_buffer.device
+
+    @device.setter
+    def device(self, value) -> None:
+        # Accept torch.device or string like "cuda:0"/"cpu"
+        dev = torch.device(value)
+        self.device_buffer = torch.empty(0, device=dev)
+
     def forward(self, x, img_lr, class_labels=None, force_fp32=False, **model_kwargs):
         return x[:, :4]
 
@@ -167,16 +181,14 @@ def test_corrdiff_exceptions(x, device):
         dx(x, wrong_coords)
 
 
-@pytest.mark.xfail  # TODO: REMOVE
 @pytest.mark.ci_cache
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_corrdiff_package(device, model_cache_context):
     # Test the cached model package CorrDiffTaiwan
     # Only cuda supported
-    with model_cache_context():
-        package = CorrDiffTaiwan.load_default_package()
-        dx = CorrDiffTaiwan.load_model(package).to(device)
+    package = CorrDiffTaiwan.load_default_package()
+    dx = CorrDiffTaiwan.load_model(package).to(device)
 
     x = torch.randn(2, 12, 36, 40).to(device)
     coords = OrderedDict(
