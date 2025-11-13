@@ -53,6 +53,7 @@ def test_oisst_lexicon(variable: str, expected: float) -> None:
     else:
         assert np.allclose(out, sample)
 
+
 @pytest.mark.parametrize(
     "variable",
     [

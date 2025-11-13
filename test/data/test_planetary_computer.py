@@ -25,10 +25,6 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pytest
 
-pytest.importorskip("httpx")
-pytest.importorskip("planetary_computer")
-pytest.importorskip("rioxarray")
-
 from earth2studio.data import (
     PlanetaryComputerData,
     PlanetaryComputerMODISFire,

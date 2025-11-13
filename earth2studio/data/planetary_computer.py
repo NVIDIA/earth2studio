@@ -48,9 +48,10 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
     import httpx
-    import planetary_computer
     import rioxarray
     from pystac_client import Client
+
+    import planetary_computer
 except ImportError:
     OptionalDependencyFailure("data")
     httpx = None
@@ -97,7 +98,7 @@ class PlanetaryComputerData:
     ----------
     collection_id : str
         STAC collection identifier to search on the Planetary Computer.
-    lexicon : type[LexiconType]
+    lexicon : LexiconType
         Lexicon mapping requested variable names to dataset keys and modifiers.
     asset_key : str, default="netcdf"
         Item asset key that contains the requested variables.
@@ -147,7 +148,7 @@ class PlanetaryComputerData:
     def __init__(
         self,
         collection_id: str,
-        lexicon: type[LexiconType],
+        lexicon: LexiconType,
         asset_key: str = "netcdf",
         search_kwargs: Mapping[str, Any] | None = None,
         search_tolerance: timedelta = timedelta(hours=12),
@@ -533,7 +534,7 @@ class PlanetaryComputerData:
                     f"Failed to download asset {plan.signed_href}"
                 ) from error
 
-    def _locate_item(self, when: datetime):
+    def _locate_item(self, when: datetime) -> Any:
         """Locate the closest STAC item to ``when`` within the configured tolerance.
 
         Parameters
@@ -942,7 +943,9 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
         """
         tile = tile.lower()
         if len(tile) != 6 or not tile.startswith("h") or tile[3] != "v":
-            raise ValueError("MODIS tile identifiers must look like hXXvYY (e.g., h35v10).")
+            raise ValueError(
+                "MODIS tile identifiers must look like hXXvYY (e.g., h35v10)."
+            )
         h_idx = int(tile[1:3])
         v_idx = int(tile[4:])
         cols = (np.arange(cls.TILE_SIZE, dtype=np.float64) + 0.5) * cls.PIXEL_SIZE_M
@@ -957,7 +960,6 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
         safe_cos = np.where(np.abs(cos_phi) < 1e-12, np.nan, cos_phi)
         lon = np.degrees(x / (cls.SIN_EARTH_RADIUS * safe_cos))
         return lat.astype(np.float32), lon.astype(np.float32)
-
 
     def extract_variable_numpy(
         self,

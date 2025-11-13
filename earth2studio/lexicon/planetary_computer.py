@@ -32,9 +32,15 @@ class OISSTLexicon(metaclass=LexiconType):
             "sst",
             lambda array: array + np.float32(273.15),
         ),  # sea surface temperature (K)
-        "ssta": ("anom", lambda array: array),  # SST anomaly relative to climatology (K)
+        "ssta": (
+            "anom",
+            lambda array: array,
+        ),  # SST anomaly relative to climatology (K)
         "sstu": ("err", lambda array: array),  # SST analysis uncertainty (K)
-        "sic": ("ice", lambda array: array / np.float32(100.0)),  # sea ice fraction (0-1)
+        "sic": (
+            "ice",
+            lambda array: array / np.float32(100.0),
+        ),  # sea ice fraction (0-1)
     }
 
     @classmethod
@@ -52,20 +58,62 @@ class Sentinel3AODLexicon(metaclass=LexiconType):
         "s3sy04aod": ("AOD_865", lambda array: array),  # AOD band 04 (865 nm)
         "s3sy05aod": ("AOD_1600", lambda array: array),  # AOD band 05 (1600 nm)
         "s3sy06aod": ("AOD_2250", lambda array: array),  # AOD band 06 (2250 nm)
-        "s3sy01ssa": ("SSA_440", lambda array: array),  # single-scattering albedo band 01 (440 nm)
-        "s3sy02ssa": ("SSA_550", lambda array: array),  # single-scattering albedo band 02 (550 nm)
-        "s3sy03ssa": ("SSA_670", lambda array: array),  # single-scattering albedo band 03 (670 nm)
-        "s3sy04ssa": ("SSA_865", lambda array: array),  # single-scattering albedo band 04 (865 nm)
-        "s3sy05ssa": ("SSA_1600", lambda array: array),  # single-scattering albedo band 05 (1600 nm)
-        "s3sy01sr": ("Surface_reflectance_440", lambda array: array),  # surface reflectance band 01 (440 nm)
-        "s3sy02sr": ("Surface_reflectance_550", lambda array: array),  # surface reflectance band 02 (550 nm)
-        "s3sy03sr": ("Surface_reflectance_670", lambda array: array),  # surface reflectance band 03 (670 nm)
-        "s3sy04sr": ("Surface_reflectance_865", lambda array: array),  # surface reflectance band 04 (865 nm)
-        "s3sy05sr": ("Surface_reflectance_1600", lambda array: array),  # surface reflectance band 05 (1600 nm)
-        "s3sysunzen": ("sun_zenith_nadir", lambda array: array),  # solar zenith angle (degrees)
-        "s3sysatzen": ("satellite_zenith_nadir", lambda array: array),  # satellite zenith angle (degrees)
-        "s3syrelaz": ("relative_azimuth_nadir", lambda array: array),  # relative azimuth angle (degrees)
-        "s3sycloudfrac": ("cloud_fraction_nadir", lambda array: array),  # cloud fraction (0-1)
+        "s3sy01ssa": (
+            "SSA_440",
+            lambda array: array,
+        ),  # single-scattering albedo band 01 (440 nm)
+        "s3sy02ssa": (
+            "SSA_550",
+            lambda array: array,
+        ),  # single-scattering albedo band 02 (550 nm)
+        "s3sy03ssa": (
+            "SSA_670",
+            lambda array: array,
+        ),  # single-scattering albedo band 03 (670 nm)
+        "s3sy04ssa": (
+            "SSA_865",
+            lambda array: array,
+        ),  # single-scattering albedo band 04 (865 nm)
+        "s3sy05ssa": (
+            "SSA_1600",
+            lambda array: array,
+        ),  # single-scattering albedo band 05 (1600 nm)
+        "s3sy01sr": (
+            "Surface_reflectance_440",
+            lambda array: array,
+        ),  # surface reflectance band 01 (440 nm)
+        "s3sy02sr": (
+            "Surface_reflectance_550",
+            lambda array: array,
+        ),  # surface reflectance band 02 (550 nm)
+        "s3sy03sr": (
+            "Surface_reflectance_670",
+            lambda array: array,
+        ),  # surface reflectance band 03 (670 nm)
+        "s3sy04sr": (
+            "Surface_reflectance_865",
+            lambda array: array,
+        ),  # surface reflectance band 04 (865 nm)
+        "s3sy05sr": (
+            "Surface_reflectance_1600",
+            lambda array: array,
+        ),  # surface reflectance band 05 (1600 nm)
+        "s3sysunzen": (
+            "sun_zenith_nadir",
+            lambda array: array,
+        ),  # solar zenith angle (degrees)
+        "s3sysatzen": (
+            "satellite_zenith_nadir",
+            lambda array: array,
+        ),  # satellite zenith angle (degrees)
+        "s3syrelaz": (
+            "relative_azimuth_nadir",
+            lambda array: array,
+        ),  # relative azimuth angle (degrees)
+        "s3sycloudfrac": (
+            "cloud_fraction_nadir",
+            lambda array: array,
+        ),  # cloud fraction (0-1)
         "s3sy_lat": ("latitude", lambda array: array),  # pixel latitude (degrees)
         "s3sy_lon": ("longitude", lambda array: array),  # pixel longitude (degrees)
     }
@@ -79,9 +127,18 @@ class MODISFireLexicon(metaclass=LexiconType):
     """Lexicon exposing MODIS Thermal Anomalies daily fields."""
 
     VOCAB: dict[str, tuple[str, Modifier]] = {
-        "fmask": ("fire_mask", lambda array: array),  # fire detection mask (0 = background, 9 = high-confidence fire)
-        "mfrp": ("max_frp", lambda array: array),  # maximum fire radiative power per pixel (MW)
-        "qa": ("qa", lambda array: array),  # MODIS thermal anomaly quality assurance bits
+        "fmask": (
+            "fire_mask",
+            lambda array: array,
+        ),  # fire detection mask (0 = background, 9 = high-confidence fire)
+        "mfrp": (
+            "max_frp",
+            lambda array: array,
+        ),  # maximum fire radiative power per pixel (MW)
+        "qa": (
+            "qa",
+            lambda array: array,
+        ),  # MODIS thermal anomaly quality assurance bits
     }
 
     @classmethod
