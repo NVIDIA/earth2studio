@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .ace2 import ACE2ERA5Data
 from .arco import ARCO
 from .base import DataSource, ForecastSource
 from .cbottle import CBottle3D

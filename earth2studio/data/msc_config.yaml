@@ -1,0 +1,15 @@
+profiles:
+  gcp-public-data-arco-era5:
+    storage_provider:
+      type: gcs
+      options:
+        base_path: gcp-public-data-arco-era5
+        region_name: us-central1
+        skip_signature: true
+        rust_client: {}
+
+  # new profiles could be added here for other data sources, like hrrr.
+
+cache:
+  location: /tmp/.cache
+  size_mb: 5000

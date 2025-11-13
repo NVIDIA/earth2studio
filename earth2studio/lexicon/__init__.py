@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .ace import ACELexicon
 from .arco import ARCOLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon

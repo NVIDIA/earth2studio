@@ -811,3 +811,5 @@ The important ones are:
 path where things like models and cached data from data sources will be stored.
 - `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
 a model package file from a remote store such as NGC, Huggingface or S3.
+- `EARTH2STUDIO_DISABLE_MSC`: Can be used to disable use of the [multi-storage client](https://github.com/NVIDIA/multi-storage-client)
+for relevant data sources.
