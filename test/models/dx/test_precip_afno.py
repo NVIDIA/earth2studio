@@ -65,15 +65,11 @@ def test_afno_precip(x, device):
     handshake_dim(out_coords, "batch", 0)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(15)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_afno_precip_package(device, model_cache_context):
-    # Test the cached model package AFNO precip
-    # Only cuda supported
-    with model_cache_context():
-        package = PrecipitationAFNO.load_default_package()
-        dx = PrecipitationAFNO.load_model(package).to(device)
+def test_afno_precip_package(device):
+    package = PrecipitationAFNO.load_default_package()
+    dx = PrecipitationAFNO.load_model(package).to(device)
     x = torch.randn(2, 20, 720, 1440).to(device)
     coords = OrderedDict(
         {

@@ -1,8 +1,10 @@
-FROM nvcr.io/nvidia/pytorch:25.08-py3
+FROM nvcr.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /uvx /bin/
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    python3-dev \
+    build-essential \
     git \
     make \
     curl \
@@ -19,6 +21,9 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
           sed -i 's/^no-cache-dir = true/#no-cache-dir = true/' "$PIP_CONF"; \
         fi; \
     done
+
+# Install tox for venv managment
+RUN uv tool install tox --with tox-uv
 
 # Use the build argument
 ARG PYTHON_VERSION=3.12.9

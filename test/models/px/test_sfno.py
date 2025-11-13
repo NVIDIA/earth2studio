@@ -152,16 +152,13 @@ def test_sfno_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> SFNO:
-    # Test only on cuda device
-    with model_cache_context():
-        package = SFNO.load_default_package()
-        p = SFNO.load_model(package)
-        return p
+def model() -> SFNO:
+    package = SFNO.load_default_package()
+    p = SFNO.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU for now, too slow "cpu",
 def test_sfno_package(device, model):
     torch.cuda.empty_cache()

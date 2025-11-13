@@ -22,16 +22,10 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import SFNO, InterpModAFNO
+from earth2studio.models.px import InterpModAFNO
+from earth2studio.models.px.interpmodafno import VARIABLES
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.utils import handshake_dim
-
-
-class PhooSFNOModel(torch.nn.Module):
-    """Mock SFNO model for testing."""
-
-    def forward(self, x, t, normalized_data=True):
-        return x
 
 
 class PhooInterpolationModel(torch.nn.Module):
@@ -56,11 +50,16 @@ class PhooInterpolationModel(torch.nn.Module):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_call(time, device):
     """Test basic forward pass of InterpModAFNO model."""
-    # Set up base SFNO model
-    sfno_model = PhooSFNOModel()
+    # Set up base model
+    base_model = Persistence(
+        variable=VARIABLES,
+        domain_coords={
+            "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        },
+    )
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
-    base_model = SFNO(sfno_model).to(device)
 
     # Set up interpolation model
     interp_model = PhooInterpolationModel()
@@ -114,11 +113,16 @@ def test_forecast_interpolation_iter(ensemble, device):
     """Test iteration functionality of InterpModAFNO model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
-    # Set up base SFNO model
-    sfno_model = PhooSFNOModel()
+    # Set up base model
+    base_model = Persistence(
+        variable=VARIABLES,
+        domain_coords={
+            "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        },
+    )
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
-    base_model = SFNO(sfno_model).to(device)
 
     # Set up interpolation model
     interp_model = PhooInterpolationModel()
@@ -195,11 +199,16 @@ def test_forecast_interpolation_exceptions(dc, device):
     """Test exception handling for invalid inputs in InterpModAFNO model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
-    # Set up base SFNO model
-    sfno_model = PhooSFNOModel()
+    # Set up base model
+    base_model = Persistence(
+        variable=VARIABLES,
+        domain_coords={
+            "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        },
+    )
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
-    base_model = SFNO(sfno_model).to(device)
 
     # Set up interpolation model
     interp_model = PhooInterpolationModel()
@@ -241,10 +250,7 @@ def test_forecast_interpolation_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> InterpModAFNO:
-
-    from earth2studio.models.px.interpmodafno import VARIABLES
-
+def model() -> InterpModAFNO:
     base_model = Persistence(
         variable=VARIABLES,
         domain_coords={
@@ -252,16 +258,13 @@ def model(model_cache_context) -> InterpModAFNO:
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         },
     )
-    # Test only on cuda device
-    with model_cache_context():
-        # Load the interpolation model
-        interp_package = InterpModAFNO.load_default_package()
-        model = InterpModAFNO.load_model(interp_package, px_model=base_model)
-        return model
+    # Load the interpolation model
+    interp_package = InterpModAFNO.load_default_package()
+    model = InterpModAFNO.load_model(interp_package, px_model=base_model)
+    return model
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_forecast_interpolation_package(device, model):
     """Test loading and using the InterpModAFNO model from a package."""

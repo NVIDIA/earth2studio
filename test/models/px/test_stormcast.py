@@ -284,16 +284,13 @@ def test_stormcast_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> StormCast:
-    # Test only on cuda device
-    with model_cache_context():
-        package = StormCast.load_default_package()
-        p = StormCast.load_model(package)
-        return p
+def model() -> StormCast:
+    package = StormCast.load_default_package()
+    p = StormCast.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize(
     "cond_dims",
     [["time", "variable", "lat", "lon"], ["variable", "time", "lat", "lon"]],

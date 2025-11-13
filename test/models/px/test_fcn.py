@@ -158,16 +158,14 @@ def test_fcn_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> FCN:
+def model() -> FCN:
     # Test only on cuda device
-    with model_cache_context():
-        package = FCN.load_default_package()
-        p = FCN.load_model(package)
-        return p
+    package = FCN.load_default_package()
+    p = FCN.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(15)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fcn_package(model, device):
     torch.cuda.empty_cache()
