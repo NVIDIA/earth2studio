@@ -743,7 +743,11 @@ class CMIP6MultiRealm:
         da_list = self._regrid_to_common_grid(da_list)
 
         # Combine all data arrays along variable dimension
-        return xr.concat(da_list, dim="variable")
+        result = xr.concat(da_list, dim="variable")
+
+        # Reorder variables to match the requested order
+        result = result.sel(variable=variable)
+        return result
 
     @classmethod
     def available(
