@@ -110,15 +110,12 @@ def test_cnet_exceptions(device):
         dx(x, wrong_coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(15)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cnet_package(device, model_cache_context):
-    # Test the cached model package AFNO precip
+def test_cnet_package(device):
     # Only cuda supported
-    with model_cache_context():
-        package = ClimateNet.load_default_package()
-        dx = ClimateNet.load_model(package).to(device)
+    package = ClimateNet.load_default_package()
+    dx = ClimateNet.load_model(package).to(device)
     x = torch.randn(2, 4, 721, 1440).to(device)
     coords = OrderedDict(
         {

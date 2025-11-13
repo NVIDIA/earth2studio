@@ -195,16 +195,13 @@ def test_fcn3_exceptions(dc, device, dummy_model):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> FCN3:
-    # Test only on cuda device
-    with model_cache_context():
-        package = FCN3.load_default_package()
-        p = FCN3.load_model(package)
-        return p
+def model() -> FCN3:
+    package = FCN3.load_default_package()
+    p = FCN3.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_fcn3_load_package(device, model):
     torch.cuda.empty_cache()
@@ -214,7 +211,7 @@ def test_fcn3_load_package(device, model):
 
 # Will not test while we do not have 80GB GPU cards
 # in CI
-# @pytest.mark.ci_cache
+# @pytest.mark.package
 # @pytest.mark.timeout(360)
 # @pytest.mark.parametrize("device", ["cuda:0"])
 # def test_fcn3_package(device, model):
