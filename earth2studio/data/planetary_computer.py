@@ -72,7 +72,6 @@ class VariableSpec:
 class AssetPlan:
     """Plan describing an asset download and the variables it satisfies."""
 
-    key: str
     unsigned_href: str
     signed_href: str
     media_type: str | None
@@ -106,9 +105,6 @@ class _PlanetaryComputerData:
     search_tolerance : datetime.timedelta, optional
         Maximum time delta when locating the closest STAC item to the request time,
         by default 12 hours.
-    time_coordinate : str, optional
-        Name of the time dimension within returned :class:`xarray.DataArray` objects,
-        by default "time".
     spatial_dims : Mapping[str, numpy.ndarray]
         Mapping of spatial dimension names to coordinate arrays defining the grid, by
         default None
@@ -132,15 +128,9 @@ class _PlanetaryComputerData:
     -----
     More information on the Microsoft Planetary Computer is available at
     https://planetarycomputer.microsoft.com/.
-
-    Currently only netcdf and geotiff data sources are supported.
     """
 
     STAC_API_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
-    NETCDF_SUFFIXES = {".nc", ".nc4", ".cdf"}
-    GEOTIFF_SUFFIXES = {".tif", ".tiff"}
-    LEVEL_DIMS = {"zlev", "lev", "level", "depth"}
-    OPTIONAL_SINGLETON_DIMS = {"band"}
 
     DEFAULT_TIMEOUT = 60
     DEFAULT_RETRIES = 4
@@ -155,7 +145,6 @@ class _PlanetaryComputerData:
         asset_key: str = "netcdf",
         search_kwargs: Mapping[str, Any] | None = None,
         search_tolerance: timedelta = timedelta(hours=12),
-        time_coordinate: str = "time",
         spatial_dims: Mapping[str, np.ndarray] | None = None,
         data_attrs: Mapping[str, Any] | None = None,
         cache: bool = True,
@@ -171,7 +160,6 @@ class _PlanetaryComputerData:
         self._lexicon = lexicon
         self._search_kwargs = dict(search_kwargs or {})
         self._search_tolerance = search_tolerance
-        self._time_coordinate = time_coordinate
         if not spatial_dims:
             raise ValueError("At least one spatial dimension must be provided.")
         self._spatial_dim_names = tuple(spatial_dims.keys())
@@ -382,7 +370,7 @@ class _PlanetaryComputerData:
         self,
         plan: AssetPlan,
         spec: VariableSpec,
-        target_time: datetime,
+        _target_time: datetime,
     ) -> np.ndarray:
         """Convert an asset payload into a numpy array for a requested variable. Should
         be implemented in sub-class
@@ -446,7 +434,6 @@ class _PlanetaryComputerData:
         local_path = self._local_asset_path(unsigned_href)
         return [
             AssetPlan(
-                key=asset_key,
                 unsigned_href=unsigned_href,
                 signed_href=signed_asset.href,
                 media_type=asset.media_type,
@@ -561,7 +548,6 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
 
     COLLECTION_ID = "noaa-cdr-sea-surface-temperature-optimum-interpolation"
     ASSET_KEY = "netcdf"
-    TIME_COORDINATE = "time"
     SEARCH_TOLERANCE = timedelta(hours=12)
     LAT_COORDS = np.linspace(-89.875, 89.875, 720, dtype=np.float32)
     LON_COORDS = np.linspace(0.125, 359.875, 1440, dtype=np.float32)
@@ -581,7 +567,6 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
             lexicon=OISSTLexicon,
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
-            time_coordinate=self.TIME_COORDINATE,
             spatial_dims={
                 "lat": self.LAT_COORDS,
                 "lon": self.LON_COORDS,
@@ -598,7 +583,7 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
         self,
         plan: AssetPlan,
         spec: VariableSpec,
-        target_time: datetime,
+        _target_time: datetime,
     ) -> np.ndarray:
         """Extract an OISST variable as a numpy array.
 
@@ -608,9 +593,6 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
             Plan containing the cached MPC asset to be opened.
         spec : VariableSpec
             Lexicon specification describing which field to read and modifier to apply.
-        target_time : datetime
-            Timestamp associated with the current download (unused here but required).
-
         Returns
         -------
         numpy.ndarray
@@ -651,7 +633,6 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
 
     COLLECTION_ID = "sentinel-3-synergy-aod-l2-netcdf"
     ASSET_KEY = "ntc-aod"
-    TIME_COORDINATE = "time"
     SEARCH_TOLERANCE = timedelta(hours=12)
     ROW_COORDS = np.arange(4040, dtype=np.float32)
     COLUMN_COORDS = np.arange(324, dtype=np.float32)
@@ -671,7 +652,6 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
             lexicon=Sentinel3AODLexicon,
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
-            time_coordinate=self.TIME_COORDINATE,
             spatial_dims={
                 "y": self.ROW_COORDS,
                 "x": self.COLUMN_COORDS,
@@ -698,9 +678,6 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
             Plan describing the cached asset to open.
         spec : VariableSpec
             Variable specification detailing which field and modifier to apply.
-        target_time : datetime
-            Timestamp associated with the current request (unused).
-
         Returns
         -------
         numpy.ndarray
@@ -760,7 +737,6 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     """
 
     COLLECTION_ID = "modis-14A1-061"
-    TIME_COORDINATE = "time"
     SEARCH_TOLERANCE = timedelta(hours=12)
     TILE_SIZE = 1200
     PIXEL_SIZE_M = 926.625433138
@@ -800,7 +776,6 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
             lexicon=MODISFireLexicon,
             search_kwargs=tile_filter,
             search_tolerance=self.SEARCH_TOLERANCE,
-            time_coordinate=self.TIME_COORDINATE,
             spatial_dims={
                 "y": np.arange(self.TILE_SIZE, dtype=np.float32),
                 "x": np.arange(self.TILE_SIZE, dtype=np.float32),
