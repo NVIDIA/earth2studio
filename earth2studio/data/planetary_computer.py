@@ -17,12 +17,11 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import hashlib
 import os
 import pathlib
 import shutil
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -88,7 +87,8 @@ class _PlanetaryComputerData:
     The base class handles STAC searches, concurrent asset downloads, and conversion of
     MPC assets into Earth2Studio's standardized xarray interface. Subclasses configure
     the collection parameters and typically only need to implement
-    :meth:`extract_variable_numpy` to adapt raw fields into numpy arrays. Advanced MPC
+    :meth:`extract_variable_numpy`, which receives the :class:`AssetPlan`, opens the
+    cached data file, and adapts the raw fields into numpy arrays. Advanced MPC
     products can still override :meth:`_prepare_asset_plans` when they require custom
     asset selection logic, but most data sources work out-of-the-box once spatial
     metadata and the lexicon are provided.
@@ -371,19 +371,16 @@ class _PlanetaryComputerData:
 
         # Extract each variable from its source asset and record completion.
         for plan in asset_plans:
-            with self._open_asset(plan.local_path, plan.media_type) as asset_data:
-                for spec in plan.variables:
-                    array = self.extract_variable_numpy(
-                        asset_data, spec, requested_time
-                    )
-                    data_stack[spec.index] = array
+            for spec in plan.variables:
+                array = self.extract_variable_numpy(plan, spec, requested_time)
+                data_stack[spec.index] = array
 
         xr_array[time_index] = data_stack
         progress.update(len(variables))
 
     def extract_variable_numpy(
         self,
-        asset_data: xr.Dataset | xr.DataArray,
+        plan: AssetPlan,
         spec: VariableSpec,
         target_time: datetime,
     ) -> np.ndarray:
@@ -392,8 +389,8 @@ class _PlanetaryComputerData:
 
         Parameters
         ----------
-        asset_data : xr.Dataset | xr.DataArray
-            Opened asset contents containing the raw Planetary Computer fields.
+        plan : AssetPlan
+            Plan describing the cached asset that should be opened.
         spec : VariableSpec
             Variable specification including dataset key, modifier, and output index.
         target_time : datetime
@@ -527,38 +524,6 @@ class _PlanetaryComputerData:
         filename = hashlib.sha256(parsed.path.encode()).hexdigest() + suffix
         return pathlib.Path(self.cache) / filename
 
-    @contextlib.contextmanager
-    def _open_asset(
-        self,
-        local_path: pathlib.Path,
-        media_type: str | None,
-    ) -> Iterator[xr.Dataset | xr.DataArray]:
-        """Open a cached asset as an xarray dataset or data array. Only supports loading
-        NetCDF nor GeoTIFF.
-        """
-        suffix = local_path.suffix.lower()
-
-        if suffix in self.NETCDF_SUFFIXES or (
-            media_type and "netcdf" in media_type.lower()
-        ):
-            dataset = xr.open_dataset(local_path, engine="h5netcdf")
-            yield dataset
-            dataset.close()
-            return
-
-        if suffix in self.GEOTIFF_SUFFIXES or (
-            media_type and "tiff" in media_type.lower()
-        ):
-            data_array = rioxarray.open_rasterio(local_path)
-            yield data_array
-            data_array.close()
-            return
-
-        raise NotImplementedError(
-            f"Unsupported asset format for file '{local_path}'. "
-            "Only NetCDF and GeoTIFF assets are currently supported."
-        )
-
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
@@ -631,7 +596,7 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
 
     def extract_variable_numpy(
         self,
-        asset_data: xr.Dataset | xr.DataArray,
+        plan: AssetPlan,
         spec: VariableSpec,
         target_time: datetime,
     ) -> np.ndarray:
@@ -639,8 +604,8 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
 
         Parameters
         ----------
-        asset_data : xarray.Dataset | xarray.DataArray
-            NetCDF payload opened from the cached MPC asset.
+        plan : AssetPlan
+            Plan containing the cached MPC asset to be opened.
         spec : VariableSpec
             Lexicon specification describing which field to read and modifier to apply.
         target_time : datetime
@@ -651,10 +616,11 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
         numpy.ndarray
             Float32 array containing the requested OISST field.
         """
-        field = asset_data[spec.dataset_key].isel(time=0, zlev=0)
-        values = np.asarray(field.values).astype(np.float32)
-        result = np.asarray(spec.modifier(values), dtype=np.float32)
-        return result
+        with xr.open_dataset(plan.local_path, engine="h5netcdf") as dataset:
+            field = dataset[spec.dataset_key].isel(time=0, zlev=0)
+            values = np.asarray(field.values).astype(np.float32)
+            result = np.asarray(spec.modifier(values), dtype=np.float32)
+            return result
 
 
 class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
@@ -720,7 +686,7 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
 
     def extract_variable_numpy(
         self,
-        asset_data: xr.Dataset | xr.DataArray,
+        plan: AssetPlan,
         spec: VariableSpec,
         target_time: datetime,
     ) -> np.ndarray:
@@ -728,8 +694,8 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
 
         Parameters
         ----------
-        asset_data : xarray.Dataset or xarray.DataArray
-            Dataset returned by :func:`xarray.open_dataset`/``rioxarray``.
+        plan : AssetPlan
+            Plan describing the cached asset to open.
         spec : VariableSpec
             Variable specification detailing which field and modifier to apply.
         target_time : datetime
@@ -740,9 +706,11 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
         numpy.ndarray
             Array shaped to ``(len(self.ROW_COORDS), len(self.COLUMN_COORDS))``.
         """
-        field = asset_data[spec.dataset_key]
-        values = np.asarray(field.values).astype(np.float32)
-        result = np.asarray(spec.modifier(values), dtype=np.float32)
+        with xr.open_dataset(plan.local_path, engine="h5netcdf") as dataset:
+            field = dataset[spec.dataset_key]
+            values = np.asarray(field.values).astype(np.float32)
+            result = np.asarray(spec.modifier(values), dtype=np.float32)
+
         expected_shape = (len(self.ROW_COORDS), len(self.COLUMN_COORDS))
 
         # Data is sometimes 4000 x 324, but expected is 4040 x 324
@@ -882,7 +850,7 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
 
     def extract_variable_numpy(
         self,
-        asset_data: xr.DataArray,
+        plan: AssetPlan,
         spec: VariableSpec,
         target_time: datetime,
     ) -> np.ndarray:
@@ -890,8 +858,8 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
 
         Parameters
         ----------
-        asset_data : xarray.DataArray
-            Rasterio-backed array representing the MODIS Fire tiled product.
+        plan : AssetPlan
+            Plan describing the cached MODIS tile asset to open.
         spec : VariableSpec
             Variable specification describing which band to read and modifier to apply.
         target_time : datetime
@@ -907,23 +875,24 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
         ValueError
             If the requested date cannot be located in the MODIS asset metadata.
         """
-        # Get "band" index for the target date
-        day_text = asset_data.attrs.get("DAYSOFYEAR")
-        band_idx = -1
-        target_date = target_time.date()
-        for idx, token in enumerate(day_text.split(",")):
-            token = token.strip()
-            if datetime.fromisoformat(token).date() == target_date:
-                band_idx = idx
-                break
+        with rioxarray.open_rasterio(plan.local_path) as data_array:
+            # Get "band" index for the target date
+            day_text = data_array.attrs.get("DAYSOFYEAR")
+            band_idx = -1
+            target_date = target_time.date()
+            for idx, token in enumerate(day_text.split(",")):
+                token = token.strip()
+                if datetime.fromisoformat(token).date() == target_date:
+                    band_idx = idx
+                    break
 
-        # If no band found, raise an error
-        # This should never happen, but just in case for debugging
-        if band_idx == -1:
-            raise ValueError(f"Date not found in {target_time.date()}")
+            # If no band found, raise an error
+            # This should never happen, but just in case for debugging
+            if band_idx == -1:
+                raise ValueError(f"Date not found in {target_time.date()}")
 
-        # Get data and apply modifier
-        field = asset_data.isel(band=band_idx, drop=True)
-        values = np.asarray(field.values).astype(np.float32)
-        result = np.asarray(spec.modifier(values), dtype=np.float32)
-        return result
+            # Get data and apply modifier
+            field = data_array.isel(band=band_idx, drop=True)
+            values = np.asarray(field.values).astype(np.float32)
+            result = np.asarray(spec.modifier(values), dtype=np.float32)
+            return result
