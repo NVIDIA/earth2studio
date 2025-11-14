@@ -288,19 +288,9 @@ class PlanetaryComputerData:
         # Use a fancy tqdm progress bar too
         timeout = httpx.Timeout(self._request_timeout)
         limits = httpx.Limits(max_connections=self._max_workers)
-        retry_config: int | Any
-        if hasattr(httpx, "Retry"):
-            retry_config = httpx.Retry(
-                max_attempts=self._max_retries,
-                backoff_factor=1.0,
-                allowed_methods={"GET"},
-            )
-        else:
-            # httpx<0.29 exposes a simple integer `retries` knob.
-            retry_config = self._max_retries
         transport = httpx.AsyncHTTPTransport(
-            retries=retry_config,
             limits=limits,
+            retries=self._max_retries,
         )
         async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
             semaphore = asyncio.Semaphore(self._max_workers)
