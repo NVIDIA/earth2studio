@@ -48,10 +48,9 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
     import httpx
+    import planetary_computer
     import rioxarray
     from pystac_client import Client
-
-    import planetary_computer
 except ImportError:
     OptionalDependencyFailure("data")
     httpx = None
@@ -100,30 +99,33 @@ class PlanetaryComputerData:
         STAC collection identifier to search on the Planetary Computer.
     lexicon : LexiconType
         Lexicon mapping requested variable names to dataset keys and modifiers.
-    asset_key : str, default="netcdf"
-        Item asset key that contains the requested variables.
+    asset_key : str, optional
+        Item asset key that contains the requested variables, by default "netcdf"
     search_kwargs : Mapping[str, Any] | None, optional
-        Additional keyword arguments forwarded to ``Client.search``.
-    search_tolerance : datetime.timedelta, default=12 hours
-        Maximum time delta when locating the closest STAC item to the request time.
-    time_coordinate : str, default="time"
-        Name of the time dimension within returned :class:`xarray.DataArray` objects.
+        Additional keyword arguments forwarded to ``Client.search``, by default None
+    search_tolerance : datetime.timedelta, optional
+        Maximum time delta when locating the closest STAC item to the request time,
+        by default 12 hours.
+    time_coordinate : str, optional
+        Name of the time dimension within returned :class:`xarray.DataArray` objects,
+        by default "time".
     spatial_dims : Mapping[str, numpy.ndarray]
-        Mapping of spatial dimension names to coordinate arrays defining the grid.
+        Mapping of spatial dimension names to coordinate arrays defining the grid, by
+        default None
     data_attrs : Mapping[str, Any] | None, optional
-        Extra attributes copied onto the output :class:`xarray.DataArray`.
-    cache : bool, default=True
-        Whether to persist downloaded assets between calls.
-    verbose : bool, default=True
-        Controls progress reporting via :mod:`tqdm`.
-    max_workers : int, default=24
-        Upper bound on concurrent download and processing tasks.
-    request_timeout : int, default=60
-        Timeout (seconds) applied to individual HTTP requests.
-    max_retries : int, default=4
-        Maximum retry attempts for transient network failures.
-    async_timeout : int, default=600
-        Overall timeout (seconds) for the asynchronous ``fetch`` workflow.
+        Extra attributes copied onto the output :class:`xarray.DataArray`, by default None
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Overall timeout (seconds) for the asynchronous ``fetch`` workflow, by default 600
 
     Notes
     -----
@@ -194,20 +196,20 @@ class PlanetaryComputerData:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Fetch data synchronously, mirroring :class:`~earth2studio.data.base.DataSource`.
+        """Function to get data
 
         Parameters
         ----------
-        time : datetime or array-like
-            Requested timestamps, either a scalar ``datetime`` or sequence-like object.
-        variable : str or array-like
-            One or more variable identifiers to resolve through the configured lexicon.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ARCO lexicon.
 
         Returns
         -------
-        xarray.DataArray
-            Array with dimensions ``(time, variable, spatial...)`` containing the
-            stacked Planetary Computer fields.
+        xr.DataArray
+            Data array from planetary computer
         """
         nest_asyncio.apply()
         try:
@@ -228,19 +230,20 @@ class PlanetaryComputerData:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Fetch data asynchronously with concurrency-friendly downloads.
+        """Async function to get data
 
         Parameters
         ----------
-        time : datetime or array-like
-            Requested timestamps, either a scalar ``datetime`` or sequence-like object.
-        variable : str or array-like
-            One or more variable identifiers to resolve via the lexicon.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data source's lexicon.
 
         Returns
         -------
-        xarray.DataArray
-            Array containing the requested variables across the provided timestamps.
+        xr.DataArray
+            Plantary computer data array
         """
         times, variables = prep_data_inputs(time, variable)
 
@@ -497,17 +500,7 @@ class PlanetaryComputerData:
         semaphore: asyncio.Semaphore,
         plan: AssetPlan,
     ) -> None:
-        """Ensure the asset described by ``plan`` is downloaded into the cache.
-
-        Parameters
-        ----------
-        client : httpx.AsyncClient
-            HTTP client used for streaming the asset.
-        semaphore : asyncio.Semaphore
-            Semaphore limiting concurrent transfers.
-        plan : AssetPlan
-            Download plan describing the remote/signed URLs and cache path.
-        """
+        """Download asset from remote source"""
         # Ensure cache directories exist before writing any temp files.
         plan.local_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -535,23 +528,7 @@ class PlanetaryComputerData:
                 ) from error
 
     def _locate_item(self, when: datetime) -> Any:
-        """Locate the closest STAC item to ``when`` within the configured tolerance.
-
-        Parameters
-        ----------
-        when : datetime
-            Target timestamp for which to retrieve data.
-
-        Returns
-        -------
-        pystac.Item
-            First STAC item returned by the search query.
-
-        Raises
-        ------
-        FileNotFoundError
-            If no item is found within ``self._search_tolerance``.
-        """
+        """Locate the closest STAC item to ``when`` within the configured tolerance."""
         # Ensure the client is initialized
         if self._client is None:
             self._client = Client.open(self.STAC_API_URL)
@@ -579,18 +556,7 @@ class PlanetaryComputerData:
             ) from error
 
     def _local_asset_path(self, href: str) -> pathlib.Path:
-        """Resolve the cache path for a remote asset href.
-
-        Parameters
-        ----------
-        href : str
-            Remote asset URL obtained from the STAC item.
-
-        Returns
-        -------
-        pathlib.Path
-            Path inside the datasource cache where the asset should be stored.
-        """
+        """Resolve the cache path for a remote asset href."""
         # Use a hashed filename so long URLs map to stable cache entries.
         parsed = urlparse(href)
         suffix = pathlib.Path(parsed.path).suffix or ""
@@ -603,28 +569,11 @@ class PlanetaryComputerData:
         local_path: pathlib.Path,
         media_type: str | None,
     ) -> Iterator[xr.Dataset | xr.DataArray]:
-        """Open a cached asset as an :mod:`xarray` dataset or data array.
-
-        Parameters
-        ----------
-        local_path : pathlib.Path
-            Location of the cached asset on disk.
-        media_type : str or None
-            Optional media type hint from the STAC metadata.
-
-        Returns
-        -------
-        Iterator[xarray.Dataset | xarray.DataArray]
-            Context-managed iterator yielding the opened dataset/array.
-
-        Raises
-        ------
-        NotImplementedError
-            If the asset format is neither NetCDF nor GeoTIFF.
+        """Open a cached asset as an xarray dataset or data array. Only supports loading
+        NetCDF nor GeoTIFF.
         """
         suffix = local_path.suffix.lower()
 
-        # Prefer NetCDF when the suffix or media type indicates an HDF/NetCDF payload.
         if suffix in self.NETCDF_SUFFIXES or (
             media_type and "netcdf" in media_type.lower()
         ):
@@ -633,7 +582,6 @@ class PlanetaryComputerData:
             dataset.close()
             return
 
-        # Otherwise treat the asset as a GeoTIFF using rioxarray utilities.
         if suffix in self.GEOTIFF_SUFFIXES or (
             media_type and "tiff" in media_type.lower()
         ):
@@ -649,16 +597,10 @@ class PlanetaryComputerData:
 
     @property
     def cache(self) -> str:
-        """Return cache root for Planetary Computer assets.
-
-        Returns
-        -------
-        str
-            Filesystem path used to store cached Planetary Computer assets.
-        """
+        """Return appropriate cache location."""
         cache_root = os.path.join(datasource_cache_root(), "planetary_computer")
         if not self._cache:
-            cache_root = os.path.join(cache_root, "tmp")
+            cache_root = os.path.join(cache_root, "tmp_planetary_computer")
         return cache_root
 
 
