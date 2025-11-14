@@ -82,7 +82,7 @@ class AssetPlan:
 
 
 @check_optional_dependencies()
-class PlanetaryComputerData:
+class _PlanetaryComputerData:
     """Generic Microsoft Planetary Computer data source.
 
     The base class handles STAC searches, concurrent asset downloads, and conversion of
@@ -314,7 +314,7 @@ class PlanetaryComputerData:
             ) as progress:
                 tasks = [
                     asyncio.create_task(
-                        self._fetch_wrapper(
+                        self._fetch_data(
                             client=client,
                             semaphore=semaphore,
                             requested_time=normalized_times[index],
@@ -331,7 +331,7 @@ class PlanetaryComputerData:
 
         return xr_array
 
-    async def _fetch_wrapper(
+    async def _fetch_data(
         self,
         client: httpx.AsyncClient,
         semaphore: asyncio.Semaphore,
@@ -341,7 +341,8 @@ class PlanetaryComputerData:
         time_index: int,
         progress: tqdm,
     ) -> None:
-        """Download all variables for a timestamp and assign them into the output array.
+        """Download all variables for a timestamp and assign them into the output
+        data array.
 
         Parameters
         ----------
@@ -359,36 +360,6 @@ class PlanetaryComputerData:
             Index into ``xr_array`` corresponding to ``requested_time``.
         progress : tqdm.tqdm
             Progress bar used to report completion.
-        """
-        # Fetch the full variable stack for this timestamp and write it into the output.
-        stacked = await self._fetch_array(client, semaphore, requested_time, variables)
-        xr_array[time_index] = stacked
-        progress.update(len(variables))
-
-    async def _fetch_array(
-        self,
-        client: httpx.AsyncClient,
-        semaphore: asyncio.Semaphore,
-        requested_time: datetime,
-        variables: Sequence[VariableSpec],
-    ) -> np.ndarray:
-        """Fetch all requested variables for a timestamp and return stacked numpy data.
-
-        Parameters
-        ----------
-        client : httpx.AsyncClient
-            HTTP client for downloading assets.
-        semaphore : asyncio.Semaphore
-            Concurrency guard for download tasks.
-        requested_time : datetime
-            Timestamp being serviced.
-        variables : Sequence[VariableSpec]
-            Variable specifications required for the timestamp.
-
-        Returns
-        -------
-        numpy.ndarray
-            Array shaped ``(len(variables), *spatial_shape)`` containing the data.
         """
         # Find the closest STAC item within the configured tolerance.
         item = await asyncio.to_thread(self._locate_item, requested_time)
@@ -416,7 +387,8 @@ class PlanetaryComputerData:
                     )
                     data_stack[spec.index] = array
 
-        return data_stack
+        xr_array[time_index] = data_stack
+        progress.update(len(variables))
 
     def extract_variable_numpy(
         self,
@@ -424,11 +396,12 @@ class PlanetaryComputerData:
         spec: VariableSpec,
         target_time: datetime,
     ) -> np.ndarray:
-        """Convert an asset payload into a numpy array for a requested variable.
+        """Convert an asset payload into a numpy array for a requested variable. Should
+        be implemented in sub-class
 
         Parameters
         ----------
-        asset_data : xarray.Dataset or xarray.DataArray
+        asset_data : xr.Dataset | xr.DataArray
             Opened asset contents containing the raw Planetary Computer fields.
         spec : VariableSpec
             Variable specification including dataset key, modifier, and output index.
@@ -437,8 +410,8 @@ class PlanetaryComputerData:
 
         Returns
         -------
-        numpy.ndarray
-            Float32 array shaped to match the configured spatial dimensions.
+        np.ndarray
+            Numpy array shaped to match the configured spatial dimensions.
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
@@ -472,9 +445,9 @@ class PlanetaryComputerData:
         :meth:`extract_variable_numpy` ultimately materializes the requested numpy
         arrays.
 
-        This method might be overridden for collections that distribute variables across multiple
-        files (for example, per-band HDF subsets). Currently, this method is not overridden
-        for any collections though.
+        This method might be overridden for collections that distribute variables across
+        multiple files (for example, per-band HDF subsets). Currently, this method is
+        not overridden for any collections though.
         """
         asset_key = self._asset_key
         if asset_key not in item.assets:
@@ -604,7 +577,7 @@ class PlanetaryComputerData:
         return cache_root
 
 
-class PlanetaryComputerOISST(PlanetaryComputerData):
+class PlanetaryComputerOISST(_PlanetaryComputerData):
     """Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer.
 
     Parameters
@@ -622,9 +595,11 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
     async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
         Overall timeout (seconds) for the asynchronous fetch workflow.
 
-    Notes
-    -----
-    Dataset reference: https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation
     """
 
     COLLECTION_ID = "noaa-cdr-sea-surface-temperature-optimum-interpolation"
@@ -639,9 +614,9 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
-        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
-        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
-        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
@@ -690,7 +665,7 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
         return result
 
 
-class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
+class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
     """Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.
 
     Parameters
@@ -708,9 +683,11 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
     async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
         Overall timeout (seconds) for the asynchronous fetch workflow.
 
-    Notes
-    -----
-    Dataset reference: https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf
     """
 
     COLLECTION_ID = "sentinel-3-synergy-aod-l2-netcdf"
@@ -725,9 +702,9 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
-        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
-        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
-        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
@@ -787,7 +764,7 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
         return result
 
 
-class PlanetaryComputerMODISFire(PlanetaryComputerData):
+class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     """MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).
 
     Parameters
@@ -807,12 +784,16 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
     async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
         Overall timeout (seconds) for the asynchronous fetch workflow.
 
-    Notes
-    -----
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
+
+    Warning
+    -------
     Tile searches are best-effort. If no tile identifiers are provided (the default),
     the first available tile returned by the Planetary Computer search is used.
-
-    Dataset reference: https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
     """
 
     COLLECTION_ID = "modis-14A1-061"
@@ -836,9 +817,9 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
-        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
-        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
-        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         tile = tile.lower()
         tile_filter = {
