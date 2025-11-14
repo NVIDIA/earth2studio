@@ -860,8 +860,9 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
 
         Parameters
         ----------
-        tile : str, default="h35v10"
-            MODIS sinusoidal tile identifier (``hXXvYY``) describing the desired grid.
+        tile : str, optional
+            MODIS sinusoidal tile identifier (``hXXvYY``) describing the desired grid,
+            by default h35v10
 
         Returns
         -------

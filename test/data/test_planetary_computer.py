@@ -214,6 +214,10 @@ def test_planetary_computer_modis_fire_fetch(time, variable, tile) -> None:
     assert data.shape == (len(times), len(variables), 1200, 1200)
     assert np.array_equal(data.coords["variable"].values, np.array(variables))
     assert np.isfinite(data.values).any()
+    # Validate that grid() produces lat/lon arrays of expected shape
+    lat, lon = PlanetaryComputerMODISFire.grid(tile)
+    assert lat.shape == (1200, 1200)
+    assert lon.shape == (1200, 1200)
 
 
 @pytest.mark.slow
