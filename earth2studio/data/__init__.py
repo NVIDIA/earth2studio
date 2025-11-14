@@ -29,6 +29,11 @@ from .hrrr import HRRR, HRRR_FX
 from .imerg import IMERG
 from .jpss import JPSS
 from .ncar import NCAR_ERA5
+from .planetary_computer import (
+    PlanetaryComputerMODISFire,
+    PlanetaryComputerOISST,
+    PlanetaryComputerSentinel3AOD,
+)
 from .rand import Random, Random_FX
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .utils import datasource_to_file, fetch_data, prep_data_array
