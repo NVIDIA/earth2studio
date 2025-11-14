@@ -773,7 +773,7 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     Parameters
     ----------
     tile : str
-        Tile identifier (``hXXvYY``) to prioritize during STAC searches.
+        The MODIS tile identifier (``hXXvYY``) to prioritize during STAC searches.
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -793,6 +793,7 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     Additional information on the data repository can be referenced here:
 
     - https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
+    - https://modis-land.gsfc.nasa.gov/MODLAND_grid.html
 
     Warning
     -------
