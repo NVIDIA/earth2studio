@@ -32,7 +32,6 @@ Used for fetching initial conditions for inference and validation data for scori
    data.IFS
    data.JPSS
    data.NCAR_ERA5
-   data.PlanetaryComputerData
    data.PlanetaryComputerOISST
    data.PlanetaryComputerSentinel3AOD
    data.PlanetaryComputerMODISFire
