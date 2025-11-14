@@ -125,7 +125,8 @@ class _PlanetaryComputerData:
     max_retries : int, optional
         Maximum retry attempts for transient network failures, by default 4
     async_timeout : int, optional
-        Overall timeout (seconds) for the asynchronous ``fetch`` workflow, by default 600
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Notes
     -----
@@ -582,18 +583,19 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
 
     Parameters
     ----------
-    cache : bool, default=True
-        Whether to persist downloaded assets between invocations.
-    verbose : bool, default=True
-        Enable progress bar output while fetching data.
-    max_workers : int, default=24
-        Maximum number of concurrent download/extraction tasks.
-    request_timeout : int, default=PlanetaryComputerData.DEFAULT_TIMEOUT
-        Timeout (seconds) for individual HTTP requests.
-    max_retries : int, default=PlanetaryComputerData.DEFAULT_RETRIES
-        Number of retry attempts for transient network failures.
-    async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
-        Overall timeout (seconds) for the asynchronous fetch workflow.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Note
     ----
@@ -647,7 +649,7 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
 
         Parameters
         ----------
-        asset_data : xarray.Dataset or xarray.DataArray
+        asset_data : xarray.Dataset | xarray.DataArray
             NetCDF payload opened from the cached MPC asset.
         spec : VariableSpec
             Lexicon specification describing which field to read and modifier to apply.
@@ -670,18 +672,19 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
 
     Parameters
     ----------
-    cache : bool, default=True
-        Whether to persist downloaded assets locally.
-    verbose : bool, default=True
-        Enable progress reporting while fetching.
-    max_workers : int, default=24
-        Maximum concurrency for download/extraction tasks.
-    request_timeout : int, default=PlanetaryComputerData.DEFAULT_TIMEOUT
-        Timeout (seconds) for HTTP requests to the STAC API/assets.
-    max_retries : int, default=PlanetaryComputerData.DEFAULT_RETRIES
-        Number of retry attempts for transient failures.
-    async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
-        Overall timeout (seconds) for the asynchronous fetch workflow.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Note
     ----
@@ -771,18 +774,19 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     ----------
     tile : str
         Tile identifier (``hXXvYY``) to prioritize during STAC searches.
-    cache : bool, default=True
-        Whether to retain downloaded assets between calls.
-    verbose : bool, default=True
-        Enable progress reporting while downloading.
-    max_workers : int, default=24
-        Maximum concurrency for download and extraction tasks.
-    request_timeout : int, default=PlanetaryComputerData.DEFAULT_TIMEOUT
-        Timeout (seconds) for individual HTTP requests.
-    max_retries : int, default=PlanetaryComputerData.DEFAULT_RETRIES
-        Number of retry attempts for transient HTTP failures.
-    async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
-        Overall timeout (seconds) for the asynchronous fetch workflow.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Note
     ----
