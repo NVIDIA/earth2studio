@@ -238,21 +238,19 @@ class TestCBottleSRMock:
             dx(x, wrong_coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(60)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_sr_package(device, model_cache_context):
+def test_cbottle_sr_package(device):
     """Test the cached model package CBottleSR"""
     # Only cuda supported for full model
-    with model_cache_context():
-        package = CBottleSR.load_default_package()
-        dx = CBottleSR.load_model(
-            package,
-            lat_lon=True,
-            sampler_steps=1,  # Reduced for testing
-            output_resolution=(721, 1440),  # Reduced for testing
-            seed=42,  # Set seed for reproducibility
-        ).to(device)
+    package = CBottleSR.load_default_package()
+    dx = CBottleSR.load_model(
+        package,
+        lat_lon=True,
+        sampler_steps=1,  # Reduced for testing
+        output_resolution=(721, 1440),  # Reduced for testing
+        seed=42,  # Set seed for reproducibility
+    ).to(device)
 
     x = torch.randn(1, 12, 721, 1440).to(device)
     coords = OrderedDict(

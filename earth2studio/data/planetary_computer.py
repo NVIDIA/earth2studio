@@ -48,10 +48,9 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
     import httpx
+    import planetary_computer
     import rioxarray
     from pystac_client import Client
-
-    import planetary_computer
 except ImportError:
     OptionalDependencyFailure("data")
     httpx = None
@@ -83,7 +82,7 @@ class AssetPlan:
 
 
 @check_optional_dependencies()
-class PlanetaryComputerData:
+class _PlanetaryComputerData:
     """Generic Microsoft Planetary Computer data source.
 
     The base class handles STAC searches, concurrent asset downloads, and conversion of
@@ -100,30 +99,34 @@ class PlanetaryComputerData:
         STAC collection identifier to search on the Planetary Computer.
     lexicon : LexiconType
         Lexicon mapping requested variable names to dataset keys and modifiers.
-    asset_key : str, default="netcdf"
-        Item asset key that contains the requested variables.
+    asset_key : str, optional
+        Item asset key that contains the requested variables, by default "netcdf"
     search_kwargs : Mapping[str, Any] | None, optional
-        Additional keyword arguments forwarded to ``Client.search``.
-    search_tolerance : datetime.timedelta, default=12 hours
-        Maximum time delta when locating the closest STAC item to the request time.
-    time_coordinate : str, default="time"
-        Name of the time dimension within returned :class:`xarray.DataArray` objects.
+        Additional keyword arguments forwarded to ``Client.search``, by default None
+    search_tolerance : datetime.timedelta, optional
+        Maximum time delta when locating the closest STAC item to the request time,
+        by default 12 hours.
+    time_coordinate : str, optional
+        Name of the time dimension within returned :class:`xarray.DataArray` objects,
+        by default "time".
     spatial_dims : Mapping[str, numpy.ndarray]
-        Mapping of spatial dimension names to coordinate arrays defining the grid.
+        Mapping of spatial dimension names to coordinate arrays defining the grid, by
+        default None
     data_attrs : Mapping[str, Any] | None, optional
-        Extra attributes copied onto the output :class:`xarray.DataArray`.
-    cache : bool, default=True
-        Whether to persist downloaded assets between calls.
-    verbose : bool, default=True
-        Controls progress reporting via :mod:`tqdm`.
-    max_workers : int, default=24
-        Upper bound on concurrent download and processing tasks.
-    request_timeout : int, default=60
-        Timeout (seconds) applied to individual HTTP requests.
-    max_retries : int, default=4
-        Maximum retry attempts for transient network failures.
-    async_timeout : int, default=600
-        Overall timeout (seconds) for the asynchronous ``fetch`` workflow.
+        Extra attributes copied onto the output :class:`xarray.DataArray`, by default None
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
     Notes
     -----
@@ -194,20 +197,20 @@ class PlanetaryComputerData:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Fetch data synchronously, mirroring :class:`~earth2studio.data.base.DataSource`.
+        """Function to get data
 
         Parameters
         ----------
-        time : datetime or array-like
-            Requested timestamps, either a scalar ``datetime`` or sequence-like object.
-        variable : str or array-like
-            One or more variable identifiers to resolve through the configured lexicon.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the ARCO lexicon.
 
         Returns
         -------
-        xarray.DataArray
-            Array with dimensions ``(time, variable, spatial...)`` containing the
-            stacked Planetary Computer fields.
+        xr.DataArray
+            Data array from planetary computer
         """
         nest_asyncio.apply()
         try:
@@ -228,19 +231,20 @@ class PlanetaryComputerData:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Fetch data asynchronously with concurrency-friendly downloads.
+        """Async function to get data
 
         Parameters
         ----------
-        time : datetime or array-like
-            Requested timestamps, either a scalar ``datetime`` or sequence-like object.
-        variable : str or array-like
-            One or more variable identifiers to resolve via the lexicon.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data source's lexicon.
 
         Returns
         -------
-        xarray.DataArray
-            Array containing the requested variables across the provided timestamps.
+        xr.DataArray
+            Plantary computer data array
         """
         times, variables = prep_data_inputs(time, variable)
 
@@ -301,7 +305,7 @@ class PlanetaryComputerData:
             ) as progress:
                 tasks = [
                     asyncio.create_task(
-                        self._fetch_wrapper(
+                        self._fetch_data(
                             client=client,
                             semaphore=semaphore,
                             requested_time=normalized_times[index],
@@ -318,7 +322,7 @@ class PlanetaryComputerData:
 
         return xr_array
 
-    async def _fetch_wrapper(
+    async def _fetch_data(
         self,
         client: httpx.AsyncClient,
         semaphore: asyncio.Semaphore,
@@ -328,7 +332,8 @@ class PlanetaryComputerData:
         time_index: int,
         progress: tqdm,
     ) -> None:
-        """Download all variables for a timestamp and assign them into the output array.
+        """Download all variables for a timestamp and assign them into the output
+        data array.
 
         Parameters
         ----------
@@ -346,36 +351,6 @@ class PlanetaryComputerData:
             Index into ``xr_array`` corresponding to ``requested_time``.
         progress : tqdm.tqdm
             Progress bar used to report completion.
-        """
-        # Fetch the full variable stack for this timestamp and write it into the output.
-        stacked = await self._fetch_array(client, semaphore, requested_time, variables)
-        xr_array[time_index] = stacked
-        progress.update(len(variables))
-
-    async def _fetch_array(
-        self,
-        client: httpx.AsyncClient,
-        semaphore: asyncio.Semaphore,
-        requested_time: datetime,
-        variables: Sequence[VariableSpec],
-    ) -> np.ndarray:
-        """Fetch all requested variables for a timestamp and return stacked numpy data.
-
-        Parameters
-        ----------
-        client : httpx.AsyncClient
-            HTTP client for downloading assets.
-        semaphore : asyncio.Semaphore
-            Concurrency guard for download tasks.
-        requested_time : datetime
-            Timestamp being serviced.
-        variables : Sequence[VariableSpec]
-            Variable specifications required for the timestamp.
-
-        Returns
-        -------
-        numpy.ndarray
-            Array shaped ``(len(variables), *spatial_shape)`` containing the data.
         """
         # Find the closest STAC item within the configured tolerance.
         item = await asyncio.to_thread(self._locate_item, requested_time)
@@ -403,7 +378,8 @@ class PlanetaryComputerData:
                     )
                     data_stack[spec.index] = array
 
-        return data_stack
+        xr_array[time_index] = data_stack
+        progress.update(len(variables))
 
     def extract_variable_numpy(
         self,
@@ -411,11 +387,12 @@ class PlanetaryComputerData:
         spec: VariableSpec,
         target_time: datetime,
     ) -> np.ndarray:
-        """Convert an asset payload into a numpy array for a requested variable.
+        """Convert an asset payload into a numpy array for a requested variable. Should
+        be implemented in sub-class
 
         Parameters
         ----------
-        asset_data : xarray.Dataset or xarray.DataArray
+        asset_data : xr.Dataset | xr.DataArray
             Opened asset contents containing the raw Planetary Computer fields.
         spec : VariableSpec
             Variable specification including dataset key, modifier, and output index.
@@ -424,8 +401,8 @@ class PlanetaryComputerData:
 
         Returns
         -------
-        numpy.ndarray
-            Float32 array shaped to match the configured spatial dimensions.
+        np.ndarray
+            Numpy array shaped to match the configured spatial dimensions.
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
@@ -459,9 +436,9 @@ class PlanetaryComputerData:
         :meth:`extract_variable_numpy` ultimately materializes the requested numpy
         arrays.
 
-        This method might be overridden for collections that distribute variables across multiple
-        files (for example, per-band HDF subsets). Currently, this method is not overridden
-        for any collections though.
+        This method might be overridden for collections that distribute variables across
+        multiple files (for example, per-band HDF subsets). Currently, this method is
+        not overridden for any collections though.
         """
         asset_key = self._asset_key
         if asset_key not in item.assets:
@@ -487,17 +464,7 @@ class PlanetaryComputerData:
         semaphore: asyncio.Semaphore,
         plan: AssetPlan,
     ) -> None:
-        """Ensure the asset described by ``plan`` is downloaded into the cache.
-
-        Parameters
-        ----------
-        client : httpx.AsyncClient
-            HTTP client used for streaming the asset.
-        semaphore : asyncio.Semaphore
-            Semaphore limiting concurrent transfers.
-        plan : AssetPlan
-            Download plan describing the remote/signed URLs and cache path.
-        """
+        """Download asset from remote source"""
         # Ensure cache directories exist before writing any temp files.
         plan.local_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -525,23 +492,7 @@ class PlanetaryComputerData:
                 ) from error
 
     def _locate_item(self, when: datetime) -> Any:
-        """Locate the closest STAC item to ``when`` within the configured tolerance.
-
-        Parameters
-        ----------
-        when : datetime
-            Target timestamp for which to retrieve data.
-
-        Returns
-        -------
-        pystac.Item
-            First STAC item returned by the search query.
-
-        Raises
-        ------
-        FileNotFoundError
-            If no item is found within ``self._search_tolerance``.
-        """
+        """Locate the closest STAC item to ``when`` within the configured tolerance."""
         # Ensure the client is initialized
         if self._client is None:
             self._client = Client.open(self.STAC_API_URL)
@@ -569,18 +520,7 @@ class PlanetaryComputerData:
             ) from error
 
     def _local_asset_path(self, href: str) -> pathlib.Path:
-        """Resolve the cache path for a remote asset href.
-
-        Parameters
-        ----------
-        href : str
-            Remote asset URL obtained from the STAC item.
-
-        Returns
-        -------
-        pathlib.Path
-            Path inside the datasource cache where the asset should be stored.
-        """
+        """Resolve the cache path for a remote asset href."""
         # Use a hashed filename so long URLs map to stable cache entries.
         parsed = urlparse(href)
         suffix = pathlib.Path(parsed.path).suffix or ""
@@ -593,28 +533,11 @@ class PlanetaryComputerData:
         local_path: pathlib.Path,
         media_type: str | None,
     ) -> Iterator[xr.Dataset | xr.DataArray]:
-        """Open a cached asset as an :mod:`xarray` dataset or data array.
-
-        Parameters
-        ----------
-        local_path : pathlib.Path
-            Location of the cached asset on disk.
-        media_type : str or None
-            Optional media type hint from the STAC metadata.
-
-        Returns
-        -------
-        Iterator[xarray.Dataset | xarray.DataArray]
-            Context-managed iterator yielding the opened dataset/array.
-
-        Raises
-        ------
-        NotImplementedError
-            If the asset format is neither NetCDF nor GeoTIFF.
+        """Open a cached asset as an xarray dataset or data array. Only supports loading
+        NetCDF nor GeoTIFF.
         """
         suffix = local_path.suffix.lower()
 
-        # Prefer NetCDF when the suffix or media type indicates an HDF/NetCDF payload.
         if suffix in self.NETCDF_SUFFIXES or (
             media_type and "netcdf" in media_type.lower()
         ):
@@ -623,7 +546,6 @@ class PlanetaryComputerData:
             dataset.close()
             return
 
-        # Otherwise treat the asset as a GeoTIFF using rioxarray utilities.
         if suffix in self.GEOTIFF_SUFFIXES or (
             media_type and "tiff" in media_type.lower()
         ):
@@ -639,40 +561,37 @@ class PlanetaryComputerData:
 
     @property
     def cache(self) -> str:
-        """Return cache root for Planetary Computer assets.
-
-        Returns
-        -------
-        str
-            Filesystem path used to store cached Planetary Computer assets.
-        """
+        """Return appropriate cache location."""
         cache_root = os.path.join(datasource_cache_root(), "planetary_computer")
         if not self._cache:
-            cache_root = os.path.join(cache_root, "tmp")
+            cache_root = os.path.join(cache_root, "tmp_planetary_computer")
         return cache_root
 
 
-class PlanetaryComputerOISST(PlanetaryComputerData):
+class PlanetaryComputerOISST(_PlanetaryComputerData):
     """Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer.
 
     Parameters
     ----------
-    cache : bool, default=True
-        Whether to persist downloaded assets between invocations.
-    verbose : bool, default=True
-        Enable progress bar output while fetching data.
-    max_workers : int, default=24
-        Maximum number of concurrent download/extraction tasks.
-    request_timeout : int, default=PlanetaryComputerData.DEFAULT_TIMEOUT
-        Timeout (seconds) for individual HTTP requests.
-    max_retries : int, default=PlanetaryComputerData.DEFAULT_RETRIES
-        Number of retry attempts for transient network failures.
-    async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
-        Overall timeout (seconds) for the asynchronous fetch workflow.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
-    Notes
-    -----
-    Dataset reference: https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation
     """
 
     COLLECTION_ID = "noaa-cdr-sea-surface-temperature-optimum-interpolation"
@@ -687,9 +606,9 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
-        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
-        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
-        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
@@ -720,7 +639,7 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
 
         Parameters
         ----------
-        asset_data : xarray.Dataset or xarray.DataArray
+        asset_data : xarray.Dataset | xarray.DataArray
             NetCDF payload opened from the cached MPC asset.
         spec : VariableSpec
             Lexicon specification describing which field to read and modifier to apply.
@@ -738,27 +657,30 @@ class PlanetaryComputerOISST(PlanetaryComputerData):
         return result
 
 
-class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
+class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
     """Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.
 
     Parameters
     ----------
-    cache : bool, default=True
-        Whether to persist downloaded assets locally.
-    verbose : bool, default=True
-        Enable progress reporting while fetching.
-    max_workers : int, default=24
-        Maximum concurrency for download/extraction tasks.
-    request_timeout : int, default=PlanetaryComputerData.DEFAULT_TIMEOUT
-        Timeout (seconds) for HTTP requests to the STAC API/assets.
-    max_retries : int, default=PlanetaryComputerData.DEFAULT_RETRIES
-        Number of retry attempts for transient failures.
-    async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
-        Overall timeout (seconds) for the asynchronous fetch workflow.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
-    Notes
-    -----
-    Dataset reference: https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf
     """
 
     COLLECTION_ID = "sentinel-3-synergy-aod-l2-netcdf"
@@ -773,9 +695,9 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
-        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
-        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
-        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         super().__init__(
             self.COLLECTION_ID,
@@ -835,32 +757,38 @@ class PlanetaryComputerSentinel3AOD(PlanetaryComputerData):
         return result
 
 
-class PlanetaryComputerMODISFire(PlanetaryComputerData):
+class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     """MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).
 
     Parameters
     ----------
     tile : str
-        Tile identifier (``hXXvYY``) to prioritize during STAC searches.
-    cache : bool, default=True
-        Whether to retain downloaded assets between calls.
-    verbose : bool, default=True
-        Enable progress reporting while downloading.
-    max_workers : int, default=24
-        Maximum concurrency for download and extraction tasks.
-    request_timeout : int, default=PlanetaryComputerData.DEFAULT_TIMEOUT
-        Timeout (seconds) for individual HTTP requests.
-    max_retries : int, default=PlanetaryComputerData.DEFAULT_RETRIES
-        Number of retry attempts for transient HTTP failures.
-    async_timeout : int, default=PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT
-        Overall timeout (seconds) for the asynchronous fetch workflow.
+        The MODIS tile identifier (``hXXvYY``) to prioritize during STAC searches.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
 
-    Notes
-    -----
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
+    - https://modis-land.gsfc.nasa.gov/MODLAND_grid.html
+
+    Warning
+    -------
     Tile searches are best-effort. If no tile identifiers are provided (the default),
     the first available tile returned by the Planetary Computer search is used.
-
-    Dataset reference: https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
     """
 
     COLLECTION_ID = "modis-14A1-061"
@@ -884,9 +812,9 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
-        request_timeout: int = PlanetaryComputerData.DEFAULT_TIMEOUT,
-        max_retries: int = PlanetaryComputerData.DEFAULT_RETRIES,
-        async_timeout: int = PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
     ) -> None:
         tile = tile.lower()
         tile_filter = {
@@ -923,8 +851,9 @@ class PlanetaryComputerMODISFire(PlanetaryComputerData):
 
         Parameters
         ----------
-        tile : str, default="h35v10"
-            MODIS sinusoidal tile identifier (``hXXvYY``) describing the desired grid.
+        tile : str, optional
+            MODIS sinusoidal tile identifier (``hXXvYY``) describing the desired grid,
+            by default h35v10
 
         Returns
         -------

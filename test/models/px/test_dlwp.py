@@ -239,16 +239,13 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> DLWP:
-    # Test only on cuda device
-    with model_cache_context():
-        package = DLWP.load_default_package()
-        p = DLWP.load_model(package)
-        return p
+def model() -> DLWP:
+    package = DLWP.load_default_package()
+    p = DLWP.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_dlwp_package(device, model):
     torch.cuda.empty_cache()

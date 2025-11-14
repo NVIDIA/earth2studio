@@ -292,16 +292,14 @@ def test_aifs_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> AIFS:
+def model() -> AIFS:
     # Test only on cuda device
-    with model_cache_context():
-        package = AIFS.load_default_package()
-        p = AIFS.load_model(package)
-        return p
+    package = AIFS.load_default_package()
+    p = AIFS.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_aifs_package(device, model):
     torch.cuda.empty_cache()

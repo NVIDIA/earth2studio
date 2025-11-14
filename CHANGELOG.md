@@ -7,7 +7,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.0] - 2025-09-xx
+## [0.11.0a0] - 2025-12-xx
+
+### Added
+
+- Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.10.0] - 2025-11-17
 
 ### Added
 
@@ -18,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added vertical wind speed support in GFS
 - Added ModelOutputDatasetSource to use written model output to start a new model run
 - Added FCN3 noise handling routines
-- Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
 - Added ACE2-ERA5 model and data source
 - Added tp06 support to CDS data source
 - Added IFS_ENS, AIFS, and AIFS_ENS data sources.
@@ -47,8 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added depricated warning for IMERG data source. This will be removed in the next
   release.
 
-### Removed
-
 ### Fixed
 
 - Fixed typo: InferenceOuputSource renamed to InferenceOutputSource
@@ -56,8 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NetCDFBackend unit change to ensure timedeltas are correctly decoded by xarray
 - GFS data source for early 2021 dates
 - Updated corrdiff wrapper for newer physicsnemo performance improvements
-
-### Security
 
 ### Dependencies
 

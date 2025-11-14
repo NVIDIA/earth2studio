@@ -188,17 +188,14 @@ class TestCBottleMock:
         assert np.allclose(data_latlon.values, field_regridded.cpu().numpy())
 
 
-@pytest.mark.slow
-@pytest.mark.ci_cache
-@pytest.mark.timeout(60)
+@pytest.mark.package
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_package(time, variable, device, model_cache_context):
+def test_cbottle_package(time, variable, device):
     # Test the cached model package
-    with model_cache_context():
-        package = CBottle3D.load_default_package()
-        ds = CBottle3D.load_model(package, seed=0).to(device)
+    package = CBottle3D.load_default_package()
+    ds = CBottle3D.load_model(package, seed=0).to(device)
 
     data = ds(time, variable)
     shape = data.shape
@@ -227,21 +224,17 @@ def test_cbottle_package(time, variable, device, model_cache_context):
     ).all()
 
 
-@pytest.mark.slow
-@pytest.mark.ci_cache
-@pytest.mark.timeout(60)
+@pytest.mark.package
 @pytest.mark.parametrize("time", [datetime.datetime(year=2000, month=12, day=31)])
 @pytest.mark.parametrize("variable", [["sic", "u10m", "t2m"]])
 @pytest.mark.skipif(
     importlib.util.find_spec("apex") is not None,
     reason="Test requires apex.contrib.group_norm to not be installed",
 )
-def test_cbottle_package_cpu(time, variable, model_cache_context):
-    # Test the cached model package
-    with model_cache_context():
-        package = CBottle3D.load_default_package()
-        ds = CBottle3D.load_model(package)
-        ds.sampler_steps = 2  # Speed up sampler for testing
+def test_cbottle_package_cpu(time, variable):
+    package = CBottle3D.load_default_package()
+    ds = CBottle3D.load_model(package)
+    ds.sampler_steps = 2  # Speed up sampler for testing
 
     data = ds(time, variable)
     shape = data.shape

@@ -7,9 +7,14 @@
         "../../.venv/",
         "../../.git/",
         "../../.github/",
+        "../../.tox/",
+        "../../.cache/",
         "../../.vscode/",
         "../../.pytest_cache/",
-        "../../.mypy_cache/"
+        "../../.pre-commit/",
+        "../../.uv-cache/",
+        "../../.earth2studio-cache/",
+        "../../.testmon/"
       ],
     "include-ext": [
         ".py"

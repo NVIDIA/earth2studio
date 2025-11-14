@@ -224,7 +224,20 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Getter / Setters don't work with torch.nn.Module, need to check manually here
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
-        return self.px_model.input_coords()
+        input_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.empty(0),
+                "variable": np.empty(0),
+                "lat": np.empty(0),
+                "lon": np.empty(0),
+            }
+        )
+        for key, value in self.px_model.input_coords().items():
+            if key in input_coords:
+                input_coords[key] = value
+        return input_coords
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:

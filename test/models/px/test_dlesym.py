@@ -301,16 +301,13 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> DLESyM:
-    # Test only on cuda device
-    with model_cache_context():
-        package = DLESyM.load_default_package()
-        p = DLESyM.load_model(package)
-        return p
+def model() -> DLESyM:
+    package = DLESyM.load_default_package()
+    p = DLESyM.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_dlesym_package(device, model):
     torch.cuda.empty_cache()

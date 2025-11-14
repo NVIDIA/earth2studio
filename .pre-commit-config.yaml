@@ -36,7 +36,11 @@ repos:
     - id: name-tests-test
       args: [--pytest-test-first]
       files: ^test\/.*\.py$
-      exclude: ^test/_license
+      exclude: |
+            (?x)^(
+                ^test\/_license\/.*\.py$ |
+                ^test\/_ci\/.*\.py$
+            )$
 
 -   repo: https://github.com/asottile/pyupgrade
     rev: v3.15.2

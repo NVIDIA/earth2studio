@@ -30,7 +30,6 @@ from .imerg import IMERG
 from .jpss import JPSS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (
-    PlanetaryComputerData,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
