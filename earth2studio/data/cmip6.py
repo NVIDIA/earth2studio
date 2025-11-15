@@ -23,7 +23,6 @@ from typing import Union, cast
 import cftime
 import numpy as np
 import xarray as xr
-from scipy.interpolate import griddata
 from tqdm.auto import tqdm
 
 # Project-level imports come after stdlib/third-party
@@ -34,9 +33,11 @@ from earth2studio.utils.imports import (
 
 try:
     import intake_esgf
+    from scipy.interpolate import griddata
 except ImportError:
     OptionalDependencyFailure("data")
     intake_esgf = None
+    griddata = None
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.cmip6 import CMIP6Lexicon
