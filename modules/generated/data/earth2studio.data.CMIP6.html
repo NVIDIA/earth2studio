@@ -567,7 +567,7 @@
 <h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.CMIP6<a class="headerlink" href="#earth2studio-data-cmip6" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.data.CMIP6">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">CMIP6</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variant_label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">CMIP6</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variant_label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exact_time_match</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6" title="Link to this definition">#</a></dt>
 <dd><p>CMIP6 data source for Earth2Studio.</p>
 <p>This class provides a thin convenience wrapper around the <cite>intake-esgf</cite> catalog that
 hosts the Coupled Model Inter-comparison Project Phase 6 (CMIP6) archive. This is
@@ -585,8 +585,13 @@ Currently this supports both atmospheric and oceanic datasets.</p>
 constrain the final dataset selection. Leave None to accept all, by default None</p></li>
 <li><p><strong>file_end</strong> (<em>str</em><em>, </em><em>optional</em>) – Optional filename suffix filters forwarded to <code class="docutils literal notranslate"><span class="pre">ESGFCatalog.search</span></code> to
 constrain the final dataset selection. Leave None to accept all, by default None</p></li>
-<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True</p></li>
+<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True. Multiple CMIP6 instances
+can safely share the same cache directory as intake-esgf automatically organizes
+files into detailed subdirectories by project, model, experiment, variant, variable,
+and version, preventing any conflicts.</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
+<li><p><strong>exact_time_match</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, raise an error when requested times don’t match dataset times exactly.
+If False (default), use nearest neighbor time matching and issue a warning, by default False</p></li>
 </ul>
 </dd>
 </dl>
@@ -611,8 +616,10 @@ be referenced here:</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This data source will retrieve the closest time possible, depending on the
-experiment this may be significantly different than what was requested.</p>
+<p>By default, this data source will retrieve the closest time available using nearest
+neighbor matching. Depending on the experiment and temporal resolution, this may be
+significantly different than what was requested. Set <cite>exact_time_match=True</cite> to
+enforce exact time matching if precise timestamps are critical.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.CMIP6.__call__">
@@ -652,11 +659,15 @@ experiment this may be significantly different than what was requested.</p>
 <dd class="field-even"><p>bool</p>
 </dd>
 </dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This method downloads data from ESGF servers to verify the time coordinate
+range. It is not a lightweight metadata-only check.</p>
+</div>
 <p class="rubric">Notes</p>
-<p>The check performs a lightweight ESGF search restricted to a one-day
-window surrounding <em>time</em>.  If any dataset is returned and the target
-timestamp lies within the dataset’s time span, <cite>True</cite> is returned.
-Otherwise returns <cite>False</cite>.</p>
+<p>The check performs an ESGF search and downloads at least one file to read
+its time coordinate bounds. If the target timestamp lies within the dataset’s
+time span, <cite>True</cite> is returned. Otherwise returns <cite>False</cite>.</p>
 </dd></dl>
 
 </dd></dl>
