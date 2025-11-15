@@ -527,6 +527,7 @@
 
 <span class="sd">    - https://arxiv.org/abs/2409.16247</span>
 <span class="sd">    - https://arxiv.org/abs/2311.06253v2</span>
+<span class="sd">    - https://huggingface.co/nvidia/dlesym-v1-era5</span>
 
 <span class="sd">    For more information about the HEALPix grid see:</span>
 
@@ -780,7 +781,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default DLESyM model package on NGC&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;ngc://models/nvidia/earth-2/dlesym-v1-era5@1.0.1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://nvidia/dlesym-v1-era5&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;dlesym&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
