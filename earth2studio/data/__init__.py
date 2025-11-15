@@ -19,7 +19,7 @@ from .arco import ARCO
 from .base import DataSource, ForecastSource
 from .cbottle import CBottle3D
 from .cds import CDS
-from .cmip6 import CMIP6
+from .cmip6 import CMIP6, CMIP6MultiRealm
 from .const import Constant, Constant_FX
 from .ecmwf import AIFS, AIFS_ENS, IFS, IFS_ENS
 from .gefs import GEFS_FX, GEFS_FX_721x1440
