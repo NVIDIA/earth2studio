@@ -300,17 +300,11 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         )
 
 
-@pytest.fixture(scope="function")
-def model() -> DLESyM:
-    package = DLESyM.load_default_package()
-    p = DLESyM.load_model(package)
-    return p
-
-
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_dlesym_package(device, model):
+def test_dlesym_package(device):
     torch.cuda.empty_cache()
+    model = DLESyM.load_model(DLESyM.load_default_package())
     model = model.to(device)
 
     nside = 64
