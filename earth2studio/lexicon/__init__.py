@@ -27,4 +27,9 @@ from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .imerg import IMERGLexicon
 from .jpss import JPSSLexicon
 from .ncar import NCAR_ERA5Lexicon
+from .planetary_computer import (
+    MODISFireLexicon,
+    OISSTLexicon,
+    Sentinel3AODLexicon,
+)
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

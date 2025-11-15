@@ -78,13 +78,11 @@ def test_afno_windgust(x, device):
     handshake_dim(out_coords, "batch", 0)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(30)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_afno_windgust_package(device, model_cache_context):
-    with model_cache_context():
-        package = WindgustAFNO.load_default_package()
-        dx = WindgustAFNO.load_model(package).to(device)
+def test_afno_windgust_package(device):
+    package = WindgustAFNO.load_default_package()
+    dx = WindgustAFNO.load_model(package).to(device)
 
     x = torch.randn(2, 1, 1, 17, 720, 1440).to(device)
     coords = OrderedDict(

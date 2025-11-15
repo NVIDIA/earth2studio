@@ -211,19 +211,17 @@ class TestPanguMock:
         torch.cuda.empty_cache()
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize(
     "PanguModel, delta_t",
     [(Pangu24, 24), (Pangu6, 6), (Pangu3, 3)],
 )
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_pangu_package(PanguModel, delta_t, device, model_cache_context):
+def test_pangu_package(PanguModel, delta_t, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    with model_cache_context():
-        with torch.device(device):
-            package = PanguModel.load_default_package()
-            p = PanguModel.load_model(package).to(device)
+    with torch.device(device):
+        package = PanguModel.load_default_package()
+        p = PanguModel.load_model(package).to(device)
 
     dc = p.input_coords()
     del dc["batch"]

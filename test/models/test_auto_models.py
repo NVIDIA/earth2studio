@@ -70,7 +70,7 @@ from earth2studio.models.px import (
 
 
 # @pytest.mark.xfail
-@pytest.mark.model_download
+@pytest.mark.package_download
 @pytest.mark.parametrize(
     "model",
     [
@@ -104,7 +104,7 @@ from earth2studio.models.px import (
         StormCast,
     ],
 )
-def test_auto_model_download(model, model_cache_context):
+def test_auto_model_download(model):
     """Automodel download test from remote stores for all models
     This should not be ran in a CI pipeline, rather reserved to periodic testing /
     manual tests. Can also be used to create a complete model cache.
@@ -115,13 +115,10 @@ def test_auto_model_download(model, model_cache_context):
     ----------
     model : AutoModelMixin
         Model class that is an auto model in Earth2Studio
-    model_cache_context : EnvContextManager
-        Context manager that changed cache dir for CI, provided via fixture
     """
     assert issubclass(model, AutoModelMixin), "Model class needs to be an AutoModel"
-    with model_cache_context():
-        package = model.load_default_package()
-        model.load_model(package)
+    package = model.load_default_package()
+    model.load_model(package)
 
 
 @pytest.fixture(scope="session")

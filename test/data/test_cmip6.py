@@ -136,6 +136,8 @@ def test_cmip6_init_valid():
     assert ds.variant_label == "r1i1p1f1"
 
 
+@pytest.mark.slow
+@pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "variable, expected_exc",

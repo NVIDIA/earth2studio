@@ -269,19 +269,14 @@ class TestCBottleMock:
         assert torch.allclose(out0, out2)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.slow
-@pytest.mark.timeout(30)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_package(device, model_cache_context):
+def test_cbottle_package(device):
     # Test the cached model package
     # Only cuda supported
     input_variables = np.array(["tpf"])
-    with model_cache_context():
-        package = CBottleInfill.load_default_package()
-        dx = CBottleInfill.load_model(package, input_variables=input_variables).to(
-            device
-        )
+    package = CBottleInfill.load_default_package()
+    dx = CBottleInfill.load_model(package, input_variables=input_variables).to(device)
 
     time = np.array([datetime(2020, 1, 1, 1), datetime(2021, 1, 1, 1)])
     lead_time = np.array([timedelta(hours=1)])
