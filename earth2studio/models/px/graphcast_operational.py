@@ -247,7 +247,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(VARIABLES + ["tp06"]),
                 "lat": np.linspace(-90, 90, 721, endpoint=True),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -451,15 +451,18 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        coords_out = self.output_coords(coords)
 
         # Get device
         device = x.device
 
         # first batch has 2 times
-        coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:, ...], coords_out
+        # Add on zeros slice for tp06
+        out = torch.cat(
+            (x[:, :, 1:, ...], torch.zeros_like(x[:, :, 1:, :1, ...])), axis=3
+        )
+        yield out, coords_out
 
         while True:
 
@@ -545,7 +548,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if "batch" in dataset.dims:
             dataarray = (
-                dataset[VARIABLES]
+                dataset[self._output_coords["variable"]]
                 .to_dataarray()
                 .T.transpose(
                     ..., "batch", "time", "lead_time", "variable", "lat", "lon"
@@ -553,7 +556,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
         else:
             dataarray = (
-                dataset[VARIABLES]
+                dataset[self._output_coords["variable"]]
                 .to_dataarray()
                 .T.transpose(..., "time", "lead_time", "variable", "lat", "lon")
             )
