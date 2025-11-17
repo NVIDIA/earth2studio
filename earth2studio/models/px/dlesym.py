@@ -105,6 +105,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2409.16247
     - https://arxiv.org/abs/2311.06253v2
+    - https://huggingface.co/nvidia/dlesym-v1-era5
 
     For more information about the HEALPix grid see:
 
@@ -356,7 +357,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLESyM model package on NGC"""
         package = Package(
-            "ngc://models/nvidia/earth-2/dlesym-v1-era5@1.0.1",
+            "hf://nvidia/dlesym-v1-era5",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym"),
                 "same_names": True,

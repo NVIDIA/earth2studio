@@ -11,10 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
+
 ### Changed
 
 - Removed tp06 field from Graphcast operational model
 - Removed static fields from Graphcast model input / outputs
+- Moved StormCast and DLESyM checkpoints to Huggingface
 
 ### Deprecated
 
