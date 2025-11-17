@@ -201,9 +201,9 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     stddev_by_level : xr.Dataset
         Standard deviation by level for normalization
     land_sea_mask : np.array
-        Quater degree resolution [721x1440] land sea mask on lat-lon grid
+        One degree resolution [181x360] land sea mask on lat-lon grid
     geopotential_at_surface : np.array
-        Quater degree resolution [721x1440] geopotential at surface on lat-lon grid
+        One degree resolution [181x360] geopotential at surface on lat-lon grid
     """
 
     def __init__(
@@ -804,7 +804,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         sample_input = xr.load_dataset(
             package.resolve(
-                "dataset/source-era5_date-2022-01-01_res-0.25_levels-13_steps-01.nc"
+                "dataset/source-era5_date-2022-01-01_res-1.0_levels-13_steps-01.nc"
             )
         )
         land_sea_mask = sample_input["land_sea_mask"].values
