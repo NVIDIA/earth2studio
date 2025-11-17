@@ -29,6 +29,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.GFS
    data.GOES
    data.HRRR
+   data.MRMS
    data.IFS
    data.JPSS
    data.NCAR_ERA5
