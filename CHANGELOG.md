@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed tp06 field from Graphcast operational model
+- Removed static fields from Graphcast model input / outputs
+
 ### Deprecated
 
 ### Removed
