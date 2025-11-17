@@ -87,6 +87,49 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Default model package has SST data from January 1940 to December 2022, expanded SST
     data should be provided out of this range.
 
+    Example
+    -------
+    .. highlight:: python
+    .. code-block:: python
+
+        import numpy as np
+        import torch
+        from datetime import datetime
+
+        from earth2studio.models.px import CBottleVideo
+
+        # Load the default model package and instantiate model
+        package = CBottleVideo.load_default_package()
+        model = CBottleVideo.load_model(package)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
+
+        # Prepare input coordinates
+        time = np.array([datetime(2022, 1, 1)], dtype="datetime64[ns]")
+        coords = model.input_coords()
+        coords["time"] = time
+        coords["batch"] = np.array([0])
+
+        # Unconditional generation: create NaN tensor for unconditional sampling
+        x = torch.full(
+            (1, 1, 1, len(model.VARIABLES), 721, 1440),
+            float("nan"),
+            dtype=torch.float32,
+            device=device,
+        )
+
+        # Run inference - generates 12 frames (0-66 hours in 6-hour steps)
+        iterator = model.create_iterator(x, coords)
+        for step, (output, output_coords) in enumerate(iterator):
+            print(f"Step {step}: {output.shape}, lead_time: {output_coords['lead_time']}")
+            if step >= 11:  # Get first 12 frames (0-66 hours)
+                break
+
+    Note
+    ----
+    For conditional generation using ERA5 data, use :py:class:`earth2studio.models.dx.CBottleInfill`
+    to generate all required variables first, then condition CBottleVideo on the infilled state.
+
     Note
     ----
     For more information see the following references:
