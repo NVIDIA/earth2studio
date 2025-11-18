@@ -567,7 +567,7 @@
 <h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastOperational<a class="headerlink" href="#earth2studio-models-px-graphcastoperational" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.px.GraphCastOperational">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">GraphCastOperational</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ckpt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diffs_stddev_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev_by_level</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">GraphCastOperational</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ckpt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diffs_stddev_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stddev_by_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">land_sea_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geopotential_at_surface</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/graphcast_operational.html#GraphCastOperational"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.GraphCastOperational" title="Link to this definition">#</a></dt>
 <dd><p>GraphCast operational model</p>
 <p>A high-resolution model (0.25 degree resolution, 13 pressure levels) pre-trained on ERA5 data
 from 1979 to 2017 and fine-tuned on HRES data from 2016 to 2021. This model can be initialized
@@ -601,6 +601,8 @@ model’s checkpoints.</p>
 <li><p><strong>diffs_stddev_by_level</strong> (<em>xr.Dataset</em>) – Standard deviation of differences by level for normalization</p></li>
 <li><p><strong>mean_by_level</strong> (<em>xr.Dataset</em>) – Mean values by level for normalization</p></li>
 <li><p><strong>stddev_by_level</strong> (<em>xr.Dataset</em>) – Standard deviation by level for normalization</p></li>
+<li><p><strong>land_sea_mask</strong> (<em>np.array</em>) – Quater degree resolution [721x1440] land sea mask on lat-lon grid</p></li>
+<li><p><strong>geopotential_at_surface</strong> (<em>np.array</em>) – Quater degree resolution [721x1440] geopotential at surface on lat-lon grid</p></li>
 </ul>
 </dd>
 </dl>
