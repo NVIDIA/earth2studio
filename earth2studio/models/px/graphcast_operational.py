@@ -66,7 +66,6 @@ VARIABLES = [
     "msl",
     "u10m",
     "v10m",
-    "tp06",
     "t50",
     "t100",
     "t150",
@@ -145,14 +144,8 @@ VARIABLES = [
     "q850",
     "q925",
     "q1000",
-    "z",
-    "lsm",
 ]
 
-STATIC_VARS = (
-    "geopotential_at_surface",  # z
-    "land_sea_mask",  # lsm
-)
 EXTERNAL_FORCING_VARS = ("toa_incident_solar_radiation",)  # tisr
 GENERATED_FORCING_VARS = (
     "year_progress_sin",
@@ -206,6 +199,10 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Mean values by level for normalization
     stddev_by_level : xr.Dataset
         Standard deviation by level for normalization
+    land_sea_mask : np.array
+        Quater degree resolution [721x1440] land sea mask on lat-lon grid
+    geopotential_at_surface : np.array
+        Quater degree resolution [721x1440] geopotential at surface on lat-lon grid
     """
 
     def __init__(
@@ -214,6 +211,8 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         diffs_stddev_by_level: xr.Dataset,
         mean_by_level: xr.Dataset,
         stddev_by_level: xr.Dataset,
+        land_sea_mask: np.array,
+        geopotential_at_surface: np.array,
     ):
         super().__init__()
 
@@ -221,6 +220,8 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.diffs_stddev_by_level = diffs_stddev_by_level
         self.mean_by_level = mean_by_level
         self.stddev_by_level = stddev_by_level
+        self.land_sea_mask = land_sea_mask
+        self.geopotential_at_surface = geopotential_at_surface
         self.prng_key = jax.random.PRNGKey(0)
 
         self.run_forward = self._load_run_forward_from_checkpoint()
@@ -246,7 +247,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(VARIABLES + ["tp06"]),
                 "lat": np.linspace(-90, 90, 721, endpoint=True),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
@@ -450,15 +451,18 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        coords_out = self.output_coords(coords)
 
         # Get device
         device = x.device
 
         # first batch has 2 times
-        coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:, ...], coords_out
+        # Add on zeros slice for tp06
+        out = torch.cat(
+            (x[:, :, 1:, ...], torch.zeros_like(x[:, :, 1:, :1, ...])), axis=3
+        )
+        yield out, coords_out
 
         while True:
 
@@ -536,10 +540,6 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dataset = dataset.expand_dims(dim="time")
         else:
             dataset = dataset.expand_dims(dim="lead_time")
-        dataset["land_sea_mask::"] = xr.zeros_like(dataset["2m_temperature::"])
-        dataset["geopotential_at_surface::"] = xr.zeros_like(
-            dataset["2m_temperature::"]
-        )
 
         if "ensemble" in dataset.dims:
             dataset = dataset.squeeze("batch", drop=True)
@@ -548,7 +548,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if "batch" in dataset.dims:
             dataarray = (
-                dataset[VARIABLES]
+                dataset[self._output_coords["variable"]]
                 .to_dataarray()
                 .T.transpose(
                     ..., "batch", "time", "lead_time", "variable", "lat", "lon"
@@ -556,7 +556,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
         else:
             dataarray = (
-                dataset[VARIABLES]
+                dataset[self._output_coords["variable"]]
                 .to_dataarray()
                 .T.transpose(..., "time", "lead_time", "variable", "lat", "lon")
             )
@@ -665,7 +665,6 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "level": ATMOS_LEVELS,
             }
         )
-
         # Pressure levels back together
         pressure_level_vars = {}
         for var in data.data_vars:
@@ -679,8 +678,6 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     pressure_level_vars[arco_variable] += [
                         data[var].expand_dims(dim=dict(level=[int(level)]))
                     ]
-            elif arco_variable in STATIC_VARS:
-                out_data[arco_variable] = data[var].isel(time=0).squeeze()
             else:
                 out_data[arco_variable] = data[var]
         for var in pressure_level_vars:
@@ -695,9 +692,8 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # add batch dimension
         for var in out_data.data_vars:
-            if var not in STATIC_VARS:
-                if "batch" not in out_data[var].dims:
-                    out_data[var] = out_data[var].expand_dims(dict(batch=1))
+            if "batch" not in out_data[var].dims:
+                out_data[var] = out_data[var].expand_dims(dict(batch=1))
 
         # pad times for target
         out_data = out_data.pad(pad_width=dict(time=(0, len(lead_times))))
@@ -707,6 +703,22 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # make sure lat is -90 to 90
         out_data = out_data.reindex(lat=sorted(out_data.lat.values))
         out_data = out_data.transpose("batch", "time", "level", "lat", "lon", ...)
+
+        # add in zeros tp06 (operational model does not need tp06)
+        shape = out_data["2m_temperature"].shape
+        dims = out_data["2m_temperature"].dims
+        coords = {dim: out_data["2m_temperature"].coords[dim] for dim in dims}
+        out_data["total_precipitation_6hr"] = xr.DataArray(
+            np.zeros(shape, dtype=np.float32), dims=dims, coords=coords
+        )
+
+        # Add land sea mask and geo-potential at surface
+        out_data["land_sea_mask"] = xr.DataArray(
+            self.land_sea_mask, dims=("lat", "lon")
+        )
+        out_data["geopotential_at_surface"] = xr.DataArray(
+            self.geopotential_at_surface, dims=("lat", "lon")
+        )
 
         # change dtype
         for var in out_data.data_vars:
@@ -799,4 +811,19 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with open(params, "rb") as f:
             ckpt = checkpoint.load(f, graphcast.CheckPoint)
 
-        return cls(ckpt, diffs_stddev_by_level, mean_by_level, stddev_by_level)
+        sample_input = xr.load_dataset(
+            package.resolve(
+                "dataset/source-era5_date-2022-01-01_res-0.25_levels-13_steps-01.nc"
+            )
+        )
+        land_sea_mask = sample_input["land_sea_mask"].values
+        geopotential_at_surface = sample_input["geopotential_at_surface"].values
+
+        return cls(
+            ckpt,
+            diffs_stddev_by_level,
+            mean_by_level,
+            stddev_by_level,
+            land_sea_mask,
+            geopotential_at_surface,
+        )
