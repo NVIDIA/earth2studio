@@ -267,6 +267,113 @@ def diagnostic(
     return io
 
 
+def diagnostic_from_data(
+    time: list[str] | list[datetime] | list[np.datetime64],
+    diagnostic: DiagnosticModel,
+    data: DataSource,
+    io: IOBackend,
+    output_coords: CoordSystem = OrderedDict({}),
+    device: torch.device | None = None,
+) -> IOBackend:
+    """Apply a diagnostic model directly to data without a prognostic model.
+
+    This workflow fetches data from a datasource using the diagnostic model's
+    input requirements and applies the diagnostic model independently at each
+    requested time. It is useful for post-processing existing datasets such as
+    CMIP6, reanalysis products, or offline model experimentation.
+
+    Parameters
+    ----------
+    time : list[str] | list[datetime] | list[np.datetime64]
+        Timestamps to process.
+    diagnostic: DiagnosticModel
+        Diagnostic model to apply.
+    data : DataSource
+        Data source providing the required input variables for the diagnostic model.
+    io : IOBackend
+        IO object used to store outputs.
+    output_coords: CoordSystem, optional
+        Optional coordinate overrides for the output data, by default OrderedDict({}).
+    device : torch.device, optional
+        Device to run inference on, by default None (auto-detect GPU if available).
+
+    Returns
+    -------
+    IOBackend
+        Output IO object.
+    """
+    logger.info("Running diagnostic-from-data workflow!")
+
+    # Move model to device
+    device = (
+        device
+        if device is not None
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
+    logger.info(f"Inference device: {device}")
+    diagnostic = diagnostic.to(device)
+
+    # Prepare coordinates and fetch data
+    diagnostic_ic = diagnostic.input_coords()
+    time = to_time_array(time)
+
+    if hasattr(diagnostic, "interp_method"):
+        interp_to = diagnostic_ic
+        interp_method = diagnostic.interp_method
+    else:
+        interp_to = None
+        interp_method = "nearest"
+
+    x, coords = fetch_data(
+        source=data,
+        time=time,
+        variable=diagnostic_ic["variable"],
+        device=device,
+        interp_to=interp_to,
+        interp_method=interp_method,
+    )
+    logger.success(f"Fetched data from {data.__class__.__name__}")
+
+    # Remove lead_time dimension (diagnostic models usually operate on single lead)
+    if "lead_time" in coords:
+        x = x[:, 0]
+        del coords["lead_time"]
+
+    # Align coordinates with diagnostic expectations
+    x, coords = map_coords(x, coords, diagnostic_ic)
+
+    # Configure IO backend
+    total_coords = diagnostic.output_coords(diagnostic_ic).copy()
+    for key, value in list(total_coords.items()):
+        if value.shape == (0,):
+            del total_coords[key]
+    total_coords["time"] = time
+    total_coords.move_to_end("time", last=False)
+
+    for key, value in total_coords.items():
+        total_coords[key] = output_coords.get(key, value)
+
+    var_names = total_coords.pop("variable")
+    io.add_array(total_coords, var_names)
+
+    # Iterate over requested times
+    logger.info("Inference starting!")
+    with tqdm(total=len(time), desc="Processing timesteps", position=1) as pbar:
+        for idx in range(len(time)):
+            x_t = x[idx : idx + 1]
+            coords_t = coords.copy()
+            coords_t["time"] = coords["time"][idx : idx + 1]
+
+            x_out, coords_out = diagnostic(x_t, coords_t)
+            x_out, coords_out = map_coords(x_out, coords_out, output_coords)
+
+            io.write(*split_coords(x_out, coords_out))
+            pbar.update(1)
+
+    logger.success("Inference complete")
+    return io
+
+
 # sphinx - ensemble start
 def ensemble(
     time: list[str] | list[datetime] | list[np.datetime64],
