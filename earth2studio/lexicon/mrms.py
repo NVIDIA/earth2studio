@@ -16,47 +16,48 @@
 
 from collections.abc import Callable
 
+import numpy as np
+
 from .base import LexiconType
 
 
 class MRMSLexicon(metaclass=LexiconType):
-	"""Multi-Radar/Multi-Sensor (MRMS) product lexicon.
+    """Multi-Radar/Multi-Sensor (MRMS) product lexicon.
 
-	This lexicon provides a minimal mapping from Earth2Studio variable identifiers
-	to MRMS product names. Initially, only composite reflectivity is exposed.
+    This lexicon provides a minimal mapping from Earth2Studio variable identifiers
+    to MRMS product names. Initially, only composite reflectivity is exposed.
 
-	Note
-	----
-	Additional resources:
-	- https://registry.opendata.aws/noaa-mrms-pds/
-	- https://www.nssl.noaa.gov/projects/mrms/
-	"""
+    Note
+    ----
+    Additional resources:
+    - https://registry.opendata.aws/noaa-mrms-pds/
+    - https://www.nssl.noaa.gov/projects/mrms/
+    """
 
-	# Minimal vocabulary: map Earth2Studio "refc" to MRMS product name used in keys
-	VOCAB: dict[str, str] = {
-		"refc": "MergedReflectivityQCComposite_00.50",
-	}
+    # Minimal vocabulary: map Earth2Studio "refc" to MRMS product name used in keys
+    VOCAB: dict[str, str] = {
+        "refc": "MergedReflectivityQCComposite_00.50",
+    }
 
-	@classmethod
-	def get_item(cls, val: str) -> tuple[str, Callable]:
-		"""Get item from MRMS vocabulary.
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Get item from MRMS vocabulary.
 
-		Parameters
-		----------
-		val : str
-			Earth2Studio variable id.
+        Parameters
+        ----------
+        val : str
+                Earth2Studio variable id.
 
-		Returns
-		-------
-		tuple[str, Callable]
-			- MRMS product name used in the S3 key path.
-			- A modifier function to apply to the loaded values (identity).
-		"""
-		mrms_key = cls.VOCAB[val]
+        Returns
+        -------
+        tuple[str, Callable]
+                - MRMS product name used in the S3 key path.
+                - A modifier function to apply to the loaded values (identity).
+        """
+        mrms_key = cls.VOCAB[val]
 
-		def mod(x):
-			return x
+        def mod(x: np.array) -> np.array:
+            """Modify data value (if necessary)."""
+            return x
 
-		return mrms_key, mod
-
-
+        return mrms_key, mod

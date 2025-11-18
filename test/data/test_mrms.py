@@ -5,9 +5,9 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +16,7 @@
 
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
@@ -28,39 +28,39 @@ from earth2studio.data import MRMS
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
-	"time",
-	[
-		datetime(year=2024, month=7, day=1, hour=0, minute=0, second=0),
-		[
-			datetime(year=2020, month=10, day=31, hour=0, minute=0, second=0),
-			datetime(year=2024, month=7, day=1, hour=0, minute=30, second=0),
-		],
-	],
+    "time",
+    [
+        datetime(year=2024, month=7, day=1, hour=0, minute=0, second=0),
+        [
+            datetime(year=2020, month=10, day=31, hour=0, minute=0, second=0),
+            datetime(year=2024, month=7, day=1, hour=0, minute=30, second=0),
+        ],
+    ],
 )
 @pytest.mark.parametrize("variable", ["refc", ["refc"]])
 def test_mrms_fetch(time, variable):
-	ds = MRMS(cache=False, max_offset_minutes=15)
-	data = ds(time, variable)
-	shape = data.shape
+    ds = MRMS(cache=False, max_offset_minutes=15)
+    data = ds(time, variable)
+    shape = data.shape
 
-	if isinstance(variable, str):
-		variable = [variable]
+    if isinstance(variable, str):
+        variable = [variable]
 
-	if isinstance(time, datetime):
-		time = [time]
+    if isinstance(time, datetime):
+        time = [time]
 
-	# Check basic dims/time/variable
-	assert shape[0] == len(time)
-	assert shape[1] == len(variable)
+    # Check basic dims/time/variable
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
 
-	# Must include lat/lon coords and dims
-	assert "lat" in data.dims
-	assert "lon" in data.dims
-	assert "lat" in data.coords
-	assert "lon" in data.coords
+    # Must include lat/lon coords and dims
+    assert "lat" in data.dims
+    assert "lon" in data.dims
+    assert "lat" in data.coords
+    assert "lon" in data.coords
 
-	# Variables coord matches request
-	assert np.array_equal(data.coords["variable"].values, np.array(variable))
+    # Variables coord matches request
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
 @pytest.mark.slow
@@ -68,65 +68,64 @@ def test_mrms_fetch(time, variable):
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("max_offset_minutes", [5, 10, 15])
 def test_mrms_time_tolerance(max_offset_minutes):
-	"""Requested time may not match an exact file; ensure resolution within tolerance."""
-	request_time = datetime(2024, 7, 1, 0, 0, 17)
-	ds = MRMS(cache=False, max_offset_minutes=max_offset_minutes)
-	data = ds(request_time, "refc")
-	resolved = data["time"].isel(time=0).values.astype("datetime64[s]")
-	req = np.datetime64(request_time, "s")
-	diff = np.abs(resolved - req).astype("timedelta64[s]")
-	assert diff <= np.timedelta64(max_offset_minutes, "m")
+    """Requested time may not match an exact file; ensure resolution within tolerance."""
+    request_time = datetime(2024, 7, 1, 0, 0, 17)
+    ds = MRMS(cache=False, max_offset_minutes=max_offset_minutes)
+    data = ds(request_time, "refc")
+    resolved = data["time"].isel(time=0).values.astype("datetime64[s]")
+    req = np.datetime64(request_time, "s")
+    diff = np.abs(resolved - req).astype("timedelta64[s]")
+    assert diff <= np.timedelta64(max_offset_minutes, "m")
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
-	"time",
-	[
-		np.array([np.datetime64("2024-07-01T00:00:00")]),
-	],
+    "time",
+    [
+        np.array([np.datetime64("2024-07-01T00:00:00")]),
+    ],
 )
 @pytest.mark.parametrize("variable", [["refc"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_mrms_cache(time, variable, cache):
-	ds = MRMS(cache=cache, max_offset_minutes=10)
-	data = ds(time, variable)
-	shape = data.shape
+    ds = MRMS(cache=cache, max_offset_minutes=10)
+    data = ds(time, variable)
+    shape = data.shape
 
-	assert shape[0] == 1
-	assert shape[1] == len(variable)
-	assert "lat" in data.dims and "lon" in data.dims
+    assert shape[0] == 1
+    assert shape[1] == len(variable)
+    assert "lat" in data.dims and "lon" in data.dims
 
-	# Cache presence matches flag
-	assert pathlib.Path(ds.cache).is_dir() == cache
+    # Cache presence matches flag
+    assert pathlib.Path(ds.cache).is_dir() == cache
 
-	# Load from cache or refetch with single variable
-	data = ds(time, variable[0])
-	shape = data.shape
-	assert shape[0] == 1
-	assert shape[1] == 1
-	assert "lat" in data.dims and "lon" in data.dims
+    # Load from cache or refetch with single variable
+    data = ds(time, variable[0])
+    shape = data.shape
+    assert shape[0] == 1
+    assert shape[1] == 1
+    assert "lat" in data.dims and "lon" in data.dims
 
-	try:
-		shutil.rmtree(ds.cache)
-	except FileNotFoundError:
-		pass
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
 
 
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
-	"time",
-	[
-		datetime(2019, 1, 1, 0, 0, 0),             # Before earliest availability
-		datetime.now() + np.timedelta64(1, "D"),  # Future time
-	],
+    "time",
+    [
+        datetime(2019, 1, 1, 0, 0, 0),  # Before earliest availability
+        datetime.now() + timedelta(days=1),  # Future time
+    ],
 )
 def test_mrms_available(time):
-	# Out-of-bounds times should not be available
-	assert not MRMS.available(time, product="MergedReflectivityQCComposite_00.50")
-	# And attempting to fetch should raise ValueError
-	with pytest.raises(ValueError):
-		ds = MRMS(cache=False)
-		ds([time], "refc")
-
+    # Out-of-bounds times should not be available
+    assert not MRMS.available(time, product="MergedReflectivityQCComposite_00.50")
+    # And attempting to fetch should raise ValueError
+    with pytest.raises(ValueError):
+        ds = MRMS(cache=False)
+        ds([time], "refc")
