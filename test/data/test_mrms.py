@@ -124,7 +124,8 @@ def test_mrms_cache(time, variable, cache):
 )
 def test_mrms_available(time):
     # Out-of-bounds times should not be available
-    assert not MRMS.available(time, product="MergedReflectivityQCComposite_00.50")
+    assert not MRMS.available(time, variable="refc")
+    assert MRMS.available(datetime(2023, 8, 23, 12, 0, 0), variable="refc")
     # And attempting to fetch should raise ValueError
     with pytest.raises(ValueError):
         ds = MRMS(cache=False)
