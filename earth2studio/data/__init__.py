@@ -28,6 +28,7 @@ from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
 from .imerg import IMERG
 from .jpss import JPSS
+from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (
     PlanetaryComputerMODISFire,
