@@ -228,19 +228,12 @@ class TestCBottleVideoMock:
             px(x, coords)
 
 
-@pytest.fixture(scope="function")
-def model(model_cache_context) -> CBottleVideo:
-    # Test only on cuda device
-    with model_cache_context():
-        package = CBottleVideo.load_default_package()
-        p = CBottleVideo.load_model(package)
-        return p
-
-
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_cbottle_video_package(model, device):
+def test_cbottle_video_package(device):
+    package = CBottleVideo.load_default_package()
+    model = CBottleVideo.load_model(package)
+
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package FCN

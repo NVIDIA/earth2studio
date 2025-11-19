@@ -112,6 +112,8 @@ def mock_GraphCastSmall_model():
         diffs_stddev_by_level,
         mean_by_level,
         stddev_by_level,
+        np.ones((181, 360)),
+        np.ones((181, 360)),
     )
 
     # Set chunked_prediction_generator to the mocked function
@@ -153,7 +155,7 @@ def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 85, 181, 360])
+    assert out.shape == torch.Size([len(time), 1, 83, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -205,7 +207,7 @@ def test_graphcast_small_iter(ensemble, device, mock_GraphCastSmall_model):
     assert len(input.shape) == 6
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 85, 181, 360])
+        assert out.shape == torch.Size([ensemble, len(time), 1, 83, 181, 360])
         assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
@@ -240,15 +242,13 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> GraphCastSmall:
-    # Test only on cuda device
-    with model_cache_context():
-        package = GraphCastSmall.load_default_package()
-        p = GraphCastSmall.load_model(package)
-        return p
+def model() -> GraphCastSmall:
+    package = GraphCastSmall.load_default_package()
+    p = GraphCastSmall.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
+@pytest.mark.package
 @pytest.mark.timeout(360)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_graphcast_small_package(model, device):
@@ -278,7 +278,7 @@ def test_graphcast_small_package(model, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 85, 181, 360])
+    assert out.shape == torch.Size([len(time), 1, 83, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -339,6 +339,8 @@ def mock_GraphCastOperational_model():
         diffs_stddev_by_level,
         mean_by_level,
         stddev_by_level,
+        np.ones((721, 1440)),
+        np.ones((721, 1440)),
     )
     p._chunked_prediction_generator = mocked_chunked_prediction_generator
     return p
@@ -365,7 +367,7 @@ def test_graphcast_operational_call(device, mock_GraphCastOperational_model):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     out, out_coords = p(x, coords)
-    assert out.shape == (1, 1, 85, 721, 1440)
+    assert out.shape == (1, 1, 83, 721, 1440)
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -414,10 +416,13 @@ def test_graphcast_operational_iter(ensemble, device, mock_GraphCastOperational_
     # Get generator
     input, input_coords = next(p_iter)  # Skip first which should return the input
     assert input_coords["lead_time"] == np.timedelta64(0, "h")
+    assert input.shape == torch.Size(
+        [ensemble, len(time), 1, 83, 721, 1440]
+    )  # 83, tp06 included in output
     assert len(input.shape) == 6
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 85, 721, 1440])
+        assert out.shape == torch.Size([ensemble, len(time), 1, 83, 721, 1440])
         assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
@@ -435,7 +440,7 @@ def test_graphcast_operational_iter(ensemble, device, mock_GraphCastOperational_
         OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
     ],
 )
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cuda:0"])
 def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GraphCastOperational_model.to(device)
@@ -452,15 +457,13 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
 
 
 @pytest.fixture(scope="function")
-def operational_model(model_cache_context) -> GraphCastOperational:
-    with model_cache_context():
-        package = GraphCastOperational.load_default_package()
-        p = GraphCastOperational.load_model(package)
-        return p
+def operational_model() -> GraphCastOperational:
+    package = GraphCastOperational.load_default_package()
+    p = GraphCastOperational.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_graphcast_operational_package(operational_model, device):
     torch.cuda.empty_cache()
@@ -489,7 +492,7 @@ def test_graphcast_operational_package(operational_model, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 85, 721, 1440])
+    assert out.shape == torch.Size([len(time), 1, 83, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)

@@ -200,16 +200,14 @@ class TestFengWuMock:
             p(x, coords)
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_fengwu_package(device, model_cache_context):
+def test_fengwu_package(device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    with model_cache_context():
-        with torch.device(device):
-            package = FengWu.load_default_package()
-            p = FengWu.load_model(package).to(device)
+    with torch.device(device):
+        package = FengWu.load_default_package()
+        p = FengWu.load_model(package).to(device)
 
     dc = p.input_coords()
     del dc["batch"]

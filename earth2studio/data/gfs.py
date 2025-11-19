@@ -59,7 +59,7 @@ class GFS:
     """The global forecast service (GFS) initial state data source provided on an
     equirectangular grid. GFS is a weather forecast model developed by NOAA. This data
     source is provided on a 0.25 degree lat lon grid at 6-hour intervals spanning from
-    Feb 26th 2021 to present date.
+    Jan 1st 2021 to present date.
 
     Parameters
     ----------
@@ -479,9 +479,14 @@ class GFS:
         """Generates the URI for GFS grib files"""
         lead_hour = int(lead_time.total_seconds() // 3600)
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
-        )
+        if time < datetime(2021, 3, 23):
+            file_name = os.path.join(
+                file_name, f"gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
+            )
+        else:
+            file_name = os.path.join(
+                file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
+            )
         return os.path.join(self.uri_prefix, file_name)
 
     def _grib_index_uri(self, time: datetime, lead_time: timedelta) -> str:
@@ -489,9 +494,16 @@ class GFS:
         # https://www.nco.ncep.noaa.gov/pmb/products/gfs/
         lead_hour = int(lead_time.total_seconds() // 3600)
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        file_name = os.path.join(
-            file_name, f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx"
-        )
+        # For some reason structure changed March 23 2021
+        if time < datetime(2021, 3, 23):
+            file_name = os.path.join(
+                file_name, f"gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx"
+            )
+        else:
+            file_name = os.path.join(
+                file_name,
+                f"atmos/gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx",
+            )
         return os.path.join(self.uri_prefix, file_name)
 
     @property

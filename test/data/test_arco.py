@@ -38,9 +38,12 @@ from earth2studio.data import ARCO
         np.array([np.datetime64("1993-04-05T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", "t136k", ["u500", "u200"]])
-def test_arco_fetch(time, variable):
+@pytest.mark.parametrize(
+    "variable,disable_msc", [("tcwv", True), ("t136k", True), (["u500", "u200"], False)]
+)
+def test_arco_fetch(time, variable, disable_msc, monkeypatch):
 
+    monkeypatch.setenv("EARTH2STUDIO_DISABLE_MSC", disable_msc)
     ds = ARCO(cache=False)
     data = ds(time, variable)
     shape = data.shape
@@ -57,7 +60,6 @@ def test_arco_fetch(time, variable):
     assert shape[3] == 1440
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
     assert not np.isnan(data.values).any()
-    # assert ARCO.available(time[0])
 
 
 @pytest.mark.slow

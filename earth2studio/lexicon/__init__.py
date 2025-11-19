@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .ace import ACELexicon
 from .arco import ARCOLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
@@ -26,4 +27,9 @@ from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .imerg import IMERGLexicon
 from .jpss import JPSSLexicon
 from .ncar import NCAR_ERA5Lexicon
+from .planetary_computer import (
+    MODISFireLexicon,
+    OISSTLexicon,
+    Sentinel3AODLexicon,
+)
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

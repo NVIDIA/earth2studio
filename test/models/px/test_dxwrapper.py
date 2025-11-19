@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from contextlib import nullcontext
 
 import numpy as np
 import pytest
@@ -26,11 +25,11 @@ from earth2studio.io import XarrayBackend
 from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
+    DerivedWS,
     PrecipitationAFNOv2,
     SolarRadiationAFNO1H,
-    TCTrackerVitart,
 )
-from earth2studio.models.px import FCN3, DiagnosticWrapper
+from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
 from earth2studio.run import deterministic
 from earth2studio.utils.coords import map_coords
 
@@ -98,6 +97,19 @@ class PhooCorrDiff(torch.nn.Module):
     sigma_min = 0
     sigma_max = float("inf")
 
+    def __init__(self):
+        super().__init__()
+        self.register_buffer("device_buffer", torch.empty(0))
+
+    @property
+    def device(self) -> torch.device:
+        return self.device_buffer.device
+
+    @device.setter
+    def device(self, value) -> None:
+        dev = torch.device(value)
+        self.device_buffer = torch.empty(0, device=dev)
+
     def forward(self, x, img_lr, class_labels=None, force_fp32=False, **model_kwargs):
         return x[:, :4]
 
@@ -114,7 +126,7 @@ class PhooCorrDiff(torch.nn.Module):
         [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
     ],
 )
-def test_fcn3_precip(device, model_type, times):
+def test_dxwrapper_call(device, model_type, times):
     # Spoof models
     fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
     px_model = FCN3(fcn3_model)
@@ -158,10 +170,14 @@ def test_fcn3_precip(device, model_type, times):
             {"lat": px_out_coords["lat"], "lon": px_out_coords["lon"]}
         ),
     )
+    ws_model = DerivedWS(levels=["100m"])
 
     wrapped_model = DiagnosticWrapper(
-        px_model=px_model, dx_models=[sp_model, dx_model]
+        px_model=px_model, dx_model=[sp_model, ws_model]
     ).to(device=device)
+    wrapped_model = DiagnosticWrapper(px_model=wrapped_model, dx_model=[dx_model]).to(
+        device=device
+    )
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
@@ -172,42 +188,34 @@ def test_fcn3_precip(device, model_type, times):
         variable=wrapped_model.input_coords()["variable"],
         device=device,
     )
-    (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    (x, input_coords) = map_coords(x, coords, wrapped_model.input_coords())
+    (x, coords) = wrapped_model(x, input_coords)
 
-    (x, coords) = wrapped_model(x, coords)
-
-    expected_shape = tuple(len(v) for v in coords.values())
-    expected_vars = np.concatenate(
-        [
-            model.output_coords(model.input_coords())["variable"]
-            for model in [px_model, sp_model, dx_model]
-        ]
+    coord_shape = tuple(coord.shape[0] for coord in coords.values())
+    expected_shape = tuple(
+        coord.shape[0] for coord in wrapped_model.output_coords(input_coords).values()
     )
-    assert (
-        x.shape
-        == expected_shape
-        == (len(times), 1, len(expected_vars), *landsea_mask.shape[-2:])
-    )
+    assert x.shape == coord_shape
+    assert x.shape == expected_shape
     assert tuple(coords) == ("time", "lead_time", "variable", "lat", "lon")
-    assert (coords["variable"] == expected_vars).all()
-
-    io = XarrayBackend()
-    deterministic(times, 2, wrapped_model, data, io, device=device)
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize(
-    "times",
+    "times,number_of_samples",
     [
-        [np.datetime64("2025-08-21T00:00:00")],
-        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+        ([np.datetime64("2025-08-21T00:00:00")], 2),
+        (
+            [
+                np.datetime64("2025-08-21T00:00:00"),
+                np.datetime64("2025-08-22T00:00:00"),
+            ],
+            1,
+        ),
     ],
 )
-@pytest.mark.parametrize("number_of_samples", [1, 2])
-@pytest.mark.parametrize("keep_px_output", [False, True])
-def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
+def test_dxwrapper_iter(device, times, number_of_samples):
     # Spoof models
-    px_model = FCN3(PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor())))
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
     in_scale = torch.ones(12, 1, 1)
@@ -228,11 +236,19 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
         number_of_samples=number_of_samples,
     ).to(device)
 
+    # Create persistence prognostic model
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=corrdiff_model.input_coords()["variable"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
+    ).to(device)
+
     wrapped_model = DiagnosticWrapper(
         px_model=px_model,
-        dx_models=corrdiff_model,
-        keep_px_output=keep_px_output,
-        interpolate_coords=True,
+        dx_model=corrdiff_model,
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
@@ -245,41 +261,63 @@ def test_fcn3_corrdiff(device, times, number_of_samples, keep_px_output):
         device=device,
     )
     (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    # Get generator
+    p_iter = wrapped_model.create_iterator(x, coords)
+    for i, (out, out_coords) in enumerate(p_iter):
 
-    with pytest.raises(ValueError) if keep_px_output else nullcontext():
-        (x, coords) = wrapped_model(x, coords)
-    if keep_px_output:
-        return
+        coord_shape = tuple(coord.shape[0] for coord in out_coords.values())
+        expected_shape = tuple(
+            coord.shape[0] for coord in wrapped_model.output_coords(coords).values()
+        )
+        assert out.shape == coord_shape
+        assert out.shape == expected_shape
 
-    expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape == (len(times), 1, number_of_samples, 4, 448, 448)
-    expected_vars = corrdiff_model.output_coords(corrdiff_model.input_coords())[
-        "variable"
-    ]
-    assert (coords["variable"] == expected_vars).all()
-
-    io = XarrayBackend()
-    deterministic(times, 2, wrapped_model, data, io, device=device)
+        if i == 2:
+            break
 
 
-@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
+@pytest.mark.parametrize("device", ["cuda:0"])
 @pytest.mark.parametrize(
-    "times",
+    "times,number_of_samples",
     [
-        [np.datetime64("2025-08-21T00:00:00")],
-        [np.datetime64("2025-08-21T00:00:00"), np.datetime64("2025-08-22T00:00:00")],
+        ([np.datetime64("2025-08-21T00:00:00")], 1),
     ],
 )
-@pytest.mark.parametrize("keep_px_output", [False, True])
-def test_fcn3_tc_tracker(device, times, keep_px_output):
-    # Spoof models
-    fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
-    px_model = FCN3(fcn3_model)
+def test_dxwrapper_run(device, times, number_of_samples):
 
-    tc_tracker = TCTrackerVitart()
+    model = PhooCorrDiff()
+    in_center = torch.zeros(12, 1, 1)
+    in_scale = torch.ones(12, 1, 1)
+    out_center = torch.zeros(4, 1, 1)
+    out_scale = torch.ones(4, 1, 1)
+    lat = torch.as_tensor(np.linspace(19.5, 27, 450, endpoint=True))
+    lon = torch.as_tensor(np.linspace(117, 125, 450, endpoint=False))
+    out_lon, out_lat = torch.meshgrid(lon, lat)
+    corrdiff_model = CorrDiffTaiwan(
+        model,
+        model,
+        in_center,
+        in_scale,
+        out_center,
+        out_scale,
+        out_lat,
+        out_lon,
+        number_of_samples=number_of_samples,
+    ).to(device)
+
+    # Create persistence prognostic model
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=corrdiff_model.input_coords()["variable"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
+    ).to(device)
 
     wrapped_model = DiagnosticWrapper(
-        px_model=px_model, dx_models=tc_tracker, keep_px_output=keep_px_output
+        px_model=px_model,
+        dx_model=corrdiff_model,
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
@@ -288,18 +326,255 @@ def test_fcn3_tc_tracker(device, times, keep_px_output):
     (x, coords) = fetch_data(
         data,
         times,
-        variable=wrapped_model.input_coords()["variable"],
+        variable=px_model.input_coords()["variable"],
         device=device,
     )
     (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    io = XarrayBackend()
+    deterministic(times, 2, wrapped_model, data, io, device=device)
 
-    with pytest.raises(ValueError) if keep_px_output else nullcontext():
-        (x, coords) = wrapped_model(x, coords)
-    if keep_px_output:
-        return
 
-    expected_shape = tuple(len(v) for v in coords.values())
-    assert x.shape == expected_shape
-    assert all(x.shape[dim] == (len(times), 1, -1, 1, 4)[dim] for dim in (0, 1, 3, 4))
-    expected_vars = tc_tracker.output_coords(tc_tracker.input_coords())["variable"]
-    assert (coords["variable"] == expected_vars).all()
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output1(device):
+    """Test strategy 1: Direct concatenation when all coords match"""
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create matching coordinate systems
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", np.linspace(-90, 90, 10)),
+            ("lon", np.linspace(0, 360, 20)),
+        ]
+    )
+
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        )
+    ]
+
+    # Create tensors
+    px_x = torch.randn(1, 2, 10, 20, device=device)
+    dx_x = [torch.randn(1, 1, 10, 20, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify shape and concatenation
+    assert x_out.shape == (1, 3, 10, 20)
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip"]
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output2(device):
+    """Test strategy 2: Subregion extraction when dx is a lat/lon subregion of px"""
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create px coords with larger spatial domain
+    lat_px = np.linspace(-90, 90, 20)
+    lon_px = np.linspace(0, 360, 40)
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", lat_px),
+            ("lon", lon_px),
+        ]
+    )
+
+    # Create dx coords with subregion (middle section)
+    lat_dx = lat_px[5:15]  # Contiguous subregion
+    lon_dx = lon_px[10:30]  # Contiguous subregion
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", lat_dx),
+                ("lon", lon_dx),
+            ]
+        )
+    ]
+
+    # Create tensors
+    px_x = torch.randn(1, 2, 20, 40, device=device)
+    dx_x = [torch.randn(1, 1, 10, 20, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify shape and concatenation
+    assert x_out.shape == (1, 3, 10, 20)
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip"]
+
+    # Verify that the sliced region was extracted correctly
+    # The first 2 variables should match the subregion of px_x
+    expected_slice = px_x[:, :, 5:15, 10:30]
+    assert torch.allclose(x_out[:, :2, :, :], expected_slice)
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output3(device):
+
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create incompatible coordinate systems (different time dimension)
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", np.linspace(-90, 90, 10)),
+            ("lon", np.linspace(0, 360, 20)),
+        ]
+    )
+
+    dx_coords = [
+        OrderedDict(
+            [
+                (
+                    "time",
+                    np.array(
+                        [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")]
+                    ),
+                ),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        )
+    ]
+
+    # Create tensors
+    px_x = torch.randn(1, 2, 10, 20, device=device)
+    dx_x = [torch.randn(2, 1, 10, 20, device=device)]
+
+    # Test forward pass
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify only dx outputs are used
+    assert x_out.shape == (2, 1, 10, 20)
+    assert list(coords_out["variable"]) == ["precip"]
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output_subregion(device):
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    # Create px coords
+    lat_px = np.array([0, 10, 20, 30, 40, 50, 60, 70, 80, 90])
+    lon_px = np.linspace(0, 360, 40)
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m"])),
+            ("lat", lat_px),
+            ("lon", lon_px),
+        ]
+    )
+
+    # Create dx coords with non-contiguous lat indices (skip some values)
+    lat_dx = np.array([0, 20, 40, 60, 80])  # Non-contiguous in the array
+    lon_dx = lon_px[10:30]  # Contiguous
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", lat_dx),
+                ("lon", lon_dx),
+            ]
+        )
+    ]
+    px_x = torch.randn(1, 1, 10, 40, device=device)
+    dx_x = [torch.randn(1, 1, 5, 20, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    assert x_out.shape == (1, 1, 5, 20)
+    assert list(coords_out["variable"]) == ["precip"]
+    assert torch.equal(x_out, dx_x[0])
+    assert x_out.device.type == device.split(":")[0]
+
+    # Create a dx with a lat lon domain thats out of bounds of prognostic
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-10, 80, 8)),
+                ("lon", np.linspace(200, 360, 10)),
+            ]
+        )
+    ]
+    px_x = torch.randn(1, 1, 10, 20, device=device)
+    dx_x = [torch.randn(1, 1, 8, 10, device=device)]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    assert x_out.shape == (1, 1, 8, 10)
+    assert list(coords_out["variable"]) == ["precip"]
+    assert torch.equal(x_out, dx_x[0])
+    assert x_out.device.type == device.split(":")[0]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_prepare_output_tensor_multiple_dx_models(device):
+    from earth2studio.models.px.dxwrapper import PrepareOutputTensorDefault
+
+    prepare_output = PrepareOutputTensorDefault()
+
+    px_coords = OrderedDict(
+        [
+            ("time", np.array([np.datetime64("2024-01-01")])),
+            ("variable", np.array(["t2m", "u10m"])),
+            ("lat", np.linspace(-90, 90, 10)),
+            ("lon", np.linspace(0, 360, 20)),
+        ]
+    )
+
+    dx_coords = [
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["precip"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        ),
+        OrderedDict(
+            [
+                ("time", np.array([np.datetime64("2024-01-01")])),
+                ("variable", np.array(["solar"])),
+                ("lat", np.linspace(-90, 90, 10)),
+                ("lon", np.linspace(0, 360, 20)),
+            ]
+        ),
+    ]
+    px_x = torch.randn(1, 2, 10, 20, device=device)
+    dx_x = [
+        torch.randn(1, 1, 10, 20, device=device),
+        torch.randn(1, 1, 10, 20, device=device),
+    ]
+
+    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+
+    # Verify shape and concatenation with multiple dx models
+    assert x_out.shape == (1, 4, 10, 20)
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip", "solar"]
+    assert x_out.device.type == device.split(":")[0]

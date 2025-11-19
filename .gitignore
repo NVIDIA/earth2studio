@@ -76,6 +76,7 @@ venv.bak/
 
 # VsCode
 .vscode/
+.cursor/
 
 # VIM
 *.swp
@@ -86,6 +87,7 @@ nsight-systems*
 build/
 mlruns/
 cache/
+.cache/
 
 # Examples
 outputs/
@@ -98,3 +100,6 @@ _build
 docs/modules/generated
 docs/modules/backreferences
 docs/examples
+
+# Pytestmon
+.testmondata*
