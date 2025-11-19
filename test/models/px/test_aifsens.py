@@ -22,9 +22,9 @@ import pytest
 import torch
 
 try:
-    import anemoi.models  # noqa: F401
+    import anemoi  # noqa: F401
 except ImportError:
-    pytest.skip("anemoi.models not installed", allow_module_level=True)
+    pytest.skip("anemoi not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFSENS
@@ -271,15 +271,13 @@ def test_aifsens_exceptions(dc, device):
 
 
 @pytest.fixture(scope="function")
-def model(model_cache_context) -> AIFSENS:
-    with model_cache_context():
-        package = AIFSENS.load_default_package()
-        p = AIFSENS.load_model(package)
-        return p
+def model() -> AIFSENS:
+    package = AIFSENS.load_default_package()
+    p = AIFSENS.load_model(package)
+    return p
 
 
-@pytest.mark.ci_cache
-@pytest.mark.timeout(360)
+@pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_aifsens_package(device, model):
     torch.cuda.empty_cache()
