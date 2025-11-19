@@ -159,20 +159,21 @@ VARIABLES = [
 
 @check_optional_dependencies()
 class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Artificial Intelligence Forecasting System (AIFS), a data driven forecast model
-    developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is
-    based on a graph neural network (GNN) encoder and decoder, and a sliding window
-    transformer processor, and is trained on ECMWF's ERA5 re-analysis and ECMWF's
-    operational numerical weather prediction (NWP) analyses.
-    Consists of a single model with a time-step size of 6 hours.
+    """Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
+    probabilistic, ensemble-based forecast model from the European Centre for
+    Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a
+    sliding-window transformer processor, trained on ERA5 reanalysis and operational NWP
+    analyses, and is run four times daily with a 6-hour time step. The model is trained
+    with a CRPS objective over a small ensemble to provide calibrated probabilistic
+    output.
 
-    Note
-    ----
+    Notes
+    -----
     This model uses the checkpoints provided by ECMWF.
     For additional information see the following resources:
 
     - https://arxiv.org/abs/2406.01465
-    - https://huggingface.co/ecmwf/aifs-single-1.0
+    - https://huggingface.co/ecmwf/aifs-ens-1.0
     - https://github.com/ecmwf/anemoi-core
 
     Warning
@@ -508,7 +509,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model."""
+        """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)
@@ -641,7 +642,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model."""
+        """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Remove generated forcings
         all_indices = torch.arange(x.size(-1))
         keep = torch.isin(all_indices, torch.arange(92, 101), invert=True)
