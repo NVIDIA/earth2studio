@@ -58,7 +58,7 @@ class MRMS:
 
     Parameters
     ----------
-    max_offset_minutes : int, optional
+    max_offset_minutes : float, optional
         Time tolerance in minutes to search for the nearest available MRMS
         file to the requested timestamp, by default 0 (exact match only).
     cache : bool, optional
@@ -79,6 +79,7 @@ class MRMS:
     Note
     ----
     Additional information:
+
     - https://registry.opendata.aws/noaa-mrms-pds/
     - https://noaa-mrms-pds.s3.amazonaws.com/index.html
     """
@@ -89,7 +90,7 @@ class MRMS:
 
     def __init__(
         self,
-        max_offset_minutes: int = 0,
+        max_offset_minutes: float = 0,
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
@@ -189,8 +190,10 @@ class MRMS:
 
         # Pre-allocate output; keep requested times as coordinate
         out = xr.DataArray(
-            data=np.empty(
-                (len(time), len(variable), lat.shape[0], lon.shape[0]), dtype=dtype
+            data=np.full(
+                (len(time), len(variable), lat.shape[0], lon.shape[0]),
+                np.nan,
+                dtype=dtype,
             ),
             dims=["time", "variable", "lat", "lon"],
             coords={"time": time, "variable": variable, "lat": lat, "lon": lon},
@@ -419,7 +422,7 @@ class MRMS:
         Returns
         -------
         bool
-                True if the object exists in S3, else False.
+            True if the object exists in S3, else False.
         """
         if isinstance(time, np.datetime64):
             _unix = np.datetime64(0, "s")

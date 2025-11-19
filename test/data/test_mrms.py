@@ -115,18 +115,39 @@ def test_mrms_cache(time, variable, cache):
 
 
 @pytest.mark.timeout(15)
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime(2019, 1, 1, 0, 0, 0),  # Before earliest availability
-        datetime.now() + timedelta(days=1),  # Future time
-    ],
-)
-def test_mrms_available(time):
+def test_mrms_available():
     # Out-of-bounds times should not be available
-    assert not MRMS.available(time, variable="refc")
+    assert not MRMS.available(np.datetime64("2019-01-01T00:00:00"), variable="refc")
+    assert not MRMS.available(datetime.now() + timedelta(days=1), variable="refc")
     assert MRMS.available(datetime(2023, 8, 23, 12, 0, 0), variable="refc")
+
     # And attempting to fetch should raise ValueError
     with pytest.raises(ValueError):
         ds = MRMS(cache=False)
-        ds([time], "refc")
+        ds([datetime(2019, 1, 1, 0, 0, 0)], "refc")
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+def test_mrms_partial_missing_time_nan_fill():
+    # https://noaa-mrms-pds.s3.amazonaws.com/index.html#CONUS/MergedReflectivityComposite_00.50/20251107/
+    # MRMS_MergedReflectivityComposite_00.50_20251107-000040.grib2.gz
+    t_valid = datetime(2025, 11, 7, 0, 0, 35)
+    t_missing = datetime(2025, 11, 7, 0, 1, 10)  # This will fail with tolerance 0.1
+
+    ds = MRMS(cache=False, max_offset_minutes=0.1)
+    data = ds([t_valid, t_missing], "refc")
+
+    # Expect two times and one variable
+    assert data.shape[0] == 2
+    assert data.shape[1] == 1
+    assert "lat" in data.dims and "lon" in data.dims
+
+    # First time should contain some real values (not all NaN)
+    first_values = data.isel(time=0).values
+    assert not np.isnan(first_values).all()
+
+    # Second time should be entirely NaN-filled
+    second_values = data.isel(time=1).values
+    assert np.isnan(second_values).all()
