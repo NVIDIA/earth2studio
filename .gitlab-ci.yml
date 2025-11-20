@@ -64,7 +64,7 @@ test:
     max: 2
     exit_codes: 123
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" and $PIPELINE_REPO_SOURCE != "github"'
       variables:
         TESTMON_CACHE_POLICY: pull-push
         EARTH2STUDIO_CACHE_POLICY: pull-push
