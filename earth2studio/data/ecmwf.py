@@ -486,6 +486,8 @@ class IFS(ECMWFOpenDataSource):
                 raise ValueError(
                     f"Requested lead time {delta} needs to be 6 hour interval for {self._model} after hour 144"
                 )
+            if hours < 0:
+                raise ValueError(f"Requested lead time {delta} needs to 0 or greater")
 
 
 class IFS_ENS(ECMWFOpenDataSource):
