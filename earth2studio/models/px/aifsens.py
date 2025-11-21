@@ -167,14 +167,30 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     with a CRPS objective over a small ensemble to provide calibrated probabilistic
     output.
 
-    Notes
-    -----
+    Note
+    ----
     This model uses the checkpoints provided by ECMWF.
     For additional information see the following resources:
 
     - https://arxiv.org/abs/2406.01465
     - https://huggingface.co/ecmwf/aifs-ens-1.0
     - https://github.com/ecmwf/anemoi-core
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        Core PyTorch module with the pretrained AIFSENS weights loaded.
+    latitudes : torch.Tensor
+        Latitude values for the native model grid, registered as a buffer for
+        interpolation.
+    longitudes : torch.Tensor
+        Longitude values for the native model grid, registered as a buffer for
+        interpolation.
+    interpolation_matrix : torch.Tensor
+        CSR sparse matrix mapping ERA5 lat/lon inputs onto the native model grid.
+    inverse_interpolation_matrix : torch.Tensor
+        CSR sparse matrix mapping outputs from the native model grid back to ERA5
+        lat/lon.
 
     Warning
     -------
@@ -199,9 +215,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
-
-    def __str__(self) -> str:
-        return "aifs-ens-1.0"
 
     @property
     def input_variables(self) -> list[str]:

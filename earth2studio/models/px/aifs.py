@@ -178,6 +178,22 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - https://huggingface.co/ecmwf/aifs-single-1.0
     - https://github.com/ecmwf/anemoi-core
 
+    Parameters
+    ----------
+    model : torch.nn.Module
+        Core PyTorch module with the pretrained AIFS weights loaded.
+    latitudes : torch.Tensor
+        Latitude values for the native model grid, registered as a buffer for
+        interpolation.
+    longitudes : torch.Tensor
+        Longitude values for the native model grid, registered as a buffer for
+        interpolation.
+    interpolation_matrix : torch.Tensor
+        CSR sparse matrix mapping ERA5 lat/lon inputs onto the native model grid.
+    inverse_interpolation_matrix : torch.Tensor
+        CSR sparse matrix mapping outputs from the native model grid back to ERA5
+        lat/lon.
+
     Warning
     -------
     We encourage users to familiarize themselves with the license restrictions of this
