@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
 - Added ECMWF AIFSENS ensemble prognostic model wrapper
+- Added MRMS data source
 
 ### Changed
 
