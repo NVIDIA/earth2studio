@@ -183,15 +183,15 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     model : torch.nn.Module
         Core PyTorch module with the pretrained AIFS weights loaded.
     latitudes : torch.Tensor
-        Latitude values for the native model grid, registered as a buffer for
+        Latitude values for the native octahedral grid, registered as a buffer for
         interpolation.
     longitudes : torch.Tensor
-        Longitude values for the native model grid, registered as a buffer for
+        Longitude values for the native octahedral grid, registered as a buffer for
         interpolation.
     interpolation_matrix : torch.Tensor
-        CSR sparse matrix mapping ERA5 lat/lon inputs onto the native model grid.
+        CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.
     inverse_interpolation_matrix : torch.Tensor
-        CSR sparse matrix mapping outputs from the native model grid back to ERA5
+        CSR sparse matrix mapping outputs from the octahedral grid back to ERA5
         lat/lon.
 
     Warning
@@ -217,9 +217,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
-
-    def __str__(self) -> str:
-        return "aifs-single-1.0"
 
     @property
     def input_variables(self) -> list[str]:
