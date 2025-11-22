@@ -76,7 +76,7 @@ class PhooAIFSENSModel(torch.nn.Module):
         data_indices.data.input.prognostic = torch.cat(
             [
                 all_idx[0:82],
-                all_idx[[83, 85, 87, 88, 107, 108, 109, 110]],
+                all_idx[[83, 85, 87, 88, 101, 102]],
             ]
         )
 
@@ -89,7 +89,7 @@ class PhooAIFSENSModel(torch.nn.Module):
         )
 
         data_indices.data.input.full = torch.cat(
-            [all_idx[0:90], all_idx[92:101], all_idx[[107, 108, 109, 110]]]
+            [all_idx[0:90], all_idx[92:101], all_idx[[101, 102]]]
         )
 
         data_indices.model = DotDict()
@@ -106,7 +106,7 @@ class PhooAIFSENSModel(torch.nn.Module):
 
 
 EXPECTED_OUTPUT_VARIABLES = len(VARIABLES) - 9
-EXPECTED_INPUT_VARIABLES = 94
+EXPECTED_INPUT_VARIABLES = 92
 
 
 @pytest.mark.parametrize(
