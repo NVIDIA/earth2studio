@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 import xarray as xr
@@ -127,11 +128,13 @@ class TimeWindow:
         offsets: list[timedelta],
         suffixes: list[str],
         group_by: str = "variable",
+        time_fn: Callable[[datetime], datetime] = lambda x: x,
     ):
         self.datasource = datasource
         self.offsets = offsets
         self.suffixes = suffixes
         self.group_by = group_by
+        self.time_fn = time_fn
 
         if not offsets:
             raise ValueError("offsets must be a non-empty list")
@@ -285,9 +288,13 @@ class TimeWindow:
         may log warnings and return NaN values instead of raising errors for missing data.
         The wrapper does not add additional validation.
         """
+        # Keep original time for output coordinates
         time_list, variable_list = prep_data_inputs(time, variable)
 
         suffix_to_bases, output_order = self._prepare_variable_requests(variable_list)
+
+        # Apply time_fn to get base time for fetching (but keep original time_list for output)
+        fetch_time_list = [self.time_fn(t) for t in time_list]
 
         # Collect data for all offset times
         offset_data_arrays = []
@@ -298,8 +305,8 @@ class TimeWindow:
             if not base_vars:
                 continue
 
-            # Compute offset times
-            offset_times = [t + offset for t in time_list]
+            # Compute offset times using transformed fetch times
+            offset_times = [t + offset for t in fetch_time_list]
 
             try:
                 # Fetch data from underlying datasource

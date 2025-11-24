@@ -146,6 +146,14 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Fraction of input grid range to allow for extrapolation beyond input grid bounds.
         For example, 0.05 allows output grid to extend 5% beyond input grid range.
         Useful for Gaussian grids that don't include poles. Default is 0.0 (no extrapolation).
+    sigma_min : float | None, optional
+        Minimum noise level for diffusion process. If None, uses sampler-specific defaults:
+        deterministic sampler uses None (calculated internally), stochastic sampler uses 0.002.
+        By default None.
+    sigma_max : float | None, optional
+        Maximum noise level for diffusion process. If None, uses sampler-specific defaults:
+        deterministic sampler uses None (calculated internally), stochastic sampler uses 800.
+        By default None.
     """
 
     def __init__(
@@ -175,6 +183,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         time_window: dict | None = None,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
+        sigma_min: float | None = None,
+        sigma_max: float | None = None,
     ):
         super().__init__()
 
@@ -201,6 +211,23 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         self.invariant_scale = invariant_scale
         self.grid_spacing_tolerance = grid_spacing_tolerance
         self.grid_bounds_margin = grid_bounds_margin
+
+        # Set sigma defaults based on sampler type to preserve existing behavior
+        # Deterministic: sigma_min=None, sigma_max=None (calculated internally)
+        # Stochastic: sigma_min=0.002, sigma_max=800
+        if sigma_min is None:
+            self.sigma_min: float | None = (
+                0.002 if sampler_type == "stochastic" else None
+            )
+        else:
+            self.sigma_min = sigma_min
+
+        if sigma_max is None:
+            self.sigma_max: float | None = (
+                800.0 if sampler_type == "stochastic" else None
+            )
+        else:
+            self.sigma_max = sigma_max
 
         # Store models
         self.residual_model = residual_model
@@ -502,21 +529,27 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         self, sampler_type: Literal["deterministic", "stochastic"]
     ) -> Callable:
         """Set up the appropriate sampler based on the type."""
+        sampler_kwargs: dict[str, Any] = {"num_steps": self.number_of_steps}
+
         if sampler_type == "deterministic":
             if self.hr_mean_conditioning:
                 raise NotImplementedError(
                     "High-res mean conditioning is not yet implemented for the deterministic sampler"
                 )
-            return partial(
-                deterministic_sampler,
-                num_steps=self.number_of_steps,
-                solver=self.solver,
-            )
+            sampler_kwargs["solver"] = self.solver
+            # Only add sigma parameters if they are not None
+            if self.sigma_min is not None:
+                sampler_kwargs["sigma_min"] = self.sigma_min
+            if self.sigma_max is not None:
+                sampler_kwargs["sigma_max"] = self.sigma_max
+            return partial(deterministic_sampler, **sampler_kwargs)
         elif sampler_type == "stochastic":
-            return partial(
-                stochastic_sampler,
-                num_steps=self.number_of_steps,
-            )
+            # Only add sigma parameters if they are not None
+            if self.sigma_min is not None:
+                sampler_kwargs["sigma_min"] = self.sigma_min
+            if self.sigma_max is not None:
+                sampler_kwargs["sigma_max"] = self.sigma_max
+            return partial(stochastic_sampler, **sampler_kwargs)
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
@@ -574,7 +607,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         output_coords["batch"] = input_coords["batch"]
         return output_coords
 
-    def create_time_window_wrapper(self, datasource: DataSource) -> TimeWindow:
+    def create_time_window_wrapper(
+        self,
+        datasource: DataSource,
+        time_fn: Callable[[datetime], datetime] | None = None,
+    ) -> TimeWindow:
         """Create a ``TimeWindow`` wrapper for a compatible datasource.
 
         The wrapper is configured from this model's ``time_window`` metadata.
@@ -592,6 +629,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         ----------
         datasource : DataSource
             The underlying datasource to wrap.
+        time_fn : Callable[[datetime], datetime] | None, optional
+            Optional function to transform the base time before fetching data.
+            Useful for normalizing request times to match data availability
+            (e.g., always request at 12:00 for daily data). The original time
+            is preserved in the output coordinates. By default None (no transformation).
 
         Returns
         -------
@@ -603,6 +645,16 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         ------
         ValueError
             If the model doesn't have ``time_window`` metadata defined.
+
+        Examples
+        --------
+        >>> # Basic usage (no time transformation)
+        >>> wrapped = model.create_time_window_wrapper(datasource)
+        >>>
+        >>> # With time normalization to noon
+        >>> def to_noon(dt):
+        ...     return dt.replace(hour=12, minute=0, second=0, microsecond=0)
+        >>> wrapped = model.create_time_window_wrapper(datasource, time_fn=to_noon)
         """
         if self.time_window is None:
             raise ValueError(
@@ -635,6 +687,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             offsets=offsets,
             suffixes=suffixes,
             group_by=group_by,
+            time_fn=time_fn if time_fn is not None else lambda x: x,
         )
 
     @classmethod
@@ -743,6 +796,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         package: Package,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
+        sigma_min: float | None = None,
+        sigma_max: float | None = None,
     ) -> DiagnosticModel:
         """Load CorrDiff model from package.
 
@@ -754,6 +809,12 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             Relative tolerance for checking regular grid spacing, by default 1e-5
         grid_bounds_margin : float, optional
             Fraction of input grid range to allow for extrapolation, by default 0.0
+        sigma_min : float | None, optional
+            Minimum noise level for diffusion process. If None, uses sampler-specific defaults.
+            By default None.
+        sigma_max : float | None, optional
+            Maximum noise level for diffusion process. If None, uses sampler-specific defaults.
+            By default None.
 
         Returns
         -------
@@ -801,6 +862,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
         seed = metadata.get("seed", None)
         time_window_metadata = metadata.get("time_window", None)
+        sigma_min_metadata = metadata.get("sigma_min", None)
+        sigma_max_metadata = metadata.get("sigma_max", None)
 
         base_variables = list(raw_input_variables)
         if time_window_metadata is not None:
@@ -925,6 +988,13 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                     [stats["invariants"][v]["std"] for v in invariants]
                 )
 
+        # Decide which sigma values to pass into the constructor:
+        # 1. Explicit load_model arguments (sigma_min / sigma_max) win if provided
+        # 2. Otherwise, fall back to metadata values (sigma_min_metadata / sigma_max_metadata)
+        # 3. If both are None, __init__ will apply sampler-specific defaults
+        effective_sigma_min = sigma_min if sigma_min is not None else sigma_min_metadata
+        effective_sigma_max = sigma_max if sigma_max is not None else sigma_max_metadata
+
         return cls(
             input_variables=input_variables,
             output_variables=output_variables,
@@ -951,6 +1021,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             time_window=time_window,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
+            sigma_min=effective_sigma_min,
+            sigma_max=effective_sigma_max,
         )
 
     @staticmethod
@@ -1303,6 +1375,9 @@ class CorrDiffCMIP6(CorrDiff):
         super().__init__(*args, **kwargs)
 
         # Extend in_center and in_scale to include time features (sza, hod) at the end
+        # Note: During training, the last invariant position (coslat) mistakenly had hod VALUES,
+        # but was normalized using coslat STATISTICS. This bug is replicated in preprocess_input
+        # by putting hod values in the coslat position during channel reordering.
         if time_feature_center is not None and time_feature_scale is not None:
             # Reshape time features to match the 4D format [1, N, 1, 1]
             time_feature_center = time_feature_center.view(1, -1, 1, 1)
@@ -1353,6 +1428,39 @@ class CorrDiffCMIP6(CorrDiff):
                 "lon": self.lon_input_numpy,
             }
         )
+
+    def create_time_window_wrapper(
+        self,
+        datasource: DataSource,
+        time_fn: Callable[[datetime], datetime] | None = None,
+    ) -> TimeWindow:
+        """Create TimeWindow wrapper with CMIP6-specific time normalization.
+
+        This override adds automatic normalization to noon (12:00) for CMIP6 data,
+        which is typically available only at specific times of day.
+
+        Parameters
+        ----------
+        datasource : DataSource
+            The underlying datasource to wrap.
+        time_fn : Callable[[datetime], datetime] | None, optional
+            Optional function to transform the base time. If not provided,
+            defaults to normalizing times to noon for CMIP6. By default None.
+
+        Returns
+        -------
+        TimeWindow
+            Configured TimeWindow wrapper with noon normalization.
+        """
+
+        # CMIP6-specific: normalize all times to noon for data fetching
+        def to_noon(dt: datetime) -> datetime:
+            """Normalize time to 12:00 (noon) for CMIP6 data availability."""
+            return dt.replace(hour=12)
+
+        # Use provided time_fn or default to noon normalization
+        effective_time_fn = time_fn if time_fn is not None else to_noon
+        return super().create_time_window_wrapper(datasource, time_fn=effective_time_fn)
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -1423,7 +1531,17 @@ class CorrDiffCMIP6(CorrDiff):
         -------
         torch.Tensor
             Preprocessed and normalized input tensor [1, C+C_inv, H_out, W_out]
+
+        Raises
+        ------
+        ValueError
+            If time is None (required for CorrDiffCMIP6)
         """
+        if time is None:
+            raise ValueError(
+                "CorrDiffCMIP6 requires time parameter for time-dependent features"
+            )
+
         channel_names = self.input_variables
 
         # Convert siconc to sai_cover (sea-air-ice cover) by combining with snow cover
@@ -1457,31 +1575,40 @@ class CorrDiffCMIP6(CorrDiff):
 
         # Concatenate invariants if available
         if self.invariants is not None:
-            x = torch.concat([x, self.invariants.unsqueeze(0)], dim=1)
+            x = torch.concat([x, torch.flip(self.invariants.unsqueeze(0), [2])], dim=1)
             channel_names = channel_names + self.invariant_variables
 
         # Add batch dimension
         # x = x.view(1, *x.shape)
 
-        # Add time-dependent features AFTER invariants and normalization
-        if time is not None:
-            # Create meshgrid for lat/lon (cos_zenith_angle expects 2D arrays)
-            lon_grid, lat_grid = np.meshgrid(
-                self.lon_output_numpy, self.lat_output_numpy
-            )
+        # Add time-dependent features AFTER invariants
+        # Create meshgrid for lat/lon (cos_zenith_angle expects 2D arrays)
+        lon_grid, lat_grid = np.meshgrid(self.lon_output_numpy, self.lat_output_numpy)
 
-            # Compute cosine of solar zenith angle
-            cos_sza = cos_zenith_angle(time, lon_grid, lat_grid).astype(np.float32)
-            cos_sza_tensor = (
-                torch.from_numpy(cos_sza).unsqueeze(0).unsqueeze(0).to(x.device)
-            )
-            x = torch.concat([x, cos_sza_tensor], dim=1)
-            channel_names = channel_names + ["sza"]
+        # Compute cosine of solar zenith angle
+        cos_sza = cos_zenith_angle(time, lon_grid, lat_grid).astype(np.float32)
+        cos_sza_tensor = (
+            torch.from_numpy(cos_sza).unsqueeze(0).unsqueeze(0).to(x.device)
+        )
+        x = torch.concat([x, cos_sza_tensor], dim=1)
+        channel_names = channel_names + ["sza"]
 
-            # Add hour of day as a channel
-            hour_tensor = torch.full_like(cos_sza_tensor, float(time.hour))
-            x = torch.concat([x, hour_tensor], dim=1)
-            channel_names = channel_names + ["hod"]
+        # Add hour of day as a channel
+        # Note: During training, the last invariant (coslat) was mistakenly
+        # filled with hod values. We replicate this by overwriting the last
+        # invariant channel with hod BEFORE normalization.
+        hour_tensor = torch.full_like(cos_sza_tensor, float(time.hour))
+
+        # Replace coslat (last invariant) with hod VALUES before normalization
+        num_input = len(self.input_variables)
+        num_inv = len(self.invariant_variables)
+        x[:, num_input + num_inv - 1] = (
+            hour_tensor.squeeze()
+        )  # coslat position gets hod values
+
+        # Also add hod at the end
+        x = torch.concat([x, hour_tensor], dim=1)
+        channel_names = channel_names + ["hod"]
 
         # Normalize input (base variables + invariants + time features)
         # The in_center and in_scale have been extended to include time features
@@ -1490,19 +1617,25 @@ class CorrDiffCMIP6(CorrDiff):
         x = F.pad(x, (0, 0, 23, 24), mode="reflect")
         x = F.pad(x, (48, 48, 0, 0), mode="circular")
 
-        # Reorder channels: current order is [input_vars, invariants, sza, hod]
-        # Required order is: [input_vars, sza, invariants, hod]
+        # Reorder channels after normalization
+        # Current: [input_vars, invariants_with_hod_at_coslat, sza, hod]
+        # Target: [input_vars, sza, invariants[:-1], hod_coslat_normalized, hod_hod_normalized]
+        # The hod at coslat position was normalized with coslat stats
+        # The hod at the end was normalized with hod stats
         num_input = len(self.input_variables)
         num_inv = len(self.invariant_variables)
 
         # Build index list for reordering
         indices = (
-            list(range(num_input))
-            + [num_input + num_inv]  # input variables
-            + list(  # sza (currently after invariants)
-                range(num_input, num_input + num_inv)
-            )
-            + [num_input + num_inv + 1]  # invariants  # hod (currently at the end)
+            list(range(num_input))  # input variables
+            + [num_input + num_inv]  # sza
+            + list(
+                range(num_input, num_input + num_inv - 1)
+            )  # invariants except coslat
+            + [
+                num_input + num_inv - 1,
+                num_input + num_inv + 1,
+            ]  # hod (coslat-normalized), hod (hod-normalized)
         )
         x = x[:, indices]
 
@@ -1626,6 +1759,8 @@ class CorrDiffCMIP6(CorrDiff):
             time_feature_scale=time_feature_scale,
             grid_spacing_tolerance=0.01,
             grid_bounds_margin=0.05,
+            sigma_min=model.sigma_min,
+            sigma_max=model.sigma_max,
         )
 
 
