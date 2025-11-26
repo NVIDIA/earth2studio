@@ -98,14 +98,14 @@ zb.add_array(full_coords, array_name=list(variables))
 
 # Loop over timestamps, fetch data and write slices into the pre-created arrays
 for t in np.atleast_1d(times):
-    x, coods = fetch_data(
+    x, coords = fetch_data(
         wb2,
         time=np.array([t]),
         variable=variables,
         lead_time=np.array([np.timedelta64(0, "h")]),
         device="cpu",
     )
-    xs, reduced_coords, var_names = split_coords(x, coods, dim="variable")
+    xs, reduced_coords, var_names = split_coords(x, coords, dim="variable")
     zb.write(xs, reduced_coords, array_name=list(var_names))
 
 # %%
