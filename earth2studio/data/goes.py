@@ -193,6 +193,9 @@ class GOES:
         self._verbose = verbose
         self._async_timeout = async_timeout
 
+        # Stash the grid coords so they can be added to data arrays
+        self._lat, self._lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
+
         # Validate satellite and scan mode
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
 
@@ -326,6 +329,8 @@ class GOES:
         await self.fs.set_session()  # Make sure the session was actually initalized
         s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
+        # Add the grid coords to the data array
+        xr_array = xr_array.assign_coords({"_lat": (("y", "x"), self._lat), "_lon": (("y", "x"), self._lon)})
         return xr_array
 
     async def fetch_wrapper(
