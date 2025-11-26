@@ -31,11 +31,7 @@ import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import (
-    datasource_cache_root,
-    prep_data_inputs,
-    prep_forecast_inputs,
-)
+from earth2studio.data.utils import datasource_cache_root, prep_forecast_inputs
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
 from earth2studio.lexicon.ecmwf import ECMWFOpenDataLexicon
 from earth2studio.utils.imports import (
@@ -220,15 +216,8 @@ class ECMWFOpenDataSource(ABC):
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Make sure input time is valid. Negative lead times imply data needs to be
-        # fetched from an earlier initialization cycle, so include those shifted
-        # timestamps in the validation set as well.
-        times_to_validate = set(time)
-        for base_time in time:
-            for delta in lead_time:
-                if delta.total_seconds() < 0:
-                    times_to_validate.add(base_time + delta)
-        self._validate_time(sorted(times_to_validate))
+        # Make sure input time is valid
+        self._validate_time(time)
         self._validate_leadtime(time, lead_time)
 
         # Pre-allocate full array (could be made more efficient)
@@ -327,17 +316,11 @@ class ECMWFOpenDataSource(ABC):
 
                     ifs_var, levtype, level = ifs_name.split("::")
 
-                    req_time = t
-                    req_lead = lt
-                    if lt.total_seconds() < 0:
-                        req_time = t + lt
-                        req_lead = timedelta(0)
-
                     tasks.append(
                         ECMWFOpenDataAsyncTask(
                             data_array_indices=(i, j, k),
-                            time=req_time,
-                            lead_time=req_lead,
+                            time=t,
+                            lead_time=lt,
                             variable=ifs_var,
                             levtype=levtype,
                             level=level,
@@ -352,63 +335,21 @@ class ECMWFOpenDataSource(ABC):
         xr_array: xr.DataArray,
     ) -> None:
         """Small wrapper to pack arrays into the DataArray."""
-        try:
-            grib_file = await self._download_ifs_grib_cached(
-                time=task.time,
-                lead_time=task.lead_time,
-                variable=task.variable,
-                levtype=task.levtype,
-                level=task.level,
-            )
-
-            # Open into xarray data-array
-            # Provided [-180, 180], roll to [0, 360]
-            type_map = {
-                "pl": "isobaricInhPa",
-                "sfc": "surface",
-                "sl": "soilLayers",
-                "ml": "generalVertical",
-            }
-            filter_keys = {"typeOfLevel": type_map.get(task.levtype, task.levtype)}
-            # Pressure and soil levels require specifying the exact level requested
-            if task.levtype in {"pl", "sl"}:
-                level = task.level
-                if isinstance(level, list):
-                    # CFGRIB expects a single integer level per request
-                    level = level[0]
-                filter_keys["level"] = int(level)
-
-            backend_kwargs = {"indexpath": "", "filter_by_keys": filter_keys}
-            try:
-                da = xr.open_dataarray(
-                    grib_file,
-                    engine="cfgrib",
-                    backend_kwargs=backend_kwargs,
-                )
-            except ValueError as exc:
-                if "contains no data variables" in str(exc):
-                    # Retry without filtering for legacy files or unexpected level metadata
-                    da = xr.open_dataarray(
-                        grib_file,
-                        engine="cfgrib",
-                        backend_kwargs={"indexpath": ""},
-                    )
-                else:
-                    raise
-
-            da = da.roll(longitude=-len(self.LON) // 2, roll_coords=True)
-            if self._members is not None:
-                da = da.sel(number=self._members)  # reorder
-            xr_array[task.data_array_indices] = task.modifier(da.values)
-        except Exception as exc:
-            logger.warning(
-                f"Missing IFS field {task.variable}/{task.levtype}/{task.level} at "
-                f"time={task.time}, lead={task.lead_time}: {exc}. Filling zeros."
-            )
-            xr_array[task.data_array_indices] = np.zeros(
-                (len(self.LAT), len(self.LON)),
-                dtype=xr_array.dtype,
-            )
+        grib_file = await self._download_ifs_grib_cached(
+            time=task.time,
+            lead_time=task.lead_time,
+            variable=task.variable,
+            levtype=task.levtype,
+            level=task.level,
+        )
+        # Open into xarray data-array
+        # Provided [-180, 180], roll to [0, 360]
+        da = xr.open_dataarray(
+            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
+        ).roll(longitude=-len(self.LON) // 2, roll_coords=True)
+        if self._members is not None:
+            da = da.sel(number=self._members)  # reorder
+        xr_array[task.data_array_indices] = task.modifier(da.values)
 
     async def _download_ifs_grib_cached(
         self,
@@ -422,8 +363,6 @@ class ECMWFOpenDataSource(ABC):
         if isinstance(level, str):
             level = [level]
 
-        step_hours = int(lead_time.total_seconds() // 3600)
-
         hash_parts = [self._fc_type, time, lead_time, variable, levtype, *level]
         if self._members is not None:
             hash_parts.extend(self._members)  # type: ignore
@@ -436,13 +375,13 @@ class ECMWFOpenDataSource(ABC):
         if not pathlib.Path(cache_path).is_file():
             request: dict[str, Any] = {
                 "date": time,
-                "type": self._fc_type,
+                "type": self._fc_type,  # "fc", "cf", "pf"
                 "param": variable,
-                "levtype": levtype,
-                "step": step_hours,
+                # "levtype": levtype, # NOTE: Commenting this out fixes what seems to be a bug with Opendata API on soil levels
+                "step": int(lead_time.total_seconds() // 3600),
                 "target": cache_path,
             }
-            if levtype == "pl" or levtype == "sl":
+            if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
                 request["levelist"] = level
             if self._members is not None:
                 request["number"] = self._members
@@ -547,10 +486,6 @@ class IFS(ECMWFOpenDataSource):
                 raise ValueError(
                     f"Requested lead time {delta} needs to be 6 hour interval for {self._model} after hour 144"
                 )
-            if hours < 0:
-                continue
-            if hours < 0:
-                continue
 
 
 class IFS_ENS(ECMWFOpenDataSource):
@@ -630,272 +565,6 @@ class IFS_ENS(ECMWFOpenDataSource):
                     f"Requested lead time {delta} needs to be 6 hour interval for {self._model} after hour 144"
                 )
 
-
-@check_optional_dependencies()
-import hashlib
-import os
-import pathlib
-import shutil
-from datetime import datetime
-
-import numpy as np
-import xarray as xr
-from loguru import logger
-from s3fs.core import S3FileSystem
-from tqdm import tqdm
-
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
-from earth2studio.lexicon import IFSLexicon
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
-from earth2studio.utils.type import TimeArray, VariableArray
-
-try:
-    import ecmwf.opendata as opendata
-except ImportError:
-    OptionalDependencyFailure("data")
-    opendata = None
-
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-@check_optional_dependencies()
-class IFSOLD:
-    """The integrated forecast system (IFS) initial state data source provided on an
-    equirectangular grid. This data is part of ECMWF's open data project on AWS. This
-    data source is provided on a 0.25 degree lat lon grid at 6-hour intervals for the
-    most recent 4 days.
-    Parameters
-    ----------
-    source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
-    cache : bool, optional
-        Cache data source on local memory, by default True
-    verbose : bool, optional
-        Print download progress, by default True
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
-    Note
-    ----
-    This data source only fetches the initial state of control forecast of IFS and does
-    not fetch an predicted time steps.
-    Note
-    ----
-    Additional information on the data repository can be referenced here:
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
-    - https://registry.opendata.aws/ecmwf-forecasts/
-    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
-    """
-
-    IFS_BUCKET_NAME = "ecmwf-forecasts"
-    IFS_LAT = np.linspace(90, -90, 721)
-    IFS_LON = np.linspace(0, 359.75, 1440)
-
-    def __init__(self, source: str = "aws", cache: bool = True, verbose: bool = True):
-        # Optional import not installed error
-        if opendata is None:
-            raise ImportError(
-                "ecmwf-opendata is not installed, install manually or using `pip install earth2studio[data]`"
-            )
-
-        self._cache = cache
-        self._verbose = verbose
-        self.client = opendata.Client(source=source)
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Function to get data.
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in IFS lexicon.
-        Returns
-        -------
-        xr.DataArray
-            IFS weather data array
-        """
-        time, variable = prep_data_inputs(time, variable)
-
-        # Create cache dir if doesnt exist
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-
-        # Make sure input time is valid
-        self._validate_time(time)
-
-        # Fetch index file for requested time
-        data_arrays = []
-        for t0 in time:
-            data_array = self.fetch_ifs_dataarray(t0, variable)
-            data_arrays.append(data_array)
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
-        return xr.concat(data_arrays, dim="time")
-
-    def fetch_ifs_dataarray(
-        self,
-        time: datetime,
-        variables: list[str],
-    ) -> xr.DataArray:
-        """Retrives IFS data array for given date time by fetching variable grib files
-        using the ecmwf opendata package and combining grib files into a data array.
-        Parameters
-        ----------
-        time : datetime
-            Date time to fetch
-        variables : list[str]
-            list of atmosphric variables to fetch. Must be supported in IFS lexicon
-        Returns
-        -------
-        xr.DataArray
-            IFS data array for given date time
-        """
-        ifsda = xr.DataArray(
-            data=np.empty((1, len(variables), len(self.IFS_LAT), len(self.IFS_LON))),
-            dims=["time", "variable", "lat", "lon"],
-            coords={
-                "time": [time],
-                "variable": variables,
-                "lat": self.IFS_LAT,
-                "lon": self.IFS_LON,
-            },
-        )
-
-        # TODO: Add MP here, can further optimize by combining pressure levels
-        # Not doing until tested.
-        for i, variable in enumerate(
-            tqdm(
-                variables, desc=f"Fetching IFS for {time}", disable=(not self._verbose)
-            )
-        ):
-            # Convert from Earth2Studio variable ID to GFS id and modifier
-            try:
-                ifs_name, modifier = IFSLexicon[variable]
-            except KeyError as e:
-                logger.error(f"Variable id {variable} not found in IFS lexicon")
-                raise e
-
-            variable, levtype, level = ifs_name.split("::")
-
-            logger.debug(f"Fetching IFS grib file for variable: {variable} at {time}")
-            grib_file = self._download_ifs_grib_cached(variable, levtype, level, time)
-            # Open into xarray data-array
-            # Provided [-180, 180], roll to [0, 360]
-            da = xr.open_dataarray(
-                grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-            ).roll(longitude=-len(self.IFS_LON) // 2, roll_coords=True)
-            ifsda[0, i] = modifier(da.values)
-
-        return ifsda
-
-    @classmethod
-    def _validate_time(cls, times: list[datetime]) -> None:
-        """Verify if date time is valid for IFS
-        Parameters
-        ----------
-        times : list[datetime]
-            list of date times to fetch data
-        """
-        for time in times:
-            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
-                raise ValueError(
-                    f"Requested date time {time} needs to be 6 hour interval for IFS"
-                )
-
-            if (datetime.now() - time).days > 4:
-                raise ValueError(
-                    f"Requested date time {time} needs to be within the past 4 days for IFS"
-                )
-
-            # if not self.available(time):
-            #     raise ValueError(f"Requested date time {time} not available in IFS")
-
-    def _download_ifs_grib_cached(
-        self,
-        variable: str,
-        levtype: str,
-        level: str | list[str],
-        time: datetime,
-    ) -> str:
-        if isinstance(level, str):
-            level = [level]
-
-        sha = hashlib.sha256(f"{variable}_{levtype}_{'_'.join(level)}_{time}".encode())
-        filename = sha.hexdigest()
-
-        cache_path = os.path.join(self.cache, filename)
-
-        if not pathlib.Path(cache_path).is_file():
-            request = {
-                "date": time,
-                "type": "fc",
-                "param": variable,
-                # "levtype": levtype, # NOTE: Commenting this out fixes what seems to be a bug with Opendata API on soil levels
-                "step": 0,  # Would change this for forecasts
-                "target": cache_path,
-            }
-            if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
-                request["levelist"] = level
-            # Download
-            self.client.retrieve(**request)
-
-        return cache_path
-
-    @property
-    def cache(self) -> str:
-        """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "ifs_old")
-        if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_ifs_old")
-        return cache_location
-
-    @classmethod
-    def available(
-        cls,
-        time: datetime | np.datetime64,
-    ) -> bool:
-        """Checks if given date time is avaliable in the IFS AWS data store
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-            Date time to access
-        Returns
-        -------
-        bool
-            If date time is avaiable
-        """
-        if isinstance(time, np.datetime64):  # np.datetime64 -> datetime
-            _unix = np.datetime64(0, "s")
-            _ds = np.timedelta64(1, "s")
-            time = datetime.utcfromtimestamp((time - _unix) / _ds)
-
-        # Offline checks
-        try:
-            cls._validate_time([time])
-        except ValueError:
-            return False
-
-        fs = S3FileSystem(anon=True)
-
-        file_name = f"{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}z/"
-        s3_uri = f"s3://{cls.IFS_BUCKET_NAME}/{file_name}"
-        exists = fs.exists(s3_uri)
-
-        return exists
 
 class AIFS(ECMWFOpenDataSource):
     """Artificial intelligence forecast system (AIFS) SINGLE data on an equirectangular
