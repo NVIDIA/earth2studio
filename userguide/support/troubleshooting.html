@@ -545,9 +545,10 @@ For example:</p>
 <p>For more information see the <a class="reference external" href="https://docs.ngc.nvidia.com/cli/index.html">NGC CLI docs</a>.</p>
 <p>Still having some problems? Open an issue.</p>
 </section>
-<section id="flash-attention-has-long-build-time-for-aifs">
-<h2>Flash Attention has long build time for AIFS<a class="headerlink" href="#flash-attention-has-long-build-time-for-aifs" title="Link to this heading">#</a></h2>
-<p>This is a known issue with the library with several <a class="reference external" href="https://github.com/Dao-AILab/flash-attention/issues/1038">issues</a>
+<section id="flash-attention-has-long-build-time-for-aifs-models">
+<h2>Flash Attention has long build time for AIFS models<a class="headerlink" href="#flash-attention-has-long-build-time-for-aifs-models" title="Link to this heading">#</a></h2>
+<p>Both the deterministic AIFS and AIFS Ensemble extras depend on Flash Attention. This is
+a known issue with the library with several <a class="reference external" href="https://github.com/Dao-AILab/flash-attention/issues/1038">issues</a>
 on the subject.
 There are a few options to try outside of just waiting for the build to complete.</p>
 <ol class="arabic">
@@ -668,7 +669,7 @@ the cuda extensions:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-runtime-error-when-binding-input">ONNX Runtime  Error when binding input</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#importerror-object-is-not-installed-install-manually-or-using-pip">ImportError: object is not installed, install manually or using pip</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-models-from-ngc">Earth2Studio not authorized to download public models from NGC</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs">Flash Attention has long build time for AIFS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs-models">Flash Attention has long build time for AIFS models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#failed-to-install-earth2grid-python-h-no-such-file-or-directory">Failed to Install Earth2Grid <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#torch-harmonics-has-long-build-time-for-fcnv3">Torch Harmonics has long build time for FCNv3</a></li>
 </ul>

@@ -28,6 +28,7 @@ Thus are typically used to generate forecast predictions.
 
    ACE2ERA5
    AIFS
+   AIFSENS
    Aurora
    CBottleVideo
    DiagnosticWrapper

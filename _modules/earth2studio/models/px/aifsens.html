@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.px.aifs &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>earth2studio.models.px.aifsens &#8212; Earth2Studio 0.11.0a0 documentation</title>
   
   
   
@@ -53,7 +53,7 @@
     <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/aifs';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/aifsens';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -400,7 +400,7 @@
     
     <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.models.px.aifs</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.models.px.aifsens</span></li>
   </ul>
 </nav>
 </div>
@@ -417,7 +417,7 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <h1>Source code for earth2studio.models.px.aifs</h1><div class="highlight"><pre>
+  <h1>Source code for earth2studio.models.px.aifsens</h1><div class="highlight"><pre>
 <span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
@@ -453,13 +453,12 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">anemoi.inference</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">anemoi.models</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">earthkit.regrid</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">ecmwf.opendata</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">flash_attn</span>  <span class="c1"># noqa: F401</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;aifs&quot;</span><span class="p">)</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;aifsens&quot;</span><span class="p">)</span>
 
 <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;q50&quot;</span><span class="p">,</span>
@@ -563,33 +562,32 @@
     <span class="s2">&quot;sin_julian_day&quot;</span><span class="p">,</span>
     <span class="s2">&quot;sin_local_time&quot;</span><span class="p">,</span>
     <span class="s2">&quot;insolation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;hcc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lcc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mcc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ro&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sf&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ssrd06&quot;</span><span class="p">,</span>
     <span class="s2">&quot;stl1&quot;</span><span class="p">,</span>
     <span class="s2">&quot;stl2&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;strd06&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;swvl1&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;swvl2&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ssrd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;strd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;sf&quot;</span><span class="p">,</span>
     <span class="s2">&quot;tcc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mcc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hcc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;lcc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ro&quot;</span><span class="p">,</span>
 <span class="p">]</span>  <span class="c1"># from config.json &gt;&gt; dataset.variables</span>
 
 
-<div class="viewcode-block" id="AIFS">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS">[docs]</a>
+<div class="viewcode-block" id="AIFSENS">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html#earth2studio.models.px.AIFSENS">[docs]</a>
 <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">AIFS</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Artificial Intelligence Forecasting System (AIFS), a data driven forecast model</span>
-<span class="sd">    developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is</span>
-<span class="sd">    based on a graph neural network (GNN) encoder and decoder, and a sliding window</span>
-<span class="sd">    transformer processor, and is trained on ECMWF&#39;s ERA5 re-analysis and ECMWF&#39;s</span>
-<span class="sd">    operational numerical weather prediction (NWP) analyses.</span>
-<span class="sd">    Consists of a single model with a time-step size of 6 hours.</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AIFSENS</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">PrognosticMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a</span>
+<span class="sd">    probabilistic, ensemble-based forecast model from the European Centre for</span>
+<span class="sd">    Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a</span>
+<span class="sd">    sliding-window transformer processor, trained on ERA5 reanalysis and operational NWP</span>
+<span class="sd">    analyses, and is run four times daily with a 6-hour time step. The model is trained</span>
+<span class="sd">    with a CRPS objective over a small ensemble to provide calibrated probabilistic</span>
+<span class="sd">    output.</span>
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
@@ -597,23 +595,23 @@
 <span class="sd">    For additional information see the following resources:</span>
 
 <span class="sd">    - https://arxiv.org/abs/2406.01465</span>
-<span class="sd">    - https://huggingface.co/ecmwf/aifs-single-1.0</span>
+<span class="sd">    - https://huggingface.co/ecmwf/aifs-ens-1.0</span>
 <span class="sd">    - https://github.com/ecmwf/anemoi-core</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    model : torch.nn.Module</span>
-<span class="sd">        Core PyTorch module with the pretrained AIFS weights loaded.</span>
+<span class="sd">        Core PyTorch module with the pretrained AIFSENS weights loaded.</span>
 <span class="sd">    latitudes : torch.Tensor</span>
-<span class="sd">        Latitude values for the native octahedral grid, registered as a buffer for</span>
+<span class="sd">        Latitude values for the native model grid, registered as a buffer for</span>
 <span class="sd">        interpolation.</span>
 <span class="sd">    longitudes : torch.Tensor</span>
-<span class="sd">        Longitude values for the native octahedral grid, registered as a buffer for</span>
+<span class="sd">        Longitude values for the native model grid, registered as a buffer for</span>
 <span class="sd">        interpolation.</span>
 <span class="sd">    interpolation_matrix : torch.Tensor</span>
-<span class="sd">        CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.</span>
+<span class="sd">        CSR sparse matrix mapping ERA5 lat/lon inputs onto the native model grid.</span>
 <span class="sd">    inverse_interpolation_matrix : torch.Tensor</span>
-<span class="sd">        CSR sparse matrix mapping outputs from the octahedral grid back to ERA5</span>
+<span class="sd">        CSR sparse matrix mapping outputs from the native model grid back to ERA5</span>
 <span class="sd">        lat/lon.</span>
 
 <span class="sd">    Warning</span>
@@ -747,37 +745,37 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">output_coords</span>
 
-<div class="viewcode-block" id="AIFS.load_default_package">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.load_default_package">[docs]</a>
+<div class="viewcode-block" id="AIFSENS.load_default_package">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html#earth2studio.models.px.AIFSENS.load_default_package">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;hf://ecmwf/aifs-single-1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://ecmwf/aifs-ens-1.0&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;aifs-single-1.0&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;aifs-ens-1.0&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">package</span></div>
 
 
-<div class="viewcode-block" id="AIFS.load_model">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.load_model">[docs]</a>
+<div class="viewcode-block" id="AIFSENS.load_model">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html#earth2studio.models.px.AIFSENS.load_model">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
 
         <span class="c1"># Load model</span>
-        <span class="n">model_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;aifs-single-mse-1.0.ckpt&quot;</span><span class="p">)</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;aifs-ens-crps-1.0.ckpt&quot;</span><span class="p">)</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span>
             <span class="n">model_path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">device</span>
         <span class="p">)</span>
         <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
         <span class="c1"># Define the path to the metadata file</span>
-        <span class="n">metadata_path</span> <span class="o">=</span> <span class="s2">&quot;inference-last/anemoi-metadata/ai-models.json&quot;</span>
+        <span class="n">metadata_path</span> <span class="o">=</span> <span class="s2">&quot;inference-anemoi-by_epoch-epoch_001-step_000040_tp_fix_0.05/anemoi-metadata/ai-models.json&quot;</span>
 
         <span class="c1"># Extract metadata and supporting arrays from the zip file</span>
         <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zipf</span><span class="p">:</span>  <span class="c1"># NOTE: this is totally baffling</span>
@@ -952,7 +950,7 @@
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare input tensor and coordinates for the AIFS model.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare input tensor and coordinates for the AIFS ENS model.&quot;&quot;&quot;</span>
         <span class="c1"># Interpolate the input tensor to the model grid</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">start_dim</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
@@ -1033,32 +1031,50 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Update time based inputs.&quot;&quot;&quot;</span>
 
+        <span class="n">time0</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">time1</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+
         <span class="c1"># Select only inputs</span>
         <span class="c1"># From AnemoiModelInterface.DataIndices</span>
         <span class="c1"># https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">full</span><span class="p">]</span>
 
         <span class="c1"># Get cos, sin of Julian day</span>
-        <span class="n">cos_julian_day</span><span class="p">,</span> <span class="n">sin_julian_day</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
+            <span class="n">time0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
+        <span class="n">cos_julian_day_1</span><span class="p">,</span> <span class="n">sin_julian_day_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
+            <span class="n">time1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="p">)</span>
+        <span class="n">cos_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">cos_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sin_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># Get cos, sin of local time</span>
-        <span class="n">cos_local_time</span><span class="p">,</span> <span class="n">sin_local_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="c1"># Get cos, sin local time</span>
+        <span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
+            <span class="n">time0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
+        <span class="n">cos_local_time_1</span><span class="p">,</span> <span class="n">sin_local_time_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
+            <span class="n">time1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="p">)</span>
+        <span class="n">cos_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">cos_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sin_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># Get cosine zenith angle</span>
-        <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="c1"># Add insolation / cosine zenith angle</span>
+        <span class="n">cos_zenith_angle_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
+            <span class="n">time0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
+        <span class="n">cos_zenith_angle_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
+            <span class="n">time1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="p">)</span>
+        <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_zenith_angle_0</span><span class="p">,</span> <span class="n">cos_zenith_angle_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># Add terms to x</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">94</span><span class="p">:</span><span class="mi">95</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_julian_day</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">95</span><span class="p">:</span><span class="mi">96</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_local_time</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">96</span><span class="p">:</span><span class="mi">97</span><span class="p">]</span> <span class="o">=</span> <span class="n">sin_julian_day</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">97</span><span class="p">:</span><span class="mi">98</span><span class="p">]</span> <span class="o">=</span> <span class="n">sin_local_time</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">98</span><span class="p">:</span><span class="mi">99</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_zenith_angle</span>
+        <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">94</span><span class="p">:</span><span class="mi">95</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_julian_day</span>
+        <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">95</span><span class="p">:</span><span class="mi">96</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_local_time</span>
+        <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">96</span><span class="p">:</span><span class="mi">97</span><span class="p">]</span> <span class="o">=</span> <span class="n">sin_julian_day</span>
+        <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">97</span><span class="p">:</span><span class="mi">98</span><span class="p">]</span> <span class="o">=</span> <span class="n">sin_local_time</span>
+        <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">98</span><span class="p">:</span><span class="mi">99</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_zenith_angle</span>
 
         <span class="k">return</span> <span class="n">x</span>
 
@@ -1067,7 +1083,7 @@
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare input tensor and coordinates for the AIFS model.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare input tensor and coordinates for the AIFS ENS model.&quot;&quot;&quot;</span>
         <span class="c1"># Remove generated forcings</span>
         <span class="n">all_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
         <span class="n">keep</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">all_indices</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1103,10 +1119,11 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">device_type</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">):</span>
-            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict_step</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict_step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fcstep</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
             <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
                 <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">)),</span>
                 <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
@@ -1122,8 +1139,8 @@
 
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">output_coords</span>
 
-<div class="viewcode-block" id="AIFS.__call__">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.__call__">[docs]</a>
+<div class="viewcode-block" id="AIFSENS.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html#earth2studio.models.px.AIFSENS.__call__">[docs]</a>
     <span class="nd">@batch_func</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1152,44 +1169,50 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_fill_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fill the model input tensor by selecting prognostic + forcing variables,</span>
+<span class="sd">        while removing generated forcings (indices 92–100).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">batch</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">lead</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="c1"># Prepare empty output tensor with VARIABLE dimension</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-            <span class="p">(</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
-            <span class="p">),</span>
+            <span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">lead</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span>
             <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">prognostic</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span><span class="p">,</span>
-            <span class="p">]</span>
+
+        <span class="c1"># Collect relevant indices from model (prognostic + forcing)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">prognostic</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">values</span>
         <span class="p">)</span>
 
-        <span class="c1"># Sort the concatenated tensor</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">values</span>
+        <span class="c1"># Define unwanted indices (generated forcings)</span>
+        <span class="n">generated_forcing_range</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
 
-        <span class="c1"># Create the range of values to remove</span>
-        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>  <span class="c1"># generated forcings</span>
+        <span class="c1"># Keep only valid indices (exclude generated forcings)</span>
+        <span class="n">valid_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">generated_forcing_range</span><span class="p">)</span>
 
-        <span class="c1"># Keep only elements NOT in to_remove</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
+        <span class="c1"># Fill tensor: copy input slices into selected variable slots</span>
+        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">[</span><span class="n">valid_mask</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">indices</span><span class="p">[</span><span class="n">valid_mask</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 
-        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="c1"># Drop generated forcing dimension range from output</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">92</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">101</span><span class="p">:,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 
-        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">91</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">101</span><span class="p">:,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">))</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
-        <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+        <span class="c1"># Update coordinates with remaining variable names</span>
+        <span class="n">all_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">))</span>
+        <span class="n">variable_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">all_indices</span><span class="p">,</span> <span class="n">generated_forcing_range</span><span class="p">)</span>
+        <span class="n">selected_variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">all_indices</span><span class="p">[</span><span class="n">variable_mask</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
 
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
+        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">selected_variables</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
 
@@ -1206,13 +1229,14 @@
 
         <span class="c1"># Prepare input tensor</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_input</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="mi">1</span>
 
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="c1"># Front hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
             <span class="c1"># Forward is identity operator</span>
-            <span class="n">y</span><span class="p">,</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="n">y</span><span class="p">,</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
 
             <span class="c1"># Prepare output tensor</span>
             <span class="n">output_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_output</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">coords_out</span><span class="p">)</span>
@@ -1230,9 +1254,10 @@
             <span class="p">)</span>
             <span class="c1"># Prepare input tensor</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_input</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>
 
-<div class="viewcode-block" id="AIFS.create_iterator">
-<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.create_iterator">[docs]</a>
+<div class="viewcode-block" id="AIFSENS.create_iterator">
+<a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html#earth2studio.models.px.AIFSENS.create_iterator">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_iterator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>

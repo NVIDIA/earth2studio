@@ -64,7 +64,7 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.px.Aurora" href="earth2studio.models.px.Aurora.html" />
+    <link rel="next" title="earth2studio.models.px.AIFSENS" href="earth2studio.models.px.AIFSENS.html" />
     <link rel="prev" title="earth2studio.models.px.ACE2ERA5" href="earth2studio.models.px.ACE2ERA5.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -376,6 +376,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.ACE2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.ACE2ERA5</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.AIFSENS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.CBottleVideo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.CBottleVideo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DiagnosticWrapper.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DiagnosticWrapper</a></li>
@@ -585,22 +586,25 @@ For additional information see the following resources:</p>
 <li><p><a class="github reference external" href="https://github.com/ecmwf/anemoi-core">ecmwf/anemoi-core</a></p></li>
 </ul>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>torch.nn.Module</em>) – Core PyTorch module with the pretrained AIFS weights loaded.</p></li>
+<li><p><strong>latitudes</strong> (<em>torch.Tensor</em>) – Latitude values for the native octahedral grid, registered as a buffer for
+interpolation.</p></li>
+<li><p><strong>longitudes</strong> (<em>torch.Tensor</em>) – Longitude values for the native octahedral grid, registered as a buffer for
+interpolation.</p></li>
+<li><p><strong>interpolation_matrix</strong> (<em>torch.Tensor</em>) – CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.</p></li>
+<li><p><strong>inverse_interpolation_matrix</strong> (<em>torch.Tensor</em>) – CSR sparse matrix mapping outputs from the octahedral grid back to ERA5
+lat/lon.</p></li>
+</ul>
+</dd>
+</dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>We encourage users to familiarize themselves with the license restrictions of this
 model’s checkpoints.</p>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>model</strong> (<em>Module</em>)</p></li>
-<li><p><strong>latitudes</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>longitudes</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>interpolation_matrix</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>inverse_interpolation_matrix</strong> (<em>Tensor</em>)</p></li>
-</ul>
-</dd>
-</dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.AIFS.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifs.html#AIFS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFS.__call__" title="Link to this definition">#</a></dt>
@@ -696,11 +700,11 @@ output data tensor and coordinate system dictionary.</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.px.Aurora.html"
+       href="earth2studio.models.px.AIFSENS.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
