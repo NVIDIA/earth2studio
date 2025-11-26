@@ -23,6 +23,8 @@ import torch
 
 try:
     import anemoi  # noqa: F401
+    if getattr(anemoi, "__version__", None) not in (None, "0.5.1"):
+        raise ImportError("anemoi-models version mismatch")
 except ImportError:
     pytest.skip("anemoi not installed", allow_module_level=True)
 
