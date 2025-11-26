@@ -50,6 +50,7 @@ from earth2studio.models.dx import (
 )
 from earth2studio.models.px import (
     AIFS,
+    AIFSENS,
     DLWP,
     FCN,
     FCN3,
@@ -75,6 +76,7 @@ from earth2studio.models.px import (
     "model",
     [
         AIFS,
+        AIFSENS,
         Aurora,
         CBottle3D,
         CBottleVideo,

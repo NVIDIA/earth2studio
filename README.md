@@ -139,6 +139,7 @@ Available models include but are not limited to:
 | Aurora | 0.25° | Transformer | 6h | Global |
 | FuXi | 0.25° | Transformer | 6h | Global |
 | AIFS | 0.25° | Transformer | 6h | Global |
+| AIFS Ensemble | 0.25° | Transformer Ensemble | 6h | Global |
 | StormCast | 3km | Diffusion + Regression | 1h | Regional (US) |
 | SFNO | 0.25° | Neural Operator | 6h | Global |
 | DLESyM | 0.25° | Convolutional | 6h | Global |
