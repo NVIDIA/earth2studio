@@ -19,7 +19,13 @@ from earth2studio.models.dx.cbottle_infill import CBottleInfill  # noqa
 from earth2studio.models.dx.cbottle_sr import CBottleSR  # noqa
 from earth2studio.models.dx.cbottle_tc import CBottleTCGuidance  # noqa
 from earth2studio.models.dx.climatenet import ClimateNet  # noqa
-from earth2studio.models.dx.corrdiff import CorrDiff, CorrDiffTaiwan  # noqa
+from earth2studio.models.dx.corrdiff import (
+    CorrDiff,
+    CorrDiffCMIP6,
+    CorrDiffTaiwan,
+)
+
+# noqa
 from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
@@ -44,6 +50,7 @@ __all__ = [
     "ClimateNet",
     "CorrDiff",
     "CorrDiffTaiwan",
+    "CorrDiffCMIP6",
     "PrecipitationAFNO",
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",
