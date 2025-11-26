@@ -23,10 +23,11 @@ import torch
 
 try:
     import anemoi  # noqa: F401
-    if getattr(anemoi, "__version__", None) not in (None, "0.5.1"):
-        raise ImportError("anemoi-models version mismatch")
+    import anemoi.models
 except ImportError:
     pytest.skip("anemoi not installed", allow_module_level=True)
+if anemoi.models.__version__ != "0.5.1":
+    pytest.skip("anemoi-models 0.5.1 version mismatch", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFSENS
