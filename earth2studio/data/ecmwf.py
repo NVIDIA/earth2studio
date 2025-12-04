@@ -64,12 +64,8 @@ class ECMWFOpenDataAsyncTask:
 
 
 @check_optional_dependencies()
-class ECMWFOpenDataSource(ABC):
-    """Data provided through the ECMWF open data client, which includes the integrated
-    forecast system (IFS) and artificial intelligence forecast system (AIFS) on an
-    equirectangular grid at 0.25 degree resolution. Data for the most recent 4 days can
-    be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of
-    ECMWF's open data project on AWS (source `aws`).
+class _ECMWFOpenDataSource(ABC):
+    """Baseclass for ECMWF open data sources
 
     Parameters
     ----------
@@ -91,20 +87,6 @@ class ECMWFOpenDataSource(ABC):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
-
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
-
-    Note
-    ----
-    Additional information on the data repository can be referenced here:
-
-    - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
-    - https://registry.opendata.aws/ecmwf-forecasts/
-    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
     """
 
     LAT = np.linspace(90, -90, 721)
@@ -399,7 +381,7 @@ class ECMWFOpenDataSource(ABC):
         times : list[datetime]
             List of date times to fetch data for.
         """
-        ...
+        pass
 
     @abstractmethod
     def _validate_leadtime(
@@ -414,7 +396,7 @@ class ECMWFOpenDataSource(ABC):
         lead_times : list[timedelta]
             List of lead times to fetch data for.
         """
-        ...
+        pass
 
     @property
     def cache(self) -> str:
@@ -426,9 +408,45 @@ class ECMWFOpenDataSource(ABC):
         return cache_location
 
 
-class IFS(ECMWFOpenDataSource):
-    """Integrated forecast system (IFS) HRES data on an equirectangular grid at 0.25
-    degree resolution."""
+# =============
+# Child classes
+# =============
+
+
+class IFS(_ECMWFOpenDataSource):
+    """Integrated forecast system (IFS) HRES initial state (analaysis) data source on an
+    equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
+    ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
+    (source `aws`).
+
+    Parameters
+    ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
+    cache : bool, optional
+        Cache data source in local memory, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+    async_timeout: int, optional
+        Time in seconds after which the download will be cancelled if not finished
+        successfully, by default 600.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://github.com/ecmwf/ecmwf-opendata
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+    """
 
     LEXICON = IFSLexicon
 
@@ -446,6 +464,256 @@ class IFS(ECMWFOpenDataSource):
             verbose=verbose,
             async_timeout=async_timeout,
         )
+
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve IFS data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS analysis data array
+        """
+        return super().__call__(time, np.array([0], dtype="datetime64[h]"), variable)
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS analysis data array.
+        """
+        return await super().fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            List of date times to fetch data for.
+        """
+        validate_time(
+            self._model, self.client.source, times, min_time=datetime(2024, 3, 1)
+        )
+
+
+class IFS_FX(_ECMWFOpenDataSource):
+    """Integrated forecast system (IFS) HRES forecast data source on an equirectangular
+    grid at 0.25 degree resolution. IFS is a forecast model developed by
+    ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
+    (source `aws`).
+
+    Parameters
+    ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
+    cache : bool, optional
+        Cache data source in local memory, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+    async_timeout: int, optional
+        Time in seconds after which the download will be cancelled if not finished
+        successfully, by default 600.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://github.com/ecmwf/ecmwf-opendata
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+    """
+
+    LEXICON = IFSLexicon
+
+    def __init__(
+        self,
+        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+    ):
+        super().__init__(
+            source=source,
+            model="ifs",
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+        )
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge."""
+        validate_time(
+            self._model, self.client.source, times, min_time=datetime(2024, 3, 1)
+        )
+
+    def _validate_leadtime(
+        self,
+        times: list[datetime],
+        lead_times: list[timedelta],
+    ) -> None:
+        """Verify all lead times are valid based on offline knowledge."""
+        validate_leadtime(self._model, lead_times, interval=3, max_lead_time=360)
+
+        for delta in lead_times:
+            hours = int(delta.total_seconds() // 3600)
+            if any([time.hour in [6, 18] for time in times]) and hours > 144:
+                # Shorter rollouts for forecasts starting at 06Z, 18Z
+                raise ValueError(
+                    f"Requested lead time {delta} can not be more than 144 hours for {self._model} starting at 06Z, 18Z"
+                )
+            if hours > 144 and not hours % 6 == 0:
+                raise ValueError(
+                    f"Requested lead time {delta} needs to be 6 hour interval for {self._model} after hour 144"
+                )
+
+
+class IFS_ENS(_ECMWFOpenDataSource):
+    """Integrated forecast system (IFS) ensemble (ENS) initial state data source on an
+    equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
+    ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
+    (source `aws`).
+
+    Parameters
+    ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
+    members: list[int] | None, optional
+        List of ensemble member ids. If 0 the control forecast will be requested, if
+        greater than 0 perturbed ensemble member will be requested. If None, the control
+        forecast member will be used, by default 0.
+    cache : bool, optional
+        Cache data source in local memory, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+    async_timeout: int, optional
+        Time in seconds after which the download will be cancelled if not finished
+        successfully, by default 600.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://github.com/ecmwf/ecmwf-opendata
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+    """
+
+    LEXICON = IFSLexicon
+
+    def __init__(
+        self,
+        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        members: list[int] | None = None,
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+    ):
+        fc_type: Literal["cf", "pf"]
+        if members is None or len(members) == 0 or members == [0]:
+            fc_type = "cf"  # control forecast
+            members = None
+        else:
+            if 0 in members:
+                raise ValueError(
+                    "Please request control member (id 0) and perturbed members (id >0) separately"
+                )
+            fc_type = "pf"  # perturbed forecast
+
+        super().__init__(
+            source=source,
+            model="ifs",
+            fc_type=fc_type,
+            members=members,
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+        )
+
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve IFS ENS data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS ENS initial state data array.
+        """
+        return super().__call__(time, np.array([0], dtype="datetime64[h]"), variable)
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS ENS initial state data array.
+        """
+        return await super().fetch(time, np.array([0], dtype="datetime64[h]"), variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
@@ -488,11 +756,44 @@ class IFS(ECMWFOpenDataSource):
                 )
 
 
-class IFS_ENS(ECMWFOpenDataSource):
-    """Integrated forecast system (IFS) ENS data on an equirectangular grid at 0.25
-    degree resolution.
+class IFS_ENS_FX(_ECMWFOpenDataSource):
+    """Integrated forecast system (IFS) ensemble (ENS) forecast data source on an
+    equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
+    ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
+    (source `aws`).
 
-    The control member can only be requested separately from the perturbed members."""
+    Parameters
+    ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
+    members: list[int] | None, optional
+        List of ensemble member ids. If 0 the control forecast will be requested, if
+        greater than 0 perturbed ensemble member will be requested. If None, the control
+        forecast member will be used, by default 0.
+    cache : bool, optional
+        Cache data source in local memory, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+    async_timeout: int, optional
+        Time in seconds after which the download will be cancelled if not finished
+        successfully, by default 600.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://github.com/ecmwf/ecmwf-opendata
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+    """
 
     LEXICON = IFSLexicon
 
@@ -566,9 +867,40 @@ class IFS_ENS(ECMWFOpenDataSource):
                 )
 
 
-class AIFS(ECMWFOpenDataSource):
-    """Artificial intelligence forecast system (AIFS) SINGLE data on an equirectangular
-    grid at 0.25 degree resolution."""
+class AIFS_FX(_ECMWFOpenDataSource):
+    """Artificial intelligence forecast system (AIFS) SINGLE forecast data on an
+    equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model
+    developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's
+    servers (source `ecmwf`). Historical data is part of ECMWF's open data project on
+    AWS (source `aws`).
+
+    Parameters
+    ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
+    cache : bool, optional
+        Cache data source in local memory, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+    async_timeout: int, optional
+        Time in seconds after which the download will be cancelled if not finished
+        successfully, by default 600.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://github.com/ecmwf/ecmwf-opendata
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+    """
 
     LEXICON = AIFSLexicon
 
@@ -614,11 +946,44 @@ class AIFS(ECMWFOpenDataSource):
         validate_leadtime(self._model, lead_times, interval=6, max_lead_time=360)
 
 
-class AIFS_ENS(ECMWFOpenDataSource):
-    """Artificial intelligence forecast system (AIFS) ENS data on an equirectangular
-    grid at 0.25 degree resolution.
+class AIFS_ENS_FX(_ECMWFOpenDataSource):
+    """Artificial intelligence forecast system (AIFS) ENS forecast data on an
+    equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model
+    developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's
+    servers (source `ecmwf`). Historical data is part of ECMWF's open data project on
+    AWS (source `aws`).
 
-    The control member can only be requested separately from the perturbed members."""
+    Parameters
+    ----------
+    source : str, optional
+        Data source to fetch data from. For possible options refer to ECMWF's open data
+        Python SDK, by default "aws".
+    members: list[int] | None, optional
+        List of ensemble member ids. If 0 the control forecast will be requested, if
+        greater than 0 perturbed ensemble member will be requested. If None, the control
+        forecast member will be used, by default 0.
+    cache : bool, optional
+        Cache data source in local memory, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+    async_timeout: int, optional
+        Time in seconds after which the download will be cancelled if not finished
+        successfully, by default 600.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://github.com/ecmwf/ecmwf-opendata
+    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://registry.opendata.aws/ecmwf-forecasts/
+    - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+    """
 
     LEXICON = AIFSLexicon
 
