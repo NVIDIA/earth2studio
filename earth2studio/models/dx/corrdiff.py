@@ -190,7 +190,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Note: After preprocessing, actual channels = input_variables + invariant_variables
         self.input_variables = list(input_variables)  # Weather variable channels
         self.output_variables = list(output_variables)  # Output channels
-        self.invariant_variables = list(invariants.keys()) if invariants else []
+        # Note: self.invariant_variables is set in _register_buffers()
 
         # Register buffers for model parameters
         self._register_buffers(
