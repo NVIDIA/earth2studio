@@ -16,8 +16,10 @@
 
 import json
 import zipfile
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Callable, Sequence
+from contextlib import nullcontext
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Literal
@@ -39,6 +41,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 try:
@@ -118,6 +121,13 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Whether to use high-res mean conditioning, by default True
     seed : Optional[int], optional
         Random seed for reproducibility, by default None
+    grid_spacing_tolerance : float, optional
+        Relative tolerance for checking regular grid spacing. Allows for slight variations
+        in grid spacing (e.g., for Gaussian grids). Default is 1e-5 (0.001%).
+    grid_bounds_margin : float, optional
+        Fraction of input grid range to allow for extrapolation beyond input grid bounds.
+        For example, 0.05 allows output grid to extend 5% beyond input grid range.
+        Useful for Gaussian grids that don't include poles. Default is 0.0 (no extrapolation).
     """
 
     def __init__(
@@ -144,6 +154,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
         seed: int | None = None,
+        grid_spacing_tolerance: float = 1e-5,
+        grid_bounds_margin: float = 0.0,
     ):
         super().__init__()
 
@@ -159,18 +171,26 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         self.number_of_samples = number_of_samples
         self.number_of_steps = number_of_steps
         self.solver = solver
+        self.sampler_type = sampler_type
         self.inference_mode = inference_mode
         self.hr_mean_conditioning = hr_mean_conditioning
         self.seed = seed
         self.img_shape = (lat_output_grid.shape[0], lon_output_grid.shape[0])
+        self.invariants_dict = invariants
+        self.invariant_center = invariant_center
+        self.invariant_scale = invariant_scale
+        self.grid_spacing_tolerance = grid_spacing_tolerance
+        self.grid_bounds_margin = grid_bounds_margin
 
         # Store models
         self.residual_model = residual_model
         self.regression_model = regression_model
 
         # Store variable names
-        self.input_variables = input_variables
-        self.output_variables = output_variables
+        # Note: After preprocessing, actual channels = input_variables + invariant_variables
+        self.input_variables = list(input_variables)  # Weather variable channels
+        self.output_variables = list(output_variables)  # Output channels
+        self.invariant_variables = list(invariants.keys()) if invariants else []
 
         # Register buffers for model parameters
         self._register_buffers(
@@ -190,6 +210,190 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Set up sampler
         self.sampler = self._setup_sampler(sampler_type)
 
+    @classmethod
+    def _validate_grid_format(
+        cls, lat_grid: torch.Tensor, lon_grid: torch.Tensor, grid_name: str = "grid"
+    ) -> None:
+        """Validate lat/lon grid format and ordering.
+
+        Validates that:
+        - 1D grids (regular/rectilinear) are increasing
+        - 2D grids are truly curvilinear (not rectilinear stored as 2D)
+
+        Parameters
+        ----------
+        lat_grid : torch.Tensor
+            Latitude grid to validate (1D or 2D)
+        lon_grid : torch.Tensor
+            Longitude grid to validate (1D or 2D)
+        grid_name : str
+            Name of the grid (for error messages), by default "grid"
+
+        Raises
+        ------
+        ValueError
+            If grids are 2D rectilinear (should be 1D) or 1D grids are not increasing
+        """
+        # Validate grid dimensions
+        lat_ndim = len(lat_grid.shape)
+        lon_ndim = len(lon_grid.shape)
+
+        # Check for invalid dimensions (>2D or mismatched)
+        if lat_ndim > 2 or lon_ndim > 2:
+            raise ValueError(
+                f"{grid_name.capitalize()} grids must be 1D or 2D. "
+                f"Got lat shape {lat_grid.shape} ({lat_ndim}D), "
+                f"lon shape {lon_grid.shape} ({lon_ndim}D). "
+                "Use 1D for regular grids or 2D for curvilinear grids."
+            )
+
+        if lat_ndim != lon_ndim:
+            raise ValueError(
+                f"{grid_name.capitalize()} grids have mismatched dimensions. "
+                f"Got lat shape {lat_grid.shape} ({lat_ndim}D), "
+                f"lon shape {lon_grid.shape} ({lon_ndim}D). "
+                "Both must be either 1D (regular grid) or 2D (curvilinear grid)."
+            )
+
+        # Validate based on grid type
+        if lat_ndim == 1:
+            # Regular grid - validate that coordinates are increasing
+            if lat_grid[0] > lat_grid[-1]:
+                raise ValueError(
+                    f"{grid_name.capitalize()} latitude must be increasing (South to North). "
+                    f"Got {lat_grid[0].item():.2f} to {lat_grid[-1].item():.2f}. "
+                    "Please reverse the latitude array in your NetCDF file."
+                )
+            if lon_grid[0] > lon_grid[-1]:
+                raise ValueError(
+                    f"{grid_name.capitalize()} longitude must be increasing. "
+                    f"Got {lon_grid[0].item():.2f} to {lon_grid[-1].item():.2f}. "
+                    "Please reverse the longitude array in your NetCDF file."
+                )
+
+        else:  # lat_ndim == 2
+            # 2D grids - check if they're actually rectilinear (should be stored as 1D)
+            if cls._is_rectilinear(lat_grid, lon_grid):
+                raise ValueError(
+                    f"{grid_name.capitalize()} grid is rectilinear but stored as 2D. "
+                    f"Got lat shape {lat_grid.shape}, lon shape {lon_grid.shape}. "
+                    "Rectilinear grids should be stored as 1D arrays (lat[H], lon[W]) "
+                    "for efficiency. Only curvilinear grids need 2D storage."
+                )
+            # 2D curvilinear grids are OK - no ordering requirements
+
+    @staticmethod
+    def _is_rectilinear(lat_grid: torch.Tensor, lon_grid: torch.Tensor) -> bool:
+        """Check if 2D lat/lon grids represent a rectilinear (regular) grid.
+
+        A rectilinear grid has the property that:
+        - lat[i, j] is constant for all j (only varies with i)
+        - lon[i, j] is constant for all i (only varies with j)
+
+        Parameters
+        ----------
+        lat_grid : torch.Tensor
+            2D latitude grid [H, W]
+        lon_grid : torch.Tensor
+            2D longitude grid [H, W]
+
+        Returns
+        -------
+        bool
+            True if the grid is rectilinear, False if curvilinear
+        """
+        if len(lat_grid.shape) != 2 or len(lon_grid.shape) != 2:
+            return False
+
+        # Check if lat is constant along second dimension (columns)
+        lat_constant_along_lon = torch.allclose(
+            lat_grid[:, 0:1].expand_as(lat_grid),
+            lat_grid,
+            rtol=1e-5,
+            atol=1e-5,
+        )
+
+        # Check if lon is constant along first dimension (rows)
+        lon_constant_along_lat = torch.allclose(
+            lon_grid[0:1, :].expand_as(lon_grid),
+            lon_grid,
+            rtol=1e-5,
+            atol=1e-5,
+        )
+
+        return lat_constant_along_lon and lon_constant_along_lat
+
+    def _check_grid_spacing(
+        self,
+        lat_input_grid: torch.Tensor,
+        lon_input_grid: torch.Tensor,
+    ) -> None:
+        """Check that regular (1D) grids are regularly spaced.
+
+        For regular (1D) grids, validates that each grid is regularly spaced within itself.
+        Lat and lon can have different spacing from each other.
+
+        For curvilinear (2D) grids, this check is skipped.
+        """
+        # Only check resolution for regular (1D) grids
+        # Note: lat and lon spacing do NOT need to be equal to each other,
+        # but each must be regularly spaced within itself
+        if len(lat_input_grid.shape) == 1:
+            # Check latitude is regularly spaced
+            lat_diffs = lat_input_grid[1:] - lat_input_grid[:-1]
+            if not torch.allclose(
+                lat_diffs, lat_diffs[0], rtol=self.grid_spacing_tolerance
+            ):
+                raise ValueError(
+                    f"Input latitude grid must be regularly spaced (within {self.grid_spacing_tolerance*100:.2f}% tolerance), "
+                    "but found varying spacing. Consider using a 2D curvilinear grid instead."
+                )
+
+            # Check longitude is regularly spaced
+            lon_diffs = lon_input_grid[1:] - lon_input_grid[:-1]
+            if not torch.allclose(
+                lon_diffs, lon_diffs[0], rtol=self.grid_spacing_tolerance
+            ):
+                raise ValueError(
+                    f"Input longitude grid must be regularly spaced (within {self.grid_spacing_tolerance*100:.2f}% tolerance), "
+                    "but found varying spacing. Consider using a 2D curvilinear grid instead."
+                )
+
+    def _check_grid_bounds(
+        self,
+        lat_input_grid: torch.Tensor,
+        lon_input_grid: torch.Tensor,
+        lat_output_grid: torch.Tensor,
+        lon_output_grid: torch.Tensor,
+    ) -> None:
+        """Check that output grids are within input grid bounds (with optional margin).
+
+        The margin is controlled by grid_bounds_margin (fraction of input range).
+        Default is 0.0 (strict bounds), but can be set higher to allow extrapolation.
+        """
+        lat_input_range = lat_input_grid.max() - lat_input_grid.min()
+        lon_input_range = lon_input_grid.max() - lon_input_grid.min()
+
+        lat_margin = self.grid_bounds_margin * lat_input_range
+        lon_margin = self.grid_bounds_margin * lon_input_range
+
+        if not torch.all(
+            lat_output_grid >= lat_input_grid.min() - lat_margin
+        ) or not torch.all(lat_output_grid <= lat_input_grid.max() + lat_margin):
+            raise ValueError(
+                f"Output latitude grid extends beyond input grid bounds (margin={self.grid_bounds_margin*100:.1f}%). "
+                f"Got output range [{lat_output_grid.min():.2f}, {lat_output_grid.max():.2f}], "
+                f"input range [{lat_input_grid.min():.2f}, {lat_input_grid.max():.2f}]"
+            )
+        if not torch.all(
+            lon_output_grid >= lon_input_grid.min() - lon_margin
+        ) or not torch.all(lon_output_grid <= lon_input_grid.max() + lon_margin):
+            raise ValueError(
+                f"Output longitude grid extends beyond input grid bounds (margin={self.grid_bounds_margin*100:.1f}%). "
+                f"Got output range [{lon_output_grid.min():.2f}, {lon_output_grid.max():.2f}], "
+                f"input range [{lon_input_grid.min():.2f}, {lon_input_grid.max():.2f}]"
+            )
+
     def _check_latlon_grid(
         self,
         lat_input_grid: torch.Tensor,
@@ -197,40 +401,14 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         lat_output_grid: torch.Tensor,
         lon_output_grid: torch.Tensor,
     ) -> None:
+        """Validate lat/lon grid resolution and bounds.
+
+        Calls _check_grid_spacing and _check_grid_bounds, which can be overridden separately.
         """
-        Perform the following checks on the passed lat/lon grids.
-
-            - Check if the lat/lon grids are regular and have the same resolution.
-            - Check that the output lat/lon grids are a subset of the input lat/lon grids.
-
-        """
-        input_grid_n_dim = len(lat_input_grid.shape)
-
-        if input_grid_n_dim == 1:
-            lat_input_grid = lat_input_grid.unsqueeze(1)
-            lon_input_grid = lon_input_grid.unsqueeze(0)
-
-        if not torch.allclose(
-            lat_input_grid[1, 0] - lat_input_grid[0, 0],
-            lon_input_grid[0, 1] - lon_input_grid[0, 0],
-            rtol=1e-3,
-            atol=1e-3,
-        ):
-            raise ValueError(
-                f"Input lat/lon grids must have the same resolution. Received lat_input_grid[1,0] - lat_input_grid[0,0] = {lat_input_grid[1,0] - lat_input_grid[0,0]} and lon_input_grid[0,1] - lon_input_grid[0,0] = {lon_input_grid[0,1] - lon_input_grid[0,0]}"
-            )
-        if not torch.all(lat_output_grid >= lat_input_grid.min()) or not torch.all(
-            lat_output_grid <= lat_input_grid.max()
-        ):
-            raise ValueError(
-                f"Output lat/lon grids must be a subset of the input lat/lon grids. Received lat_output_grid.min() = {lat_output_grid.min()} and lat_output_grid.max() = {lat_output_grid.max()}"
-            )
-        if not torch.all(lon_output_grid >= lon_input_grid.min()) or not torch.all(
-            lon_output_grid <= lon_input_grid.max()
-        ):
-            raise ValueError(
-                f"Output lon/lon grids must be a subset of the input lon/lon grids. Received lon_output_grid.min() = {lon_output_grid.min()} and lon_output_grid.max() = {lon_output_grid.max()}"
-            )
+        self._check_grid_spacing(lat_input_grid, lon_input_grid)
+        self._check_grid_bounds(
+            lat_input_grid, lon_input_grid, lat_output_grid, lon_output_grid
+        )
 
     def _register_buffers(
         self,
@@ -247,18 +425,23 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         invariants: OrderedDict | None,
     ) -> None:
         """Register model buffers and handle invariants."""
-        # Register grid coordinates
+        # Register grid coordinates and validate
         self._check_latlon_grid(
             lat_input_grid, lon_input_grid, lat_output_grid, lon_output_grid
         )
+
         self.register_buffer("lat_input_grid", lat_input_grid)
         self.register_buffer("lon_input_grid", lon_input_grid)
         self.register_buffer("lat_output_grid", lat_output_grid)
         self.register_buffer("lon_output_grid", lon_output_grid)
-        input_grid_n_dim = len(lat_input_grid.shape)
-        if input_grid_n_dim == 1:
-            self._interpolator = None
+
+        # Set up interpolation
+        # Determine if input grid is regular (1D) or curvilinear (2D)
+        # Note: 2D rectilinear grids are rejected by validation, so 2D = curvilinear
+        if len(lat_input_grid.shape) == 1:
+            self._interpolator = None  # Use efficient regular grid interpolation
         else:
+            # 2D grid = curvilinear (rectilinear 2D grids rejected by validation)
             self._interpolator = interp.LatLonInterpolation(
                 lat_input_grid,
                 lon_input_grid,
@@ -376,15 +559,58 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         """Default pre-trained corrdiff model package from Nvidia model registry"""
         raise NotImplementedError
 
+    @staticmethod
+    def _load_json_from_package(package: Package, filename: str) -> dict:
+        """Load and parse a JSON file from a package with error handling.
+
+        Parameters
+        ----------
+        package : Package
+            Package containing the JSON file
+        filename : str
+            Name of the JSON file to load
+
+        Returns
+        -------
+        dict
+            Parsed JSON data
+
+        Raises
+        ------
+        ValueError
+            If the file is empty or contains invalid JSON
+        """
+        file_path = package.resolve(filename)
+        try:
+            with open(file_path) as f:
+                content = f.read()
+                if not content.strip():
+                    raise ValueError(f"{filename} is empty at: {file_path}")
+                return json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Failed to parse {filename} at: {file_path}. "
+                f"File may be corrupted or contain invalid JSON. Error: {e}"
+            )
+
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package) -> DiagnosticModel:
+    def load_model(
+        cls,
+        package: Package,
+        grid_spacing_tolerance: float = 1e-5,
+        grid_bounds_margin: float = 0.0,
+    ) -> DiagnosticModel:
         """Load CorrDiff model from package.
 
         Parameters
         ----------
         package : Package
             Package containing model weights and configuration
+        grid_spacing_tolerance : float, optional
+            Relative tolerance for checking regular grid spacing, by default 1e-5
+        grid_bounds_margin : float, optional
+            Fraction of input grid range to allow for extrapolation, by default 0.0
 
         Returns
         -------
@@ -409,11 +635,19 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             package.resolve("regression.mdlus")
         ).eval()
 
-        # Load normalization statistics
-        with open(package.resolve("metadata.json")) as f:
-            metadata = json.load(f)
-        input_variables = metadata["input_variables"]
+        # Load metadata
+        metadata = cls._load_json_from_package(package, "metadata.json")
+        raw_input_variables = metadata["input_variables"]
+        duplicates = [
+            var for var, count in Counter(raw_input_variables).items() if count > 1
+        ]
+        if duplicates:
+            raise ValueError(
+                "metadata['input_variables'] contains duplicate entries: "
+                f"{duplicates}. Each variable should appear only once."
+            )
         output_variables = metadata["output_variables"]
+        invariant_variables = metadata.get("invariant_variables", None)
 
         # Load model parameters (if not provided, use default values)
         number_of_samples = metadata.get("number_of_samples", 1)
@@ -424,13 +658,24 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
         seed = metadata.get("seed", None)
 
+        input_variables = list(raw_input_variables)
+
         # Load normalization statistics
-        with open(package.resolve("stats.json")) as f:
-            stats = json.load(f)
+        stats = cls._load_json_from_package(package, "stats.json")
 
         # Load input normalization parameters
-        in_center = torch.Tensor([stats["input"][v]["mean"] for v in input_variables])
-        in_scale = torch.Tensor([stats["input"][v]["std"] for v in input_variables])
+        in_center_values = []
+        in_scale_values = []
+        for var in input_variables:
+            if var not in stats["input"]:
+                raise KeyError(
+                    f"stats.json is missing normalization statistics for input variable '{var}'."
+                )
+            in_center_values.append(stats["input"][var]["mean"])
+            in_scale_values.append(stats["input"][var]["std"])
+
+        in_center = torch.Tensor(in_center_values)
+        in_scale = torch.Tensor(in_scale_values)
 
         # Load output normalization parameters
         out_center = torch.Tensor(
@@ -438,15 +683,26 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         )
         out_scale = torch.Tensor([stats["output"][v]["std"] for v in output_variables])
 
-        # Load lat/lon grid
+        # Load output lat/lon grid
         with xr.open_dataset(package.resolve("output_latlon_grid.nc")) as ds:
             lat_output_grid = torch.Tensor(np.array(ds["lat"][:]))
             lon_output_grid = torch.Tensor(np.array(ds["lon"][:]))
 
+            # Validate output grid format and ordering
+            cls._validate_grid_format(
+                lat_output_grid, lon_output_grid, grid_name="output"
+            )
+
+        # Load input lat/lon grid (or infer from metadata)
         try:
             with xr.open_dataset(package.resolve("input_latlon_grid.nc")) as ds:
                 lat_input_grid = torch.Tensor(np.array(ds["lat"][:]))
                 lon_input_grid = torch.Tensor(np.array(ds["lon"][:]))
+
+                # Validate input grid format and ordering
+                cls._validate_grid_format(
+                    lat_input_grid, lon_input_grid, grid_name="input"
+                )
         except FileNotFoundError:
             if "latlon_res" in metadata:
                 latlon_res = metadata["latlon_res"]
@@ -459,11 +715,41 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                 )
 
         # Load invariants if available
+        # Note: Missing file is OK only if metadata doesn't require invariants
+        # Wrong variable names or missing required file is an error (configuration problem)
         try:
-            with xr.open_dataset(package.resolve("invariants.nc")) as ds:
+            invariants_path = package.resolve("invariants.nc")
+        except FileNotFoundError:
+            # Check if invariants were required by metadata
+            if invariant_variables:
+                raise FileNotFoundError(
+                    f"invariants.nc not found but metadata specifies invariant_variables: {invariant_variables}"
+                )
+            # No invariants file and none required - model will run without invariants
+            invariants = None
+            invariant_center = None
+            invariant_scale = None
+        else:
+            # File exists - load and validate
+            with xr.open_dataset(invariants_path) as ds:
+                # Determine which variables to load and in what order
+                if invariant_variables is None:
+                    # Load all available variables
+                    var_names = list(ds.data_vars)
+                else:
+                    # Load only specified variables in the specified order
+                    var_names = invariant_variables
+                    # Validate that all requested variables exist
+                    missing_vars = [v for v in var_names if v not in ds.data_vars]
+                    if missing_vars:
+                        raise ValueError(
+                            f"Invariant variables {missing_vars} not found in invariants.nc. "
+                            f"Available variables: {list(ds.data_vars)}"
+                        )
+
                 invariants = OrderedDict(
                     (var_name, torch.Tensor(np.array(ds[var_name])))
-                    for var_name in ds.data_vars
+                    for var_name in var_names
                 )
 
                 # Load invariant normalization parameters
@@ -473,10 +759,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                 invariant_scale = torch.Tensor(
                     [stats["invariants"][v]["std"] for v in invariants]
                 )
-        except FileNotFoundError:
-            invariants = None
-            invariant_center = None
-            invariant_scale = None
 
         return cls(
             input_variables=input_variables,
@@ -501,6 +783,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
             seed=seed,
+            grid_spacing_tolerance=grid_spacing_tolerance,
+            grid_bounds_margin=grid_bounds_margin,
         )
 
     @staticmethod
@@ -537,14 +821,21 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor to interpolate
+            Input tensor to interpolate [C, H_in, W_in]
 
         Returns
         -------
         torch.Tensor
-            Interpolated tensor
+            Interpolated tensor [C, H_out, W_out]
+
+        Note
+        ----
+        Override this method in a subclass to implement custom interpolation logic
+        or to skip interpolation when data is already on the target grid.
         """
+        # Regular grid
         if self._interpolator is None:
+            # Input grids are guaranteed to be 1D by validation
             return interp.latlon_interpolation_regular(
                 x,
                 self.lat_input_grid,
@@ -552,15 +843,17 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                 self.lat_output_grid,
                 self.lon_output_grid,
             )
+
+        # Curvilinear grid - use cached interpolator
         return self._interpolator(x)
 
-    def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
+    def normalize_input(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize input tensor using model's center and scale parameters.
 
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor to normalize
+            Input tensor to normalize [B, C, H, W]
 
         Returns
         -------
@@ -568,6 +861,51 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             Normalized input tensor (x - center) / scale
         """
         return (x - self.in_center) / self.in_scale
+
+    def preprocess_input(
+        self, x: torch.Tensor, time: datetime | None = None
+    ) -> torch.Tensor:
+        """Complete input preprocessing pipeline.
+
+        Performs interpolation to output grid, ensures a batch dimension,
+        concatenates invariants if available, and normalizes the input.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape ``[C, H_in, W_in]`` or ``[B, C, H_in, W_in]``.
+            If a batch dimension is not present, one will be added.
+        time : datetime | None, optional
+            Time information for time-dependent preprocessing (used by subclasses), by default None
+
+        Returns
+        -------
+        torch.Tensor
+            Preprocessed and normalized input tensor ``[B, C+C_inv, H_out, W_out]``.
+        """
+        # Accept both [C, H_in, W_in] and [B, C, H_in, W_in]
+        if x.ndim == 3:
+            x = x.unsqueeze(0)
+
+        if x.ndim != 4:
+            raise ValueError(
+                f"preprocess_input expected input of shape [C, H, W] or [B, C, H, W], got {tuple(x.shape)}"
+            )
+
+        # Interpolate each batch element to output grid; _interpolate expects [C, H, W]
+        b, c, h, w = x.shape
+        x = torch.stack([self._interpolate(x[i]) for i in range(b)], dim=0)
+
+        # Concatenate invariants if available
+        if self.invariants is not None:
+            # Invariants are stored as [C_inv, H_out, W_out]; expand to batch and concat
+            inv = self.invariants.unsqueeze(0).expand(b, -1, -1, -1)
+            x = torch.concat([x, inv], dim=1)
+
+        # Normalize input
+        x = self.normalize_input(x)
+
+        return x
 
     def postprocess_output(self, x: torch.Tensor) -> torch.Tensor:
         """Denormalize output tensor using model's center and scale parameters.
@@ -584,14 +922,29 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         """
         return x * self.out_scale + self.out_center
 
+    def _inference_context(self) -> nullcontext:
+        """Return context manager for model inference.
+
+        Base class returns nullcontext (no-op). Subclasses can override
+        to add autocast, profiling, or other context-dependent behavior.
+
+        Returns
+        -------
+        nullcontext
+            Context manager to wrap inference operations
+        """
+        return nullcontext()
+
     @torch.inference_mode()
-    def _forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _forward(self, x: torch.Tensor, time: datetime | None = None) -> torch.Tensor:
         """Forward pass of the model.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
+        time : datetime | None, optional
+            Time information for time-dependent preprocessing (used by subclasses), by default None
 
         Returns
         -------
@@ -603,29 +956,20 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                 f"solver must be either 'euler' or 'heun' but got {self.solver}"
             )
 
-        # Interpolate input to output grid
-        x = self._interpolate(x)
-
-        # Add batch dimension
-        (C, H, W) = x.shape
-        x = x.view(1, C, H, W)
-
-        # Concatenate invariants if available
-        if self.invariants is not None:
-            x = torch.concat([x, self.invariants.unsqueeze(0)], dim=1)
-
-        # Normalize input
-        image_lr = self.preprocess_input(x)
+        # Preprocess input (interpolate, add batch dimension, add invariants, normalize)
+        # Base class ignores time parameter; subclasses can override preprocess_input to use it
+        image_lr = self.preprocess_input(x, time)
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
 
         # Run regression model
         if self.regression_model:
-            latents_shape = (1, len(self.output_variables), *self.img_shape)
-            image_reg = regression_step(
-                net=self.regression_model,
-                img_lr=image_lr,
-                latents_shape=latents_shape,
-            )
+            latents_shape = (1, len(self.output_variables), *image_lr.shape[-2:])
+            with self._inference_context():
+                image_reg = regression_step(
+                    net=self.regression_model,
+                    img_lr=image_lr,
+                    latents_shape=latents_shape,
+                )
 
         # Generate samples
         def generate(i: int) -> torch.Tensor:
@@ -645,17 +989,18 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
             if self.residual_model and self.inference_mode != "regression":
                 mean_hr = image_reg[:1] if self.hr_mean_conditioning else None
-                image_res = diffusion_step(
-                    net=self.residual_model,
-                    sampler_fn=self.sampler,
-                    img_shape=self.img_shape,
-                    img_out_channels=len(self.output_variables),
-                    rank_batches=[[seed + i]],
-                    img_lr=image_lr,
-                    rank=1,
-                    device=x.device,
-                    mean_hr=mean_hr,
-                )
+                with self._inference_context():
+                    image_res = diffusion_step(
+                        net=self.residual_model,
+                        sampler_fn=self.sampler,
+                        img_shape=image_lr.shape[-2:],
+                        img_out_channels=len(self.output_variables),
+                        rank_batches=[[seed + i]],
+                        img_lr=image_lr,
+                        rank=1,
+                        device=image_lr.device,
+                        mean_hr=mean_hr,
+                    )
 
             if self.inference_mode == "regression":
                 return image_reg
@@ -702,8 +1047,16 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             device=x.device,
             dtype=torch.float32,
         )
+
+        # Extract time information if present in coords
+        time_array = coords.get("time", None)
+        if time_array is not None:
+            time_list = timearray_to_datetime(time_array)
+        else:
+            time_list = [None] * out.shape[0]
+
         for i in range(out.shape[0]):
-            out[i] = self._forward(x[i])
+            out[i] = self._forward(x[i], time_list[i])
 
         return out, output_coords
 

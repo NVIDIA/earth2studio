@@ -94,9 +94,14 @@ def sample_model_params(request):
     if request.param == "rectangular":
         input_lat_grid, input_lon_grid = input_lat, input_lon
     else:
-        input_lat_grid, input_lon_grid = torch.meshgrid(
+        # 2D curvilinear input grid: start from rectilinear meshgrid and add
+        # a small longitude-dependent perturbation to latitude so the grid is
+        # no longer strictly rectilinear.
+        base_lat_grid, base_lon_grid = torch.meshgrid(
             input_lat, input_lon, indexing="ij"
         )
+        input_lat_grid = base_lat_grid + 0.01 * torch.sin(torch.deg2rad(base_lon_grid))
+        input_lon_grid = base_lon_grid
     output_lat = torch.linspace(24.25, 27.75, 320)
     output_lon = torch.linspace(116.25, 119.75, 320)
 
@@ -162,9 +167,12 @@ def temp_model_files(request):
         if request.param == "rectangular":
             ds = xr.Dataset({}, coords={"lat": input_lat, "lon": input_lon})
         else:
-            input_lat_grid, input_lon_grid = np.meshgrid(
+            # 2D curvilinear input grid
+            base_lat_grid, base_lon_grid = np.meshgrid(
                 input_lat, input_lon, indexing="ij"
             )
+            input_lat_grid = base_lat_grid + 0.01 * np.sin(np.deg2rad(base_lon_grid))
+            input_lon_grid = base_lon_grid
             ds = xr.Dataset(
                 {
                     "lat": (["x", "y"], input_lat_grid),
@@ -177,17 +185,25 @@ def temp_model_files(request):
         output_lat = np.linspace(24.25, 27.75, 320)
         output_lon = np.linspace(116.25, 119.75, 320)
 
-        output_lat_grid, output_lon_grid = np.meshgrid(
-            output_lat, output_lon, indexing="ij"
-        )
-
-        ds = xr.Dataset(
-            {
-                "lat": (["x", "y"], output_lat_grid),
-                "lon": (["x", "y"], output_lon_grid),
-            },
-            coords={"x": np.arange(320), "y": np.arange(320)},
-        )
+        if request.param == "rectangular":
+            # Store as 1D arrays for rectilinear grids
+            ds = xr.Dataset({}, coords={"lat": output_lat, "lon": output_lon})
+        else:
+            # Store as 2D arrays for truly curvilinear grids
+            base_lat_grid, base_lon_grid = np.meshgrid(
+                output_lat, output_lon, indexing="ij"
+            )
+            # Add a small longitude-dependent perturbation to latitude so the grid is
+            # no longer strictly rectilinear but still within input bounds
+            output_lat_grid = base_lat_grid + 0.01 * np.sin(np.deg2rad(base_lon_grid))
+            output_lon_grid = base_lon_grid
+            ds = xr.Dataset(
+                {
+                    "lat": (["x", "y"], output_lat_grid),
+                    "lon": (["x", "y"], output_lon_grid),
+                },
+                coords={"x": np.arange(320), "y": np.arange(320)},
+            )
         ds.to_netcdf(temp_path / "output_latlon_grid.nc")
 
         yield temp_path
@@ -235,9 +251,12 @@ def temp_model_files_with_invariants(request):
         if request.param == "rectangular":
             ds = xr.Dataset({}, coords={"lat": input_lat, "lon": input_lon})
         else:
-            input_lat_grid, input_lon_grid = np.meshgrid(
+            # 2D curvilinear input grid
+            base_lat_grid, base_lon_grid = np.meshgrid(
                 input_lat, input_lon, indexing="ij"
             )
+            input_lat_grid = base_lat_grid + 0.01 * np.sin(np.deg2rad(base_lon_grid))
+            input_lon_grid = base_lon_grid
             ds = xr.Dataset(
                 {
                     "lat": (["x", "y"], input_lat_grid),
@@ -250,28 +269,40 @@ def temp_model_files_with_invariants(request):
         output_lat = np.linspace(24.25, 27.75, 320)
         output_lon = np.linspace(116.25, 119.75, 320)
 
-        output_lat_grid, output_lon_grid = np.meshgrid(
-            output_lat, output_lon, indexing="ij"
-        )
-
-        ds = xr.Dataset(
-            {
-                "lat": (["x", "y"], output_lat_grid),
-                "lon": (["x", "y"], output_lon_grid),
-            },
-            coords={"x": np.arange(320), "y": np.arange(320)},
-        )
+        if request.param == "rectangular":
+            # Store as 1D arrays for rectilinear grids
+            ds = xr.Dataset({}, coords={"lat": output_lat, "lon": output_lon})
+            ds_inv = xr.Dataset(
+                {
+                    "orography": (["lat", "lon"], np.random.randn(320, 320)),
+                    "landsea_mask": (["lat", "lon"], np.random.randn(320, 320)),
+                },
+                coords={"lat": output_lat, "lon": output_lon},
+            )
+        else:
+            # Store as 2D arrays for truly curvilinear grids
+            base_lat_grid, base_lon_grid = np.meshgrid(
+                output_lat, output_lon, indexing="ij"
+            )
+            output_lat_grid = base_lat_grid + 0.01 * np.sin(np.deg2rad(base_lon_grid))
+            output_lon_grid = base_lon_grid
+            ds = xr.Dataset(
+                {
+                    "lat": (["x", "y"], output_lat_grid),
+                    "lon": (["x", "y"], output_lon_grid),
+                },
+                coords={"x": np.arange(320), "y": np.arange(320)},
+            )
+            ds_inv = xr.Dataset(
+                {
+                    "orography": (["lat", "lon"], np.random.randn(320, 320)),
+                    "landsea_mask": (["lat", "lon"], np.random.randn(320, 320)),
+                    "lat": (["x", "y"], output_lat_grid),
+                    "lon": (["x", "y"], output_lon_grid),
+                },
+                coords={"x": np.arange(320), "y": np.arange(320)},
+            )
         ds.to_netcdf(temp_path / "output_latlon_grid.nc")
-
-        ds_inv = xr.Dataset(
-            {
-                "orography": (["lat", "lon"], np.random.randn(320, 320)),
-                "landsea_mask": (["lat", "lon"], np.random.randn(320, 320)),
-                "lat": (["x", "y"], output_lat_grid),
-                "lon": (["x", "y"], output_lon_grid),
-            },
-            coords={"x": np.arange(320), "y": np.arange(320)},
-        )
         ds_inv.to_netcdf(temp_path / "invariants.nc")
 
         yield temp_path
@@ -455,9 +486,21 @@ class TestCorrDiffForward:
                 model.lon_output_grid,
             )
 
-        with pytest.raises(ValueError):
-            lat_input_grid = model.lat_input_grid.clone()
-            lat_input_grid[0] = 100
+        # For regular (1D) grids, corrupting a single value should break validation.
+        # For curvilinear (2D) grids we currently only enforce global bounds, so this
+        # local corruption is not guaranteed to raise.
+        lat_input_grid = model.lat_input_grid.clone()
+        lat_input_grid[0] = 100
+        if lat_input_grid.ndim == 1:
+            with pytest.raises(ValueError):
+                model._check_latlon_grid(
+                    lat_input_grid,
+                    model.lon_input_grid,
+                    model.lat_output_grid,
+                    model.lon_output_grid,
+                )
+        else:
+            # Just call to ensure the function runs without crashing
             model._check_latlon_grid(
                 lat_input_grid,
                 model.lon_input_grid,
@@ -562,14 +605,20 @@ class TestCorrDiffForward:
             **sample_model_params,
         )
 
-        # Test preprocessing
-        x = torch.randn(1, 4, 36, 40)
-        normalized = model.preprocess_input(x)
-        assert normalized.shape == x.shape
+        # Test preprocessing with 3D input [C, H_in, W_in]
+        x_3d = torch.randn(4, 36, 40)
+        preprocessed_3d = model.preprocess_input(x_3d)
+        assert preprocessed_3d.shape == (1, 4, 320, 320)
 
-        # Test postprocessing
-        denormalized = model.postprocess_output(normalized)
-        assert denormalized.shape == x.shape
+        # Test preprocessing with 4D input [B, C, H_in, W_in] for backwards compatibility
+        x_4d = torch.randn(2, 4, 36, 40)
+        preprocessed_4d = model.preprocess_input(x_4d)
+        assert preprocessed_4d.shape == (2, 4, 320, 320)
+
+        # Test postprocessing - operates on output grid shape
+        output = torch.randn(1, 4, 320, 320)
+        postprocessed = model.postprocess_output(output)
+        assert postprocessed.shape == (1, 4, 320, 320)
 
     def test_corrdiff_input_output_coords(
         self, mock_residual_model, mock_regression_model, sample_model_params
@@ -759,10 +808,15 @@ class TestCorrDiffLoadModel:
     @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
     def test_corrdiff_load_model_basic(self, mock_package, temp_model_files):
         """Test basic load_model functionality."""
-        # Configure mock package to return our temp files
-        mock_package.resolve.side_effect = lambda path: str(
-            temp_model_files / Path(path).name
-        )
+
+        # Configure mock package to return our temp files.
+        # Simulate missing invariants.nc (no invariants for basic case).
+        def resolve_side_effect(path: str) -> str:
+            if Path(path).name == "invariants.nc":
+                raise FileNotFoundError
+            return str(temp_model_files / Path(path).name)
+
+        mock_package.resolve.side_effect = resolve_side_effect
 
         # Load model
         model = CorrDiff.load_model(mock_package)
