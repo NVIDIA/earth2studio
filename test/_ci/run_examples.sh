@@ -3,6 +3,8 @@ if [ -d "outputs" ]; then
     rm -rf outputs
 fi
 
+uv sync
+
 for example in examples/*.py; do
     if [ -f "$example" ]; then
         echo "Running example: $example"

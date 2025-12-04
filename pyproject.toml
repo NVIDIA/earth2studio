@@ -92,6 +92,13 @@ aifs = [
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
+aifsens = [
+    "anemoi-models==0.5.1",
+    "anemoi-graphs==0.6.2",
+    "earthkit-regrid==0.4.0",
+    "ecmwf-opendata>=0.3.3",
+    "flash-attn",
+]
 aurora = [
     "microsoft-aurora>=1.5.0",
 ]
@@ -221,6 +228,10 @@ conflicts = [
     [
       { extra = "aurora" },
       { extra = "aurora-fork" },
+    ],
+    [
+      { extra = "aifs" },
+      { extra = "aifsens" },
     ]
 ]
 default-groups = ["dev", "build"]

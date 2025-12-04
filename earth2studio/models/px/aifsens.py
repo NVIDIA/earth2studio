@@ -33,13 +33,12 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import CoordSystem
 
 try:
-    import anemoi.inference  # noqa: F401
     import anemoi.models  # noqa: F401
     import earthkit.regrid  # noqa: F401
     import ecmwf.opendata  # noqa: F401
     import flash_attn  # noqa: F401
 except ImportError:
-    OptionalDependencyFailure("aifs")
+    OptionalDependencyFailure("aifsens")
 
 VARIABLES = [
     "q50",
@@ -143,31 +142,30 @@ VARIABLES = [
     "sin_julian_day",
     "sin_local_time",
     "insolation",
-    "u100m",
-    "v100m",
-    "hcc",
-    "lcc",
-    "mcc",
-    "ro",
-    "sf",
-    "ssrd06",
     "stl1",
     "stl2",
-    "strd06",
-    "swvl1",
-    "swvl2",
+    "ssrd",
+    "strd",
+    "sf",
     "tcc",
+    "mcc",
+    "hcc",
+    "lcc",
+    "u100m",
+    "v100m",
+    "ro",
 ]  # from config.json >> dataset.variables
 
 
 @check_optional_dependencies()
-class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Artificial Intelligence Forecasting System (AIFS), a data driven forecast model
-    developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is
-    based on a graph neural network (GNN) encoder and decoder, and a sliding window
-    transformer processor, and is trained on ECMWF's ERA5 re-analysis and ECMWF's
-    operational numerical weather prediction (NWP) analyses.
-    Consists of a single model with a time-step size of 6 hours.
+class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
+    probabilistic, ensemble-based forecast model from the European Centre for
+    Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a
+    sliding-window transformer processor, trained on ERA5 reanalysis and operational NWP
+    analyses, and is run four times daily with a 6-hour time step. The model is trained
+    with a CRPS objective over a small ensemble to provide calibrated probabilistic
+    output.
 
     Note
     ----
@@ -175,23 +173,23 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     For additional information see the following resources:
 
     - https://arxiv.org/abs/2406.01465
-    - https://huggingface.co/ecmwf/aifs-single-1.0
+    - https://huggingface.co/ecmwf/aifs-ens-1.0
     - https://github.com/ecmwf/anemoi-core
 
     Parameters
     ----------
     model : torch.nn.Module
-        Core PyTorch module with the pretrained AIFS weights loaded.
+        Core PyTorch module with the pretrained AIFSENS weights loaded.
     latitudes : torch.Tensor
-        Latitude values for the native octahedral grid, registered as a buffer for
+        Latitude values for the native model grid, registered as a buffer for
         interpolation.
     longitudes : torch.Tensor
-        Longitude values for the native octahedral grid, registered as a buffer for
+        Longitude values for the native model grid, registered as a buffer for
         interpolation.
     interpolation_matrix : torch.Tensor
-        CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.
+        CSR sparse matrix mapping ERA5 lat/lon inputs onto the native model grid.
     inverse_interpolation_matrix : torch.Tensor
-        CSR sparse matrix mapping outputs from the octahedral grid back to ERA5
+        CSR sparse matrix mapping outputs from the native model grid back to ERA5
         lat/lon.
 
     Warning
@@ -329,9 +327,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://ecmwf/aifs-single-1.0",
+            "hf://ecmwf/aifs-ens-1.0",
             cache_options={
-                "cache_storage": Package.default_cache("aifs-single-1.0"),
+                "cache_storage": Package.default_cache("aifs-ens-1.0"),
                 "same_names": True,
             },
         )
@@ -343,14 +341,14 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load prognostic from package"""
 
         # Load model
-        model_path = package.resolve("aifs-single-mse-1.0.ckpt")
+        model_path = package.resolve("aifs-ens-crps-1.0.ckpt")
         model = torch.load(
             model_path, weights_only=False, map_location=torch.ones(1).device
         )
         model.eval()
 
         # Define the path to the metadata file
-        metadata_path = "inference-last/anemoi-metadata/ai-models.json"
+        metadata_path = "inference-anemoi-by_epoch-epoch_001-step_000040_tp_fix_0.05/anemoi-metadata/ai-models.json"
 
         # Extract metadata and supporting arrays from the zip file
         with zipfile.ZipFile(model_path, "r") as zipf:  # NOTE: this is totally baffling
@@ -524,7 +522,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model."""
+        """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)
@@ -605,32 +603,50 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> torch.Tensor:
         """Update time based inputs."""
 
+        time0 = coords["time"][0] + coords["lead_time"][0]
+        time1 = coords["time"][0] + coords["lead_time"][1]
+
         # Select only inputs
         # From AnemoiModelInterface.DataIndices
         # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
         x = x[..., self.model.data_indices.data.input.full]
 
         # Get cos, sin of Julian day
-        cos_julian_day, sin_julian_day = self.get_cos_sin_julian_day(
-            coords["time"][0] + coords["lead_time"][0], self.longitudes
+        cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
+            time0, self.longitudes
         )
+        cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
+            time1, self.longitudes
+        )
+        cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1)
+        sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1)
 
-        # Get cos, sin of local time
-        cos_local_time, sin_local_time = self.get_cos_sin_local_time(
-            coords["time"][0] + coords["lead_time"][0], self.longitudes
+        # Get cos, sin local time
+        cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
+            time0, self.longitudes
         )
+        cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
+            time1, self.longitudes
+        )
+        cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1)
+        sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1)
 
         # Get cosine zenith angle
-        cos_zenith_angle = self.get_cosine_zenith_fields(
-            coords["time"][0] + coords["lead_time"][0], self.latitudes, self.longitudes
+        # Add insolation / cosine zenith angle
+        cos_zenith_angle_0 = self.get_cosine_zenith_fields(
+            time0, self.latitudes, self.longitudes
         )
+        cos_zenith_angle_1 = self.get_cosine_zenith_fields(
+            time1, self.latitudes, self.longitudes
+        )
+        cos_zenith_angle = torch.cat([cos_zenith_angle_0, cos_zenith_angle_1], dim=1)
 
         # Add terms to x
-        x[:, 1:2, :, 94:95] = cos_julian_day
-        x[:, 1:2, :, 95:96] = cos_local_time
-        x[:, 1:2, :, 96:97] = sin_julian_day
-        x[:, 1:2, :, 97:98] = sin_local_time
-        x[:, 1:2, :, 98:99] = cos_zenith_angle
+        x[:, :, :, 94:95] = cos_julian_day
+        x[:, :, :, 95:96] = cos_local_time
+        x[:, :, :, 96:97] = sin_julian_day
+        x[:, :, :, 97:98] = sin_local_time
+        x[:, :, :, 98:99] = cos_zenith_angle
 
         return x
 
@@ -639,7 +655,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare input tensor and coordinates for the AIFS model."""
+        """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Remove generated forcings
         all_indices = torch.arange(x.size(-1))
         keep = torch.isin(all_indices, torch.arange(92, 101), invert=True)
@@ -675,10 +691,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
+        step: int = 1,
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
-            y = self.model.predict_step(x)
+            y = self.model.predict_step(x, fcstep=step)
             out = torch.empty(
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,
@@ -721,44 +738,50 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x, coords
 
     def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        """
+        Fill the model input tensor by selecting prognostic + forcing variables,
+        while removing generated forcings (indices 92–100).
+        """
+        batch, time, lead, _, height, width = x.shape
+
+        # Prepare empty output tensor with VARIABLE dimension
         out = torch.empty(
-            (
-                x.shape[0],
-                x.shape[1],
-                x.shape[2],
-                len(VARIABLES),
-                x.shape[4],
-                x.shape[5],
-            ),
+            (batch, time, lead, len(VARIABLES), height, width),
             device=x.device,
         )
-        indices = torch.cat(
-            [
-                self.model.data_indices.data.input.prognostic,
-                self.model.data_indices.data.input.forcing,
-            ]
+
+        # Collect relevant indices from model (prognostic + forcing)
+        indices = (
+            torch.cat(
+                [
+                    self.model.data_indices.data.input.prognostic,
+                    self.model.data_indices.data.input.forcing,
+                ]
+            )
+            .sort()
+            .values
         )
 
-        # Sort the concatenated tensor
-        indices = indices.sort().values
+        # Define unwanted indices (generated forcings)
+        generated_forcing_range = torch.arange(92, 101)
 
-        # Create the range of values to remove
-        to_remove = torch.arange(92, 101)  # generated forcings
+        # Keep only valid indices (exclude generated forcings)
+        valid_mask = ~torch.isin(indices, generated_forcing_range)
 
-        # Keep only elements NOT in to_remove
-        mask = ~torch.isin(indices, to_remove)
+        # Fill tensor: copy input slices into selected variable slots
+        out[:, :, 0, indices[valid_mask]] = x[0, 0, 0, ...]
+        out[:, :, 1, indices[valid_mask]] = x[0, 0, 1, ...]
 
-        out[:, :, 0, indices[mask]] = x[0, 0, 0, ...]
-        out[:, :, 1, indices[mask]] = x[0, 0, 1, ...]
+        # Drop generated forcing dimension range from output
+        out = torch.cat([out[:, :, :, :92, ...], out[:, :, :, 101:, ...]], dim=3)
 
-        to_remove = torch.arange(92, 101)
-        out = torch.cat([out[:, :, :, :91, ...], out[:, :, :, 101:, ...]], dim=3)
-        indices = torch.arange(len(VARIABLES))
-        mask = ~torch.isin(indices, to_remove)
-        selected = [VARIABLES[i] for i in indices[mask].tolist()]
+        # Update coordinates with remaining variable names
+        all_indices = torch.arange(len(VARIABLES))
+        variable_mask = ~torch.isin(all_indices, generated_forcing_range)
+        selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
 
         out_coords = coords.copy()
-        out_coords["variable"] = np.array(selected)
+        out_coords["variable"] = np.array(selected_variables)
 
         return out, out_coords
 
@@ -775,13 +798,14 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
+        step = 1
 
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            y, coords_out = self._forward(x, coords)
+            y, coords_out = self._forward(x, coords, step=step)
 
             # Prepare output tensor
             output_tensor = self._prepare_output(y, coords_out)
@@ -799,6 +823,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             # Prepare input tensor
             x = self._update_input(y, coords)
+            step += 1
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

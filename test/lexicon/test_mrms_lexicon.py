@@ -14,23 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .ace import ACELexicon
-from .arco import ARCOLexicon
-from .cbottle import CBottleLexicon
-from .cds import CDSLexicon
-from .cmip6 import CMIP6Lexicon
-from .ecmwf import AIFSLexicon, IFSLexicon
-from .gefs import GEFSLexicon, GEFSLexiconSel
-from .gfs import GFSLexicon
-from .goes import GOESLexicon
-from .hrrr import HRRRFXLexicon, HRRRLexicon
-from .imerg import IMERGLexicon
-from .jpss import JPSSLexicon
-from .mrms import MRMSLexicon
-from .ncar import NCAR_ERA5Lexicon
-from .planetary_computer import (
-    MODISFireLexicon,
-    OISSTLexicon,
-    Sentinel3AODLexicon,
-)
-from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
+import numpy as np
+import pytest
+
+from earth2studio.lexicon.mrms import MRMSLexicon
+
+
+def test_mrms_lexicon_basic_mapping_and_modifier_identity():
+    key, mod = MRMSLexicon.get_item("refc")
+    assert key == "MergedReflectivityQCComposite_00.50"
+
+    x = np.array([0.0, 1.5, -3.2], dtype=np.float32)
+    y = mod(x.copy())
+    assert np.array_equal(y, x)
+
+
+def test_mrms_lexicon_invalid_key():
+    with pytest.raises(KeyError):
+        MRMSLexicon.get_item("invalid_key")

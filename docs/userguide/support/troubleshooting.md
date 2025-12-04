@@ -80,9 +80,10 @@ For more information see the [NGC CLI docs](https://docs.ngc.nvidia.com/cli/inde
 
 Still having some problems? Open an issue.
 
-## Flash Attention has long build time for AIFS
+## Flash Attention has long build time for AIFS models
 
-This is a known issue with the library with several [issues](https://github.com/Dao-AILab/flash-attention/issues/1038)
+Both the deterministic AIFS and AIFS Ensemble extras depend on Flash Attention. This is
+a known issue with the library with several [issues](https://github.com/Dao-AILab/flash-attention/issues/1038)
 on the subject.
 There are a few options to try outside of just waiting for the build to complete.
 
