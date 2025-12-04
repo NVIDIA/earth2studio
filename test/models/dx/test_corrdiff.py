@@ -39,6 +39,7 @@ class MockPhysicsNemoModule(torch.nn.Module):
         self.sigma_min = 0.0
         self.sigma_max = float("inf")
         self.device = torch.device(device)
+        self.profile_mode = False  # For inference optimization tests
 
     def forward(self, x, img_lr=None, sigma=None, class_labels=None, **kwargs):
         # Return tensor with expected output shape
@@ -53,9 +54,10 @@ class MockPhysicsNemoModule(torch.nn.Module):
     def device(self):
         return self.device
 
-    def to(self, device):
-        super().to(device)
-        self.device = device
+    def to(self, device=None, memory_format=None):
+        if device is not None:
+            super().to(device)
+            self.device = device
         return self
 
     @classmethod

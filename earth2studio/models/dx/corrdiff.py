@@ -635,6 +635,19 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             package.resolve("regression.mdlus")
         ).eval()
 
+        # Apply inference optimizations (following CorrDiffTaiwan patterns)
+        # Disable profiling mode for both models
+        residual.profile_mode = False
+        regression.profile_mode = False
+
+        # Convert to channels_last memory format for better GPU performance
+        residual = residual.to(memory_format=torch.channels_last)
+        regression = regression.to(memory_format=torch.channels_last)
+
+        # Configure torch dynamo for potential compilation
+        torch._dynamo.config.cache_size_limit = 264
+        torch._dynamo.reset()
+
         # Load metadata
         metadata = cls._load_json_from_package(package, "metadata.json")
         raw_input_variables = metadata["input_variables"]
