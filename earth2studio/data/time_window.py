@@ -16,16 +16,17 @@
 
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Literal
 
 import xarray as xr
 
-from earth2studio.data.base import DataSource
+from earth2studio.data import DataSource
 from earth2studio.data.utils import prep_data_inputs
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class TimeWindow:
-    """Wrapper for datasources that fetches data at multiple time offsets.
+    r"""Wrapper for datasources that fetches data at multiple time offsets.
 
     This wrapper takes an existing datasource and fetches data at multiple temporal
     offsets relative to the requested time(s). The variable dimension is expanded
@@ -45,14 +46,14 @@ class TimeWindow:
 
       - A leading ``time`` dimension matching the requested times
       - A ``variable`` dimension/coordinate whose entries match the *base*
-        variable names requested (e.g. ``\"tas\"``, ``\"u10m\"`` – **without**
-        any time suffixes such as ``\"_t-1\"``).
+        variable names requested (e.g. ``"tas"``, ``"u10m"`` – **without**
+        any time suffixes such as ``"_t-1"``).
 
     This wrapper is responsible for:
 
     - Expanding those base variables across multiple temporal offsets
-    - Renaming them with the configured suffixes (e.g. ``\"tas_t-1\"``,
-      ``\"tas_t\"``, ``\"tas_t+1\"``)
+    - Renaming them with the configured suffixes (e.g. ``"tas_t-1"``,
+      ``"tas_t"``, ``"tas_t+1"``)
     - Ensuring that the output variable ordering is deterministic and matches
       the configured ``group_by`` policy.
 
@@ -86,7 +87,7 @@ class TimeWindow:
     suffixes : list[str]
         List of suffixes to append to variable names. Must be same length as offsets.
         For example: ['_tm1', '_t', '_tp1'] or ['_prev', '_curr', '_next']
-    group_by : str, optional
+    group_by : Literal["variable", "offset"], optional
         Primary grouping dimension for variable ordering. Default: 'variable'
 
         Variables are always ordered in both dimensions - this parameter controls
@@ -107,7 +108,6 @@ class TimeWindow:
     --------
     >>> from earth2studio.data import GFS, TimeWindow
     >>> from datetime import datetime, timedelta
-    >>>
     >>> # Create wrapper that fetches t-6h, t, and t+6h
     >>> gfs = GFS()
     >>> wrapped_gfs = TimeWindow(
@@ -115,7 +115,6 @@ class TimeWindow:
     ...     offsets=[timedelta(hours=-6), timedelta(hours=0), timedelta(hours=6)],
     ...     suffixes=['_tm1', '_t', '_tp1']
     ... )
-    >>>
     >>> # Request data for a single time and multiple variables
     >>> data = wrapped_gfs(datetime(2024, 1, 1), ['t2m', 'u10m'])
     >>> # Returns data with 6 variables ordered as:
@@ -127,14 +126,14 @@ class TimeWindow:
         datasource: DataSource,
         offsets: list[timedelta],
         suffixes: list[str],
-        group_by: str = "variable",
+        group_by: Literal["variable", "offset"] = "variable",
         time_fn: Callable[[datetime], datetime] = lambda x: x,
     ):
-        self.datasource = datasource
-        self.offsets = offsets
-        self.suffixes = suffixes
-        self.group_by = group_by
-        self.time_fn = time_fn
+
+        if group_by not in ["variable", "offset"]:
+            raise ValueError(
+                f"group_by must be 'variable' or 'offset', got '{group_by}'"
+            )
 
         if not offsets:
             raise ValueError("offsets must be a non-empty list")
@@ -148,10 +147,11 @@ class TimeWindow:
                 f"Got {len(offsets)} offsets and {len(suffixes)} suffixes."
             )
 
-        if group_by not in ["variable", "offset"]:
-            raise ValueError(
-                f"group_by must be 'variable' or 'offset', got '{group_by}'"
-            )
+        self.datasource = datasource
+        self.offsets = offsets
+        self.suffixes = suffixes
+        self.group_by = group_by
+        self.time_fn = time_fn
 
     def _expand_variables_with_suffixes(self, base_vars: list[str]) -> list[str]:
         """Return expanded variable names (base + suffix) in group_by order.
