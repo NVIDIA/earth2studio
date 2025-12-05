@@ -330,7 +330,9 @@ class GOES:
         s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         # Add the grid coords to the data array
-        xr_array = xr_array.assign_coords({"_lat": (("y", "x"), self._lat), "_lon": (("y", "x"), self._lon)})
+        xr_array = xr_array.assign_coords(
+            {"_lat": (("y", "x"), self._lat), "_lon": (("y", "x"), self._lon)}
+        )
         return xr_array
 
     async def fetch_wrapper(

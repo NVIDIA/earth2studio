@@ -14,17 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
-from typing import Any, Dict, List, Tuple
+from collections.abc import Callable, Generator, Iterator
 from datetime import datetime, timezone
+from typing import Any, cast
+
 import numpy as np
-from numpy.typing import ArrayLike
-from loguru import logger
 import torch
 import torch.nn as nn
-import json
+from loguru import logger
+from numpy.typing import ArrayLike
 
+from earth2studio.data import GFS_FX, HRRR
+from earth2studio.data.base import DataSource, ForecastSource
+from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -38,11 +42,8 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
-from earth2studio.data import HRRR, GFS_FX, GOES
-from earth2studio.data.base import DataSource, ForecastSource
-from earth2studio.data.utils import fetch_data
 from earth2studio.utils.interp import NearestNeighborInterpolator
+from earth2studio.utils.type import CoordSystem
 
 try:
     # Optional dependency: physicsnemo and its sampler are required to run inference.
@@ -55,7 +56,12 @@ except ImportError:
     deterministic_sampler = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
-from earth2studio.models.nn.scv2_util import EDMPrecond, DropInDiT, edm_sampler # TODO remove when upstreamed
+from earth2studio.models.nn.scv2_util import (
+    DropInDiT,
+    EDMPrecond,
+)
+
+
 def model_wrap(model: Module) -> nn.Module:
     """Wrap a physicsnemo Module so it is compatible with the preconditioning and sampler used by ObsCast.
     TODO: Remove once core EDMPrecond architecture is fully upstreamed
@@ -65,6 +71,7 @@ def model_wrap(model: Module) -> nn.Module:
             pnm=model,
         ),
     )
+
 
 @check_optional_dependencies()
 class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -133,11 +140,19 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     _SAMPLER_DTYPE = torch.float64
 
     # Constant to fill invalid gridpoints in the input after normalization
-    _INPUT_INVALID_FILL_CONSTANT = 0.
+    _INPUT_INVALID_FILL_CONSTANT = 0.0
+
+    # Instance attribute type declarations for mypy
+    means: torch.Tensor
+    stds: torch.Tensor
+    valid_mask: torch.Tensor
+    conditioning_valid_mask: torch.Tensor
+    input_interp: NearestNeighborInterpolator | None
+    conditioning_interp: NearestNeighborInterpolator | None
 
     def __init__(
         self,
-        model_spec: List[Dict[str, Any]],
+        model_spec: list[dict[str, Any]],
         means: torch.Tensor,
         stds: torch.Tensor,
         variables: np.ndarray,
@@ -147,7 +162,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.ndarray | None = None,
         conditioning_data_source: Any | None = None,
-        sampler_args: Dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
+        sampler_args: dict[str, Any] | None = {"num_steps": 100, "S_churn": 10},
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         y_coords: np.ndarray | None = None,
@@ -159,8 +174,10 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise ValueError("model_spec must be a non-empty list of stage dicts.")
 
         if conditioning_data_source is None:
-            logger.warning("No conditioning data source was provided to ObsCast; set the conditioning_data_source attribute "\
-                "of the model before running inference with iterator mode, or use the call_with_conditioning method.")
+            logger.warning(
+                "No conditioning data source was provided to ObsCast; set the conditioning_data_source attribute "
+                "of the model before running inference with iterator mode, or use the call_with_conditioning method."
+            )
 
         self.input_times = input_times
         self.output_times = output_times
@@ -179,18 +196,18 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             self.y = np.arange(latitudes.shape[0])
             self.x = np.arange(longitudes.shape[1])
-        
+
         for i, spec in enumerate(model_spec):
             if not isinstance(spec, dict):
                 raise TypeError(f"model_spec[{i}] must be a dict.")
             for key in ("model", "sigma_min", "sigma_max"):
                 if key not in spec:
                     raise KeyError(f"model_spec[{i}] missing required key '{key}'.")
-        
+
         # Sort stages by descending sigma_max to ensure large->small sampling schedule
         self.model_spec = sorted(
             model_spec, key=lambda s: float(s["sigma_max"]), reverse=True
-        ) 
+        )
         # Store in ModuleList so `.to(device)` works
         self.stage_models = nn.ModuleList([spec["model"] for spec in self.model_spec])
         self.start_sigma = self.model_spec[-1]["sigma_min"]
@@ -232,9 +249,16 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         **kwargs: Any,
     ) -> DiagnosticModel:
         """Load model from package. Must be implemented by subclasses."""
-        raise NotImplementedError("ObsCastBase.load_model must be implemented by a subclass.")
-    
-    def build_input_interpolator(self, input_lats: torch.Tensor | ArrayLike, input_lons: torch.Tensor | ArrayLike, max_dist_km: float = 6.0) -> nn.Module:
+        raise NotImplementedError(
+            "ObsCastBase.load_model must be implemented by a subclass."
+        )
+
+    def build_input_interpolator(
+        self,
+        input_lats: torch.Tensor | ArrayLike,
+        input_lons: torch.Tensor | ArrayLike,
+        max_dist_km: float = 6.0,
+    ) -> nn.Module:
         """Build a module to handle interpolating data on an arbitrary input lat/lon grid
         to the internal lat/lon grid, done via nearest neighbor interpolation.
 
@@ -257,18 +281,28 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             max_dist_km=max_dist_km,
         ).to(self.latitudes.device)
 
-        if torch.any(~self.input_interp.valid_mask):
-            logger.warning("Some input gridpoints are invalid after interpolation. "\
-                "This may be expected if the input data source is not available at "\
-                "all gridpoints, but consider double-checking coordinates and/or the "\
-                "max_dist_km parameter. Invalid points will be filled with the model's "\
-                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT}).")
+        interp = cast(NearestNeighborInterpolator, self.input_interp)
+        if torch.any(~interp.valid_mask):
+            logger.warning(
+                "Some input gridpoints are invalid after interpolation. "
+                "This may be expected if the input data source is not available at "
+                "all gridpoints, but consider double-checking coordinates and/or the "
+                "max_dist_km parameter. Invalid points will be filled with the model's "
+                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT})."
+            )
 
         # Store the mask tracking valid gridpoints, shape [H, W]
-        self.register_buffer("valid_mask", self.input_interp.valid_mask.reshape(len(self.y), len(self.x)))
+        self.register_buffer(
+            "valid_mask", interp.valid_mask.reshape(len(self.y), len(self.x))
+        )
         self.valid_mask = self.valid_mask.to(device=self.latitudes.device)
 
-    def build_conditioning_interpolator(self, conditioning_lats: torch.Tensor | ArrayLike, conditioning_lons: torch.Tensor | ArrayLike, max_dist_km: float = 6.0) -> nn.Module:
+    def build_conditioning_interpolator(
+        self,
+        conditioning_lats: torch.Tensor | ArrayLike,
+        conditioning_lons: torch.Tensor | ArrayLike,
+        max_dist_km: float = 6.0,
+    ) -> nn.Module:
         """Build a module to handle interpolating data on an arbitrary input lat/lon grid
         to the internal lat/lon grid, done via nearest neighbor interpolation.
 
@@ -291,16 +325,24 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             max_dist_km=max_dist_km,
         ).to(self.latitudes.device)
 
-        if torch.any(~self.conditioning_interp.valid_mask):
-            logger.warning("Some conditioning gridpoints are invalid after interpolation. "\
-                "This may be expected if the conditioning data source is not available at "\
-                "all gridpoints, but consider double-checking coordinates and/or the "\
-                "max_dist_km parameter. Invalid points will be filled with the model's "\
-                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT}).")
+        cinterp = cast(NearestNeighborInterpolator, self.conditioning_interp)
+        if torch.any(~cinterp.valid_mask):
+            logger.warning(
+                "Some conditioning gridpoints are invalid after interpolation. "
+                "This may be expected if the conditioning data source is not available at "
+                "all gridpoints, but consider double-checking coordinates and/or the "
+                "max_dist_km parameter. Invalid points will be filled with the model's "
+                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT})."
+            )
 
         # Store the mask tracking valid gridpoints, shape [H, W]
-        self.register_buffer("conditioning_valid_mask", self.conditioning_interp.valid_mask.reshape(len(self.y), len(self.x)))
-        self.conditioning_valid_mask = self.conditioning_valid_mask.to(device=self.latitudes.device)
+        self.register_buffer(
+            "conditioning_valid_mask",
+            cinterp.valid_mask.reshape(len(self.y), len(self.x)),
+        )
+        self.conditioning_valid_mask = self.conditioning_valid_mask.to(
+            device=self.latitudes.device
+        )
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system. Subclasses should override for specific variants."""
@@ -327,7 +369,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
-    ) -> Tuple[torch.Tensor | None, CoordSystem | None]:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Fetch external conditioning data. Subclasses should override.
 
         Parameters
@@ -339,14 +381,16 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        tuple[torch.Tensor | None, CoordSystem | None]
-            Conditioning tensor aligned with `coords`, or (None, None) if unused.
+        tuple[torch.Tensor, CoordSystem]
+            Conditioning tensor aligned with `coords`.
         """
         raise NotImplementedError(
             "ObsCastBase.fetch_conditioning must be implemented by a subclass."
         )
 
-    def normalize_conditioning(self, conditioning: torch.Tensor | None) -> torch.Tensor | None:
+    def normalize_conditioning(
+        self, conditioning: torch.Tensor | None
+    ) -> torch.Tensor | None:
         """Normalize external conditioning with stored stats if available."""
         if conditioning is None:
             return None
@@ -357,7 +401,9 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = x / self.conditioning_stds
         return x
 
-    def _stack_lead_times(self, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
+    def _stack_lead_times(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Stack lead times along the channel dimension. Reshapes tensors from (..., n_lt, n_vars, y, x)
         to (..., 1, n_lt * n_vars, y, x) and updates the coordinate system to reflect the new shape.
         The last lead time from the original coordinate system is used as the lead time for the stacked tensor.
@@ -365,13 +411,23 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lt_dim = list(coords.keys()).index("lead_time")
         var_dim = list(coords.keys()).index("variable")
         if var_dim != lt_dim + 1:
-            raise ValueError(f"The coordinate order must be [..., lead_time, variable, ...], got {list(coords.keys())}")
+            raise ValueError(
+                f"The coordinate order must be [..., lead_time, variable, ...], got {list(coords.keys())}"
+            )
         n_lt = len(coords["lead_time"])
         n_vars = len(coords["variable"])
-        stacked = x.reshape(*x.shape[:lt_dim], n_lt * n_vars, *x.shape[lt_dim+2:]).unsqueeze(lt_dim)
+        stacked = x.reshape(
+            *x.shape[:lt_dim], n_lt * n_vars, *x.shape[lt_dim + 2 :]
+        ).unsqueeze(lt_dim)
         stacked_coords = coords.copy()
         stacked_coords["lead_time"] = stacked_coords["lead_time"][-1:]
-        stacked_coords["variable"] = np.array([f"{var}(t+{str(lt)})" for lt in stacked_coords["lead_time"] for var in stacked_coords["variable"]])
+        stacked_coords["variable"] = np.array(
+            [
+                f"{var}(t+{str(lt)})"
+                for lt in stacked_coords["lead_time"]
+                for var in stacked_coords["variable"]
+            ]
+        )
         return stacked, stacked_coords
 
     def build_condition(
@@ -405,7 +461,13 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Reshape input/conditioning to (..., 1, n_lt * n_vars, y, x)
             x, coords = self._stack_lead_times(x, coords)
             if conditioning is not None:
-                conditioning, conditioning_coords = self._stack_lead_times(conditioning, conditioning_coords)
+                if conditioning_coords is None:
+                    raise ValueError(
+                        "Expected conditioning_coords when conditioning is provided"
+                    )
+                conditioning, conditioning_coords = self._stack_lead_times(
+                    conditioning, conditioning_coords
+                )
 
         # Fold batch/time/lead_time dimensions
         b, t, lt, _, _, _ = x.shape
@@ -423,25 +485,57 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 parts.insert(0, conditioning)
         if self.latitudes is not None and self.longitudes is not None:
             normed_lat = (self.latitudes - self._CENTRAL_LAT_CONSTANT) / self._LAT_SCALE
-            normed_lon = (self.longitudes + 180.0) % 360.0 - 180.0 # trained models expect [-180, 180] longitudes
+            normed_lon = (
+                self.longitudes + 180.0
+            ) % 360.0 - 180.0  # trained models expect [-180, 180] longitudes
             normed_lon = (normed_lon - self._CENTRAL_LON_CONSTANT) / self._LON_SCALE
-            latlon_input = torch.cat((normed_lat[None, None, :, :], normed_lon[None, None, :, :]), dim=1)
-            parts.append(latlon_input.repeat(b*t, 1, 1, 1))
-        
+            latlon_input = torch.cat(
+                (normed_lat[None, None, :, :], normed_lon[None, None, :, :]), dim=1
+            )
+            parts.append(latlon_input.repeat(b * t, 1, 1, 1))
+
         # Build cos zenith features from input and target times
         times = np.array(coords["time"]).astype(np.datetime64)
         lead_times = np.array(coords["lead_time"]).astype(np.timedelta64)
-        input_cz_times = np.concatenate([times + lead_times[-1]]*b, axis=0) # batch and time dims are folded together
+        input_cz_times = np.concatenate(
+            [times + lead_times[-1]] * b, axis=0
+        )  # batch and time dims are folded together
         target_cz_times = input_cz_times + self.output_times[-1]
-        input_cz_times = np.array([datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc) for t in input_cz_times])
-        target_cz_times = np.array([datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc) for t in target_cz_times])
-        cz_0 = np.stack([cos_zenith_angle(t, self._lon_cpu_copy, self._lat_cpu_copy) for t in input_cz_times], axis=0) # shape [B*T, H, W]
-        cz_1 = np.stack([cos_zenith_angle(t, self._lon_cpu_copy, self._lat_cpu_copy) for t in target_cz_times], axis=0) # shape [B*T, H, W]
-        
+        input_cz_times = np.array(
+            [
+                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc)
+                for t in input_cz_times
+            ]
+        )
+        target_cz_times = np.array(
+            [
+                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc)
+                for t in target_cz_times
+            ]
+        )
+        cz_0 = np.stack(
+            [
+                cos_zenith_angle(t, self._lon_cpu_copy, self._lat_cpu_copy)
+                for t in input_cz_times
+            ],
+            axis=0,
+        )  # shape [B*T, H, W]
+        cz_1 = np.stack(
+            [
+                cos_zenith_angle(t, self._lon_cpu_copy, self._lat_cpu_copy)
+                for t in target_cz_times
+            ],
+            axis=0,
+        )  # shape [B*T, H, W]
+
         parts.extend(
             [
-                torch.from_numpy(cz_0).to(device=x.device, dtype=x.dtype)[:, None, :, :],
-                torch.from_numpy(cz_1).to(device=x.device, dtype=x.dtype)[:, None, :, :],
+                torch.from_numpy(cz_0).to(device=x.device, dtype=x.dtype)[
+                    :, None, :, :
+                ],
+                torch.from_numpy(cz_1).to(device=x.device, dtype=x.dtype)[
+                    :, None, :, :
+                ],
             ]
         )
 
@@ -476,7 +570,9 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if x.dim() != 6 or (conditioning is not None and conditioning.dim() != 6):
             cond_shape = conditioning.shape if conditioning is not None else None
-            raise ValueError(f"Input tensors must have 6 dimensions [B, T, L, C, H, W], got {x.shape} and {cond_shape} for input and conditioning respectively")
+            raise ValueError(
+                f"Input tensors must have 6 dimensions [B, T, L, C, H, W], got {x.shape} and {cond_shape} for input and conditioning respectively"
+            )
 
         b, t, lt, _, _, _ = x.shape
 
@@ -484,11 +580,13 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_norm = (x - self.means) / self.stds
         x_norm = torch.where(self.valid_mask, x_norm, self._INPUT_INVALID_FILL_CONSTANT)
         output_dtype = x_norm.dtype
-        
+
         # Scale conditioning and zero-fill invalid gridpoints
         if conditioning is not None:
             conditioning_norm = self.normalize_conditioning(conditioning)
-            conditioning_norm = torch.where(self.conditioning_valid_mask, conditioning_norm, 0.)
+            conditioning_norm = torch.where(
+                self.conditioning_valid_mask, conditioning_norm, 0.0
+            )
         else:
             conditioning_norm = None
 
@@ -499,7 +597,9 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
-        latents = torch.randn(b*t, *x.shape[3:], device=x.device, dtype=x.dtype) # shape [B*T, C, H, W]
+        latents = torch.randn(
+            b * t, *x.shape[3:], device=x.device, dtype=x.dtype
+        )  # shape [B*T, C, H, W]
 
         # Run diffusion sampler
         out = self._edm_sampler(
@@ -518,22 +618,24 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _edm_sampler(
         self,
-        latents,
-        condition=None,
-        class_labels=None,
-        randn_like=torch.randn_like,
-        num_steps=18,
-        sigma_max=500,
-        sigma_min=0.004,
-        rho=7,
-        S_churn=0,
-        S_min=0,
-        S_max=float("inf"),
-        S_noise=1,
-        progress_bar=None,
-    ):
+        latents: torch.Tensor,
+        condition: torch.Tensor | None = None,
+        class_labels: torch.Tensor | None = None,
+        randn_like: Callable[[torch.Tensor], torch.Tensor] = torch.randn_like,
+        num_steps: int = 18,
+        sigma_max: float = 500,
+        sigma_min: float = 0.004,
+        rho: float = 7,
+        S_churn: float = 0,
+        S_min: float = 0,
+        S_max: float = float("inf"),
+        S_noise: float = 1,
+        progress_bar: Any | None = None,
+    ) -> torch.Tensor:
         # Time step discretization.
-        step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
+        step_indices = torch.arange(
+            num_steps, dtype=torch.float64, device=latents.device
+        )
         t_steps = (
             sigma_max ** (1 / rho)
             + step_indices
@@ -546,7 +648,9 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Main sampling loop.
         x_next = latents.to(self._SAMPLER_DTYPE) * t_steps[0]
 
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):  # 0, ..., N-1
+        for i, (t_cur, t_next) in enumerate(
+            zip(t_steps[:-1], t_steps[1:])
+        ):  # 0, ..., N-1
             x_cur = x_next
 
             # select active expert based on t_cur
@@ -554,7 +658,9 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Increase noise temporarily.
             gamma = (
-                min(S_churn / num_steps, np.sqrt(2) - 1) if S_min <= t_cur <= S_max else 0
+                min(S_churn / num_steps, np.sqrt(2) - 1)
+                if S_min <= t_cur <= S_max
+                else 0
             )
             t_hat = active_net.round_sigma(t_cur + gamma * t_cur)
             x_hat = x_cur + (t_hat**2 - t_cur**2).sqrt() * S_noise * randn_like(x_cur)
@@ -582,18 +688,21 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x_next
 
-    def _select_expert(self, t_cur):
+    def _select_expert(self, t_cur: torch.Tensor) -> nn.Module:
         """Select the active denoising expert based on the current time step."""
-        
-        eps = 1e-7 # small epsilon to avoid floating point issues
+
+        eps = 1e-7  # small epsilon to avoid floating point issues
         for i, stage in enumerate(self.model_spec):
             if t_cur >= stage["sigma_min"] - eps and t_cur < stage["sigma_max"] + eps:
                 return self.stage_models[i]
-        raise ValueError(f"No denoising expert found for time step {t_cur.cpu().item()}, {stage['sigma_min']}")
+        raise ValueError(
+            f"No denoising expert found for time step {t_cur.cpu().item()}, {stage['sigma_min']}"
+        )
 
-    def prep_input(self, x: torch.Tensor, coords: CoordSystem, conditioning=False) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepares the input tensor for the prognostic model.
-        """
+    def prep_input(
+        self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Prepares the input tensor for the prognostic model."""
         if not conditioning:
             type_label = "input"
             interpolator = self.input_interp
@@ -604,12 +713,20 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             valid_mask = self.conditioning_valid_mask
 
         # Expect data on the model's native grid by default; only accept other grids if we can interpolate
-        if "y" not in coords or "x" not in coords or coords["y"].shape != self.y.shape or coords["x"].shape != self.x.shape or \
-            (coords["y"] != self.y).any() or (coords["x"] != self.x).any():
-            
+        if (
+            "y" not in coords
+            or "x" not in coords
+            or coords["y"].shape != self.y.shape
+            or coords["x"].shape != self.x.shape
+            or (coords["y"] != self.y).any()
+            or (coords["x"] != self.x).any()
+        ):
+
             if interpolator is None:
-                raise ValueError(f"Using {type_label} data on a non-native grid requires interpolation, call build_{type_label}_interpolator first")
-            
+                raise ValueError(
+                    f"Using {type_label} data on a non-native grid requires interpolation, call build_{type_label}_interpolator first"
+                )
+
             x = interpolator(x)
             x_coords = coords.copy()
 
@@ -626,16 +743,22 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Handle invalid gridpoints: initially zero-fill any NaNs so they don't cause problems in concat/prep ops
         # Data will be zero-filled again after normalization in the forward method.
         # if not (conditioning and torch.any(self.conditioning_valid_mask)):
-        x = torch.where(~valid_mask, 0., x)
+        x = torch.where(~valid_mask, 0.0, x)
 
         return x, x_coords
 
     # @batch_func() #TODO see if we can extend batch_func to support multiple (tensor, coords) pairs
-    def next_input(self, pred: torch.Tensor, pred_coords: CoordSystem, x: torch.Tensor, x_coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
+    def next_input(
+        self,
+        pred: torch.Tensor,
+        pred_coords: CoordSystem,
+        x: torch.Tensor,
+        x_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Gets the inputs for the next step of the prognostic model given a pair
         of inputs and predictions that were just run. If the model uses a sliding
         window, the oldest lead time in the input is removed and the latest
-        prediction is added for the next step. If the model does not 
+        prediction is added for the next step. If the model does not
         use a sliding window, the prediction is returned as is.
 
         Parameters
@@ -652,20 +775,24 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lt_dim = list(x_coords.keys()).index("lead_time")
         lt_dim_pred = list(pred_coords.keys()).index("lead_time")
         if lt_dim != lt_dim_pred or lt_dim != 2:
-            raise ValueError(f"The lead time dimension must be in the 3rd position for the input and prediction, got {lt_dim} and {lt_dim_pred} respectively")
-        
+            raise ValueError(
+                f"The lead time dimension must be in the 3rd position for the input and prediction, got {lt_dim} and {lt_dim_pred} respectively"
+            )
+
         if self.sliding_window:
-            x, x_coords = self.prep_input(x, x_coords) # Sanitize/regrid
+            x, x_coords = self.prep_input(x, x_coords)  # Sanitize/regrid
             n_in, n_out = len(self.input_times), len(self.output_times)
             next_input = torch.zeros_like(x)
             next_input_coords = x_coords.copy()
-            next_input[:, :, :n_in - n_out, ...] = x[:, :, n_out:, ...]
+            next_input[:, :, : n_in - n_out, ...] = x[:, :, n_out:, ...]
             next_input[:, :, n_in - n_out :, ...] = pred[:, :, :, ...]
-            next_input_coords["lead_time"] = self.input_times + pred_coords["lead_time"][-1]
+            next_input_coords["lead_time"] = (
+                self.input_times + pred_coords["lead_time"][-1]
+            )
         else:
             next_input = pred
             next_input_coords = pred_coords.copy()
-        
+
         return next_input, next_input_coords
 
     @torch.inference_mode()
@@ -693,10 +820,14 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x, x_coords = self.prep_input(x, coords)
 
         # Fetch and prep conditioning data if needed
-        if len(self.conditioning_variables) > 0:
-            conditioning, conditioning_coords = self.fetch_conditioning(coords, device=x.device)
-            conditioning, conditioning_coords = self.prep_input(conditioning, conditioning_coords, conditioning=True)
-        
+        if self.conditioning_variables is not None and len(self.conditioning_variables) > 0:
+            conditioning, conditioning_coords = self.fetch_conditioning(
+                coords, device=x.device
+            )
+            conditioning, conditioning_coords = self.prep_input(
+                conditioning, conditioning_coords, conditioning=True
+            )
+
             # Broadcast to batch dimension if needed. Expect [B, T, L, C, H, W].
             if conditioning.dim() == x.dim() - 1:
                 conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
@@ -705,13 +836,24 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning_coords = None
 
         output_coords = self.output_coords(x_coords)
-        
-        x = self._forward(x, x_coords, conditioning=conditioning, conditioning_coords=conditioning_coords)
+
+        x = self._forward(
+            x,
+            x_coords,
+            conditioning=conditioning,
+            conditioning_coords=conditioning_coords,
+        )
 
         return x, output_coords
 
     @torch.inference_mode()
-    def call_with_conditioning(self, x: torch.Tensor, coords: CoordSystem, conditioning: torch.Tensor, conditioning_coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
+    def call_with_conditioning(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        conditioning: torch.Tensor,
+        conditioning_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Calls the prognostic model with explicitly provided conditioning. Useful when
         combining multiple cross-conditioned models during rollout (does not require
         model to define a conditioning data source).
@@ -732,15 +874,29 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system.
         """
-        
-        if "time" not in coords or "batch" not in coords or len(coords["time"]) == 0 or len(coords["batch"]) == 0:
-            raise ValueError("Invalid coordinates for call_with_conditioning: must contain 'time' and 'batch' dimensions with nonzero length")
-        
+
+        if (
+            "time" not in coords
+            or "batch" not in coords
+            or len(coords["time"]) == 0
+            or len(coords["batch"]) == 0
+        ):
+            raise ValueError(
+                "Invalid coordinates for call_with_conditioning: must contain 'time' and 'batch' dimensions with nonzero length"
+            )
+
         x, x_coords = self.prep_input(x, coords)
-        conditioning, conditioning_coords = self.prep_input(conditioning, conditioning_coords, conditioning=True)
+        conditioning, conditioning_coords = self.prep_input(
+            conditioning, conditioning_coords, conditioning=True
+        )
         output_coords = self.output_coords(x_coords)
 
-        x = self._forward(x, x_coords, conditioning=conditioning, conditioning_coords=conditioning_coords)
+        x = self._forward(
+            x,
+            x_coords,
+            conditioning=conditioning,
+            conditioning_coords=conditioning_coords,
+        )
 
         return x, output_coords
 
@@ -750,7 +906,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        
+
         # Yield the initial condition, but use prep_input to regrid if needed
         # Return the result with any invalid points set to nan
         coords = coords.copy()
@@ -828,19 +984,28 @@ class ObsCastGOES(ObsCastBase):
 
     def __init__(
         self,
-        model_spec: List[Dict[str, Any]],
+        model_spec: list[dict[str, Any]],
         means: torch.Tensor,
         stds: torch.Tensor,
         latitudes: torch.Tensor,
         longitudes: torch.Tensor,
         variables: np.ndarray = np.array(
-            ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"]
+            [
+                "abi01c",
+                "abi02c",
+                "abi03c",
+                "abi07c",
+                "abi08c",
+                "abi09c",
+                "abi10c",
+                "abi13c",
+            ]
         ),
         conditioning_variables: np.ndarray = np.array(["z500"]),
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_data_source: Any | None = None,
-        sampler_args: Dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
+        sampler_args: dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         y_coords: np.ndarray | None = None,
@@ -864,8 +1029,8 @@ class ObsCastGOES(ObsCastBase):
             y_coords=y_coords,
             x_coords=x_coords,
         )
-        self.means = self.means[:, -len(self.variables):, :, :]
-        self.stds = self.stds[:, -len(self.variables):, :, :]
+        self.means = self.means[:, -len(self.variables) :, :, :]
+        self.stds = self.stds[:, -len(self.variables) :, :, :]
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -914,12 +1079,14 @@ class ObsCastGOES(ObsCastBase):
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = output_coords["lead_time"] + input_coords["lead_time"][-1]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"][-1]
+        )
         return output_coords
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
-    ) -> Tuple[torch.Tensor | None, CoordSystem | None]:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Fetch external conditioning data.
 
         Parameters
@@ -958,12 +1125,12 @@ class ObsCastGOES(ObsCastBase):
     def load_model(
         cls,
         package: Package,
-        model_name: str = "6km_60min_natten_cos_zenith_input_eoe_v2", # "6km_10min_natten_pure_obs_zenith_6steps"
+        model_name: str = "6km_60min_natten_cos_zenith_input_eoe_v2",  # "6km_10min_natten_pure_obs_zenith_6steps"
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
     ) -> DiagnosticModel:
         """Load model from package. Must be implemented by subclasses."""
-        
-        with open(package.resolve("registry.json"), "r") as f:
+
+        with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
             pkg = registry[model_name]
 
@@ -978,20 +1145,25 @@ class ObsCastGOES(ObsCastBase):
                 }
             )
 
-        
         # Grid coordinates: crop a subregion from the HRRR grid
         image_size = pkg["image_size"]
         spatial_downsample = pkg["spatial_downsample"]
         latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0) % 360.0
+        longitudes = (
+            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
+        ) % 360.0
         hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
         full_y, full_x = latitudes.shape[0], longitudes.shape[1]
         anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)        
-        latitudes = latitudes[anchor_y:anchor_y+image_size[0], anchor_x:anchor_x+image_size[1]]
-        longitudes = longitudes[anchor_y:anchor_y+image_size[0], anchor_x:anchor_x+image_size[1]]
-        y = hrrr_y[anchor_y:anchor_y+image_size[0]]
-        x = hrrr_x[anchor_x:anchor_x+image_size[1]]
+        anchor_x = int((full_x - image_size[1]) / 2)
+        latitudes = latitudes[
+            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
+        ]
+        longitudes = longitudes[
+            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
+        ]
+        y = hrrr_y[anchor_y : anchor_y + image_size[0]]
+        x = hrrr_x[anchor_x : anchor_x + image_size[1]]
 
         # Spatial downsample
         y = y[::spatial_downsample]
@@ -1003,7 +1175,9 @@ class ObsCastGOES(ObsCastBase):
         if pkg["sliding_window"]:
             # N input timesteps, 1 output timestep, with resolution step_interval
             n_steps, step_interval = pkg["n_steps"], pkg["step_interval"]
-            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(step_interval, "m")
+            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(
+                step_interval, "m"
+            )
             output_times = np.array([np.timedelta64(step_interval, "m")])
         else:
             # 1 input, 1 output, with resolution step_interval
@@ -1014,15 +1188,23 @@ class ObsCastGOES(ObsCastBase):
         conditioning_variables = np.array(pkg["conditioning_vars"])
 
         # Normalization constants
-        means = torch.from_numpy(np.load(package.resolve("goes_means.npy")))[None, :, None, None]
-        stds = torch.from_numpy(np.load(package.resolve("goes_stds.npy")))[None, :, None, None]
+        means = torch.from_numpy(np.load(package.resolve("goes_means.npy")))[
+            None, :, None, None
+        ]
+        stds = torch.from_numpy(np.load(package.resolve("goes_stds.npy")))[
+            None, :, None, None
+        ]
         if len(conditioning_variables) > 0:
-            conditioning_means = torch.from_numpy(np.expand_dims(np.load(package.resolve("era5_means.npy")), 0))[None, :, None, None]
-            conditioning_stds = torch.from_numpy(np.expand_dims(np.load(package.resolve("era5_stds.npy")), 0))[None, :, None, None]
+            conditioning_means = torch.from_numpy(
+                np.expand_dims(np.load(package.resolve("era5_means.npy")), 0)
+            )[None, :, None, None]
+            conditioning_stds = torch.from_numpy(
+                np.expand_dims(np.load(package.resolve("era5_stds.npy")), 0)
+            )[None, :, None, None]
         else:
             conditioning_means = torch.empty(0)
             conditioning_stds = torch.empty(0)
-        
+
         return cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
@@ -1038,6 +1220,7 @@ class ObsCastGOES(ObsCastBase):
             y_coords=y,
             x_coords=x,
         )
+
 
 class ObsCastMRMS(ObsCastBase):
     """ObsCast variant for MRMS predictions on the HRRR grid.
@@ -1079,25 +1262,34 @@ class ObsCastMRMS(ObsCastBase):
     """
 
     _STATE_FIRST = False
-    _INPUT_INVALID_FILL_CONSTANT = -0.25285158 # reflectivity of -10 is normalized to this
+    _INPUT_INVALID_FILL_CONSTANT = (
+        -0.25285158
+    )  # reflectivity of -10 is normalized to this
 
     def __init__(
         self,
-        model_spec: List[Dict[str, Any]],
+        model_spec: list[dict[str, Any]],
         means: torch.Tensor,
         stds: torch.Tensor,
         latitudes: torch.Tensor,
         longitudes: torch.Tensor,
-        variables: np.ndarray = np.array(
-            ["refc"]
-        ),
+        variables: np.ndarray = np.array(["refc"]),
         conditioning_variables: np.ndarray = np.array(
-            ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"]
+            [
+                "abi01c",
+                "abi02c",
+                "abi03c",
+                "abi07c",
+                "abi08c",
+                "abi09c",
+                "abi10c",
+                "abi13c",
+            ]
         ),
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_data_source: Any | None = None,
-        sampler_args: Dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
+        sampler_args: dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
@@ -1121,8 +1313,8 @@ class ObsCastMRMS(ObsCastBase):
             input_times=input_times,
             output_times=output_times,
         )
-        self.means = self.means[:, -len(self.variables):, :, :]
-        self.stds = self.stds[:, -len(self.variables):, :, :]
+        self.means = self.means[:, -len(self.variables) :, :, :]
+        self.stds = self.stds[:, -len(self.variables) :, :, :]
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -1171,12 +1363,14 @@ class ObsCastMRMS(ObsCastBase):
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = output_coords["lead_time"] + input_coords["lead_time"][-1]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"][-1]
+        )
         return output_coords
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
-    ) -> Tuple[torch.Tensor | None, CoordSystem | None]:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Fetch external conditioning data.
 
         Parameters
@@ -1201,7 +1395,9 @@ class ObsCastMRMS(ObsCastBase):
         )
         return conditioning, conditioning_coords
 
-    def prep_input(self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False) -> tuple[torch.Tensor, CoordSystem]:
+    def prep_input(
+        self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Prepares the input tensor for the MRMS prognostic model. Same behavior as the base
         class, but with additional value imputation/standardization for low reflectivity values.
         """
@@ -1209,7 +1405,9 @@ class ObsCastMRMS(ObsCastBase):
         x, x_coords = super().prep_input(x, coords, conditioning=conditioning)
 
         if not conditioning:
-            x = torch.where(x <= -20., -10, x) # Impute -10 for low reflectivity values
+            x = torch.where(
+                x <= -20.0, -10, x
+            )  # Impute -10 for low reflectivity values
 
         return x, x_coords
 
@@ -1221,8 +1419,8 @@ class ObsCastMRMS(ObsCastBase):
         conditioning_data_source: DataSource | ForecastSource | None = None,
     ) -> DiagnosticModel:
         """Load model from package. Must be implemented by subclasses."""
-        
-        with open(package.resolve("registry.json"), "r") as f:
+
+        with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
             pkg = registry[model_name]
 
@@ -1236,20 +1434,26 @@ class ObsCastMRMS(ObsCastBase):
                     "sigma_max": float(m["sigma_max"]),
                 }
             )
-        
+
         # Grid coordinates: crop a subregion from the HRRR grid
         image_size = pkg["image_size"]
         spatial_downsample = pkg["spatial_downsample"]
         latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0) % 360.0
+        longitudes = (
+            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
+        ) % 360.0
         hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
         full_y, full_x = latitudes.shape[0], longitudes.shape[1]
         anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)        
-        latitudes = latitudes[anchor_y:anchor_y+image_size[0], anchor_x:anchor_x+image_size[1]]
-        longitudes = longitudes[anchor_y:anchor_y+image_size[0], anchor_x:anchor_x+image_size[1]]
-        y = hrrr_y[anchor_y:anchor_y+image_size[0]]
-        x = hrrr_x[anchor_x:anchor_x+image_size[1]]
+        anchor_x = int((full_x - image_size[1]) / 2)
+        latitudes = latitudes[
+            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
+        ]
+        longitudes = longitudes[
+            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
+        ]
+        y = hrrr_y[anchor_y : anchor_y + image_size[0]]
+        x = hrrr_x[anchor_x : anchor_x + image_size[1]]
 
         # Spatial downsample
         y = y[::spatial_downsample]
@@ -1261,7 +1465,9 @@ class ObsCastMRMS(ObsCastBase):
         if pkg["sliding_window"]:
             # N input timesteps, 1 output timestep, with resolution step_interval
             n_steps, step_interval = pkg["n_steps"], pkg["step_interval"]
-            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(step_interval, "m")
+            input_times = np.arange(-n_steps + 1, 1) * np.timedelta64(
+                step_interval, "m"
+            )
             output_times = np.array([np.timedelta64(step_interval, "m")])
         else:
             # 1 input, 1 output, with resolution step_interval
@@ -1272,11 +1478,19 @@ class ObsCastMRMS(ObsCastBase):
         conditioning_variables = np.array(pkg["conditioning_vars"])
 
         # Normalization constants
-        means = torch.from_numpy(np.load(package.resolve("mrms_means.npy")))[None, :, None, None]
-        stds = torch.from_numpy(np.load(package.resolve("mrms_stds.npy")))[None, :, None, None]
+        means = torch.from_numpy(np.load(package.resolve("mrms_means.npy")))[
+            None, :, None, None
+        ]
+        stds = torch.from_numpy(np.load(package.resolve("mrms_stds.npy")))[
+            None, :, None, None
+        ]
         if len(conditioning_variables) > 0:
-            conditioning_means = torch.from_numpy(np.load(package.resolve("goes_means.npy")))[None, :, None, None]
-            conditioning_stds = torch.from_numpy(np.load(package.resolve("goes_stds.npy")))[None, :, None, None]
+            conditioning_means = torch.from_numpy(
+                np.load(package.resolve("goes_means.npy"))
+            )[None, :, None, None]
+            conditioning_stds = torch.from_numpy(
+                np.load(package.resolve("goes_stds.npy"))
+            )[None, :, None, None]
         else:
             conditioning_means = torch.empty(0)
             conditioning_stds = torch.empty(0)

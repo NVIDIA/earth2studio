@@ -16,17 +16,21 @@
 
 import numpy as np
 import torch
-from torch import Tensor, nn
 from numpy.typing import ArrayLike
+from torch import Tensor, nn
 
-from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
 try:
-    from scipy.spatial import KDTree
-    from scipy.interpolate import LinearNDInterpolator
     from earth2grid.spatial import ang2vec, haversine_distance
+    from scipy.interpolate import LinearNDInterpolator
+    from scipy.spatial import KDTree
 except ImportError:
     OptionalDependencyFailure("utils")
-    KDTree = None 
+    KDTree = None
     ang2vec = None
     haversine_distance = None
     LinearNDInterpolator = None
@@ -252,17 +256,41 @@ class NearestNeighborInterpolator(nn.Module):
 
         # Convert to torch tensors on CPU for processing
         src_lat_t = (
-            source_lats if isinstance(source_lats, Tensor) else torch.tensor(source_lats)
-        ).detach().cpu()
+            (
+                source_lats
+                if isinstance(source_lats, Tensor)
+                else torch.tensor(source_lats)
+            )
+            .detach()
+            .cpu()
+        )
         src_lon_t = (
-            source_lons if isinstance(source_lons, Tensor) else torch.tensor(source_lons)
-        ).detach().cpu()
+            (
+                source_lons
+                if isinstance(source_lons, Tensor)
+                else torch.tensor(source_lons)
+            )
+            .detach()
+            .cpu()
+        )
         tgt_lat_t = (
-            target_lats if isinstance(target_lats, Tensor) else torch.tensor(target_lats)
-        ).detach().cpu()
+            (
+                target_lats
+                if isinstance(target_lats, Tensor)
+                else torch.tensor(target_lats)
+            )
+            .detach()
+            .cpu()
+        )
         tgt_lon_t = (
-            target_lons if isinstance(target_lons, Tensor) else torch.tensor(target_lons)
-        ).detach().cpu()
+            (
+                target_lons
+                if isinstance(target_lons, Tensor)
+                else torch.tensor(target_lons)
+            )
+            .detach()
+            .cpu()
+        )
 
         # Normalize to 2D grids if 1D vectors were provided
         if src_lat_t.ndim == 1 and src_lon_t.ndim == 1:
@@ -270,13 +298,17 @@ class NearestNeighborInterpolator(nn.Module):
                 src_lat_t.to(torch.float32), src_lon_t.to(torch.float32), indexing="ij"
             )
         elif not (src_lat_t.ndim == 2 and src_lon_t.ndim == 2):
-            raise ValueError("source_lats and source_lons must both be 2D or both 1D vectors.")
+            raise ValueError(
+                "source_lats and source_lons must both be 2D or both 1D vectors."
+            )
         if tgt_lat_t.ndim == 1 and tgt_lon_t.ndim == 1:
             tgt_lat_t, tgt_lon_t = torch.meshgrid(
                 tgt_lat_t.to(torch.float32), tgt_lon_t.to(torch.float32), indexing="ij"
             )
         elif not (tgt_lat_t.ndim == 2 and tgt_lon_t.ndim == 2):
-            raise ValueError("target_lats and target_lons must both be 2D or both 1D vectors.")
+            raise ValueError(
+                "target_lats and target_lons must both be 2D or both 1D vectors."
+            )
 
         # Flatten source/target and mask invalid source coordinates
         src_lat_flat = torch.deg2rad(src_lat_t.reshape(-1))
@@ -300,13 +332,18 @@ class NearestNeighborInterpolator(nn.Module):
 
         # Distance-based validity
         ang_dist = haversine_distance(  # type: ignore[misc]
-            tgt_lon_flat, tgt_lat_flat, valid_src_lon[nn_idx_valid_subset], valid_src_lat[nn_idx_valid_subset]
+            tgt_lon_flat,
+            tgt_lat_flat,
+            valid_src_lon[nn_idx_valid_subset],
+            valid_src_lat[nn_idx_valid_subset],
         )
         dist_km = ang_dist * 6371.0
         valid_mask = (dist_km < max_dist_km).to(dtype=torch.bool)
 
         # Register buffers (moved with .to(device))
-        self.register_buffer("source_flat_index", src_flat_index_full.to(dtype=torch.int64))
+        self.register_buffer(
+            "source_flat_index", src_flat_index_full.to(dtype=torch.int64)
+        )
         self.register_buffer("valid_mask", valid_mask)
 
         # Save target shape for reshape on output
@@ -343,13 +380,17 @@ class NearestNeighborInterpolator(nn.Module):
         # Expand indices to match leading dims for gather
         index = self.source_flat_index
         index = index.to(device=values.device)
-        index_expanded = index.view(*([1] * len(leading_shape)), -1).expand(*leading_shape, index.numel())
+        index_expanded = index.view(*([1] * len(leading_shape)), -1).expand(
+            *leading_shape, index.numel()
+        )
 
         gathered = torch.gather(values_flat, dim=-1, index=index_expanded)
 
         # Mask out invalid targets with NaN
         valid = self.valid_mask.to(device=values.device)
         valid_expanded = valid.view(*([1] * len(leading_shape)), -1).expand_as(gathered)
-        gathered = torch.where(valid_expanded, gathered, torch.full_like(gathered, float("nan")))
+        gathered = torch.where(
+            valid_expanded, gathered, torch.full_like(gathered, float("nan"))
+        )
 
         return gathered.reshape(*leading_shape, self.target_h, self.target_w)

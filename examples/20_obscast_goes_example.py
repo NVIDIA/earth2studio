@@ -1,27 +1,27 @@
 # Simple example: initialize ObsCastGOES, fetch GOES input, run one step, and plot one channel
 # TODO make this a proper example with sphinx formatting and explanations
 from datetime import datetime
-from collections import OrderedDict
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
+from earth2studio.data import GFS_FX, GOES, MRMS, fetch_data
+from earth2studio.models.px.obscast import ObsCastBase, ObsCastGOES, ObsCastMRMS
 from earth2studio.utils.type import CoordSystem
-from earth2studio.data import GOES, GFS_FX, fetch_data, HRRR, MRMS
-from earth2studio.models.px.obscast import ObsCastGOES, ObsCastBase, ObsCastMRMS
 
 
 # Khronos PBR Neutral Tone Mapping
 # https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md#pbr-neutral-specification
 def tonemap(rgb):
-    start_compression = 0.8 - 0.04;
-    desaturation = 0.15;
-    d = 1. - start_compression;
+    start_compression = 0.8 - 0.04
+    desaturation = 0.15
+    d = 1.0 - start_compression
 
     height, width, _ = rgb.shape
-    result = rgb.reshape(-1,3)
+    result = rgb.reshape(-1, 3)
 
     def to_3d(col):
         return np.repeat(col[:, np.newaxis], repeats=3, axis=1)
@@ -32,10 +32,10 @@ def tonemap(rgb):
     # apply offset
     mask = x < 0.08
     offset = np.full_like(x, 0.04)
-    offset[mask] = x[mask] - 6.25 * x[mask]**2
+    offset[mask] = x[mask] - 6.25 * x[mask] ** 2
     result -= to_3d(offset)
-    #return result.reshape(height, width, 3)
-    
+    # return result.reshape(height, width, 3)
+
     # calculate peak value (after applying offset)
     peak = result.max(axis=1)
     # anything not in the peak mask is left untouched from now on
@@ -44,25 +44,30 @@ def tonemap(rgb):
     if not peak_mask.any():
         return result.reshape(height, width, 3)
 
-    new_peak = 1. - d * d / (peak[peak_mask] + d - start_compression);
+    new_peak = 1.0 - d * d / (peak[peak_mask] + d - start_compression)
     result[peak_mask] *= to_3d(new_peak / peak[peak_mask])
 
-    g = 1. - 1. / (desaturation * (peak[peak_mask] - new_peak) + 1.);
-    result[peak_mask] = to_3d(1-g)*result[peak_mask] + to_3d(g*new_peak)
+    g = 1.0 - 1.0 / (desaturation * (peak[peak_mask] - new_peak) + 1.0)
+    result[peak_mask] = to_3d(1 - g) * result[peak_mask] + to_3d(g * new_peak)
     return result.reshape(height, width, 3)
+
 
 def rgb_composite(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Create a RGB composite from a 3-channel input array."""
     rgb = np.stack([r, g, b], axis=-1)
-    
+
     # Process RGB data
     rgb = np.nan_to_num(rgb, nan=1.0)
-    rgb = tonemap(2*rgb)
+    rgb = tonemap(2 * rgb)
     rgb = np.clip(rgb, 0, 1)
-    rgb = np.concatenate([rgb, np.ones_like(r)[..., np.newaxis]], axis=-1) # Add alpha channel
+    rgb = np.concatenate(
+        [rgb, np.ones_like(r)[..., np.newaxis]], axis=-1
+    )  # Add alpha channel
 
     # Set invalid values to transparent
-    full_nanmask = np.stack([np.isnan(r), np.isnan(g), np.isnan(b), np.isnan(r)], axis=-1)
+    full_nanmask = np.stack(
+        [np.isnan(r), np.isnan(g), np.isnan(b), np.isnan(r)], axis=-1
+    )
     transparent_rgba = np.ones_like(rgb)
     transparent_rgba[:, :, -1] = 0.0
     return np.where(full_nanmask, transparent_rgba, rgb)
@@ -89,7 +94,7 @@ def main() -> None:
     package = ObsCastBase.load_default_package()
     model = ObsCastGOES.load_model(
         package=package,
-        conditioning_data_source=GFS_FX(), # can be set to None if using 10min GOES model
+        conditioning_data_source=GFS_FX(),  # can be set to None if using 10min GOES model
         model_name=goes_model_name,
     )
     model = model.to(device)
@@ -97,7 +102,7 @@ def main() -> None:
 
     model_mrms = ObsCastMRMS.load_model(
         package=package,
-        conditioning_data_source=GOES(), # can be set to None if using 10min MRMS model
+        conditioning_data_source=GOES(),  # can be set to None if using 10min MRMS model
         model_name=mrms_model_name,
     )
     model_mrms = model_mrms.to(device)
@@ -112,7 +117,9 @@ def main() -> None:
     goes = GOES(satellite=goes_satellite, scan_mode=scan_mode)
     goes_lat, goes_lon = GOES.grid(satellite=goes_satellite, scan_mode=scan_mode)
     model.build_input_interpolator(goes_lat, goes_lon, max_dist_km=12.0)
-    model.build_conditioning_interpolator(GFS_FX.GFS_LAT, GFS_FX.GFS_LON, max_dist_km=26.0) # interpolating from 25km global grid, we don't want NaNs
+    model.build_conditioning_interpolator(
+        GFS_FX.GFS_LAT, GFS_FX.GFS_LON, max_dist_km=26.0
+    )  # interpolating from 25km global grid, we don't want NaNs
     in_coords = model.input_coords()
 
     x, x_coords = fetch_data(
@@ -133,7 +140,9 @@ def main() -> None:
         lead_time=mrms_in_coords["lead_time"],
         device=device,
     )
-    model_mrms.build_input_interpolator(x_coords_mrms["lat"], x_coords_mrms["lon"], max_dist_km=12.0)
+    model_mrms.build_input_interpolator(
+        x_coords_mrms["lat"], x_coords_mrms["lon"], max_dist_km=12.0
+    )
     model_mrms.build_conditioning_interpolator(goes_lat, goes_lon, max_dist_km=12.0)
 
     # Add batch dimension: [B, T, L, C, H, W]
@@ -159,7 +168,9 @@ def main() -> None:
         y_pred, y_pred_coords = model(y, y_coords)
 
         # Run one prognostic step with MRMS
-        y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords)
+        y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
+            y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
+        )
 
         plot_step(
             y_pred,
@@ -173,18 +184,24 @@ def main() -> None:
             lat_plot=lat_out,
             lon_plot=lon_out,
             step_idx=step_idx,
-            ch_idx=list(model_mrms.variables).index("refc")
+            ch_idx=list(model_mrms.variables).index("refc"),
         )
 
         # Update sliding window with new prediction (no-op if model doesn't use sliding window)
         y_pred, y_pred_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
-        y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms)
+        y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
+            y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
+        )
 
         y = y_pred
         y_coords = y_pred_coords
         y_mrms = y_mrms_pred
         y_coords_mrms = y_coords_mrms_pred
-        print("STEP", step_idx, y_pred_coords["lead_time"][-1].astype('timedelta64[m]').item())
+        print(
+            "STEP",
+            step_idx,
+            y_pred_coords["lead_time"][-1].astype("timedelta64[m]").item(),
+        )
 
     # Test iterator mode
     # iterator = model.create_iterator(x, x_coords)
@@ -211,10 +228,24 @@ def main() -> None:
     #     if step_idx >= 11:
     #         break
 
-def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_coords_mrms: CoordSystem, composite: bool, channel: str, cmap: str, valid_mask: torch.Tensor, lat_plot: np.ndarray, lon_plot: np.ndarray, step_idx: int, ch_idx: int) -> None:
+
+def plot_step(
+    y: torch.Tensor,
+    y_coords: CoordSystem,
+    y_mrms: torch.Tensor,
+    y_coords_mrms: CoordSystem,
+    composite: bool,
+    channel: str,
+    cmap: str,
+    valid_mask: torch.Tensor,
+    lat_plot: np.ndarray,
+    lon_plot: np.ndarray,
+    step_idx: int,
+    ch_idx: int,
+) -> None:
 
     # Select a single channel to plot (e.g., refc), or make a composite (see below)
-    y = torch.where(valid_mask, y, torch.nan) # Nan-fill invalid gridpoints
+    y = torch.where(valid_mask, y, torch.nan)  # Nan-fill invalid gridpoints
 
     # Prepare HRRR Lambert Conformal projection and plot
     proj_hrrr = ccrs.LambertConformal(
@@ -223,7 +254,7 @@ def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_co
         standard_parallels=(38.5, 38.5),
         globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
     )
-    fig = plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(15, 10))
     ax = plt.axes(projection=proj_hrrr)
 
     # Dual layer coast/state lines for better day/night visibility
@@ -237,10 +268,10 @@ def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_co
     ax.add_feature(cfeature.STATES, edgecolor="white", linewidth=0.3)
 
     if composite:
-        b = y[0, 0, 0, 0].detach().cpu().numpy() # abi01c == ~blue
-        r = y[0, 0, 0, 1].detach().cpu().numpy() # abi02c == ~red
-        g = y[0, 0, 0, 2].detach().cpu().numpy() # abi03c == ~green
-        field = rgb_composite(r, 0.45*r + 0.1*g + 0.45 *b, b)
+        b = y[0, 0, 0, 0].detach().cpu().numpy()  # abi01c == ~blue
+        r = y[0, 0, 0, 1].detach().cpu().numpy()  # abi02c == ~red
+        g = y[0, 0, 0, 2].detach().cpu().numpy()  # abi03c == ~green
+        field = rgb_composite(r, 0.45 * r + 0.1 * g + 0.45 * b, b)
         pcolor_kwargs = {
             "shading": "gouraud",
         }
@@ -250,7 +281,7 @@ def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_co
             "cmap": cmap,
             "shading": "auto",
         }
-    
+
     im = ax.pcolormesh(
         lon_plot,
         lat_plot,
@@ -261,10 +292,12 @@ def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_co
 
     # Overlay MRMS on top of GOES
     if composite:
-        
+
         # Set low refc and invlaid points to nan
         field_mrms = y_mrms[0, 0, 0, ch_idx]
-        field_mrms = torch.where(~valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+        field_mrms = (
+            torch.where(~valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+        )
         field_mrms = np.where(field_mrms <= 0, np.nan, field_mrms)
         im_mrms = ax.pcolormesh(
             lon_plot,
@@ -273,9 +306,9 @@ def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_co
             transform=ccrs.PlateCarree(),
             cmap=cmap,
             shading="auto",
-            vmin=0.,
-            vmax=55.,
-        )   
+            vmin=0.0,
+            vmax=55.0,
+        )
         plt.colorbar(im_mrms, label=channel, orientation="horizontal", pad=0.05)
     else:
         plt.colorbar(im, label=channel, orientation="horizontal", pad=0.05)
@@ -283,13 +316,13 @@ def plot_step(y: torch.Tensor, y_coords: CoordSystem, y_mrms: torch.Tensor, y_co
     label = "composite" if composite else channel
     time = y_coords["time"][0].item()
     lead_time = y_coords["lead_time"][0]
-    plt.title(f"Predicted GOES/MRMS output ({label}) from {time} UTC initialization (lead {lead_time.astype('timedelta64[m]').item()})")
-    
+    plt.title(
+        f"Predicted GOES/MRMS output ({label}) from {time} UTC initialization (lead {lead_time.astype('timedelta64[m]').item()})"
+    )
+
     plt.tight_layout()
     plt.savefig(f"outputs/20_obscast_goes_example_step{step_idx:02d}.png", dpi=300)
 
 
 if __name__ == "__main__":
     main()
-
-
