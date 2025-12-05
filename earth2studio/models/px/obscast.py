@@ -820,7 +820,10 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x, x_coords = self.prep_input(x, coords)
 
         # Fetch and prep conditioning data if needed
-        if self.conditioning_variables is not None and len(self.conditioning_variables) > 0:
+        if (
+            self.conditioning_variables is not None
+            and len(self.conditioning_variables) > 0
+        ):
             conditioning, conditioning_coords = self.fetch_conditioning(
                 coords, device=x.device
             )

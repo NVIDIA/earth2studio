@@ -7,6 +7,7 @@ from physicsnemo.experimental.models.dit.dit import DiT as PNM_DiT
 # Items copied from research repository; to be upstreamed to physicsnemo
 # TODO: Remove once upstreamed
 
+
 class EDMPrecond(torch.nn.Module):
     def __init__(
         self,
@@ -37,7 +38,9 @@ class EDMPrecond(torch.nn.Module):
         self.model = model
         self.return_logvar = return_logvar
         if self.return_logvar:
-            raise NotImplementedError("logvar_fourier and logvar_linear are not implemented")
+            raise NotImplementedError(
+                "logvar_fourier and logvar_linear are not implemented"
+            )
 
         if dropout:
             self.noise_dependent_dropout = dropout
