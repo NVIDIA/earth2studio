@@ -64,12 +64,15 @@ test:
     max: 2
     exit_codes: 123
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH == "main" && $PIPELINE_REPO_SOURCE != "github"'
       variables:
         TESTMON_CACHE_POLICY: pull-push
+        EARTH2STUDIO_CACHE_POLICY: pull-push
+        UV_CACHE_POLICY: pull-push
     - if: $PIPELINE_REPO_SOURCE != "github"
       variables:
         EARTH2STUDIO_CACHE_POLICY: pull-push
+        UV_CACHE_POLICY: pull-push
     - when: on_success
   script:
     - uv run python test/_ci/check_gpu.py || exit $?
