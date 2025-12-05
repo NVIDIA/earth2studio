@@ -16,22 +16,20 @@
 
 import numpy as np
 import torch
-from numpy.typing import ArrayLike
-from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
-
-try:
-    from scipy.interpolate import LinearNDInterpolator
-except ImportError:
-    LinearNDInterpolator = None
 from torch import Tensor, nn
+from numpy.typing import ArrayLike
+
+from earth2studio.utils.imports import OptionalDependencyFailure, check_optional_dependencies
 try:
-    from scipy.spatial import KDTree  # type: ignore
-    from earth2grid.spatial import ang2vec, haversine_distance  # type: ignore
+    from scipy.spatial import KDTree
+    from scipy.interpolate import LinearNDInterpolator
+    from earth2grid.spatial import ang2vec, haversine_distance
 except ImportError:
-    OptionalDependencyFailure("data")
-    KDTree = None  # type: ignore[assignment]
-    ang2vec = None  # type: ignore[assignment]
-    haversine_distance = None  # type: ignore[assignment]
+    OptionalDependencyFailure("utils")
+    KDTree = None 
+    ang2vec = None
+    haversine_distance = None
+    LinearNDInterpolator = None
 
 
 def latlon_interpolation_regular(
@@ -111,6 +109,7 @@ def latlon_interpolation_regular(
     return result.reshape(*values.shape[:-2], latshape, lonshape)
 
 
+@check_optional_dependencies("utils")
 class LatLonInterpolation(nn.Module):
     """Bilinear interpolation between arbitrary grids.
 
@@ -207,7 +206,7 @@ class LatLonInterpolation(nn.Module):
         return torch.lerp(f0, f1, i - i0)
 
 
-@check_optional_dependencies()
+@check_optional_dependencies("utils")
 class NearestNeighborInterpolator(nn.Module):
     """Nearest-neighbor interpolation between arbitrary lat/lon grids.
 

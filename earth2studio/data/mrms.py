@@ -90,7 +90,7 @@ class MRMS:
 
     def __init__(
         self,
-        max_offset_minutes: float = 0,
+        max_offset_minutes: float = 10,
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
@@ -233,7 +233,8 @@ class MRMS:
             if resolved is None:
                 logger.warning(
                     f"No MRMS file found near requested time {time.isoformat()} "
-                    f"within ±{self.max_offset_minutes} minutes for product {product}"
+                    f"within ±{self.max_offset_minutes} minutes for product {product}."
+                    f"Consider increasing the max_offset_minutes parameter."
                 )
                 return None
             _, s3_uri = resolved

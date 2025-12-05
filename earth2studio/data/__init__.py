@@ -27,7 +27,6 @@ from .gfs import GFS, GFS_FX
 from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
 from .imerg import IMERG
-from .interp import CurvilinearNNInterp
 from .jpss import JPSS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5

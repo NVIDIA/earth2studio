@@ -46,7 +46,7 @@ class GOES:
     Parameters
     ----------
     satellite : str, optional
-        Which GOES satellite to use ('goes16' or 'goes18'), by default 'goes16'
+        Which GOES satellite to use ('goes16', 'goes17', 'goes18', or 'goes19'), by default 'goes16'
     scan_mode : str, optional
         For ABI: Scan mode ('F' for Full Disk, 'C' for Continental US)
         Mesoscale data is currently not supported due to the changing scan position.

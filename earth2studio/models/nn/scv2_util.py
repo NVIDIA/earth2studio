@@ -4,6 +4,9 @@ import numpy as np
 from typing import Optional, Dict, Any, Tuple
 from physicsnemo.experimental.models.dit.dit import DiT as PNM_DiT
 
+# Items copied from research repository; to be upstreamed to physicsnemo
+# TODO: Remove once upstreamed
+
 def normalize(x, dim=None, eps=1e-4):
     if dim is None:
         dim = list(range(1, x.ndim))

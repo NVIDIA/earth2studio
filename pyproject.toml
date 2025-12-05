@@ -78,6 +78,10 @@ perturbation = [
 statistics = [
     "nvidia-physicsnemo>=1.0.1",
 ]
+utils = [
+    "scipy>=1.15.2",
+    "earth2grid",
+]
 # PX Models
 ace2 = [
     "pandas>=2.3.2",
@@ -190,7 +194,7 @@ windgust-afno = [
 ]
 # All, must not have conflicts
 all = [
-    "earth2studio[data,perturbation,statistics]",
+    "earth2studio[data,perturbation,statistics,utils]",
     "earth2studio[ace2,aurora-fork,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,obscast,pangu,sfno,stormcast,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
 ]
