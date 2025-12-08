@@ -21,7 +21,7 @@ from .cbottle import CBottle3D
 from .cds import CDS
 from .cmip6 import CMIP6, CMIP6MultiRealm
 from .const import Constant, Constant_FX
-from .ecmwf import AIFS, AIFS_ENS, IFS, IFS_ENS
+from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
 from .goes import GOES
