@@ -384,7 +384,7 @@ class _ECMWFOpenDataSource(ABC):
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
-        The child class should overrise this method as needed.
+        The child class should override this method as needed.
 
         Parameters
         ----------
@@ -397,7 +397,7 @@ class _ECMWFOpenDataSource(ABC):
         self, times: list[datetime], lead_times: list[timedelta]
     ) -> None:
         """Verify all lead times are valid based on offline knowledge.
-        The child class should overrise this method as needed.
+        The child class should override this method as needed.
 
         Parameters
         ----------
