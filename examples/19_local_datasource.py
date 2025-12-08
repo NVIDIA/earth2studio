@@ -124,7 +124,7 @@ print(zg.tree())
 # --------------------
 # To use the saved dataset as a data source, we could create our own class that implements
 # the interface required by :py:class:`earth2studio.data.base.DataSource`, which needs
-# just a `__call__` method.
+# just a ``__call__(time, variable)`` method.
 #
 # However, since we used an IO backend from Earth2Studio we can use the
 # :py:class:`earth2studio.data.xr.InferenceOutputSource` which is a convenience class
