@@ -24,7 +24,7 @@ Create and save an offline dataset to use in an inference pipeline.
 This example demonstrates how to:
 
 - Build a small offline dataset by fetching data and writing to a Zarr store
-- Load the local store as a data source for an inference pipeline
+- Load the local store as a data source for an inference pipeline with the Microsoft Aurora model
 - Run the deterministic workflow and plot results
 """
 # /// script
@@ -40,7 +40,7 @@ This example demonstrates how to:
 # ------
 # For this example, the following are needed:
 #
-# - Prognostic Model: Use the built-in Pangu 6-hour model :py:class:`earth2studio.models.px.Pangu6`.
+# - Prognostic Model: Use the built-in Aurora 6-hour model :py:class:`earth2studio.models.px.Aurora`.
 # - Data source: Pull data from the WeatherBench2 data API :py:class:`earth2studio.data.WB2ERA5`.
 
 # %%
@@ -52,11 +52,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from earth2studio.data import WB2ERA5, fetch_data
-from earth2studio.models.px import Pangu6
+from earth2studio.models.px import Aurora
 
 # Load the default model package which downloads the checkpoint from GCP
-package = Pangu6.load_default_package()
-model = Pangu6.load_model(package)
+package = Aurora.load_default_package()
+model = Aurora.load_model(package)
 
 # Create the data source, cache is false
 wb2 = WB2ERA5(cache=False, verbose=False)
@@ -69,7 +69,7 @@ wb2 = WB2ERA5(cache=False, verbose=False)
 # The following is a simple method using Earth2Studio IO objects to pack the requested
 # data into a single Zarr store.
 #
-# For this example, let's download some data for a Pangu forecast.
+# For this example, let's download some data for a Microsoft aurora forecast.
 
 # %%
 from collections import OrderedDict
