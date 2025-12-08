@@ -20,6 +20,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -113,6 +114,7 @@ class _ECMWFOpenDataSource(ABC):
         self._members = members
 
         self._cache = cache
+        self._tmp_cache_hash: str | None = None
         self._verbose = verbose
         self.async_timeout = async_timeout
 
@@ -411,8 +413,15 @@ class _ECMWFOpenDataSource(ABC):
         """Get the appropriate cache location."""
         cache_dir = self._model.lower()  # note that model is not part of cache hash
         cache_location = os.path.join(datasource_cache_root(), cache_dir)
+
         if not self._cache:
-            cache_location = os.path.join(cache_location, f"tmp_{cache_dir}")
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            return os.path.join(
+                cache_location, f"tmp_{cache_dir}_{self._tmp_cache_hash}"
+            )
+
         return cache_location
 
 

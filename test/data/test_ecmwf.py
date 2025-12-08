@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
@@ -246,6 +247,58 @@ def test_ifs_cache(time, variable, cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+async def test_ifs_async_fetch():
+    t = now6h() - timedelta(hours=12)
+    lt = timedelta(hours=0)
+    variable = "msl"
+
+    ds_ifs = IFS(cache=False)
+    ds_ifs_fx = IFS_FX(cache=False)
+    ds_ifs_ens = IFS_ENS(cache=False, member=1)
+    ds_ifs_ens_fx = IFS_ENS_FX(cache=False, member=1)
+
+    da_ifs, da_fx, da_ens, da_ens_fx = await asyncio.gather(
+        ds_ifs.fetch(t, variable),
+        ds_ifs_fx.fetch(t, lt, variable),
+        ds_ifs_ens.fetch(t, variable),
+        ds_ifs_ens_fx.fetch(t, lt, variable),
+    )
+
+    # IFS (analysis): [time, variable, lat, lon]
+    assert da_ifs.shape[0] == 1
+    assert da_ifs.shape[1] == 1
+    assert da_ifs.shape[2] == 721
+    assert da_ifs.shape[3] == 1440
+    assert not np.isnan(da_ifs.values).any()
+
+    # IFS_FX (forecast): [time, lead_time, variable, lat, lon]
+    assert da_fx.shape[0] == 1
+    assert da_fx.shape[1] == 1
+    assert da_fx.shape[2] == 1
+    assert da_fx.shape[3] == 721
+    assert da_fx.shape[4] == 1440
+    assert not np.isnan(da_fx.values).any()
+
+    # IFS_ENS (analysis): [time, variable, lat, lon]
+    assert da_ens.shape[0] == 1
+    assert da_ens.shape[1] == 1
+    assert da_ens.shape[2] == 721
+    assert da_ens.shape[3] == 1440
+    assert not np.isnan(da_ens.values).any()
+
+    # IFS_ENS_FX (forecast): [time, lead_time, variable, lat, lon]
+    assert da_ens_fx.shape[0] == 1
+    assert da_ens_fx.shape[1] == 1
+    assert da_ens_fx.shape[2] == 1
+    assert da_ens_fx.shape[3] == 721
+    assert da_ens_fx.shape[4] == 1440
+    assert not np.isnan(da_ens_fx.values).any()
 
 
 @pytest.mark.timeout(30)
