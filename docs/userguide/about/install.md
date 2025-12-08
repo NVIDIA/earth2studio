@@ -154,7 +154,7 @@ uv add earth2studio --extra aifsens
 ::::
 :::::
 :::::{tab-item} Aurora
-Note: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
 package for inference.
 
 ::::{tab-set}
