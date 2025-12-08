@@ -21,12 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed tp06 field from Graphcast operational model
 - Removed static fields from Graphcast model input / outputs
 - Moved StormCast and DLESyM checkpoints to Huggingface
-- Change previous IFS, IFS_ENS, AIFS and AIFS_ENS sources to IFS_FX, IFS_ENS, AIFS_FX
+- Change previous IFS, IFS_ENS, AIFS and AIFS_ENS sources to IFS_FX, IFS_ENS_FX, AIFS_FX
   and AIFS_ENS_FX to reflect that they are forecast sources
 
 ### Deprecated
 
 ### Removed
+
+- Removed support for returning multiple samples at once from IFS ENS data sources
 
 ### Fixed
 

@@ -77,9 +77,8 @@ class _ECMWFOpenDataSource(ABC):
     fc_type: str, optional
         Forecast type (e.g., deterministic, control, perturbed). For possible options
         refer to ECMWF's open data Python SDK, by default "fc".
-    members: list of int, optional
-        List of ensemble members. Set to None, empty list, or [0] for deterministic
-        forecasts. By default "aws".
+    members: list[int], optional
+        List of ensemble members used if perturb forcast is requested. By default [0].
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -98,7 +97,7 @@ class _ECMWFOpenDataSource(ABC):
         source: Literal["aws", "ecmwf", "azure"] = "aws",
         model: Literal["ifs", "aifs-single", "aifs-ens"] = "ifs",
         fc_type: Literal["fc", "cf", "pf"] = "fc",
-        members: list[int] | None = None,
+        members: list[int] = [0],
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -107,11 +106,6 @@ class _ECMWFOpenDataSource(ABC):
         if opendata is None:
             raise ImportError(
                 "ecmwf-opendata is not installed, install manually or using `pip install earth2studio[data]`"
-            )
-
-        if fc_type in ["fc", "cf"] and members is not None:
-            raise ValueError(
-                "Cannot provide ensemble members for forecast types fc, cf"
             )
 
         self.client = opendata.Client(source=source, model=model)
@@ -133,7 +127,27 @@ class _ECMWFOpenDataSource(ABC):
         else:
             self._model = "AIFS-ENS"
 
+    @abstractmethod
     def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve ECMWF data. The child class should override this"""
+        pass
+
+    @abstractmethod
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data, the child class should over ride this and call/"""
+        pass
+
+    def _call(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -151,6 +165,11 @@ class _ECMWFOpenDataSource(ABC):
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
 
+        Note
+        ----
+        For peturbed data from ensemble models, the returned data array will have an
+        extra `sample` dimension added to it.
+
         Returns
         -------
         xr.DataArray
@@ -165,35 +184,19 @@ class _ECMWFOpenDataSource(ABC):
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
-                self.fetch(time, lead_time, variable), timeout=self.async_timeout
+                self._fetch(time, lead_time, variable), timeout=self.async_timeout
             )
         )
 
         return xr_array
 
-    async def fetch(  # type: ignore[override]
+    async def _fetch(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        lead_time: timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times to fetch.
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            ECMWF weather data array.
-        """
+        """Async method to retrieve ECMWF data."""
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -203,7 +206,7 @@ class _ECMWFOpenDataSource(ABC):
         self._validate_leadtime(time, lead_time)
 
         # Pre-allocate full array (could be made more efficient)
-        if self._members is None:
+        if not self._fc_type == "pf":
             xr_array = xr.DataArray(
                 data=np.zeros(
                     (
@@ -329,7 +332,7 @@ class _ECMWFOpenDataSource(ABC):
         da = xr.open_dataarray(
             grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
         ).roll(longitude=-len(self.LON) // 2, roll_coords=True)
-        if self._members is not None:
+        if "number" in da.dims:
             da = da.sel(number=self._members)  # reorder
         xr_array[task.data_array_indices] = task.modifier(da.values)
 
@@ -345,10 +348,15 @@ class _ECMWFOpenDataSource(ABC):
         if isinstance(level, str):
             level = [level]
 
-        hash_parts = [self._fc_type, time, lead_time, variable, levtype, *level]
-        if self._members is not None:
-            hash_parts.extend(self._members)  # type: ignore
-
+        hash_parts = [
+            time,
+            lead_time,
+            variable,
+            levtype,
+            *level,
+            self._fc_type,
+            *self._members,
+        ]
         filename = hashlib.sha256(
             "_".join(str(x) for x in hash_parts).encode()
         ).hexdigest()
@@ -365,16 +373,16 @@ class _ECMWFOpenDataSource(ABC):
             }
             if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
                 request["levelist"] = level
-            if self._members is not None:
+            if self._fc_type == "pf":
                 request["number"] = self._members
             # Download
             await asyncio.to_thread(self.client.retrieve, **request)
 
         return cache_path
 
-    @abstractmethod
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
+        The child class should overrise this method as needed.
 
         Parameters
         ----------
@@ -383,11 +391,11 @@ class _ECMWFOpenDataSource(ABC):
         """
         pass
 
-    @abstractmethod
     def _validate_leadtime(
         self, times: list[datetime], lead_times: list[timedelta]
     ) -> None:
         """Verify all lead times are valid based on offline knowledge.
+        The child class should overrise this method as needed.
 
         Parameters
         ----------
@@ -414,7 +422,7 @@ class _ECMWFOpenDataSource(ABC):
 
 
 class IFS(_ECMWFOpenDataSource):
-    """Integrated forecast system (IFS) HRES initial state (analaysis) data source on an
+    """Integrated forecast system (IFS) HRES initial state (analysis) data source on an
     equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
     ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
     (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
@@ -485,7 +493,8 @@ class IFS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS analysis data array
         """
-        return super().__call__(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
+        return da.isel(lead_time=0)
 
     async def fetch(  # type: ignore[override]
         self,
@@ -507,7 +516,8 @@ class IFS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS analysis data array.
         """
-        return await super().fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+        return da.isel(lead_time=0)
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
@@ -574,8 +584,57 @@ class IFS_FX(_ECMWFOpenDataSource):
             async_timeout=async_timeout,
         )
 
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve IFS forecast data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS forecast data array
+        """
+        return self._call(time, lead_time, variable)
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS forecast data array.
+        """
+        return await self._fetch(time, lead_time, variable)
+
     def _validate_time(self, times: list[datetime]) -> None:
-        """Verify all times are valid based on offline knowledge."""
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2024, 3, 1)
         )
@@ -585,7 +644,6 @@ class IFS_FX(_ECMWFOpenDataSource):
         times: list[datetime],
         lead_times: list[timedelta],
     ) -> None:
-        """Verify all lead times are valid based on offline knowledge."""
         validate_leadtime(self._model, lead_times, interval=3, max_lead_time=360)
 
         for delta in lead_times:
@@ -613,10 +671,9 @@ class IFS_ENS(_ECMWFOpenDataSource):
     source : str, optional
         Data source to fetch data from. For possible options refer to ECMWF's open data
         Python SDK, by default "aws".
-    members: list[int] | None, optional
-        List of ensemble member ids. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested. If None, the control
-        forecast member will be used, by default 0.
+    member: int, optional
+        Ensemble member id to use. If 0 the control forecast will be requested, if
+        greater than 0 perturbed ensemble member will be requested, by default 0.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -645,27 +702,24 @@ class IFS_ENS(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        members: list[int] | None = None,
+        member: int = 0,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
     ):
         fc_type: Literal["cf", "pf"]
-        if members is None or len(members) == 0 or members == [0]:
+        if member == 0:
             fc_type = "cf"  # control forecast
-            members = None
-        else:
-            if 0 in members:
-                raise ValueError(
-                    "Please request control member (id 0) and perturbed members (id >0) separately"
-                )
+        elif member > 0:
             fc_type = "pf"  # perturbed forecast
+        else:
+            raise ValueError(f"Invalid member id provide {member}")
 
         super().__init__(
             source=source,
             model="ifs",
             fc_type=fc_type,
-            members=members,
+            members=[member],
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
@@ -691,7 +745,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS initial state data array.
         """
-        return super().__call__(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
+        if "sample" in da.dims:
+            da = da.isel(sample=0)
+        return da.isel(lead_time=0)
 
     async def fetch(  # type: ignore[override]
         self,
@@ -713,16 +770,12 @@ class IFS_ENS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS initial state data array.
         """
-        return await super().fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+        if "sample" in da.dims:
+            da = da.isel(sample=0)
+        return da.isel(lead_time=0)
 
     def _validate_time(self, times: list[datetime]) -> None:
-        """Verify all times are valid based on offline knowledge.
-
-        Parameters
-        ----------
-        times : list[datetime]
-            List of date times to fetch data for.
-        """
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2024, 3, 1)
         )
@@ -732,15 +785,6 @@ class IFS_ENS(_ECMWFOpenDataSource):
         times: list[datetime],
         lead_times: list[timedelta],
     ) -> None:
-        """Verify all lead times are valid based on offline knowledge.
-
-        Parameters
-        ----------
-        times : list[datetime]
-            List of date times to fetch data for.
-        lead_times : list[timedelta]
-            List of lead times to fetch data for.
-        """
         validate_leadtime(self._model, lead_times, interval=3, max_lead_time=360)
 
         for delta in lead_times:
@@ -768,10 +812,9 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     source : str, optional
         Data source to fetch data from. For possible options refer to ECMWF's open data
         Python SDK, by default "aws".
-    members: list[int] | None, optional
-        List of ensemble member ids. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested. If None, the control
-        forecast member will be used, by default 0.
+    member: int, optional
+        Ensemble member id to use. If 0 the control forecast will be requested, if
+        greater than 0 perturbed ensemble member will be requested, by default 0.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -800,40 +843,86 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        members: list[int] | None = None,
+        member: int = 0,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
     ):
         fc_type: Literal["cf", "pf"]
-        if members is None or len(members) == 0 or members == [0]:
+        if member == 0:
             fc_type = "cf"  # control forecast
-            members = None
-        else:
-            if 0 in members:
-                raise ValueError(
-                    "Please request control member (id 0) and perturbed members (id >0) separately"
-                )
+        elif member > 0:
             fc_type = "pf"  # perturbed forecast
+        else:
+            raise ValueError(f"Invalid member id provide {member}")
 
         super().__init__(
             source=source,
             model="ifs",
             fc_type=fc_type,
-            members=members,
+            members=[member],
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
         )
 
-    def _validate_time(self, times: list[datetime]) -> None:
-        """Verify all times are valid based on offline knowledge.
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve IFS ENS forecast data.
 
         Parameters
         ----------
-        times : list[datetime]
-            List of date times to fetch data for.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS ENS forecast data array
         """
+        da = self._call(time, lead_time, variable)
+        if "sample" in da.dims:
+            da = da.isel(sample=0)
+        return da
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS ENS forecast data array.
+        """
+        da = await self._fetch(time, lead_time, variable)
+        if "sample" in da.dims:
+            da = da.isel(sample=0)
+        return da
+
+    def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2024, 3, 1)
         )
@@ -843,15 +932,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         times: list[datetime],
         lead_times: list[timedelta],
     ) -> None:
-        """Verify all lead times are valid based on offline knowledge.
 
-        Parameters
-        ----------
-        times : list[datetime]
-            List of date times to fetch data for.
-        lead_times : list[timedelta]
-            List of lead times to fetch data for.
-        """
         validate_leadtime(self._model, lead_times, interval=3, max_lead_time=360)
 
         for delta in lead_times:
@@ -919,14 +1000,57 @@ class AIFS_FX(_ECMWFOpenDataSource):
             async_timeout=async_timeout,
         )
 
-    def _validate_time(self, times: list[datetime]) -> None:
-        """Verify all times are valid based on offline knowledge.
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve AIFS forecast data.
 
         Parameters
         ----------
-        times : list[datetime]
-            List of date times to fetch data for.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            AIFS forecast data array
         """
+        return self._call(time, lead_time, variable)
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            AIFS forecast data array.
+        """
+        return await self._fetch(time, lead_time, variable)
+
+    def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2025, 7, 1, 6)
         )
@@ -934,15 +1058,6 @@ class AIFS_FX(_ECMWFOpenDataSource):
     def _validate_leadtime(
         self, times: list[datetime], lead_times: list[timedelta]
     ) -> None:
-        """Verify all lead times are valid based on offline knowledge.
-
-        Parameters
-        ----------
-        times : list[datetime]
-            List of date times to fetch data for.
-        lead_times : list[timedelta]
-            List of lead times to fetch data for.
-        """
         validate_leadtime(self._model, lead_times, interval=6, max_lead_time=360)
 
 
@@ -958,10 +1073,9 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     source : str, optional
         Data source to fetch data from. For possible options refer to ECMWF's open data
         Python SDK, by default "aws".
-    members: list[int] | None, optional
-        List of ensemble member ids. If 0 the control forecast will be requested, if
-        greater than 0 perturbed ensemble member will be requested. If None, the control
-        forecast member will be used, by default 0.
+    member: int, optional
+        Ensemble member id to use. If 0 the control forecast will be requested, if
+        greater than 0 perturbed ensemble member will be requested, by default 0.
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -990,40 +1104,84 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure"] = "aws",
-        members: list[int] | None = None,
+        member: int = 0,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
     ):
         fc_type: Literal["cf", "pf"]
-        if members is None or len(members) == 0 or members == [0]:
+        if member == 0:
             fc_type = "cf"  # control forecast
-            members = None
-        else:
-            if 0 in members:
-                raise ValueError(
-                    "Please request control member (id 0) and perturbed members (id >0) separately"
-                )
+        elif member > 0:
             fc_type = "pf"  # perturbed forecast
+        else:
+            raise ValueError(f"Invalid member id provide {member}")
 
         super().__init__(
             source=source,
             model="aifs-ens",
             fc_type=fc_type,
-            members=members,
+            members=[member],
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
         )
 
-    def _validate_time(self, times: list[datetime]) -> None:
-        """Verify all times are valid based on offline knowledge.
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve AIFS ENS forecast data.
 
         Parameters
         ----------
-        times : list[datetime]
-            List of date times to fetch data for.
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            AIFS ENS forecast data array
         """
+        da = self._call(time, lead_time, variable)
+        if "sample" in da.dims:
+            da = da.isel(sample=0)
+        return da
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            ECMWF weather data array.
+        """
+        da = await self._fetch(time, lead_time, variable)
+        return da.isel(sample=0)
+
+    def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2025, 7, 1, 6)
         )
@@ -1031,15 +1189,6 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     def _validate_leadtime(
         self, times: list[datetime], lead_times: list[timedelta]
     ) -> None:
-        """Verify all lead times are valid based on offline knowledge.
-
-        Parameters
-        ----------
-        times : list[datetime]
-            List of date times to fetch data for.
-        lead_times : list[timedelta]
-            List of lead times to fetch data for.
-        """
         validate_leadtime(self._model, lead_times, interval=6, max_lead_time=360)
 
 
