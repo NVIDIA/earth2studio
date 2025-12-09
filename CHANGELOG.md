@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ECMWF AIFSENS ensemble prognostic model wrapper
 - Added MRMS data source
 - Added IFS and IFS-ENS initial state datasources
+- Local datasource example
 
 ### Changed
 
@@ -35,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Removed Aurora-fork option which had a temporary patch for package conflict that is
+  resolved in the source aurora package
 
 ## [0.10.0] - 2025-11-24
 

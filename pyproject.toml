@@ -100,10 +100,7 @@ aifsens = [
     "flash-attn",
 ]
 aurora = [
-    "microsoft-aurora>=1.5.0",
-]
-aurora-fork = [
-    "microsoft-aurora", # optional fork install without timm package version conflict
+    "microsoft-aurora>=1.6.0",
 ]
 dlesym = [
     "nvidia-physicsnemo>=1.0.1",
@@ -194,41 +191,13 @@ windgust-afno = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics]",
-    "earth2studio[ace2,aurora-fork,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
+    "earth2studio[ace2,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
 ]
 
 # ==== UV configuration ====
 [tool.uv]
 conflicts = [
-    [
-      { extra = "aurora" },
-      { extra = "dlwp" },
-    ],
-    [
-      { extra = "aurora" },
-      { extra = "fcn" },
-    ],
-    [
-      { extra = "aurora" },
-      { extra = "sfno" },
-    ],
-    [
-      { extra = "aurora" },
-      { extra = "stormcast" },
-    ],
-    [
-      { extra = "aurora" },
-      { extra = "corrdiff" },
-    ],
-    [
-      { extra = "aurora" },
-      { extra = "precip-afno" },
-    ],
-    [
-      { extra = "aurora" },
-      { extra = "aurora-fork" },
-    ],
     [
       { extra = "aifs" },
       { extra = "aifsens" },
@@ -247,7 +216,6 @@ cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d70
 cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "661445e2c68edc76f52632aa0528af482357f1b8" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
-microsoft-aurora = { git = "https://github.com/NickGeneva/aurora.git", rev = "ab41cf1de67d5dcc723b96fc9a6219e4b548d181" }
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
