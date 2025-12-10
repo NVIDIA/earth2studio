@@ -68,7 +68,7 @@ We need the following components:
 - Diagnostic Model: Use the built in CBottle Infill Model :py:class:`earth2studio.models.dx.CBottleInfill`.
 - Super Resolution Model: Use the CBottleSR super resolution model :py:class:`earth2studio.models.dx.CBottleSR`.
 
-.. GENERATED FROM PYTHON SOURCE LINES 63-110
+.. GENERATED FROM PYTHON SOURCE LINES 63-107
 
 .. code-block:: Python
 
@@ -91,7 +91,6 @@ We need the following components:
     # Load the cBottle data source
     package = CBottle3D.load_default_package()
     cbottle_ds = CBottle3D.load_model(package)
-    cbottle_ds = cbottle_ds.to(device)
 
     # Load the super resolution model
     super_resolution_window = (
@@ -106,7 +105,6 @@ We need the following components:
         output_resolution=(1024, 1024),
         super_resolution_window=super_resolution_window,
     )
-    cbottle_sr = cbottle_sr.to(device)
 
     # Load the infill model
     input_variables = ["u10m", "v10m"]
@@ -114,13 +112,12 @@ We need the following components:
     cbottle_infill = CBottleInfill.load_model(
         package, input_variables=input_variables, sampler_steps=18
     )
-    cbottle_infill = cbottle_infill.to(device)
 
     # Load the ERA5 data source
     era5_ds = WB2ERA5()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-116
+.. GENERATED FROM PYTHON SOURCE LINES 108-113
 
 Super Resolution on Synthetic Data
 ----------------------------------
@@ -128,7 +125,7 @@ First, let's generate synthetic climate data using the cBottle3D data source
 and then perform super resolution on it. This demonstrates the full cBottle
 pipeline from data generation to super-resolution enhancement.
 
-.. GENERATED FROM PYTHON SOURCE LINES 118-139
+.. GENERATED FROM PYTHON SOURCE LINES 115-139
 
 .. code-block:: Python
 
@@ -142,14 +139,17 @@ pipeline from data generation to super-resolution enhancement.
     times = np.array([datetime.datetime(2020, 1, 1)], dtype="datetime64[ns]")
 
     # Generate some samples from cBottle
+    cbottle_ds = cbottle_ds.to(device)
     synth_x, synth_coords = fetch_data(
         cbottle_ds,
         times,
         cbottle_sr.input_coords()["variable"],
         device=device,
     )
+    del cbottle_ds  # Clean up data source model to free GPU memory
 
     # Perform super resolution on synthetic data
+    cbottle_sr = cbottle_sr.to(device)
     synth_x, synth_coords = map_coords(synth_x, synth_coords, cbottle_sr.input_coords())
     sr_synth_x, sr_synth_coords = cbottle_sr(synth_x, synth_coords)
 
@@ -162,7 +162,7 @@ Next, we'll demonstrate super resolution on real ERA5 data. Since ERA5 doesn't
 contain all the variables needed by CBottleSR, we first use the CBottleInfill
 model to predict the missing variables, then perform super resolution.
 
-.. GENERATED FROM PYTHON SOURCE LINES 147-163
+.. GENERATED FROM PYTHON SOURCE LINES 147-165
 
 .. code-block:: Python
 
@@ -176,14 +176,16 @@ model to predict the missing variables, then perform super resolution.
     )
 
     # Perform infilling to get all required variables
+    cbottle_infill = cbottle_infill.to(device)
     infill_x, infill_coords = cbottle_infill(era5_x, era5_coords)
+    del cbottle_infill  # Clean up infill model to free GPU memory
 
     # Select the required variables and reshape for super resolution
     infill_x, infill_coords = map_coords(infill_x, infill_coords, cbottle_sr.input_coords())
     sr_infill_x, sr_infill_coords = cbottle_sr(infill_x, infill_coords)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 164-169
+.. GENERATED FROM PYTHON SOURCE LINES 166-171
 
 Post Processing CBottle Super Resolution Data
 ---------------------------------------------
@@ -191,7 +193,7 @@ Let's visualize the super resolution results to compare the synthetic data
 approach with the ERA5 infilling approach. We'll plot the total cloud liquid
 water (tclw) variable as an example.
 
-.. GENERATED FROM PYTHON SOURCE LINES 171-256
+.. GENERATED FROM PYTHON SOURCE LINES 173-258
 
 .. code-block:: Python
 
