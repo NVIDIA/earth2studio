@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed support for returning multiple samples at once from IFS ENS data sources
+- IMERG datasource
 
 ### Fixed
 
