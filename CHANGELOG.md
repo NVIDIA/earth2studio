@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved StormCast and DLESyM checkpoints to Huggingface
 - Change previous IFS, IFS_ENS, AIFS and AIFS_ENS sources to IFS_FX, IFS_ENS_FX, AIFS_FX
   and AIFS_ENS_FX to reflect that they are forecast sources
+- Support multiple x, coords pairs in batch function decorator
 
 ### Deprecated
 

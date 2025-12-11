@@ -53,6 +53,28 @@ def PhooModel():
             return x[:, :1], self.output_coords(coords)
 
         @batch_func()
+        def add_pairs(
+            self,
+            x1: torch.Tensor,
+            coords1: OrderedDict,
+            x2: torch.Tensor,
+            coords2: OrderedDict,
+        ) -> tuple[torch.Tensor, OrderedDict]:
+            # Simple op combining two inputs; propagate coords1 through output_coords
+            return x1 + x2, self.output_coords(coords1)
+
+        @batch_func()
+        def scale_pairs(
+            self,
+            x1: torch.Tensor,
+            coords1: OrderedDict,
+            x2: torch.Tensor,
+            coords2: OrderedDict,
+            alpha: float = 1.0,
+        ) -> tuple[torch.Tensor, OrderedDict]:
+            return alpha * (x1 + x2), self.output_coords(coords1)
+
+        @batch_func()
         def _default_iterator(
             self, x: torch.Tensor, coords: OrderedDict[str, np.ndarray]
         ) -> Iterator[tuple[torch.Tensor, OrderedDict[str, np.ndarray]]]:
@@ -139,3 +161,114 @@ def test_batch_iter(PhooModel, bc, device):
 
         if i > 5:
             break
+
+
+@pytest.mark.parametrize(
+    "bc",
+    [
+        OrderedDict({"a1": np.random.randn(2)}),
+        OrderedDict({"a1": np.random.randn(2), "a2": np.random.randn(2)}),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_batch_multiple_pairs(PhooModel, bc, device):
+    time = datetime.datetime(year=1958, month=1, day=31)
+    variable = ["a", "b"]
+    dc = {"lead_time": np.ones(1)}
+    # Initialize Data Source
+    r = Random(dc)
+
+    da = r(time, variable)
+
+    # Prepare data array for first input
+    x1, coords1 = prep_data_array(da, device=device)
+    # Create a second input tensor of same shape on the same device
+    x2 = torch.randn_like(x1)
+    coords2 = coords1.copy()
+
+    # Expand batch dimensions on both inputs consistently
+    for key, value in reversed(bc.items()):
+        for c in (coords1, coords2):
+            c.update({key: value})
+            c.move_to_end(key, last=False)
+        x1 = torch.stack([x1 for _ in value], dim=0)
+        x2 = torch.stack([x2 for _ in value], dim=0)
+
+    # Forward pass on method with two (x, coords) pairs
+    model = PhooModel().to(device)
+    out, out_coords = model.add_pairs(x1, coords1, x2, coords2)
+
+    assert out.shape[:-2] == x1.shape[:-2]
+    assert coords1.keys() == out_coords.keys()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_invalid_ordering_raises(PhooModel, device):
+    time = datetime.datetime(year=1958, month=1, day=31)
+    variable = ["a", "b"]
+    dc = {"lead_time": np.ones(1)}
+    r = Random(dc)
+    da = r(time, variable)
+    x, coords = prep_data_array(da, device=device)
+    model = PhooModel().to(device)
+    with pytest.raises(ValueError):
+        # coords then tensor is invalid for a pair
+        _ = model.add_pairs(coords, x, coords, x)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_invalid_extra_positional_raises(PhooModel, device):
+    time = datetime.datetime(year=1958, month=1, day=31)
+    variable = ["a", "b"]
+    dc = {"lead_time": np.ones(1)}
+    r = Random(dc)
+    da = r(time, variable)
+    x1, coords1 = prep_data_array(da, device=device)
+    x2 = torch.randn_like(x1)
+    coords2 = coords1.copy()
+    model = PhooModel().to(device)
+    # Extra positional (alpha) makes odd count of positional args
+    with pytest.raises(ValueError):
+        _ = model.scale_pairs(x1, coords1, x2, coords2, 0.5)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_kwargs_allowed_not_batched(PhooModel, device):
+    time = datetime.datetime(year=1958, month=1, day=31)
+    variable = ["a", "b"]
+    dc = {"lead_time": np.ones(1)}
+    r = Random(dc)
+    da = r(time, variable)
+    x1, coords1 = prep_data_array(da, device=device)
+    x2 = torch.randn_like(x1)
+    coords2 = coords1.copy()
+    model = PhooModel().to(device)
+    # alpha passed as kwarg should be accepted and not batched
+    out, out_coords = model.scale_pairs(x1, coords1, x2, coords2, alpha=0.5)
+    assert out.shape[:-2] == x1.shape[:-2]
+    assert coords1.keys() == out_coords.keys()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_mismatched_batched_dims_raise(PhooModel, device):
+    time = datetime.datetime(year=1958, month=1, day=31)
+    variable = ["a", "b"]
+    dc = {"lead_time": np.ones(1)}
+    r = Random(dc)
+    da = r(time, variable)
+    x1, coords1 = prep_data_array(da, device=device)
+    x2 = torch.randn_like(x1)
+    coords2 = coords1.copy()
+
+    # Add different leading batch dims to each pair
+    coords1.update({"a1": np.arange(2)})
+    coords1.move_to_end("a1", last=False)
+    x1 = torch.stack([x1 for _ in range(2)], dim=0)
+
+    coords2.update({"b1": np.arange(3)})
+    coords2.move_to_end("b1", last=False)
+    x2 = torch.stack([x2 for _ in range(3)], dim=0)
+
+    model = PhooModel().to(device)
+    with pytest.raises(ValueError):
+        _ = model.add_pairs(x1, coords1, x2, coords2)
