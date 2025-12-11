@@ -247,3 +247,28 @@ def test_kwargs_allowed_not_batched(PhooModel, device):
     out, out_coords = model.scale_pairs(x1, coords1, x2, coords2, alpha=0.5)
     assert out.shape[:-2] == x1.shape[:-2]
     assert coords1.keys() == out_coords.keys()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_mismatched_batched_dims_raise(PhooModel, device):
+    time = datetime.datetime(year=1958, month=1, day=31)
+    variable = ["a", "b"]
+    dc = {"lead_time": np.ones(1)}
+    r = Random(dc)
+    da = r(time, variable)
+    x1, coords1 = prep_data_array(da, device=device)
+    x2 = torch.randn_like(x1)
+    coords2 = coords1.copy()
+
+    # Add different leading batch dims to each pair
+    coords1.update({"a1": np.arange(2)})
+    coords1.move_to_end("a1", last=False)
+    x1 = torch.stack([x1 for _ in range(2)], dim=0)
+
+    coords2.update({"b1": np.arange(3)})
+    coords2.move_to_end("b1", last=False)
+    x2 = torch.stack([x2 for _ in range(3)], dim=0)
+
+    model = PhooModel().to(device)
+    with pytest.raises(ValueError):
+        _ = model.add_pairs(x1, coords1, x2, coords2)

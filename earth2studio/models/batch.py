@@ -45,7 +45,8 @@ class batch_func:
     ----
     When decorating a method of a model, such as `__call__`, the method is required to
     have a signature of `(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, CoordSystem]`.
-    All positional arguments must be a sequence of (x, CoordSystem) pairs.
+    All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
+    passed through to the wrapped function without modification.
 
     Example
     -------
@@ -193,8 +194,8 @@ class batch_func:
 
             # Support any number of paired (x, CoordSystem) positional args; kwargs won't be batched
             new_args: list[Any] = list(args)
-            batched_meta: list[tuple[CoordSystem, torch.Size]] = []
-
+            ref_shape = None
+            ref_coords = None
             for i in range(0, len(new_args), 2):
                 xi = new_args[i]
                 ci = new_args[i + 1]
@@ -203,31 +204,22 @@ class batch_func:
                     coords_comp,
                     batched_coords,
                     batched_shape,
-                ) = self._compress_batch(
-                    model, xi, ci  # type: ignore[arg-type]
-                )
+                ) = self._compress_batch(model, xi, ci)
                 new_args[i] = x_comp
                 new_args[i + 1] = coords_comp
-                batched_meta.append((batched_coords, batched_shape))
-
-            # Validate consistent batch shapes across all compressed pairs
-            # Choose the first non-empty batched shape as reference
-            ref_coords, ref_shape = batched_meta[0]
-            for bc, bs in batched_meta[1:]:
-                if bs != ref_shape:
-                    # Allow empty shapes (unsqueezed batch of size 1) to co-exist,
-                    # otherwise require identical shapes
-                    if len(bs) == 0:
-                        continue
-                    if len(ref_shape) == 0:
-                        ref_coords, ref_shape = bc, bs
-                        continue
-                    raise ValueError("Mismatched batched dimensions across input pairs")
+                if ref_shape is None and ref_coords is None:
+                    ref_shape = batched_shape
+                    ref_coords = batched_coords
+                elif batched_shape != ref_shape:
+                    # Guarantee that all batched_shape / batched_coords pairs match
+                    raise ValueError(
+                        "Mismatched batched dimensions across input (x, CoordSystem) pairs"
+                    )
 
             # Model forward
             out, out_coords = func(model, *new_args, **kwargs)
             out, out_coords = self._decompress_batch(
-                out, out_coords, ref_coords, ref_shape
+                out, out_coords, batched_coords, batched_shape
             )
             return out, out_coords
 
