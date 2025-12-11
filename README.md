@@ -209,7 +209,6 @@ Available data sources include but are not limited to:
 | NCAR_ERA5 | Reanalysis | 0.25° | Global | NetCDF |
 | WeatherBench2 | Reanalysis | 0.25° | Global | Zarr |
 | GEFS_FX | Ensemble Forecast | 0.25° | Global | GRIB2 |
-| IMERG | Precipitation | 0.1° | Global | NetCDF |
 | CBottle3D | AI Generated | 100km | Global | HEALPix |
 
 For a complete list, see the [data source API docs][e2studio_data_api].
