@@ -99,6 +99,22 @@ aifsens = [
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
+atlas = [
+    "natten",
+    "earth2grid",
+    "nvw",
+    "zencfg",
+    "safetensors",
+    "timm",
+    "torch-harmonics",
+    "transformer_engine[pytorch]",
+    "transformers",
+    "accelerate",
+    "configmypy",
+    "diffusers",
+    "einops",
+    "numba",
+]
 aurora = [
     "microsoft-aurora>=1.6.0",
 ]
@@ -205,7 +221,7 @@ conflicts = [
 ]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
-no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
+no-build-isolation-package = ["flash-attn", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.extra-build-dependencies]
@@ -219,6 +235,7 @@ makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed130
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
+nvw = { git = "ssh://git@gitlab-master.nvidia.com:12051/pharrington/nvw.git", rev = "fa1f2928b472580631289daea1867dd872f9f215" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
