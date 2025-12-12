@@ -342,8 +342,7 @@ branch = false
 concurrency = ["multiprocessing", "thread"]
 source = ["earth2studio"]
 omit = [
-    "third_party/*",
-    "earth2studio/data/imerg.py"
+    "third_party/*"
 ]
 
 [tool.coverage.report]
