@@ -232,7 +232,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output_coords
 
-    #@batch_func()
+    @batch_func()
     def prep_next_input(self, x_pred: torch.Tensor, coords_pred: CoordSystem, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
         """Prepare the next input for the Atlas model. Since the input requires two lead times
         but the model predicts one, we update a sliding window to make autoregressive predictions.
@@ -303,7 +303,6 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # Decode according to configuration of model/autoencoder heads
-        pred = self.autoencoders[0](high_res, prediction_latent)
         prediction_latent = self.model_processor.normalizer_out.unnormalize(prediction_latent)
         prediction_latent = prediction_latent + self.model_processor.normalizer_in.unnormalize(low_res)
         prediction_latent = self.model_processor.normalizer_in.normalize(prediction_latent)
