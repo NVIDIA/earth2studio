@@ -184,15 +184,10 @@ class Persistence(torch.nn.Module, PrognosticMixin):
             # Rear hook
             x_out, coords_out = self.rear_hook(x_out, coords_out)
 
-            if self._history > 1:
-                i = self._history - 1
-                coords["lead_time"] = np.concatenate(
-                    [coords["lead_time"][-i:], coords_out["lead_time"]]
-                )
-                x = torch.cat([x[:, -i:], x_out], dim=1)
-            else:
-                x = x_out
-                coords = coords_out
+            coords["lead_time"] = np.concatenate(
+                [coords["lead_time"][1:], coords_out["lead_time"]]
+            )
+            x = torch.cat([x[:, 1:], x_out], dim=1)
 
             yield x_out, coords_out
 
