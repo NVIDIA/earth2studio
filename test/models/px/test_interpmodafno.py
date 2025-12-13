@@ -57,6 +57,7 @@ def test_forecast_interpolation_call(time, device):
             "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         },
+        history=2,
     )
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
@@ -108,8 +109,9 @@ def test_forecast_interpolation_call(time, device):
     "ensemble",
     [1, 2],
 )
+@pytest.mark.parametrize("history", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_forecast_interpolation_iter(ensemble, device):
+def test_forecast_interpolation_iter(ensemble, history, device):
     """Test iteration functionality of InterpModAFNO model."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
@@ -120,6 +122,7 @@ def test_forecast_interpolation_iter(ensemble, device):
             "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         },
+        history=history,
     )
     center = torch.zeros(1, 73, 1, 1)
     scale = torch.ones(1, 73, 1, 1)
