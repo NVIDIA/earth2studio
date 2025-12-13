@@ -241,7 +241,7 @@ class GEFSLexicon(metaclass=LexiconType):
         "w700": "pgrb2b::VVEL::700 mb",
         "w750": "pgrb2b::VVEL::750 mb",
         "w800": "pgrb2b::VVEL::800 mb",
-        "w850": "pgrb2b::VVEL::850 mb",
+        "w850": "pgrb2a::VVEL::850 mb",
         "w900": "pgrb2b::VVEL::900 mb",
         "w925": "pgrb2b::VVEL::925 mb",
         "w950": "pgrb2b::VVEL::950 mb",
