@@ -45,7 +45,7 @@ def test_persistence_lat_lon(
     )
 
     # Initialize Model
-    p = Persistence(variable, dc, history)
+    p = Persistence(variable, dc, history=history)
 
     # Initialize Data Source
     r = Random(dc)
