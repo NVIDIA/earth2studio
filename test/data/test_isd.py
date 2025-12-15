@@ -98,7 +98,7 @@ def test_isd_cache(time, variable, cache):
     # Cache should be present
     assert pathlib.Path(ds.cache).is_dir() == cache
 
-    # Load from cach or refetch
+    # Load from cache or refetch
     df = ds(time, variable)
 
     assert df.shape[1] == len(variable)
@@ -120,14 +120,14 @@ def test_isd_exceptions():
     with pytest.raises(KeyError):
         df = ds(np.datetime64("2025-01-01T12:00:00"), ["invalid"])
 
-    # For a invalidation station / one that it cannot find data for should return empty
+    # For a invalid station / one that it cannot find data for should return empty
     ds = ISD(stations=["invalid"], cache=False, verbose=False)
     df = ds(
         np.array(["2025-01-01T12:00:00"], dtype=np.datetime64), ["lat", "lon", "u10m"]
     )
     assert df.empty
 
-    # For a for time that there is no data for, should return empty
+    # Time that there is no data for, should return empty
     ds = ISD(stations=["72781024243"], cache=False, verbose=True)
     df = ds(np.array(["2050-01-01T12:00:00"], dtype=np.datetime64), ["t2m"])
     assert df.empty

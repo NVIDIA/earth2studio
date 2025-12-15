@@ -213,11 +213,12 @@ class ISD:
                 raise e
 
         # Load dataframes for each station-year (cached parquet if available)
-        func_map: list[asyncio.Task[_StationData]] = [
-            self._fetch_station_year(station, year)
-            for station in self.stations
-            for year in [dt.year for dt in time]
-        ]
+        func_map: list[asyncio.Task[_StationData]] = []
+        for station in self.stations:
+            for dt in time:
+                func_map.append(  # noqa: PERF401
+                    self._fetch_station_year(station, dt.year)
+                )
 
         # Launch all fetch requests
         station_year_dfs = await tqdm.gather(
@@ -225,7 +226,7 @@ class ISD:
         )
 
         # Gather all dataframes by station and by year, keeping only those with DATE within requested time ± tolerance
-        fildered_df = []
+        filtered_df = []
         index = 0
         for station in self.stations:
             for dt in time:
@@ -240,12 +241,12 @@ class ISD:
 
                 df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
                 if not df_window.empty:
-                    fildered_df.append(df_window)
+                    filtered_df.append(df_window)
 
-        if len(fildered_df) == 0:
+        if len(filtered_df) == 0:
             return pd.DataFrame(columns=variable)
 
-        df = pd.concat(fildered_df, ignore_index=True)
+        df = pd.concat(filtered_df, ignore_index=True)
 
         # Standardize common metadata columns to lower case and normalize longitude
         if not df.empty:
@@ -547,7 +548,7 @@ class ISD:
 
         Dew point is denoted by DEW in C with a scaling factor of 10,
         9999 means missing. String field:
-            (temp (0.1 m/s), quality code)
+            (temp (0.1 C), quality code)
         """
         if "DEW" not in df:
             df["d2m"] = np.nan

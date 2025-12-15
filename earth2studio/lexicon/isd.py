@@ -23,7 +23,7 @@ from .base import LexiconType
 class ISDLexicon(metaclass=LexiconType):
     """NOAA's Integrated Surface Database (ISD) product lexicon.
 
-    This lexicon provides a simple reference for some of the unique variables to IDS,
+    This lexicon provides a simple reference for some of the unique variables to ISD,
     vocab translation is manually handled in the data source due to complexity.
 
     Note
@@ -68,7 +68,7 @@ class ISDLexicon(metaclass=LexiconType):
         """
         isd_key = cls.VOCAB[val]
 
-        def mod(x: np.array) -> np.array:
+        def mod(x: np.array) -> np.ndarray:
             """Modify data value (if necessary)."""
             return x
 

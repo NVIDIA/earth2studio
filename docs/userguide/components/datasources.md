@@ -38,7 +38,7 @@ details on how to customize this location.
 ### Beyond N-D Array Data
 
 Earth2Studio attempts to stick with N-D array data structures when possible,
-however this is not always possible or pratical.
+however this is not always possible or practical.
 As a result, Earth2Studio also supports remote data sources for tabular data which is
 typically used when sparse observations / measurements are involved.
 
