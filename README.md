@@ -80,10 +80,12 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 ```
 
 > [!IMPORTANT]
-> Earth2Studio only provides an interface to existing public distributions of
-> checkpoints that may have specific licensing associated with them.
-> Users should familiarize themselves with each model checkpoint's license as
-> needed. API documentation typically provides links for further information.
+> Earth2Studio is an interface to third‑party models, checkpoints, and datasets.
+> Licenses for these assets are owned by their providers.
+> Ensure you have the rights to download, use, and (if applicable) redistribute each
+> model and dataset.
+> Links to the original license and source are often provided in the API docs for each
+> model/data source.
 
 ## Latest News
 
