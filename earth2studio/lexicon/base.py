@@ -28,6 +28,7 @@ class LexiconType(type):
 E2STUDIO_VOCAB = {
     "u10m": "u-component (eastward, zonal) of wind at 10 m (m s-1)",
     "v10m": "v-component (northward, meridional) of wind at 10 m (m s-1)",
+    "ws10m": "wind speed at 10 m (m s-1)",
     "u100m": "u-component of wind at 100 m (m s-1)",
     "v100m": "v-component of wind at 100 m (m s-1)",
     "t2m": "temperature at 2m (K)",
