@@ -1,4 +1,18 @@
-from __future__ import annotations
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import asyncio
 import hashlib
@@ -17,7 +31,6 @@ import xarray as xr  # noqa: F401  # kept in case of future extension; not curre
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.base import DataSource
 from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
@@ -32,7 +45,7 @@ class _StationData:
     dataframe: pd.DataFrame
 
 
-class ISD(DataSource):
+class ISD:
     """NOAA's Integrated Surface Database (ISD) is a global database that consists of
     hourly and synoptic surface observations compiled from numerous sources into a
     common data model.
