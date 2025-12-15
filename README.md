@@ -31,10 +31,12 @@ climate science.
 
 Running AI weather prediction can be done with just a few lines of code.
 
-- See the [install guide][e2studio_install_url] for detailed steps for each model.
-- See the [examples][e2studio_examples_url] gallery provides different inference
+- For detailed installation steps, including model-specific installations, see the
+    [install guide][e2studio_install_url].
+- See the [examples][e2studio_examples_url] gallery providing different inference
     workflow samples.
-- Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on your use case!
+- Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on
+    your use case!
 
 ### NVIDIA FourCastNet3
 
