@@ -29,45 +29,78 @@ climate science.
 
 ## Quick start
 
-Install Earth2Studio:
+Running AI weather prediction can be done with just a few lines of code.
+See the [examples](e2studio_examples_url) gallery for different reference workflows.
+
+### FourCastNet3
 
 ```bash
-pip install earth2studio[dlwp]
+pip install earth2studio[fcn3]
 ```
 
-Run a deterministic AI weather prediction in just a few lines of code:
-
 ```python
-from earth2studio.models.px import DLWP
+from earth2studio.models.px import FCN3
 from earth2studio.data import GFS
-from earth2studio.io import NetCDF4Backend
+from earth2studio.io import ZarrBackend
 from earth2studio.run import deterministic as run
 
-model = DLWP.load_model(DLWP.load_default_package())
-ds = GFS()
-io = NetCDF4Backend("output.nc")
+model = FCN3.load_model(FCN3.load_default_package())
+data = GFS()
+io = ZarrBackend("outputs/fcn3_forecast.zarr")
+run(["2024-01-01"], 10, model, data, io)
+```
 
-run(["2024-01-01"], 10, model, ds, io)
+### ECMWF AIFS
+
+```bash
+pip install earth2studio[aifs]
+```
+
+```python
+from earth2studio.models.px import AIFS
+from earth2studio.data import IFS
+from earth2studio.io import ZarrBackend
+from earth2studio.run import deterministic as run
+
+model = AIFS.load_model(AIFS.load_default_package())
+data = IFS()
+io = ZarrBackend("outputs/aifs_forecast.zarr")
+run(["2024-01-01"], 10, model, data, io)
+```
+
+### Google Graphcast
+
+```bash
+pip install earth2studio[graphcast]
+```
+
+```python
+from earth2studio.models.px import GraphCastOperational
+from earth2studio.data import WB2ERA5
+from earth2studio.io import ZarrBackend
+from earth2studio.run import deterministic as run
+
+package = GraphCastOperational.load_default_package()
+model = GraphCastOperational.load_model(package)
+data = WB2ERA5()
+io = ZarrBackend("outputs/graphcast_operational_forecast.zarr")
+run(["2022-01-01T00:00:00"], 4, model, data, io)
 ```
 
 Swap out for a different AI model by just [installing](https://nvidia.github.io/earth2studio/userguide/about/install.html#prognostics)
-and replacing `DLWP` references with another [forecast model][e2studio_px_api].
+and another [forecast model][e2studio_px_api].
+Users should familiarize themselves with each model checkpoint's license as needed.
 
 ## Latest News
 
-- The latest [**Climate in a Bottle**](https://blogs.nvidia.com/blog/earth2-generative-ai-foundation-model-global-climate-kilometer-scale-resolution/)
-    generative AI model from NVIDIA research has been
-    added via several APIs including a [data source](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CBottle3D.html),
-    [infilling](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html)
-    and [super-resolution](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html)
-    APIs. See the [cBottle examples](https://nvidia.github.io/earth2studio/examples/index.html)
-    for more.
-- The long awaited **GraphCast 1 degree** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html)
-    and **GraphCast Operational** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html)
-    are now added.
-- Advanced **Subseasonal-to-Seasonal (S2S) forecasting** [recipe](./recipes/s2s/)
-    added demonstrating new inference pipelines for subseasonal weather forecasts (from
-    2 weeks to 3 months).
+- **CMIP6 datasource** has been added to improve support for usecases that are focused
+    on climate modeling. See [data source APIs](e2studio_api_url) for more information.
+- [**Ai2 Climate Emulator (ACE) 2 ERA5 model**](https://arxiv.org/pdf/2411.11268v1) has
+    been added which is a 1 degree, 6 hour time-step, forecast model that supports long
+    roll outs with user specified SST forcing.
+- [**Climate in a Bottle**](https://blogs.nvidia.com/blog/earth2-generative-ai-foundation-model-global-climate-kilometer-scale-resolution/)
+    moddel APIs have been extended with the addition of tropical Cyclone guidance
+    diagnostic and cBottle video prognostic model.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
