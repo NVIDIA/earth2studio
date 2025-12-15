@@ -51,6 +51,12 @@ In this example you will learn:
     # ///
 
 
+
+
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 48-66
 
 Set Up
@@ -122,6 +128,24 @@ Also note the input and output variable set for each model.
         model_hpx.output_coords(in_coords_hpx)["variable"],
     )
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    DLESyM LatLon input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (11,)), ('lat', (721,)), ('lon', (1440,))]
+    DLESyM HPX input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (9,)), ('face', (12,)), ('height', (64,)), ('width', (64,))]
+    Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'sst' 'u10m' 'v10m' 'z300'
+     'z700']
+    Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
+    HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
+    HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 114-129
 
 Making Predictions, Regridding, and Selecting Outputs
@@ -180,6 +204,128 @@ for each of the atmosphere and ocean components.
     )
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-12-15 01:28:28.198 | DEBUG    | earth2studio.data.arco:_async_init:125 - Using Multi-Storage Client for ARCO data access
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.677 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.678 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.679 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.679 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.680 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.681 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.681 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.682 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.683 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.683 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:28.684 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:05,  1.97it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.55it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 14.83it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.422 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.422 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.423 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.423 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.423 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.424 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.424 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.424 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.424 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.425 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:29.426 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:04,  2.02it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 10.91it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.24it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.147 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.147 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.147 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.148 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.148 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.148 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.149 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.149 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.149 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.149 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.150 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:04,  2.05it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 10.74it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.07it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.880 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.880 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.881 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.881 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.881 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.882 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.882 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.882 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.882 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.883 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:30.883 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:05,  1.99it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.20it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 14.99it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.618 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.619 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.620 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.620 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.620 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.620 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.621 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.621 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.621 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.621 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:31.622 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:04,  2.05it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.53it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.45it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.333 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.334 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.334 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.334 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.335 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.335 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.335 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.335 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.336 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.336 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:32.336 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:04,  2.08it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.69it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.69it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.037 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.039 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.039 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.039 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.039 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.040 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.040 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.040 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:05,  1.98it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.19it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.07it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.770 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.771 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.771 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.771 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.772 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.772 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.772 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.773 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.773 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.773 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:33.773 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:04,  2.07it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.54it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.52it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.482 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.483 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.483 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.483 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.483 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.484 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.484 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.484 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.485 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.485 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:34.485 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:04,  2.04it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 11.42it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 15.40it/s]
+    Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
+    Ocean outputs (variables, lead_time [hrs]): ['sst'] [48 96]
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 167-173
 
 Model Iteration for Longer Forecasts
@@ -203,6 +349,18 @@ a total of 60 days.
             x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(x, x_coords)
 
     print(f"Completed forecast with {n_steps} steps")
+
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Completed forecast with 16 steps
+
 
 
 
@@ -238,6 +396,166 @@ input and output lead time dimensions.
 
     ds = io.to_xarray()
     print(ds)
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-12-15 01:28:43.829 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+    2025-12-15 01:28:43.829 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.833 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.833 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.833 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.834 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.834 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.834 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.834 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.835 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.835 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.835 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:43.835 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.36it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 14.82it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 21.10it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.357 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.357 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.358 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.358 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.358 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.359 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.359 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.359 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.359 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.360 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.360 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:03,  3.32it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 15.10it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 20.49it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.897 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.897 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.898 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.898 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.898 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.898 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.899 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.899 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.899 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.900 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:44.900 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.41it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 16.83it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 21.19it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.419 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.420 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.420 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.420 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.420 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.421 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.421 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.421 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.422 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.422 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.422 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-13T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.40it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 14.13it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 21.23it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.940 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.941 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.941 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.941 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.942 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.942 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.942 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.943 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.943 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.943 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:45.943 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.41it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 16.62it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 20.93it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.469 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.470 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.470 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.470 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.470 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.471 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.471 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.471 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.472 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.472 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.472 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T06:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.42it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 14.71it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 20.89it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:46.999 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.000 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.000 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.000 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.000 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.001 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.001 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.001 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.002 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.002 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.002 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T12:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.40it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 17.82it/s]    Fetching ARCO data:  82%|████████▏ | 9/11 [00:00<00:00, 20.69it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 21.06it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.525 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.525 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.525 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.526 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.526 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.526 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.526 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.527 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.527 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.527 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:47.528 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-14T18:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.52it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 16.29it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 21.66it/s]
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.036 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: v10m at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.036 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: tcwv at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.036 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z500 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.037 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z250 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.037 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z300 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.037 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: u10m at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z1000 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t2m at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: z700 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.038 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: sst at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]                                                              2025-12-15 01:28:48.039 | DEBUG    | earth2studio.data.arco:fetch_array:289 - Fetching ARCO zarr array for variable: t850 at 2021-06-15T00:00:00
+    Fetching ARCO data:   0%|          | 0/11 [00:00<?, ?it/s]    Fetching ARCO data:   9%|▉         | 1/11 [00:00<00:02,  3.36it/s]    Fetching ARCO data:  55%|█████▍    | 6/11 [00:00<00:00, 16.37it/s]    Fetching ARCO data: 100%|██████████| 11/11 [00:00<00:00, 20.68it/s]
+    2025-12-15 01:28:48.760 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from ARCO
+    2025-12-15 01:28:49.226 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+
+    Running inference:   0%|          | 0/17 [00:00<?, ?it/s]
+    Running inference:   6%|▌         | 1/17 [00:00<00:08,  1.93it/s]
+    Running inference:  12%|█▏        | 2/17 [00:01<00:11,  1.35it/s]
+    Running inference:  18%|█▊        | 3/17 [00:02<00:11,  1.23it/s]
+    Running inference:  24%|██▎       | 4/17 [00:03<00:11,  1.16it/s]
+    Running inference:  29%|██▉       | 5/17 [00:04<00:10,  1.12it/s]
+    Running inference:  35%|███▌      | 6/17 [00:05<00:09,  1.10it/s]
+    Running inference:  41%|████      | 7/17 [00:06<00:09,  1.09it/s]
+    Running inference:  47%|████▋     | 8/17 [00:07<00:08,  1.08it/s]
+    Running inference:  53%|█████▎    | 9/17 [00:07<00:07,  1.08it/s]
+    Running inference:  59%|█████▉    | 10/17 [00:08<00:06,  1.08it/s]
+    Running inference:  65%|██████▍   | 11/17 [00:09<00:05,  1.07it/s]
+    Running inference:  71%|███████   | 12/17 [00:10<00:04,  1.07it/s]
+    Running inference:  76%|███████▋  | 13/17 [00:11<00:03,  1.07it/s]
+    Running inference:  82%|████████▏ | 14/17 [00:12<00:02,  1.07it/s]
+    Running inference:  88%|████████▊ | 15/17 [00:13<00:01,  1.07it/s]
+    Running inference:  94%|█████████▍| 16/17 [00:14<00:00,  1.05it/s]
+    Running inference: 100%|██████████| 17/17 [00:15<00:00,  1.05it/s]    Running inference: 100%|██████████| 17/17 [00:15<00:00,  1.10it/s]
+    2025-12-15 01:29:04.735 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+    <xarray.Dataset> Size: 10GB
+    Dimensions:     (time: 1, lead_time: 265, lat: 721, lon: 1440)
+    Coordinates:
+      * time        (time) datetime64[s] 8B 2021-06-15
+      * lead_time   (lead_time) timedelta64[ns] 2kB -2 days +00:00:00 ... 64 days...
+      * lat         (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
+      * lon         (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
+    Data variables:
+        z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.724e+04
+        tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.453e+04
+        z1000       (time, lead_time, lat, lon) float32 1GB 890.4 890.4 ... -936.4
+        t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 214.5
+        tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... 0.3016
+        t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 235.4
+        z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 8.992e+04
+        ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 6.945
+        sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 272.1
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 217-220
@@ -313,6 +631,22 @@ Let's plot some of the forecasted outputs for the atmosphere and ocean component
 
     plt.tight_layout()
     plt.savefig("outputs/14_ws10m_sst_prediction.png")
+
+
+
+.. image-sg:: /examples/images/sphx_glr_14_dlesym_example_001.png
+   :alt: Initialization: 2021-06-15 - Lead time: 1536 hours, Initialization: 2021-06-15 - Lead time: 1536 hours
+   :srcset: /examples/images/sphx_glr_14_dlesym_example_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (1 minutes 16.012 seconds)
 
 
 .. _sphx_glr_download_examples_14_dlesym_example.py:

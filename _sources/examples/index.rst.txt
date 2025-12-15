@@ -52,7 +52,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_01_deterministic_workflow_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_01_deterministic_workflow.py`
+  :doc:`/examples/01_deterministic_workflow`
 
 .. raw:: html
 
@@ -69,7 +69,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_02_diagnostic_workflow_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_02_diagnostic_workflow.py`
+  :doc:`/examples/02_diagnostic_workflow`
 
 .. raw:: html
 
@@ -86,7 +86,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_03_ensemble_workflow_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_03_ensemble_workflow.py`
+  :doc:`/examples/03_ensemble_workflow`
 
 .. raw:: html
 
@@ -103,7 +103,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_04_corrdiff_inference.py`
+  :doc:`/examples/04_corrdiff_inference`
 
 .. raw:: html
 
@@ -120,7 +120,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py`
+  :doc:`/examples/05_ensemble_workflow_extend`
 
 .. raw:: html
 
@@ -137,7 +137,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_06_model_perturbation_hook.py`
+  :doc:`/examples/06_model_perturbation_hook`
 
 .. raw:: html
 
@@ -154,7 +154,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_07_seasonal_statistics.py`
+  :doc:`/examples/07_seasonal_statistics`
 
 .. raw:: html
 
@@ -171,7 +171,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_08_distributed_manager_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_08_distributed_manager.py`
+  :doc:`/examples/08_distributed_manager`
 
 .. raw:: html
 
@@ -188,7 +188,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_09_stormcast_example_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_09_stormcast_example.py`
+  :doc:`/examples/09_stormcast_example`
 
 .. raw:: html
 
@@ -205,7 +205,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_10_stormcast_ensemble_example_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_10_stormcast_ensemble_example.py`
+  :doc:`/examples/10_stormcast_ensemble_example`
 
 .. raw:: html
 
@@ -222,7 +222,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_11_huge_ensembles.py`
+  :doc:`/examples/11_huge_ensembles`
 
 .. raw:: html
 
@@ -239,7 +239,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_12_temporal_interpolation.py`
+  :doc:`/examples/12_temporal_interpolation`
 
 .. raw:: html
 
@@ -256,7 +256,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_13_cyclone_tracking.py`
+  :doc:`/examples/13_cyclone_tracking`
 
 .. raw:: html
 
@@ -273,7 +273,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_14_dlesym_example_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_14_dlesym_example.py`
+  :doc:`/examples/14_dlesym_example`
 
 .. raw:: html
 
@@ -290,7 +290,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_15_cbottle_generation.py`
+  :doc:`/examples/15_cbottle_generation`
 
 .. raw:: html
 
@@ -307,7 +307,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_16_cbottle_super_resolution.py`
+  :doc:`/examples/16_cbottle_super_resolution`
 
 .. raw:: html
 
@@ -324,7 +324,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_17_io_performance_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_17_io_performance.py`
+  :doc:`/examples/17_io_performance`
 
 .. raw:: html
 
@@ -341,7 +341,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_18_ensemble_downscaling_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_18_ensemble_downscaling.py`
+  :doc:`/examples/18_ensemble_downscaling`
 
 .. raw:: html
 
@@ -358,7 +358,7 @@ and commonly used workflows.
   .. image:: /examples/images/thumb/sphx_glr_19_local_datasource_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_19_local_datasource.py`
+  :doc:`/examples/19_local_datasource`
 
 .. raw:: html
 
@@ -420,7 +420,7 @@ components.
   .. image:: /examples/extend/images/thumb/sphx_glr_01_custom_prognostic_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_extend_01_custom_prognostic.py`
+  :doc:`/examples/extend/01_custom_prognostic`
 
 .. raw:: html
 
@@ -437,7 +437,7 @@ components.
   .. image:: /examples/extend/images/thumb/sphx_glr_02_custom_diagnostic_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py`
+  :doc:`/examples/extend/02_custom_diagnostic`
 
 .. raw:: html
 
@@ -454,7 +454,7 @@ components.
   .. image:: /examples/extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_extend_03_custom_datasource.py`
+  :doc:`/examples/extend/03_custom_datasource`
 
 .. raw:: html
 

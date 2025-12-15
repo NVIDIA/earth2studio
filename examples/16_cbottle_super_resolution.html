@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>CBottle Super Resolution &#8212; Earth2Studio 0.10.0a0 documentation</title>
+    <title>CBottle Super Resolution &#8212; Earth2Studio 0.11.0a0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3f8aba6c"></script>
+    <script src="../_static/documentation_options.js?v=c2fa852a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="CBottle Data Generation and Infilling" href="15_cbottle_generation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.10" />
+  <meta name="docsearch:version" content="0.11" />
   </head>
   
   
@@ -391,6 +391,7 @@
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">CBottle Super Resolution</a></li>
 <li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -521,7 +522,6 @@ CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
 <span class="c1"># Load the cBottle data source</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">CBottle3D</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
 <span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">CBottle3D</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
-<span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">cbottle_ds</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># Load the super resolution model</span>
 <span class="n">super_resolution_window</span> <span class="o">=</span> <span class="p">(</span>
@@ -536,7 +536,6 @@ CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
     <span class="n">output_resolution</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span>
     <span class="n">super_resolution_window</span><span class="o">=</span><span class="n">super_resolution_window</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">cbottle_sr</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># Load the infill model</span>
 <span class="n">input_variables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">]</span>
@@ -544,64 +543,9 @@ CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
 <span class="n">cbottle_infill</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
     <span class="n">package</span><span class="p">,</span> <span class="n">input_variables</span><span class="o">=</span><span class="n">input_variables</span><span class="p">,</span> <span class="n">sampler_steps</span><span class="o">=</span><span class="mi">18</span>
 <span class="p">)</span>
-<span class="n">cbottle_infill</span> <span class="o">=</span> <span class="n">cbottle_infill</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># Load the ERA5 data source</span>
 <span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
-</pre></div>
-</div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading cBottle-SR.zip: 0%|          | 0.00/2.46G [00:00&lt;?, ?B/s]
-Downloading cBottle-SR.zip: 1%|▏         | 34.5M/2.46G [00:00&lt;00:07, 362MB/s]
-Downloading cBottle-SR.zip: 3%|▎         | 87.0M/2.46G [00:00&lt;00:05, 471MB/s]
-Downloading cBottle-SR.zip: 5%|▌         | 133M/2.46G [00:00&lt;00:05, 475MB/s]
-Downloading cBottle-SR.zip: 8%|▊         | 190M/2.46G [00:00&lt;00:04, 523MB/s]
-Downloading cBottle-SR.zip: 10%|▉         | 240M/2.46G [00:00&lt;00:04, 484MB/s]
-Downloading cBottle-SR.zip: 11%|█▏        | 287M/2.46G [00:00&lt;00:04, 482MB/s]
-Downloading cBottle-SR.zip: 14%|█▎        | 344M/2.46G [00:00&lt;00:04, 517MB/s]
-Downloading cBottle-SR.zip: 16%|█▌        | 395M/2.46G [00:00&lt;00:04, 524MB/s]
-Downloading cBottle-SR.zip: 18%|█▊        | 446M/2.46G [00:00&lt;00:04, 522MB/s]
-Downloading cBottle-SR.zip: 20%|█▉        | 497M/2.46G [00:01&lt;00:04, 524MB/s]
-Downloading cBottle-SR.zip: 22%|██▏       | 547M/2.46G [00:01&lt;00:03, 520MB/s]
-Downloading cBottle-SR.zip: 24%|██▎       | 597M/2.46G [00:01&lt;00:04, 498MB/s]
-Downloading cBottle-SR.zip: 26%|██▌       | 644M/2.46G [00:01&lt;00:04, 491MB/s]
-Downloading cBottle-SR.zip: 27%|██▋       | 692M/2.46G [00:01&lt;00:04, 476MB/s]
-Downloading cBottle-SR.zip: 29%|██▉       | 739M/2.46G [00:01&lt;00:03, 480MB/s]
-Downloading cBottle-SR.zip: 31%|███       | 785M/2.46G [00:01&lt;00:04, 449MB/s]
-Downloading cBottle-SR.zip: 33%|███▎      | 830M/2.46G [00:01&lt;00:03, 456MB/s]
-Downloading cBottle-SR.zip: 35%|███▍      | 874M/2.46G [00:01&lt;00:03, 440MB/s]
-Downloading cBottle-SR.zip: 36%|███▋      | 919M/2.46G [00:02&lt;00:03, 449MB/s]
-Downloading cBottle-SR.zip: 38%|███▊      | 962M/2.46G [00:02&lt;00:03, 426MB/s]
-Downloading cBottle-SR.zip: 40%|███▉      | 0.98G/2.46G [00:02&lt;00:03, 436MB/s]
-Downloading cBottle-SR.zip: 42%|████▏     | 1.02G/2.46G [00:02&lt;00:03, 406MB/s]
-Downloading cBottle-SR.zip: 44%|████▎     | 1.07G/2.46G [00:02&lt;00:03, 435MB/s]
-Downloading cBottle-SR.zip: 45%|████▌     | 1.11G/2.46G [00:02&lt;00:03, 442MB/s]
-Downloading cBottle-SR.zip: 47%|████▋     | 1.16G/2.46G [00:02&lt;00:03, 429MB/s]
-Downloading cBottle-SR.zip: 49%|████▊     | 1.20G/2.46G [00:02&lt;00:03, 408MB/s]
-Downloading cBottle-SR.zip: 50%|█████     | 1.24G/2.46G [00:02&lt;00:03, 433MB/s]
-Downloading cBottle-SR.zip: 52%|█████▏    | 1.29G/2.46G [00:02&lt;00:02, 447MB/s]
-Downloading cBottle-SR.zip: 54%|█████▍    | 1.34G/2.46G [00:03&lt;00:02, 465MB/s]
-Downloading cBottle-SR.zip: 56%|█████▌    | 1.38G/2.46G [00:03&lt;00:02, 478MB/s]
-Downloading cBottle-SR.zip: 58%|█████▊    | 1.43G/2.46G [00:03&lt;00:02, 496MB/s]
-Downloading cBottle-SR.zip: 60%|██████    | 1.48G/2.46G [00:03&lt;00:02, 496MB/s]
-Downloading cBottle-SR.zip: 62%|██████▏   | 1.53G/2.46G [00:03&lt;00:02, 480MB/s]
-Downloading cBottle-SR.zip: 64%|██████▍   | 1.58G/2.46G [00:03&lt;00:01, 499MB/s]
-Downloading cBottle-SR.zip: 66%|██████▌   | 1.62G/2.46G [00:03&lt;00:01, 500MB/s]
-Downloading cBottle-SR.zip: 68%|██████▊   | 1.68G/2.46G [00:03&lt;00:01, 532MB/s]
-Downloading cBottle-SR.zip: 71%|███████   | 1.74G/2.46G [00:03&lt;00:01, 549MB/s]
-Downloading cBottle-SR.zip: 73%|███████▎  | 1.79G/2.46G [00:03&lt;00:01, 555MB/s]
-Downloading cBottle-SR.zip: 75%|███████▍  | 1.84G/2.46G [00:04&lt;00:01, 511MB/s]
-Downloading cBottle-SR.zip: 77%|███████▋  | 1.89G/2.46G [00:04&lt;00:01, 515MB/s]
-Downloading cBottle-SR.zip: 79%|███████▉  | 1.94G/2.46G [00:04&lt;00:01, 518MB/s]
-Downloading cBottle-SR.zip: 81%|████████  | 2.00G/2.46G [00:04&lt;00:00, 550MB/s]
-Downloading cBottle-SR.zip: 83%|████████▎ | 2.05G/2.46G [00:04&lt;00:00, 532MB/s]
-Downloading cBottle-SR.zip: 85%|████████▌ | 2.10G/2.46G [00:04&lt;00:00, 539MB/s]
-Downloading cBottle-SR.zip: 88%|████████▊ | 2.16G/2.46G [00:04&lt;00:00, 552MB/s]
-Downloading cBottle-SR.zip: 90%|████████▉ | 2.21G/2.46G [00:04&lt;00:00, 520MB/s]
-Downloading cBottle-SR.zip: 92%|█████████▏| 2.26G/2.46G [00:04&lt;00:00, 532MB/s]
-Downloading cBottle-SR.zip: 94%|█████████▍| 2.31G/2.46G [00:05&lt;00:00, 517MB/s]
-Downloading cBottle-SR.zip: 96%|█████████▌| 2.36G/2.46G [00:05&lt;00:00, 521MB/s]
-Downloading cBottle-SR.zip: 98%|█████████▊| 2.41G/2.46G [00:05&lt;00:00, 533MB/s]
-Downloading cBottle-SR.zip: 100%|██████████| 2.46G/2.46G [00:05&lt;00:00, 494MB/s]
 </pre></div>
 </div>
 </section>
@@ -619,21 +563,24 @@ pipeline from data generation to super-resolution enhancement.</p>
 <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
 
 <span class="c1"># Generate some samples from cBottle</span>
+<span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">cbottle_ds</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 <span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
     <span class="n">cbottle_ds</span><span class="p">,</span>
     <span class="n">times</span><span class="p">,</span>
     <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
     <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="k">del</span> <span class="n">cbottle_ds</span>  <span class="c1"># Clean up data source model to free GPU memory</span>
 
 <span class="c1"># Perform super resolution on synthetic data</span>
+<span class="n">cbottle_sr</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 <span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span><span class="p">,</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 <span class="n">sr_synth_x</span><span class="p">,</span> <span class="n">sr_synth_coords</span> <span class="o">=</span> <span class="n">cbottle_sr</span><span class="p">(</span><span class="n">synth_x</span><span class="p">,</span> <span class="n">synth_coords</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Generating cBottle Data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Generating cBottle Data: 100%|██████████| 1/1 [00:03&lt;00:00,  3.95s/it]
-Generating cBottle Data: 100%|██████████| 1/1 [00:03&lt;00:00,  3.95s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:04&lt;00:00,  4.91s/it]
+Generating cBottle Data: 100%|██████████| 1/1 [00:04&lt;00:00,  4.91s/it]
 </pre></div>
 </div>
 </section>
@@ -651,7 +598,9 @@ model to predict the missing variables, then perform super resolution.</p>
 <span class="p">)</span>
 
 <span class="c1"># Perform infilling to get all required variables</span>
+<span class="n">cbottle_infill</span> <span class="o">=</span> <span class="n">cbottle_infill</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 <span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span> <span class="o">=</span> <span class="n">cbottle_infill</span><span class="p">(</span><span class="n">era5_x</span><span class="p">,</span> <span class="n">era5_coords</span><span class="p">)</span>
+<span class="k">del</span> <span class="n">cbottle_infill</span>  <span class="c1"># Clean up infill model to free GPU memory</span>
 
 <span class="c1"># Select the required variables and reshape for super resolution</span>
 <span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">infill_x</span><span class="p">,</span> <span class="n">infill_coords</span><span class="p">,</span> <span class="n">cbottle_sr</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
@@ -660,23 +609,14 @@ model to predict the missing variables, then perform super resolution.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-11-12 19:13:54.043 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
+2025-12-15 01:35:04.355 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-11-12 19:13:54.043 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
+2025-12-15 01:35:04.355 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-
-2025-11-12 19:13:54.099 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/89120.0.0 to local cache
-
-Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-
-2025-11-12 19:13:54.106 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/89120.0.0 to local cache
-
-Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.48it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  4.95it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 108.00it/s]
 </pre></div>
 </div>
 </section>
@@ -772,7 +712,7 @@ water (tclw) variable as an example.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/16_cbottle_super_resolution.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 46.978 seconds)</p>
+<img src="../_images/sphx_glr_16_cbottle_super_resolution_001.png" srcset="../_images/sphx_glr_16_cbottle_super_resolution_001.png" alt="Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (4 minutes 37.024 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-16-cbottle-super-resolution-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/befbc3089893dae3e9ecc97bc9f11be8/16_cbottle_super_resolution.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">16_cbottle_super_resolution.ipynb</span></code></a></p>

@@ -36,10 +36,16 @@ This example demonstrates how to:
     # /// script
     # dependencies = [
     #   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
-    #   "pangu",
+    #   "aurora",
     #   "cartopy",
     # ]
     # ///
+
+
+
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 39-45
@@ -71,6 +77,12 @@ For this example, the following are needed:
 
     # Create the data source, cache is false
     wb2 = WB2ERA5(cache=False, verbose=False)
+
+
+
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 65-73
@@ -125,6 +137,155 @@ For this example, let's download some data for a Microsoft aurora forecast.
         zb.write(xs, reduced_coords, array_name=list(var_names))
 
 
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-12-15 01:40:47.530 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t300 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.531 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q850 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.531 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.532 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t700 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.532 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q700 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.533 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t1000 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.533 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u700 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.533 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q200 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.534 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z700 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.534 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u200 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.535 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.535 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.536 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t925 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.536 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z300 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.537 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q500 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.537 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z850 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.537 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q400 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.538 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u925 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.538 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v300 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.539 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v200 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.539 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q150 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.539 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t400 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.540 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.540 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.541 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z925 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.541 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q100 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.542 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u400 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.542 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t600 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.542 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u300 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.543 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.543 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v600 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.544 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q1000 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.544 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z250 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.545 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.545 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.545 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t500 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.546 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v400 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.546 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.547 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t200 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.547 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t250 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.548 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z100 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.548 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.548 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q300 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.549 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v150 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.549 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t50 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.550 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z400 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.550 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z600 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.550 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q250 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.551 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u600 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.551 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u100 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.552 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v100 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.552 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q925 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.553 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t100 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.553 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.553 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q600 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.554 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q50 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.554 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v925 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.555 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.555 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u150 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.556 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v850 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.556 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v250 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.556 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t850 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.557 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v700 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.557 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u250 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.558 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t150 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.558 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.558 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z150 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.559 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z200 at 2022-01-01T00:00:00
+    2025-12-15 01:40:47.559 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u850 at 2022-01-01T00:00:00
+    2025-12-15 01:40:56.813 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q1000 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.814 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.814 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v400 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.815 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q500 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.815 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q250 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.816 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t500 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.816 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q50 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.817 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.817 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.818 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z400 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.818 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t150 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.818 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q300 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.819 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.819 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z150 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.820 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.820 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.821 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.821 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q100 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.821 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q850 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.822 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v250 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.822 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u150 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.823 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q150 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.823 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z250 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.823 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z300 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.824 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z700 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.824 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z600 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.825 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.825 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.826 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.826 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u200 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.826 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v850 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.827 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.827 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u300 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.828 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v150 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.828 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q700 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.828 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u400 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.829 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v300 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.829 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u100 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.830 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t925 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.830 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q925 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.830 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z850 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.831 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t700 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.831 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t100 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.832 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z100 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.832 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t200 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.833 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z200 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.833 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t1000 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.833 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v700 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.834 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u250 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.834 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v200 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.835 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.835 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t400 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.836 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q200 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.837 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.837 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u850 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.838 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t250 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.838 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t50 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.838 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u700 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.839 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v925 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.839 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v600 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.840 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q400 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.840 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u600 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.840 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t300 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.841 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t850 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.841 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u925 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.842 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z925 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.842 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v100 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.843 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q600 at 2022-01-01T06:00:00
+    2025-12-15 01:40:56.843 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t600 at 2022-01-01T06:00:00
+
+
+
+
 .. GENERATED FROM PYTHON SOURCE LINES 112-115
 
 Note that the Zarr store we just created can be used for more than just Earth2Studio
@@ -139,6 +300,92 @@ you just downloaded.
 
     zg = zarr.group(store=zarr.storage.LocalStore(zarr_path))
     print(zg.tree())
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    /
+    ├── lat (721,) float64
+    ├── lead_time (1,) timedelta64
+    ├── lon (1440,) float64
+    ├── msl (2, 1, 721, 1440) float32
+    ├── q100 (2, 1, 721, 1440) float32
+    ├── q1000 (2, 1, 721, 1440) float32
+    ├── q150 (2, 1, 721, 1440) float32
+    ├── q200 (2, 1, 721, 1440) float32
+    ├── q250 (2, 1, 721, 1440) float32
+    ├── q300 (2, 1, 721, 1440) float32
+    ├── q400 (2, 1, 721, 1440) float32
+    ├── q50 (2, 1, 721, 1440) float32
+    ├── q500 (2, 1, 721, 1440) float32
+    ├── q600 (2, 1, 721, 1440) float32
+    ├── q700 (2, 1, 721, 1440) float32
+    ├── q850 (2, 1, 721, 1440) float32
+    ├── q925 (2, 1, 721, 1440) float32
+    ├── t100 (2, 1, 721, 1440) float32
+    ├── t1000 (2, 1, 721, 1440) float32
+    ├── t150 (2, 1, 721, 1440) float32
+    ├── t200 (2, 1, 721, 1440) float32
+    ├── t250 (2, 1, 721, 1440) float32
+    ├── t2m (2, 1, 721, 1440) float32
+    ├── t300 (2, 1, 721, 1440) float32
+    ├── t400 (2, 1, 721, 1440) float32
+    ├── t50 (2, 1, 721, 1440) float32
+    ├── t500 (2, 1, 721, 1440) float32
+    ├── t600 (2, 1, 721, 1440) float32
+    ├── t700 (2, 1, 721, 1440) float32
+    ├── t850 (2, 1, 721, 1440) float32
+    ├── t925 (2, 1, 721, 1440) float32
+    ├── time (2,) datetime64
+    ├── u100 (2, 1, 721, 1440) float32
+    ├── u1000 (2, 1, 721, 1440) float32
+    ├── u10m (2, 1, 721, 1440) float32
+    ├── u150 (2, 1, 721, 1440) float32
+    ├── u200 (2, 1, 721, 1440) float32
+    ├── u250 (2, 1, 721, 1440) float32
+    ├── u300 (2, 1, 721, 1440) float32
+    ├── u400 (2, 1, 721, 1440) float32
+    ├── u50 (2, 1, 721, 1440) float32
+    ├── u500 (2, 1, 721, 1440) float32
+    ├── u600 (2, 1, 721, 1440) float32
+    ├── u700 (2, 1, 721, 1440) float32
+    ├── u850 (2, 1, 721, 1440) float32
+    ├── u925 (2, 1, 721, 1440) float32
+    ├── v100 (2, 1, 721, 1440) float32
+    ├── v1000 (2, 1, 721, 1440) float32
+    ├── v10m (2, 1, 721, 1440) float32
+    ├── v150 (2, 1, 721, 1440) float32
+    ├── v200 (2, 1, 721, 1440) float32
+    ├── v250 (2, 1, 721, 1440) float32
+    ├── v300 (2, 1, 721, 1440) float32
+    ├── v400 (2, 1, 721, 1440) float32
+    ├── v50 (2, 1, 721, 1440) float32
+    ├── v500 (2, 1, 721, 1440) float32
+    ├── v600 (2, 1, 721, 1440) float32
+    ├── v700 (2, 1, 721, 1440) float32
+    ├── v850 (2, 1, 721, 1440) float32
+    ├── v925 (2, 1, 721, 1440) float32
+    ├── z100 (2, 1, 721, 1440) float32
+    ├── z1000 (2, 1, 721, 1440) float32
+    ├── z150 (2, 1, 721, 1440) float32
+    ├── z200 (2, 1, 721, 1440) float32
+    ├── z250 (2, 1, 721, 1440) float32
+    ├── z300 (2, 1, 721, 1440) float32
+    ├── z400 (2, 1, 721, 1440) float32
+    ├── z50 (2, 1, 721, 1440) float32
+    ├── z500 (2, 1, 721, 1440) float32
+    ├── z600 (2, 1, 721, 1440) float32
+    ├── z700 (2, 1, 721, 1440) float32
+    ├── z850 (2, 1, 721, 1440) float32
+    └── z925 (2, 1, 721, 1440) float32
+
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 123-132
@@ -171,6 +418,28 @@ that supports the output of inference pipelines.
         io,
         output_coords=OrderedDict({"variable": np.array(["msl"])}),
     )
+
+
+
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    2025-12-15 01:41:12.091 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+    2025-12-15 01:41:12.092 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
+    2025-12-15 01:41:13.227 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from InferenceOutputSource
+    2025-12-15 01:41:13.258 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+
+    Running inference:   0%|          | 0/5 [00:00<?, ?it/s]
+    Running inference:  40%|████      | 2/5 [00:04<00:07,  2.50s/it]
+    Running inference:  60%|██████    | 3/5 [00:09<00:07,  3.51s/it]
+    Running inference:  80%|████████  | 4/5 [00:14<00:04,  4.06s/it]
+    Running inference: 100%|██████████| 5/5 [00:19<00:00,  4.37s/it]    Running inference: 100%|██████████| 5/5 [00:19<00:00,  3.97s/it]
+    2025-12-15 01:41:33.105 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+
+
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 150-153
@@ -217,6 +486,22 @@ The last step is to post-process our results.
         im, ax=axes, orientation="horizontal", fraction=0.05, pad=0.07, label="msl"
     )
     plt.savefig("outputs/19_msl_1day.png", dpi=150)
+
+
+
+.. image-sg:: /examples/images/sphx_glr_19_local_datasource_001.png
+   :alt: msl - Lead time: 6h, msl - Lead time: 12h, msl - Lead time: 18h, msl - Lead time: 24h
+   :srcset: /examples/images/sphx_glr_19_local_datasource_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (1 minutes 59.607 seconds)
 
 
 .. _sphx_glr_download_examples_19_local_datasource.py:

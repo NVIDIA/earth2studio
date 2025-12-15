@@ -27,7 +27,7 @@ components.
   .. image:: /examples/extend/images/thumb/sphx_glr_01_custom_prognostic_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_extend_01_custom_prognostic.py`
+  :doc:`/examples/extend/01_custom_prognostic`
 
 .. raw:: html
 
@@ -44,7 +44,7 @@ components.
   .. image:: /examples/extend/images/thumb/sphx_glr_02_custom_diagnostic_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py`
+  :doc:`/examples/extend/02_custom_diagnostic`
 
 .. raw:: html
 
@@ -61,7 +61,7 @@ components.
   .. image:: /examples/extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
     :alt:
 
-  :ref:`sphx_glr_examples_extend_03_custom_datasource.py`
+  :doc:`/examples/extend/03_custom_datasource`
 
 .. raw:: html
 

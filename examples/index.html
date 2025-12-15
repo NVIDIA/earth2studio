@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Examples &#8212; Earth2Studio 0.10.0a0 documentation</title>
+    <title>Examples &#8212; Earth2Studio 0.11.0a0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3f8aba6c"></script>
+    <script src="../_static/documentation_options.js?v=c2fa852a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="earth2studio.run.ensemble" href="../modules/generated/workflows/earth2studio.run.ensemble.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.10" />
+  <meta name="docsearch:version" content="0.11" />
   </head>
   
   
@@ -391,6 +391,7 @@
 <li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
 <li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -484,59 +485,62 @@ blocks of the form:</p>
 <p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">&lt;example_script&gt;.py</span></code></p>
 </div>
 </details><div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow."><img alt="" src="../_images/sphx_glr_01_deterministic_workflow_thumb.png" />
-<p><a class="reference internal" href="01_deterministic_workflow.html#sphx-glr-examples-01-deterministic-workflow-py"><span class="std std-ref">Running Deterministic Inference</span></a></p>
+<p><a class="reference internal" href="01_deterministic_workflow.html"><span class="doc">Running Deterministic Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow."><img alt="" src="../_images/sphx_glr_02_diagnostic_workflow_thumb.png" />
-<p><a class="reference internal" href="02_diagnostic_workflow.html#sphx-glr-examples-02-diagnostic-workflow-py"><span class="std std-ref">Running Diagnostic Inference</span></a></p>
+<p><a class="reference internal" href="02_diagnostic_workflow.html"><span class="doc">Running Diagnostic Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow."><img alt="" src="../_images/sphx_glr_03_ensemble_workflow_thumb.png" />
-<p><a class="reference internal" href="03_ensemble_workflow.html#sphx-glr-examples-03-ensemble-workflow-py"><span class="std std-ref">Running Ensemble Inference</span></a></p>
+<p><a class="reference internal" href="03_ensemble_workflow.html"><span class="doc">Running Ensemble Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model."><img alt="" src="../_images/sphx_glr_04_corrdiff_inference_thumb.png" />
-<p><a class="reference internal" href="04_corrdiff_inference.html#sphx-glr-examples-04-corrdiff-inference-py"><span class="std std-ref">Generative Downscaling</span></a></p>
+<p><a class="reference internal" href="04_corrdiff_inference.html"><span class="doc">Generative Downscaling</span></a></p>
   <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method."><img alt="" src="../_images/sphx_glr_05_ensemble_workflow_extend_thumb.png" />
-<p><a class="reference internal" href="05_ensemble_workflow_extend.html#sphx-glr-examples-05-ensemble-workflow-extend-py"><span class="std std-ref">Single Variable Perturbation Method</span></a></p>
+<p><a class="reference internal" href="05_ensemble_workflow_extend.html"><span class="doc">Single Variable Perturbation Method</span></a></p>
   <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks."><img alt="" src="../_images/sphx_glr_06_model_perturbation_hook_thumb.png" />
-<p><a class="reference internal" href="06_model_perturbation_hook.html#sphx-glr-examples-06-model-perturbation-hook-py"><span class="std std-ref">Model Hook Injection: Perturbation</span></a></p>
+<p><a class="reference internal" href="06_model_perturbation_hook.html"><span class="doc">Model Hook Injection: Perturbation</span></a></p>
   <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Simple seasonal statistic inference workflow."><img alt="" src="../_images/sphx_glr_07_seasonal_statistics_thumb.png" />
-<p><a class="reference internal" href="07_seasonal_statistics.html#sphx-glr-examples-07-seasonal-statistics-py"><span class="std std-ref">Statistical Inference</span></a></p>
+<p><a class="reference internal" href="07_seasonal_statistics.html"><span class="doc">Statistical Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference."><img alt="" src="../_images/sphx_glr_08_distributed_manager_thumb.png" />
-<p><a class="reference internal" href="08_distributed_manager.html#sphx-glr-examples-08-distributed-manager-py"><span class="std std-ref">Distributed Manager Inference</span></a></p>
+<p><a class="reference internal" href="08_distributed_manager.html"><span class="doc">Distributed Manager Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow."><img alt="" src="../_images/sphx_glr_09_stormcast_example_thumb.png" />
-<p><a class="reference internal" href="09_stormcast_example.html#sphx-glr-examples-09-stormcast-example-py"><span class="std std-ref">Running StormCast Inference</span></a></p>
+<p><a class="reference internal" href="09_stormcast_example.html"><span class="doc">Running StormCast Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow."><img alt="" src="../_images/sphx_glr_10_stormcast_ensemble_example_thumb.png" />
-<p><a class="reference internal" href="10_stormcast_ensemble_example.html#sphx-glr-examples-10-stormcast-ensemble-example-py"><span class="std std-ref">Running StormCast Ensemble Inference</span></a></p>
+<p><a class="reference internal" href="10_stormcast_ensemble_example.html"><span class="doc">Running StormCast Ensemble Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow."><img alt="" src="../_images/sphx_glr_11_huge_ensembles_thumb.png" />
-<p><a class="reference internal" href="11_huge_ensembles.html#sphx-glr-examples-11-huge-ensembles-py"><span class="std std-ref">Huge Ensembles (HENS) Checkpoints</span></a></p>
+<p><a class="reference internal" href="11_huge_ensembles.html"><span class="doc">Huge Ensembles (HENS) Checkpoints</span></a></p>
   <div class="sphx-glr-thumbnail-title">Huge Ensembles (HENS) Checkpoints</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Temporal Interpolation inference using InterpModAFNO model."><img alt="" src="../_images/sphx_glr_12_temporal_interpolation_thumb.png" />
-<p><a class="reference internal" href="12_temporal_interpolation.html#sphx-glr-examples-12-temporal-interpolation-py"><span class="std std-ref">Temporal Interpolation</span></a></p>
+<p><a class="reference internal" href="12_temporal_interpolation.html"><span class="doc">Temporal Interpolation</span></a></p>
   <div class="sphx-glr-thumbnail-title">Temporal Interpolation</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models."><img alt="" src="../_images/sphx_glr_13_cyclone_tracking_thumb.png" />
-<p><a class="reference internal" href="13_cyclone_tracking.html#sphx-glr-examples-13-cyclone-tracking-py"><span class="std std-ref">Tropical Cyclone Tracking</span></a></p>
+<p><a class="reference internal" href="13_cyclone_tracking.html"><span class="doc">Tropical Cyclone Tracking</span></a></p>
   <div class="sphx-glr-thumbnail-title">Tropical Cyclone Tracking</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow for the DLESyM model."><img alt="" src="../_images/sphx_glr_14_dlesym_example_thumb.png" />
-<p><a class="reference internal" href="14_dlesym_example.html#sphx-glr-examples-14-dlesym-example-py"><span class="std std-ref">Running DLESyM Inference</span></a></p>
+<p><a class="reference internal" href="14_dlesym_example.html"><span class="doc">Running DLESyM Inference</span></a></p>
   <div class="sphx-glr-thumbnail-title">Running DLESyM Inference</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis."><img alt="" src="../_images/sphx_glr_15_cbottle_generation_thumb.png" />
-<p><a class="reference internal" href="15_cbottle_generation.html#sphx-glr-examples-15-cbottle-generation-py"><span class="std std-ref">CBottle Data Generation and Infilling</span></a></p>
+<p><a class="reference internal" href="15_cbottle_generation.html"><span class="doc">CBottle Data Generation and Infilling</span></a></p>
   <div class="sphx-glr-thumbnail-title">CBottle Data Generation and Infilling</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) super resolution workflows for global weather."><img alt="" src="../_images/sphx_glr_16_cbottle_super_resolution_thumb.png" />
-<p><a class="reference internal" href="16_cbottle_super_resolution.html#sphx-glr-examples-16-cbottle-super-resolution-py"><span class="std std-ref">CBottle Super Resolution</span></a></p>
+<p><a class="reference internal" href="16_cbottle_super_resolution.html"><span class="doc">CBottle Super Resolution</span></a></p>
   <div class="sphx-glr-thumbnail-title">CBottle Super Resolution</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Leverage different IO backends for storing inference results."><img alt="" src="../_images/sphx_glr_17_io_performance_thumb.png" />
-<p><a class="reference internal" href="17_io_performance.html#sphx-glr-examples-17-io-performance-py"><span class="std std-ref">IO Backend Performance</span></a></p>
+<p><a class="reference internal" href="17_io_performance.html"><span class="doc">IO Backend Performance</span></a></p>
   <div class="sphx-glr-thumbnail-title">IO Backend Performance</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Custom ensembling workflow with generative downscaling using CorrDiff."><img alt="" src="../_images/sphx_glr_18_ensemble_downscaling_thumb.png" />
-<p><a class="reference internal" href="18_ensemble_downscaling.html#sphx-glr-examples-18-ensemble-downscaling-py"><span class="std std-ref">Ensemble Forecasting with Downscaling</span></a></p>
+<p><a class="reference internal" href="18_ensemble_downscaling.html"><span class="doc">Ensemble Forecasting with Downscaling</span></a></p>
   <div class="sphx-glr-thumbnail-title">Ensemble Forecasting with Downscaling</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="Create and save an offline dataset to use in an inference pipeline."><img alt="" src="../_images/sphx_glr_19_local_datasource_thumb.png" />
+<p><a class="reference internal" href="19_local_datasource.html"><span class="doc">Creating a Local Data Source</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Creating a Local Data Source</div>
 </div></div><div class="toctree-wrapper compound">
 </div>
 <section id="extending-earth2studio">
@@ -544,13 +548,13 @@ blocks of the form:</p>
 <p>Examples focused on demonstrating how to extend Earth2Studio with user-defined
 components.</p>
 <div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom prognostic model"><img alt="" src="../_images/sphx_glr_01_custom_prognostic_thumb.png" />
-<p><a class="reference internal" href="extend/01_custom_prognostic.html#sphx-glr-examples-extend-01-custom-prognostic-py"><span class="std std-ref">Extending Prognostic Models</span></a></p>
+<p><a class="reference internal" href="extend/01_custom_prognostic.html"><span class="doc">Extending Prognostic Models</span></a></p>
   <div class="sphx-glr-thumbnail-title">Extending Prognostic Models</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom diagnostic model"><img alt="" src="../_images/sphx_glr_02_custom_diagnostic_thumb.png" />
-<p><a class="reference internal" href="extend/02_custom_diagnostic.html#sphx-glr-examples-extend-02-custom-diagnostic-py"><span class="std std-ref">Extending Diagnostic Models</span></a></p>
+<p><a class="reference internal" href="extend/02_custom_diagnostic.html"><span class="doc">Extending Diagnostic Models</span></a></p>
   <div class="sphx-glr-thumbnail-title">Extending Diagnostic Models</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="Implementing a custom data source"><img alt="" src="../_images/sphx_glr_03_custom_datasource_thumb.png" />
-<p><a class="reference internal" href="extend/03_custom_datasource.html#sphx-glr-examples-extend-03-custom-datasource-py"><span class="std std-ref">Extending Data Sources</span></a></p>
+<p><a class="reference internal" href="extend/03_custom_datasource.html"><span class="doc">Extending Data Sources</span></a></p>
   <div class="sphx-glr-thumbnail-title">Extending Data Sources</div>
 </div></div><div class="toctree-wrapper compound">
 </div>

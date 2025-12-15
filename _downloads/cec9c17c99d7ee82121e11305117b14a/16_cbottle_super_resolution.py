@@ -79,7 +79,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Load the cBottle data source
 package = CBottle3D.load_default_package()
 cbottle_ds = CBottle3D.load_model(package)
-cbottle_ds = cbottle_ds.to(device)
 
 # Load the super resolution model
 super_resolution_window = (
@@ -94,7 +93,6 @@ cbottle_sr = CBottleSR.load_model(
     output_resolution=(1024, 1024),
     super_resolution_window=super_resolution_window,
 )
-cbottle_sr = cbottle_sr.to(device)
 
 # Load the infill model
 input_variables = ["u10m", "v10m"]
@@ -102,7 +100,6 @@ package = CBottleInfill.load_default_package()
 cbottle_infill = CBottleInfill.load_model(
     package, input_variables=input_variables, sampler_steps=18
 )
-cbottle_infill = cbottle_infill.to(device)
 
 # Load the ERA5 data source
 era5_ds = WB2ERA5()
@@ -125,14 +122,17 @@ from earth2studio.utils.coords import map_coords
 times = np.array([datetime.datetime(2020, 1, 1)], dtype="datetime64[ns]")
 
 # Generate some samples from cBottle
+cbottle_ds = cbottle_ds.to(device)
 synth_x, synth_coords = fetch_data(
     cbottle_ds,
     times,
     cbottle_sr.input_coords()["variable"],
     device=device,
 )
+del cbottle_ds  # Clean up data source model to free GPU memory
 
 # Perform super resolution on synthetic data
+cbottle_sr = cbottle_sr.to(device)
 synth_x, synth_coords = map_coords(synth_x, synth_coords, cbottle_sr.input_coords())
 sr_synth_x, sr_synth_coords = cbottle_sr(synth_x, synth_coords)
 
@@ -154,7 +154,9 @@ era5_x, era5_coords = fetch_data(
 )
 
 # Perform infilling to get all required variables
+cbottle_infill = cbottle_infill.to(device)
 infill_x, infill_coords = cbottle_infill(era5_x, era5_coords)
+del cbottle_infill  # Clean up infill model to free GPU memory
 
 # Select the required variables and reshape for super resolution
 infill_x, infill_coords = map_coords(infill_x, infill_coords, cbottle_sr.input_coords())

@@ -584,6 +584,13 @@ desired.</p>
 <p>A model attributes <cite>input_coords</cite> and <cite>output_coords</cite> must have “batch” as the
 coordinate system of the first dimensions. I.e. first key entry needs to be “batch”.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When decorating a method of a model, such as <cite>__call__</cite>, the method is required to
+have a signature of <cite>(self, *args: Any, **kwargs: Any) -&gt; tuple[torch.Tensor, CoordSystem]</cite>.
+All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
+passed through to the wrapped function without modification.</p>
+</div>
 <p class="rubric">Example</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Model</span><span class="p">():</span>
 
