@@ -31,10 +31,10 @@ climate science.
 
 Running AI weather prediction can be done with just a few lines of code.
 
-- See the [install guide](e2studio_install_url) for detailed steps for each model.
-- See the [examples](e2studio_examples_url) gallery provides different inference
+- See the [install guide][e2studio_install_url] for detailed steps for each model.
+- See the [examples][e2studio_examples_url] gallery provides different inference
     workflow samples.
-- Swap out [data sources](e2studio_data_url) or [models](e2studio_px_url) depending on your use case!
+- Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on your use case!
 
 ### NVIDIA FourCastNet3
 
@@ -79,7 +79,11 @@ io = ZarrBackend("outputs/graphcast_operational_forecast.zarr")
 run(["2025-01-01T00:00:00"], 4, model, data, io)
 ```
 
-Users should familiarize themselves with each model checkpoint's license as needed.
+> [!IMPORTANT]
+> Earth2Studio only provides an interface to existing public distributions of
+> checkpoints that may have specific licensing associated with them.
+> Users should familiarize themselves with each model checkpoint's license as
+> needed.
 
 ## Latest News
 
