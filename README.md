@@ -83,7 +83,7 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Earth2Studio only provides an interface to existing public distributions of
 > checkpoints that may have specific licensing associated with them.
 > Users should familiarize themselves with each model checkpoint's license as
-> needed.
+> needed. API documentation typically provides links for further information.
 
 ## Latest News
 
