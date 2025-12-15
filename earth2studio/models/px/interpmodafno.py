@@ -273,7 +273,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords["batch"] = input_coords.get("batch", np.empty(0))
         output_coords["time"] = input_coords.get("time", np.empty(0))
         output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+            output_coords["lead_time"] + input_coords["lead_time"][-1]
         )
         return output_coords
 
