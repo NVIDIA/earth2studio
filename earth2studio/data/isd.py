@@ -215,8 +215,8 @@ class ISD:
         # Load dataframes for each station-year (cached parquet if available)
         func_map: list[asyncio.Task[_StationData]] = [
             self._fetch_station_year(station, year)
-            for year in [dt.year for dt in time]
             for station in self.stations
+            for year in [dt.year for dt in time]
         ]
 
         # Launch all fetch requests
