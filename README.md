@@ -30,7 +30,7 @@ climate science.
 ## Quick start
 
 Running AI weather prediction can be done with just a few lines of code.
-The [examples](e2studio_examples_url) gallery provides different inference usecase
+The [examples](e2studio_examples_url) gallery provides different inference workflow
 samples.
 
 ### NVIDIA FourCastNet3
