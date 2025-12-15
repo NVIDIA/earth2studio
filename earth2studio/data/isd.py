@@ -53,17 +53,17 @@ class ISD(DataSource):
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
 
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
     Note
     ----
     To help get a list of possible station IDs, this class includes
     :py:meth:`ISD.get_stations_bbox` which accepts a lat-lon bounding box and will return
     known historical stations IDs. For more information on the stations, users should
     consult the `isd-history.csv` which can easily accessed with :py:meth:`ISD.get_station_history`
-
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
 
     Note
     ----
@@ -72,6 +72,15 @@ class ISD(DataSource):
     - https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
     - https://registry.opendata.aws/noaa-isd/
     - https://www.ncei.noaa.gov/data/global-hourly/doc/isd-format-document.pdf
+
+    Example
+    -------
+    .. highlight:: python
+    .. code-block:: python
+        # Bay area, lat lon bounding box (lat min, lon min, lat max, lon max)
+        stations = ISD.get_stations_bbox((36, -124, 40, -120))
+        ds = ISD(stations, tolerance=timedelta(hours=2))
+        df = ds(datetime(2024, 1, 1, 20), ["station", "time", "lat", "lon", "t2m"])
     """
 
     def __init__(
@@ -139,7 +148,6 @@ class ISD(DataSource):
             asyncio.set_event_loop(loop)
 
         if self.fs is None:
-            print("Hi")
             loop.run_until_complete(self._async_init())
 
         df = loop.run_until_complete(self.fetch(time, variable))
@@ -221,6 +229,9 @@ class ISD(DataSource):
                 if not df_window.empty:
                     fildered_df.append(df_window)
 
+        if len(fildered_df) == 0:
+            return pd.DataFrame(columns=variable)
+
         df = pd.concat(fildered_df, ignore_index=True)
 
         # Standardize common metadata columns to lower case and normalize longitude
@@ -235,6 +246,7 @@ class ISD(DataSource):
                     "ELEVATION": "elev",
                 }
             )
+            df["station"] = df["station"].astype(str)
             # Normalize longitude from [-180, 180) to [0, 360)
             if "lon" in df.columns:
                 df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
@@ -620,18 +632,3 @@ class ISD(DataSource):
         # Ensure output bounded [0,1]
         df["tcc"] = df["tcc"].where((df["tcc"] >= 0.0) & (df["tcc"] <= 1.0), np.nan)
         return df
-
-
-if __name__ == "__main__":
-
-    stations = ISD.get_stations_bbox((44, -122, 48, -120))
-    print(stations)
-
-    ds = ISD(stations, tolerance=timedelta(hours=12))
-
-    df = ds(
-        datetime(2023, 1, 1, 20),
-        ["station", "time", "lat", "lon", "u10m", "v10m", "t2m"],
-    )
-
-    print(df)

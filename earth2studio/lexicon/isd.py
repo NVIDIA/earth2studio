@@ -30,8 +30,8 @@ class ISDLexicon(metaclass=LexiconType):
     ----
     Additional resources:
 
-    - https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
     - https://www.ncei.noaa.gov/data/global-hourly/doc/isd-format-document.pdf
+    - https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
     """
 
     VOCAB: dict[str, str] = {
