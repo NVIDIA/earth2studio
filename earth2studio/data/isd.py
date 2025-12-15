@@ -16,6 +16,7 @@
 
 import asyncio
 import hashlib
+import io
 import os
 import pathlib
 import shutil
@@ -307,7 +308,6 @@ class ISD:
         s3_url = f"s3://noaa-global-hourly-pds/{year}/{station_id}.csv"
         # Hash the URL for cache file names
         cache_hash = hashlib.sha256(s3_url.encode()).hexdigest()
-        local_csv = os.path.join(self.cache, f"{cache_hash}.csv")
         parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
 
         # Read from cached parquet if available
@@ -316,21 +316,15 @@ class ISD:
         else:
             # Download CSV via s3fs to cache, then read with pandas
             try:
-                if not os.path.isfile(local_csv):
-                    await self.fs._get(s3_url, local_csv)
-                df = await asyncio.to_thread(
-                    pd.read_csv,
-                    local_csv,
-                    parse_dates=["DATE"],
-                    low_memory=False,  # Mixed types
-                )
-                await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
-                # Clean up CSV
-                try:
-                    if os.path.isfile(local_csv):
-                        os.remove(local_csv)
-                except OSError:
-                    pass
+                # file_butter = await self.fs._open(s3_url)
+                async with await self.fs.open_async(s3_url, "rb") as f:
+                    df = await asyncio.to_thread(
+                        pd.read_csv,
+                        io.BytesIO(await f.read()),
+                        parse_dates=["DATE"],
+                        low_memory=False,  # Mixed types
+                    )
+                    await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
             except FileNotFoundError:
                 # If that station does not have data for this year, return empty
                 if self._verbose:
@@ -646,4 +640,5 @@ class ISD:
             df["tcc"] = code.map(okta_lookup)
         # Ensure output bounded [0,1]
         df["tcc"] = df["tcc"].where((df["tcc"] >= 0.0) & (df["tcc"] <= 1.0), np.nan)
+        df["tcc"] = 100 * df["tcc"]
         return df
