@@ -30,9 +30,10 @@ climate science.
 ## Quick start
 
 Running AI weather prediction can be done with just a few lines of code.
-See the [examples](e2studio_examples_url) gallery for different reference workflows.
+The [examples](e2studio_examples_url) gallery provides different inference usecase
+samples.
 
-### FourCastNet3
+### NVIDIA FourCastNet3
 
 ```bash
 pip install earth2studio[fcn3]
