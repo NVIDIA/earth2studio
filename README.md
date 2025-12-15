@@ -30,14 +30,13 @@ climate science.
 ## Quick start
 
 Running AI weather prediction can be done with just a few lines of code.
-The [examples](e2studio_examples_url) gallery provides different inference workflow
-samples.
+
+- See the [install guide](e2studio_install_url) for detailed steps for each model.
+- See the [examples](e2studio_examples_url) gallery provides different inference
+    workflow samples.
+- Swap out [data sources](e2studio_data_url) or [models](e2studio_px_url) depending on your use case!
 
 ### NVIDIA FourCastNet3
-
-```bash
-pip install earth2studio[fcn3]
-```
 
 ```python
 from earth2studio.models.px import FCN3
@@ -48,14 +47,10 @@ from earth2studio.run import deterministic as run
 model = FCN3.load_model(FCN3.load_default_package())
 data = GFS()
 io = ZarrBackend("outputs/fcn3_forecast.zarr")
-run(["2024-01-01"], 10, model, data, io)
+run(["2025-01-01T00:00:00"], 10, model, data, io)
 ```
 
 ### ECMWF AIFS
-
-```bash
-pip install earth2studio[aifs]
-```
 
 ```python
 from earth2studio.models.px import AIFS
@@ -66,30 +61,24 @@ from earth2studio.run import deterministic as run
 model = AIFS.load_model(AIFS.load_default_package())
 data = IFS()
 io = ZarrBackend("outputs/aifs_forecast.zarr")
-run(["2024-01-01"], 10, model, data, io)
+run(["2025-01-01T00:00:00"], 10, model, data, io)
 ```
 
 ### Google Graphcast
 
-```bash
-pip install earth2studio[graphcast]
-```
-
 ```python
 from earth2studio.models.px import GraphCastOperational
-from earth2studio.data import WB2ERA5
+from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.run import deterministic as run
 
 package = GraphCastOperational.load_default_package()
 model = GraphCastOperational.load_model(package)
-data = WB2ERA5()
+data = GFS()
 io = ZarrBackend("outputs/graphcast_operational_forecast.zarr")
-run(["2022-01-01T00:00:00"], 4, model, data, io)
+run(["2025-01-01T00:00:00"], 4, model, data, io)
 ```
 
-Swap out for a different AI model by just [installing](https://nvidia.github.io/earth2studio/userguide/about/install.html#prognostics)
-and another [forecast model][e2studio_px_api].
 Users should familiarize themselves with each model checkpoint's license as needed.
 
 ## Latest News
