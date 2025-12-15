@@ -100,7 +100,7 @@ Users should familiarize themselves with each model checkpoint's license as need
     been added which is a 1 degree, 6 hour time-step, forecast model that supports long
     roll outs with user specified SST forcing.
 - [**Climate in a Bottle**](https://blogs.nvidia.com/blog/earth2-generative-ai-foundation-model-global-climate-kilometer-scale-resolution/)
-    moddel APIs have been extended with the addition of tropical Cyclone guidance
+    model APIs have been extended with the addition of tropical Cyclone guidance
     diagnostic and cBottle video prognostic model.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
