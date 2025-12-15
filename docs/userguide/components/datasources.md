@@ -37,7 +37,7 @@ details on how to customize this location.
 
 ### Beyond N-D Array Data
 
-Earth2Studio attempts to stick with N-D array like data structures when possible,
+Earth2Studio attempts to stick with N-D array data structures when possible,
 however this is not always possible or pratical.
 As a result, Earth2Studio also supports remote data sources for tabular data which is
 typically used when sparse observations / measurements are involved.
@@ -45,8 +45,8 @@ typically used when sparse observations / measurements are involved.
 - `{ref}`earth2studio.data.base.DataFrameSource`
 - `{ref}`earth2studio.data.base.ForecastFrameSource`
 
-The call signatures are identical to Data / Forecast sources but return Panda's data
-frame objects instead of Xarray data arrays.
+The call signatures mirror data/forecast sources; the difference is the return type: a
+pandas DataFrame (tabular) instead of an Xarray DataArray.
 
 ## Data Source Usage
 

@@ -373,6 +373,7 @@ class ISD(DataSource):
         ----------
         lat_lon_bbox : tuple[float, float, float, float]
             Latitude/Longitude bounding box to get stations [lat_min, lon_min, lat_max, lon_max]
+            (in cardinal directions [lat_south, lon_west, lat_north, lon_east])
 
         Returns
         -------
