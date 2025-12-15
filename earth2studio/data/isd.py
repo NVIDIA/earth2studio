@@ -640,5 +640,4 @@ class ISD:
             df["tcc"] = code.map(okta_lookup)
         # Ensure output bounded [0,1]
         df["tcc"] = df["tcc"].where((df["tcc"] >= 0.0) & (df["tcc"] <= 1.0), np.nan)
-        df["tcc"] = 100 * df["tcc"]
         return df
