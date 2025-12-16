@@ -76,7 +76,6 @@ def test_isd_fetch(stations, time, variable, tol):
         )
 
     assert time_union["time"].all()
-    print(df)
 
 
 @pytest.mark.slow
