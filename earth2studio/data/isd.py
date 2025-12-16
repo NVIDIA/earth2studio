@@ -625,19 +625,23 @@ class ISD:
             s = df["GA1"].astype(str)
             parts = s.str.split(",", expand=True)
             code = pd.to_numeric(parts[0], errors="coerce")
-            df["tcc"] = code.map(okta_lookup)
+            df["tcc"] = code.map(
+                lambda x: okta_lookup[x] if x in okta_lookup else np.nan
+            )
         elif "GD1" in df:
             # Map GD categories to approximate fraction cover (0-1)
             gd_map = {0: 0.0, 1: 0.125, 2: 0.375, 3: 0.75, 4: 1.0}
             s = df["GD1"].astype(str)
             parts = s.str.split(",", expand=True)
             code = pd.to_numeric(parts[0], errors="coerce")
-            df["tcc"] = code.map(gd_map)
+            df["tcc"] = code.map(lambda x: gd_map[x] if x in gd_map else np.nan)
         elif "GF1" in df:
             s = df["GF1"].astype(str)
             parts = s.str.split(",", expand=True)
             code = pd.to_numeric(parts[0], errors="coerce")
-            df["tcc"] = code.map(okta_lookup)
+            df["tcc"] = code.map(
+                lambda x: okta_lookup[x] if x in okta_lookup else np.nan
+            )
         # Ensure output bounded [0,1]
         df["tcc"] = df["tcc"].where((df["tcc"] >= 0.0) & (df["tcc"] <= 1.0), np.nan)
         return df
