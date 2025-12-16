@@ -183,7 +183,7 @@ def test_ifs_ens_fx_fetch(time, lead_time, variable):
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["sp"]])
+@pytest.mark.parametrize("variable", ["t2m", ["tcc", "tp"]])
 @pytest.mark.parametrize("member", [0, 1])
 def test_aifs_ens_fx_fetch(lead_time, variable, member):
     time = now6h() - timedelta(hours=12)
