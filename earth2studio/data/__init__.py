@@ -26,6 +26,7 @@ from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
 from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
+from .isd import ISD
 from .jpss import JPSS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
