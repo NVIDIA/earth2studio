@@ -18,6 +18,7 @@ import json
 import tempfile
 from collections import OrderedDict
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -33,6 +34,10 @@ from earth2studio.utils import handshake_dim
 class MockPhysicsNemoModule(torch.nn.Module):
     """Mock model for testing CorrDiff residual and regression models."""
 
+    # List of all instances created by from_checkpoint(). Tests can inspect this
+    # to verify how many models were loaded and check their .to_calls history.
+    created: ClassVar[list["MockPhysicsNemoModule"]] = []
+
     def __init__(self, img_out_channels=4, device="cpu"):
         super().__init__()
         self.img_out_channels = img_out_channels
@@ -40,6 +45,7 @@ class MockPhysicsNemoModule(torch.nn.Module):
         self.sigma_max = float("inf")
         self.device = torch.device(device)
         self.profile_mode = False  # For inference optimization tests
+        self.to_calls: list[tuple[object | None, object | None]] = []
 
     def forward(self, x, img_lr=None, sigma=None, class_labels=None, **kwargs):
         # Return tensor with expected output shape
@@ -55,14 +61,21 @@ class MockPhysicsNemoModule(torch.nn.Module):
         return self.device
 
     def to(self, device=None, memory_format=None):
+        # Record every `.to(...)` call so tests can assert ordering:
+        # 1) `.to(device=...)` must happen before
+        # 2) `.to(memory_format=torch.channels_last)`
+        self.to_calls.append((device, memory_format))
         if device is not None:
-            super().to(device)
-            self.device = device
+            dev = device if isinstance(device, torch.device) else torch.device(device)
+            super().to(dev)
+            self.device = dev
         return self
 
     @classmethod
     def from_checkpoint(cls, path):
-        return cls()
+        inst = cls()
+        cls.created.append(inst)
+        return inst
 
 
 @pytest.fixture
@@ -432,6 +445,55 @@ class TestCorrDiffForward:
         x = torch.randn((1, len(invalid_coords["variable"]), 36, 40))
         with pytest.raises(ValueError):
             model(x, invalid_coords)
+
+    def test_corrdiff_time_coord_type_validation(
+        self,
+        mock_residual_model,
+        mock_regression_model,
+        sample_model_params,
+    ):
+        """Validate ``coords["time"]`` type when provided.
+
+        CorrDiff interprets ``coords["time"]`` as a per-sample timestamp and passes it
+        to subclasses as ``valid_time`` (to avoid confusion with forecast init times).
+        """
+        params = sample_model_params.copy()
+        model = CorrDiff(
+            residual_model=mock_residual_model,
+            regression_model=mock_regression_model,
+            number_of_samples=1,
+            solver="euler",
+            sampler_type="stochastic",
+            inference_mode="regression",
+            hr_mean_conditioning=False,
+            **params,
+        )
+
+        x = torch.randn((1, len(params["input_variables"]), 36, 40))
+        coords = OrderedDict(
+            {
+                "batch": np.ones(x.shape[0]),
+                "variable": model.input_coords()["variable"],
+                "lat": model.input_coords()["lat"],
+                "lon": model.input_coords()["lon"],
+            }
+        )
+
+        # Wrong dtype: ints are not datetime-like
+        bad_coords = coords.copy()
+        bad_coords["time"] = np.array([0])
+        with pytest.raises(TypeError):
+            # `CorrDiff.__call__` is decorated with `@batch_func()`, which enforces that
+            # `len(coords)` matches `x.ndim`. Since "time" is an optional *metadata*
+            # key (not a tensor dimension), we call the undecorated implementation
+            # here to unit-test the time validation logic directly.
+            model.__call__.__wrapped__(model, x, bad_coords)
+
+        # Accepted dtype: numpy datetime64 per batch element
+        ok_coords = coords.copy()
+        ok_coords["time"] = np.array(["2020-01-01T00:00:00"], dtype="datetime64[ns]")
+        out, _ = model.__call__.__wrapped__(model, x, ok_coords)
+        assert out.shape[0] == 1
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_corrdiff_exceptions(
@@ -829,6 +891,64 @@ class TestCorrDiffLoadModel:
         assert model.output_variables == ["mrr", "t2m", "u10m", "v10m"]
         assert model.invariants is None
         assert model.invariant_variables == []
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_device_calls_model_to_before_channels_last(
+        self, mock_package, temp_model_files
+    ):
+        """Ensure `load_model(device=...)` applies `.to(device)` before `channels_last`.
+
+        Why this matters:
+        - `channels_last` conversion should happen after moving the model to the target
+          device, because the memory-format optimization is device-dependent.
+        - This test makes that behavior explicit by checking the order of `.to(...)`
+          calls on the mocked PhysicsNemo models (residual + regression).
+        """
+        MockPhysicsNemoModule.created.clear()
+
+        def resolve_side_effect(path: str) -> str:
+            if Path(path).name == "invariants.nc":
+                raise FileNotFoundError
+            return str(temp_model_files / Path(path).name)
+
+        mock_package.resolve.side_effect = resolve_side_effect
+
+        _ = CorrDiff.load_model(mock_package, device="cpu")
+
+        assert len(MockPhysicsNemoModule.created) == 2
+        for m in MockPhysicsNemoModule.created:
+            # Expect: to(device) first, then to(memory_format=channels_last)
+            assert m.to_calls[0] == ("cpu", None)
+            assert m.to_calls[1][0] is None
+            assert m.to_calls[1][1] is torch.channels_last
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_device_places_buffers_on_cuda(
+        self, mock_package, temp_model_files
+    ):
+        """If CUDA is available, verify `load_model(device='cuda:0')` places buffers on GPU.
+
+        This complements the CPU-only call-order test by validating actual tensor placement
+        on CUDA (when available). We check representative buffers that must match the
+        model's device to avoid implicit CPU↔GPU transfers during inference.
+        """
+        MockPhysicsNemoModule.created.clear()
+
+        def resolve_side_effect(path: str) -> str:
+            if Path(path).name == "invariants.nc":
+                raise FileNotFoundError
+            return str(temp_model_files / Path(path).name)
+
+        mock_package.resolve.side_effect = resolve_side_effect
+
+        model = CorrDiff.load_model(mock_package, device="cuda:0")
+        assert model.in_center.device.type == "cuda"
+        assert model.lat_output_grid.device.type == "cuda"
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())

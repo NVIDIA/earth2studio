@@ -22,7 +22,7 @@ from contextlib import nullcontext
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import torch
@@ -123,11 +123,20 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Random seed for reproducibility, by default None
     grid_spacing_tolerance : float, optional
         Relative tolerance for checking regular grid spacing. Allows for slight variations
-        in grid spacing (e.g., for Gaussian grids). Default is 1e-5 (0.001%).
+        in grid spacing (e.g., for Gaussian grids). For 1D grids, raises ValueError if
+        spacing variations exceed this tolerance; use of a 2D curvilinear grid is suggested then.
+        Default is 1e-5 (0.001%).
     grid_bounds_margin : float, optional
         Fraction of input grid range to allow for extrapolation beyond input grid bounds.
         For example, 0.05 allows output grid to extend 5% beyond input grid range.
-        Useful for Gaussian grids that don't include poles. Default is 0.0 (no extrapolation).
+        Useful for Gaussian grids that don't include poles. For 1D grids, raises ValueError
+        if the output grid extends beyond the allowed bounds. Default is 0.0 (no extrapolation).
+    sigma_min : float | None, optional
+        Minimum noise level for diffusion process. If None, uses sampler-specific defaults
+        By default None.
+    sigma_max : float | None, optional
+        Maximum noise level for diffusion process. If None, uses sampler-specific defaults
+        By default None.
     """
 
     def __init__(
@@ -156,6 +165,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         seed: int | None = None,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
+        sigma_min: float | None = None,
+        sigma_max: float | None = None,
     ):
         super().__init__()
 
@@ -181,6 +192,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         self.invariant_scale = invariant_scale
         self.grid_spacing_tolerance = grid_spacing_tolerance
         self.grid_bounds_margin = grid_bounds_margin
+        self.sigma_max = sigma_max
+        self.sigma_min = sigma_min
 
         # Store models
         self.residual_model = residual_model
@@ -482,21 +495,23 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         self, sampler_type: Literal["deterministic", "stochastic"]
     ) -> Callable:
         """Set up the appropriate sampler based on the type."""
+        sampler_kwargs: dict[str, Any] = {"num_steps": self.number_of_steps}
+
+        # Add sigma parameters if specified (common to both samplers)
+        if self.sigma_min is not None:
+            sampler_kwargs["sigma_min"] = self.sigma_min
+        if self.sigma_max is not None:
+            sampler_kwargs["sigma_max"] = self.sigma_max
+
         if sampler_type == "deterministic":
             if self.hr_mean_conditioning:
                 raise NotImplementedError(
                     "High-res mean conditioning is not yet implemented for the deterministic sampler"
                 )
-            return partial(
-                deterministic_sampler,
-                num_steps=self.number_of_steps,
-                solver=self.solver,
-            )
+            sampler_kwargs["solver"] = self.solver
+            return partial(deterministic_sampler, **sampler_kwargs)
         elif sampler_type == "stochastic":
-            return partial(
-                stochastic_sampler,
-                num_steps=self.number_of_steps,
-            )
+            return partial(stochastic_sampler, **sampler_kwargs)
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
@@ -598,8 +613,9 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        grid_spacing_tolerance: float = 1e-5,
-        grid_bounds_margin: float = 0.0,
+        device: str | None = None,
+        sigma_min: float | None = None,
+        sigma_max: float | None = None,
     ) -> DiagnosticModel:
         """Load CorrDiff model from package.
 
@@ -607,10 +623,14 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         ----------
         package : Package
             Package containing model weights and configuration
-        grid_spacing_tolerance : float, optional
-            Relative tolerance for checking regular grid spacing, by default 1e-5
-        grid_bounds_margin : float, optional
-            Fraction of input grid range to allow for extrapolation, by default 0.0
+        device : str | None, optional
+            Device to load model onto (e.g., "cuda:0", "cpu"). By default None.
+        sigma_min : float | None, optional
+            Minimum noise level for diffusion process. Priority order: (1) this argument,
+            (2) metadata.json, (3) sampler internal defaults. By default None.
+        sigma_max : float | None, optional
+            Maximum noise level for diffusion process. Priority order: (1) this argument,
+            (2) metadata.json, (3) sampler internal defaults. By default None.
 
         Returns
         -------
@@ -639,6 +659,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Disable profiling mode for both models
         residual.profile_mode = False
         regression.profile_mode = False
+
+        # Move to device first (required before channels_last conversion)
+        if device is not None:
+            residual = residual.to(device)
+            regression = regression.to(device)
 
         # Convert to channels_last memory format for better GPU performance
         residual = residual.to(memory_format=torch.channels_last)
@@ -670,6 +695,10 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         inference_mode = metadata.get("inference_mode", "both")
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
         seed = metadata.get("seed", None)
+        sigma_min_metadata = metadata.get("sigma_min", None)
+        sigma_max_metadata = metadata.get("sigma_max", None)
+        grid_spacing_tolerance = metadata.get("grid_spacing_tolerance", 1e-5)
+        grid_bounds_margin = metadata.get("grid_bounds_margin", 0.0)
 
         input_variables = list(raw_input_variables)
 
@@ -687,19 +716,21 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             in_center_values.append(stats["input"][var]["mean"])
             in_scale_values.append(stats["input"][var]["std"])
 
-        in_center = torch.Tensor(in_center_values)
-        in_scale = torch.Tensor(in_scale_values)
+        in_center = torch.tensor(in_center_values, device=device)
+        in_scale = torch.tensor(in_scale_values, device=device)
 
         # Load output normalization parameters
-        out_center = torch.Tensor(
-            [stats["output"][v]["mean"] for v in output_variables]
+        out_center = torch.tensor(
+            [stats["output"][v]["mean"] for v in output_variables], device=device
         )
-        out_scale = torch.Tensor([stats["output"][v]["std"] for v in output_variables])
+        out_scale = torch.tensor(
+            [stats["output"][v]["std"] for v in output_variables], device=device
+        )
 
         # Load output lat/lon grid
         with xr.open_dataset(package.resolve("output_latlon_grid.nc")) as ds:
-            lat_output_grid = torch.Tensor(np.array(ds["lat"][:]))
-            lon_output_grid = torch.Tensor(np.array(ds["lon"][:]))
+            lat_output_grid = torch.as_tensor(np.array(ds["lat"][:]), device=device)
+            lon_output_grid = torch.as_tensor(np.array(ds["lon"][:]), device=device)
 
             # Validate output grid format and ordering
             cls._validate_grid_format(
@@ -709,8 +740,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Load input lat/lon grid (or infer from metadata)
         try:
             with xr.open_dataset(package.resolve("input_latlon_grid.nc")) as ds:
-                lat_input_grid = torch.Tensor(np.array(ds["lat"][:]))
-                lon_input_grid = torch.Tensor(np.array(ds["lon"][:]))
+                lat_input_grid = torch.as_tensor(np.array(ds["lat"][:]), device=device)
+                lon_input_grid = torch.as_tensor(np.array(ds["lon"][:]), device=device)
 
                 # Validate input grid format and ordering
                 cls._validate_grid_format(
@@ -761,17 +792,24 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                         )
 
                 invariants = OrderedDict(
-                    (var_name, torch.Tensor(np.array(ds[var_name])))
+                    (var_name, torch.as_tensor(np.array(ds[var_name]), device=device))
                     for var_name in var_names
                 )
 
                 # Load invariant normalization parameters
-                invariant_center = torch.Tensor(
-                    [stats["invariants"][v]["mean"] for v in invariants]
+                invariant_center = torch.tensor(
+                    [stats["invariants"][v]["mean"] for v in invariants], device=device
                 )
-                invariant_scale = torch.Tensor(
-                    [stats["invariants"][v]["std"] for v in invariants]
+                invariant_scale = torch.tensor(
+                    [stats["invariants"][v]["std"] for v in invariants], device=device
                 )
+
+        # Decide which sigma values to pass into the constructor:
+        # 1. Explicit load_model arguments (sigma_min / sigma_max) if provided
+        # 2. Otherwise, fall back to metadata values (sigma_min_metadata / sigma_max_metadata)
+        # 3. If both are None, __init__ will apply sampler-specific defaults
+        effective_sigma_min = sigma_min if sigma_min is not None else sigma_min_metadata
+        effective_sigma_max = sigma_max if sigma_max is not None else sigma_max_metadata
 
         return cls(
             input_variables=input_variables,
@@ -798,6 +836,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             seed=seed,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
+            sigma_min=effective_sigma_min,
+            sigma_max=effective_sigma_max,
         )
 
     @staticmethod
@@ -824,8 +864,13 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         lon0 = (torch.floor(lon_output_grid.min() / latlon_res) - 1) * latlon_res
         lat1 = (torch.ceil(lat_output_grid.max() / latlon_res) + 1) * latlon_res
         lon1 = (torch.ceil(lon_output_grid.max() / latlon_res) + 1) * latlon_res
-        lat_input_grid = torch.arange(lat0, lat1 + latlon_res, latlon_res)
-        lon_input_grid = torch.arange(lon0, lon1 + latlon_res, latlon_res)
+        # Inherit device from output grid
+        lat_input_grid = torch.arange(
+            lat0, lat1 + latlon_res, latlon_res, device=lat_output_grid.device
+        )
+        lon_input_grid = torch.arange(
+            lon0, lon1 + latlon_res, latlon_res, device=lon_output_grid.device
+        )
         return lat_input_grid, lon_input_grid
 
     def _interpolate(self, x: torch.Tensor) -> torch.Tensor:
@@ -876,7 +921,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         return (x - self.in_center) / self.in_scale
 
     def preprocess_input(
-        self, x: torch.Tensor, time: datetime | None = None
+        self, x: torch.Tensor, valid_time: datetime | None = None
     ) -> torch.Tensor:
         """Complete input preprocessing pipeline.
 
@@ -888,13 +933,22 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         x : torch.Tensor
             Input tensor of shape ``[C, H_in, W_in]`` or ``[B, C, H_in, W_in]``.
             If a batch dimension is not present, one will be added.
-        time : datetime | None, optional
-            Time information for time-dependent preprocessing (used by subclasses), by default None
+        valid_time : datetime | None, optional
+            Validity time for this sample (when the atmospheric state is valid).
+            The base class ignores this parameter. Subclasses can override this
+            method to compute time-dependent features such as solar zenith angle
+            (SZA). Default is None.
 
         Returns
         -------
         torch.Tensor
             Preprocessed and normalized input tensor ``[B, C+C_inv, H_out, W_out]``.
+
+        Notes
+        -----
+        For subclass implementers: ``valid_time`` is provided as an optional hook for
+        time-dependent preprocessing (e.g., solar zenith angle). The base
+        implementation ignores it; override this method if your model needs it.
         """
         # Accept both [C, H_in, W_in] and [B, C, H_in, W_in]
         if x.ndim == 3:
@@ -949,15 +1003,18 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         return nullcontext()
 
     @torch.inference_mode()
-    def _forward(self, x: torch.Tensor, time: datetime | None = None) -> torch.Tensor:
+    def _forward(
+        self, x: torch.Tensor, valid_time: datetime | None = None
+    ) -> torch.Tensor:
         """Forward pass of the model.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        time : datetime | None, optional
-            Time information for time-dependent preprocessing (used by subclasses), by default None
+        valid_time : datetime | None, optional
+            Validity time of the input sample (when the atmospheric state is valid).
+            Used by subclasses for time-dependent preprocessing. Default is None.
 
         Returns
         -------
@@ -970,8 +1027,8 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             )
 
         # Preprocess input (interpolate, add batch dimension, add invariants, normalize)
-        # Base class ignores time parameter; subclasses can override preprocess_input to use it
-        image_lr = self.preprocess_input(x, time)
+        # Base class ignores valid_time; subclasses can override preprocess_input to use it
+        image_lr = self.preprocess_input(x, valid_time)
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
 
         # Run regression model
@@ -1045,15 +1102,48 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
-            Input coordinate system
+            Input coordinate system. May optionally contain a ``"time"`` key with an
+            array-like of numpy datetime64 values (or a ``list[datetime]``) representing
+            the validity time of each sample (i.e., when the atmospheric state is
+            valid, not the forecast initialization time). If present, each value is
+            passed to ``preprocess_input`` as ``valid_time`` for time-dependent
+            preprocessing (e.g., computing solar zenith angle). If absent, ``None`` is
+            passed.
 
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system
+
+        Notes
+        -----
+        Subclass usage: The base class passes ``valid_time`` to ``preprocess_input``
+        but does not use it. Subclasses can override ``preprocess_input`` to compute
+        time-dependent features like solar zenith angle (SZA). The ``coords["time"]``
+        array must have length equal to the batch size (first dimension of x).
         """
 
-        output_coords = self.output_coords(coords)
+        # Pull optional time metadata before any coordinate validation.
+        #
+        # Design note: CoordSystem was designed for dimensional coords (batch, variable,
+        # lat, lon) where each key maps to a tensor axis. "time" here is per-sample
+        # metadata (validity timestamp), not a tensor dimension.
+        #
+        # This method strips "time" before calling:
+        # - earth2studio.models.batch.batch_func._compress_batch (enforces len(coords) == x.ndim)
+        # - earth2studio.utils.coords.handshake_dim / handshake_coords (assume only dimensional keys)
+        #
+        # If more models need per-sample metadata, the proper fix is to teach the batching /
+        # handshake utilities to ignore or explicitly allow metadata keys (e.g. via a
+        # `metadata_keys={"time"}` allowlist on @batch_func), rather than repeating this
+        # local workaround in each model.
+        time_array = coords.get("time", None)
+        coords_no_time = coords
+        if time_array is not None:
+            coords_no_time = coords.copy()
+            del coords_no_time["time"]
+
+        output_coords = self.output_coords(coords_no_time)
 
         out = torch.zeros(
             [len(v) for v in output_coords.values()],
@@ -1061,15 +1151,50 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             dtype=torch.float32,
         )
 
-        # Extract time information if present in coords
-        time_array = coords.get("time", None)
+        # Extract and validate time information if present in coords
+        #
+        # Note: we intentionally keep the public coord key as "time" (consistent with
+        # earth2studio conventions), but internally treat it as a validity timestamp
+        # and pass it to subclasses as `valid_time`.
+        valid_time_list: list[datetime | None]
         if time_array is not None:
-            time_list = timearray_to_datetime(time_array)
+            # Disallow scalar timestamps: we require one entry per batch element
+            if isinstance(time_array, (datetime, np.datetime64)):
+                raise TypeError(
+                    'coords["time"] must be an array-like of timestamps (one per batch element), '
+                    f"but got a scalar {type(time_array)!r}"
+                )
+
+            # Validate time array length matches batch size
+            if not hasattr(time_array, "__len__"):
+                raise TypeError(
+                    'coords["time"] must be an array-like of timestamps (supports len()), '
+                    f"but got {type(time_array)!r}"
+                )
+            if len(time_array) != x.shape[0]:
+                raise ValueError(
+                    f"time array length ({len(time_array)}) must match batch size ({x.shape[0]})"
+                )
+
+            # Accept list[datetime] directly (already the desired type for subclasses)
+            if isinstance(time_array, (list, tuple)) and all(
+                isinstance(t, datetime) for t in time_array
+            ):
+                valid_time_list = list(time_array)
+            else:
+                # Normalize to numpy array and require datetime64 dtype
+                time_np = np.asarray(time_array)
+                if not np.issubdtype(time_np.dtype, np.datetime64):
+                    raise TypeError(
+                        'coords["time"] must be array-like of numpy datetime64 (e.g., dtype="datetime64[ns]") '
+                        f"or a list[datetime], but got {type(time_array)!r}"
+                    )
+                valid_time_list = timearray_to_datetime(time_np)
         else:
-            time_list = [None] * out.shape[0]
+            valid_time_list = [None] * out.shape[0]
 
         for i in range(out.shape[0]):
-            out[i] = self._forward(x[i], time_list[i])
+            out[i] = self._forward(x[i], valid_time_list[i])
 
         return out, output_coords
 
