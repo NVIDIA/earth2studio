@@ -163,10 +163,10 @@ class DataFrameSource(Protocol):
         Returns
         -------
         pd.DataFrame
-            A pandas data-frame like object where the columns are the requested variable
-            list and rows filtered for the time requested. Variables / columns in data
-            frame sources may refer to geospatial fields / data (e.g. wind speed) or
-            relevant meta-data (e.g. time of observation).
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
         """
         pass
 
@@ -188,10 +188,10 @@ class DataFrameSource(Protocol):
         Returns
         -------
         pd.DataFrame
-            A pandas data-frame like object where the columns are the requested variable
-            list and rows filtered for the time requested. Variables / columns in data
-            frame sources may refer to geospatial fields / data (e.g. wind speed) or
-            relevant meta-data (e.g. time of observation).
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
         """
         pass
 
@@ -222,10 +222,10 @@ class ForecastFrameSource(Protocol):
         Returns
         -------
         pd.DataFrame
-            A pandas data-frame like object where the columns are the requested variable
-            list and rows filtered for the time requested. Variables / columns in data
-            frame sources may refer to geospatial fields / data (e.g. wind speed) or
-            relevant meta-data (e.g. time of observation).
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
         """
         pass
 
@@ -251,9 +251,9 @@ class ForecastFrameSource(Protocol):
         Returns
         -------
         pd.DataFrame
-            A pandas data-frame like object where the columns are the requested variable
-            list and rows filtered for the time requested. Variables / columns in data
-            frame sources may refer to geospatial fields / data (e.g. wind speed) or
-            relevant meta-data (e.g. time of observation).
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
         """
         pass
