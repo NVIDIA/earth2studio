@@ -411,7 +411,9 @@ class _ECMWFOpenDataSource(ABC):
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_dir = self._model.lower()  # note that model is not part of cache hash
+        cache_dir = (
+            self._model.lower() + "-opendata"
+        )  # note that model is not part of cache hash
         cache_location = os.path.join(datasource_cache_root(), cache_dir)
 
         if not self._cache:
