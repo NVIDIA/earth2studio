@@ -154,14 +154,13 @@ uv add earth2studio --extra aifsens
 ::::
 :::::
 :::::{tab-item} Aurora
-Note: The shipped Aurora package has a restricted dependency which is incompatible with
-other Earth2Studio dependencies, thus it is suggested to use the forked variant.
+Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+package for inference.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
-pip install "microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
 pip install earth2studio[aurora]
 ```
 
@@ -169,9 +168,6 @@ pip install earth2studio[aurora]
 :::{tab-item} uv
 
 ```bash
-# Patched fork
-uv add earth2studio --extra aurora-fork
-# Original package from msc
 uv add earth2studio --extra aurora
 ```
 

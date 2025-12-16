@@ -357,7 +357,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLESyM model package on NGC"""
         package = Package(
-            "hf://nvidia/dlesym-v1-era5",
+            "hf://nvidia/dlesym-v1-era5@9dbcdb83706702ac3b7d93f5dad5e535abc2fb72",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym"),
                 "same_names": True,
