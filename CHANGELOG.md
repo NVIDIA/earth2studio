@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Vertical wind variables in GFS / GEFS to be Pa s-1 
+- Vertical wind variables in GFS / GEFS to be Pa s-1
 
 ### Security
 
