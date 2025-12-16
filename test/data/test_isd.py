@@ -23,6 +23,7 @@ import pandas as pd
 import pytest
 
 from earth2studio.data import ISD
+from earth2studio.lexicon.isd import ISDLexicon
 
 
 @pytest.mark.slow
@@ -44,9 +45,13 @@ from earth2studio.data import ISD
         (
             ["72788324220", "72063800224"],
             ["station", "time", "lat", "lon", "t2m"],
+            timedelta(hours=1),
+        ),
+        (
+            ["72781024243"],
+            ["station", "time", "u10m", "v10m", "t2m", "d2m", "fg10m"],
             timedelta(hours=4),
         ),
-        (["72781024243"], ["station", "time", "u10m", "v10m"], timedelta(hours=12)),
     ],
 )
 def test_isd_fetch(stations, time, variable, tol):
@@ -71,6 +76,7 @@ def test_isd_fetch(stations, time, variable, tol):
         )
 
     assert time_union["time"].all()
+    print(df)
 
 
 @pytest.mark.slow
@@ -107,6 +113,34 @@ def test_isd_cache(time, variable, cache):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+def test_isd_variable_order():
+    station = "72033063853"
+    time = np.array(["2025-01-01T12:00:00"], dtype=np.datetime64)
+    # time and station known to contain all values
+    tol = timedelta(minutes=10)
+
+    # Build variable list: all lexicon variables plus common metadata
+    meta = ["station", "time", "lat", "lon"]
+    all_vars = list(ISDLexicon.VOCAB.keys())
+    order_a = meta + all_vars
+    order_b = meta + list(reversed(all_vars))
+
+    ds = ISD(stations=[station], tolerance=tol, cache=False)
+    df_a = ds(time, order_a)
+    df_b = ds(time, order_b)
+
+    # Column order must match request
+    assert list(df_a.columns) == order_a
+    assert list(df_b.columns) == order_b
+
+    # Ensure there are no NaNs in the requested columns
+    assert not pd.isna(df_a[order_a]).values.any()
+    assert not pd.isna(df_b[order_b]).values.any()
 
 
 def test_isd_exceptions():

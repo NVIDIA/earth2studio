@@ -280,7 +280,7 @@ class ISD:
         df = self._extract_d2m(df)
         df = self._extract_tcc(df)
 
-        df = df.loc[:, df.columns.intersection(variable)]
+        df = df.loc[:, variable]
 
         # Close aiohttp client if s3fs
         if session:
