@@ -14,22 +14,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
 - Added ECMWF AIFSENS ensemble prognostic model wrapper
 - Added MRMS data source
+- Added IFS and IFS-ENS initial state datasources
+- Local datasource example
 
 ### Changed
 
 - Removed tp06 field from Graphcast operational model
 - Removed static fields from Graphcast model input / outputs
 - Moved StormCast and DLESyM checkpoints to Huggingface
+- Change previous IFS, IFS_ENS, AIFS and AIFS_ENS sources to IFS_FX, IFS_ENS_FX, AIFS_FX
+  and AIFS_ENS_FX to reflect that they are forecast sources
+- Support multiple x, coords pairs in batch function decorator
 
 ### Deprecated
 
 ### Removed
+
+- Removed support for returning multiple samples at once from IFS ENS data sources
+- IMERG datasource
 
 ### Fixed
 
 ### Security
 
 ### Dependencies
+
+- Removed Aurora-fork option which had a temporary patch for package conflict that is
+  resolved in the source aurora package
 
 ## [0.10.0] - 2025-11-24
 
