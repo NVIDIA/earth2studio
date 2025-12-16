@@ -42,8 +42,8 @@ however this is not always possible or practical.
 As a result, Earth2Studio also supports remote data sources for tabular data which is
 typically used when sparse observations / measurements are involved.
 
-- `{ref}`earth2studio.data.base.DataFrameSource`
-- `{ref}`earth2studio.data.base.ForecastFrameSource`
+- {py:obj}`earth2studio.data.base.DataFrameSource`
+- {py:obj}`earth2studio.data.base.ForecastFrameSource`
 
 The call signatures mirror data/forecast sources; the difference is the return type: a
 pandas DataFrame (tabular) instead of an Xarray DataArray.
