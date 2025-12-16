@@ -215,3 +215,139 @@ def test_isd_station_bbox(bbox):
                 lon_180.loc[rows.index] <= lon_max
             )
         assert bool((lat_ok & lon_ok).any())
+
+
+@pytest.fixture(scope="class")
+def _shared_isd(request):
+    # shared datasource (its internal methods operate on the passed DataFrame)
+    request.cls.isd = ISD(
+        stations=[], tolerance=timedelta(0), cache=False, verbose=False
+    )
+
+
+@pytest.mark.usefixtures("_shared_isd")
+class TestISDExtractors:
+    @pytest.mark.parametrize(
+        "wnd, expected",
+        [
+            (None, [np.nan]),  # missing column -> NaN
+            (["100,0,X,9999,0"], [np.nan]),  # speed missing code
+            (["090,0,X,0500,0"], [50.0]),  # 500 -> 50.0 m/s
+        ],
+    )
+    def test_extract_ws10m(self, wnd, expected):
+        if wnd is None:
+            df = pd.DataFrame({"OTHER": ["x"]})
+        else:
+            df = pd.DataFrame({"WND": wnd})
+        out = self.isd._extract_ws10m(df.copy())
+        np.testing.assert_allclose(
+            out["ws10m"].to_numpy(), np.array(expected), equal_nan=True
+        )
+
+    @pytest.mark.parametrize(
+        "wnd, expected_u, expected_v",
+        [
+            (None, [np.nan], [np.nan]),  # missing column
+            (["100"], [np.nan], [np.nan]),  # insufficient parts
+            (["999,0,C,0000,0"], [0.0], [0.0]),  # calm -> 0
+            (["090,0,X,0100,0"], [-10.0], [0.0]),  # 10 m/s from 90 deg
+        ],
+    )
+    def test_extract_uv(self, wnd, expected_u, expected_v):
+        if wnd is None:
+            df = pd.DataFrame({"OTHER": ["x"]})
+        else:
+            df = pd.DataFrame({"WND": wnd})
+        out = self.isd._extract_uv(df.copy())
+        u = out["u10m"].to_numpy()
+        v = out["v10m"].to_numpy()
+        np.testing.assert_allclose(u, np.array(expected_u), atol=1e-6, equal_nan=True)
+        np.testing.assert_allclose(v, np.array(expected_v), atol=1e-6, equal_nan=True)
+
+    @pytest.mark.parametrize(
+        "aa1, expected",
+        [
+            (None, [np.nan]),  # missing column
+            (["01"], [np.nan]),  # insufficient parts
+            (["01,0010,9,5"], [0.001]),  # 10 / 10000 m
+        ],
+    )
+    def test_extract_tp(self, aa1, expected):
+        if aa1 is None:
+            df = pd.DataFrame({"OTHER": ["x"]})
+        else:
+            df = pd.DataFrame({"AA1": aa1})
+        out = self.isd._extract_tp(df.copy())
+        np.testing.assert_allclose(
+            out["tp"].to_numpy(), np.array(expected), equal_nan=True
+        )
+
+    @pytest.mark.parametrize(
+        "tmp, expected",
+        [
+            (None, [np.nan]),  # missing column
+            ([""], [np.nan]),  # unparsable -> NaN
+            (["+0273,5"], [300.45]),  # 27.3C -> K
+        ],
+    )
+    def test_extract_t2m(self, tmp, expected):
+        if tmp is None:
+            df = pd.DataFrame({"OTHER": ["x"]})
+        else:
+            df = pd.DataFrame({"TMP": tmp})
+        out = self.isd._extract_t2m(df.copy())
+        np.testing.assert_allclose(
+            out["t2m"].to_numpy(), np.array(expected), atol=1e-6, equal_nan=True
+        )
+
+    @pytest.mark.parametrize(
+        "oc1, expected",
+        [
+            (None, [np.nan]),  # missing
+            ([""], [np.nan]),  # insufficient/unparsable
+            (["0050,0"], [5.0]),  # 50 -> 5.0 m/s
+        ],
+    )
+    def test_extract_fg10m(self, oc1, expected):
+        if oc1 is None:
+            df = pd.DataFrame({"OTHER": ["x"]})
+        else:
+            df = pd.DataFrame({"OC1": oc1})
+        out = self.isd._extract_fg10m(df.copy())
+        np.testing.assert_allclose(
+            out["fg10m"].to_numpy(), np.array(expected), equal_nan=True
+        )
+
+    @pytest.mark.parametrize(
+        "dew, expected",
+        [
+            (None, [np.nan]),  # missing
+            ([""], [np.nan]),  # insufficient/unparsable
+            (["+0100,5"], [283.15]),  # 10.0C -> K
+        ],
+    )
+    def test_extract_d2m(self, dew, expected):
+        if dew is None:
+            df = pd.DataFrame({"OTHER": ["x"]})
+        else:
+            df = pd.DataFrame({"DEW": dew})
+        out = self.isd._extract_d2m(df.copy())
+        np.testing.assert_allclose(
+            out["d2m"].to_numpy(), np.array(expected), atol=1e-6, equal_nan=True
+        )
+
+    @pytest.mark.parametrize(
+        "col, value, expected",
+        [
+            ("GA1", "04,xx", 0.5),  # GA mapping -> 4 => 0.5
+            ("GD1", "3,xx", 0.75),  # GD mapping -> 3 => 0.75
+            ("GF1", "08,xx", 1.0),  # GF mapping -> 8 => 1.0
+        ],
+    )
+    def test_extract_tcc(self, col, value, expected):
+        df = pd.DataFrame({col: [value]})
+        out = self.isd._extract_tcc(df.copy())
+        np.testing.assert_allclose(
+            out["tcc"].to_numpy(), np.array([expected]), equal_nan=True
+        )
