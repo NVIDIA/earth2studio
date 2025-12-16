@@ -166,6 +166,10 @@ class ISD:
 
         df = loop.run_until_complete(self.fetch(time, variable))
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
+
         return df
 
     async def fetch(  # type: ignore[override]
@@ -282,9 +286,6 @@ class ISD:
         if session:
             await session.close()
 
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
         return df
 
     async def _fetch_station_year(self, station_id: str, year: int) -> pd.DataFrame:

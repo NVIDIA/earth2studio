@@ -194,6 +194,10 @@ class ARCO:
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
+
         return xr_array
 
     async def fetch(
@@ -252,10 +256,6 @@ class ARCO:
         await tqdm.gather(
             *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
         return xr_array
 
     async def fetch_wrapper(
