@@ -130,7 +130,6 @@ class HRRRLexicon(metaclass=LexiconType):
                 return x * 9.81
 
         elif hrrr_key.split("::")[1] == "TCDC":
-            print("HIII")
 
             def mod(x: np.array) -> np.array:
                 return x / 100.0  # Percentage to (0-1)
