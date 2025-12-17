@@ -81,7 +81,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     This base class supports an "ensemble of experts" approach where the diffusion
     sampler is invoked in multiple stages, each using a different set of model
     weights applicable to a specific sigma range. Stages are defined by `model_spec`.
-    Single-stage (standard diffusion sampling with one denoiser) is also supported. 
+    Single-stage (standard diffusion sampling with one denoiser) is also supported.
 
     Parameters
     ----------
@@ -188,7 +188,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._lat_cpu_copy = self.latitudes.cpu().numpy()
         self._lon_cpu_copy = self.longitudes.cpu().numpy()
         self.register_buffer("valid_mask", torch.ones_like(latitudes, dtype=torch.bool))
-        self.register_buffer("conditioning_valid_mask", torch.ones_like(latitudes, dtype=torch.bool))
+        self.register_buffer(
+            "conditioning_valid_mask", torch.ones_like(latitudes, dtype=torch.bool)
+        )
         self._input_interp_max_dist_km = input_interp_max_dist_km
         self._conditioning_interp_max_dist_km = conditioning_interp_max_dist_km
 
@@ -299,7 +301,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "valid_mask", interp.valid_mask.reshape(len(self.y), len(self.x))
         )
-        self.valid_mask = self.valid_mask.to(device=self.latitudes.device)
+        self.valid_mask: torch.Tensor = self.valid_mask.to(device=self.latitudes.device)
 
     def build_conditioning_interpolator(
         self,
@@ -346,7 +348,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "conditioning_valid_mask",
             cinterp.valid_mask.reshape(len(self.y), len(self.x)),
         )
-        self.conditioning_valid_mask = self.conditioning_valid_mask.to(
+        self.conditioning_valid_mask: torch.Tensor = self.conditioning_valid_mask.to(
             device=self.latitudes.device
         )
 
@@ -509,13 +511,17 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         target_cz_times = input_cz_times + self.output_times[-1]
         input_cz_times = np.array(
             [
-                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc) #TODO use from_timestamp with tzinfo
+                datetime.fromtimestamp(
+                    t.astype("datetime64[s]").astype(int), tz=timezone.utc
+                )
                 for t in input_cz_times
             ]
         )
         target_cz_times = np.array(
             [
-                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc) #TODO use from_timestamp with tzinfo
+                datetime.fromtimestamp(
+                    t.astype("datetime64[s]").astype(int), tz=timezone.utc
+                )
                 for t in target_cz_times
             ]
         )
@@ -607,38 +613,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             b * t, *x.shape[3:], device=x.device, dtype=x.dtype
         )  # shape [B*T, C, H, W]
 
-        # # DEBUG: LOAD FORCED INPUTS AND RNG STATE
-        # import matplotlib.pyplot as plt
-        # rng_state = torch.load("rng_state.pth", map_location="cpu", weights_only=False)
-        # np.random.set_state(rng_state["numpy"])
-        # torch.set_rng_state(rng_state["torch_cpu"])
-        # torch.cuda.set_rng_state_all(rng_state["torch_cuda"])
-        # latents2 = torch.from_numpy(np.load("goes_latents.npy")).to(x.device, x.dtype)
-        # condition2 = torch.from_numpy(np.load("goes_inp_full.npy")).to(x.device, x.dtype)
-        # pred = torch.from_numpy(np.load("goes_pred.npy")).to(x.device, x.dtype)
-
-        # for i in range(12):
-        #     plt.figure(figsize=(20,10))
-        #     plt.subplot(1, 3, 1)
-        #     plt.imshow(condition[0, i].detach().cpu().numpy())
-        #     plt.title(f"Condition {i}")
-        #     plt.colorbar(orientation="horizontal")
-        #     plt.subplot(1, 3, 2)
-        #     plt.imshow(condition2[0, i].detach().cpu().numpy())
-        #     plt.colorbar(orientation="horizontal")
-        #     plt.title(f"Reference condition {i}")
-        #     plt.subplot(1, 3, 3)
-        #     diff = condition[0, i].detach().cpu().numpy() - condition2[0, i].detach().cpu().numpy()
-        #     cmax = np.max(np.abs(diff))
-        #     plt.imshow(diff, cmap="bwr", vmin=-cmax, vmax=cmax)
-        #     plt.title(f"Diff {i}")
-        #     plt.colorbar(orientation="horizontal")
-        #     plt.savefig(f"outputs/XXXIC_compare_{i:02d}.png")
-        #     plt.close()
-
-        # latents = latents2
-        # condition = condition2
-
         # Run diffusion sampler
         out = self._edm_sampler(
             latents=latents,
@@ -647,27 +621,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sigma_max=self.end_sigma,
             **self.sampler_args,
         ).to(output_dtype)
-        
-        # print(out.shape, pred.shape)
-        # for i in range(8):
-        #     plt.figure(figsize=(20,10))
-        #     plt.subplot(1, 3, 1)
-        #     plt.imshow(out[0, i].detach().cpu().numpy())
-        #     plt.title(f"Out {i}")
-        #     plt.colorbar(orientation="horizontal")
-        #     plt.subplot(1, 3, 2)
-        #     plt.imshow(pred[0, i].detach().cpu().numpy())
-        #     plt.title(f"Pred {i}")
-        #     plt.colorbar(orientation="horizontal")
-        #     plt.subplot(1, 3, 3)
-        #     diff = out[0, i].detach().cpu().numpy() - pred[0, i].detach().cpu().numpy()
-        #     cmax = np.max(np.abs(diff))
-        #     plt.imshow(diff, cmap="bwr", vmin=-cmax, vmax=cmax)
-        #     plt.title(f"Diff {i}")
-        #     plt.colorbar(orientation="horizontal")
-        #     plt.savefig(f"outputs/XXX_compare_{i:02d}.png")
-        #     plt.close()
-        # sys.exit()
 
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
 
@@ -806,7 +759,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x, x_coords
 
-    # @batch_func() # TODO: batch_func enabled when merged with upstream
+    @batch_func()
     def next_input(
         self,
         pred: torch.Tensor,
@@ -1123,8 +1076,8 @@ class StormScopeGOES(StormScopeBase):
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
         )
-        self.means = self.means[:, -len(self.variables) :, :, :]
-        self.stds = self.stds[:, -len(self.variables) :, :, :]
+        self.means: torch.Tensor = self.means[:, -len(self.variables) :, :, :]
+        self.stds: torch.Tensor = self.stds[:, -len(self.variables) :, :, :]
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -1214,7 +1167,7 @@ class StormScopeGOES(StormScopeBase):
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
     ) -> PrognosticModel:
         """Load model from package.
-        
+
         Parameters
         ----------
         package : Package
@@ -1321,7 +1274,7 @@ class StormScopeGOES(StormScopeBase):
             output_times=output_times,
             y_coords=y,
             x_coords=x,
-            input_interp_max_dist_km=6.0*spatial_downsample,
+            input_interp_max_dist_km=6.0 * spatial_downsample,
         )
 
 
@@ -1336,7 +1289,7 @@ class StormScopeMRMS(StormScopeBase):
 
     The 6km/10min model uses a sliding window of 6 input timesteps and predicts one
     output timestep; other models use a single input timestep and predict one output
-    timestep. All StormScopeMRMS models by default expect GOES-East data as 
+    timestep. All StormScopeMRMS models by default expect GOES-East data as
     conditioning; typically in a forecasting run this can be provided by passing the
     predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
     method. Otherwise, the user must provide a conditioning data source for the model
@@ -1450,8 +1403,8 @@ class StormScopeMRMS(StormScopeBase):
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
         )
-        self.means = self.means[:, -len(self.variables) :, :, :]
-        self.stds = self.stds[:, -len(self.variables) :, :, :]
+        self.means: torch.Tensor = self.means[:, -len(self.variables) :, :, :]
+        self.stds: torch.Tensor = self.stds[:, -len(self.variables) :, :, :]
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
@@ -1556,7 +1509,7 @@ class StormScopeMRMS(StormScopeBase):
         conditioning_data_source: DataSource | ForecastSource | None = None,
     ) -> PrognosticModel:
         """Load model from package.
-        
+
         Parameters
         ----------
         package : Package
@@ -1663,5 +1616,5 @@ class StormScopeMRMS(StormScopeBase):
             x_coords=x,
             input_times=input_times,
             output_times=output_times,
-            input_interp_max_dist_km=6.0*spatial_downsample,
+            input_interp_max_dist_km=6.0 * spatial_downsample,
         )

@@ -22,7 +22,10 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.stormscope import StormScopeBase, StormScopeGOES, StormScopeMRMS
+from earth2studio.models.px.stormscope import (
+    StormScopeGOES,
+    StormScopeMRMS,
+)
 from earth2studio.utils import handshake_dim
 
 
@@ -36,7 +39,7 @@ class PhooStormScopeDiffusionModel(torch.nn.Module):
 
     def forward(self, x, noise, class_labels=None, condition=None):
         # Return denoised output (same shape as x, but only nvar channels)
-        return x[:, :self.nvar, :, :]
+        return x[:, : self.nvar, :, :]
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
@@ -86,7 +89,9 @@ def create_spoof_model(
     )
 
     # Create random conditioning data source
-    dc = OrderedDict([("lat", np.linspace(90, -90, num=181)), ("lon", np.linspace(0, 360, num=360))])
+    dc = OrderedDict(
+        [("lat", np.linspace(90, -90, num=181)), ("lon", np.linspace(0, 360, num=360))]
+    )
     conditioning_data_source = Random(dc) if nvar_cond > 0 else None
 
     # Input/output times
@@ -137,7 +142,8 @@ def create_spoof_model(
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_call(time, device):
+@pytest.mark.parametrize("batch", [1, 2])
+def test_stormscope_call(time, device, batch):
     """Test basic StormScope call functionality"""
     nvar = 8
     nvar_cond = 1
@@ -154,6 +160,11 @@ def test_stormscope_call(time, device):
     variable = model.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
+    # Add batch dimension
+    x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
+    coords.update({"batch": np.arange(batch)})
+    coords.move_to_end("batch", last=False)
+
     # Test forward pass
     out, out_coords = model(x, coords)
 
@@ -161,14 +172,15 @@ def test_stormscope_call(time, device):
         time = [time]
 
     # Check output shape and coordinates
-    assert out.shape == torch.Size([len(time), 1, nvar, h, w])
+    assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "x", 4)
-    handshake_dim(out_coords, "y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    handshake_dim(out_coords, "x", 5)
+    handshake_dim(out_coords, "y", 4)
+    handshake_dim(out_coords, "variable", 3)
+    handshake_dim(out_coords, "lead_time", 2)
+    handshake_dim(out_coords, "time", 1)
+    handshake_dim(out_coords, "batch", 0)
 
 
 @pytest.mark.parametrize(
@@ -210,7 +222,8 @@ def test_stormscope_iter(batch, device):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
         assert (
-            out_coords["variable"] == model.output_coords(model.input_coords())["variable"]
+            out_coords["variable"]
+            == model.output_coords(model.input_coords())["variable"]
         ).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
@@ -257,21 +270,29 @@ def test_stormscope_interpolation(device):
     cond_lat = np.linspace(90, -90, num=181)
     cond_lon = np.linspace(0, 360, num=360)
     cond_lat_grid, cond_lon_grid = np.meshgrid(cond_lat, cond_lon, indexing="ij")
-    model.build_conditioning_interpolator(cond_lat_grid, cond_lon_grid, max_dist_km=30.0)
+    model.build_conditioning_interpolator(
+        cond_lat_grid, cond_lon_grid, max_dist_km=30.0
+    )
     assert model.conditioning_interp is not None
     assert model.conditioning_valid_mask.shape == torch.Size([h, w])
 
 
 @pytest.mark.parametrize("sliding_window", [False, True])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_next_input(sliding_window, device):
+@pytest.mark.parametrize("batch", [1, 2])
+def test_stormscope_next_input(sliding_window, device, batch):
     """Test StormScope next_input method for sliding window"""
     nvar = 8
     nvar_cond = 1
     h, w = 32, 64
 
     model = create_spoof_model(
-        nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device, sliding_window=sliding_window
+        nvar=nvar,
+        nvar_cond=nvar_cond,
+        h=h,
+        w=w,
+        device=device,
+        sliding_window=sliding_window,
     )
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
@@ -281,14 +302,14 @@ def test_stormscope_next_input(sliding_window, device):
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    x = x.unsqueeze(0)
-    coords.update({"batch": np.arange(1)})
+    x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
+    coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
     # Simulate a prediction
     pred_coords = model.output_coords(coords)
     pred = torch.randn(
-        1,
+        batch,
         len(time),
         len(pred_coords["lead_time"]),
         nvar,
@@ -362,7 +383,9 @@ def test_stormscope_call_with_conditioning(device):
     conditioning_coords.move_to_end("batch", last=False)
 
     # Test call_with_conditioning
-    out, out_coords = model.call_with_conditioning(x, coords, conditioning, conditioning_coords)
+    out, out_coords = model.call_with_conditioning(
+        x, coords, conditioning, conditioning_coords
+    )
 
     # Check output shape
     assert out.shape == torch.Size([batch_size, len(time), 1, nvar, h, w])
@@ -474,14 +497,22 @@ def test_stormscope_exceptions(device):
     # Create coordinates with missing required dimensions
     bad_coords = OrderedDict({"variable": variable, "y": model3.y, "x": model3.x})
     conditioning_coords = OrderedDict(
-        {"time": time, "lead_time": lead_time, "variable": model3.conditioning_variables, "y": model3.y, "x": model3.x}
+        {
+            "time": time,
+            "lead_time": lead_time,
+            "variable": model3.conditioning_variables,
+            "y": model3.y,
+            "x": model3.x,
+        }
     )
 
     x_test = torch.randn(1, 1, nvar, h, w, device=device)
     conditioning_test = torch.randn(1, 1, 1, h, w, device=device)
 
     with pytest.raises(ValueError):
-        model3.call_with_conditioning(x_test, bad_coords, conditioning_test, conditioning_coords)
+        model3.call_with_conditioning(
+            x_test, bad_coords, conditioning_test, conditioning_coords
+        )
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

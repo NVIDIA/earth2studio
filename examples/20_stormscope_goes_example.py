@@ -1,5 +1,67 @@
-# TODO make this a proper example with sphinx formatting and explanations
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# %%
+"""
+Running StormScope Inference with GOES and MRMS
+================================================
+
+StormScope inference workflow with GOES satellite imagery and MRMS radar data.
+
+This example will demonstrate how to run an inference workflow to generate
+predictions using StormScope models with both GOES and MRMS data sources.
+
+In this example you will learn:
+
+- How to instantiate StormScope models for GOES and MRMS
+- Creating GOES and MRMS data sources
+- Running iterative prognostic forecasts
+- Creating RGB composite visualizations from satellite data
+- Overlaying radar reflectivity on satellite imagery
+"""
+# /// script
+# dependencies = [
+#   "earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
+
+# %%
+# Set Up
+# ------
+# StormScope is a nowcasting model that can operate on GOES satellite imagery
+# and MRMS radar data. This example demonstrates using both data sources in
+# a coupled forecast.
+#
+# For this example, we need the following:
+#
+# - Prognostic Models: StormScope GOES and MRMS models :py:class:`earth2studio.models.px.StormScopeGOES` and :py:class:`earth2studio.models.px.StormScopeMRMS`.
+# - Data Sources: Pull data from GOES :py:class:`earth2studio.data.GOES` and MRMS :py:class:`earth2studio.data.MRMS`.
+#
+# StormScope models also require conditioning data sources. We use GFS_FX for
+# the GOES model and GOES model directly for the MRMS model as conditioning inputs.
+
+# %%
+import os
 from datetime import datetime
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -9,8 +71,117 @@ import torch
 from loguru import logger
 
 from earth2studio.data import GFS_FX, GOES, MRMS, fetch_data
-from earth2studio.models.px.stormscope import StormScopeBase, StormScopeGOES, StormScopeMRMS
+from earth2studio.models.px.stormscope import (
+    StormScopeBase,
+    StormScopeGOES,
+    StormScopeMRMS,
+)
 from earth2studio.utils.type import CoordSystem
+
+# %%
+# Set deterministic behavior for reproducibility
+torch.backends.cudnn.deterministic = True
+torch.use_deterministic_algorithms(True)
+
+# %%
+# Define the initialization time and select the appropriate GOES satellite
+t = datetime(2025, 12, 5, 19, 10, 0)
+goes_satellite = "goes19" if t >= datetime(2025, 4, 7, 0, 0, 0) else "goes16"
+inits = [np.datetime64(t)]
+
+# %%
+# Set device for computation
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# %%
+# Load the StormScope models
+# Model options:
+#  - "6km_60min_natten_cos_zenith_input_eoe_v2" for 1hr timestep GOES model
+#  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
+#  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
+#  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
+goes_model_name = "6km_10min_natten_pure_obs_zenith_6steps"
+mrms_model_name = "6km_10min_natten_pure_obs_mrms_obs_6steps"
+
+package = StormScopeBase.load_default_package()
+
+# Load GOES model with GFS_FX conditioning (can be None for 10min model)
+model = StormScopeGOES.load_model(
+    package=package,
+    conditioning_data_source=GFS_FX(),
+    model_name=goes_model_name,
+)
+model = model.to(device)
+model.eval()
+
+# Load MRMS model with GOES conditioning (can be None for 10min model)
+model_mrms = StormScopeMRMS.load_model(
+    package=package,
+    conditioning_data_source=GOES(),
+    model_name=mrms_model_name,
+)
+model_mrms = model_mrms.to(device)
+model_mrms.eval()
+
+# %%
+# Setup GOES data source and prepare interpolators
+scan_mode = "C"
+variables = model.input_coords()["variable"]
+lat_out = model.latitudes.detach().cpu().numpy()
+lon_out = model.longitudes.detach().cpu().numpy()
+
+goes = GOES(satellite=goes_satellite, scan_mode=scan_mode)
+goes_lat, goes_lon = GOES.grid(satellite=goes_satellite, scan_mode=scan_mode)
+
+# Build interpolators for transforming data to model grid
+model.build_input_interpolator(goes_lat, goes_lon)
+model.build_conditioning_interpolator(GFS_FX.GFS_LAT, GFS_FX.GFS_LON)
+
+in_coords = model.input_coords()
+
+# Fetch GOES data
+x, x_coords = fetch_data(
+    goes,
+    time=inits,
+    variable=np.array(variables),
+    lead_time=in_coords["lead_time"],
+    device=device,
+)
+
+# %%
+# Setup MRMS data source and prepare interpolators
+mrms = MRMS()
+mrms_in_coords = model_mrms.input_coords()
+x_mrms, x_coords_mrms = fetch_data(
+    mrms,
+    time=inits,
+    variable=np.array(["refc"]),
+    lead_time=mrms_in_coords["lead_time"],
+    device=device,
+)
+
+model_mrms.build_input_interpolator(x_coords_mrms["lat"], x_coords_mrms["lon"])
+model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
+
+# %%
+# Add batch dimension: [B, T, L, C, H, W]
+batch_size = 1
+if x.dim() == 5:
+    x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
+    x_coords["batch"] = np.arange(batch_size)
+    x_coords.move_to_end("batch", last=False)
+if x_mrms.dim() == 5:
+    x_mrms = x_mrms.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
+    x_coords_mrms["batch"] = np.arange(batch_size)
+    x_coords_mrms.move_to_end("batch", last=False)
+
+x = x.to(dtype=torch.float32)
+x_mrms = x_mrms.to(dtype=torch.float32)
+
+# %%
+# Helper Functions for Visualization
+# -----------------------------------
+# Define utility functions for creating RGB composites with tone mapping
 
 
 # Khronos PBR Neutral Tone Mapping
@@ -34,7 +205,6 @@ def tonemap(rgb):
     offset = np.full_like(x, 0.04)
     offset[mask] = x[mask] - 6.25 * x[mask] ** 2
     result -= to_3d(offset)
-    # return result.reshape(height, width, 3)
 
     # calculate peak value (after applying offset)
     peak = result.max(axis=1)
@@ -73,168 +243,6 @@ def rgb_composite(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.where(full_nanmask, transparent_rgba, rgb)
 
 
-def main() -> None:
-
-    torch.backends.cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True)
-
-    # Initialization time(s)
-    # t = datetime(2024, 4, 2, 12, 0, 0)
-    t = datetime(2025, 12, 5, 19, 10, 0)
-    t = datetime(2024, 3, 15, 18, 0, 0)
-    goes_satellite = "goes19" if t >= datetime(2025, 4, 7, 0, 0, 0) else "goes16"
-    inits = [np.datetime64(t)]
-
-    # Device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Initialize models from a local package
-    # Model names:
-    #  - "6km_60min_natten_cos_zenith_input_eoe_v2" for 1hr timestep GOES model
-    #  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
-    #  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
-    #  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
-    goes_model_name = "3km_10min_natten_pure_obs_cos_zenith_input_eoe" #"6km_10min_natten_pure_obs_zenith_6steps"
-    mrms_model_name = "6km_10min_natten_pure_obs_mrms_obs_6steps"
-    package = StormScopeBase.load_default_package()
-    model = StormScopeGOES.load_model(
-        package=package,
-        conditioning_data_source=GFS_FX(),  # can be set to None if using 10min GOES model
-        model_name=goes_model_name,
-    )
-    model = model.to(device)
-    model.eval()
-
-    model_mrms = StormScopeMRMS.load_model(
-        package=package,
-        conditioning_data_source=GOES(),  # can be set to None if using 10min MRMS model
-        model_name=mrms_model_name,
-    )
-    model_mrms = model_mrms.to(device)
-    model_mrms.eval()
-
-    # Setup GOES data source and prep the interpolation using lat/lon coords
-    scan_mode = "C"
-    variables = model.input_coords()["variable"]
-    lat_out = model.latitudes.detach().cpu().numpy()
-    lon_out = model.longitudes.detach().cpu().numpy()
-    y, x = model.y, model.x
-    goes = GOES(satellite=goes_satellite, scan_mode=scan_mode)
-    goes_lat, goes_lon = GOES.grid(satellite=goes_satellite, scan_mode=scan_mode)
-    model.build_input_interpolator(goes_lat, goes_lon)
-    model.build_conditioning_interpolator(
-        GFS_FX.GFS_LAT, GFS_FX.GFS_LON
-    )  # interpolating from 25km global grid, we don't want NaNs
-    in_coords = model.input_coords()
-
-    x, x_coords = fetch_data(
-        goes,
-        time=inits,
-        variable=np.array(variables),
-        lead_time=in_coords["lead_time"],
-        device=device,
-    )
-
-    # Setup MRMS data source and prep MRMS model interpolators
-    mrms = MRMS()
-    mrms_in_coords = model_mrms.input_coords()
-    x_mrms, x_coords_mrms = fetch_data(
-        mrms,
-        time=inits,
-        variable=np.array(["refc"]),
-        lead_time=mrms_in_coords["lead_time"],
-        device=device,
-    )
-    model_mrms.build_input_interpolator(
-        x_coords_mrms["lat"], x_coords_mrms["lon"]
-    )
-    model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
-
-    # Add batch dimension: [B, T, L, C, H, W]
-    batch_size = 1
-    if x.dim() == 5:
-        x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
-        x_coords["batch"] = np.arange(batch_size)
-        x_coords.move_to_end("batch", last=False)
-    if x_mrms.dim() == 5:
-        x_mrms = x_mrms.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
-        x_coords_mrms["batch"] = np.arange(batch_size)
-        x_coords_mrms.move_to_end("batch", last=False)
-
-    x = x.to(dtype=torch.float32)
-    x_mrms = x_mrms.to(dtype=torch.float32)
-
-    # Iterative prognostic steps
-    y, y_coords = x, x_coords
-    y_mrms, y_coords_mrms = x_mrms, x_coords_mrms
-    for step_idx in range(12):
-
-        # Run one prognostic step with GOES
-        y_pred, y_pred_coords = model(y, y_coords)
-
-        # Run one prognostic step with MRMS
-        # y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
-        #     y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
-        # )
-        spoof_y_coords = y_coords.copy()
-        spoof_y_coords["variable"] = y_coords_mrms["variable"]
-
-
-        plot_step(
-            y_pred,
-            y_pred_coords,
-            -1*torch.ones_like(y_pred),
-            spoof_y_coords,
-            # y_mrms_pred,
-            # y_coords_mrms_pred,
-            composite=True,
-            channel="refc",
-            cmap="inferno",
-            valid_mask=model.valid_mask,
-            lat_plot=lat_out,
-            lon_plot=lon_out,
-            step_idx=step_idx,
-            ch_idx=list(model_mrms.variables).index("refc"),
-        )
-
-        # Update sliding window with new prediction (no-op if model doesn't use sliding window)
-        y_pred, y_pred_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
-        # y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
-        #     y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
-        # )
-
-        y = y_pred
-        y_coords = y_pred_coords
-        # y_mrms = y_mrms_pred
-        # y_coords_mrms = y_coords_mrms_pred
-        logger.info(f"STEP {step_idx} {y_pred_coords['lead_time'][-1].astype('timedelta64[m]').item()}")
-
-    # Test iterator mode
-    # iterator = model.create_iterator(x, x_coords)
-    # step_idx = 0
-    # for y_pred, y_pred_coords in iterator:
-    #     print("ITERATOR", step_idx, y_pred_coords["lead_time"][-1].astype('timedelta64[m]').item())
-    #     step_idx += 1
-
-    #     # Note plots will use outdated MRMS data; MRMS model doesn't work w/ iterator mode without a GOES_FX data source
-    #     plot_step(
-    #         y_pred,
-    #         y_pred_coords,
-    #         y_mrms_pred,
-    #         y_coords_mrms_pred,
-    #         composite=True,
-    #         channel="refc",
-    #         cmap="inferno",
-    #         valid_mask=model.valid_mask,
-    #         lat_plot=lat_out,
-    #         lon_plot=lon_out,
-    #         step_idx=step_idx,
-    #         ch_idx=list(model_mrms.variables).index("refc")
-    #     )
-    #     if step_idx >= 11:
-    #         break
-
-
 def plot_step(
     y: torch.Tensor,
     y_coords: CoordSystem,
@@ -249,11 +257,11 @@ def plot_step(
     step_idx: int,
     ch_idx: int,
 ) -> None:
+    """Plot a single forecast step with GOES RGB composite and MRMS overlay."""
+    # Nan-fill invalid gridpoints
+    y = torch.where(valid_mask, y, torch.nan)
 
-    # Select a single channel to plot (e.g., refc), or make a composite (see below)
-    y = torch.where(valid_mask, y, torch.nan)  # Nan-fill invalid gridpoints
-
-    # Prepare HRRR Lambert Conformal projection and plot
+    # Prepare HRRR Lambert Conformal projection
     proj_hrrr = ccrs.LambertConformal(
         central_longitude=262.5,
         central_latitude=38.5,
@@ -264,7 +272,6 @@ def plot_step(
     ax = plt.axes(projection=proj_hrrr)
 
     # Dual layer coast/state lines for better day/night visibility
-
     # Black halo (thicker)
     ax.coastlines(color="black", linewidth=1.2)
     ax.add_feature(cfeature.STATES, edgecolor="black", linewidth=1.0)
@@ -298,8 +305,7 @@ def plot_step(
 
     # Overlay MRMS on top of GOES
     if composite:
-
-        # Set low refc and invlaid points to nan
+        # Set low refc and invalid points to nan
         field_mrms = y_mrms[0, 0, 0, ch_idx]
         field_mrms = (
             torch.where(~valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
@@ -330,5 +336,55 @@ def plot_step(
     plt.savefig(f"outputs/20_stormscope_goes_example_step{step_idx:02d}.png", dpi=300)
 
 
-if __name__ == "__main__":
-    main()
+# %%
+# Execute the Workflow
+# --------------------
+# Run iterative prognostic steps using both GOES and MRMS models. The GOES
+# model predicts future satellite imagery, while the MRMS model predicts radar
+# reflectivity conditioned on the GOES predictions. After one forecast step,
+# we need to use the GOES model predictions as the conditioning input for the
+# MRMS model, so we use the `call_with_conditioning` method.
+
+y, y_coords = x, x_coords
+y_mrms, y_coords_mrms = x_mrms, x_coords_mrms
+
+for step_idx in range(12):
+    # Run one prognostic step with GOES
+    y_pred, y_pred_coords = model(y, y_coords)
+
+    # Run one prognostic step with MRMS conditioned on GOES
+    y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
+        y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
+    )
+
+    # %%
+    # Post Processing
+    # ---------------
+    # Plot the forecast at this step
+    plot_step(
+        y_pred,
+        y_pred_coords,
+        y_mrms_pred,
+        y_coords_mrms_pred,
+        composite=True,
+        channel="refc",
+        cmap="inferno",
+        valid_mask=model.valid_mask,
+        lat_plot=lat_out,
+        lon_plot=lon_out,
+        step_idx=step_idx,
+        ch_idx=list(model_mrms.variables).index("refc"),
+    )
+
+    # Update sliding window with new prediction
+    y_pred, y_pred_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
+    y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
+        y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
+    )
+
+    y = y_pred
+    y_coords = y_pred_coords
+
+    logger.info(
+        f"STEP {step_idx} {y_pred_coords['lead_time'][-1].astype('timedelta64[m]').item()}"
+    )
