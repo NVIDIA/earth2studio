@@ -14,28 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from typing import Iterator, Generator
 import json
+from collections.abc import Generator, Iterator
+from datetime import datetime, timedelta
+
 import numpy as np
 import torch
 import torch.nn as nn
-from datetime import datetime, timezone
 from loguru import logger
 
-from earth2studio.models.batch import batch_func
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.auto.package import Package
+from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.imports import check_optional_dependencies, OptionalDependencyFailure
-from earth2studio.utils.type import CoordSystem
 from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+from earth2studio.utils.type import CoordSystem
 
 try:
-    from nvw.models.base_model import BaseModel as AtlasBaseModel
     from nvw import models as nvw_models
     from nvw import training as nvw_training
+    from nvw.models.base_model import BaseModel as AtlasBaseModel
     from nvw.stochastic.interpolants import StochasticInterpolant
 except ImportError:
     OptionalDependencyFailure("atlas")
@@ -120,8 +123,18 @@ VARIABLES: list[str] = [
     "q925",
     "q1000",
     "sst",
-    "tp"
+    "tp",
 ]
+
+# Helper for datetime convention compatible with nvw internal cos zenith calculation
+_EPOCH = datetime(1970, 1, 1)
+
+
+def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
+    delta_us = (
+        t.astype("datetime64[us]") - np.datetime64("1970-01-01T00:00:00", "us")
+    ).astype(int)
+    return _EPOCH + timedelta(microseconds=int(delta_us))
 
 
 @check_optional_dependencies()
@@ -134,7 +147,8 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     DT = np.timedelta64(6, "h")
 
-    def __init__(self,
+    def __init__(
+        self,
         autoencoders: nn.ModuleList,
         autoencoder_processors: nn.ModuleList,
         model: nn.Module,
@@ -179,11 +193,14 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
-                "lon": np.linspace(0.0, 360.0 - (360.0 / 1440.0), 1440, dtype=np.float32),
+                "lon": np.linspace(
+                    0.0, 360.0 - (360.0 / 1440.0), 1440, dtype=np.float32
+                ),
             }
         )
         return coords
 
+    @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system produced by a single Atlas step (t+6h).
 
@@ -209,7 +226,9 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lead_time": np.array([self.DT]),
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
-                "lon": np.linspace(0.0, 360.0 - (360.0 / 1440.0), 1440, dtype=np.float32),
+                "lon": np.linspace(
+                    0.0, 360.0 - (360.0 / 1440.0), 1440, dtype=np.float32
+                ),
             }
         )
 
@@ -233,7 +252,13 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output_coords
 
     @batch_func()
-    def prep_next_input(self, x_pred: torch.Tensor, coords_pred: CoordSystem, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
+    def prep_next_input(
+        self,
+        x_pred: torch.Tensor,
+        coords_pred: CoordSystem,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Prepare the next input for the Atlas model. Since the input requires two lead times
         but the model predicts one, we update a sliding window to make autoregressive predictions.
 
@@ -249,8 +274,12 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinates describing `x`.
         """
         x_next = x.clone()
-        x_next[:, :, -1:, :, :, :] = x_pred[:, :, :1, :, :, :] # Full latest step with most recent prediction
-        x_next[:, :, :-1, :, :, :] = x[:, :, 1:, :, :, :] # Shift the previous step to the previous position
+        x_next[:, :, -1:, :, :, :] = x_pred[
+            :, :, :1, :, :, :
+        ]  # Fill latest step with most recent prediction
+        x_next[:, :, :-1, :, :, :] = x[
+            :, :, 1:, :, :, :
+        ]  # Shift the previous latest step
         coords_next = coords.copy()
         coords_next["lead_time"] = coords_next["lead_time"] + self.DT
         return x_next, coords_next
@@ -274,38 +303,41 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         if x.ndim != 4:
-            raise ValueError(f"Internal forward pass expects x of shape (lead_time, variable, lat, lon), got {x.shape}")
+            raise ValueError(
+                f"Internal forward pass expects x of shape (lead_time, variable, lat, lon), got {x.shape}"
+            )
         if len(coords["lead_time"]) != 2:
-            raise ValueError(f"Internal forward pass expects coords['lead_time'] of length 2, got {len(coords['lead_time'])}")
+            raise ValueError(
+                f"Internal forward pass expects coords['lead_time'] of length 2, got {len(coords['lead_time'])}"
+            )
 
-        # Prepare input tensor and date metadata 
-        x_cur, x_prev = x[:1, :, :, :], x[1:, :, :, :]
-        t = coords['time'][0] + coords["lead_time"][-1]
-        current_date = np.array([[datetime.fromtimestamp(t.astype('datetime64[s]').astype(int))]])
+        # Prepare input tensor and date metadata
+        x_cur, x_prev = x[-1:, :, :, :], x[:1, :, :, :]
+        t = coords["time"][0] + coords["lead_time"][-1]
+        current_date = np.array([[npdt64_to_naive_utc(t)]])
 
         # Preprocess to build high/low-res latent/state
-        self.model_processor.add_noise = False # TODO needed or not?
+        self.model_processor.add_noise = False  # TODO needed or not?
         high_res, low_res = self.model_processor.preprocess_input(x_cur, current_date)
         prev = self.model_processor.normalizer_in.normalize(x_prev)
-        prev = self.model_processor.intep(prev, self.model_processor.downsample_grid_shape)
+        prev = self.model_processor.intep(
+            prev, self.model_processor.downsample_grid_shape
+        )
 
         # Condition dictionary
-        cond = {'x_1': low_res.clone(), 'x_2': prev.clone()}
+        cond = {"x_1": low_res.clone(), "x_2": prev.clone()}
 
         # Stochastic interpolant sampling in latent space
         prediction_latent = self.sinterpolant.sample(
             self.model,
             low_res.clone(),
-            steps= self.sinterpolant_sample_steps,
+            steps=self.sinterpolant_sample_steps,
             cond=cond,
             verbose=False,
-            compute_normalization=True
+            compute_normalization=True,
         )
 
-        # Decode according to configuration of model/autoencoder heads
-        prediction_latent = self.model_processor.normalizer_out.unnormalize(prediction_latent)
-        prediction_latent = prediction_latent + self.model_processor.normalizer_in.unnormalize(low_res)
-        prediction_latent = self.model_processor.normalizer_in.normalize(prediction_latent)
+        # Decode
         pred = self.autoencoders[0](high_res, prediction_latent)
 
         # Postprocess to state space
@@ -314,7 +346,9 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     @batch_func()
-    def __call__(self, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of the prognostic model, integrating a single 6h step.
 
         Parameters
@@ -344,13 +378,13 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             for j, _ in enumerate(coords["time"]):
                 slice_coords = coords.copy()
                 slice_coords["time"] = slice_coords["time"][j : j + 1]
-                out[i, j, :] = self._forward(
-                    x[i, j, :], slice_coords
-                )
+                out[i, j, :] = self._forward(x[i, j, :], slice_coords)
 
         return out, output_coords
 
-    def create_iterator(self, x: torch.Tensor, coords: CoordSystem) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Create an iterator that yields the initial state then successive 6h steps.
 
         Parameters
@@ -367,23 +401,25 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         yield from self._default_generator(x, coords)
 
-    
-    def _default_generator(self, x: torch.Tensor, coords: CoordSystem) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+    @batch_func()
+    def _default_generator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
         # Validate coords
         _ = self.output_coords(coords)
-        
+
         # Sanitize NaNs in input sst
         if torch.isnan(x).any():
             logger.info("Atlas input contains NaNs, replacing with 0.0")
             x = torch.nan_to_num(x, nan=0.0)
-        
+
         # Yield initial condition
         ic_coords = coords.copy()
         ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
         yield x[:, :, -1:, :, :, :], ic_coords
-        
+
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
@@ -397,7 +433,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.prep_next_input(x_pred, coords_pred, x, coords)
 
     @classmethod
-    def load_default_package(cls):
+    def load_default_package(cls) -> Package:
         """Load the default package for the Atlas model."""
         package = Package(
             "/lustre/fsw/portfolios/nvr/projects/nvr_earth2_e2/users/pharrington/model_pkg/atlas",
@@ -408,13 +444,12 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return package
 
-
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package):
+    def load_model(cls, package: Package) -> PrognosticModel:
         """Instantiate and load Atlas from a package."""
-        
-        with open(package.resolve("config.json"), "r") as f:
+
+        with open(package.resolve("config.json")) as f:
             config = json.load(f)
 
         modelpkg = config["package"]
@@ -425,18 +460,26 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ae_path = package.resolve(ae_cfg["model_path"])
             ae_cls = getattr(nvw_models, config["model_meta"]["autoencoder_model"][i])
             aeprocessor_path = package.resolve(ae_cfg["processor_path"])
-            aeprocessor_cls = getattr(nvw_training, config["model_meta"]["autoencoder_processor"][i])
+            aeprocessor_cls = getattr(
+                nvw_training, config["model_meta"]["autoencoder_processor"][i]
+            )
 
             ae = ae_cls.from_checkpoint(ae_path)
             aeprocessor = aeprocessor_cls.from_checkpoint(aeprocessor_path)
 
             autoencoders.append(ae)
             autoencoder_processors.append(aeprocessor)
-        
+
         model_cls = getattr(nvw_models, config["model_meta"]["genmodel_model"])
-        model_processor_cls = getattr(nvw_training, config["model_meta"]["genmodel_processor"])
-        model = model_cls.from_checkpoint(package.resolve(modelpkg["genmodel"]["model_path"]))
-        model_processor = model_processor_cls.from_checkpoint(package.resolve(modelpkg["genmodel"]["processor_path"]))
+        model_processor_cls = getattr(
+            nvw_training, config["model_meta"]["genmodel_processor"]
+        )
+        model = model_cls.from_checkpoint(
+            package.resolve(modelpkg["genmodel"]["model_path"])
+        )
+        model_processor = model_processor_cls.from_checkpoint(
+            package.resolve(modelpkg["genmodel"]["processor_path"])
+        )
 
         means_path = package.resolve(modelpkg["stats"]["means"][0])
         stds_path = package.resolve(modelpkg["stats"]["stds"][0])
@@ -452,7 +495,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             noise_sampler=config["sinterpolant"]["noise_sampler"],
             time_sampler=config["sinterpolant"]["time_sampler"],
             sample_method=config["sinterpolant"]["sample_method"],
-            studentt_deg=config["sinterpolant"]["studentt_deg"]
+            studentt_deg=config["sinterpolant"]["studentt_deg"],
         )
 
         return cls(
@@ -465,5 +508,3 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sinterpolant=sinterpolant,
             sinterpolant_sample_steps=config["sinterpolant"]["sample_steps"],
         )
-
-
