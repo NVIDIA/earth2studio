@@ -53,6 +53,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "refc": "wrfsfc::REFC::entire atmosphere::anl",
             "sp": "wrfsfc::PRES::surface::anl",
             "msl": "wrfsfc::MSLMA::mean sea level::anl",
+            "mslp": "wrfsfc::MSLMA::mean sea level::anl",  # TODO: deprecate
             "fg10m": "wrfsfc::GUST::surface",
             "tp": "wrfsfc::APCP::surface::0-0 hour acc",  # will be zero
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)::anl",
@@ -195,6 +196,7 @@ class HRRRFXLexicon(metaclass=LexiconType):
             "refc": "wrfsfc::REFC::entire atmosphere",
             "sp": "wrfsfc::PRES::surface",
             "msl": "wrfsfc::MSLMA::mean sea level",
+            "mslp": "wrfsfc::MSLMA::mean sea level",  # TODO: deprecate
             "tp": "wrfsfc::APCP::surface::x-x hour acc",  # 1 hour accumulated
             "fg10m": "wrfsfc::GUST::surface",
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)",
