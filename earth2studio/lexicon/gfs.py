@@ -295,7 +295,7 @@ class GFSLexicon(metaclass=LexiconType):
                 """Modify data value (if necessary)."""
                 return x * 9.81
 
-        elif gfs_key.split("::")[0] == "APCP":
+        elif gfs_key.split("::")[1] == "APCP":
 
             # TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228
             def mod(x: np.ndarray) -> np.ndarray:
