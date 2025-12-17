@@ -56,14 +56,15 @@ except ImportError:
     deterministic_sampler = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
-from earth2studio.models.nn.scv2_util import (
+from earth2studio.models.nn.stormscope_util import (
     DropInDiT,
     EDMPrecond,
 )
 
 
 def model_wrap(model: Module) -> nn.Module:
-    """Wrap a physicsnemo Module so it is compatible with the preconditioning and sampler used by StormScope.
+    """Wrap a physicsnemo Module so it is compatible with the preconditioning
+    and sampler used by StormScope.
     TODO: Remove once core EDMPrecond architecture is fully upstreamed
     """
     return EDMPrecond(
