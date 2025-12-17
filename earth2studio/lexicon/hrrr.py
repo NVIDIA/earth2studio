@@ -52,7 +52,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "sp": "wrfsfc::PRES::surface::anl",
             "mslp": "wrfsfc::MSLMA::mean sea level::anl",
             "fg10m": "wrfsfc::GUST::surface",
-            "tp": "wrfsfc::APCP::surface::0-0 hour acc",
+            "tp": "wrfsfc::APCP::surface::0-0 hour acc",  # will be zero
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)::anl",
             "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
             "sd": "wrfsfc::WEASD::surface::anl",
@@ -62,7 +62,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "cicep": "wrfsfc::CICEP::surface::anl",
             "cfrzr": "wrfsfc::CFRZR::surface::anl",
             "crain": "wrfsfc::CRAIN::surface::anl",
-            "aerot": "wrfsfc::aerot::entire atmosphere (considered as a single layer)",
+            "aerot": "wrfsfc::AOTK::entire atmosphere (considered as a single layer)",  # will be zero
         }
         prs_levels = [
             50,
@@ -194,14 +194,14 @@ class HRRRFXLexicon(metaclass=LexiconType):
             "fg10m": "wrfsfc::GUST::surface",
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)",
             "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
-            "sd": "wrfsfc::WEASD::surface::anl",
-            "sde": "wrfsfc::SNOD::surface::anl",
-            "snowc": "wrfsfc::SNOWC::surface::anl",
+            "sd": "wrfsfc::WEASD::surface::anl",  # will be zero
+            "sde": "wrfsfc::SNOD::surface::anl",  # will be zero
+            "snowc": "wrfsfc::SNOWC::surface::anl",  # will be zero
             "csnow": "wrfsfc::CSNOW::surface",
             "cicep": "wrfsfc::CICEP::surface",
             "cfrzr": "wrfsfc::CFRZR::surface",
             "crain": "wrfsfc::CRAIN::surface",
-            "aerot": "wrfsfc::aerot::entire atmosphere (considered as a single layer)",
+            "aerot": "wrfsfc::AOTK::entire atmosphere (considered as a single layer)",
         }
         prs_levels = [
             50,

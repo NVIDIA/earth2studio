@@ -846,6 +846,8 @@ class HRRR_FX(HRRR):
         else:
             session = None
 
+        # Generate HRRR lat-lon grid to append onto data array
+        lat, lon = self.grid()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -866,6 +868,8 @@ class HRRR_FX(HRRR):
                 "variable": variable,
                 "hrrr_x": self.HRRR_X,
                 "hrrr_y": self.HRRR_Y,
+                "lat": (("hrrr_y", "hrrr_x"), lat),
+                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
         )
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
