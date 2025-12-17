@@ -761,7 +761,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords["batch"].shape[0],
                 coords["time"].shape[0],
                 coords["lead_time"].shape[0],
-                coords["variable"].shape[0],
+                coords["variable"].shape[0]+len(self.invariant_ids),
                 coords["lat"].shape[0],
                 coords["lon"].shape[0],
             ],
