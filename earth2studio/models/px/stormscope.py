@@ -31,7 +31,7 @@ from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     handshake_coords,
@@ -51,7 +51,7 @@ try:
     from physicsnemo.utils.generative import deterministic_sampler  # noqa: F401
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
-    OptionalDependencyFailure("obscast")
+    OptionalDependencyFailure("stormscope")
     Module = None  # type: ignore[assignment]
     deterministic_sampler = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
@@ -63,7 +63,7 @@ from earth2studio.models.nn.scv2_util import (
 
 
 def model_wrap(model: Module) -> nn.Module:
-    """Wrap a physicsnemo Module so it is compatible with the preconditioning and sampler used by ObsCast.
+    """Wrap a physicsnemo Module so it is compatible with the preconditioning and sampler used by StormScope.
     TODO: Remove once core EDMPrecond architecture is fully upstreamed
     """
     return EDMPrecond(
@@ -74,14 +74,16 @@ def model_wrap(model: Module) -> nn.Module:
 
 
 @check_optional_dependencies()
-class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """ObsCast diffusion-only prognostic base model with staged denoising.
+class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """StormScope diffusion prognostic base model with staged denoising.
+
     Variants should subclass to define dataset/resolution specifics (e.g., grids,
     variables, and data loading).
 
     This base class supports an "ensemble of experts" approach where the diffusion
     sampler is invoked in multiple stages, each using a different set of model
     weights applicable to a specific sigma range. Stages are defined by `model_spec`.
+    Single-stage (standard diffusion sampling with one denoiser) is also supported. 
 
     Parameters
     ----------
@@ -98,33 +100,39 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     variables : np.ndarray
         Names of prognostic variables corresponding to the high-resolution state.
     latitudes : torch.Tensor
-        Latitudes of the grid, expected shape [H, W]
+        Latitudes of the grid, expected shape [H, W].
     longitudes : torch.Tensor
-        Longitudes of the grid, expected shape [H, W]
+        Longitudes of the grid, expected shape [H, W].
     conditioning_means : torch.Tensor | None, optional
-        Means to normalize any external conditioning data, by default None.
+        Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
-        Stds to normalize any external conditioning data, by default None.
+        Stds to normalize any external conditioning data. Default is None.
     conditioning_variables : np.ndarray | None, optional
-        Names of external conditioning variables, by default None.
+        Names of external conditioning variables. Default is None.
     conditioning_data_source : Any | None, optional
         Data source for external conditioning. Subclasses should define how this is
-        used; base class does not fetch conditioning by default. Defaults to None.
-    sampler_args : dict[str, float | int], optional
-        Default sampler arguments passed to the diffusion sampler,
-        by default {"num_steps": 100, "S_churn": 10}.
-    input_times: np.ndarray, optional
-        Input timesteps, of type timedelta64. Defaults to [0 h] (i.e., the current time).
-    output_times: np.ndarray, optional
-        Output timesteps, of type timedelta64. Defaults to [1 h] (i.e., 1 hour from the current time).
+        used; base class does not fetch conditioning by default. Default is None.
+    sampler_args : dict[str, Any] | None, optional
+        Default sampler arguments passed to the diffusion sampler.
+        Default is {"num_steps": 100, "S_churn": 10}.
+    input_times : np.ndarray, optional
+        Input timesteps, of type timedelta64. Default is [0 m] (i.e., the current time).
+    output_times : np.ndarray, optional
+        Output timesteps, of type timedelta64. Default is [60 m] (i.e., 1 hour from the current time).
     y_coords : np.ndarray | None, optional
-        Y coordinates of the grid, expected shape [H, W]. Defaults to None, in which
+        Y coordinates of the grid, expected shape [H, W]. Default is None, in which
         case the model uses the enumerated indices inferred from the latitude and
         longitude grid shapes.
     x_coords : np.ndarray | None, optional
-        X coordinates of the grid, expected shape [H, W]. Defaults to None, in which
+        X coordinates of the grid, expected shape [H, W]. Default is None, in which
         case the model uses the enumerated indices inferred from the latitude and
         longitude grid shapes.
+    input_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of input data.
+        Points beyond this distance are masked as invalid. Default is 12.0.
+    conditioning_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
+        Points beyond this distance are masked as invalid. Default is 26.0.
     """
 
     # Constants used to normalize lat/lon input features
@@ -141,14 +149,6 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
-
-    # Instance attribute type declarations for mypy
-    means: torch.Tensor
-    stds: torch.Tensor
-    valid_mask: torch.Tensor
-    conditioning_valid_mask: torch.Tensor
-    input_interp: NearestNeighborInterpolator | None
-    conditioning_interp: NearestNeighborInterpolator | None
 
     def __init__(
         self,
@@ -167,6 +167,8 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
+        input_interp_max_dist_km: float = 12.0,
+        conditioning_interp_max_dist_km: float = 26.0,
     ):
         super().__init__()
         # Validate and store staged models
@@ -175,7 +177,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if conditioning_data_source is None:
             logger.warning(
-                "No conditioning data source was provided to ObsCast; set the conditioning_data_source attribute "
+                "No conditioning data source was provided to StormScope; set the conditioning_data_source attribute "
                 "of the model before running inference with iterator mode, or use the call_with_conditioning method."
             )
 
@@ -187,8 +189,10 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("longitudes", longitudes)
         self._lat_cpu_copy = self.latitudes.cpu().numpy()
         self._lon_cpu_copy = self.longitudes.cpu().numpy()
-        self.register_buffer("valid_mask", torch.ones_like(latitudes))
-        self.register_buffer("conditioning_valid_mask", torch.ones_like(latitudes))
+        self.register_buffer("valid_mask", torch.ones_like(latitudes, dtype=torch.bool))
+        self.register_buffer("conditioning_valid_mask", torch.ones_like(latitudes, dtype=torch.bool))
+        self._input_interp_max_dist_km = input_interp_max_dist_km
+        self._conditioning_interp_max_dist_km = conditioning_interp_max_dist_km
 
         if y_coords is not None and x_coords is not None:
             self.y = y_coords
@@ -231,11 +235,11 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load a default local package for ObsCast models."""
+        """Load a default local package for StormScope models."""
         package = Package(
             "/lustre/fsw/portfolios/coreai/users/pharrington/model_pkg/scv2",
             cache_options={
-                "cache_storage": Package.default_cache("obscast"),
+                "cache_storage": Package.default_cache("stormscope"),
                 "same_names": True,
             },
         )
@@ -247,17 +251,17 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         *args: Any,
         **kwargs: Any,
-    ) -> DiagnosticModel:
+    ) -> PrognosticModel:
         """Load model from package. Must be implemented by subclasses."""
         raise NotImplementedError(
-            "ObsCastBase.load_model must be implemented by a subclass."
+            "StormScopeBase.load_model must be implemented by a subclass."
         )
 
     def build_input_interpolator(
         self,
         input_lats: torch.Tensor | ArrayLike,
         input_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float = 6.0,
+        max_dist_km: float | None = None,
     ) -> nn.Module:
         """Build a module to handle interpolating data on an arbitrary input lat/lon grid
         to the internal lat/lon grid, done via nearest neighbor interpolation.
@@ -273,6 +277,8 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Target points farther than this threshold are marked invalid and will
             receive NaNs in the output. By default 6.0.
         """
+        if max_dist_km is None:
+            max_dist_km = self._input_interp_max_dist_km
         self.input_interp = NearestNeighborInterpolator(
             source_lats=input_lats,
             source_lons=input_lons,
@@ -301,7 +307,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         conditioning_lats: torch.Tensor | ArrayLike,
         conditioning_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float = 6.0,
+        max_dist_km: float | None = None,
     ) -> nn.Module:
         """Build a module to handle interpolating data on an arbitrary input lat/lon grid
         to the internal lat/lon grid, done via nearest neighbor interpolation.
@@ -317,6 +323,8 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Target points farther than this threshold are marked invalid and will
             receive NaNs in the output. By default 6.0.
         """
+        if max_dist_km is None:
+            max_dist_km = self._conditioning_interp_max_dist_km
         self.conditioning_interp = NearestNeighborInterpolator(
             source_lats=conditioning_lats,
             source_lons=conditioning_lons,
@@ -347,7 +355,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def input_coords(self) -> CoordSystem:
         """Input coordinate system. Subclasses should override for specific variants."""
         raise NotImplementedError(
-            "ObsCastBase.input_coords must be implemented by a subclass."
+            "StormScopeBase.input_coords must be implemented by a subclass."
         )
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -364,7 +372,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinate system dictionary for the model output.
         """
         raise NotImplementedError(
-            "ObsCastBase.output_coords must be implemented by a subclass."
+            "StormScopeBase.output_coords must be implemented by a subclass."
         )
 
     def fetch_conditioning(
@@ -385,7 +393,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Conditioning tensor aligned with `coords`.
         """
         raise NotImplementedError(
-            "ObsCastBase.fetch_conditioning must be implemented by a subclass."
+            "StormScopeBase.fetch_conditioning must be implemented by a subclass."
         )
 
     def normalize_conditioning(
@@ -503,13 +511,13 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         target_cz_times = input_cz_times + self.output_times[-1]
         input_cz_times = np.array(
             [
-                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc)
+                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc) #TODO use from_timestamp with tzinfo
                 for t in input_cz_times
             ]
         )
         target_cz_times = np.array(
             [
-                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc)
+                datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc) #TODO use from_timestamp with tzinfo
                 for t in target_cz_times
             ]
         )
@@ -556,7 +564,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
             Input tensor for a single step with shape [B, T, L, C, H, W].
         coords : CoordSystem
-            Coordinates describing `x`. Used by subclasses if needed.
+            Coordinates describing `x`.
         conditioning : torch.Tensor | None, optional
             External conditioning aligned to `x` if used, by default None.
         conditioning_coords : CoordSystem | None, optional
@@ -601,6 +609,38 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             b * t, *x.shape[3:], device=x.device, dtype=x.dtype
         )  # shape [B*T, C, H, W]
 
+        # # DEBUG: LOAD FORCED INPUTS AND RNG STATE
+        # import matplotlib.pyplot as plt
+        # rng_state = torch.load("rng_state.pth", map_location="cpu", weights_only=False)
+        # np.random.set_state(rng_state["numpy"])
+        # torch.set_rng_state(rng_state["torch_cpu"])
+        # torch.cuda.set_rng_state_all(rng_state["torch_cuda"])
+        # latents2 = torch.from_numpy(np.load("goes_latents.npy")).to(x.device, x.dtype)
+        # condition2 = torch.from_numpy(np.load("goes_inp_full.npy")).to(x.device, x.dtype)
+        # pred = torch.from_numpy(np.load("goes_pred.npy")).to(x.device, x.dtype)
+
+        # for i in range(12):
+        #     plt.figure(figsize=(20,10))
+        #     plt.subplot(1, 3, 1)
+        #     plt.imshow(condition[0, i].detach().cpu().numpy())
+        #     plt.title(f"Condition {i}")
+        #     plt.colorbar(orientation="horizontal")
+        #     plt.subplot(1, 3, 2)
+        #     plt.imshow(condition2[0, i].detach().cpu().numpy())
+        #     plt.colorbar(orientation="horizontal")
+        #     plt.title(f"Reference condition {i}")
+        #     plt.subplot(1, 3, 3)
+        #     diff = condition[0, i].detach().cpu().numpy() - condition2[0, i].detach().cpu().numpy()
+        #     cmax = np.max(np.abs(diff))
+        #     plt.imshow(diff, cmap="bwr", vmin=-cmax, vmax=cmax)
+        #     plt.title(f"Diff {i}")
+        #     plt.colorbar(orientation="horizontal")
+        #     plt.savefig(f"outputs/XXXIC_compare_{i:02d}.png")
+        #     plt.close()
+
+        # latents = latents2
+        # condition = condition2
+
         # Run diffusion sampler
         out = self._edm_sampler(
             latents=latents,
@@ -609,6 +649,27 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sigma_max=self.end_sigma,
             **self.sampler_args,
         ).to(output_dtype)
+        
+        # print(out.shape, pred.shape)
+        # for i in range(8):
+        #     plt.figure(figsize=(20,10))
+        #     plt.subplot(1, 3, 1)
+        #     plt.imshow(out[0, i].detach().cpu().numpy())
+        #     plt.title(f"Out {i}")
+        #     plt.colorbar(orientation="horizontal")
+        #     plt.subplot(1, 3, 2)
+        #     plt.imshow(pred[0, i].detach().cpu().numpy())
+        #     plt.title(f"Pred {i}")
+        #     plt.colorbar(orientation="horizontal")
+        #     plt.subplot(1, 3, 3)
+        #     diff = out[0, i].detach().cpu().numpy() - pred[0, i].detach().cpu().numpy()
+        #     cmax = np.max(np.abs(diff))
+        #     plt.imshow(diff, cmap="bwr", vmin=-cmax, vmax=cmax)
+        #     plt.title(f"Diff {i}")
+        #     plt.colorbar(orientation="horizontal")
+        #     plt.savefig(f"outputs/XXX_compare_{i:02d}.png")
+        #     plt.close()
+        # sys.exit()
 
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
 
@@ -747,7 +808,7 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x, x_coords
 
-    # @batch_func() #TODO see if we can extend batch_func to support multiple (tensor, coords) pairs
+    # @batch_func() # TODO: batch_func enabled when merged with upstream
     def next_input(
         self,
         pred: torch.Tensor,
@@ -914,8 +975,9 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Return the result with any invalid points set to nan
         coords = coords.copy()
         x, coords = self.prep_input(x, coords)
-        coords = self.output_coords(coords)
-        yield torch.where(~self.valid_mask, torch.nan, x), coords
+        ic_coords = coords.copy()
+        ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
+        yield torch.where(~self.valid_mask, torch.nan, x), ic_coords
 
         while True:
             x, coords = self.front_hook(x, coords)
@@ -946,43 +1008,70 @@ class ObsCastBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield from self._default_generator(x, coords)
 
 
-class ObsCastGOES(ObsCastBase):
-    """ObsCast variant for GOES inputs on the HRRR grid.
-    Single input lead time and predicts one step 1 hour ahead.
+class StormScopeGOES(StormScopeBase):
+    """StormScope model forecasting GOES data on the HRRR grid.
+
+    This model supports multiple variants at different spatiotemporal resolutions:
+      - 6km resolution, 60 minute timestep
+      - 6km resolution, 10 minute timestep
+      - 3km resolution, 10 minute timestep
+    Selection between these can be made by passing the ``model_name argument`` to this
+    class's ``load_model`` method.
+
+    The 6km/10min model uses a sliding window of 6 input timesteps and predicts one
+    output timestep; other models use a single input timestep and predict one output
+    timestep.
 
     Parameters
     ----------
     model_spec : list[dict[str, Any]]
-        Sequence of stage specifications; see `ObsCastBase`.
+        Sequence of stage specifications; see `StormScopeBase`.
     means : torch.Tensor
         Per-variable mean for normalization, shape [1, C, 1, 1].
     stds : torch.Tensor
         Per-variable std for normalization, shape [1, C, 1, 1].
-    hrrr_lat_lim : tuple[int, int], optional
-        HRRR grid latitude limits, by default (273, 785).
-    hrrr_lon_lim : tuple[int, int], optional
-        HRRR grid longitude limits, by default (579, 1219).
+    latitudes : torch.Tensor
+        Latitudes of the grid, expected shape [H, W].
+    longitudes : torch.Tensor
+        Longitudes of the grid, expected shape [H, W].
     variables : np.ndarray, optional
-        GOES input variables, by default:
-        ["abi01c","abi02c","abi03c","abi07c","abi08c","abi09c","abi10c"].
+        GOES input variables. Default is
+        ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
     conditioning_variables : np.ndarray, optional
-        Auxiliary conditioning variables, by default ["z500"].
+        Auxiliary conditioning variables. Default is ["z500"].
     conditioning_means : torch.Tensor | None, optional
-        Means for any external conditioning, by default None.
+        Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
-        Stds for any external conditioning, by default None.
+        Stds to normalize any external conditioning data. Default is None.
     conditioning_data_source : Any | None, optional
-        Data source for external conditioning, by default None.
-    sampler_args : dict[str, float | int], optional
-        Default sampler args used for the diffusion sampler, by default {"num_steps": 100, "S_churn": 10}.
-    latitudes : torch.Tensor | None, optional
-        Latitudes of the grid, by default None.
-    longitudes : torch.Tensor | None, optional
-        Longitudes of the grid, by default None.
-    input_times: np.ndarray, optional
-        Input timesteps, by default [0].
-    output_times: np.ndarray, optional
-        Output timesteps, by default [1].
+        Data source for external conditioning. Default is None.
+    sampler_args : dict[str, Any] | None, optional
+        Default sampler arguments passed to the diffusion sampler.
+        Default is {"num_steps": 100, "S_churn": 10}.
+    input_times : np.ndarray, optional
+        Input timesteps, of type timedelta64. Default is [0 m] (i.e., the current time).
+    output_times : np.ndarray, optional
+        Output timesteps, of type timedelta64. Default is [60 m] (i.e., 1 hour from the current time).
+    y_coords : np.ndarray | None, optional
+        Y coordinates of the grid, expected shape [H, W]. Default is None, in which
+        case the model uses the enumerated indices inferred from the latitude and
+        longitude grid shapes.
+    x_coords : np.ndarray | None, optional
+        X coordinates of the grid, expected shape [H, W]. Default is None, in which
+        case the model uses the enumerated indices inferred from the latitude and
+        longitude grid shapes.
+    input_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of input data.
+        Points beyond this distance are masked as invalid. Default is 12.0.
+    conditioning_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
+        Points beyond this distance are masked as invalid. Default is 26.0.
+
+    Note
+    ----
+    To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
+    As a result, there are portions of the domain which go beyond the extent of the GOES-East data,
+    so these portions are masked as invalid (set to NaN).
     """
 
     def __init__(
@@ -1013,6 +1102,8 @@ class ObsCastGOES(ObsCastBase):
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
+        input_interp_max_dist_km: float = 12.0,
+        conditioning_interp_max_dist_km: float = 26.0,
     ):
 
         super().__init__(
@@ -1031,6 +1122,8 @@ class ObsCastGOES(ObsCastBase):
             output_times=output_times,
             y_coords=y_coords,
             x_coords=x_coords,
+            input_interp_max_dist_km=input_interp_max_dist_km,
+            conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
         )
         self.means = self.means[:, -len(self.variables) :, :, :]
         self.stds = self.stds[:, -len(self.variables) :, :, :]
@@ -1102,7 +1195,7 @@ class ObsCastGOES(ObsCastBase):
 
         if self.conditioning_data_source is None:
             raise RuntimeError(
-                "ObsCastGOES has been called without initializing the model's conditioning_data_source"
+                "StormScopeGOES has been called without initializing the model's conditioning_data_source"
             )
 
         conditioning, conditioning_coords = fetch_data(
@@ -1111,28 +1204,36 @@ class ObsCastGOES(ObsCastBase):
             variable=self.conditioning_variables,
             lead_time=coords["lead_time"],
             device=device,
-            # interp_to=coords | {"_lat": self._lat_cpu_copy, "_lon": self._lon_cpu_copy},
-            # interp_method="linear",
         )
 
-        # TODO resolve if -GOES should prefer linear vs. NN interp
-        # for k in ["_lat", "_lon", "lat", "lon"]:
-        #     conditioning_coords.pop(k)
-        # conditioning_coords["y"] = self.y
-        # conditioning_coords["x"] = self.x
-        # conditioning_coords.move_to_end("y", last=True)
-        # conditioning_coords.move_to_end("x", last=True)
         return conditioning, conditioning_coords
 
     @classmethod
     def load_model(
         cls,
         package: Package,
-        model_name: str = "6km_60min_natten_cos_zenith_input_eoe_v2",  # "6km_10min_natten_pure_obs_zenith_6steps"
+        model_name: str = "6km_60min_natten_cos_zenith_input_eoe_v2",
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
-    ) -> DiagnosticModel:
-        """Load model from package. Must be implemented by subclasses."""
+    ) -> PrognosticModel:
+        """Load model from package.
+        
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        model_name : str, optional
+            Model name to load; allows for selection between different variants of the model:
+            - "6km_60min_natten_cos_zenith_input_eoe_v2": 6km resolution, 60 minute timestep
+            - "6km_10min_natten_pure_obs_zenith_6steps": 6km resolution, 10 minute timestep
+            - "3km_10min_natten_pure_obs_cos_zenith_input_eoe": 3km resolution, 10 minute timestep
+        conditioning_data_source : DataSource | ForecastSource | None, optional
+            Data source to use for conditioning, by default None.
 
+        Returns
+        -------
+        PrognosticModel
+            Instantiated StormScopeGOES model
+        """
         with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
             pkg = registry[model_name]
@@ -1222,46 +1323,77 @@ class ObsCastGOES(ObsCastBase):
             output_times=output_times,
             y_coords=y,
             x_coords=x,
+            input_interp_max_dist_km=6.0*spatial_downsample,
         )
 
 
-class ObsCastMRMS(ObsCastBase):
-    """ObsCast variant for MRMS predictions on the HRRR grid.
-    Single input lead time and predicts one step 1 hour ahead.
+class StormScopeMRMS(StormScopeBase):
+    """StormScope model forecasting MRMS data on the HRRR grid.
+
+    This model supports multiple variants at different temporal resolutions:
+      - 6km resolution, 60 minute timestep
+      - 6km resolution, 10 minute timestep
+    Selection between these can be made by passing the ``model_name argument`` to this
+    class's ``load_model`` method.
+
+    The 6km/10min model uses a sliding window of 6 input timesteps and predicts one
+    output timestep; other models use a single input timestep and predict one output
+    timestep. All StormScopeMRMS models by default expect GOES-East data as 
+    conditioning; typically in a forecasting run this can be provided by passing the
+    predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
+    method. Otherwise, the user must provide a conditioning data source for the model
+    to use during inference.
 
     Parameters
     ----------
     model_spec : list[dict[str, Any]]
-        Sequence of stage specifications; see `ObsCastBase`.
+        Sequence of stage specifications; see `StormScopeBase`.
     means : torch.Tensor
         Per-variable mean for normalization, shape [1, C, 1, 1].
     stds : torch.Tensor
         Per-variable std for normalization, shape [1, C, 1, 1].
-    hrrr_lat_lim : tuple[int, int], optional
-        HRRR grid latitude limits, by default (273, 785).
-    hrrr_lon_lim : tuple[int, int], optional
-        HRRR grid longitude limits, by default (579, 1219).
+    latitudes : torch.Tensor
+        Latitudes of the grid, expected shape [H, W].
+    longitudes : torch.Tensor
+        Longitudes of the grid, expected shape [H, W].
     variables : np.ndarray, optional
-        GOES input variables, by default:
-        ["abi01c","abi02c","abi03c","abi07c","abi08c","abi09c","abi10c"].
+        MRMS input variables. Default is ["refc"].
     conditioning_variables : np.ndarray, optional
-        Auxiliary conditioning variables, by default ["z500"].
+        Auxiliary conditioning variables (typically GOES channels). Default is
+        ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
     conditioning_means : torch.Tensor | None, optional
-        Means for any external conditioning, by default None.
+        Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
-        Stds for any external conditioning, by default None.
+        Stds to normalize any external conditioning data. Default is None.
     conditioning_data_source : Any | None, optional
-        Data source for external conditioning, by default None.
-    sampler_args : dict[str, float | int], optional
-        Default sampler args used for the diffusion sampler, by default {"num_steps": 100, "S_churn": 10}.
-    latitudes : torch.Tensor | None, optional
-        Latitudes of the grid, by default None.
-    longitudes : torch.Tensor | None, optional
-        Longitudes of the grid, by default None.
-    input_times: np.ndarray, optional
-        Input timesteps, of type timedelta64. Defaults to [0 h] (i.e., the current time).
-    output_times: np.ndarray, optional
-        Output timesteps, of type timedelta64. Defaults to [1 h] (i.e., 1 hour from the current time).
+        Data source for external conditioning. Default is None.
+    sampler_args : dict[str, float | int] | None, optional
+        Default sampler arguments passed to the diffusion sampler.
+        Default is {"num_steps": 100, "S_churn": 10}.
+    y_coords : np.ndarray | None, optional
+        Y coordinates of the grid, expected shape [H, W]. Default is None, in which
+        case the model uses the enumerated indices inferred from the latitude and
+        longitude grid shapes.
+    x_coords : np.ndarray | None, optional
+        X coordinates of the grid, expected shape [H, W]. Default is None, in which
+        case the model uses the enumerated indices inferred from the latitude and
+        longitude grid shapes.
+    input_times : np.ndarray, optional
+        Input timesteps, of type timedelta64. Default is [0 h] (i.e., the current time).
+    output_times : np.ndarray, optional
+        Output timesteps, of type timedelta64. Default is [1 h] (i.e., 1 hour from the current time).
+    input_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of input data.
+        Points beyond this distance are masked as invalid. Default is 12.0.
+    conditioning_interp_max_dist_km : float, optional
+        Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
+        Points beyond this distance are masked as invalid. Default is 26.0.
+
+    Note
+    ----
+    To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
+    As a result, there are portions of the domain which go beyond the extent of the MRMS data,
+    so these portions are masked as invalid (set to NaN).
     """
 
     _STATE_FIRST = False
@@ -1297,6 +1429,8 @@ class ObsCastMRMS(ObsCastBase):
         x_coords: np.ndarray | None = None,
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
+        input_interp_max_dist_km: float = 12.0,
+        conditioning_interp_max_dist_km: float = 26.0,
     ):
 
         super().__init__(
@@ -1315,6 +1449,8 @@ class ObsCastMRMS(ObsCastBase):
             x_coords=x_coords,
             input_times=input_times,
             output_times=output_times,
+            input_interp_max_dist_km=input_interp_max_dist_km,
+            conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
         )
         self.means = self.means[:, -len(self.variables) :, :, :]
         self.stds = self.stds[:, -len(self.variables) :, :, :]
@@ -1386,7 +1522,7 @@ class ObsCastMRMS(ObsCastBase):
 
         if self.conditioning_data_source is None:
             raise RuntimeError(
-                "ObsCastMRMS has been called without initializing the model's conditioning_data_source"
+                "StormScopeMRMS has been called without initializing the model's conditioning_data_source"
             )
 
         conditioning, conditioning_coords = fetch_data(
@@ -1420,8 +1556,25 @@ class ObsCastMRMS(ObsCastBase):
         package: Package,
         model_name: str = "6km_60min_natten_cos_zenith_input_mrms_eoe",
         conditioning_data_source: DataSource | ForecastSource | None = None,
-    ) -> DiagnosticModel:
-        """Load model from package. Must be implemented by subclasses."""
+    ) -> PrognosticModel:
+        """Load model from package.
+        
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        model_name : str, optional
+            Model name to load; allows for selection between different variants of the model:
+              - "6km_60min_natten_cos_zenith_input_mrms_eoe": 6km resolution, 60 minute timestep
+              - "6km_10min_natten_pure_obs_mrms_obs_6steps": 6km resolution, 10 minute timestep
+        conditioning_data_source : DataSource | ForecastSource | None, optional
+            Data source to use for conditioning, by default None.
+
+        Returns
+        -------
+        PrognosticModel
+            Instantiated StormScopeMRMS model
+        """
 
         with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
@@ -1512,4 +1665,5 @@ class ObsCastMRMS(ObsCastBase):
             x_coords=x,
             input_times=input_times,
             output_times=output_times,
+            input_interp_max_dist_km=6.0*spatial_downsample,
         )

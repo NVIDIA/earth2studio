@@ -1,4 +1,3 @@
-# Simple example: initialize ObsCastGOES, fetch GOES input, run one step, and plot one channel
 # TODO make this a proper example with sphinx formatting and explanations
 from datetime import datetime
 
@@ -7,9 +6,10 @@ import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from loguru import logger
 
 from earth2studio.data import GFS_FX, GOES, MRMS, fetch_data
-from earth2studio.models.px.obscast import ObsCastBase, ObsCastGOES, ObsCastMRMS
+from earth2studio.models.px.stormscope import StormScopeBase, StormScopeGOES, StormScopeMRMS
 from earth2studio.utils.type import CoordSystem
 
 
@@ -75,8 +75,13 @@ def rgb_composite(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 def main() -> None:
 
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
+
     # Initialization time(s)
-    t = datetime(2024, 4, 2, 12, 0, 0)
+    # t = datetime(2024, 4, 2, 12, 0, 0)
+    t = datetime(2025, 12, 5, 19, 10, 0)
+    t = datetime(2024, 3, 15, 18, 0, 0)
     goes_satellite = "goes19" if t >= datetime(2025, 4, 7, 0, 0, 0) else "goes16"
     inits = [np.datetime64(t)]
 
@@ -89,10 +94,10 @@ def main() -> None:
     #  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
     #  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
     #  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
-    goes_model_name = "6km_60min_natten_cos_zenith_input_eoe_v2"
-    mrms_model_name = "6km_60min_natten_cos_zenith_input_mrms_eoe"
-    package = ObsCastBase.load_default_package()
-    model = ObsCastGOES.load_model(
+    goes_model_name = "3km_10min_natten_pure_obs_cos_zenith_input_eoe" #"6km_10min_natten_pure_obs_zenith_6steps"
+    mrms_model_name = "6km_10min_natten_pure_obs_mrms_obs_6steps"
+    package = StormScopeBase.load_default_package()
+    model = StormScopeGOES.load_model(
         package=package,
         conditioning_data_source=GFS_FX(),  # can be set to None if using 10min GOES model
         model_name=goes_model_name,
@@ -100,7 +105,7 @@ def main() -> None:
     model = model.to(device)
     model.eval()
 
-    model_mrms = ObsCastMRMS.load_model(
+    model_mrms = StormScopeMRMS.load_model(
         package=package,
         conditioning_data_source=GOES(),  # can be set to None if using 10min MRMS model
         model_name=mrms_model_name,
@@ -116,9 +121,9 @@ def main() -> None:
     y, x = model.y, model.x
     goes = GOES(satellite=goes_satellite, scan_mode=scan_mode)
     goes_lat, goes_lon = GOES.grid(satellite=goes_satellite, scan_mode=scan_mode)
-    model.build_input_interpolator(goes_lat, goes_lon, max_dist_km=12.0)
+    model.build_input_interpolator(goes_lat, goes_lon)
     model.build_conditioning_interpolator(
-        GFS_FX.GFS_LAT, GFS_FX.GFS_LON, max_dist_km=26.0
+        GFS_FX.GFS_LAT, GFS_FX.GFS_LON
     )  # interpolating from 25km global grid, we don't want NaNs
     in_coords = model.input_coords()
 
@@ -141,9 +146,9 @@ def main() -> None:
         device=device,
     )
     model_mrms.build_input_interpolator(
-        x_coords_mrms["lat"], x_coords_mrms["lon"], max_dist_km=12.0
+        x_coords_mrms["lat"], x_coords_mrms["lon"]
     )
-    model_mrms.build_conditioning_interpolator(goes_lat, goes_lon, max_dist_km=12.0)
+    model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
     # Add batch dimension: [B, T, L, C, H, W]
     batch_size = 1
@@ -168,15 +173,20 @@ def main() -> None:
         y_pred, y_pred_coords = model(y, y_coords)
 
         # Run one prognostic step with MRMS
-        y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
-            y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
-        )
+        # y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
+        #     y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
+        # )
+        spoof_y_coords = y_coords.copy()
+        spoof_y_coords["variable"] = y_coords_mrms["variable"]
+
 
         plot_step(
             y_pred,
             y_pred_coords,
-            y_mrms_pred,
-            y_coords_mrms_pred,
+            -1*torch.ones_like(y_pred),
+            spoof_y_coords,
+            # y_mrms_pred,
+            # y_coords_mrms_pred,
             composite=True,
             channel="refc",
             cmap="inferno",
@@ -189,19 +199,15 @@ def main() -> None:
 
         # Update sliding window with new prediction (no-op if model doesn't use sliding window)
         y_pred, y_pred_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
-        y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
-            y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
-        )
+        # y_mrms_pred, y_coords_mrms_pred = model_mrms.next_input(
+        #     y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
+        # )
 
         y = y_pred
         y_coords = y_pred_coords
-        y_mrms = y_mrms_pred
-        y_coords_mrms = y_coords_mrms_pred
-        print(
-            "STEP",
-            step_idx,
-            y_pred_coords["lead_time"][-1].astype("timedelta64[m]").item(),
-        )
+        # y_mrms = y_mrms_pred
+        # y_coords_mrms = y_coords_mrms_pred
+        logger.info(f"STEP {step_idx} {y_pred_coords['lead_time'][-1].astype('timedelta64[m]').item()}")
 
     # Test iterator mode
     # iterator = model.create_iterator(x, x_coords)
@@ -321,7 +327,7 @@ def plot_step(
     )
 
     plt.tight_layout()
-    plt.savefig(f"outputs/20_obscast_goes_example_step{step_idx:02d}.png", dpi=300)
+    plt.savefig(f"outputs/20_stormscope_goes_example_step{step_idx:02d}.png", dpi=300)
 
 
 if __name__ == "__main__":
