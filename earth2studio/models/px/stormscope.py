@@ -46,14 +46,11 @@ from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordSystem
 
 try:
-    # Optional dependency: physicsnemo and its sampler are required to run inference.
     from physicsnemo.models import Module
-    from physicsnemo.utils.generative import deterministic_sampler  # noqa: F401
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")
     Module = None  # type: ignore[assignment]
-    deterministic_sampler = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
 from earth2studio.models.nn.stormscope_util import (
