@@ -14,12 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from loguru import logger
+import tqdm
+import os
+import urllib.request
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -39,6 +44,11 @@ try:
     import flash_attn  # noqa: F401
 except ImportError:
     OptionalDependencyFailure("aifsens")
+
+
+# TODO: Make this package wide? Same as in run.py
+logger.remove()
+logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 VARIABLES = [
     "q50",
@@ -206,9 +216,13 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes: torch.Tensor,
         interpolation_matrix: torch.Tensor,
         inverse_interpolation_matrix: torch.Tensor,
+        invariants: torch.Tensor = None,
+        invariant_coords: CoordSystem = None,
     ) -> None:
         super().__init__()
         self.model = model
+        self.invariant_coords = invariant_coords
+        self.register_buffer("invariants", invariants)
         self.register_buffer("latitudes", latitudes)
         self.register_buffer("longitudes", longitudes)
         self.register_buffer("interpolation_matrix", interpolation_matrix)
@@ -218,6 +232,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @property
     def input_variables(self) -> list[str]:
+        self.invariant_ids = torch.Tensor([VARIABLES.index(inv) for inv in self.invariant_coords['variable']]).int()
+
         indices = torch.cat(
             [
                 self.model.data_indices.data.input.prognostic,
@@ -230,6 +246,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Create the range of values to remove
         to_remove = torch.arange(92, 101)  # generated forcings
+        to_remove = torch.cat([to_remove, self.invariant_ids])
 
         # Keep only elements NOT in to_remove
         mask = ~torch.isin(indices, to_remove)
@@ -333,6 +350,21 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "same_names": True,
             },
         )
+
+        # download static vars from NCAR mirror and add to model package
+        ecmwf_ids = {'lsm': 172, 'sdor': 160, 'slor': 163, 'z': 129}
+        for invar in ['lsm', 'sdor', 'slor', 'z']:
+            lsm_url = f'https://nsf-ncar-era5.s3.amazonaws.com/e5.oper.invariant/197901/e5.oper.invariant.128_{ecmwf_ids[invar]:03d}_{invar}.ll025sc.1979010100_1979010100.nc'
+            lsm_filename = f'{invar}.nc'
+            lsm_path = os.path.join(package.cache, lsm_filename)
+
+            # if not cached already
+            if not os.path.exists(lsm_path):
+                os.makedirs(package.cache, exist_ok=True)
+                with tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1024, desc=f"Downloading {invar}") as pbar:
+                    urllib.request.urlretrieve(lsm_url, lsm_path,
+                        reporthook=lambda b, bs, t: (pbar.total or setattr(pbar, 'total', t), pbar.update(bs)))
+
         return package
 
     @classmethod
@@ -409,6 +441,23 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dtype=torch.float64,
         )
 
+        # load invariants
+        datasets = []
+        for ff, var_name in zip(['lsm.nc', 'sdor.nc', 'slor.nc', 'z.nc'], ['LSM', 'SDOR', 'SLOR', 'Z']):
+            ds = xr.load_dataset(os.path.join(package.cache, ff))[[var_name]]
+            ds = ds.rename({var_name: var_name.lower()}) # all-caps to lower case
+            datasets.append(ds)
+        invariants = xr.merge(datasets).to_array()
+
+        # rename and sort coords, remove time dimension
+        e2s_keys = {'time': 'time', 'variable': 'variable', 'latitude': 'lat', 'longitude': 'lon'}
+        invariant_coords =  OrderedDict((e2s_keys[name], coord.values) for name, coord in invariants.coords.items())
+        invariant_coords.move_to_end('lat')
+        invariant_coords.move_to_end('lon')
+
+        invariant_coords.pop('time')
+        invariants = torch.Tensor(invariants.values).squeeze()
+
         return cls(
             model,
             latitudes=torch.Tensor(supporting_arrays["latitudes"]).reshape(1, 1, -1, 1),
@@ -417,6 +466,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ),
             interpolation_matrix=torch_interpolation_matrix,
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
+            invariants=invariants,
+            invariant_coords=invariant_coords
         )
 
     def get_cos_sin_julian_day(
@@ -517,13 +568,44 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Clip negative values
         return torch.clamp(zenith_angle, min=0.0)
 
-    def _prepare_input(
+
+    def _add_invariants(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
+        """add ['lsm', 'sdor', 'slor', 'z'] to prognostics"""
+        shape = list(x.shape)
+        shape[-3] += self.invariants.shape[-3]
+        _x = torch.zeros(shape, device=x.device)
+
+        var_ids = torch.arange(_x.shape[-3])
+        mask = ~torch.isin(var_ids, self.invariant_ids)
+        var_ids = [i for i in var_ids[mask].tolist()]
+
+        _x[..., var_ids, :, :] = x
+        _x[..., self.invariant_ids, :, :] = self.invariants
+
+        var_names = np.array([None]*_x.shape[-3], dtype=str)
+        var_names[var_ids] = coords['variable']
+        var_names[self.invariant_ids] = self.invariant_coords['variable']
+        _coords = coords.copy()
+        _coords['variable'] = var_names
+
+        return _x, _coords
+
+    def _prepare_input(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Interpolate the input tensor to the model grid
+        print(f'============>>>>>>>>> {x.shape=}')
+        print(f'============>>>>>>>>> {coords['variable']=}')
+        x, coords = self._add_invariants(x, coords)
+
+
         shape = x.shape
         x = x.flatten(start_dim=4)
         x = x.flatten(end_dim=3)
@@ -742,6 +824,9 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Fill the model input tensor by selecting prognostic + forcing variables,
         while removing generated forcings (indices 92–100).
         """
+        x, coords = self._add_invariants(x, coords)
+
+
         batch, time, lead, _, height, width = x.shape
 
         # Prepare empty output tensor with VARIABLE dimension
