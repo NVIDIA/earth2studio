@@ -28,6 +28,7 @@ class LexiconType(type):
 E2STUDIO_VOCAB = {
     "u10m": "u-component (eastward, zonal) of wind at 10 m (m s-1)",
     "v10m": "v-component (northward, meridional) of wind at 10 m (m s-1)",
+    "ws10m": "wind speed at 10 m (m s-1)",
     "u100m": "u-component of wind at 100 m (m s-1)",
     "v100m": "v-component of wind at 100 m (m s-1)",
     "t2m": "temperature at 2m (K)",
@@ -50,6 +51,7 @@ E2STUDIO_VOCAB = {
     "tp06": "total precipitation accumulated over past 6 hours (m)",
     "cp06": "convective precipitation accumulated over past 6 hours (m)",
     "tpf": "total precipitation flux (kg m-2 s-1)",
+    "tcc": "total cloud cover (0 - 1)",
     "fg10m": "maximum 10 m wind gust since previous post-processing (m s-1)",
     "rlut": "outgoing longwave radiation (W m-2)",
     "rsut": "outgoing shortwave radiation (W m-2)",
@@ -257,7 +259,6 @@ E2STUDIO_VOCAB = {
     "hcc": "high cloud cover (0 - 1)",
     "mcc": "medium cloud cover (0 - 1)",
     "lcc": "low cloud cover (0 - 1)",
-    "tcc": "total cloud cover (0 - 1)",
     "ssrd06": "surface short-wave (solar) radiation downwards (J m-2) past 6 hours",
     "strd06": "surface long-wave (thermal) radiation downwards (J m-2) past 6 hours",
     "sf": "snowfall water equivalent (kg m-2)",
