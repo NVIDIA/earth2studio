@@ -1880,8 +1880,8 @@ requires-dist = [
     { name = "gcsfs" },
     { name = "globus-sdk", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "globus-sdk", marker = "extra == 'data'", specifier = "<4.0.0" },
-    { name = "graphcast", marker = "extra == 'all'", git = "https://github.com/deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
-    { name = "graphcast", marker = "extra == 'graphcast'", git = "https://github.com/deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
+    { name = "graphcast", marker = "extra == 'all'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
+    { name = "graphcast", marker = "extra == 'graphcast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
     { name = "h5py", marker = "extra == 'ace2'", specifier = "<=3.14.0" },
@@ -2770,7 +2770,7 @@ wheels = [
 [[package]]
 name = "graphcast"
 version = "0.2.0.dev0"
-source = { git = "https://github.com/deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014#7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
+source = { git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014#7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 dependencies = [
     { name = "cartopy" },
     { name = "chex", version = "0.1.90", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.13' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
