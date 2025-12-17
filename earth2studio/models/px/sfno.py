@@ -335,7 +335,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         output_coords = self.output_coords(coords)
-        x = x.squeeze(2)
+        x = x.clone().squeeze(2)
         for j, _ in enumerate(coords["batch"]):
             for i, t in enumerate(coords["time"]):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197

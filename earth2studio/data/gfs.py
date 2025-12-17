@@ -189,6 +189,9 @@ class GFS:
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -262,10 +265,6 @@ class GFS:
         # Close aiohttp client if s3fs
         if session:
             await session.close()
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         return xr_array.isel(lead_time=0)
 

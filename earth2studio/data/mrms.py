@@ -143,6 +143,10 @@ class MRMS:
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
+
         return xr_array
 
     async def fetch(
@@ -212,10 +216,6 @@ class MRMS:
             field_values = res["field_values"]
             for var_index, modifier in res["idx_mods"]:
                 out[ti, var_index] = modifier(field_values)
-
-        # Delete cache if requested
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         return out
 

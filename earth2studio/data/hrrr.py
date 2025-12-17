@@ -269,6 +269,10 @@ class HRRR:
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
         return xr_array
 
     async def fetch(
@@ -348,10 +352,6 @@ class HRRR:
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
         if session:

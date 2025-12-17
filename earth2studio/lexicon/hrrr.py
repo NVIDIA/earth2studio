@@ -51,6 +51,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "sp": "wrfsfc::PRES::surface::anl",
             "mslp": "wrfsfc::MSLMA::mean sea level::anl",
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)::anl",
+            "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
             "csnow": "wrfsfc::CSNOW::surface::anl",
             "cicep": "wrfsfc::CICEP::surface::anl",
             "cfrzr": "wrfsfc::CFRZR::surface::anl",
@@ -126,8 +127,12 @@ class HRRRLexicon(metaclass=LexiconType):
         if hrrr_key.split("::")[1] == "HGT" and val.startswith("z"):
 
             def mod(x: np.array) -> np.array:
-                """Modify data value (if necessary)."""
                 return x * 9.81
+
+        elif hrrr_key.split("::")[1] == "TCDC":
+
+            def mod(x: np.array) -> np.array:
+                return x / 100.0  # Percentage to (0-1)
 
         else:
 
@@ -171,6 +176,7 @@ class HRRRFXLexicon(metaclass=LexiconType):
             "mslp": "wrfsfc::MSLMA::mean sea level",
             "tp": "wrfsfc::APCP::surface::x-x hour acc",  # 1 hour accumulated
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)",
+            "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
             "csnow": "wrfsfc::CSNOW::surface",
             "cicep": "wrfsfc::CICEP::surface",
             "cfrzr": "wrfsfc::CFRZR::surface",
@@ -246,8 +252,12 @@ class HRRRFXLexicon(metaclass=LexiconType):
         if hrrr_key.split("::")[1] == "HGT" and val.startswith("z"):
 
             def mod(x: np.array) -> np.array:
-                """Modify data value (if necessary)."""
                 return x * 9.81
+
+        elif hrrr_key.split("::")[1] == "TCDC":
+
+            def mod(x: np.array) -> np.array:
+                return x / 100.0  # Percentage to (0-1)
 
         else:
 

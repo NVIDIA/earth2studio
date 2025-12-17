@@ -196,7 +196,7 @@ class ARCO:
 
         # Delete cache if needed
         if not self._cache:
-            shutil.rmtree(self.cache)
+            shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
