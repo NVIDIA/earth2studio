@@ -269,6 +269,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Create the range of values to remove
         to_remove = torch.arange(92, 101)  # generated forcings
+        to_remove = torch.cat([to_remove, self.invariant_ids])
 
         # Keep only elements NOT in to_remove
         mask = ~torch.isin(indices, to_remove)
@@ -579,6 +580,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         shape[-3] += self.invariants.shape[-3]
         _x = torch.zeros(shape, device=x.device)
 
+        # get indices of invariants (CAUTION: works because first forcing comes after last invariant)
         var_ids = torch.arange(_x.shape[-3])
         mask = ~torch.isin(var_ids, self.invariant_ids)
         var_ids = [i for i in var_ids[mask].tolist()]
@@ -600,12 +602,10 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS ENS model."""
-        # Interpolate the input tensor to the model grid
-        print(f'============>>>>>>>>> {x.shape=}')
-        print(f'============>>>>>>>>> {coords['variable']=}')
+        # add invariants
         x, coords = self._add_invariants(x, coords)
 
-
+        # Interpolate the input tensor to the model grid
         shape = x.shape
         x = x.flatten(start_dim=4)
         x = x.flatten(end_dim=3)
@@ -766,6 +766,20 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords["lon"].shape[0],
             ],
         )
+
+        # remove invariants which are located at dimension -3 and are the on indices specified in self.invariant_ids
+
+        # Create mask to exclude invariants
+        var_ids = torch.arange(x.shape[-3])
+        mask = ~torch.isin(var_ids, self.invariant_ids)
+
+        # Select only non-invariant variables
+        x = x[..., mask, :, :]
+        print(f'=================================>>>>>>>>>>> {x.shape}')
+
+        # # Update coords to remove invariant variable names
+        # coords['variable'] = coords['variable'][mask.cpu().numpy()]
+
         return x
 
     @torch.inference_mode()
@@ -824,8 +838,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Fill the model input tensor by selecting prognostic + forcing variables,
         while removing generated forcings (indices 92–100).
         """
+        # add invariants to prognostics
         x, coords = self._add_invariants(x, coords)
-
 
         batch, time, lead, _, height, width = x.shape
 
