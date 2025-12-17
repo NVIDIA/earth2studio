@@ -41,7 +41,7 @@ from earth2studio.data import HRRR, HRRR_FX
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["u10m", "u100"], ["u1hl"]])
+@pytest.mark.parametrize("variable", ["t2m", ["u10m", "u100"], ["u1hl", "tp"]])
 def test_hrrr_fetch(time, variable):
 
     ds = HRRR(cache=False)
