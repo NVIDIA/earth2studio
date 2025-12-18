@@ -147,7 +147,7 @@ class HRRR:
 
         self.lexicon = HRRRLexicon
         self.async_timeout = async_timeout
-        self.anon = True  # S3 / GCS annon access
+        self.anon = True  # S3 / GCS anon access
 
         if self._source == "aws":
             self.uri_prefix = "noaa-hrrr-bdp-pds"
