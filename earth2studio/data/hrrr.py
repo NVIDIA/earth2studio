@@ -269,6 +269,10 @@ class HRRR:
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
+
         return xr_array
 
     async def fetch(
@@ -348,10 +352,6 @@ class HRRR:
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
         if session:
@@ -846,6 +846,8 @@ class HRRR_FX(HRRR):
         else:
             session = None
 
+        # Generate HRRR lat-lon grid to append onto data array
+        lat, lon = self.grid()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -866,6 +868,8 @@ class HRRR_FX(HRRR):
                 "variable": variable,
                 "hrrr_x": self.HRRR_X,
                 "hrrr_y": self.HRRR_Y,
+                "lat": (("hrrr_y", "hrrr_x"), lat),
+                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
         )
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
