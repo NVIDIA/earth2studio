@@ -147,6 +147,7 @@ class HRRR:
 
         self.lexicon = HRRRLexicon
         self.async_timeout = async_timeout
+        self.anon = True  # S3 / GCS annon access
 
         if self._source == "aws":
             self.uri_prefix = "noaa-hrrr-bdp-pds"
@@ -212,11 +213,13 @@ class HRRR:
         Async fsspec expects initialization inside of the execution loop
         """
         if self._source == "aws":
-            self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+            self.fs = s3fs.S3FileSystem(
+                anon=self.anon, client_kwargs={}, asynchronous=True
+            )
         elif self._source == "google":
             fs = gcsfs.GCSFileSystem(
                 cache_timeout=-1,
-                token="anon",  # noqa: S106 # nosec B106
+                token="anon" if self.anon else None,  # noqa: S106 # nosec B106
                 access="read_only",
                 block_size=8**20,
             )
@@ -583,17 +586,23 @@ class HRRR:
         filename = sha.hexdigest()
         cache_path = os.path.join(self.cache, filename)
 
-        if not pathlib.Path(cache_path).is_file():
-            if self.fs.async_impl:
-                if byte_length:
-                    byte_length = int(byte_offset + byte_length)
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-            else:
-                data = await asyncio.to_thread(
-                    self.fs.read_block, path, offset=byte_offset, length=byte_length
-                )
-            with open(cache_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
+        try:
+            if not pathlib.Path(cache_path).is_file():
+                if self.fs.async_impl:
+                    if byte_length:
+                        byte_length = int(byte_offset + byte_length)
+                    data = await self.fs._cat_file(
+                        path, start=byte_offset, end=byte_length
+                    )
+                else:
+                    data = await asyncio.to_thread(
+                        self.fs.read_block, path, offset=byte_offset, length=byte_length
+                    )
+                with open(cache_path, "wb") as file:
+                    await asyncio.to_thread(file.write, data)
+        except FileNotFoundError as e:
+            logger.error(f"Failed to download file {path} form s3")
+            raise e
 
         return cache_path
 
