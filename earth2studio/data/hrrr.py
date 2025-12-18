@@ -601,7 +601,7 @@ class HRRR:
                 with open(cache_path, "wb") as file:
                     await asyncio.to_thread(file.write, data)
         except FileNotFoundError as e:
-            logger.error(f"Failed to download file {path} form s3")
+            logger.error(f"Failed to download file {path}, not found")
             raise e
 
         return cache_path
