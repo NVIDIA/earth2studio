@@ -124,6 +124,7 @@ class HRRR:
     """
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
+    HRRR_BUCKET_ANON = True  # S3 / GCS anon access
     MAX_BYTE_SIZE = 5000000
 
     # Native LCC coordinates from the HRRR Zarr archive managed by the University of Utah
@@ -147,7 +148,6 @@ class HRRR:
 
         self.lexicon = HRRRLexicon
         self.async_timeout = async_timeout
-        self.anon = True  # S3 / GCS anon access
 
         if self._source == "aws":
             self.uri_prefix = "noaa-hrrr-bdp-pds"
@@ -214,12 +214,14 @@ class HRRR:
         """
         if self._source == "aws":
             self.fs = s3fs.S3FileSystem(
-                anon=self.anon, client_kwargs={}, asynchronous=True
+                anon=self.HRRR_BUCKET_ANON, client_kwargs={}, asynchronous=True
             )
         elif self._source == "google":
             fs = gcsfs.GCSFileSystem(
                 cache_timeout=-1,
-                token="anon" if self.anon else None,  # noqa: S106 # nosec B106
+                token=(
+                    "anon" if self.HRRR_BUCKET_ANON else None
+                ),  # noqa: S106 # nosec B106
                 access="read_only",
                 block_size=8**20,
             )
@@ -703,7 +705,7 @@ class HRRR:
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
-        fs = s3fs.S3FileSystem(anon=True)
+        fs = s3fs.S3FileSystem(anon=cls.HRRR_BUCKET_ANON)
         # Object store directory for given time
         # Just picking the first variable to look for
         file_name = f"hrrr.{time.year}{time.month:0>2}{time.day:0>2}/conus"
