@@ -150,7 +150,7 @@ class HRRR:
         self.async_timeout = async_timeout
 
         if self._source == "aws":
-            self.uri_prefix = "noaa-hrrr-bdp-pds"
+            self.uri_prefix = self.HRRR_BUCKET_NAME
 
             # To update look at https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources
             def _range(time: datetime) -> None:
