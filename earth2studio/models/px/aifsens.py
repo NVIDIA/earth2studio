@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from loguru import logger
-import tqdm
 import os
 import urllib.request
 import zipfile
@@ -24,7 +22,9 @@ from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
+import tqdm
 import xarray as xr
+from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -231,13 +231,28 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # adding invariants to input assumes invariants come before time-dependend forcings
-        self.invariant_ids = torch.Tensor([VARIABLES.index(inv) for inv in self.invariant_coords['variable']]).int()
-        if not (self.invariant_ids == self.model.data_indices.data.input.forcing[:self.invariant_ids.shape[0]]).all():
-            raise ValueError(f'invariants have to come before time-dependend forcings. Code can be adapted though.')
-        if not (self.invariant_ids == self.model.data_indices.data.output.forcing[:self.invariant_ids.shape[0]]).all():
-            raise ValueError(f'invariants have to come before time-dependend forcings. Code can be adapted though.')
-        self.generated_forcing = self.model.data_indices.data.output.forcing[self.invariant_ids.shape[0]:]
-
+        self.invariant_ids = torch.Tensor(
+            [VARIABLES.index(inv) for inv in self.invariant_coords["variable"]]
+        ).int()
+        if not (
+            self.invariant_ids
+            == self.model.data_indices.data.input.forcing[: self.invariant_ids.shape[0]]
+        ).all():
+            raise ValueError(
+                "invariants have to come before time-dependend forcings in input. Code can be adapted though."
+            )
+        if not (
+            self.invariant_ids
+            == self.model.data_indices.data.output.forcing[
+                : self.invariant_ids.shape[0]
+            ]
+        ).all():
+            raise ValueError(
+                "invariants have to come before time-dependend forcings in output. Code can be adapted though."
+            )
+        self.generated_forcing = self.model.data_indices.data.output.forcing[
+            self.invariant_ids.shape[0] :
+        ]
 
     @property
     def input_variables(self) -> list[str]:
@@ -352,18 +367,34 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # download static vars from NCAR mirror and add to model package
-        ecmwf_ids = {'lsm': 172, 'sdor': 160, 'slor': 163, 'z': 129}
-        for invar in ['lsm', 'sdor', 'slor', 'z']:
-            lsm_url = f'https://nsf-ncar-era5.s3.amazonaws.com/e5.oper.invariant/197901/e5.oper.invariant.128_{ecmwf_ids[invar]:03d}_{invar}.ll025sc.1979010100_1979010100.nc'
-            lsm_filename = f'{invar}.nc'
+        ecmwf_ids = {"lsm": 172, "sdor": 160, "slor": 163, "z": 129}
+        for invar in ["lsm", "sdor", "slor", "z"]:
+            lsm_url = f"https://nsf-ncar-era5.s3.amazonaws.com/e5.oper.invariant/197901/e5.oper.invariant.128_{ecmwf_ids[invar]:03d}_{invar}.ll025sc.1979010100_1979010100.nc"
+            lsm_filename = f"{invar}.nc"
             lsm_path = os.path.join(package.cache, lsm_filename)
 
             # if not cached already
             if not os.path.exists(lsm_path):
                 os.makedirs(package.cache, exist_ok=True)
-                with tqdm.tqdm(unit="B", unit_scale=True, unit_divisor=1024, desc=f"Downloading {invar}") as pbar:
-                    urllib.request.urlretrieve(lsm_url, lsm_path,
-                        reporthook=lambda b, bs, t: (pbar.total or setattr(pbar, 'total', t), pbar.update(bs)))
+                with tqdm.tqdm(
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Downloading {invar}",
+                ) as pbar:
+
+                    def reporthook(
+                        block_num: int, block_size: int, total_size: int
+                    ) -> None:
+                        if pbar.total is None:
+                            pbar.total = total_size
+                        pbar.update(block_size)
+
+                    urllib.request.urlretrieve(  # noqa: S310
+                        lsm_url,
+                        lsm_path,
+                        reporthook=reporthook,
+                    )
 
         return package
 
@@ -443,19 +474,28 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # load invariants
         datasets = []
-        for ff, var_name in zip(['lsm.nc', 'sdor.nc', 'slor.nc', 'z.nc'], ['LSM', 'SDOR', 'SLOR', 'Z']):
+        for ff, var_name in zip(
+            ["lsm.nc", "sdor.nc", "slor.nc", "z.nc"], ["LSM", "SDOR", "SLOR", "Z"]
+        ):
             ds = xr.load_dataset(os.path.join(package.cache, ff))[[var_name]]
-            ds = ds.rename({var_name: var_name.lower()}) # all-caps to lower case
+            ds = ds.rename({var_name: var_name.lower()})  # all-caps to lower case
             datasets.append(ds)
         invariants = xr.merge(datasets).to_array()
 
         # rename and sort coords, remove time dimension
-        e2s_keys = {'time': 'time', 'variable': 'variable', 'latitude': 'lat', 'longitude': 'lon'}
-        invariant_coords =  OrderedDict((e2s_keys[name], coord.values) for name, coord in invariants.coords.items())
-        invariant_coords.move_to_end('lat')
-        invariant_coords.move_to_end('lon')
+        e2s_keys = {
+            "time": "time",
+            "variable": "variable",
+            "latitude": "lat",
+            "longitude": "lon",
+        }
+        invariant_coords = OrderedDict(
+            (e2s_keys[name], coord.values) for name, coord in invariants.coords.items()
+        )
+        invariant_coords.move_to_end("lat")
+        invariant_coords.move_to_end("lon")
 
-        invariant_coords.pop('time')
+        invariant_coords.pop("time")
         invariants = torch.Tensor(invariants.values).squeeze()
 
         return cls(
@@ -467,7 +507,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             interpolation_matrix=torch_interpolation_matrix,
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
-            invariant_coords=invariant_coords
+            invariant_coords=invariant_coords,
         )
 
     def get_cos_sin_julian_day(
@@ -568,7 +608,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Clip negative values
         return torch.clamp(zenith_angle, min=0.0)
 
-
     def _add_invariants(
         self,
         x: torch.Tensor,
@@ -587,11 +626,11 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         _x[..., var_ids, :, :] = x
         _x[..., self.invariant_ids, :, :] = self.invariants
 
-        var_names = np.array([None]*_x.shape[-3], dtype=str)
-        var_names[var_ids] = coords['variable']
-        var_names[self.invariant_ids] = self.invariant_coords['variable']
+        var_names = np.array([None] * _x.shape[-3], dtype=str)
+        var_names[var_ids] = coords["variable"]
+        var_names[self.invariant_ids] = self.invariant_coords["variable"]
         _coords = coords.copy()
-        _coords['variable'] = var_names
+        _coords["variable"] = var_names
 
         return _x, _coords
 
@@ -760,7 +799,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords["batch"].shape[0],
                 coords["time"].shape[0],
                 coords["lead_time"].shape[0],
-                coords["variable"].shape[0]+len(self.invariant_ids),
+                coords["variable"].shape[0] + len(self.invariant_ids),
                 coords["lat"].shape[0],
                 coords["lon"].shape[0],
             ],

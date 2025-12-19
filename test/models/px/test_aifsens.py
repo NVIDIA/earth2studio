@@ -145,17 +145,17 @@ def test_aifsens_call(time, device):
 
     invariant_coords = OrderedDict(
         {
-            "variable": np.array(['lsm', 'sdor', 'slor', 'z']),
+            "variable": np.array(["lsm", "sdor", "slor", "z"]),
             "lat": np.linspace(90.0, -90.0, 721),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 
     invariants = torch.randn(
-        invariant_coords['variable'].shape[0],
-        invariant_coords['lat'].shape[0],
-        invariant_coords['lon'].shape[0],
-        device=device
+        invariant_coords["variable"].shape[0],
+        invariant_coords["lat"].shape[0],
+        invariant_coords["lon"].shape[0],
+        device=device,
     )
 
     p = AIFSENS(
@@ -165,7 +165,7 @@ def test_aifsens_call(time, device):
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-        invariant_coords=invariant_coords
+        invariant_coords=invariant_coords,
     ).to(device)
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -213,17 +213,17 @@ def test_aifsens_iter(ensemble, device):
 
     invariant_coords = OrderedDict(
         {
-            "variable": np.array(['lsm', 'sdor', 'slor', 'z']),
+            "variable": np.array(["lsm", "sdor", "slor", "z"]),
             "lat": np.linspace(90.0, -90.0, 721),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 
     invariants = torch.randn(
-        invariant_coords['variable'].shape[0],
-        invariant_coords['lat'].shape[0],
-        invariant_coords['lon'].shape[0],
-        device=device
+        invariant_coords["variable"].shape[0],
+        invariant_coords["lat"].shape[0],
+        invariant_coords["lon"].shape[0],
+        device=device,
     )
 
     p = AIFSENS(
@@ -233,7 +233,7 @@ def test_aifsens_iter(ensemble, device):
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-        invariant_coords=invariant_coords
+        invariant_coords=invariant_coords,
     ).to(device)
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -295,19 +295,18 @@ def test_aifsens_exceptions(dc, device):
 
     invariant_coords = OrderedDict(
         {
-            "variable": np.array(['lsm', 'sdor', 'slor', 'z']),
+            "variable": np.array(["lsm", "sdor", "slor", "z"]),
             "lat": np.linspace(90.0, -90.0, 721),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
 
     invariants = torch.randn(
-        invariant_coords['variable'].shape[0],
-        invariant_coords['lat'].shape[0],
-        invariant_coords['lon'].shape[0],
-        device=device
+        invariant_coords["variable"].shape[0],
+        invariant_coords["lat"].shape[0],
+        invariant_coords["lon"].shape[0],
+        device=device,
     )
-
 
     p = AIFSENS(
         model=model,
@@ -316,7 +315,7 @@ def test_aifsens_exceptions(dc, device):
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-        invariant_coords=invariant_coords
+        invariant_coords=invariant_coords,
     ).to(device)
 
     r = Random(dc)
