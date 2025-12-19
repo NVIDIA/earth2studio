@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Local datasource example
 - Added ``TimeWindow`` datasource wrapper for fetching data at multiple time offsets
 - Added NOAA's Integrated Surface Database (ISD) data frame source
+- Added CorrDiff base class extensions
+- Added CorrDiffCMIP6 and example
 
 ### Changed
 

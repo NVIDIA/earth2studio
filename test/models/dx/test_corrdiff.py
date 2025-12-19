@@ -17,6 +17,7 @@
 import json
 import tempfile
 from collections import OrderedDict
+from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
 from unittest.mock import MagicMock, patch
@@ -27,7 +28,7 @@ import torch
 import xarray as xr
 
 from earth2studio.models.auto import Package
-from earth2studio.models.dx import CorrDiff
+from earth2studio.models.dx import CorrDiff, CorrDiffCMIP6
 from earth2studio.utils import handshake_dim
 
 
@@ -142,6 +143,56 @@ def sample_model_params(request):
         "out_center": out_center,
         "out_scale": out_scale,
     }
+
+
+@pytest.fixture
+def cmip6_model_minimal(mock_residual_model, mock_regression_model):
+    """Minimal CorrDiffCMIP6 instance suitable for unit tests."""
+    n = 128
+    suffixes = ["_t-1", "_t", "_t+1"]
+    base_vars = ["siconc", "snc", "t2m"]
+    input_variables = [f"{v}{s}" for v in base_vars for s in suffixes]
+    output_variables = ["t2m"]
+
+    lat_in = torch.linspace(-1.0, 1.0, n)
+    lon_in = torch.linspace(0.0, 7.0, n)
+    lat_out = torch.linspace(-1.0, 1.0, n)
+    lon_out = torch.linspace(0.0, 7.0, n)
+
+    # One invariant is required by the CMIP6 channel-reordering logic (coslat slot).
+    invariants = OrderedDict({"coslat": torch.zeros(n, n)})
+
+    return CorrDiffCMIP6(
+        input_variables=input_variables,
+        output_variables=output_variables,
+        residual_model=mock_residual_model,
+        regression_model=mock_regression_model,
+        lat_input_grid=lat_in,
+        lon_input_grid=lon_in,
+        lat_output_grid=lat_out,
+        lon_output_grid=lon_out,
+        in_center=torch.zeros(len(input_variables)),
+        in_scale=torch.ones(len(input_variables)),
+        out_center=torch.zeros(len(output_variables)),
+        out_scale=torch.ones(len(output_variables)),
+        invariants=invariants,
+        invariant_center=torch.zeros(1),
+        invariant_scale=torch.ones(1),
+        time_feature_center=torch.zeros(2),
+        time_feature_scale=torch.ones(2),
+        number_of_samples=1,
+        number_of_steps=1,
+        solver="euler",
+        sampler_type="stochastic",
+        inference_mode="regression",
+        hr_mean_conditioning=False,
+        time_window={
+            "suffixes": suffixes,
+            "offsets": [-1, 0, 1],
+            "offsets_units": "hours",
+            "group_by": "variable",
+        },
+    )
 
 
 @pytest.fixture(params=["rectangular", "curvilinear"])
@@ -864,6 +915,222 @@ class TestCorrDiffForward:
         )
         out_both, _ = model_both(x, coords)
         assert out_both.shape == (1, 1, 4, 320, 320)
+
+
+class TestCorrDiffCMIP6Preprocess:
+    """Focused unit tests for CorrDiffCMIP6 preprocessing.
+
+    These tests validate the preprocessing contract (shape handling, required channels,
+    and time dependency) using small tensors. We patch `cos_zenith_angle` so tests do
+    not depend on the exact solar geometry implementation.
+    """
+
+    def test_preprocess_requires_valid_time(self, cmip6_model_minimal):
+        x = torch.zeros((len(cmip6_model_minimal.input_variables), 128, 128))
+        with pytest.raises(ValueError):
+            cmip6_model_minimal.preprocess_input(x, valid_time=None)
+
+    def test_preprocess_accepts_chw_and_returns_bchw(
+        self, monkeypatch, cmip6_model_minimal
+    ):
+        def _fake_cos_sza(dt, lon, lat):
+            return np.zeros_like(lat, dtype=np.float32)
+
+        monkeypatch.setattr(
+            "earth2studio.models.dx.corrdiff.cos_zenith_angle",
+            _fake_cos_sza,
+            raising=True,
+        )
+
+        x = torch.zeros((len(cmip6_model_minimal.input_variables), 8, 8))
+        out = cmip6_model_minimal.preprocess_input(
+            x, valid_time=datetime(2020, 1, 1, 12)
+        )
+        assert out.ndim == 4
+        assert out.shape[0] == 1
+
+    def test_preprocess_missing_required_channels_raises(
+        self, monkeypatch, mock_residual_model, mock_regression_model
+    ):
+        def _fake_cos_sza(dt, lon, lat):
+            return np.zeros_like(lat, dtype=np.float32)
+
+        monkeypatch.setattr(
+            "earth2studio.models.dx.corrdiff.cos_zenith_angle",
+            _fake_cos_sza,
+            raising=True,
+        )
+
+        suffixes = ["_t-1", "_t", "_t+1"]
+        # Missing snc_t+1
+        input_variables = (
+            [f"siconc{s}" for s in suffixes]
+            + [f"snc{s}" for s in suffixes[:-1]]
+            + [f"t2m{s}" for s in suffixes]
+        )
+        output_variables = ["t2m"]
+
+        n = 128
+        lat_in = torch.linspace(-1.0, 1.0, n)
+        lon_in = torch.linspace(0.0, 7.0, n)
+        lat_out = torch.linspace(-1.0, 1.0, n)
+        lon_out = torch.linspace(0.0, 7.0, n)
+        invariants = OrderedDict({"coslat": torch.zeros(n, n)})
+
+        model = CorrDiffCMIP6(
+            input_variables=input_variables,
+            output_variables=output_variables,
+            residual_model=mock_residual_model,
+            regression_model=mock_regression_model,
+            lat_input_grid=lat_in,
+            lon_input_grid=lon_in,
+            lat_output_grid=lat_out,
+            lon_output_grid=lon_out,
+            in_center=torch.zeros(len(input_variables)),
+            in_scale=torch.ones(len(input_variables)),
+            out_center=torch.zeros(len(output_variables)),
+            out_scale=torch.ones(len(output_variables)),
+            invariants=invariants,
+            invariant_center=torch.zeros(1),
+            invariant_scale=torch.ones(1),
+            time_feature_center=torch.zeros(2),
+            time_feature_scale=torch.ones(2),
+            number_of_samples=1,
+            number_of_steps=1,
+            solver="euler",
+            sampler_type="stochastic",
+            inference_mode="regression",
+            hr_mean_conditioning=False,
+            time_window={
+                "suffixes": suffixes,
+                "offsets": [-1, 0, 1],
+                "offsets_units": "hours",
+                "group_by": "variable",
+            },
+        )
+
+        x = torch.zeros((len(model.input_variables), n, n))
+        with pytest.raises(ValueError):
+            model.preprocess_input(x, valid_time=datetime(2020, 1, 1, 12))
+
+
+class TestCorrDiffCMIP6SamplingAndPostprocess:
+    """Focused unit tests for CorrDiffCMIP6 sample generation + postprocessing."""
+
+    def _patch_minimal_dependencies(self, monkeypatch):
+        """Patch optional/slow dependencies used in CorrDiffCMIP6 internals."""
+
+        def _fake_cos_sza(dt, lon, lat):
+            return np.zeros_like(lat, dtype=np.float32)
+
+        monkeypatch.setattr(
+            "earth2studio.models.dx.corrdiff.cos_zenith_angle",
+            _fake_cos_sza,
+            raising=True,
+        )
+
+        def _fake_regression_step(*, net, img_lr, latents_shape):
+            # Match expected shape (including preprocess padding), on the correct device.
+            return torch.zeros(latents_shape, device=img_lr.device, dtype=torch.float32)
+
+        def _fake_diffusion_step(
+            *,
+            net,
+            sampler_fn,
+            img_shape,
+            img_out_channels,
+            rank_batches,
+            img_lr,
+            rank,
+            device,
+            mean_hr=None,
+        ):
+            return torch.zeros(
+                (1, img_out_channels, img_shape[0], img_shape[1]),
+                device=device,
+                dtype=torch.float32,
+            )
+
+        monkeypatch.setattr(
+            "earth2studio.models.dx.corrdiff.regression_step",
+            _fake_regression_step,
+            raising=True,
+        )
+        monkeypatch.setattr(
+            "earth2studio.models.dx.corrdiff.diffusion_step",
+            _fake_diffusion_step,
+            raising=True,
+        )
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_forward_stream_samples_to_cpu_moves_stacked_output_to_cpu(
+        self, monkeypatch, cmip6_model_minimal
+    ):
+        """When enabled, multi-sample stacking should live on CPU even if inference runs on CUDA."""
+        self._patch_minimal_dependencies(monkeypatch)
+
+        model = cmip6_model_minimal.to("cuda")
+        model.inference_mode = "both"
+        model.number_of_samples = 2
+
+        x = torch.zeros((len(model.input_variables), 128, 128), device="cuda")
+        valid_time = datetime(2020, 1, 1, 12)
+
+        model.stream_samples_to_cpu = True
+        y_cpu = model._forward(x, valid_time=valid_time)
+        assert y_cpu.device.type == "cpu"
+        assert y_cpu.shape[0] == 2
+
+        model.stream_samples_to_cpu = False
+        y_gpu = model._forward(x, valid_time=valid_time)
+        assert y_gpu.device.type == "cuda"
+        assert y_gpu.shape == y_cpu.shape
+
+    def test_forward_progress_bar_missing_tqdm_raises_importerror(
+        self, monkeypatch, cmip6_model_minimal
+    ):
+        """If requested, missing tqdm should raise a clear ImportError."""
+        self._patch_minimal_dependencies(monkeypatch)
+
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name.startswith("tqdm"):
+                raise ImportError("tqdm is missing")
+            return real_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        model = cmip6_model_minimal
+        model.inference_mode = "both"
+        model.number_of_samples = 2
+        model.show_sample_progress = True
+
+        x = torch.zeros((len(model.input_variables), 128, 128))
+        with pytest.raises(ImportError, match=r"tqdm is not installed"):
+            _ = model._forward(x, valid_time=datetime(2020, 1, 1, 12))
+
+    def test_postprocess_output_crops_clamps_and_flips_lat(self, cmip6_model_minimal):
+        """postprocess_output should undo padding, clamp non-negative vars, and flip latitude."""
+        model = cmip6_model_minimal
+        assert model.output_variables == ["t2m"]  # required for clamp behavior below
+
+        # Build a padded tensor with a known per-row pattern in the crop region.
+        # Shape here matches the padded shape that preprocess introduces:
+        # H_pad = 128 + 23 + 24 = 175, W_pad = 128 + 48 + 48 = 224
+        h_pad, w_pad = 175, 224
+        x = torch.zeros((1, 1, h_pad, w_pad), dtype=torch.float32)
+        # Fill crop region with negative values and a row-wise ramp to observe flipping.
+        crop = x[:, :, 23:-24, 48:-48]  # [1,1,128,128]
+        for r in range(crop.shape[2]):
+            crop[:, :, r, :] = float(-(r + 1))  # negative so clamp will hit
+
+        y = model.postprocess_output(x)
+        assert y.shape == (1, 1, 128, 128)
+        # Clamp: t2m is in _NONNEGATIVE_VARS, so negatives should become 0
+        assert torch.all(y >= 0)
 
 
 class TestCorrDiffLoadModel:
