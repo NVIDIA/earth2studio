@@ -230,10 +230,17 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "inverse_interpolation_matrix", inverse_interpolation_matrix
         )
 
+        # adding invariants to input assumes invariants come before time-dependend forcings
+        self.invariant_ids = torch.Tensor([VARIABLES.index(inv) for inv in self.invariant_coords['variable']]).int()
+        if not (self.invariant_ids == self.model.data_indices.data.input.forcing[:self.invariant_ids.shape[0]]).all():
+            raise ValueError(f'invariants have to come before time-dependend forcings. Code can be adapted though.')
+        if not (self.invariant_ids == self.model.data_indices.data.output.forcing[:self.invariant_ids.shape[0]]).all():
+            raise ValueError(f'invariants have to come before time-dependend forcings. Code can be adapted though.')
+        self.generated_forcing = self.model.data_indices.data.output.forcing[self.invariant_ids.shape[0]:]
+
+
     @property
     def input_variables(self) -> list[str]:
-        self.invariant_ids = torch.Tensor([VARIABLES.index(inv) for inv in self.invariant_coords['variable']]).int()
-
         indices = torch.cat(
             [
                 self.model.data_indices.data.input.prognostic,
@@ -244,22 +251,18 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Sort the concatenated tensor
         indices = indices.sort().values
 
-        # Create the range of values to remove
-        to_remove = torch.arange(92, 101)  # generated forcings
-        to_remove = torch.cat([to_remove, self.invariant_ids])
-
-        # Keep only elements NOT in to_remove
-        mask = ~torch.isin(indices, to_remove)
+        # Keep only elements NOT forcings or invariants
+        mask = ~torch.isin(indices, self.model.data_indices.data.input.forcing)
 
         selected = [VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
     @property
     def output_variables(self) -> list[str]:
-        # Input constants + prognostic and diagnostic - generated forcings
+        # Output constants + prognostic and diagnostic - generated forcings
         indices = torch.cat(
             [
-                self.model.data_indices.data.input.forcing,
+                self.model.data_indices.data.output.forcing,
                 self.model.data_indices.data.output.full,
             ]
         )
@@ -267,12 +270,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Sort the concatenated tensor
         indices = torch.unique(indices.sort().values)
 
-        # Create the range of values to remove
-        to_remove = torch.arange(92, 101)  # generated forcings
-        to_remove = torch.cat([to_remove, self.invariant_ids])
-
         # Keep only elements NOT in to_remove
-        mask = ~torch.isin(indices, to_remove)
+        mask = ~torch.isin(indices, self.model.data_indices.data.output.forcing)
 
         selected = [VARIABLES[i] for i in indices[mask].tolist()]
         return selected
@@ -740,7 +739,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Remove generated forcings
         all_indices = torch.arange(x.size(-1))
-        keep = torch.isin(all_indices, torch.arange(92, 101), invert=True)
+        keep = torch.isin(all_indices, self.generated_forcing, invert=True)
         x = x[..., keep]
         shape = x.shape
 
@@ -775,10 +774,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Select only non-invariant variables
         x = x[..., mask, :, :]
-        print(f'=================================>>>>>>>>>>> {x.shape}')
-
-        # # Update coords to remove invariant variable names
-        # coords['variable'] = coords['variable'][mask.cpu().numpy()]
 
         return x
 
@@ -861,11 +856,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             .values
         )
 
-        # Define unwanted indices (generated forcings)
-        generated_forcing_range = torch.arange(92, 101)
-
         # Keep only valid indices (exclude generated forcings)
-        valid_mask = ~torch.isin(indices, generated_forcing_range)
+        valid_mask = ~torch.isin(indices, self.generated_forcing)
 
         # Fill tensor: copy input slices into selected variable slots
         out[:, :, 0, indices[valid_mask]] = x[0, 0, 0, ...]
@@ -876,7 +868,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Update coordinates with remaining variable names
         all_indices = torch.arange(len(VARIABLES))
-        variable_mask = ~torch.isin(all_indices, generated_forcing_range)
+        variable_mask = ~torch.isin(all_indices, self.generated_forcing)
         selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
 
         out_coords = coords.copy()
