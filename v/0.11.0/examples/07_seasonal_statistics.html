@@ -1,0 +1,1302 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Statistical Inference &#8212; Earth2Studio 0.11.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=f3b36f1a"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/07_seasonal_statistics';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Distributed Manager Inference" href="08_distributed_manager.html" />
+    <link rel="prev" title="Model Hook Injection: Perturbation" href="06_model_perturbation_hook.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.11" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Statistical Inference</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-07-seasonal-statistics-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="statistical-inference">
+<span id="sphx-glr-examples-07-seasonal-statistics-py"></span><h1>Statistical Inference<a class="headerlink" href="#statistical-inference" title="Link to this heading">#</a></h1>
+<p>Simple seasonal statistic inference workflow.</p>
+<p>This example will demonstrate how to run a simple inference workflow to generate a
+forecast and then to save a statistic of that data. There are a handful of built-in
+statistics available in <cite>earth2studio.statistics</cite>, but here we will demonstrate how
+to define a custom statistic and run inference.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to instantiate a built in prognostic model</p></li>
+<li><p>Creating a data source and IO object</p></li>
+<li><p>Create a custom statistic</p></li>
+<li><p>Running a simple built in workflow</p></li>
+<li><p>Post-processing results</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[pangu,statistics] @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;,</span>
+<span class="c1">#   &quot;matplotlib&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="creating-a-statistical-workflow">
+<h2>Creating a Statistical Workflow<a class="headerlink" href="#creating-a-statistical-workflow" title="Link to this heading">#</a></h2>
+<p>Start with creating a simple inference workflow to use. We encourage
+users to explore and experiment with their own custom workflows that borrow ideas from
+built in workflows inside <a class="reference internal" href="../modules/workflows.html#module-earth2studio.run" title="earth2studio.run"><code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.run</span></code></a> or the examples.</p>
+<p>Creating our own generalizable workflow to use with statistics is easy when we rely on
+the component interfaces defined in Earth2Studio (use dependency injection). Here we
+create a run method that accepts the following:</p>
+<ul class="simple">
+<li><p>time: Input list of datetimes / strings to run inference for</p></li>
+<li><p>nsteps: Number of forecast steps to predict</p></li>
+<li><p>prognostic: Our initialized prognostic model</p></li>
+<li><p>statistic: our custom statistic</p></li>
+<li><p>data: Initialized data source to fetch initial conditions from</p></li>
+<li><p>io: IOBackend</p></li>
+</ul>
+<p>We do not run an ensemble inference workflow here, even though it is common for statistical
+inference. See ensemble examples for details on how to extend this example for that purpose.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">fetch_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">IOBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.statistics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Statistic</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_time_array</span>
+
+<span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">run_stats</span><span class="p">(</span>
+    <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">],</span>
+    <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">nensemble</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
+    <span class="n">statistic</span><span class="p">:</span> <span class="n">Statistic</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple statistics workflow</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    time : list[str] | list[datetime] | list[np.datetime64]</span>
+<span class="sd">        List of string, datetimes or np.datetime64</span>
+<span class="sd">    nsteps : int</span>
+<span class="sd">        Number of forecast steps</span>
+<span class="sd">    nensemble : int</span>
+<span class="sd">        Number of ensemble members to run inference for.</span>
+<span class="sd">    prognostic : PrognosticModel</span>
+<span class="sd">        Prognostic models</span>
+<span class="sd">    statistic : Statistic</span>
+<span class="sd">        Custom statistic to compute and write to IO.</span>
+<span class="sd">    data : DataSource</span>
+<span class="sd">        Data source</span>
+<span class="sd">    io : IOBackend</span>
+<span class="sd">        IO object</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    IOBackend</span>
+<span class="sd">        Output IO object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running simple statistics workflow!&quot;</span><span class="p">)</span>
+    <span class="c1"># Load model onto the device</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inference device: </span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">prognostic</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="c1"># Fetch data from data source and load onto device</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">to_time_array</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">time</span><span class="o">=</span><span class="n">time</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Set up IO backend</span>
+    <span class="n">total_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">output_coords</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+    <span class="n">total_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="c1"># Remove reduced dimensions from statistic</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">statistic</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">:</span>
+        <span class="n">total_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">statistic</span><span class="p">))</span>
+
+    <span class="c1"># Map lat and lon if needed</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+
+    <span class="c1"># Create prognostic iterator</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">prognostic</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Inference starting!&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">nsteps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Running inference&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+            <span class="n">s</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">statistic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">statistic</span><span class="p">))</span>
+            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="n">nsteps</span><span class="p">:</span>
+                <span class="k">break</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s2">&quot;Inference complete&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">io</span>
+</pre></div>
+</div>
+</section>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>With the statistical workflow defined, we now need to create the individual components.</p>
+<p>We need the following:</p>
+<ul class="simple">
+<li><p>Prognostic Model: Use the built in Pangu 24 hour model <a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.Pangu24.html#earth2studio.models.px.Pangu24" title="earth2studio.models.px.Pangu24"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.Pangu24</span></code></a>.</p></li>
+<li><p>statistic: We define our own statistic: the Southern Oscillation Index (SOI).</p></li>
+<li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
+<li><p>IO Backend: Save the outputs into a NetCDF4 store <a class="reference internal" href="../modules/generated/io/earth2studio.io.NetCDF4Backend.html#earth2studio.io.NetCDF4Backend" title="earth2studio.io.NetCDF4Backend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.NetCDF4Backend</span></code></a>.</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">NetCDF4Backend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pangu24</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">Pangu24</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Pangu24</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler, store in memory</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">NetCDF4Backend</span><span class="p">(</span>
+    <span class="n">file_name</span><span class="o">=</span><span class="s2">&quot;outputs/soi.nc&quot;</span><span class="p">,</span>
+    <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;w&quot;</span><span class="p">},</span>
+<span class="p">)</span>
+
+
+<span class="c1"># Create the custom statistic</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SOI</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom metric calculation the Southern Oscillation Index.</span>
+
+<span class="sd">    SOI = ( standardized_tahiti_slp - standardized_darwin_slp ) / soi_normalization</span>
+
+<span class="sd">    soi_normalization = std( historical ( standardized_tahiti_slp - standardized_darwin_slp ) )</span>
+
+<span class="sd">    standardized_*_slp = (*_slp - climatological_mean_*_slp) / climatological_std_*_slp</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    __str__</span>
+<span class="sd">        Name that will be applied to the output of this statistic, primarily for IO purposes.</span>
+<span class="sd">    reduction_dimensions</span>
+<span class="sd">        Dimensions that this statistic reduces over. This is used to help automatically determine</span>
+<span class="sd">        the output coordinates, primarily used for IO purposes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;soi&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># Read in Tahiti and Darwin SLP data</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.filesystem</span><span class="w"> </span><span class="kn">import</span> <span class="n">_download_cached</span>
+
+        <span class="n">file_path</span> <span class="o">=</span> <span class="n">_download_cached</span><span class="p">(</span>
+            <span class="s2">&quot;https://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt&quot;</span>
+        <span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">)</span>
+        <span class="n">dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;1999-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">ds</span><span class="p">))</span>
+        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dates</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s2">&quot;Year&quot;</span><span class="p">,</span> <span class="s2">&quot;Day&quot;</span><span class="p">,</span> <span class="s2">&quot;SOI&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rolling</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="n">min_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">climatological_means</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">month</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">climatological_std</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">month</span><span class="p">)</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+
+        <span class="n">standardized</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">month</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">/</span> <span class="n">x</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">standardized</span><span class="p">[</span><span class="s2">&quot;Tahiti&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">standardized</span><span class="p">[</span><span class="s2">&quot;Darwin&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">normalization</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="n">diff</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">month</span><span class="p">)</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tahiti_coords</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;msl&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">17.65</span><span class="p">]),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">210.57</span><span class="p">]),</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">darwin_coords</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;msl&quot;</span><span class="p">]),</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">12.46</span><span class="p">]),</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">130.84</span><span class="p">]),</span>
+        <span class="p">}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tahiti_coords</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the SOI given an input.</span>
+
+<span class="sd">        coords must be a superset of both</span>
+
+<span class="sd">        tahiti_coords = {</span>
+<span class="sd">            &#39;variable&#39;: np.array([&#39;msl&#39;]),</span>
+<span class="sd">            &#39;lat&#39;: np.array([-17.65]),</span>
+<span class="sd">            &#39;lon&#39;: np.array([210.57])</span>
+<span class="sd">        }</span>
+
+<span class="sd">        and</span>
+
+<span class="sd">        darwin_coords = {</span>
+<span class="sd">            &#39;variable&#39;: np.array([&#39;msl&#39;]),</span>
+<span class="sd">            &#39;lat&#39;: np.array([-12.46]),</span>
+<span class="sd">            &#39;lon&#39;: np.array([130.84])</span>
+<span class="sd">        }</span>
+
+<span class="sd">        So make sure that the model chosen predicts the `msl` variable.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input tensor</span>
+<span class="sd">        coords : CoordSystem</span>
+<span class="sd">            coordinate system belonging to the input tensor.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">            Returns the SOI and appropriate coordinate system.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tahiti</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tahiti_coords</span><span class="p">)</span>
+        <span class="n">darwin</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">darwin_coords</span><span class="p">)</span>
+
+        <span class="n">tahiti</span> <span class="o">=</span> <span class="n">tahiti</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">100.0</span>
+        <span class="n">darwin</span> <span class="o">=</span> <span class="n">darwin</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">100.0</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction_dimensions</span><span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Get time coordinates</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">months</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">month</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">times</span><span class="o">.</span><span class="n">flatten</span><span class="p">()],</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">tahiti</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+            <span class="n">tahiti</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">cm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">climatological_means</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tahiti</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">climatological_std</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tahiti</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalization</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tahiti</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">tahiti_std_anomaly</span> <span class="o">=</span> <span class="p">(</span><span class="n">tahiti</span> <span class="o">-</span> <span class="n">cm</span><span class="p">[</span><span class="n">months</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">cs</span><span class="p">[</span><span class="n">months</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">darwin_std_anomaly</span> <span class="o">=</span> <span class="p">(</span><span class="n">tahiti</span> <span class="o">-</span> <span class="n">cm</span><span class="p">[</span><span class="n">months</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">cs</span><span class="p">[</span><span class="n">months</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">tahiti_std_anomaly</span> <span class="o">-</span> <span class="n">darwin_std_anomaly</span><span class="p">)</span> <span class="o">/</span> <span class="n">norm</span><span class="p">[</span><span class="n">months</span><span class="p">],</span> <span class="n">output_coords</span>
+
+
+<span class="n">soi</span> <span class="o">=</span> <span class="n">SOI</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="execute-the-workflow">
+<h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
+<p>With all components initialized, running the workflow is a single line of Python code.
+Workflow will return the provided IO object back to the user, which can be used to
+then post process. Some have additional APIs that can be handy for post-processing or
+saving to file. Check the API docs for more information.
+We simulate a trajectory of 60 time steps, or 2 months using Pangu24</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">nsteps</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="n">nensemble</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">run_stats</span><span class="p">([</span><span class="s2">&quot;2022-01-01&quot;</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">nensemble</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">soi</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-12-17 14:15:14.587 | INFO     | __main__:run_stats:125 - Running simple statistics workflow!
+2025-12-17 14:15:14.587 | INFO     | __main__:run_stats:128 - Inference device: cuda
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:38.887 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 207773671-1144304
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:38.913 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 215838816-734672
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:38.936 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 403383371-952939
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:38.961 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 240272644-1113069
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:38.986 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 156114459-872903
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.011 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 286880461-900027
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.035 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 222647963-618782
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.057 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 211066840-590891
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.080 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 335526427-838455
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.104 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 216573488-756397
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.127 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 205797523-746849
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.151 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 197589080-1153817
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.176 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 173355514-766810
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.198 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174760328-1259620
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.222 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 303982559-1237492
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.247 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 285975326-905135
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.272 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 398978760-951998
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.296 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 301178894-856992
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.319 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-877594
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.342 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 307565094-903183
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.365 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 185569850-749900
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.388 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 398017307-961453
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.420 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 358536093-897786
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.456 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184818667-751183
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.507 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 195807353-754091
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.538 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 419129996-943349
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.571 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 172597413-758101
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.604 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 238232118-730356
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.635 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 265181184-554592
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.664 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 418169245-960751
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.694 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 342364395-942176
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.726 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 187082652-1139010
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.753 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 237405113-827005
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.784 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 264633312-547872
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.814 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 361696690-1222127
+
+Fetching GFS data:   0%|          | 0/69 [00:00&lt;?, ?it/s]
+
+2025-12-17 14:15:39.978 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 222042592-605371
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.040 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 218679518-1156420
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.082 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 195062222-745131
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.134 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 393076173-856786
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.238 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 413877259-875333
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.287 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 244182036-592113
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.328 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 151656416-759878
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.366 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 178466960-975427
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.413 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 258273122-811591
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.459 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 190236100-981012
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.498 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 337729946-1341851
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.527 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 279544311-846529
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.557 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 156987362-832146
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.589 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 200833225-583258
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.617 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 191217112-908803
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.648 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 259084713-722805
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.677 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 394958560-1204554
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.707 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 152722444-1096714
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.736 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 201416483-580864
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.765 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 341434010-930385
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.795 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 179442387-907316
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.823 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 280390840-735884
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.852 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 334667042-859385
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.881 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 150888816-767600
+
+Fetching GFS data:   0%|          | 0/69 [00:01&lt;?, ?it/s]
+
+2025-12-17 14:15:40.912 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 211657731-595750
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:40.940 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 261060104-1247846
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:40.970 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 365233854-937705
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:40.999 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 366171559-949232
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:41.029 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 282343876-1298659
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:41.058 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 359433879-848754
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:41.086 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 308468277-899018
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:41.114 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 205056193-741330
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:41.142 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 243604169-577867
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+
+2025-12-17 14:15:41.170 | DEBUG    | earth2studio.data.gfs:fetch_array:379 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20220101/00/atmos/gfs.t00z.pgrb2.0p25.f000 302035886-756420
+
+Fetching GFS data:   0%|          | 0/69 [00:02&lt;?, ?it/s]
+Fetching GFS data:   1%|▏         | 1/69 [00:02&lt;02:37,  2.31s/it]
+Fetching GFS data: 100%|██████████| 69/69 [00:02&lt;00:00, 29.85it/s]
+2025-12-17 14:15:42.834 | SUCCESS  | __main__:run_stats:139 - Fetched data from GFS
+2025-12-17 14:15:42.836 | INFO     | __main__:run_stats:159 - Inference starting!
+
+Running inference:   0%|          | 0/61 [00:00&lt;?, ?it/s]
+Running inference:   3%|▎         | 2/61 [00:01&lt;00:41,  1.42it/s]
+Running inference:   5%|▍         | 3/61 [00:02&lt;00:54,  1.07it/s]
+Running inference:   7%|▋         | 4/61 [00:03&lt;01:00,  1.06s/it]
+Running inference:   8%|▊         | 5/61 [00:05&lt;01:03,  1.13s/it]
+Running inference:  10%|▉         | 6/61 [00:06&lt;01:04,  1.17s/it]
+Running inference:  11%|█▏        | 7/61 [00:07&lt;01:04,  1.20s/it]
+Running inference:  13%|█▎        | 8/61 [00:08&lt;01:04,  1.22s/it]
+Running inference:  15%|█▍        | 9/61 [00:10&lt;01:04,  1.23s/it]
+Running inference:  16%|█▋        | 10/61 [00:11&lt;01:03,  1.24s/it]
+Running inference:  18%|█▊        | 11/61 [00:12&lt;01:02,  1.25s/it]
+Running inference:  20%|█▉        | 12/61 [00:14&lt;01:01,  1.25s/it]
+Running inference:  21%|██▏       | 13/61 [00:15&lt;01:00,  1.25s/it]
+Running inference:  23%|██▎       | 14/61 [00:16&lt;00:59,  1.26s/it]
+Running inference:  25%|██▍       | 15/61 [00:17&lt;00:57,  1.26s/it]
+Running inference:  26%|██▌       | 16/61 [00:19&lt;00:56,  1.26s/it]
+Running inference:  28%|██▊       | 17/61 [00:20&lt;00:55,  1.26s/it]
+Running inference:  30%|██▉       | 18/61 [00:21&lt;00:54,  1.26s/it]
+Running inference:  31%|███       | 19/61 [00:22&lt;00:52,  1.26s/it]
+Running inference:  33%|███▎      | 20/61 [00:24&lt;00:51,  1.26s/it]
+Running inference:  34%|███▍      | 21/61 [00:25&lt;00:50,  1.26s/it]
+Running inference:  36%|███▌      | 22/61 [00:26&lt;00:49,  1.26s/it]
+Running inference:  38%|███▊      | 23/61 [00:27&lt;00:47,  1.26s/it]
+Running inference:  39%|███▉      | 24/61 [00:29&lt;00:46,  1.26s/it]
+Running inference:  41%|████      | 25/61 [00:30&lt;00:45,  1.26s/it]
+Running inference:  43%|████▎     | 26/61 [00:31&lt;00:44,  1.26s/it]
+Running inference:  44%|████▍     | 27/61 [00:32&lt;00:42,  1.26s/it]
+Running inference:  46%|████▌     | 28/61 [00:34&lt;00:41,  1.26s/it]
+Running inference:  48%|████▊     | 29/61 [00:35&lt;00:40,  1.26s/it]
+Running inference:  49%|████▉     | 30/61 [00:36&lt;00:39,  1.26s/it]
+Running inference:  51%|█████     | 31/61 [00:37&lt;00:37,  1.26s/it]
+Running inference:  52%|█████▏    | 32/61 [00:39&lt;00:36,  1.26s/it]
+Running inference:  54%|█████▍    | 33/61 [00:40&lt;00:35,  1.26s/it]
+Running inference:  56%|█████▌    | 34/61 [00:41&lt;00:34,  1.26s/it]
+Running inference:  57%|█████▋    | 35/61 [00:43&lt;00:32,  1.26s/it]
+Running inference:  59%|█████▉    | 36/61 [00:44&lt;00:31,  1.26s/it]
+Running inference:  61%|██████    | 37/61 [00:45&lt;00:30,  1.26s/it]
+Running inference:  62%|██████▏   | 38/61 [00:46&lt;00:29,  1.26s/it]
+Running inference:  64%|██████▍   | 39/61 [00:48&lt;00:27,  1.26s/it]
+Running inference:  66%|██████▌   | 40/61 [00:49&lt;00:26,  1.26s/it]
+Running inference:  67%|██████▋   | 41/61 [00:50&lt;00:25,  1.26s/it]
+Running inference:  69%|██████▉   | 42/61 [00:51&lt;00:23,  1.26s/it]
+Running inference:  70%|███████   | 43/61 [00:53&lt;00:22,  1.26s/it]
+Running inference:  72%|███████▏  | 44/61 [00:54&lt;00:21,  1.26s/it]
+Running inference:  74%|███████▍  | 45/61 [00:55&lt;00:20,  1.26s/it]
+Running inference:  75%|███████▌  | 46/61 [00:56&lt;00:18,  1.26s/it]
+Running inference:  77%|███████▋  | 47/61 [00:58&lt;00:17,  1.26s/it]
+Running inference:  79%|███████▊  | 48/61 [00:59&lt;00:16,  1.26s/it]
+Running inference:  80%|████████  | 49/61 [01:00&lt;00:15,  1.26s/it]
+Running inference:  82%|████████▏ | 50/61 [01:01&lt;00:13,  1.26s/it]
+Running inference:  84%|████████▎ | 51/61 [01:03&lt;00:12,  1.26s/it]
+Running inference:  85%|████████▌ | 52/61 [01:04&lt;00:11,  1.26s/it]
+Running inference:  87%|████████▋ | 53/61 [01:05&lt;00:10,  1.26s/it]
+Running inference:  89%|████████▊ | 54/61 [01:07&lt;00:08,  1.26s/it]
+Running inference:  90%|█████████ | 55/61 [01:08&lt;00:07,  1.26s/it]
+Running inference:  92%|█████████▏| 56/61 [01:09&lt;00:06,  1.26s/it]
+Running inference:  93%|█████████▎| 57/61 [01:10&lt;00:05,  1.26s/it]
+Running inference:  95%|█████████▌| 58/61 [01:12&lt;00:03,  1.26s/it]
+Running inference:  97%|█████████▋| 59/61 [01:13&lt;00:02,  1.26s/it]
+Running inference:  98%|█████████▊| 60/61 [01:14&lt;00:01,  1.26s/it]
+Running inference: 100%|██████████| 61/61 [01:15&lt;00:00,  1.26s/it]
+Running inference: 100%|██████████| 61/61 [01:15&lt;00:00,  1.24s/it]
+2025-12-17 14:16:58.690 | SUCCESS  | __main__:run_stats:168 - Inference complete
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>The last step is to post process our results.</p>
+<p>Notice that the NetCDF IO function has additional APIs to interact with the stored data.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">times</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="o">+</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;soi&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Southern Oscillation Index&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="s2">&quot;on&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/07_southern_oscillation_index_prediction_2022.png&quot;</span><span class="p">)</span>
+<span class="n">io</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_07_seasonal_statistics_001.png" srcset="../_images/sphx_glr_07_seasonal_statistics_001.png" alt="Southern Oscillation Index" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 10.820 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-07-seasonal-statistics-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/a87841027fa7121dd1439dd1adc00cd6/07_seasonal_statistics.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">07_seasonal_statistics.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/2c96788f73cdaa78d89eec372183da80/07_seasonal_statistics.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">07_seasonal_statistics.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/b6959064f2c7445840d26a3241d20a03/07_seasonal_statistics.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">07_seasonal_statistics.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="06_model_perturbation_hook.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Model Hook Injection: Perturbation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="08_distributed_manager.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Distributed Manager Inference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-a-statistical-workflow">Creating a Statistical Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-the-workflow">Execute the Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/07_seasonal_statistics.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

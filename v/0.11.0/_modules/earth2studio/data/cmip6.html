@@ -1,0 +1,1442 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.data.cmip6 &#8212; Earth2Studio 0.11.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=f3b36f1a"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/cmip6';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.11" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.data.cmip6</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.data.cmip6</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">cftime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="c1"># Project-level imports come after stdlib/third-party</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">intake_esgf</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">griddata</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
+    <span class="n">intake_esgf</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">griddata</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.cmip6</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMIP6Lexicon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+
+<span class="c1"># cftime concrete classes accepted (define after all imports to avoid E402)</span>
+<span class="n">CFDatetime</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span>
+    <span class="n">cftime</span><span class="o">.</span><span class="n">DatetimeNoLeap</span><span class="p">,</span>
+    <span class="n">cftime</span><span class="o">.</span><span class="n">Datetime360Day</span><span class="p">,</span>
+    <span class="n">cftime</span><span class="o">.</span><span class="n">DatetimeGregorian</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="CMIP6">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CMIP6.html#earth2studio.data.CMIP6">[docs]</a>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CMIP6</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CMIP6 data source for Earth2Studio.</span>
+
+<span class="sd">    This class provides a thin convenience wrapper around the `intake-esgf` catalog that</span>
+<span class="sd">    hosts the Coupled Model Inter-comparison Project Phase 6 (CMIP6) archive. This is</span>
+<span class="sd">    meant to provide a seemless interface to the CMIP6 archive for Earth2Studio however</span>
+<span class="sd">    the CMIP6 archive is very large there may be data that will break this interface.</span>
+<span class="sd">    Currently this supports both atmospheric and oceanic datasets.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    experiment_id : str</span>
+<span class="sd">        CMIP6 experiment identifier (e.g. &quot;historical&quot;, &quot;ssp585&quot;)</span>
+<span class="sd">    source_id : str</span>
+<span class="sd">        CMIP6 model identifier (e.g. &quot;MPI-ESM1-2-LR&quot;)</span>
+<span class="sd">    table_id : str</span>
+<span class="sd">        CMOR table describing variable realm/frequency (&quot;Amon&quot;, &quot;Omon&quot;, &quot;SImon&quot;)</span>
+<span class="sd">    variant_label : str</span>
+<span class="sd">        Ensemble member / initial-condition label such as &quot;r1i1p1f1&quot;.</span>
+<span class="sd">    file_start : str, optional</span>
+<span class="sd">        Optional filename prefix filters forwarded to ``ESGFCatalog.search`` to</span>
+<span class="sd">        constrain the final dataset selection. Leave None to accept all, by default None</span>
+<span class="sd">    file_end : str, optional</span>
+<span class="sd">        Optional filename suffix filters forwarded to ``ESGFCatalog.search`` to</span>
+<span class="sd">        constrain the final dataset selection. Leave None to accept all, by default None</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True. Multiple CMIP6 instances</span>
+<span class="sd">        can safely share the same cache directory as intake-esgf automatically organizes</span>
+<span class="sd">        files into detailed subdirectories by project, model, experiment, variant, variable,</span>
+<span class="sd">        and version, preventing any conflicts.</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print download progress, by default True</span>
+<span class="sd">    exact_time_match : bool, optional</span>
+<span class="sd">        If True, raise an error when requested times don&#39;t match dataset times exactly.</span>
+<span class="sd">        If False (default), use nearest neighbor time matching and issue a warning, by default False</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests. The source data used is provided in an</span>
+<span class="sd">    unoptimized format.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the CMIP6 data repository can be referenced here:</span>
+
+<span class="sd">    - https://esgf-node.llnl.gov/search/cmip6/</span>
+
+<span class="sd">    The intake-esgf package is used to search the CMIP6 data repository and load the</span>
+<span class="sd">    data into an xarray dataset. Additional information on the intake-esgf package can</span>
+<span class="sd">    be referenced here:</span>
+
+<span class="sd">    - https://intake-esgf.readthedocs.io/en/latest/</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    By default, this data source will retrieve the closest time available using nearest</span>
+<span class="sd">    neighbor matching. Depending on the experiment and temporal resolution, this may be</span>
+<span class="sd">    significantly different than what was requested. Set `exact_time_match=True` to</span>
+<span class="sd">    enforce exact time matching if precise timestamps are critical.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">experiment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">source_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">table_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">variant_label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">file_start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">file_end</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">exact_time_match</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment_id</span> <span class="o">=</span> <span class="n">experiment_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_id</span> <span class="o">=</span> <span class="n">source_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table_id</span> <span class="o">=</span> <span class="n">table_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">variant_label</span> <span class="o">=</span> <span class="n">variant_label</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">file_start</span> <span class="o">=</span> <span class="n">file_start</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">file_end</span> <span class="o">=</span> <span class="n">file_end</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exact_time_match</span> <span class="o">=</span> <span class="n">exact_time_match</span>
+
+        <span class="c1"># Create catalog</span>
+        <span class="n">intake_esgf</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">local_cache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span> <span class="o">=</span> <span class="n">intake_esgf</span><span class="o">.</span><span class="n">ESGFCatalog</span><span class="p">()</span>
+
+        <span class="c1"># Search for all available data (no variable_id filter) - metadata only</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_catalog</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">variant_label</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_start</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_end</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Extract available variables from catalog metadata (no data download)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;variable_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="CMIP6.__call__">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CMIP6.html#earth2studio.data.CMIP6.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for.</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            Strings or list of strings that refer to variables to return.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Loaded data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Prepare data inputs</span>
+        <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+
+        <span class="c1"># Convert variable to CMIP6 IDs</span>
+        <span class="n">cmip6_ids_set</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">CMIP6Lexicon</span><span class="o">.</span><span class="n">get_item</span><span class="p">(</span><span class="n">v</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">}</span>
+        <span class="n">cmip6_variable_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cmip6_ids_set</span><span class="p">)</span>
+
+        <span class="c1"># Validate that requested variables are available</span>
+        <span class="k">if</span> <span class="n">cmip6_ids_set</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Variable(s) </span><span class="si">{</span><span class="n">cmip6_ids_set</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="si">}</span><span class="s2"> not found in CMIP6 dataset. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Available variables: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Now download only the requested variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_search_catalog</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">source_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">variant_label</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_start</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_end</span><span class="p">,</span>
+            <span class="n">variable_id</span><span class="o">=</span><span class="n">cmip6_variable_ids</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">dsd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">to_dataset_dict</span><span class="p">(</span>
+            <span class="n">prefer_streaming</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">add_measures</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>  <span class="c1"># NOTE: it may be better to use streaming however this resulted in lots of errors</span>
+
+        <span class="c1"># Get lat/lon and calendar from first dataset</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">dsd</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">dsd</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="c1"># Regular lat-lon grid → lat/lon 1-D coordinates exist</span>
+        <span class="k">if</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">):</span>
+            <span class="n">lat_1d</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">lon_1d</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">grid_shape</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lat_1d</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">lon_1d</span><span class="p">))</span>
+            <span class="n">da_dims_xy</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
+            <span class="n">coord_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat_1d</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon_1d</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="c1"># Curvilinear ocean/ice grid → 2-D latitude/longitude coordinates</span>
+        <span class="k">elif</span> <span class="p">{</span><span class="s2">&quot;latitude&quot;</span><span class="p">,</span> <span class="s2">&quot;longitude&quot;</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">):</span>
+            <span class="n">lat2d</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">lon2d</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="c1"># Use underlying dimension names (typically j,i or y,x)</span>
+            <span class="n">y_dim</span><span class="p">,</span> <span class="n">x_dim</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dims</span>
+            <span class="n">grid_shape</span> <span class="o">=</span> <span class="n">lat2d</span><span class="o">.</span><span class="n">shape</span>  <span class="c1"># (ny, nx)</span>
+            <span class="n">da_dims_xy</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_dim</span><span class="p">,</span> <span class="n">x_dim</span><span class="p">)</span>
+            <span class="n">coord_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">y_dim</span><span class="p">:</span> <span class="n">ds</span><span class="p">[</span><span class="n">y_dim</span><span class="p">],</span>
+                <span class="n">x_dim</span><span class="p">:</span> <span class="n">ds</span><span class="p">[</span><span class="n">x_dim</span><span class="p">],</span>
+                <span class="s2">&quot;_lat&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">da_dims_xy</span><span class="p">,</span> <span class="n">lat2d</span><span class="p">),</span>
+                <span class="s2">&quot;_lon&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">da_dims_xy</span><span class="p">,</span> <span class="n">lon2d</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to determine horizontal coordinates for CMIP6 dataset – expected &#39;lat/lon&#39; or &#39;latitude/longitude&#39;.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Dataset: </span><span class="si">{</span><span class="n">ds</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Find the available times in the first dataset.</span>
+        <span class="c1"># Preserve original requested times for reference while sampling data.</span>
+        <span class="n">requested_times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_times_to_datetime</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">selection_times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_times_to_cftime</span><span class="p">(</span>
+            <span class="n">requested_times</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">calendar</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Select times based on matching mode</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exact_time_match</span><span class="p">:</span>
+            <span class="c1"># Try exact match</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ds_selected</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">selection_times</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># Find which times are missing</span>
+                <span class="n">available_times_cftime</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">values</span>
+                <span class="n">available_times_dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_times_to_datetime</span><span class="p">(</span>
+                    <span class="nb">list</span><span class="p">(</span><span class="n">available_times_cftime</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">missing_times</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">requested_times</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available_times_dt</span>
+                <span class="p">]</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Exact time match required but the following timestamps were not found in the CMIP6 dataset: </span><span class="si">{</span><span class="n">missing_times</span><span class="si">}</span><span class="s2">. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Available times: </span><span class="si">{</span><span class="n">available_times_dt</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">... (showing first 10). &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Set exact_time_match=False to use nearest neighbor matching instead.&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use nearest neighbor matching (default behavior)</span>
+            <span class="n">ds_selected</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">selection_times</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+
+        <span class="c1"># Extract selected times (common for both modes)</span>
+        <span class="n">selected_times</span> <span class="o">=</span> <span class="n">ds_selected</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># cftime objects in dataset calendar</span>
+        <span class="n">selected_times_dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_times_to_datetime</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">selected_times</span><span class="p">))</span>
+
+        <span class="c1"># Warn if using nearest neighbor and times don&#39;t match exactly</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exact_time_match</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">requested_times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">selected_times_dt</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;One or more requested timestamps were not found exactly in the CMIP6 dataset; &quot;</span>
+                <span class="s2">&quot;nearest available snapshots have been substituted.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Use selected (actual available) times for data subsetting</span>
+        <span class="n">selection_times</span> <span class="o">=</span> <span class="n">selected_times</span>
+
+        <span class="c1"># Subset time; rely on xarray&#39;s KeyError if a timestamp is missing</span>
+        <span class="k">for</span> <span class="n">var_name</span><span class="p">,</span> <span class="n">ds_var</span> <span class="ow">in</span> <span class="n">dsd</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">dsd</span><span class="p">[</span><span class="n">var_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_var</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">selection_times</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+
+        <span class="c1"># Make data array</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span> <span class="o">*</span><span class="n">grid_shape</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">da_dims_xy</span><span class="p">],</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">selected_times_dt</span><span class="p">,</span>
+                <span class="c1"># Keep the originally requested timestamps alongside the actual sampled times</span>
+                <span class="s2">&quot;time_requested&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">requested_times</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">coord_dict</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Populate the array</span>
+        <span class="k">for</span> <span class="n">var_idx</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="n">tqdm</span><span class="p">(</span>
+                <span class="n">variable</span><span class="p">,</span>
+                <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span>
+                <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching CMIP6 variables&quot;</span><span class="p">,</span>
+                <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+
+            <span class="c1"># Get variable, level, and modifier</span>
+            <span class="n">cmip6_entry</span> <span class="o">=</span> <span class="n">CMIP6Lexicon</span><span class="o">.</span><span class="n">get_item</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+            <span class="p">(</span><span class="n">cmip6_var</span><span class="p">,</span> <span class="n">level</span><span class="p">),</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">cmip6_entry</span>
+
+            <span class="c1"># Get data array</span>
+            <span class="n">ds_var</span> <span class="o">=</span> <span class="n">dsd</span><span class="p">[</span><span class="n">cmip6_var</span><span class="p">]</span>
+            <span class="n">data_arr</span> <span class="o">=</span> <span class="n">ds_var</span><span class="p">[</span><span class="n">cmip6_var</span><span class="p">]</span>  <span class="c1"># DataArray inside the dataset</span>
+
+            <span class="c1"># Select pressure level if needed</span>
+            <span class="k">if</span> <span class="n">level</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Convert hPa → Pa to match dataset units</span>
+                <span class="n">target_pa</span> <span class="o">=</span> <span class="n">level</span> <span class="o">*</span> <span class="mf">100.0</span>
+                <span class="k">if</span> <span class="s2">&quot;plev&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data_arr</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Variable &#39;</span><span class="si">{</span><span class="n">cmip6_var</span><span class="si">}</span><span class="s2">&#39; expected to have a &#39;plev&#39; coordinate but none found&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">data_arr</span> <span class="o">=</span> <span class="n">data_arr</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">plev</span><span class="o">=</span><span class="n">target_pa</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="n">available</span> <span class="o">=</span> <span class="n">data_arr</span><span class="o">.</span><span class="n">plev</span><span class="o">.</span><span class="n">values</span> <span class="o">/</span> <span class="mf">100.0</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Requested pressure level </span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2"> hPa for variable &#39;</span><span class="si">{</span><span class="n">cmip6_var</span><span class="si">}</span><span class="s2">&#39; not found.&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot; Available levels: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+            <span class="c1"># At this point data_arr dims should be (time, lat, lon)</span>
+            <span class="c1"># Convert to numpy (trigger load) and apply modifier</span>
+            <span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span> <span class="n">var_idx</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">data_arr</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">da</span></div>
+
+
+<div class="viewcode-block" id="CMIP6.available">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CMIP6.html#earth2studio.data.CMIP6.available">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
+        <span class="n">experiment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">source_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">table_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">variant_label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the requested *exact* timestamp exists in the ESGF archive.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | np.datetime64</span>
+<span class="sd">            Timestamp to test (UTC).</span>
+<span class="sd">        experiment_id : str</span>
+<span class="sd">            CMIP6 experiment identifier (e.g. &quot;historical&quot;, &quot;ssp585&quot;).</span>
+<span class="sd">        source_id : str</span>
+<span class="sd">            CMIP6 model identifier (e.g. &quot;MPI-ESM1-2-LR&quot;).</span>
+<span class="sd">        table_id : str</span>
+<span class="sd">            CMOR table describing variable realm/frequency (&quot;Amon&quot;, &quot;Omon&quot;, &quot;SImon&quot; ...).</span>
+<span class="sd">        variant_label : str</span>
+<span class="sd">            Ensemble member / initial-condition label such as &quot;r1i1p1f1&quot;.</span>
+
+<span class="sd">        Warning</span>
+<span class="sd">        -------</span>
+<span class="sd">        This method downloads data from ESGF servers to verify the time coordinate</span>
+<span class="sd">        range. It is not a lightweight metadata-only check.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The check performs an ESGF search and downloads at least one file to read</span>
+<span class="sd">        its time coordinate bounds. If the target timestamp lies within the dataset&#39;s</span>
+<span class="sd">        time span, `True` is returned. Otherwise returns `False`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>  <span class="c1"># np.datetime64 → datetime</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;datetime64[us]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">datetime</span><span class="p">)</span>
+
+        <span class="c1"># Search for data</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cat</span> <span class="o">=</span> <span class="n">intake_esgf</span><span class="o">.</span><span class="n">ESGFCatalog</span><span class="p">()</span>
+            <span class="n">cat</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+                <span class="n">experiment_id</span><span class="o">=</span><span class="n">experiment_id</span><span class="p">,</span>
+                <span class="n">source_id</span><span class="o">=</span><span class="n">source_id</span><span class="p">,</span>
+                <span class="n">table_id</span><span class="o">=</span><span class="n">table_id</span><span class="p">,</span>
+                <span class="n">variant_label</span><span class="o">=</span><span class="n">variant_label</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Just get the first record</span>
+        <span class="n">cat</span><span class="o">.</span><span class="n">df</span> <span class="o">=</span> <span class="n">cat</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">dsd</span> <span class="o">=</span> <span class="n">cat</span><span class="o">.</span><span class="n">to_dataset_dict</span><span class="p">(</span><span class="n">prefer_streaming</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">add_measures</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dsd</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+
+        <span class="c1"># Confirm timestamp lies inside at least one dataset’s time axis</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">CMIP6</span><span class="o">.</span><span class="n">_convert_times_to_datetime</span><span class="p">([</span><span class="n">t0</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">CMIP6</span><span class="o">.</span><span class="n">_convert_times_to_datetime</span><span class="p">([</span><span class="n">t1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">t0</span> <span class="o">&lt;=</span> <span class="n">time</span> <span class="o">&lt;=</span> <span class="n">t1</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the appropriate cache location.</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Multiple CMIP6 instances can safely share the same base cache directory.</span>
+<span class="sd">        The intake-esgf package automatically creates detailed subdirectories within</span>
+<span class="sd">        the cache for each unique dataset, organized by project, institution, model,</span>
+<span class="sd">        experiment, variant, table, variable, grid, and version. This prevents any</span>
+<span class="sd">        cache conflicts between different CMIP6 sources.</span>
+
+<span class="sd">        For example, files are cached in paths like:</span>
+<span class="sd">        ``&lt;cache&gt;/CMIP6/ScenarioMIP/CCCma/CanESM5/ssp585/r1i1p2f1/day/tas/gn/v20190429/clt_day_CanESM5_ssp585_r1i1p2f1_gn_20150101-21001231.nc``</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Path to cache directory.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;cmip6&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_location</span><span class="p">,</span> <span class="s2">&quot;tmp&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cache_location</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_search_catalog</span><span class="p">(</span>
+        <span class="n">catalog</span><span class="p">:</span> <span class="s2">&quot;intake_esgf.ESGFCatalog&quot;</span><span class="p">,</span>
+        <span class="n">experiment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">source_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">table_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">variant_label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">file_start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">file_end</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">variable_id</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Search the ESGF catalog with consistent error handling.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        catalog : intake_esgf.ESGFCatalog</span>
+<span class="sd">            The catalog to search</span>
+<span class="sd">        experiment_id : str</span>
+<span class="sd">            CMIP6 experiment identifier</span>
+<span class="sd">        source_id : str</span>
+<span class="sd">            CMIP6 model identifier</span>
+<span class="sd">        table_id : str</span>
+<span class="sd">            CMOR table describing variable realm/frequency</span>
+<span class="sd">        variant_label : str</span>
+<span class="sd">            Ensemble member / initial-condition label</span>
+<span class="sd">        file_start : str | None</span>
+<span class="sd">            Optional filename prefix filter</span>
+<span class="sd">        file_end : str | None</span>
+<span class="sd">            Optional filename suffix filter</span>
+<span class="sd">        variable_id : list[str] | None</span>
+<span class="sd">            Optional list of variable IDs to filter by</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the search fails with context about the parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">search_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;experiment_id&quot;</span><span class="p">:</span> <span class="n">experiment_id</span><span class="p">,</span>
+            <span class="s2">&quot;source_id&quot;</span><span class="p">:</span> <span class="n">source_id</span><span class="p">,</span>
+            <span class="s2">&quot;table_id&quot;</span><span class="p">:</span> <span class="n">table_id</span><span class="p">,</span>
+            <span class="s2">&quot;variant_label&quot;</span><span class="p">:</span> <span class="n">variant_label</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">file_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">search_params</span><span class="p">[</span><span class="s2">&quot;file_start&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_start</span>
+        <span class="k">if</span> <span class="n">file_end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">search_params</span><span class="p">[</span><span class="s2">&quot;file_end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_end</span>
+        <span class="k">if</span> <span class="n">variable_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">search_params</span><span class="p">[</span><span class="s2">&quot;variable_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable_id</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">catalog</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="o">**</span><span class="n">search_params</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error_msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error searching for CMIP6 data: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Experiment ID: </span><span class="si">{</span><span class="n">experiment_id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Source ID: </span><span class="si">{</span><span class="n">source_id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Table ID: </span><span class="si">{</span><span class="n">table_id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Variant Label: </span><span class="si">{</span><span class="n">variant_label</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">file_start</span><span class="p">:</span>
+                <span class="n">error_msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">File Start: </span><span class="si">{</span><span class="n">file_start</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">file_end</span><span class="p">:</span>
+                <span class="n">error_msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">File End: </span><span class="si">{</span><span class="n">file_end</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">variable_id</span><span class="p">:</span>
+                <span class="n">error_msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Variable ID: </span><span class="si">{</span><span class="n">variable_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_convert_times_to_cftime</span><span class="p">(</span>
+        <span class="n">raw_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span> <span class="s2">&quot;CFDatetime&quot;</span><span class="p">]],</span>
+        <span class="n">calendar</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert python/NumPy datetimes to matching ``cftime`` objects.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        raw_times : list</span>
+<span class="sd">            List of datetime-like objects (``datetime``, ``numpy.datetime64`` or</span>
+<span class="sd">            already-converted ``cftime`` objects).</span>
+<span class="sd">        calendar : str</span>
+<span class="sd">            The calendar type of the dataset.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        List of times converted to the appropriate ``cftime`` class.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">converted</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="n">raw_times</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>
+                <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;datetime64[us]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">datetime</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+                <span class="n">y</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Mi</span><span class="p">,</span> <span class="n">S</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">hour</span><span class="p">,</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">minute</span><span class="p">,</span>
+                    <span class="n">ts</span><span class="o">.</span><span class="n">second</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">calendar</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;noleap&quot;</span><span class="p">,</span> <span class="s2">&quot;365_day&quot;</span><span class="p">):</span>
+                    <span class="n">converted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cftime</span><span class="o">.</span><span class="n">DatetimeNoLeap</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Mi</span><span class="p">,</span> <span class="n">S</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">calendar</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;360_day&quot;</span><span class="p">,):</span>
+                    <span class="n">converted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cftime</span><span class="o">.</span><span class="n">Datetime360Day</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Mi</span><span class="p">,</span> <span class="n">S</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">converted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cftime</span><span class="o">.</span><span class="n">DatetimeGregorian</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">Mi</span><span class="p">,</span> <span class="n">S</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported time type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">converted</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_convert_times_to_datetime</span><span class="p">(</span>
+        <span class="n">raw_times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span> <span class="s2">&quot;CFDatetime&quot;</span><span class="p">]]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert a list of mixed time objects (cftime, numpy.datetime64, datetime)</span>
+<span class="sd">        to Python ``datetime`` objects for xarray coordinate storage.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        • cftime calendars that contain impossible Gregorian dates (e.g., 360-day</span>
+<span class="sd">          calendar with day 30 for February) *can* still be represented by the</span>
+<span class="sd">          standard ``datetime`` class because those dates are numerically valid.</span>
+<span class="sd">          Only leap calendars with a 366th day of year 366 would fail; CMIP6</span>
+<span class="sd">          native calendars avoid that case for monthly/daily data we target.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">converted</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ts</span> <span class="ow">in</span> <span class="n">raw_times</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>
+                <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;datetime64[us]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">datetime</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+                <span class="n">converted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">ts</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;cftime&quot;</span><span class="p">):</span>
+                <span class="n">ts_cf</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">CFDatetime</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+                <span class="n">converted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">datetime</span><span class="p">(</span>
+                        <span class="n">ts_cf</span><span class="o">.</span><span class="n">year</span><span class="p">,</span>
+                        <span class="n">ts_cf</span><span class="o">.</span><span class="n">month</span><span class="p">,</span>
+                        <span class="n">ts_cf</span><span class="o">.</span><span class="n">day</span><span class="p">,</span>
+                        <span class="n">ts_cf</span><span class="o">.</span><span class="n">hour</span><span class="p">,</span>
+                        <span class="n">ts_cf</span><span class="o">.</span><span class="n">minute</span><span class="p">,</span>
+                        <span class="n">ts_cf</span><span class="o">.</span><span class="n">second</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unsupported time type for datetime conversion: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">converted</span></div>
+
+
+
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CMIP6MultiRealm</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CMIP6 data source for Earth2Studio with multiple realms.</span>
+
+<span class="sd">    This class allows combining multiple CMIP6 data sources from different realms</span>
+<span class="sd">    (e.g., atmosphere, ocean, sea ice) into a single unified interface. Variables</span>
+<span class="sd">    are fetched from each source in the order provided, and data on different grids</span>
+<span class="sd">    are automatically regridded to a common regular lat/lon grid.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cmip6_source_list : list[CMIP6]</span>
+<span class="sd">        List of CMIP6 data sources to combine. Variables will be fetched from</span>
+<span class="sd">        sources in the order they appear in the list. All sources must have the</span>
+<span class="sd">        same `exact_time_match` setting.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If cmip6_source_list is empty or if sources have different exact_time_match settings.</span>
+<span class="sd">    TypeError</span>
+<span class="sd">        If any item in cmip6_source_list is not a CMIP6 instance.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    When multiple sources have different grids, curvilinear grids (e.g., from ocean</span>
+<span class="sd">    or sea ice models) will be interpolated to the first regular lat/lon grid found</span>
+<span class="sd">    using nearest-neighbor interpolation.</span>
+
+<span class="sd">    All CMIP6 sources must be initialized with the same `exact_time_match` setting</span>
+<span class="sd">    to ensure consistent time matching behavior across realms.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmip6_source_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CMIP6</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cmip6_source_list</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cmip6_source_list cannot be empty&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Validate that all items are CMIP6 instances</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">source</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cmip6_source_list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">CMIP6</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Item at index </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> in cmip6_source_list is not a CMIP6 instance. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Validate that all sources have the same exact_time_match setting</span>
+        <span class="n">first_exact_time_match</span> <span class="o">=</span> <span class="n">cmip6_source_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_exact_time_match</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">source</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cmip6_source_list</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">source</span><span class="o">.</span><span class="n">_exact_time_match</span> <span class="o">!=</span> <span class="n">first_exact_time_match</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;All CMIP6 sources must have the same exact_time_match setting. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Source 0 has exact_time_match=</span><span class="si">{</span><span class="n">first_exact_time_match</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but source </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> has exact_time_match=</span><span class="si">{</span><span class="n">source</span><span class="o">.</span><span class="n">_exact_time_match</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cmip6_source_list</span> <span class="o">=</span> <span class="n">cmip6_source_list</span>
+
+        <span class="c1"># Collect all available variables from all sources</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="n">cmip6_source_list</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">available_variables</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve data from multiple CMIP6 sources and combine into single array.</span>
+
+<span class="sd">        This method fetches the requested variables from the available CMIP6 sources,</span>
+<span class="sd">        automatically regridding data from different grids to a common grid, and</span>
+<span class="sd">        combines all variables into a single DataArray.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for.</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            Variable(s) to retrieve. Each variable will be fetched from the first</span>
+<span class="sd">            source in the list that has it available.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Combined data array with dimensions (time, variable, lat, lon) or</span>
+<span class="sd">            (time, variable, j, i) depending on the grid type.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If any requested variables are not found in any of the sources.</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            If all sources use curvilinear grids (at least one regular lat/lon grid required).</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Variables are retrieved from sources in the order they appear in</span>
+<span class="sd">        cmip6_source_list. If multiple sources contain the same variable,</span>
+<span class="sd">        only the first one will be used.</span>
+
+<span class="sd">        Curvilinear grids (ocean/sea ice) are regridded to regular grids using</span>
+<span class="sd">        nearest-neighbor interpolation to preserve data coverage near coastlines.</span>
+<span class="sd">        At least one source with a regular lat/lon grid (typically atmospheric data)</span>
+<span class="sd">        is required when combining multiple sources with different grids.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">da_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">var_done</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># get variables from the datasources in the order they are available</span>
+        <span class="k">for</span> <span class="n">cmip6_source</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmip6_source_list</span><span class="p">:</span>
+            <span class="c1"># get available variables</span>
+            <span class="c1"># Get variable, level, and modifier</span>
+            <span class="n">var_available</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+                <span class="n">cmip6_entry</span> <span class="o">=</span> <span class="n">CMIP6Lexicon</span><span class="o">.</span><span class="n">get_item</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="p">(</span><span class="n">cmip6_var</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cmip6_entry</span>
+                <span class="k">if</span> <span class="n">cmip6_var</span> <span class="ow">in</span> <span class="n">cmip6_source</span><span class="o">.</span><span class="n">available_variables</span><span class="p">:</span>
+                    <span class="n">var_available</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+            <span class="n">var_todo</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">var_available</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var_done</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">var_todo</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">da_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cmip6_source</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">var_todo</span><span class="p">))</span>
+            <span class="n">var_done</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">var_todo</span><span class="p">)</span>
+
+        <span class="c1"># Check if any variables were found</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">da_list</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;None of the requested variables </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> were found in any of the provided CMIP6 sources&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Check if ALL requested variables were found</span>
+        <span class="n">var_missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">var_done</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">var_missing</span><span class="p">:</span>
+            <span class="c1"># Get CMIP6 variable IDs for the missing variables</span>
+            <span class="n">missing_cmip6_vars</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">var_missing</span><span class="p">:</span>
+                <span class="n">cmip6_entry</span> <span class="o">=</span> <span class="n">CMIP6Lexicon</span><span class="o">.</span><span class="n">get_item</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="p">(</span><span class="n">cmip6_var</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cmip6_entry</span>
+                <span class="n">missing_cmip6_vars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> (CMIP6: </span><span class="si">{</span><span class="n">cmip6_var</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Variable(s) </span><span class="si">{</span><span class="n">missing_cmip6_vars</span><span class="si">}</span><span class="s2"> not found in any of the provided CMIP6 sources. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Found variables: </span><span class="si">{</span><span class="n">var_done</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Available variables across all sources: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Regrid all data arrays to a common grid if needed</span>
+        <span class="n">da_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_regrid_to_common_grid</span><span class="p">(</span><span class="n">da_list</span><span class="p">)</span>
+
+        <span class="c1"># Combine all data arrays along variable dimension</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">da_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Reorder variables to match the requested order</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
+        <span class="n">cmip6_source_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">CMIP6</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the requested timestamp is available in all sources.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | np.datetime64</span>
+<span class="sd">            Timestamp to test (UTC).</span>
+<span class="sd">        cmip6_source_list : list[CMIP6]</span>
+<span class="sd">            List of CMIP6 data sources to check.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            True if the timestamp is available in all sources, False otherwise.</span>
+
+<span class="sd">        Warning</span>
+<span class="sd">        -------</span>
+<span class="sd">        This method may download data from ESGF servers for each source to check</span>
+<span class="sd">        time availability. For multiple sources, this can result in significant</span>
+<span class="sd">        data transfer.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method checks that ALL sources have data available at the requested time,</span>
+<span class="sd">        since combining multi-realm data requires data from all sources. Each source</span>
+<span class="sd">        is checked by downloading at least one file to verify the time coordinate range.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cmip6_source_list</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Check that ALL sources have data available at the requested time</span>
+        <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="n">cmip6_source_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">CMIP6</span><span class="o">.</span><span class="n">available</span><span class="p">(</span>
+                <span class="n">time</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">.</span><span class="n">experiment_id</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">.</span><span class="n">source_id</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">.</span><span class="n">table_id</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">.</span><span class="n">variant_label</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get cache locations from all CMIP6 sources.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list[str]</span>
+<span class="sd">            List of cache directory paths, one for each source in cmip6_source_list.</span>
+<span class="sd">            All sources share the same base cache directory (`&lt;root&gt;/cmip6/`), with</span>
+<span class="sd">            sources that have `cache=False` using a `tmp/` subdirectory.</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Multiple CMIP6 sources can safely share the same base cache directory.</span>
+<span class="sd">        The intake-esgf package automatically organizes files into detailed</span>
+<span class="sd">        subdirectories within the cache, preventing any conflicts between different</span>
+<span class="sd">        datasets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">source</span><span class="o">.</span><span class="n">cache</span> <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmip6_source_list</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_regrid_to_common_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">da_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Regrid all data arrays to a common regular lat/lon grid.</span>
+
+<span class="sd">        Uses the first regular (non-curvilinear) grid as the target.</span>
+<span class="sd">        Curvilinear grids (with _lat/_lon coords) are interpolated to this target</span>
+<span class="sd">        using nearest-neighbor interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        da_list : list[xr.DataArray]</span>
+<span class="sd">            List of data arrays to regrid</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list[xr.DataArray]</span>
+<span class="sd">            List of regridded data arrays on common grid</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            If all sources use curvilinear grids (no regular lat/lon grid found)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">da_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">da_list</span>
+
+        <span class="c1"># Find the target regular grid (first one with &#39;lat&#39;/&#39;lon&#39; coords)</span>
+        <span class="n">target_idx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">da</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">da_list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span> <span class="ow">and</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+                <span class="n">target_idx</span> <span class="o">=</span> <span class="n">idx</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">target_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Regridding between multiple curvilinear grids is not yet supported. &quot;</span>
+                <span class="s2">&quot;All CMIP6 sources use curvilinear grids. &quot;</span>
+                <span class="s2">&quot;At least one source with a regular lat/lon grid &quot;</span>
+                <span class="s2">&quot;is required to serve as the target grid for interpolation.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">target_da</span> <span class="o">=</span> <span class="n">da_list</span><span class="p">[</span><span class="n">target_idx</span><span class="p">]</span>
+        <span class="n">target_lats</span> <span class="o">=</span> <span class="n">target_da</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">target_lons</span> <span class="o">=</span> <span class="n">target_da</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="c1"># Regrid curvilinear datasets to target</span>
+        <span class="n">regridded_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">da</span> <span class="ow">in</span> <span class="n">da_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;_lat&quot;</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span> <span class="ow">and</span> <span class="s2">&quot;_lon&quot;</span> <span class="ow">in</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+                <span class="c1"># Curvilinear grid - needs interpolation</span>
+                <span class="n">regridded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interpolate_curvilinear_to_regular</span><span class="p">(</span>
+                    <span class="n">da</span><span class="p">,</span> <span class="n">target_lats</span><span class="p">,</span> <span class="n">target_lons</span><span class="p">,</span> <span class="n">target_da</span>
+                <span class="p">)</span>
+                <span class="n">regridded_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">regridded</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Already regular grid</span>
+                <span class="n">regridded_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">da</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">regridded_list</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_interpolate_curvilinear_to_regular</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">da_curvilinear</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+        <span class="n">target_lats</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">target_lons</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">target_da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate curvilinear grid data to a regular lat/lon grid.</span>
+
+<span class="sd">        Uses nearest-neighbor interpolation to preserve data coverage near</span>
+<span class="sd">        coastlines and avoid NaN expansion issues common with linear/cubic methods.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        da_curvilinear : xr.DataArray</span>
+<span class="sd">            Data array with curvilinear grid (_lat, _lon coords)</span>
+<span class="sd">        target_lats : np.ndarray</span>
+<span class="sd">            Target latitude coordinates</span>
+<span class="sd">        target_lons : np.ndarray</span>
+<span class="sd">            Target longitude coordinates</span>
+<span class="sd">        target_da : xr.DataArray</span>
+<span class="sd">            Target data array to match dimensions</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Regridded data array on regular grid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get source curvilinear coordinates</span>
+        <span class="n">source_lons</span> <span class="o">=</span> <span class="n">da_curvilinear</span><span class="p">[</span><span class="s2">&quot;_lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">source_lats</span> <span class="o">=</span> <span class="n">da_curvilinear</span><span class="p">[</span><span class="s2">&quot;_lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">source_lats</span><span class="p">,</span> <span class="n">source_lons</span><span class="p">))</span>
+
+        <span class="c1"># Create target grid (note: meshgrid returns lon first, lat second)</span>
+        <span class="n">target_lon_grid</span><span class="p">,</span> <span class="n">target_lat_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">target_lons</span><span class="p">,</span> <span class="n">target_lats</span><span class="p">)</span>
+
+        <span class="c1"># Prepare output array</span>
+        <span class="n">n_time</span><span class="p">,</span> <span class="n">n_var</span> <span class="o">=</span> <span class="n">da_curvilinear</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">n_lat</span><span class="p">,</span> <span class="n">n_lon</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_lats</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_lons</span><span class="p">)</span>
+        <span class="n">regridded_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_time</span><span class="p">,</span> <span class="n">n_var</span><span class="p">,</span> <span class="n">n_lat</span><span class="p">,</span> <span class="n">n_lon</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">regridded_data</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+        <span class="c1"># Interpolate each time/variable slice</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">da_curvilinear</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">for</span> <span class="n">i_time</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_time</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i_var</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_var</span><span class="p">):</span>
+                <span class="n">slice_values</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">i_time</span><span class="p">,</span> <span class="n">i_var</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+                <span class="n">regridded_data</span><span class="p">[</span><span class="n">i_time</span><span class="p">,</span> <span class="n">i_var</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span>
+                    <span class="n">points</span><span class="p">,</span>
+                    <span class="n">slice_values</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">target_lat_grid</span><span class="p">,</span> <span class="n">target_lon_grid</span><span class="p">),</span>
+                    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Create new DataArray with target coordinates</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">target_da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">da_curvilinear</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">regridded_data</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">target_da</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">)</span>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

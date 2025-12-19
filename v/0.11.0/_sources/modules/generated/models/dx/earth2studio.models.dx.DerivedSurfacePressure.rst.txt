@@ -1,0 +1,22 @@
+﻿:mod:`earth2studio.models.dx`.DerivedSurfacePressure
+===========================================================
+
+.. currentmodule:: earth2studio.models.dx
+
+.. autoclass:: DerivedSurfacePressure
+
+   
+    .. automethod:: __call__
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.dx.DerivedSurfacePressure:
+
+.. minigallery:: earth2studio.models.dx.DerivedSurfacePressure
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
