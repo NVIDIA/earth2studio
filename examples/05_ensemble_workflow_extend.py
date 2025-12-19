@@ -35,7 +35,7 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
-#   "earth2studio[dlwp,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0",
+#   "earth2studio[dlwp,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "matplotlib",
 # ]
 # ///

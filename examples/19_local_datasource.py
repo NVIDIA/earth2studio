@@ -29,7 +29,7 @@ This example demonstrates how to:
 """
 # /// script
 # dependencies = [
-#   "earth2studio[aurora] @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0",
+#   "earth2studio[aurora] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
 # ///
