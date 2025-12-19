@@ -216,8 +216,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes: torch.Tensor,
         interpolation_matrix: torch.Tensor,
         inverse_interpolation_matrix: torch.Tensor,
-        invariants: torch.Tensor = None,
-        invariant_coords: CoordSystem = None,
+        invariants: torch.Tensor,
+        invariant_coords: CoordSystem,
     ) -> None:
         super().__init__()
         self.model = model
