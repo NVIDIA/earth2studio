@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- in AIFS-ENS, invariants have been seperated from prognostic variables
+- CDS and NCAR lexica have been updated with variables for AIFS-ENS
+
 ### Deprecated
 
 ### Removed
