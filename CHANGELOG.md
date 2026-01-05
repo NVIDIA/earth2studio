@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-## [0.11.0] - 2025-12-xx
+## [0.11.0] - 2025-12-19
 
 ### Added
 
@@ -49,8 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and AIFS_ENS_FX to reflect that they are forecast sources
 - Support multiple x, coords pairs in batch function decorator
 
-### Deprecated
-
 ### Removed
 
 - Removed support for returning multiple samples at once from IFS ENS data sources
@@ -59,8 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Vertical wind variables in GFS / GEFS to be Pa s-1
-
-### Security
 
 ### Dependencies
 

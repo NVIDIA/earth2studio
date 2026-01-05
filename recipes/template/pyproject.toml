@@ -3,12 +3,12 @@ name = "earth2studio.recipe.template"
 version = "0.1.0"
 description = "Recipe Template"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
   { name="NVIDIA PhysicsNeMo Team" },
 ]
 dependencies = [
-    "earth2studio",
+    "earth2studio>=0.9.0",
     "omegaconf",
 ]
 
@@ -19,7 +19,7 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 [tool.uv.sources]
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio", rev = "0.10.0" }
+earth2studio = { git = "https://github.com/NVIDIA/earth2studio", rev = "0.11.0" }
 omegaconf = { git = "https://github.com/omry/omegaconf.git" }
 
 [tool.hatch.build.targets.sdist]

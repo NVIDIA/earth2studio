@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.11.0a0"
+__version__ = "0.12.0a0"
 
 # Deprecation warnings
 # import sys
