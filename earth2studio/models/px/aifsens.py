@@ -143,7 +143,7 @@ VARIABLES = [
     "cos_local_time",
     "sin_julian_day",
     "sin_local_time",
-    "insolation",
+    "insolation",  # cosine zenith angle
     "stl1",
     "stl2",
     "ssrd",
