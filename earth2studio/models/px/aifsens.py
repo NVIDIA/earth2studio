@@ -14,16 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import os
-import urllib.request
 import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
-import tqdm
-from loguru import logger
 
 from earth2studio.data import IFS
 from earth2studio.data.utils import fetch_data
@@ -45,11 +41,6 @@ try:
     import flash_attn  # noqa: F401
 except ImportError:
     OptionalDependencyFailure("aifsens")
-
-
-# TODO: Make this package wide? Same as in run.py
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 VARIABLES = [
     "q50",
@@ -363,36 +354,6 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "same_names": True,
             },
         )
-
-        # download static vars from NCAR mirror and add to model package
-        ecmwf_ids = {"lsm": 172, "sdor": 160, "slor": 163, "z": 129}
-        for invar in ["lsm", "sdor", "slor", "z"]:
-            lsm_url = f"https://nsf-ncar-era5.s3.amazonaws.com/e5.oper.invariant/197901/e5.oper.invariant.128_{ecmwf_ids[invar]:03d}_{invar}.ll025sc.1979010100_1979010100.nc"
-            lsm_filename = f"{invar}.nc"
-            lsm_path = os.path.join(package.cache, lsm_filename)
-
-            # if not cached already
-            if not os.path.exists(lsm_path):
-                os.makedirs(package.cache, exist_ok=True)
-                with tqdm.tqdm(
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=f"Downloading {invar}",
-                ) as pbar:
-
-                    def reporthook(
-                        block_num: int, block_size: int, total_size: int
-                    ) -> None:
-                        if pbar.total is None:
-                            pbar.total = total_size
-                        pbar.update(block_size)
-
-                    urllib.request.urlretrieve(  # noqa: S310
-                        lsm_url,
-                        lsm_path,
-                        reporthook=reporthook,
-                    )
 
         return package
 
