@@ -239,7 +239,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.invariant_ids = self.model.data_indices.data.output.forcing[
             : len(self.VARIABLE_INVARIANTS)
         ]
-        self.generated_forcing = self.model.data_indices.data.output.forcing[
+        self.forcing_ids = self.model.data_indices.data.output.forcing[
             len(self.VARIABLE_INVARIANTS) :
         ]
 
@@ -737,7 +737,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Remove generated forcings
         all_indices = torch.arange(x.size(-1))
-        keep = torch.isin(all_indices, self.generated_forcing, invert=True)
+        keep = torch.isin(all_indices, self.forcing_ids, invert=True)
         x = x[..., keep]
         shape = x.shape
 
@@ -855,7 +855,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # Keep only valid indices (exclude generated forcings)
-        valid_mask = ~torch.isin(indices, self.generated_forcing)
+        valid_mask = ~torch.isin(indices, self.forcing_ids)
 
         # Fill tensor: copy input slices into selected variable slots
         out[:, :, 0, indices[valid_mask]] = x[0, 0, 0, ...]
@@ -866,7 +866,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Update coordinates with remaining variable names
         all_indices = torch.arange(len(VARIABLES))
-        variable_mask = ~torch.isin(all_indices, self.generated_forcing)
+        variable_mask = ~torch.isin(all_indices, self.forcing_ids)
         selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
 
         out_coords = coords.copy()
