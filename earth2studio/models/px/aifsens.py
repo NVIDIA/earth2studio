@@ -817,7 +817,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         while removing generated forcings (indices 92–100).
         """
         # add invariants to prognostics
-        x, coords = self._add_invariants(x, coords)
+        x = self._add_invariants(x, coords)
 
         batch, time, lead, _, height, width = x.shape
 
