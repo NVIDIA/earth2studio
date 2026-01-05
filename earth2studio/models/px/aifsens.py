@@ -571,27 +571,19 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """add ['lsm', 'sdor', 'slor', 'z'] to prognostics"""
+    ) -> torch.Tensor:
+        """add ['lsm', 'sdor', 'slor', 'z'] to input tensor"""
+
         shape = list(x.shape)
         shape[-3] += self.invariants.shape[-3]
         _x = torch.zeros(shape, device=x.device)
 
-        # get indices of invariants (CAUTION: works because first forcing comes after last invariant)
-        var_ids = torch.arange(_x.shape[-3])
-        mask = ~torch.isin(var_ids, self.invariant_ids)
-        var_ids = [i for i in var_ids[mask].tolist()]
-
-        _x[..., var_ids, :, :] = x
+        all_ids = torch.arange(shape[-3])
+        variable_ids = all_ids[~torch.isin(all_ids, self.invariant_ids)]
+        _x[..., variable_ids, :, :] = x
         _x[..., self.invariant_ids, :, :] = self.invariants
 
-        var_names = np.array([None] * _x.shape[-3], dtype=str)
-        var_names[var_ids] = coords["variable"]
-        var_names[self.invariant_ids] = np.array(self.VARIABLE_INVARIANTS)
-        _coords = coords.copy()
-        _coords["variable"] = var_names
-
-        return _x, _coords
+        return _x
 
     def _prepare_input(
         self,
@@ -600,7 +592,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS ENS model."""
         # add invariants
-        x, coords = self._add_invariants(x, coords)
+        x = self._add_invariants(x, coords)
 
         # Interpolate the input tensor to the model grid
         shape = x.shape
@@ -737,7 +729,9 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Prepare input tensor and coordinates for the AIFS ENS model."""
         # Remove generated forcings
         all_indices = torch.arange(x.size(-1))
-        keep = torch.isin(all_indices, self.forcing_ids, invert=True)
+        keep = torch.isin(
+            all_indices, self.model.data_indices.data.output.forcing, invert=True
+        )
         x = x[..., keep]
         shape = x.shape
 
@@ -758,20 +752,11 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coords["batch"].shape[0],
                 coords["time"].shape[0],
                 coords["lead_time"].shape[0],
-                coords["variable"].shape[0] + len(self.invariant_ids),
+                coords["variable"].shape[0],
                 coords["lat"].shape[0],
                 coords["lon"].shape[0],
             ],
         )
-
-        # remove invariants which are located at dimension -3 and are the on indices specified in self.invariant_ids
-
-        # Create mask to exclude invariants
-        var_ids = torch.arange(x.shape[-3])
-        mask = ~torch.isin(var_ids, self.invariant_ids)
-
-        # Select only non-invariant variables
-        x = x[..., mask, :, :]
 
         return x
 
