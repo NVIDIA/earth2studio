@@ -488,6 +488,21 @@ def test_derived_tcwv(levels, shape, device):
     out_zero, _ = model(x_zero, coords)
     assert torch.allclose(out_zero, torch.zeros_like(out_zero), atol=1e-6)
 
+    # Test numerical accuracy with constant q and known pressure range
+    # For constant q, TCWV = q * (p_surface - p_top) / g
+    q_const = 0.01  # kg/kg
+    p_surface = 101325.0  # Pa
+    p_top = min(levels) * 100.0  # Top pressure level in Pa
+    x_const = torch.full((batch_size, n_levels + 1, lat_size, lon_size), q_const).to(
+        device
+    )
+    x_const[:, n_levels] = p_surface
+    out_const, _ = model(x_const, coords)
+    expected_tcwv = q_const * (p_surface - p_top) / model.g
+    assert torch.allclose(
+        out_const, torch.full_like(out_const, expected_tcwv), rtol=0.01
+    )
+
 
 @pytest.mark.parametrize(
     "invalid_coords",
