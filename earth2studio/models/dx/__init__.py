@@ -24,6 +24,7 @@ from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
     DerivedSurfacePressure,
+    DerivedTCWV,
     DerivedVPD,
     DerivedWS,
 )

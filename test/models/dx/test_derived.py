@@ -24,6 +24,7 @@ from earth2studio.models.dx import (
     DerivedRH,
     DerivedRHDewpoint,
     DerivedSurfacePressure,
+    DerivedTCWV,
     DerivedVPD,
     DerivedWS,
 )
@@ -437,3 +438,70 @@ def test_derived_surface_pressure(
 
     # check that we get analytic solution
     assert (x_out - sp_correct).abs().max() / sp_correct < 1e-4
+
+
+@pytest.mark.parametrize(
+    "levels,shape",
+    [
+        ([1000, 850, 500], (1, 4, 16, 32)),
+        ([1000, 850, 700, 500, 300], (2, 6, 32, 64)),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_tcwv(levels, shape, device):
+    """Test TCWV derivation from specific humidity and surface pressure"""
+    model = DerivedTCWV(levels).to(device)
+
+    batch_size = shape[0]
+    n_levels = len(levels)
+    lat_size = shape[2]
+    lon_size = shape[3]
+
+    input_coords = model.input_coords()
+    assert len(input_coords["variable"]) == n_levels + 1  # q levels + sp
+
+    coords = OrderedDict(
+        {
+            "batch": np.arange(batch_size),
+            "variable": input_coords["variable"],
+            "lat": np.linspace(-90, 90, lat_size),
+            "lon": np.linspace(0, 360, lon_size),
+        }
+    )
+
+    # Create input with realistic values
+    x = torch.ones((batch_size, n_levels + 1, lat_size, lon_size)).to(device)
+    x[:, :n_levels] *= 0.01  # Specific humidity ~0.01 kg/kg
+    x[:, n_levels] *= 101325  # Surface pressure ~101325 Pa
+
+    out, out_coords = model(x, coords)
+
+    # Check output shape and coordinates
+    assert out.shape == (batch_size, 1, lat_size, lon_size)
+    assert out_coords["variable"][0] == "tcwv"
+    assert out.device == x.device
+    assert torch.all(out >= 0)  # TCWV should be non-negative
+
+    # Test with zero specific humidity -> TCWV should be zero
+    x_zero = torch.zeros_like(x)
+    x_zero[:, n_levels] = 101325  # Keep surface pressure
+    out_zero, _ = model(x_zero, coords)
+    assert torch.allclose(out_zero, torch.zeros_like(out_zero), atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "invalid_coords",
+    [
+        OrderedDict({"batch": np.array([0]), "variable": np.array(["wrong_var"])}),
+        OrderedDict(
+            {"batch": np.array([0]), "variable": np.array(["q1000"])}
+        ),  # Missing sp
+    ],
+)
+def test_derived_tcwv_invalid_coords(invalid_coords):
+    """Test TCWV derivation with invalid coordinates"""
+    model = DerivedTCWV([1000, 850, 500])
+    x = torch.randn(1, 1, 16, 32)
+
+    with pytest.raises(ValueError):
+        model(x, invalid_coords)
