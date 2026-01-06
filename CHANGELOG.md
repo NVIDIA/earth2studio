@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed AIFS-ENS invariants from model input / outputs and moved into model wrapper
+- CDS and NCAR lexica have been updated with variables for AIFS-ENS
+
 ### Deprecated
 
 ### Removed

@@ -87,12 +87,16 @@ class PhooAIFSENSModel(torch.nn.Module):
             [all_idx[[82, 84, 86, 89]], all_idx[92:101]]
         )
 
-        data_indices.data.output.full = torch.cat(
-            [all_idx[0:82], all_idx[[83, 85, 87, 88, 90, 91]], all_idx[101:113]]
+        data_indices.data.output.forcing = torch.cat(
+            [all_idx[[82, 84, 86, 89]], all_idx[92:101]]
         )
 
         data_indices.data.input.full = torch.cat(
             [all_idx[0:90], all_idx[92:101], all_idx[[101, 102]]]
+        )
+
+        data_indices.data.output.full = torch.cat(
+            [all_idx[0:82], all_idx[[83, 85, 87, 88, 90, 91]], all_idx[101:113]]
         )
 
         data_indices.model = DotDict()
@@ -108,8 +112,8 @@ class PhooAIFSENSModel(torch.nn.Module):
         return torch.ones(x.shape[0], x.shape[2], 100, device=x.device)
 
 
-EXPECTED_OUTPUT_VARIABLES = len(VARIABLES) - 9
-EXPECTED_INPUT_VARIABLES = 92
+EXPECTED_OUTPUT_VARIABLES = len(VARIABLES) - 13
+EXPECTED_INPUT_VARIABLES = 88
 
 
 @pytest.mark.parametrize(
@@ -139,12 +143,20 @@ def test_aifsens_call(time, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.randn(
+        4,
+        721,
+        1440,
+        device=device,
+    )
+
     p = AIFSENS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -190,12 +202,20 @@ def test_aifsens_iter(ensemble, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.randn(
+        4,
+        721,
+        1440,
+        device=device,
+    )
+
     p = AIFSENS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -255,12 +275,20 @@ def test_aifsens_exceptions(dc, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.randn(
+        4,
+        721,
+        1440,
+        device=device,
+    )
+
     p = AIFSENS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     r = Random(dc)
