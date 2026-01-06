@@ -165,7 +165,7 @@ stormcast = [
 ]
 stormscope = [
     "natten",
-    "nvidia-physicsnemo>=1.3.0a0,<2.0",
+    "nvidia-physicsnemo==1.3.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
 ]
@@ -230,7 +230,6 @@ makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed130
 graphcast = { git = "https://github.com/deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
-nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "main"}
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -284,6 +283,9 @@ docs = [
     "sphinx-favicon>=1.0.1",
     "pydata-sphinx-theme==0.16.1"
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.version]
 path = "earth2studio/__init__.py"

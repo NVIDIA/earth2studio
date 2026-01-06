@@ -34,7 +34,7 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
-#   "earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[data,stormscope,utils]",
 #   "cartopy",
 # ]
 # ///
@@ -85,7 +85,7 @@ torch.use_deterministic_algorithms(True)
 
 # %%
 # Define the initialization time and select the appropriate GOES satellite
-t = datetime(2025, 12, 5, 19, 10, 0)
+t = datetime(2023, 12, 5, 12, 00, 0)
 goes_satellite = "goes19" if t >= datetime(2025, 4, 7, 0, 0, 0) else "goes16"
 inits = [np.datetime64(t)]
 
@@ -100,8 +100,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
 #  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
 #  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
-goes_model_name = "6km_10min_natten_pure_obs_zenith_6steps"
-mrms_model_name = "6km_10min_natten_pure_obs_mrms_obs_6steps"
+goes_model_name = "6km_60min_natten_cos_zenith_input_eoe_v2"
+mrms_model_name = "6km_60min_natten_cos_zenith_input_mrms_eoe"
 
 package = StormScopeBase.load_default_package()
 
@@ -384,6 +384,8 @@ for step_idx in range(12):
 
     y = y_pred
     y_coords = y_pred_coords
+    y_mrms = y_mrms_pred
+    y_coords_mrms = y_coords_mrms_pred
 
     logger.info(
         f"STEP {step_idx} {y_pred_coords['lead_time'][-1].astype('timedelta64[m]').item()}"

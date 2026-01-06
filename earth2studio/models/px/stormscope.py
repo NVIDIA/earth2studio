@@ -237,7 +237,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load a default local package for StormScope models."""
         package = Package(
-            "/lustre/fsw/portfolios/coreai/users/pharrington/model_pkg/scv2",
+            "/lustre/fsw/portfolios/coreai/users/pharrington/model_pkg/stormscope-goes-mrms",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
                 "same_names": True,
@@ -1381,7 +1381,7 @@ class StormScopeMRMS(StormScopeBase):
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         input_interp_max_dist_km: float = 12.0,
-        conditioning_interp_max_dist_km: float = 26.0,
+        conditioning_interp_max_dist_km: float = 12.0,
     ):
 
         super().__init__(
@@ -1617,4 +1617,5 @@ class StormScopeMRMS(StormScopeBase):
             input_times=input_times,
             output_times=output_times,
             input_interp_max_dist_km=6.0 * spatial_downsample,
+            conditioning_interp_max_dist_km=6.0 * spatial_downsample,
         )
