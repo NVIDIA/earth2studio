@@ -348,11 +348,13 @@ class HRRR:
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        # async_tasks = []
-        # async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        # func_map = map(
-        #     functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        # )
+        async_tasks = []
+        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
+        func_map = map(
+            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+        )
+
+        print(func_map)
 
         # await tqdm.gather(
         #     *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
