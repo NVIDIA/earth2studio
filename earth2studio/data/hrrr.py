@@ -350,15 +350,11 @@ class HRRR:
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+        func_map = map(functools.partial(self.fetch_wrapper), async_tasks)
+
+        await tqdm.gather(
+            *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
-
-        print(func_map)
-
-        # await tqdm.gather(
-        #     *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
-        # )
 
         # Close aiohttp client if s3fs
         if session:
@@ -468,7 +464,7 @@ class HRRR:
     async def fetch_wrapper(
         self,
         task: HRRRAsyncTask,
-        xr_array: xr.DataArray,
+        # xr_array: xr.DataArray,
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
         out = await self.fetch_array(
@@ -478,7 +474,8 @@ class HRRR:
             task.hrrr_modifier,
         )
         i, j, k = task.data_array_indices
-        xr_array[i, j, k] = out
+        out
+        # xr_array[i, j, k] = out
 
     async def fetch_array(
         self,
@@ -890,9 +887,7 @@ class HRRR_FX(HRRR):
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, lead_time, variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
+        func_map = map(functools.partial(self.fetch_wrapper), async_tasks)
 
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
