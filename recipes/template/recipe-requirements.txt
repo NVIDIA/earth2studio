@@ -397,7 +397,7 @@ typing-extensions==4.13.2
     #   zarr
 tzdata==2025.2
     # via pandas
-urllib3==2.4.0
+urllib3==2.6.3
     # via
     #   botocore
     #   distributed
