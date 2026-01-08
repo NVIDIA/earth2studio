@@ -350,7 +350,9 @@ class HRRR:
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        func_map = map(functools.partial(self.fetch_wrapper), async_tasks)
+        func_map = map(
+            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+        )
 
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
@@ -464,7 +466,7 @@ class HRRR:
     async def fetch_wrapper(
         self,
         task: HRRRAsyncTask,
-        # xr_array: xr.DataArray,
+        xr_array: xr.DataArray,
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
         out = await self.fetch_array(
@@ -474,8 +476,7 @@ class HRRR:
             task.hrrr_modifier,
         )
         i, j, k = task.data_array_indices
-        out
-        # xr_array[i, j, k] = out
+        xr_array[i, j, k] = out
 
     async def fetch_array(
         self,
@@ -513,7 +514,9 @@ class HRRR:
         da = xr.open_dataarray(
             grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
         )
-        return modifier(da.values)
+        values = modifier(da.values)
+        del da
+        return values
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for HRRR based on offline knowledge
@@ -887,7 +890,9 @@ class HRRR_FX(HRRR):
 
         async_tasks = []
         async_tasks = await self._create_tasks(time, lead_time, variable)
-        func_map = map(functools.partial(self.fetch_wrapper), async_tasks)
+        func_map = map(
+            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+        )
 
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
