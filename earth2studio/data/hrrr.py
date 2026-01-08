@@ -512,12 +512,7 @@ class HRRR:
             byte_offset=byte_offset,
             byte_length=byte_length,
         )
-        # Open into xarray data-array
-        # da = xr.open_dataarray(
-        #     grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        # )
-        # values = modifier(da.values)
-        # Load with pygrib, xarray with cfgrib is 10x slower...
+        # Load with pygrib, xarray with cfgrib is 10x slower and leaks memory
         try:
             grbs = pygrib.open(grib_file)
             values = modifier(grbs[1].values)
