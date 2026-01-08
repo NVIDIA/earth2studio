@@ -13,7 +13,7 @@ annotated-types==0.7.0
 antlr4-python3-runtime==4.9.3
 astunparse==1.6.3
 attrs==25.3.0
-bokeh==3.7.3
+bokeh==3.8.2
 boto3==1.37.3
 botocore==1.37.3
 cachetools==5.5.2
