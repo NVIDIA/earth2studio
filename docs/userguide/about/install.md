@@ -112,11 +112,18 @@ which can take a long time to build on some systems.
 See the [troubleshooting docs](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html)
 for known suggestions/fixes related to this install process.
 
+Earth2Studio supports multiple AIFS-Single checkpoint versions via optional dependency groups:
+
+- `aifs`: AIFS-Single v1.0 (default in `AIFS.load_default_package()`)
+- `aifs11`: AIFS-Single v1.1 (requires a newer anemoi stack)
+
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
 pip install earth2studio[aifs] --no-build-isolation
+# For AIFS-Single v1.1:
+pip install earth2studio[aifs11] --no-build-isolation
 ```
 
 :::
@@ -124,6 +131,8 @@ pip install earth2studio[aifs] --no-build-isolation
 
 ```bash
 uv add earth2studio --extra aifs
+# For AIFS-Single v1.1:
+uv add earth2studio --extra aifs11
 ```
 
 :::

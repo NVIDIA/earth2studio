@@ -92,6 +92,14 @@ aifs = [
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
+aifs11 = [
+    "anemoi-inference[huggingface]==0.6.3",
+    "anemoi-models==0.5.0",
+    "torch-geometric==2.4.0",
+    "earthkit-regrid==0.4.0",
+    "ecmwf-opendata>=0.3.3",
+    "flash-attn",
+]
 aifsens = [
     "anemoi-models==0.5.1",
     "anemoi-graphs==0.6.2",
@@ -200,6 +208,16 @@ all = [
 conflicts = [
     [
       { extra = "aifs" },
+      { extra = "aifsens" },
+    ]
+    ,
+    [
+      { extra = "aifs" },
+      { extra = "aifs11" },
+    ]
+    ,
+    [
+      { extra = "aifs11" },
       { extra = "aifsens" },
     ]
 ]

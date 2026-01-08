@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added optional dependency group `aifs11` to support ECMWF AIFS-Single v1.1.
+
 ### Changed
 
 - Removed AIFS-ENS invariants from model input / outputs and moved into model wrapper
