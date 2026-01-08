@@ -511,12 +511,13 @@ class HRRR:
             byte_length=byte_length,
         )
         # Open into xarray data-array
-        # da = xr.open_dataarray(
-        #     grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        # )
+        da = xr.open_dataarray(
+            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
+        )
         grib_file
         values = np.zeros((len(self.HRRR_Y), len(self.HRRR_X)))
-        # values = modifier(da.values)
+        values = modifier(da.values)
+        del da
         return values
 
     def _validate_time(self, times: list[datetime]) -> None:
