@@ -333,3 +333,49 @@ def test_aifs_package(device, model):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
+
+def test_ckpt_var_to_e2s_mapping() -> None:
+    # Surface shorthands
+    assert AIFS._ckpt_var_to_e2s("10u") == "u10m"
+    assert AIFS._ckpt_var_to_e2s("10v") == "v10m"
+    assert AIFS._ckpt_var_to_e2s("2d") == "d2m"
+    assert AIFS._ckpt_var_to_e2s("2t") == "t2m"
+    assert AIFS._ckpt_var_to_e2s("100u") == "u100m"
+    assert AIFS._ckpt_var_to_e2s("100v") == "v100m"
+
+    # 6-hour accumulated fields in Earth2Studio naming
+    assert AIFS._ckpt_var_to_e2s("cp") == "cp06"
+    assert AIFS._ckpt_var_to_e2s("tp") == "tp06"
+    assert AIFS._ckpt_var_to_e2s("ssrd") == "ssrd06"
+    assert AIFS._ckpt_var_to_e2s("strd") == "strd06"
+
+    # Pressure level variables
+    assert AIFS._ckpt_var_to_e2s("q_50") == "q50"
+    assert AIFS._ckpt_var_to_e2s("t_1000") == "t1000"
+
+    # Pass-through
+    assert AIFS._ckpt_var_to_e2s("cos_latitude") == "cos_latitude"
+    assert AIFS._ckpt_var_to_e2s("lsm") == "lsm"
+
+
+def test_load_default_package_version_switch(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = {"aifs11": False}
+
+    def _fake_require(cls) -> None:  # noqa: ANN001
+        called["aifs11"] = True
+
+    monkeypatch.setattr(
+        AIFS, "_require_aifs11_optional_dependencies", classmethod(_fake_require)
+    )
+
+    pkg10 = AIFS.load_default_package()
+    assert pkg10.root == "hf://ecmwf/aifs-single-1.0"
+    assert called["aifs11"] is False
+
+    pkg11 = AIFS.load_default_package(version="1.1")
+    assert pkg11.root == "hf://ecmwf/aifs-single-1.1"
+    assert called["aifs11"] is True
+
+    with pytest.raises(ValueError):
+        AIFS.load_default_package(version="2.0")
