@@ -26,7 +26,7 @@ dependencies = [
 
 [tool.uv.sources]
 torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git" }
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git" }
+earth2studio = { git = "https://github.com/mariusaurus/earth2studio.git", branch = "mkoch/tc_tracking" }
 
 [tool.uv]
 no-build-isolation-package = ["torch-harmonics"]

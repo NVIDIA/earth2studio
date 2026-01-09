@@ -46,7 +46,11 @@ def load_model(cfg):
         model = cfg.model
 
     # select model
-    if model == "fcn3":
+    if model[:4] == "aifs":
+        from earth2studio.models.px import AIFSENS
+
+        model = AIFSENS
+    elif model == "fcn3":
         from earth2studio.models.px import FCN3
 
         model = FCN3
@@ -172,7 +176,7 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
                     )
                     break
 
-        if cyclone_tracking and stab.all():
+        if cyclone_tracking and (not stability_check or stab.all()):
             cyclone_tracking(
                 out_file_names=[
                     f"tracks_{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}_seed_{seed}_bs_{cfg.batch_size}.csv"
