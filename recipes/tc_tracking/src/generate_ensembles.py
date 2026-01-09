@@ -11,9 +11,9 @@ from zarr import consolidate_metadata
 
 from earth2studio.data import fetch_data
 from earth2studio.models.auto import Package
-from earth2studio.models.dx import AsyncTempestExtremes, TempestExtremes
 from earth2studio.perturbation import SphericalGaussian
 from earth2studio.utils.coords import map_coords
+from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 from src.data.file_output import initialise_netcdf_output, setup_output, write_to_store
 from src.data.utils import DataSourceManager, load_heights
 from src.utils import (

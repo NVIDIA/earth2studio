@@ -8,8 +8,8 @@ from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
 from earth2studio.io import KVBackend
-from earth2studio.models.dx import AsyncTempestExtremes, TempestExtremes
 from earth2studio.utils.coords import split_coords
+from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 from src.data.utils import DataSourceManager, load_heights
 from src.utils import great_circle_distance
 
