@@ -854,10 +854,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out = out[:, :, :, keep, ...]
 
         # Update coordinates with remaining variable names
-        variable_mask = ~torch.isin(
-            all_indices, self.model.data_indices.data.output.forcing
-        )
-        selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
+        selected_variables = [VARIABLES[i] for i in all_indices[keep].tolist()]
 
         out_coords = coords.copy()
         out_coords["variable"] = np.array(selected_variables)
