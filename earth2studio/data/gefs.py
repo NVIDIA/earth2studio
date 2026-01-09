@@ -190,6 +190,10 @@ class GEFS_FX:
             )
         )
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
+
         return xr_array
 
     async def fetch(
@@ -268,10 +272,6 @@ class GEFS_FX:
         await tqdm.gather(
             *func_map, desc="Fetching GEFS data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
         if session:

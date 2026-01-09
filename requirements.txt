@@ -6,7 +6,7 @@ aiobotocore==2.25.1
     # via s3fs
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.2
+aiohttp==3.13.3
     # via
     #   aiobotocore
     #   gcsfs
@@ -83,7 +83,7 @@ eckitlib==1.32.2.5 ; sys_platform != 'win32'
     #   fckitlib
 fckitlib==0.14.0.5 ; sys_platform != 'win32'
     # via eccodeslib
-filelock==3.20.0
+filelock==3.20.1
     # via
     #   huggingface-hub
     #   torch
@@ -381,7 +381,7 @@ typing-extensions==4.15.0
     #   zarr
 tzdata==2025.2
     # via pandas
-urllib3==2.5.0
+urllib3==2.6.3
     # via
     #   botocore
     #   distributed

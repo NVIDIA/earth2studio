@@ -124,6 +124,7 @@ class HRRR:
     """
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
+    HRRR_BUCKET_ANON = True  # S3 / GCS anon access
     MAX_BYTE_SIZE = 5000000
 
     # Native LCC coordinates from the HRRR Zarr archive managed by the University of Utah
@@ -149,7 +150,7 @@ class HRRR:
         self.async_timeout = async_timeout
 
         if self._source == "aws":
-            self.uri_prefix = "noaa-hrrr-bdp-pds"
+            self.uri_prefix = self.HRRR_BUCKET_NAME
 
             # To update look at https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources
             def _range(time: datetime) -> None:
@@ -212,11 +213,15 @@ class HRRR:
         Async fsspec expects initialization inside of the execution loop
         """
         if self._source == "aws":
-            self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+            self.fs = s3fs.S3FileSystem(
+                anon=self.HRRR_BUCKET_ANON, client_kwargs={}, asynchronous=True
+            )
         elif self._source == "google":
             fs = gcsfs.GCSFileSystem(
                 cache_timeout=-1,
-                token="anon",  # noqa: S106 # nosec B106
+                token=(
+                    "anon" if self.HRRR_BUCKET_ANON else None
+                ),  # noqa: S106 # nosec B106
                 access="read_only",
                 block_size=8**20,
             )
@@ -268,6 +273,10 @@ class HRRR:
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache)
 
         return xr_array
 
@@ -348,10 +357,6 @@ class HRRR:
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
         if session:
@@ -583,17 +588,23 @@ class HRRR:
         filename = sha.hexdigest()
         cache_path = os.path.join(self.cache, filename)
 
-        if not pathlib.Path(cache_path).is_file():
-            if self.fs.async_impl:
-                if byte_length:
-                    byte_length = int(byte_offset + byte_length)
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-            else:
-                data = await asyncio.to_thread(
-                    self.fs.read_block, path, offset=byte_offset, length=byte_length
-                )
-            with open(cache_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
+        try:
+            if not pathlib.Path(cache_path).is_file():
+                if self.fs.async_impl:
+                    if byte_length:
+                        byte_length = int(byte_offset + byte_length)
+                    data = await self.fs._cat_file(
+                        path, start=byte_offset, end=byte_length
+                    )
+                else:
+                    data = await asyncio.to_thread(
+                        self.fs.read_block, path, offset=byte_offset, length=byte_length
+                    )
+                with open(cache_path, "wb") as file:
+                    await asyncio.to_thread(file.write, data)
+        except FileNotFoundError as e:
+            logger.error(f"Failed to download file {path}, not found")
+            raise e
 
         return cache_path
 
@@ -694,7 +705,7 @@ class HRRR:
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
-        fs = s3fs.S3FileSystem(anon=True)
+        fs = s3fs.S3FileSystem(anon=cls.HRRR_BUCKET_ANON)
         # Object store directory for given time
         # Just picking the first variable to look for
         file_name = f"hrrr.{time.year}{time.month:0>2}{time.day:0>2}/conus"
@@ -846,6 +857,8 @@ class HRRR_FX(HRRR):
         else:
             session = None
 
+        # Generate HRRR lat-lon grid to append onto data array
+        lat, lon = self.grid()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -866,6 +879,8 @@ class HRRR_FX(HRRR):
                 "variable": variable,
                 "hrrr_x": self.HRRR_X,
                 "hrrr_y": self.HRRR_Y,
+                "lat": (("hrrr_y", "hrrr_x"), lat),
+                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
         )
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}

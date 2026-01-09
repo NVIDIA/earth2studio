@@ -29,7 +29,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 :::{dropdown} uv Install
@@ -154,14 +154,13 @@ uv add earth2studio --extra aifsens
 ::::
 :::::
 :::::{tab-item} Aurora
-Note: The shipped Aurora package has a restricted dependency which is incompatible with
-other Earth2Studio dependencies, thus it is suggested to use the forked variant.
+Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
+package for inference.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
-pip install "microsoft-aurora @ git+https://github.com/NickGeneva/aurora.git@ab41cf1de67d5dcc723b96fc9a6219e4b548d181"
 pip install earth2studio[aurora]
 ```
 
@@ -169,9 +168,6 @@ pip install earth2studio[aurora]
 :::{tab-item} uv
 
 ```bash
-# Patched fork
-uv add earth2studio --extra aurora-fork
-# Original package from msc
 uv add earth2studio --extra aurora
 ```
 
@@ -713,14 +709,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 (pytorch_container_environment)=
@@ -740,7 +736,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -753,7 +749,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 :::
@@ -781,7 +777,7 @@ WORKDIR /app
 # Disable constraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 ## Conda Environment
@@ -797,7 +793,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 # System Recommendations

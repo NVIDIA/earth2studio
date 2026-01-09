@@ -7,26 +7,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.0a0] - 2025-12-xx
+## [0.12.0a0] - 2026-01-xx
 
 ### Added
 
-- Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
-- Added ECMWF AIFSENS ensemble prognostic model wrapper
-- Added MRMS data source
-- Added CMIP6 data source
-- Added CBottle Tropical Cyclone guidance diagnostic
-- Added CBottle Video prognostic model
-- Exposed backend arguments of netcdf/zarr to datasource_to_file signature
-- Added vertical wind speed support in GFS
-- Added ModelOutputDatasetSource to use written model output to start a new model run
-- Added FCN3 noise handling routines.
-
 ### Changed
 
-- Removed tp06 field from Graphcast operational model
-- Removed static fields from Graphcast model input / outputs
-- Moved StormCast and DLESyM checkpoints to Huggingface
+- Removed AIFS-ENS invariants from model input / outputs and moved into model wrapper
+- CDS and NCAR lexica have been updated with variables for AIFS-ENS
 
 ### Deprecated
 
@@ -34,9 +22,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Made tp in HRRR and GFS units m for package consistency
+
 ### Security
 
 ### Dependencies
+
+## [0.11.0] - 2025-12-19
+
+### Added
+
+- Added general PlanetaryComputerData source for pulling Planetary Computer STAC assets
+- Added ECMWF AIFSENS ensemble prognostic model wrapper
+- Added MRMS data source
+- Added IFS and IFS-ENS initial state datasources
+- Local datasource example
+- Added ``TimeWindow`` datasource wrapper for fetching data at multiple time offsets
+- Added NOAA's Integrated Surface Database (ISD) data frame source
+
+### Changed
+
+- Removed tp06 field from Graphcast operational model
+- Removed static fields from Graphcast model input / outputs
+- Moved StormCast and DLESyM checkpoints to Huggingface
+- Change previous IFS, IFS_ENS, AIFS and AIFS_ENS sources to IFS_FX, IFS_ENS_FX, AIFS_FX
+  and AIFS_ENS_FX to reflect that they are forecast sources
+- Support multiple x, coords pairs in batch function decorator
+
+### Removed
+
+- Removed support for returning multiple samples at once from IFS ENS data sources
+- IMERG datasource
+
+### Fixed
+
+- Vertical wind variables in GFS / GEFS to be Pa s-1
+
+### Dependencies
+
+- Removed Aurora-fork option which had a temporary patch for package conflict that is
+  resolved in the source aurora package
 
 ## [0.10.0] - 2025-11-24
 

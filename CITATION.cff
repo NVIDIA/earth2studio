@@ -2,12 +2,7 @@ cff-version: 1.2.0
 message: If you use this software, please cite it as below.
 title: NVIDIA Earth2Studio
 authors:
-  - family-names: Geneva
-    given-names: Nicholas
-    orcid: https://orcid.org/0000-0003-4562-459X
-  - family-names: Foster
-    given-names: Dallas
-    orcid: https://orcid.org/0000-0001-8459-9767
+  - name: "Earth2Studio Contributors"
 url: https://github.com/NVIDIA/earth2studio
 repository-code: https://github.com/NVIDIA/earth2studio
 date-released: 2024-04-22
