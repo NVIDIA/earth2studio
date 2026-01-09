@@ -89,7 +89,12 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
 
-## Latest News
+## Earth-2 Open Models
+
+Access state of the art Nvidia open models for Climate and Weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2)
+For training recipes for these models, see the [PhysicsNeMo repository](https://github.com/NVIDIA/physicsnemo).
+
+  ## Latest News
 
 - **CMIP6 datasource** has been added to improve support for usecases that are focused
     on climate modeling. See [data source APIs](e2studio_api_url) for more information.
