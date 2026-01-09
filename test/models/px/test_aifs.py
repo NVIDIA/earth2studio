@@ -89,6 +89,10 @@ class PhooAIFSModel(torch.nn.Module):
             [all[[82, 84, 86, 89]], all[92:101]]
         )
 
+        data_indices.data.output.forcing = torch.cat(
+            [all[[82, 84, 86, 89]], all[92:101]]
+        )
+
         data_indices.data.output.full = torch.cat(
             [all[0:82], all[[83, 85, 87, 88, 90, 91]], all[101:115]]
         )
@@ -106,7 +110,8 @@ class PhooAIFSModel(torch.nn.Module):
 
         self.data_indices = data_indices
 
-    def predict_step(self, x):
+    def predict_step(self, x, fcstep=1):
+        del fcstep
         return torch.ones(x.shape[0], x.shape[2], 102, device=x.device)
 
 
@@ -142,6 +147,8 @@ def test_aifs_call(time, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
     # Initialize AIFS
     p = AIFS(
         model=model,
@@ -149,6 +156,7 @@ def test_aifs_call(time, device):
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     # Create "domain coords"
@@ -167,7 +175,9 @@ def test_aifs_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 106, 721, 1440])
+    assert out.shape == torch.Size(
+        [len(time), 1, len(p.output_variables), 721, 1440]
+    )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -200,12 +210,15 @@ def test_aifs_iter(ensemble, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
     p = AIFS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     # Create "domain coords"
@@ -233,7 +246,9 @@ def test_aifs_iter(ensemble, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 106, 721, 1440])
+        assert out.shape == torch.Size(
+            [ensemble, len(time), 1, len(p.output_variables), 721, 1440]
+        )
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
@@ -271,12 +286,15 @@ def test_aifs_exceptions(dc, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
     p = AIFS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     # Initialize Data Source
@@ -307,8 +325,10 @@ def test_aifs_package(device, model):
     # Test the cached model package AIFS
     p = model.to(device)
 
-    assert len(p.input_variables) == 94
-    assert len(p.output_variables) == 106
+    expected_input_variables = len(p.model.data_indices.data.input.prognostic)
+    expected_output_variables = len(p.model.data_indices.data.output.full)
+    assert len(p.input_variables) == expected_input_variables
+    assert len(p.output_variables) == expected_output_variables
 
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -326,7 +346,9 @@ def test_aifs_package(device, model):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 106, 721, 1440])
+    assert out.shape == torch.Size(
+        [len(time), 1, expected_output_variables, 721, 1440]
+    )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
