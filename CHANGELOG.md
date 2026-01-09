@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added diagnostic for total column water vapor (TCWV) from specific humidity and
+  surface pressure
+
 ### Changed
 
 - Removed AIFS-ENS invariants from model input / outputs and moved into model wrapper
