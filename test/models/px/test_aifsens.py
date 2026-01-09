@@ -235,7 +235,6 @@ def test_aifsens_iter(ensemble, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    next(p_iter)
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
@@ -245,7 +244,7 @@ def test_aifsens_iter(ensemble, device):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i), "h")
 
         if i > 5:
             break
