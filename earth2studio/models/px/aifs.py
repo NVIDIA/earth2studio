@@ -458,6 +458,10 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 msg += f" Requested version={version}."
             raise FileNotFoundError(msg) from last_err
 
+        # Ensure v1.1 dependency validation also runs for autodetected checkpoints.
+        if resolved_version == "1.1":
+            cls._require_aifs11_optional_dependencies()
+
         model = torch.load(
             model_path, weights_only=False, map_location=torch.ones(1).device
         )
