@@ -246,6 +246,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Check to make sure that the models total variable input variables are
         # consistent with the wrappers
         # Useful: https://github.com/ecmwf/anemoi-core/blob/main/models/src/anemoi/models/data_indices/tensor.py
+        # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
         name_to_index = self.model.data_indices.data._name_to_index
         variables = [
             name for name, idx in sorted(name_to_index.items(), key=lambda x: x[1])
@@ -710,11 +711,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         time0 = coords["time"][0] + coords["lead_time"][0]
         time1 = coords["time"][0] + coords["lead_time"][1]
 
-        # Select only inputs
-        # From AnemoiModelInterface.DataIndices
-        # https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information
-        x = x[..., self.model.data_indices.data.input.full]
-
         # Get cos, sin of Julian day
         cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
             time0, self.longitudes
@@ -750,6 +746,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x[..., self.forcing_ids[6]] = sin_julian_day[..., 0]
         x[..., self.forcing_ids[7]] = sin_local_time[..., 0]
         x[..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
+
+        # Select out actual input variables from the full fields set
+        x = x[..., self.model.data_indices.data.input.full]
 
         return x
 
@@ -788,7 +787,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x
 
-    @torch.inference_mode()
     def _forward(
         self,
         x: torch.Tensor,
