@@ -42,6 +42,12 @@ try:
 except ImportError:
     OptionalDependencyFailure("aifs")
 
+_SUPPORTED_AIFS_VERSIONS = ("1.0", "1.1")
+_AIFS11_MIN_VERSIONS = {
+    "anemoi-inference": "0.6.3",
+    "anemoi-models": "0.5.0",
+}
+
 VARIABLES = [
     "q50",
     "q100",
@@ -160,6 +166,29 @@ VARIABLES = [
     "tcc",
 ]  # from config.json >> dataset.variables
 
+# NOTE:
+# AIFS uses these as "generated forcings" that are computed at runtime and inserted
+# into the model input tensor. The indices for these are derived from the checkpoint
+# metadata (`ai-models.json`), since the ordering differs between checkpoint versions.
+_AIFS_GENERATED_FORCING_CKPT_VARIABLES = [
+    "cos_latitude",
+    "cos_longitude",
+    "sin_latitude",
+    "sin_longitude",
+    "cos_julian_day",
+    "cos_local_time",
+    "sin_julian_day",
+    "sin_local_time",
+    "insolation",
+]
+_AIFS_TIME_VARYING_FORCING_CKPT_VARIABLES = [
+    "cos_julian_day",
+    "cos_local_time",
+    "sin_julian_day",
+    "sin_local_time",
+    "insolation",
+]
+
 
 @check_optional_dependencies()
 class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -173,10 +202,17 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Note
     ----
     This model uses the checkpoints provided by ECMWF.
+    Multiple checkpoint versions are supported. Use:
+
+    - `AIFS.load_default_package()` for the default (AIFS-Single v1.0)
+    - `AIFS.load_default_package(version="1.1")` for AIFS-Single v1.1
+
+    The checkpoint metadata (`ai-models.json`) is used to derive the correct variable
+    ordering and indices for each checkpoint version.
     For additional information see the following resources:
 
     - https://arxiv.org/abs/2406.01465
-    - https://huggingface.co/ecmwf/aifs-single-1.0
+    - https://huggingface.co/ecmwf/aifs-single-1.1
     - https://github.com/ecmwf/anemoi-core
 
     Parameters
@@ -253,14 +289,16 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ]
         )
 
-        # Sort the concatenated tensor
-        indices = indices.sort().values
+        # Variables we actually fetch from a datasource (generated forcings excluded),
+        # in the same order as `data_indices.data.input.full`.
+        # self._input_fetch_data_indices = [
+        #     i for i in self._input_full_data_indices if i not in gen_set
+        # ]
 
         # Keep only elements NOT forcings or invariants
         mask = ~torch.isin(indices, self.model.data_indices.data.input.forcing)
 
-        selected = [VARIABLES[i] for i in indices[mask].tolist()]
-        return selected
+        return [self._variables[i] for i in indices[mask].tolist()]
 
     @property
     def output_variables(self) -> list[str]:
@@ -349,9 +387,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://ecmwf/aifs-single-1.0",
+            "hf://ecmwf/aifs-single-1.1",
             cache_options={
-                "cache_storage": Package.default_cache("aifs-single-1.0"),
+                "cache_storage": Package.default_cache("aifs-single-1.1"),
                 "same_names": True,
             },
         )
@@ -385,13 +423,24 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     dtype=entry["dtype"],
                 ).reshape(entry["shape"])
 
+        # Checkpoint-specific variable ordering (v1.0 vs v1.1 differ)
+        ckpt_variables = (
+            metadata.get("dataset", {}).get("variables")
+            if isinstance(metadata, dict)
+            else None
+        )
+        if not isinstance(ckpt_variables, list) or not all(
+            isinstance(v, str) for v in ckpt_variables
+        ):
+            ckpt_variables = VARIABLES
+
         # Load interpolation matrix
         # TODO: Maybe change this to allow for multiple packages?
         interpolation_package = Package(
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear",
             cache_options={
                 "cache_storage": Package.default_cache(
-                    "aifs-single-1.0_interpolation_matrix"
+                    "aifs-single-1.1_interpolation_matrix"
                 ),
                 "same_names": True,
             },
@@ -411,7 +460,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/",
             cache_options={
                 "cache_storage": Package.default_cache(
-                    "aifs-single-1.0_inverse_interpolation_matrix"
+                    "aifs-single-1.1_inverse_interpolation_matrix"
                 ),
                 "same_names": True,
             },
@@ -468,6 +517,79 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
         )
+
+    @staticmethod
+    def _ckpt_var_to_e2s(name: str) -> str:
+        """Translate checkpoint variable names into Earth2Studio variable IDs."""
+        # Surface shorthand used by ECMWF / anemoi configs
+        if name == "10u":
+            return "u10m"
+        if name == "10v":
+            return "v10m"
+        if name == "2d":
+            return "d2m"
+        if name == "2t":
+            return "t2m"
+        if name == "100u":
+            return "u100m"
+        if name == "100v":
+            return "v100m"
+
+        # 6-hour accumulations in Earth2Studio naming
+        if name == "cp":
+            return "cp06"
+        if name == "tp":
+            return "tp06"
+        if name == "ssrd":
+            return "ssrd06"
+        if name == "strd":
+            return "strd06"
+
+        # Pressure level variables are encoded as e.g. q_50 in the checkpoint
+        # but q50 in Earth2Studio.
+        if "_" in name:
+            parts = name.split("_", 1)
+            if len(parts) == 2 and parts[1].isdigit():
+                return f"{parts[0]}{parts[1]}"
+
+        return name
+
+    # @classmethod
+    # def _require_aifs11_optional_dependencies(cls) -> None:
+    #     """Validate that the environment is compatible with loading AIFS-Single v1.1.
+
+    #     This is primarily to provide a clearer, actionable error message when a user
+    #     attempts to load the v1.1 checkpoint with a v1.0 anemoi stack.
+    #     """
+
+    #     def _ver(pkg: str) -> str:
+    #         try:
+    #             return importlib.metadata.version(pkg)
+    #         except importlib.metadata.PackageNotFoundError as e:
+    #             raise OptionalDependencyError("aifs11", "AIFS (v1.1)", e) from e
+
+    #     def _parse(v: str) -> tuple[int, ...]:
+    #         # Minimal semantic-ish parsing to avoid an extra dependency on 'packaging'.
+    #         core = v.split("+", 1)[0].split(".", 3)
+    #         out: list[int] = []
+    #         for part in core:
+    #             num = ""
+    #             for ch in part:
+    #                 if ch.isdigit():
+    #                     num += ch
+    #                 else:
+    #                     break
+    #             out.append(int(num) if num else 0)
+    #         return tuple(out)
+
+    #     for pkg, min_v in _AIFS11_MIN_VERSIONS.items():
+    #         installed = _ver(pkg)
+    #         if _parse(installed) < _parse(min_v):
+    #             err = ImportError(
+    #                 f"{pkg}>={min_v} is required for AIFS-Single v1.1, "
+    #                 + f"but found {installed}. Install with `uv add earth2studio --extra aifs11`."
+    #             )
+    #             raise OptionalDependencyError("aifs11", "AIFS (v1.1)", err) from err
 
     def get_cos_sin_julian_day(
         self,
@@ -605,66 +727,87 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = torch.swapaxes(x, 0, -1)
         x = x.reshape([shape[0] * shape[1], shape[2], shape[3], -1])
         x = torch.swapaxes(x, 2, 3)
+        n_bt = shape[0] * shape[1]
+        n_lead = shape[2]
+        n_nodes = x.shape[2]
 
-        # Get cos, sin of latitude and longitude
-        # (cos_latitude, sin_latitude, cos_longitude, sin_longitude)
-        cos_latitude = torch.cos(torch.deg2rad(self.latitudes))
-        sin_latitude = torch.sin(torch.deg2rad(self.latitudes))
-        cos_longitude = torch.cos(torch.deg2rad(self.longitudes))
-        sin_longitude = torch.sin(torch.deg2rad(self.longitudes))
-        cos_latitude = torch.cat([cos_latitude, cos_latitude], dim=1)
-        cos_longitude = torch.cat([cos_longitude, cos_longitude], dim=1)
-        sin_latitude = torch.cat([sin_latitude, sin_latitude], dim=1)
-        sin_longitude = torch.cat([sin_longitude, sin_longitude], dim=1)
+        # Reconstruct full feature tensor in checkpoint variable space (ordering and
+        # indices are checkpoint dependent).
+        x_full = torch.zeros(
+            (n_bt, n_lead, n_nodes, len(self._variables)),
+            device=x.device,
+            dtype=torch.float32,
+        )
+        x_full[..., self._input_fetch_data_indices] = x
 
-        # Get cos, sin of Julian day
+        # Compute generated forcings
+        cos_latitude = torch.cos(torch.deg2rad(self.latitudes)).to(dtype=torch.float32)
+        sin_latitude = torch.sin(torch.deg2rad(self.latitudes)).to(dtype=torch.float32)
+        cos_longitude = torch.cos(torch.deg2rad(self.longitudes)).to(
+            dtype=torch.float32
+        )
+        sin_longitude = torch.sin(torch.deg2rad(self.longitudes)).to(
+            dtype=torch.float32
+        )
+        cos_latitude = cos_latitude.repeat(n_bt, n_lead, 1, 1)
+        sin_latitude = sin_latitude.repeat(n_bt, n_lead, 1, 1)
+        cos_longitude = cos_longitude.repeat(n_bt, n_lead, 1, 1)
+        sin_longitude = sin_longitude.repeat(n_bt, n_lead, 1, 1)
+
         cos_julian_day_0, sin_julian_day_0 = self.get_cos_sin_julian_day(
             coords["time"][0] - np.timedelta64(6, "h"), self.longitudes
         )
         cos_julian_day_1, sin_julian_day_1 = self.get_cos_sin_julian_day(
             coords["time"][0], self.longitudes
         )
-        cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1)
-        sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1)
+        cos_julian_day = torch.cat([cos_julian_day_0, cos_julian_day_1], dim=1).repeat(
+            n_bt, 1, 1, 1
+        )
+        sin_julian_day = torch.cat([sin_julian_day_0, sin_julian_day_1], dim=1).repeat(
+            n_bt, 1, 1, 1
+        )
 
-        # Get cos, sin local time
         cos_local_time_0, sin_local_time_0 = self.get_cos_sin_local_time(
             coords["time"][0] - np.timedelta64(6, "h"), self.longitudes
         )
         cos_local_time_1, sin_local_time_1 = self.get_cos_sin_local_time(
             coords["time"][0], self.longitudes
         )
-        cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1)
-        sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1)
+        cos_local_time = torch.cat([cos_local_time_0, cos_local_time_1], dim=1).repeat(
+            n_bt, 1, 1, 1
+        )
+        sin_local_time = torch.cat([sin_local_time_0, sin_local_time_1], dim=1).repeat(
+            n_bt, 1, 1, 1
+        )
 
-        # Get cosine zenith angle
-        # Add insolation / cosine zenith angle
         cos_zenith_angle_0 = self.get_cosine_zenith_fields(
             coords["time"][0] - np.timedelta64(6, "h"), self.latitudes, self.longitudes
         )
         cos_zenith_angle_1 = self.get_cosine_zenith_fields(
             coords["time"][0], self.latitudes, self.longitudes
         )
-        cos_zenith_angle = torch.cat([cos_zenith_angle_0, cos_zenith_angle_1], dim=1)
+        cos_zenith_angle = torch.cat(
+            [cos_zenith_angle_0, cos_zenith_angle_1], dim=1
+        ).repeat(n_bt, 1, 1, 1)
 
-        # Combine inputs
-        x = torch.cat(
-            [
-                x[:, :, :, :90],
-                cos_latitude.repeat(shape[0] * shape[1], 1, 1, 1),
-                cos_longitude.repeat(shape[0] * shape[1], 1, 1, 1),
-                sin_latitude.repeat(shape[0] * shape[1], 1, 1, 1),
-                sin_longitude.repeat(shape[0] * shape[1], 1, 1, 1),
-                cos_julian_day.repeat(shape[0] * shape[1], 1, 1, 1),
-                cos_local_time.repeat(shape[0] * shape[1], 1, 1, 1),
-                sin_julian_day.repeat(shape[0] * shape[1], 1, 1, 1),
-                sin_local_time.repeat(shape[0] * shape[1], 1, 1, 1),
-                cos_zenith_angle.repeat(shape[0] * shape[1], 1, 1, 1),
-                x[:, :, :, 90:],
-            ],
-            dim=3,
-        )
+        def _set(var: str, value: torch.Tensor) -> None:
+            idx = self._ckpt_name_to_index.get(var)
+            if idx is None:
+                return
+            x_full[:, :, :, idx : idx + 1] = value
 
+        _set("cos_latitude", cos_latitude)
+        _set("sin_latitude", sin_latitude)
+        _set("cos_longitude", cos_longitude)
+        _set("sin_longitude", sin_longitude)
+        _set("cos_julian_day", cos_julian_day)
+        _set("sin_julian_day", sin_julian_day)
+        _set("cos_local_time", cos_local_time)
+        _set("sin_local_time", sin_local_time)
+        _set("insolation", cos_zenith_angle)
+
+        # Select only model input features (ordered by data_indices.data.input.full)
+        x = x_full[..., self._input_full_data_indices]
         return x
 
     def _update_input(
@@ -771,7 +914,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x, fcstep=step)
             out = torch.empty(
-                (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
+                (x.shape[0], x.shape[1], x.shape[2], len(self._variables)),
                 device=x.device,
             )
             out[..., 0, :, self.model.data_indices.data.input.full] = x[
@@ -779,8 +922,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 1,
             ]
             out[..., 1, :, self.model.data_indices.data.output.full] = y
-            out[..., 1, :, self.model.data_indices.data.input.forcing] = x[
-                :, 1, :, self.model.data_indices.model.input.forcing
+            out[..., 1, :, self._input_forcing_data_indices] = x[
+                :, 1, :, self._forcing_positions_in_input_full
             ]
 
         return out, output_coords
