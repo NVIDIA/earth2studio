@@ -91,8 +91,9 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 
 ## Earth-2 Open Models
 
-Access state of the art Nvidia open models for Climate and Weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2)
+Access state of the art Nvidia open models for Climate and Weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
 For training recipes for these models, see the [PhysicsNeMo repository](https://github.com/NVIDIA/physicsnemo).
+
 
   ## Latest News
 
