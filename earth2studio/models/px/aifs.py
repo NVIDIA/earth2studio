@@ -277,25 +277,6 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )[0],
         )
 
-    @property
-    def output_variables(self) -> list[str]:
-        # Output constants + prognostic and diagnostic - generated forcings
-        indices = torch.cat(
-            [
-                self.model.data_indices.data.output.forcing,
-                self.model.data_indices.data.output.full,
-            ]
-        )
-
-        # Sort the concatenated tensor
-        indices = torch.unique(indices.sort().values)
-
-        # Keep only elements NOT in to_remove
-        mask = ~torch.isin(indices, self.model.data_indices.data.output.forcing)
-
-        selected = [self.VARIABLES[i] for i in indices[mask].tolist()]
-        return selected
-
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
         Returns
@@ -817,7 +798,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x, fcstep=step)
-            out = torch.empty(
+            out = torch.zeros(
                 (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),
                 device=x.device,
             )
@@ -826,7 +807,13 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 1,
             ]
             out[..., 1, :, self.model.data_indices.data.output.full] = y
-            out[..., 1, :, self.forcing_ids] = x[:, 1, :, self.forcing_ids]
+            mask = torch.isin(
+                self.model.data_indices.data.input.full,
+                self.model.data_indices.data.input.forcing,
+            )
+            out[..., 1, :, self.model.data_indices.data.input.forcing] = x[
+                :, 1, :, torch.where(mask)[0]
+            ]
 
         return out, output_coords
 
@@ -863,7 +850,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # add invariants to prognostics
         batch, time, lead, _, height, width = x.shape
         # Prepare empty output tensor with VARIABLE dimension
-        out = torch.empty(
+        out = torch.zeros(
             (batch, time, lead, len(self.VARIABLES), height, width),
             device=x.device,
         )
@@ -887,9 +874,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = coords.copy()
 
         self.output_coords(coords)
-        first_out, coords_out = self._fill_input(x, coords)
+        output_tensor, coords_out = self._fill_input(x, coords)
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield first_out[:, :, 1:], coords_out
+        yield output_tensor[:, :, 1:], coords_out
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
