@@ -94,7 +94,6 @@ aifs = [
 ]
 aifsens = [
     "anemoi-models==0.5.1",
-    "anemoi-graphs==0.6.2",
     "earthkit-regrid==0.4.0",
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
@@ -135,6 +134,7 @@ graphcast = [
     "dm-haiku>=0.0.14",
     "jax[cuda12]>=0.4.26",
     "flax>=0.10.6",
+    "dm-tree>=0.1.9",
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
