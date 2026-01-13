@@ -48,10 +48,12 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 try:
+    import pygrib
     import pyproj
 except ImportError:
     OptionalDependencyFailure("data")
     pyproj = None
+    pygrib = None
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -359,7 +361,13 @@ class HRRR:
         )
 
         # Close aiohttp client if s3fs
-        if session:
+        try:
+            import aiobotocore  # type: ignore
+
+            _major = int(str(getattr(aiobotocore, "__version__", "0")).split(".", 1)[0])
+        except Exception:
+            _major = 0
+        if session and _major < 3:
             await session.close()
 
         xr_array = xr_array.isel(lead_time=0)
@@ -510,11 +518,17 @@ class HRRR:
             byte_offset=byte_offset,
             byte_length=byte_length,
         )
-        # Open into xarray data-array
-        da = xr.open_dataarray(
-            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        )
-        return modifier(da.values)
+        # Load with pygrib, xarray with cfgrib is 10x slower and leaks memory
+        try:
+            grbs = pygrib.open(grib_file)
+            values = modifier(grbs[1].values)
+        except Exception as e:
+            logger.error(f"Failed to read grib file {grib_file}")
+            raise e
+        finally:
+            grbs.close()
+
+        return values
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for HRRR based on offline knowledge
@@ -901,7 +915,13 @@ class HRRR_FX(HRRR):
             shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
-        if session:
+        try:
+            import aiobotocore  # type: ignore
+
+            _major = int(str(getattr(aiobotocore, "__version__", "0")).split(".", 1)[0])
+        except Exception:
+            _major = 0
+        if session and _major < 3:
             await session.close()
 
         return xr_array
