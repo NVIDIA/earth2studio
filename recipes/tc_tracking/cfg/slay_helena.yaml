@@ -1,6 +1,6 @@
 project: 'helene'
 mode: 'generate_ensemble'
-model: 'aifs' # 'fcn3' 'sfno' 'aifs'
+model: 'aifsens' # 'fcn3' 'sfno' 'aifs'
 random_seed: 7777
 
 # ic_block_start: "2024-09-23 00:00:00" # first IC

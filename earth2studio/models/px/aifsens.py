@@ -778,7 +778,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 :,
                 1,
             ]
-            out[..., 1, :, self.model.data_indices.data.output.full] = y
+            out[..., 1, :, self.model.data_indices.data.output.full] = y.squeeze(1)
             out[..., 1, :, self.model.data_indices.data.input.forcing] = x[
                 :, 1, :, self.model.data_indices.model.input.forcing
             ]

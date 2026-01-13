@@ -18,7 +18,6 @@ dependencies = [
     "ruamel-yaml>=0.18.14",
     "scipy>=1.16.0",
     "setuptools>=80.9.0",
-    "torch-harmonics>=0.8.1",
     "tqdm>=4.67.1",
     "tropycal>=1.4",
     "zarrdump>=0.6.0",
@@ -26,7 +25,7 @@ dependencies = [
 
 [tool.uv.sources]
 torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git" }
-earth2studio = { git = "https://github.com/mariusaurus/earth2studio.git", branch = "mkoch/tc_tracking" }
+earth2studio = { git = "https://github.com/mariusaurus/earth2studio.git", branch = "mkoch/tc_tracking" } # CAUTION: replace with NV main branch
 
 [tool.uv]
 no-build-isolation-package = ["torch-harmonics"]

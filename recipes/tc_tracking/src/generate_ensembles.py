@@ -136,7 +136,7 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
                 data_source,
                 time=[np.datetime64(ic)],
                 lead_time=model.input_coords()["lead_time"],
-                variable=model.variables,
+                variable=model.input_coords()["variable"],
                 device=dist.device,
             )
             ic_prev = ic
@@ -152,6 +152,8 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
         # set random state or apply perturbation
         if (not "model" in cfg) or (cfg.model == "fcn3"):
             model.set_rng(seed=seed)
+        elif cfg.model[:4] == 'aifs': # no need for perturbation, but also cannot set internal noise state
+            pass
         else:
             sg = SphericalGaussian(noise_amplitude=0.0005)
             xx, coords = sg(xx, coords)
