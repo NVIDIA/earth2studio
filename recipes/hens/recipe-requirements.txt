@@ -91,7 +91,7 @@ eccodes==2.41.0
     # via cfgrib
 fasteners==0.19 ; python_full_version < '3.11' and sys_platform != 'emscripten'
     # via zarr
-filelock==3.18.0
+filelock==3.20.3
     # via
     #   huggingface-hub
     #   torch
@@ -554,7 +554,7 @@ fasteners==0.19 ; python_full_version < '3.11' and sys_platform != 'emscripten'
     # via zarr
 fastjsonschema==2.21.1
     # via nbformat
-filelock==3.18.0
+filelock==3.20.3
     # via
     #   huggingface-hub
     #   torch
