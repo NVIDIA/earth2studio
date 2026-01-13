@@ -257,6 +257,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "Model variables are not the same as wrapper VARIABLES, your checkpoint is not expected..."
             )
 
+        self.register_buffer("input_full_ids", self.model.data_indices.data.input.full)
         self.register_buffer(
             "invariant_ids",
             torch.IntTensor([name_to_index[v] for v in self.VARIABLE_INVARIANTS]),
@@ -697,7 +698,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_full[..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
 
         x_full = x_full[
-            ..., self.model.data_indices.data.input.full
+            ..., self.input_full_ids
         ]  # Select input (prognostic + forcing + invar)
         return x_full
 
@@ -748,7 +749,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x[..., self.forcing_ids[8]] = cos_zenith_angle[..., 0]
 
         # Select out actual input variables from the full fields set
-        x = x[..., self.model.data_indices.data.input.full]
+        x = x[..., self.input_full_ids]
 
         return x
 
@@ -800,18 +801,17 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),
                 device=x.device,
             )
-            out[..., 0, :, self.model.data_indices.data.input.full] = x[
+            out[..., 0, :, self.input_full_ids] = x[
                 :,
                 1,
             ]
             out[..., 1, :, self.model.data_indices.data.output.full] = y
-            mask = torch.isin(
-                self.model.data_indices.data.input.full,
-                self.model.data_indices.data.input.forcing,
-            )
-            out[..., 1, :, self.model.data_indices.data.input.forcing] = x[
-                :, 1, :, torch.where(mask)[0]
-            ]
+
+            forcing_full = torch.sort(
+                torch.cat([self.forcing_ids, self.invariant_ids], dim=0)
+            )[0]
+            mask = torch.isin(self.input_full_ids, forcing_full)
+            out[..., 1, :, forcing_full] = x[:, 1, :, torch.where(mask)[0]]
 
         return out, output_coords
 
