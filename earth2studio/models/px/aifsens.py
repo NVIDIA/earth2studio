@@ -846,13 +846,15 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out[:, :, 0, indices[valid_mask]] = x[0, 0, 0, ...]
         out[:, :, 1, indices[valid_mask]] = x[0, 0, 1, ...]
 
-        # Drop generated forcing dimension range from output
-        out = torch.cat([out[:, :, :, :92, ...], out[:, :, :, 101:, ...]], dim=3)
+        # Drop generated forcing / invariants from output
+        all_indices = torch.arange(len(VARIABLES))
+        keep = torch.isin(
+            all_indices, self.model.data_indices.data.output.forcing, invert=True
+        )
+        out = out[:, :, :, keep, ...]
 
         # Update coordinates with remaining variable names
-        all_indices = torch.arange(len(VARIABLES))
-        variable_mask = ~torch.isin(all_indices, self.forcing_ids)
-        selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
+        selected_variables = [VARIABLES[i] for i in all_indices[keep].tolist()]
 
         out_coords = coords.copy()
         out_coords["variable"] = np.array(selected_variables)
