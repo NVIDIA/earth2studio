@@ -101,7 +101,7 @@ class PhooAIFSENSModel(torch.nn.Module):
 
     def predict_step(self, x, fcstep=1):
         del fcstep
-        return torch.ones(x.shape[0], x.shape[2], 100, device=x.device)
+        return torch.ones(x.shape[0], 1, x.shape[2], 100, device=x.device)
 
 
 EXPECTED_OUTPUT_VARIABLES = len(VARIABLES) - 13
@@ -300,8 +300,12 @@ def model() -> AIFSENS:
 
 
 @pytest.mark.package
+@pytest.mark.parametrize(
+    "ensemble",
+    [1, 2],
+)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aifsens_package(device, model):
+def test_aifsens_package(device, ensemble, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = model.to(device)
@@ -317,15 +321,21 @@ def test_aifsens_package(device, model):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
+    coords = {"ensemble": np.arange(ensemble, dtype=int)} | coords
+    x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
+
     out, out_coords = p(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440])
+    assert out.shape == torch.Size(
+        [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
+    )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    handshake_dim(out_coords, "lon", 5)
+    handshake_dim(out_coords, "lat", 4)
+    handshake_dim(out_coords, "variable", 3)
+    handshake_dim(out_coords, "lead_time", 2)
+    handshake_dim(out_coords, "time", 1)
+    handshake_dim(out_coords, "ensemble", 0)
