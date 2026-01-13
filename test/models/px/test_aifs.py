@@ -614,7 +614,7 @@ class PhooAIFSModel(torch.nn.Module):
 
     def predict_step(self, x, fcstep=1):
         del fcstep
-        return torch.ones(x.shape[0], x.shape[2], 102, device=x.device)
+        return torch.ones(x.shape[0], 1, x.shape[2], 102, device=x.device)
 
 
 @pytest.mark.parametrize(
