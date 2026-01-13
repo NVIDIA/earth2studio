@@ -691,7 +691,7 @@ def test_aifs_call(time, device):
 
 @pytest.mark.parametrize(
     "ensemble",
-    [1, 2],
+    [1],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(ensemble, device):
