@@ -172,6 +172,7 @@ class ZarrBackend:
                     **kwargs,
                 )
                 self.root[dim][:] = values
+                self.coords[dim] = values
 
         # Add any multidim coordinates that were expelled above
         for k in mapping:
@@ -186,8 +187,6 @@ class ZarrBackend:
                     **kwargs,
                 )
                 self.root[k][:] = values
-
-        self.coords = self.coords | adjusted_coords
 
         shape = [len(v) for v in adjusted_coords.values()]
         chunks = [
