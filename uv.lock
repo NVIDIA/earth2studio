@@ -1534,14 +1534,18 @@ aifsens = [
     { name = "flash-attn" },
 ]
 all = [
+    { name = "anemoi-graphs" },
+    { name = "anemoi-models" },
     { name = "cbottle", marker = "python_full_version >= '3.12'" },
     { name = "cdsapi" },
     { name = "cucim-cu12" },
     { name = "dm-haiku" },
     { name = "earth2grid" },
+    { name = "earthkit-regrid" },
     { name = "eccodes" },
     { name = "ecmwf-opendata" },
     { name = "einops" },
+    { name = "flash-attn" },
     { name = "flax", version = "0.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "flax", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "fme" },
@@ -1737,8 +1741,10 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "anemoi-graphs", marker = "extra == 'aifsens'", specifier = "==0.6.2" },
+    { name = "anemoi-graphs", marker = "extra == 'all'", specifier = "==0.6.2" },
     { name = "anemoi-models", marker = "extra == 'aifs'", specifier = "==0.5.1" },
     { name = "anemoi-models", marker = "extra == 'aifsens'", specifier = "==0.5.1" },
+    { name = "anemoi-models", marker = "extra == 'all'", specifier = "==0.5.1" },
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=2efe844e772b5075f06f358eeeab587423628b61" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
@@ -1754,6 +1760,7 @@ requires-dist = [
     { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=fbbfe29b0a8bebb85a43c7027288d9f294b435cc" },
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
     { name = "earthkit-regrid", marker = "extra == 'aifsens'", specifier = "==0.4.0" },
+    { name = "earthkit-regrid", marker = "extra == 'all'", specifier = "==0.4.0" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.38.0" },
     { name = "ecmwf-opendata", marker = "extra == 'aifs'", specifier = ">=0.3.3" },
@@ -1765,6 +1772,7 @@ requires-dist = [
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
     { name = "flash-attn", marker = "extra == 'aifs'" },
     { name = "flash-attn", marker = "extra == 'aifsens'" },
+    { name = "flash-attn", marker = "extra == 'all'" },
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
     { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db" },
@@ -4719,7 +4727,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -4732,7 +4740,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
@@ -4761,9 +4769,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
-    { name = "nvidia-cusparse-cu12" },
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
@@ -4776,7 +4784,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
@@ -7546,7 +7554,7 @@ name = "triton"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools" },
+    { name = "setuptools", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/39/43325b3b651d50187e591eefa22e236b2981afcebaefd4f2fc0ea99df191/triton-3.4.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7b70f5e6a41e52e48cfc087436c8a28c17ff98db369447bcaff3b887a3ab4467", size = 155531138, upload-time = "2025-07-30T19:58:29.908Z" },
