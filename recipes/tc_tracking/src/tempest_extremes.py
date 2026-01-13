@@ -730,16 +730,11 @@ class AsyncTempestExtremes(TempestExtremes):
         # Track background tasks for this instance
         self._instance_tasks: list[Future] = []
         self._instance_lock = threading.Lock()
-        self._dump_in_progress = threading.Event()
-        self._dump_in_progress.set()  # Initially no dump in progress
         self._has_failed = False  # Track if any previous task failed
         self._cleanup_done = False  # Track if cleanup has been performed
 
     def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
-        """Record state but ensure dump_raw_data has finished successfully before proceeding.
-
-        This method ensures data integrity by waiting for any ongoing dump operations
-        to complete before recording new state data.
+        """Record state data, checking for any previous task failures.
 
         Parameters
         ----------
@@ -756,33 +751,8 @@ class AsyncTempestExtremes(TempestExtremes):
         # Check if any previous task failed and raise error immediately
         self._check_for_failures()
 
-        # Wait for any ongoing dump_raw_data to complete
-        self._dump_in_progress.wait()
-
         # Call parent's record_state method
         super().record_state(xx, coords)
-
-    def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
-        """Dump raw data with synchronization to prevent concurrent access.
-
-        Uses threading events to ensure only one dump operation occurs at a time
-        to maintain data integrity.
-
-        Returns
-        -------
-        tuple[list[str], np.ndarray]
-            Tuple containing list of raw file paths and array of member indices
-        """
-        # Signal that dump is in progress
-        self._dump_in_progress.clear()
-
-        try:
-            # Call parent's dump_raw_data method
-            result = super().dump_raw_data()
-            return result
-        finally:
-            # Signal that dump is complete
-            self._dump_in_progress.set()
 
     def _check_for_failures(self) -> None:
         """Check if any previous tasks failed with ChildProcessError and raise immediately.
@@ -821,6 +791,10 @@ class AsyncTempestExtremes(TempestExtremes):
         This method submits cyclone tracking operations to a background thread pool
         for asynchronous execution, allowing the main thread to continue processing.
 
+        IMPORTANT: The netCDF file writing (dump_raw_data) is done SYNCHRONOUSLY
+        in the main thread before submitting, because HDF5/netCDF4 is not thread-safe.
+        Only the CPU-intensive TempestExtremes detect/stitch runs in the background.
+
         Returns
         -------
         Future
@@ -853,9 +827,17 @@ class AsyncTempestExtremes(TempestExtremes):
                     f"Warning: {running_tasks} TempestExtremes tasks already running. Consider waiting for some to complete."
                 )
 
-        # Submit the task
+        # CRITICAL: Run setup_files() (which includes dump_raw_data with netCDF writes)
+        # SYNCHRONOUSLY in the main thread. HDF5/netCDF4 is not thread-safe, and
+        # concurrent writes from multiple threads cause segmentation faults.
+        insies, outsies, node_files, track_files = self.setup_files(out_file_names)
+        self.track_files = track_files
+
+        # Submit only the TE processing (detect/stitch) to the background thread
         executor = get_tempest_executor()
-        future = executor.submit(self.track_cyclones, out_file_names)
+        future = executor.submit(
+            self._run_te_and_cleanup, insies, outsies, node_files, track_files
+        )
 
         # Add to both global and instance task lists
         with _tempest_executor_lock:
@@ -1027,6 +1009,79 @@ class AsyncTempestExtremes(TempestExtremes):
         if self.print_te_output:
             print(f"took {(time.time() - then):.1f}s to track cyclones for one member")
 
+    def _run_te_and_cleanup(
+        self,
+        insies: list[str],
+        outsies: list[str],
+        node_files: list[str],
+        track_files: list[str],
+    ) -> None:
+        """Run TempestExtremes processing and cleanup (no netCDF writing).
+
+        This method is designed to run in a background thread after the netCDF
+        files have already been written by the main thread.
+
+        Parameters
+        ----------
+        insies : list[str]
+            List of input file list paths
+        outsies : list[str]
+            List of output file list paths
+        node_files : list[str]
+            List of node file paths
+        track_files : list[str]
+            List of track file paths
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail for any member
+        """
+        then = time.time()
+
+        # Create a dedicated local thread pool for member processing
+        n_members = len(insies)
+        max_workers = min(n_members, os.cpu_count() or 1)
+        if self.max_workers is not None:
+            max_workers = min(self.max_workers, max_workers)
+
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="te_members"
+        ) as executor:
+            # Submit one task per member to process in parallel
+            member_futures = []
+
+            for ins, outs, node_file, track_file in zip(
+                insies, outsies, node_files, track_files
+            ):
+                future = executor.submit(
+                    self._process_single_member, ins, outs, node_file, track_file
+                )
+                member_futures.append(future)
+
+            # Wait for all members to complete
+            exceptions = []
+            for i, future in enumerate(member_futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Member {i+1} processing failed: {e}")
+                    exceptions.append((i, e))
+
+        # Raise if any failed
+        if exceptions:
+            error_msg = (
+                f"Processing failed for {len(exceptions)} member(s): {exceptions}"
+            )
+            raise ChildProcessError(error_msg)
+
+        # Clean up after all are done
+        self.tidy_up(insies, outsies)
+
+        print(
+            f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"
+        )
+
     def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
         """Execute cyclone tracking with parallel processing per ensemble member.
 
@@ -1119,10 +1174,6 @@ class AsyncTempestExtremes(TempestExtremes):
             return
 
         try:
-            # Wait for any ongoing dump to complete
-            if hasattr(self, "_dump_in_progress"):
-                self._dump_in_progress.wait(timeout=60)
-
             # Wait for all instance tasks to complete
             if hasattr(self, "_instance_tasks") and hasattr(self, "_instance_lock"):
                 with self._instance_lock:

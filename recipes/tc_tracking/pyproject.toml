@@ -15,6 +15,7 @@ dependencies = [
     "moviepy>=2.2.1",
     "ninja>=1.13.0",
     "omegaconf>=2.3.0",
+    "pytest",
     "ruamel-yaml>=0.18.14",
     "scipy>=1.16.0",
     "setuptools>=80.9.0",

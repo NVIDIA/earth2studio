@@ -11,7 +11,7 @@ ics: ["2024-09-29 00:00:00"] #, "2024-09-24 06:00:00"] #, "2024-09-24 12:00:00"]
 n_steps: 15
 ensemble_size: 6
 batch_size: 2
-orography_path: './orography.nc'
+orography_path: '../orography.nc'
 
 data_source:
     _target_: earth2studio.data.NCAR_ERA5
