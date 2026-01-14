@@ -43,6 +43,8 @@ class CDSLexicon(metaclass=LexiconType):
         "skt": "reanalysis-era5-single-levels::skin_temperature::",
         "stl1": "reanalysis-era5-single-levels::soil_temperature_level_1::",
         "stl2": "reanalysis-era5-single-levels::soil_temperature_level_2::",
+        "swvl1": "reanalysis-era5-single-levels::volumetric_soil_water_layer_1::",
+        "swvl2": "reanalysis-era5-single-levels::volumetric_soil_water_layer_2::",
         "sp": "reanalysis-era5-single-levels::surface_pressure::",
         "msl": "reanalysis-era5-single-levels::mean_sea_level_pressure::",
         "tcwv": "reanalysis-era5-single-levels::total_column_water_vapour::",

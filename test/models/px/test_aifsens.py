@@ -21,14 +21,6 @@ import numpy as np
 import pytest
 import torch
 
-try:
-    import anemoi  # noqa: F401
-    import anemoi.models
-except ImportError:
-    pytest.skip("anemoi not installed", allow_module_level=True)
-if anemoi.models.__version__ != "0.5.1":
-    pytest.skip("anemoi-models 0.5.1 version mismatch", allow_module_level=True)
-
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES
@@ -109,7 +101,7 @@ class PhooAIFSENSModel(torch.nn.Module):
 
     def predict_step(self, x, fcstep=1):
         del fcstep
-        return torch.ones(x.shape[0], x.shape[2], 100, device=x.device)
+        return torch.ones(x.shape[0], 1, x.shape[2], 100, device=x.device)
 
 
 EXPECTED_OUTPUT_VARIABLES = len(VARIABLES) - 13
@@ -182,10 +174,7 @@ def test_aifsens_call(time, device):
     handshake_dim(out_coords, "time", 0)
 
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
+@pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifsens_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
@@ -235,7 +224,6 @@ def test_aifsens_iter(ensemble, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    next(p_iter)
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
@@ -245,7 +233,7 @@ def test_aifsens_iter(ensemble, device):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i), "h")
 
         if i > 5:
             break
@@ -309,8 +297,12 @@ def model() -> AIFSENS:
 
 
 @pytest.mark.package
+@pytest.mark.parametrize(
+    "ensemble",
+    [1, 2],
+)
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_aifsens_package(device, model):
+def test_aifsens_package(device, ensemble, model):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = model.to(device)
@@ -326,15 +318,21 @@ def test_aifsens_package(device, model):
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
+    coords = {"ensemble": np.arange(ensemble, dtype=int)} | coords
+    x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
+
     out, out_coords = p(x, coords)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440])
+    assert out.shape == torch.Size(
+        [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
+    )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    handshake_dim(out_coords, "lon", 5)
+    handshake_dim(out_coords, "lat", 4)
+    handshake_dim(out_coords, "variable", 3)
+    handshake_dim(out_coords, "lead_time", 2)
+    handshake_dim(out_coords, "time", 1)
+    handshake_dim(out_coords, "ensemble", 0)

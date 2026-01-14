@@ -197,8 +197,7 @@ class NetCDF4Backend:
         for c, v in adjusted_coords.items():
             if c not in self.coords:
                 self.add_dimension(c, v.shape, v)
-
-        self.coords = self.coords | adjusted_coords
+                self.coords[c] = v
 
         # Add multidimensional coords
         for k in mapping:
@@ -273,18 +272,17 @@ class NetCDF4Backend:
 
         for xi, name in zip(x, array_name):
             if name not in self.root.variables:
-                self.add_array(adjusted_coords, array_name, data=xi)
+                self.add_array(adjusted_coords, name)
 
-            else:
-                # Get indices as list of arrays and set torch tensor
-                self.root[name][
-                    tuple(
-                        [
-                            np.where(np.isin(self.coords[dim], value))[0]
-                            for dim, value in adjusted_coords.items()
-                        ]
-                    )
-                ] = xi.to("cpu").numpy()
+            # Get indices as list of arrays and set torch tensor
+            self.root[name][
+                tuple(
+                    [
+                        np.where(np.isin(self.coords[dim], value))[0]
+                        for dim, value in adjusted_coords.items()
+                    ]
+                )
+            ] = xi.to("cpu").numpy()
 
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"

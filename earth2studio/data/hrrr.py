@@ -361,7 +361,13 @@ class HRRR:
         )
 
         # Close aiohttp client if s3fs
-        if session:
+        try:
+            import aiobotocore  # type: ignore
+
+            _major = int(str(getattr(aiobotocore, "__version__", "0")).split(".", 1)[0])
+        except Exception:
+            _major = 0
+        if session and _major < 3:
             await session.close()
 
         xr_array = xr_array.isel(lead_time=0)
@@ -909,7 +915,13 @@ class HRRR_FX(HRRR):
             shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
-        if session:
+        try:
+            import aiobotocore  # type: ignore
+
+            _major = int(str(getattr(aiobotocore, "__version__", "0")).split(".", 1)[0])
+        except Exception:
+            _major = 0
+        if session and _major < 3:
             await session.close()
 
         return xr_array

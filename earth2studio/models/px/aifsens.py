@@ -774,12 +774,9 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,
             )
-            out[..., 0, :, self.model.data_indices.data.input.full] = x[
-                :,
-                1,
-            ]
-            out[..., 1, :, self.model.data_indices.data.output.full] = y
-            out[..., 1, :, self.model.data_indices.data.input.forcing] = x[
+            out[:, 0, :, self.model.data_indices.data.input.full] = x[:, 1]
+            out[:, 1, :, self.model.data_indices.data.output.full] = y[:, 0]
+            out[:, 1, :, self.model.data_indices.data.input.forcing] = x[
                 :, 1, :, self.model.data_indices.model.input.forcing
             ]
 
@@ -846,13 +843,15 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out[:, :, 0, indices[valid_mask]] = x[0, 0, 0, ...]
         out[:, :, 1, indices[valid_mask]] = x[0, 0, 1, ...]
 
-        # Drop generated forcing dimension range from output
-        out = torch.cat([out[:, :, :, :92, ...], out[:, :, :, 101:, ...]], dim=3)
+        # Drop generated forcing / invariants from output
+        all_indices = torch.arange(len(VARIABLES))
+        keep = torch.isin(
+            all_indices, self.model.data_indices.data.output.forcing, invert=True
+        )
+        out = out[:, :, :, keep, ...]
 
         # Update coordinates with remaining variable names
-        all_indices = torch.arange(len(VARIABLES))
-        variable_mask = ~torch.isin(all_indices, self.forcing_ids)
-        selected_variables = [VARIABLES[i] for i in all_indices[variable_mask].tolist()]
+        selected_variables = [VARIABLES[i] for i in all_indices[keep].tolist()]
 
         out_coords = coords.copy()
         out_coords["variable"] = np.array(selected_variables)
