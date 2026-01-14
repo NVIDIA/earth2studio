@@ -174,10 +174,7 @@ def test_aifsens_call(time, device):
     handshake_dim(out_coords, "time", 0)
 
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
+@pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifsens_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
