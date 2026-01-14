@@ -1,9 +1,11 @@
-project: 'baseline_helene'
-mode: 'generate_ensemble'
-model: 'fcn3' # 'fcn3' 'sfno' 'aifs'
-random_seed: 7777
+project: 'reproduce_helene'
+mode: 'reproduce_members'
+model: 'fcn3'
 
-ics: ["2024-09-29 00:00:00"] #, "2024-09-24 06:00:00"] #, "2024-09-24 12:00:00"]
+reproduce_members: [
+                    ['2024-09-29 00:00:00', 3, 4045540270],
+                    ['2024-09-29 00:00:00', 4, 2135091646],
+                   ]
 
 n_steps: 15
 ensemble_size: 5
@@ -14,7 +16,7 @@ data_source:
     _target_: earth2studio.data.NCAR_ERA5
 
 store_type: "none"
-store_dir: ./outputs_${project}
+store_dir: "./outputs_${project}"
 
 cyclone_tracking:
     asynchronous: True
@@ -25,10 +27,6 @@ cyclone_tracking:
     use_ram: True
     task_timeout_seconds: 120
     print_te_output: False
-
-stability_check:
-    variables: ['t1000', 'u250', 'v850']
-    thresholds: [10, 10, 10]
 
 # hydra logs
 hydra:

@@ -1,3 +1,12 @@
+import os
+
+# Set MKL/OMP threading environment variables BEFORE any other imports
+# This prevents MKL initialization race conditions that cause
+# divide-by-zero crashes when running FCN3 with NCCL/UCX
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_DYNAMIC", "FALSE")
+
 import hydra
 from omegaconf import DictConfig
 from src.extract_from_data_source.baseline_extraction import extract_baseline

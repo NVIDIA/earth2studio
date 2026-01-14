@@ -69,7 +69,12 @@ def add_arrays_to_store(store, out_coords, mems, add_arrays, ic=None, array_kwar
 
 def setup_output(cfg, model, ics, add_arrays):
 
-    out_vars = list(dict.fromkeys(cfg.out_vars))
+    if 'out_vars' in cfg:
+        out_vars = list(dict.fromkeys(cfg.out_vars))
+    else:
+        out_vars = []
+        if not cfg.store_type == 'none':
+            raise ValueError("out_vars must be specified if store_type is not none.")
     out_coords = initialise_output_coords(cfg, model, ics, out_vars)
     chunks = {
         "ensemble": 1,
