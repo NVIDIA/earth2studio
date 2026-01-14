@@ -449,7 +449,6 @@ def test_derived_surface_pressure(
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_derived_tcwv(levels, shape, device):
-    """Test TCWV derivation from specific humidity and surface pressure"""
     model = DerivedTCWV(levels).to(device)
 
     batch_size = shape[0]
@@ -468,15 +467,12 @@ def test_derived_tcwv(levels, shape, device):
             "lon": np.linspace(0, 360, lon_size),
         }
     )
-
-    # Create input with realistic values
     x = torch.ones((batch_size, n_levels + 1, lat_size, lon_size)).to(device)
     x[:, :n_levels] *= 0.01  # Specific humidity ~0.01 kg/kg
     x[:, n_levels] *= 101325  # Surface pressure ~101325 Pa
 
     out, out_coords = model(x, coords)
 
-    # Check output shape and coordinates
     assert out.shape == (batch_size, 1, lat_size, lon_size)
     assert out_coords["variable"][0] == "tcwv"
     assert out.device == x.device
@@ -502,6 +498,61 @@ def test_derived_tcwv(levels, shape, device):
     assert torch.allclose(
         out_const, torch.full_like(out_const, expected_tcwv), rtol=0.01
     )
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_tcwv_partial_layer_uses_surface_pressure(device):
+    levels = [1000, 850]
+    model = DerivedTCWV(levels).to(device)
+
+    # Small grid and batch
+    batch_size = 1
+    lat_size = 2
+    lon_size = 3
+    n_levels = len(levels)
+
+    input_coords = model.input_coords()
+    coords = OrderedDict(
+        {
+            "batch": np.arange(batch_size),
+            "variable": input_coords["variable"],
+            "lat": np.linspace(-90, 90, lat_size),
+            "lon": np.linspace(0, 360, lon_size, endpoint=False),
+        }
+    )
+
+    # Specific humidity per level and surface pressure
+    q1000 = 0.1
+    q850 = 0.2
+    # Surface pressure: half below 1000 hPa (95000 Pa), half slightly above (100001 Pa)
+    x = torch.zeros(
+        (batch_size, n_levels + 1, lat_size, lon_size), dtype=torch.float32
+    ).to(device)
+    x[:, 0, :, :] = q1000
+    x[:, 1, :, :] = q850
+    sp = torch.full((lat_size, lon_size), 95000.0, device=device)
+    sp[:, lon_size // 2 :] = 100001.0
+    x[:, 2, :, :] = sp
+
+    out, out_coords = model(x, coords)
+
+    # Expected:
+    # - For sp=95000 Pa: integrate from 95000 to 85000 with q850
+    expected_low = q850 * (95000.0 - 85000.0) / model.g
+    # - For sp=100001 Pa: small sliver from 100001->100000 with q1000
+    #   plus trapezoid from 100000->85000 with (q1000+q850)/2
+    expected_high = (q1000 * (100001.0 - 100000.0) / model.g) + (
+        0.5 * (q1000 + q850) * (100000.0 - 85000.0) / model.g
+    )
+
+    expected = torch.full(
+        (batch_size, 1, lat_size, lon_size), expected_low, device=device
+    )
+    expected[:, :, :, lon_size // 2 :] = expected_high
+
+    assert out.shape == (batch_size, 1, lat_size, lon_size)
+    assert out_coords["variable"][0] == "tcwv"
+    assert torch.allclose(out, expected, rtol=1e-6, atol=1e-6)
 
 
 @pytest.mark.parametrize(

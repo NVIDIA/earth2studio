@@ -651,15 +651,15 @@ class DerivedTCWV(torch.nn.Module):
     ) -> None:
         super().__init__()
         # Sort levels from highest to lowest pressure (descending)
-        self.levels = sorted(levels, reverse=True)
-        self.in_variables = [f"q{level}" for level in self.levels] + ["sp"]
+        levels = sorted(levels, reverse=True)
+        self.in_variables = [f"q{level}" for level in levels] + ["sp"]
         self.out_variables = ["tcwv"]
 
         # Store pressure levels in Pa as a buffer
-        pressure_levels = torch.tensor(
-            [100.0 * float(level) for level in self.levels], dtype=torch.float32
+        plevels = torch.tensor(
+            [100.0 * float(level) for level in levels], dtype=torch.float32
         )
-        self.register_buffer("pressure_levels", pressure_levels)
+        self.register_buffer("plevels", plevels)
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
@@ -714,78 +714,51 @@ class DerivedTCWV(torch.nn.Module):
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 
-        num_levels = len(self.levels)
-
-        # Extract specific humidity at each level and surface pressure
-        # x shape: (batch, variable, lat, lon)
-        q_levels = x[..., :num_levels, :, :]  # (batch, num_levels, lat, lon)
-        sp = x[..., num_levels, :, :]  # (batch, lat, lon) - surface pressure in Pa
-
-        # Get pressure levels tensor
-        p_levels = self.pressure_levels.to(x.device)  # (num_levels,)
-
-        # Reshape pressure levels for broadcasting: (1, num_levels, 1, 1)
-        p_levels_expanded = p_levels.view(1, -1, 1, 1).expand_as(q_levels)
-
-        # Create mask for pressure levels below surface pressure
-        # Only include levels where p_level <= sp (i.e., above or at surface)
-        sp_expanded = sp.unsqueeze(1)  # (batch, 1, lat, lon)
-        mask = p_levels_expanded <= sp_expanded  # (batch, num_levels, lat, lon)
-
-        # Initialize TCWV accumulator
+        q_levels = x[..., :-1, :, :]
+        sp = x[..., -1, :, :]
         tcwv = torch.zeros_like(sp)
 
-        # Integrate from surface to top of atmosphere using trapezoidal rule
-        # First, handle the layer from surface to lowest valid pressure level
-        # Find the index of the lowest pressure level that is above surface
-        for i in range(num_levels):
-            p_i = p_levels[i]
+        # Create mask for pressure levels below surface pressure
+        # we will zero anywhere this is not true
+        surface_mask = self.plevels.view(1, -1, 1, 1).expand_as(
+            q_levels
+        ) <= sp.unsqueeze(-3)
 
+        # Integrate from surface to top of atmosphere using trapezoidal rule
+        for i, p_level in enumerate(self.plevels):
             if i == 0:
                 # First layer: from surface pressure to first pressure level
                 # Use q at first level for both endpoints (assume constant in this layer)
-                q_i = q_levels[..., i, :, :]
-                # Only integrate where this level is above surface
-                level_mask = mask[..., i, :, :]
-                # dp = sp - p_i (surface is higher pressure)
-                dp = torch.where(level_mask, sp - p_i, torch.zeros_like(sp))
-                # Contribution: q * dp (using rectangular rule for this layer)
-                tcwv = tcwv + q_i * dp
+                dp = torch.where(
+                    surface_mask[..., i, :, :], sp - p_level, torch.zeros_like(sp)
+                )
+                tcwv = tcwv + q_levels[..., i, :, :] * dp
             else:
                 # Subsequent layers: use trapezoidal rule between levels
-                p_i_prev = p_levels[i - 1]
-                q_i = q_levels[..., i, :, :]
-                q_i_prev = q_levels[..., i - 1, :, :]
-
-                # Check if both current and previous levels are valid
-                curr_mask = mask[..., i, :, :]
-                prev_mask = mask[..., i - 1, :, :]
-                both_valid = curr_mask & prev_mask
-
-                # dp = p_{i-1} - p_i (previous level has higher pressure)
-                dp = p_i_prev - p_i
+                level_mask = surface_mask[..., i, :, :] & surface_mask[..., i - 1, :, :]
+                dp = self.plevels[i - 1] - p_level
 
                 # Trapezoidal contribution: (q_{i-1} + q_i) / 2 * dp
-                contribution = 0.5 * (q_i_prev + q_i) * dp
+                contribution = (
+                    0.5 * (q_levels[..., i - 1, :, :] + q_levels[..., i, :, :]) * dp
+                )
                 tcwv = tcwv + torch.where(
-                    both_valid, contribution, torch.zeros_like(contribution)
+                    level_mask, contribution, torch.zeros_like(contribution)
                 )
 
-                # Handle partial layer where only current level is valid
-                # (previous level was below surface)
-                partial_mask = curr_mask & ~prev_mask
+                # Handle layer where lower bound is below the surface
+                partial_mask = (
+                    surface_mask[..., i, :, :] & ~surface_mask[..., i - 1, :, :]
+                )
                 if partial_mask.any():
-                    # Integrate from surface to current level
-                    # Use q at current level (extrapolate backwards)
-                    dp_partial = sp - p_i
+                    dp_partial = sp - p_level
                     tcwv = tcwv + torch.where(
-                        partial_mask, q_i * dp_partial, torch.zeros_like(sp)
+                        partial_mask,
+                        q_levels[..., i, :, :] * dp_partial,
+                        torch.zeros_like(sp),
                     )
 
         # Divide by gravity to get TCWV in kg/m^2
-        tcwv = tcwv / self.g
-
-        # Add variable dimension back
-        out_tensor = tcwv.unsqueeze(-3)  # (batch, 1, lat, lon)
+        out_tensor = tcwv.unsqueeze(-3) / self.g
 
         return out_tensor, output_coords
