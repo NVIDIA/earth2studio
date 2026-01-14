@@ -110,7 +110,9 @@ class KVBackend:
 
         adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
-        self.coords = self.coords | adjusted_coords
+        for c, v in adjusted_coords.items():
+            if c not in self.coords:
+                self.coords[c] = v
 
         # Add any multidim coordinates that were expelled above
         for k in mapping:
