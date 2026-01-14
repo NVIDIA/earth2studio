@@ -272,18 +272,17 @@ class NetCDF4Backend:
 
         for xi, name in zip(x, array_name):
             if name not in self.root.variables:
-                self.add_array(adjusted_coords, name, data=xi)
+                self.add_array(adjusted_coords, name)
 
-            else:
-                # Get indices as list of arrays and set torch tensor
-                self.root[name][
-                    tuple(
-                        [
-                            np.where(np.isin(self.coords[dim], value))[0]
-                            for dim, value in adjusted_coords.items()
-                        ]
-                    )
-                ] = xi.to("cpu").numpy()
+            # Get indices as list of arrays and set torch tensor
+            self.root[name][
+                tuple(
+                    [
+                        np.where(np.isin(self.coords[dim], value))[0]
+                        for dim, value in adjusted_coords.items()
+                    ]
+                )
+            ] = xi.to("cpu").numpy()
 
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
