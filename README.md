@@ -89,22 +89,18 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
 
-## Earth-2 Open Models
+## Latest News
 
-Access state of the art Nvidia open models for Climate and Weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
-For training recipes for these models, see the [PhysicsNeMo repository](https://github.com/NVIDIA/physicsnemo).
-
-
-  ## Latest News
-
+- **Microsoft PlanetaryComputerData, MRMS, and NOAA ISD (station dataframe)** data
+    sources are now in Earth2Studio, see [data source APIs](e2studio_api_url).
+- **ECMWF AIFSENS** model wrapper added, an ensemble-based probablistic data driven
+    forecast model developed by the European Centre for Medium-Range Weather Forecasts
+    (ECMWF).
 - **CMIP6 datasource** has been added to improve support for usecases that are focused
     on climate modeling. See [data source APIs](e2studio_api_url) for more information.
 - [**Ai2 Climate Emulator (ACE) 2 ERA5 model**](https://arxiv.org/pdf/2411.11268v1) has
     been added which is a 1 degree, 6 hour time-step, forecast model that supports long
     roll outs with user specified SST forcing.
-- [**Climate in a Bottle**](https://blogs.nvidia.com/blog/earth2-generative-ai-foundation-model-global-climate-kilometer-scale-resolution/)
-    model APIs have been extended with the addition of tropical Cyclone guidance
-    diagnostic and cBottle video prognostic model.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -142,8 +138,10 @@ statistical operations and more to accelerate your pipelines.
 
 </div>
 
-Earth2Studio can be used for seamless deployment of Earth-2 models trained in
-[PhysicsNeMo][physicsnemo_repo_url].
+### Earth-2 Open Models
+
+Access state of the art Nvidia open models for climate and weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
+For training recipes for these models, see the [PhysicsNeMo repository][physicsnemo_repo_url].
 
 ## Features
 
@@ -246,7 +244,8 @@ Available data sources include but are not limited to:
 | NCAR_ERA5 | Reanalysis | 0.25° | Global | NetCDF |
 | WeatherBench2 | Reanalysis | 0.25° | Global | Zarr |
 | GEFS_FX | Ensemble Forecast | 0.25° | Global | GRIB2 |
-| CBottle3D | AI Generated | 100km | Global | HEALPix |
+| ISD | Observational | Point | Regional (US) | CSV |
+| MRMS | Reanalysis | 1km | Regional (US) | GRIB2 |
 
 For a complete list, see the [data source API docs][e2studio_data_api].
 
