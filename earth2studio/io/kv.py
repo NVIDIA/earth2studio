@@ -110,9 +110,7 @@ class KVBackend:
 
         adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
-        for coord, value in adjusted_coords.items():
-            if coord not in self.coords:
-                self.coords[coord] = value
+        self.coords = self.coords | adjusted_coords
 
         # Add any multidim coordinates that were expelled above
         for k in mapping:
@@ -186,18 +184,17 @@ class KVBackend:
 
         for xi, name in zip(x, array_name):
             if name not in self.root:
-                self.add_array(coords, array_name, data=xi.to(self.device))
+                self.add_array(coords, array_name)
 
-            else:
-                # Get indices as list of arrays and set torch tensor
-                self.root[name][
-                    np.ix_(
-                        *[
-                            np.where(np.isin(self.coords[dim], value))[0]
-                            for dim, value in adjusted_coords.items()
-                        ]
-                    )
-                ] = xi.to(self.device)
+            # Get indices as list of arrays and set torch tensor
+            self.root[name][
+                np.ix_(
+                    *[
+                        np.where(np.isin(self.coords[dim], value))[0]
+                        for dim, value in adjusted_coords.items()
+                    ]
+                )
+            ] = xi.to(self.device)
 
     def to_xarray(self, **xr_kwargs: Any) -> xarray.Dataset:
         """
