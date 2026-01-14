@@ -30,6 +30,12 @@ import torch.nn.functional as F
 import xarray as xr
 import zarr
 
+try:
+    from tqdm.auto import tqdm
+except ImportError:  # pragma: no cover
+    tqdm = None
+
+from earth2studio.data import TimeWindow
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -992,15 +998,17 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         return x * self.out_scale + self.out_center
 
     def _inference_context(self) -> nullcontext:
-        """Return context manager for model inference.
+        """Return context manager to wrap model inference operations.
 
-        Base class returns nullcontext (no-op). Subclasses can override
-        to add autocast, profiling, or other context-dependent behavior.
+        This is a CorrDiff-internal hook (not a PyTorch `torch.nn.Module` method).
+        Subclasses can override it to change inference behavior (e.g., autocast,
+        profiling) without duplicating the full `_forward` implementation.
 
         Returns
         -------
         nullcontext
-            Context manager to wrap inference operations
+            Base class returns nullcontext (no-op). Subclasses can override to
+            return autocast, profiling contexts, or other context managers.
         """
         return nullcontext()
 
@@ -1226,6 +1234,15 @@ class CorrDiffCMIP6(CorrDiff):
     - Overrides default interpolation
     - Includes a time dimension in the coordinate system so timestamps are preserved through
       batching/compression and can be used for time-dependent features (e.g., solar zenith angle)
+
+    Note
+    ----
+    Unlike CorrDiffTaiwan which has fixed input/output variables, CorrDiffCMIP6
+    loads variables names from the model package. Input variables are
+    expanded based on the ``time_window`` configuration in metadata.json
+    (e.g., "t2m" → "t2m_t-6", "t2m_t-3", "t2m_t+0"). After loading, inspect
+    ``model.input_variables`` and ``model.output_variables`` for the actual
+    variable lists.
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)
@@ -1278,100 +1295,143 @@ class CorrDiffCMIP6(CorrDiff):
         "d2m",
     ]
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Execute CorrDiffCMIP6 on input data.
-
-        CorrDiffCMIP6 requires a validity timestamp to compute time-dependent input
-        features (e.g., solar zenith angle). The timestamp is provided via a real
-        singleton ``time`` tensor dimension:
-
-        - ``x`` must have a singleton time axis (length 1)
-        - ``coords`` must include a matching ``"time"`` entry (length 1)
-
-        The model then squeezes the time axis and runs the base CorrDiff per-sample
-        loop, passing the extracted timestamp as ``valid_time`` to ``preprocess_input``.
-        """
-        if "time" not in coords:
-            raise ValueError(
-                'CorrDiffCMIP6 requires a singleton "time" dimension in coords.'
-            )
-        if len(coords) != x.ndim:
-            raise ValueError(
-                'CorrDiffCMIP6 expects "time" as a tensor dimension (len(coords) must equal x.ndim).'
-            )
-
-        time_dim = list(coords).index("time")
-        time_array = coords["time"]
-        if not hasattr(time_array, "__len__"):
-            raise TypeError('coords["time"] must be array-like.')
-        if len(time_array) != x.shape[time_dim]:
-            raise ValueError(
-                f'coords["time"] length ({len(time_array)}) must match x.shape[time_dim] ({x.shape[time_dim]}).'
-            )
-        if x.shape[time_dim] != 1:
-            raise ValueError('CorrDiffCMIP6 only supports a singleton "time" axis.')
-
-        t0 = time_array[0]
-        if isinstance(t0, datetime):
-            valid_time = t0
-        elif isinstance(t0, np.datetime64):
-            valid_time = timearray_to_datetime(np.asarray([t0]))[0]
-        else:
-            raise TypeError(
-                'coords["time"] must be datetime-like (numpy datetime64 or datetime).'
-            )
-
-        # Squeeze away the singleton time axis and drop time from coords before
-        # validating spatial/variable dimensions.
-        x = x.squeeze(time_dim)
-        coords_no_time = coords.copy()
-        del coords_no_time["time"]
-
-        # Build output coords (same structure as base CorrDiff, but validated against
-        # the no-time input coords expected by this wrapper).
-        target_input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self.input_variables),
-                "lat": self.lat_input_numpy,
-                "lon": self.lon_input_numpy,
-            }
-        )
-        handshake_dim(coords_no_time, "lon", 3)
-        handshake_dim(coords_no_time, "lat", 2)
-        handshake_dim(coords_no_time, "variable", 1)
-        handshake_coords(coords_no_time, target_input_coords, "lon")
-        handshake_coords(coords_no_time, target_input_coords, "lat")
-        handshake_coords(coords_no_time, target_input_coords, "variable")
-
-        output_coords = OrderedDict(
-            {
-                "batch": coords_no_time["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(self.output_variables),
-                "lat": self.lat_output_numpy,
-                "lon": self.lon_output_numpy,
-            }
-        )
-
-        out_shape = tuple(len(v) for v in output_coords.values())
-        out = torch.empty(out_shape, device=x.device, dtype=torch.float32)
-        for i in range(out.shape[0]):
-            out[i] = self._forward(x[i], valid_time)
-        return out, output_coords
+    # Padding applied during preprocessing (must be cropped in postprocessing)
+    # Format: (top, bottom) for lat, (left, right) for lon
+    _LAT_PAD = (23, 24)  # reflect padding in latitude
+    _LON_PAD = (48, 48)  # circular padding in longitude
 
     def __init__(
         self,
-        *args: Any,
+        input_variables: Sequence[str],
+        output_variables: Sequence[str],
+        residual_model: torch.nn.Module,
+        regression_model: torch.nn.Module,
+        lat_input_grid: torch.Tensor,
+        lon_input_grid: torch.Tensor,
+        lat_output_grid: torch.Tensor,
+        lon_output_grid: torch.Tensor,
+        in_center: torch.Tensor,
+        in_scale: torch.Tensor,
+        out_center: torch.Tensor,
+        out_scale: torch.Tensor,
+        invariants: OrderedDict | None = None,
+        invariant_center: torch.Tensor | None = None,
+        invariant_scale: torch.Tensor | None = None,
+        number_of_samples: int = 1,
+        number_of_steps: int = 18,
+        solver: Literal["euler", "heun"] = "euler",
+        sampler_type: Literal["deterministic", "stochastic"] = "stochastic",
+        inference_mode: Literal["regression", "diffusion", "both"] = "both",
+        hr_mean_conditioning: bool = True,
+        seed: int | None = None,
+        grid_spacing_tolerance: float = 1e-5,
+        grid_bounds_margin: float = 0.0,
+        sigma_min: float | None = None,
+        sigma_max: float | None = None,
         time_feature_center: torch.Tensor | None = None,
         time_feature_scale: torch.Tensor | None = None,
         time_window: dict | None = None,
-        **kwargs: Any,
     ) -> None:
-        super().__init__(*args, **kwargs)
+        """Initialize CorrDiffCMIP6 model.
+
+        Parameters
+        ----------
+        input_variables : Sequence[str]
+            List of input variable names (time-windowed, e.g., "tas_t-1", "tas_t", "tas_t+1")
+        output_variables : Sequence[str]
+            List of output variable names
+        residual_model : torch.nn.Module
+            Core pytorch model for diffusion step
+        regression_model : torch.nn.Module
+            Core pytorch model for regression step
+        lat_input_grid : torch.Tensor
+            Input latitude grid of size [in_lat]
+        lon_input_grid : torch.Tensor
+            Input longitude grid of size [in_lon]
+        lat_output_grid : torch.Tensor
+            Output latitude grid of size [out_lat]
+        lon_output_grid : torch.Tensor
+            Output longitude grid of size [out_lon]
+        in_center : torch.Tensor
+            Model input center normalization tensor of size [in_var]
+        in_scale : torch.Tensor
+            Model input scale normalization tensor of size [in_var]
+        out_center : torch.Tensor
+            Model output center normalization tensor of size [out_var]
+        out_scale : torch.Tensor
+            Model output scale normalization tensor of size [out_var]
+        invariants : OrderedDict | None, optional
+            Dictionary of invariant features, by default None
+        invariant_center : torch.Tensor | None, optional
+            Model invariant center normalization tensor, by default None
+        invariant_scale : torch.Tensor | None, optional
+            Model invariant scale normalization tensor, by default None
+        number_of_samples : int, optional
+            Number of high resolution samples to draw from diffusion model, by default 1
+        number_of_steps : int, optional
+            Number of langevin diffusion steps during sampling algorithm, by default 18
+        solver : Literal["euler", "heun"], optional
+            Discretization of diffusion process, by default "euler"
+        sampler_type : Literal["deterministic", "stochastic"], optional
+            Type of sampler to use, by default "stochastic"
+        inference_mode : Literal["regression", "both"], optional
+            Which inference mode to use ("both" or "regression"); diffusion-only
+            is not supported in CorrDiffCMIP6. Default is "both".
+        hr_mean_conditioning : bool, optional
+            Whether to use high-res mean conditioning, by default True
+        seed : int | None, optional
+            Random seed for reproducibility, by default None
+        grid_spacing_tolerance : float, optional
+            Relative tolerance for checking regular grid spacing, by default 1e-5
+        grid_bounds_margin : float, optional
+            Fraction of input grid range to allow for extrapolation, by default 0.0
+        sigma_min : float | None, optional
+            Minimum noise level for diffusion process, by default None
+        sigma_max : float | None, optional
+            Maximum noise level for diffusion process, by default None
+        time_feature_center : torch.Tensor | None, optional
+            Normalization center for time features (sza, hod) of size [2], by default None
+        time_feature_scale : torch.Tensor | None, optional
+            Normalization scale for time features (sza, hod) of size [2], by default None
+        time_window : dict | None, optional
+            Time window configuration from metadata.json containing "offsets", "suffixes",
+            "offsets_units", and "group_by". Used for create_time_window_wrapper(), by default None
+        """
+        super().__init__(
+            input_variables=input_variables,
+            output_variables=output_variables,
+            residual_model=residual_model,
+            regression_model=regression_model,
+            lat_input_grid=lat_input_grid,
+            lon_input_grid=lon_input_grid,
+            lat_output_grid=lat_output_grid,
+            lon_output_grid=lon_output_grid,
+            in_center=in_center,
+            in_scale=in_scale,
+            out_center=out_center,
+            out_scale=out_scale,
+            invariants=invariants,
+            invariant_center=invariant_center,
+            invariant_scale=invariant_scale,
+            number_of_samples=number_of_samples,
+            number_of_steps=number_of_steps,
+            solver=solver,
+            sampler_type=sampler_type,
+            inference_mode=inference_mode,
+            hr_mean_conditioning=hr_mean_conditioning,
+            seed=seed,
+            grid_spacing_tolerance=grid_spacing_tolerance,
+            grid_bounds_margin=grid_bounds_margin,
+            sigma_min=sigma_min,
+            sigma_max=sigma_max,
+        )
+
+        # CMIP6 wrapper only supports "both" or "regression" modes (no diffusion-only)
+        if self.inference_mode not in ("both", "regression"):
+            raise ValueError(
+                "CorrDiffCMIP6 supports inference_mode in {'both', 'regression'} only "
+                f"but got {self.inference_mode!r}"
+            )
 
         # Store time_window config for create_time_window_wrapper() and input_coords()
         self.time_window = time_window
@@ -1416,6 +1476,104 @@ class CorrDiffCMIP6(CorrDiff):
             for i, v in enumerate(self.output_variables)
             if v in self._NONNEGATIVE_VARS
         ]
+
+    @batch_func()
+    def __call__(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Execute CorrDiffCMIP6 on input data.
+
+        CorrDiffCMIP6 computes time-dependent input features (solar zenith angle,
+        hour of day) that require knowing when the atmospheric state is valid.
+        Unlike the base CorrDiff class, this wrapper requires the time information
+        to be passed as an explicit tensor dimension rather than optional metadata.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape ``[batch, time, variable, lat, lon]`` where the
+            ``time`` dimension must have exactly 1 element (size 1). This "singleton"
+            time axis exists to carry the timestamp through the coordinate system
+            but does not represent multiple time steps.
+        coords : CoordSystem
+            Coordinate dictionary with keys: ``"batch"``, ``"time"``, ``"variable"``,
+            ``"lat"``, ``"lon"``. The ``"time"`` entry must be an array-like of length 1
+            containing a numpy datetime64 or Python datetime representing when the
+            atmospheric state is valid (e.g., ``np.array(["2024-01-15T12:00"], dtype="datetime64[ns]")``).
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            - Output tensor of shape ``[batch, sample, variable, lat, lon]``
+            - Output coordinate dictionary (time dimension is replaced by sample dimension)
+
+        Raises
+        ------
+        ValueError
+            If ``"time"`` is missing from coords, if the time dimension size is not 1,
+            or if coords and tensor dimensions don't match.
+
+        Examples
+        --------
+        >>> # x has shape [1, 1, n_vars, lat, lon] - batch=1, time=1
+        >>> coords = {
+        ...     "batch": np.array([0]),
+        ...     "time": np.array(["2024-01-15T12:00"], dtype="datetime64[ns]"),
+        ...     "variable": np.array(["tas_t-1", "tas_t", "tas_t+1", ...]),
+        ...     "lat": lat_array,
+        ...     "lon": lon_array,
+        ... }
+        >>> output, output_coords = model(x, coords)
+
+        Note
+        ----
+        Time is required as a tensor dimension (rather than optional metadata) due to
+        limitations in earth2studio's batching framework, which enforces
+        ``len(coords) == x.ndim``. The dimension must have size 1 (singleton) because
+        the solar zenith angle computation processes one timestamp at a time; this
+        wrapper does not support ``time > 1`` and will raise an error if provided.
+        """
+        if "time" not in coords:
+            raise ValueError(
+                'CorrDiffCMIP6 requires a singleton "time" dimension in coords.'
+            )
+        if len(coords) != x.ndim:
+            raise ValueError(
+                'CorrDiffCMIP6 expects "time" as a tensor dimension (len(coords) must equal x.ndim).'
+            )
+
+        time_dim = list(coords).index("time")
+        time_array = coords["time"]
+        if not hasattr(time_array, "__len__"):
+            raise TypeError('coords["time"] must be array-like.')
+        if len(time_array) != x.shape[time_dim]:
+            raise ValueError(
+                f'coords["time"] length ({len(time_array)}) must match x.shape[time_dim] ({x.shape[time_dim]}).'
+            )
+        if x.shape[time_dim] != 1:
+            raise ValueError('CorrDiffCMIP6 only supports a singleton "time" axis.')
+
+        t0 = time_array[0]
+        if isinstance(t0, datetime):
+            valid_time = t0
+        elif isinstance(t0, np.datetime64):
+            valid_time = timearray_to_datetime(np.asarray([t0]))[0]
+        else:
+            raise TypeError(
+                'coords["time"] must be datetime-like (numpy datetime64 or datetime).'
+            )
+
+        # Build output coords (validates input coords including time dimension)
+        output_coords = self.output_coords(coords)
+
+        # Squeeze away the singleton time axis for inference
+        x = x.squeeze(time_dim)
+
+        out_shape = tuple(len(v) for v in output_coords.values())
+        out = torch.empty(out_shape, device=x.device, dtype=torch.float32)
+        for i in range(out.shape[0]):
+            out[i] = self._forward(x[i], valid_time)
+        return out, output_coords
 
     def _ensure_bchw(self, x: torch.Tensor) -> torch.Tensor:
         """Ensure input is [B, C, H, W]. Accepts [C, H, W] or [B, C, H, W]."""
@@ -1531,8 +1689,8 @@ class CorrDiffCMIP6(CorrDiff):
         """Normalize, pad, and reorder channels to match training quirks."""
         x = self.normalize_input(x)
         x = torch.flip(x, [2])
-        x = F.pad(x, (0, 0, 23, 24), mode="reflect")
-        x = F.pad(x, (48, 48, 0, 0), mode="circular")
+        x = F.pad(x, (0, 0, self._LAT_PAD[0], self._LAT_PAD[1]), mode="reflect")
+        x = F.pad(x, (self._LON_PAD[0], self._LON_PAD[1], 0, 0), mode="circular")
 
         indices = self._get_reorder_indices()
         x = x[:, indices]
@@ -1576,8 +1734,53 @@ class CorrDiffCMIP6(CorrDiff):
             }
         )
 
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Get the output coordinate system for the CMIP6 wrapper.
+
+        Notes
+        -----
+        Input coords must have a singleton ``time`` dimension (used for solar zenith angle).
+        Output coords do not include ``time`` — it is replaced by ``sample``.
+        """
+        if "time" not in input_coords:
+            raise ValueError(
+                'CorrDiffCMIP6 requires a singleton "time" dimension in input_coords.'
+            )
+
+        # Validate input coordinate dimensions at expected positions (with time)
+        target_input_coords = self.input_coords()
+        handshake_dim(input_coords, "time", 1)
+        handshake_dim(input_coords, "variable", 2)
+        handshake_dim(input_coords, "lat", 3)
+        handshake_dim(input_coords, "lon", 4)
+        handshake_coords(input_coords, target_input_coords, "lon")
+        handshake_coords(input_coords, target_input_coords, "lat")
+        handshake_coords(input_coords, target_input_coords, "variable")
+
+        # Enforce the expected singleton time axis for this wrapper
+        time_array = input_coords["time"]
+        if not hasattr(time_array, "__len__"):
+            raise TypeError('input_coords["time"] must be array-like.')
+        if len(time_array) != 1:
+            raise ValueError('CorrDiffCMIP6 only supports a singleton "time" axis.')
+
+        output_coords = OrderedDict(
+            {
+                "batch": input_coords["batch"],
+                "sample": np.arange(self.number_of_samples),
+                "variable": np.array(self.output_variables),
+                "lat": self.lat_output_numpy,
+                "lon": self.lon_output_numpy,
+            }
+        )
+        return output_coords
+
     def _inference_context(self) -> torch.autocast:
         """Return autocast context for inference.
+
+        Overrides base class to enable bfloat16 mixed precision for better GPU
+        performance during regression and diffusion steps.
 
         Returns
         -------
@@ -1665,8 +1868,13 @@ class CorrDiffCMIP6(CorrDiff):
         torch.Tensor
             Denormalized output tensor x * scale + center
         """
-        # 1) Crop padding added during preprocessing
-        x = x[:, :, 23:-24, 48:-48]
+        # 1) Crop padding added during preprocessing (see _LAT_PAD, _LON_PAD)
+        x = x[
+            :,
+            :,
+            self._LAT_PAD[0] : -self._LAT_PAD[1],
+            self._LON_PAD[0] : -self._LON_PAD[1],
+        ]
 
         # 2) Denormalize (reuse base implementation)
         x = super().postprocess_output(x)
@@ -1710,87 +1918,68 @@ class CorrDiffCMIP6(CorrDiff):
                     latents_shape=latents_shape,
                 )
 
-        # Decide where to store the stacked samples
+        # Validate required models
+        if image_reg is None:
+            raise RuntimeError(
+                "Missing regression output: regression_model must be set."
+            )
+
+        # Regression-only: all samples are identical (deterministic mean)
+        if self.inference_mode == "regression":
+            out = self.postprocess_output(image_reg)
+            out_device = (
+                torch.device("cpu") if self.stream_samples_to_cpu else out.device
+            )
+            out = out.to(out_device)
+            return out.expand(self.number_of_samples, -1, -1, -1).clone()
+
+        # inference_mode == "both": need diffusion model
+        if self.residual_model is None:
+            raise RuntimeError(
+                "Missing diffusion model: residual_model must be set for inference_mode='both'."
+            )
+
+        # Compute base seed once (sample index added in loop)
+        seed0 = (
+            int(self.seed) if self.seed is not None else int(np.random.randint(2**32))
+        )
+        mean_hr = image_reg[:1] if self.hr_mean_conditioning else None
+
+        # Where to accumulate samples (CPU streaming reduces GPU peak memory)
         out_device = (
             torch.device("cpu") if self.stream_samples_to_cpu else image_lr.device
         )
 
-        # Helper: generate one sample (shape [1, C, H, W] on model device)
-        def _generate_one(i: int) -> torch.Tensor:
-            seed0: int = (
-                int(self.seed)
-                if self.seed is not None
-                else int(np.random.randint(2**32))
-            )
-
-            image_res = None
-            if self.residual_model and self.inference_mode != "regression":
-                mean_hr = (
-                    image_reg[:1]
-                    if (image_reg is not None and self.hr_mean_conditioning)
-                    else None
-                )
-                with self._inference_context():
-                    image_res = diffusion_step(
-                        net=self.residual_model,
-                        sampler_fn=self.sampler,
-                        img_shape=image_lr.shape[-2:],
-                        img_out_channels=len(self.output_variables),
-                        rank_batches=[[seed0 + i]],
-                        img_lr=image_lr,
-                        rank=1,
-                        device=image_lr.device,
-                        mean_hr=mean_hr,
-                    )
-
-            if self.inference_mode == "regression":
-                if image_reg is None:
-                    raise RuntimeError(
-                        "Missing regression output: inference_mode='regression' requires "
-                        "`regression_model` to be set."
-                    )
-                return image_reg
-            if self.inference_mode == "diffusion":
-                if image_res is None:
-                    raise RuntimeError(
-                        "Missing diffusion output: inference_mode='diffusion' requires "
-                        "`residual_model` to be set."
-                    )
-                return image_res
-            if image_reg is None or image_res is None:
-                missing = []
-                if image_reg is None:
-                    missing.append("regression_model")
-                if image_res is None:
-                    missing.append("residual_model")
-                raise RuntimeError(
-                    "Missing outputs for inference_mode='both': expected outputs from "
-                    f"{', '.join(missing)}."
-                )
-            return image_reg + image_res
-
-        # Generate first sample to determine final spatial shape after postprocess/crop
-        first = self.postprocess_output(_generate_one(0))
-        out = torch.empty(
-            (self.number_of_samples, first.shape[1], first.shape[2], first.shape[3]),
-            device=out_device,
-            dtype=first.dtype,
-        )
-        out[0] = first.to(out_device)[0]
-
-        it = range(1, self.number_of_samples)
+        out = None
+        it = range(self.number_of_samples)
         if self.show_sample_progress and self.number_of_samples > 1:
-            try:
-                from tqdm.auto import tqdm
-            except ImportError as e:  # pragma: no cover
+            if tqdm is None:  # pragma: no cover
                 raise ImportError(
                     "Progress bar requested (CorrDiffCMIP6.show_sample_progress=True) "
                     "but tqdm is not installed. Install it with `pip install tqdm`."
-                ) from e
+                )
             it = tqdm(it, desc="CorrDiffCMIP6 samples", leave=False)
 
         for i in it:
-            yi = self.postprocess_output(_generate_one(i))
+            with self._inference_context():
+                image_res = diffusion_step(
+                    net=self.residual_model,
+                    sampler_fn=self.sampler,
+                    img_shape=image_lr.shape[-2:],
+                    img_out_channels=len(self.output_variables),
+                    rank_batches=[[seed0 + i]],
+                    img_lr=image_lr,
+                    rank=1,
+                    device=image_lr.device,
+                    mean_hr=mean_hr,
+                )
+            yi = self.postprocess_output(image_reg + image_res)
+            if out is None:
+                out = torch.empty(
+                    (self.number_of_samples, yi.shape[1], yi.shape[2], yi.shape[3]),
+                    device=out_device,
+                    dtype=yi.dtype,
+                )
             out[i] = yi.to(out_device)[0]
 
         return out
@@ -1814,7 +2003,7 @@ class CorrDiffCMIP6(CorrDiff):
             Initialized CorrDiffCMIP6 model
         """
         # Load and validate metadata first (we need time_window for input expansion).
-        metadata = CorrDiff._load_json_from_package(package, "metadata.json")
+        metadata = cls._load_json_from_package(package, "metadata.json")
         time_window_raw = metadata.get("time_window")
         if time_window_raw is None:
             raise ValueError(
@@ -1825,7 +2014,7 @@ class CorrDiffCMIP6(CorrDiff):
         group_by: str = time_window["group_by"]
 
         # Load stats for time feature normalization (sza/hod).
-        stats = CorrDiff._load_json_from_package(package, "stats.json")
+        stats = cls._load_json_from_package(package, "stats.json")
 
         # Load the base CorrDiff model from the package.
         base_model = CorrDiff.load_model.__func__(CorrDiff, package)
@@ -1976,9 +2165,6 @@ class CorrDiffCMIP6(CorrDiff):
         ...     return dt.replace(hour=12, minute=0, second=0, microsecond=0)
         >>> wrapped = model.create_time_window_wrapper(datasource, time_fn=to_noon)
         """
-        # Lazy import to avoid circular dependency
-        from earth2studio.data import TimeWindow
-
         if self.time_window is None:
             raise ValueError(
                 "Model does not have time_window metadata defined. "
