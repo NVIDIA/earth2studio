@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed AIFS-ENS invariants from model input / outputs and moved into model wrapper
+- CDS and NCAR lexica have been updated with variables for AIFS-ENS
+- Switch grib reads in HRRR data sources from xarray to pygrib to fix memory leak
+- Updated AIFS model to 1.1 checkpoint version
+
 ### Deprecated
 
 ### Removed
@@ -25,7 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-## [0.11.0] - 2025-12-xx
+- Added pygrib to data dependency group
+- Resolved conflict between AIFS and AIFS ENS groups
+
+## [0.11.0] - 2025-12-19
 
 ### Added
 
@@ -48,8 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and AIFS_ENS_FX to reflect that they are forecast sources
 - Support multiple x, coords pairs in batch function decorator
 
-### Deprecated
-
 ### Removed
 
 - Removed support for returning multiple samples at once from IFS ENS data sources
@@ -58,8 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Vertical wind variables in GFS / GEFS to be Pa s-1
-
-### Security
 
 ### Dependencies
 
