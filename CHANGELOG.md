@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed AIFS-ENS invariants from model input / outputs and moved into model wrapper
+- CDS and NCAR lexica have been updated with variables for AIFS-ENS
+- Switch grib reads in HRRR data sources from xarray to pygrib to fix memory leak
+- Updated AIFS model to 1.1 checkpoint version
+
 ### Deprecated
 
 ### Removed
@@ -23,10 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Made tp in HRRR and GFS units m for package consistency
+- Fixed batched inference support for AIFS and AIFS ENS
 
 ### Security
 
 ### Dependencies
+
+- Added pygrib to data dependency group
+- Resolved conflict between AIFS and AIFS ENS groups
 
 ## [0.11.0] - 2025-12-19
 

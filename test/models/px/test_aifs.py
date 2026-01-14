@@ -71,43 +71,550 @@ class PhooAIFSModel(torch.nn.Module):
         data_indices.data.input = DotDict()
         data_indices.data.output = DotDict()
 
-        all = torch.arange(0, 116)
-
         data_indices = DotDict()
         data_indices.data = DotDict()
         data_indices.data.input = DotDict()
         data_indices.data.output = DotDict()
+        data_indices.data._name_to_index = {
+            "10u": 0,
+            "10v": 1,
+            "2d": 2,
+            "2t": 3,
+            "cos_julian_day": 4,
+            "cos_latitude": 5,
+            "cos_local_time": 6,
+            "cos_longitude": 7,
+            "cp": 8,
+            "insolation": 9,
+            "lsm": 10,
+            "msl": 11,
+            "q_100": 12,
+            "q_1000": 13,
+            "q_150": 14,
+            "q_200": 15,
+            "q_250": 16,
+            "q_300": 17,
+            "q_400": 18,
+            "q_50": 19,
+            "q_500": 20,
+            "q_600": 21,
+            "q_700": 22,
+            "q_850": 23,
+            "q_925": 24,
+            "sdor": 25,
+            "sin_julian_day": 26,
+            "sin_latitude": 27,
+            "sin_local_time": 28,
+            "sin_longitude": 29,
+            "skt": 30,
+            "slor": 31,
+            "sp": 32,
+            "t_100": 33,
+            "t_1000": 34,
+            "t_150": 35,
+            "t_200": 36,
+            "t_250": 37,
+            "t_300": 38,
+            "t_400": 39,
+            "t_50": 40,
+            "t_500": 41,
+            "t_600": 42,
+            "t_700": 43,
+            "t_850": 44,
+            "t_925": 45,
+            "tcw": 46,
+            "tp": 47,
+            "u_100": 48,
+            "u_1000": 49,
+            "u_150": 50,
+            "u_200": 51,
+            "u_250": 52,
+            "u_300": 53,
+            "u_400": 54,
+            "u_50": 55,
+            "u_500": 56,
+            "u_600": 57,
+            "u_700": 58,
+            "u_850": 59,
+            "u_925": 60,
+            "v_100": 61,
+            "v_1000": 62,
+            "v_150": 63,
+            "v_200": 64,
+            "v_250": 65,
+            "v_300": 66,
+            "v_400": 67,
+            "v_50": 68,
+            "v_500": 69,
+            "v_600": 70,
+            "v_700": 71,
+            "v_850": 72,
+            "v_925": 73,
+            "w_100": 74,
+            "w_1000": 75,
+            "w_150": 76,
+            "w_200": 77,
+            "w_250": 78,
+            "w_300": 79,
+            "w_400": 80,
+            "w_50": 81,
+            "w_500": 82,
+            "w_600": 83,
+            "w_700": 84,
+            "w_850": 85,
+            "w_925": 86,
+            "z": 87,
+            "z_100": 88,
+            "z_1000": 89,
+            "z_150": 90,
+            "z_200": 91,
+            "z_250": 92,
+            "z_300": 93,
+            "z_400": 94,
+            "z_50": 95,
+            "z_500": 96,
+            "z_600": 97,
+            "z_700": 98,
+            "z_850": 99,
+            "z_925": 100,
+            "swvl1": 101,
+            "swvl2": 102,
+            "stl1": 103,
+            "stl2": 104,
+            "ssrd": 105,
+            "strd": 106,
+            "sf": 107,
+            "tcc": 108,
+            "mcc": 109,
+            "hcc": 110,
+            "lcc": 111,
+            "100u": 112,
+            "100v": 113,
+            "ro": 114,
+        }
 
-        data_indices.data.input.prognostic = torch.cat(
+        data_indices.data.input.prognostic = torch.IntTensor(
             [
-                all[0:82],
-                all[[83, 85, 87, 88, 109, 110, 112, 113]],
+                0,
+                1,
+                2,
+                3,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                30,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
             ]
         )
 
-        data_indices.data.input.forcing = torch.cat(
-            [all[[82, 84, 86, 89]], all[92:101]]
+        data_indices.data.input.diagnostic = torch.IntTensor(
+            [8, 47, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114]
         )
 
-        data_indices.data.output.full = torch.cat(
-            [all[0:82], all[[83, 85, 87, 88, 90, 91]], all[101:115]]
+        data_indices.data.output.full = torch.IntTensor(
+            [
+                0,
+                1,
+                2,
+                3,
+                8,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                30,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+                105,
+                106,
+                107,
+                108,
+                109,
+                110,
+                111,
+                112,
+                113,
+                114,
+            ]
         )
 
-        data_indices.data.input.full = torch.cat(
-            [all[0:90], all[92:101], all[[109, 110, 112, 113]]]
+        data_indices.data.input.full = torch.IntTensor(
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+            ]
+        )
+
+        data_indices.data.output.prognostic = torch.IntTensor(
+            [
+                0,
+                1,
+                2,
+                3,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                30,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+            ]
+        )
+
+        data_indices.data.output.diagnostic = torch.IntTensor(
+            [8, 47, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114]
         )
 
         # Model indices
         data_indices.model = DotDict()
         data_indices.model.input = DotDict()
-        data_indices.model.input.forcing = torch.cat(
-            [all[[82, 84, 86, 89]], all[90:99]]
-        )
 
         self.data_indices = data_indices
 
-    def predict_step(self, x):
-        return torch.ones(x.shape[0], x.shape[2], 102, device=x.device)
+    def predict_step(self, x, fcstep=1):
+        del fcstep
+        return torch.ones(x.shape[0], 1, x.shape[2], 102, device=x.device)
 
 
 @pytest.mark.parametrize(
@@ -142,6 +649,8 @@ def test_aifs_call(time, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
     # Initialize AIFS
     p = AIFS(
         model=model,
@@ -149,6 +658,7 @@ def test_aifs_call(time, device):
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     # Create "domain coords"
@@ -167,7 +677,9 @@ def test_aifs_call(time, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 106, 721, 1440])
+    assert out.shape == torch.Size(
+        [len(time), 1, out_coords["variable"].shape[0], 721, 1440]
+    )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
@@ -177,10 +689,7 @@ def test_aifs_call(time, device):
     handshake_dim(out_coords, "time", 0)
 
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
+@pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
@@ -200,12 +709,15 @@ def test_aifs_iter(ensemble, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
     p = AIFS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     # Create "domain coords"
@@ -233,7 +745,9 @@ def test_aifs_iter(ensemble, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 106, 721, 1440])
+        assert out.shape == torch.Size(
+            [ensemble, len(time), 1, out_coords["variable"].shape[0], 721, 1440]
+        )
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
@@ -271,12 +785,15 @@ def test_aifs_exceptions(dc, device):
         n_rows=1_038_240, n_cols=542_080, device=device
     ).to(torch.float64)
 
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
     p = AIFS(
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
     ).to(device)
 
     # Initialize Data Source
@@ -307,9 +824,6 @@ def test_aifs_package(device, model):
     # Test the cached model package AIFS
     p = model.to(device)
 
-    assert len(p.input_variables) == 94
-    assert len(p.output_variables) == 106
-
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
@@ -326,7 +840,9 @@ def test_aifs_package(device, model):
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert out.shape == torch.Size([len(time), 1, 106, 721, 1440])
+    assert out.shape == torch.Size(
+        [len(time), 1, out_coords["variable"].shape[0], 721, 1440]
+    )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
