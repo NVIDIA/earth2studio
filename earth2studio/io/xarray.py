@@ -126,7 +126,9 @@ class XarrayBackend:
 
         adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
-        self.coords = self.coords | adjusted_coords
+        for c, v in adjusted_coords.items():
+            if c not in self.coords:
+                self.coords[c] = v
 
         for k in mapping:
             if k not in self.root:
@@ -204,18 +206,17 @@ class XarrayBackend:
 
         for xi, name in zip(x, array_name):
             if name not in self.root:
-                self.add_array(adjusted_coords, array_name, data=xi)
+                self.add_array(adjusted_coords, array_name)
 
-            else:
-                # Get indices as list of arrays and set torch tensor
-                self.root[name][
-                    tuple(
-                        [
-                            np.where(np.isin(self.coords[dim], value))[0]
-                            for dim, value in adjusted_coords.items()
-                        ]
-                    )
-                ] = xi.to("cpu").numpy()
+            # Get indices as list of arrays and set torch tensor
+            self.root[name][
+                tuple(
+                    [
+                        np.where(np.isin(self.coords[dim], value))[0]
+                        for dim, value in adjusted_coords.items()
+                    ]
+                )
+            ] = xi.to("cpu").numpy()
 
     def read(
         self,

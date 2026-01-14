@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Made tp in HRRR and GFS units m for package consistency
+- Fixed batched inference support for AIFS and AIFS ENS
 
 ### Security
 
