@@ -40,6 +40,7 @@ def extract_from_historic_data(cfg,
     cyclone_tracking = TempestExtremes(detect_cmd=cfg.cyclone_tracking.detect_cmd,
                                        stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
                                        input_vars=cfg.cyclone_tracking.vars,
+                                       batch_size=1,
                                        n_steps=n_steps-1, # assumes prediction steps
                                        time_step=time_step,
                                        lats=coords['lat'],
@@ -54,9 +55,9 @@ def extract_from_historic_data(cfg,
     cyclone_tracking()
 
     # load track_file into dataFrame
-    hist_tracks = pd.read_csv(cyclone_tracking.track_file)
+    hist_tracks = pd.read_csv(cyclone_tracking.track_files[0])
     hist_tracks.columns = hist_tracks.columns.str.strip()
-    os.remove(cyclone_tracking.track_file)
+    os.remove(cyclone_tracking.track_files[0])
 
     return hist_tracks
 

@@ -5,6 +5,8 @@
 > [!Note]
 > The test can be done manually following the steps below. Alternatively,
 > `test_tc_hunt.sh` provides an automated way for running the full test.
+> If, at the end you see a message containing `all good, yay (:`, the test
+> finished successfully.
 
 This case will test the whether the pipeline can genreate an ensemble forecast
 using FCN3 and track tropical cylones using TempestExtremes.
@@ -51,3 +53,6 @@ diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-29T00:00:00_mem_00
 ```
 
 Repeat the diff call for all reproduced ensemble members, the return should always be empty.
+
+
+## Test 2: Extracting indivdual storms from historic data
