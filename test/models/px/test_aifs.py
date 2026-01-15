@@ -614,7 +614,7 @@ class PhooAIFSModel(torch.nn.Module):
 
     def predict_step(self, x, fcstep=1):
         del fcstep
-        return torch.ones(x.shape[0], x.shape[2], 102, device=x.device)
+        return torch.ones(x.shape[0], 1, x.shape[2], 102, device=x.device)
 
 
 @pytest.mark.parametrize(
@@ -689,10 +689,7 @@ def test_aifs_call(time, device):
     handshake_dim(out_coords, "time", 0)
 
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
+@pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])

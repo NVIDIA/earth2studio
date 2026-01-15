@@ -801,17 +801,14 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),
                 device=x.device,
             )
-            out[..., 0, :, self.input_full_ids] = x[
-                :,
-                1,
-            ]
-            out[..., 1, :, self.model.data_indices.data.output.full] = y
+            out[:, 0, :, self.input_full_ids] = x[:, 1]
+            out[:, 1, :, self.model.data_indices.data.output.full] = y[:, 0]
 
             forcing_full = torch.sort(
                 torch.cat([self.forcing_ids, self.invariant_ids], dim=0)
             )[0]
             mask = torch.isin(self.input_full_ids, forcing_full)
-            out[..., 1, :, forcing_full] = x[:, 1, :, torch.where(mask)[0]]
+            out[:, 1, :, forcing_full] = x[:, 1, :, torch.where(mask)[0]]
 
         return out, output_coords
 
