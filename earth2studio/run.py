@@ -67,7 +67,7 @@ def deterministic(
     device : torch.device, optional
         Device to run inference on, by default None
     verbose : bool, optional
-        Print infernce progress, by default True
+        Print inference progress, by default True
 
     Returns
     -------
@@ -187,7 +187,7 @@ def diagnostic(
     device : torch.device, optional
         Device to run inference on, by default None
     verbose : bool, optional
-        Print infernce progress, by default True
+        Print inference progress, by default True
 
     Returns
     -------
@@ -317,7 +317,7 @@ def ensemble(
     device : torch.device, optional
         Device to run inference on, by default None
     verbose : bool, optional
-        Print infernce progress, by default True
+        Print inference progress, by default True
 
     Returns
     -------
