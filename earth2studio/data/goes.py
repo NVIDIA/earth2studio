@@ -282,7 +282,7 @@ class GOES:
         self._validate_time(time)
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session()
+        session = await self.fs.set_session(refresh=True)
 
         # Create DataArray with appropriate dimensions
         if self._scan_mode == "F":
