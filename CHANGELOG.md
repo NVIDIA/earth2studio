@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CDS and NCAR lexica have been updated with variables for AIFS-ENS
 - Switch grib reads in HRRR data sources from xarray to pygrib to fix memory leak
 - Updated AIFS model to 1.1 checkpoint version
+- Updated GFS lexicon to include composite reflectivity
 
 ### Deprecated
 
