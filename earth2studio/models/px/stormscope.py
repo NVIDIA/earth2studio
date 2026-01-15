@@ -237,7 +237,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load a default local package for StormScope models."""
         package = Package(
-            "/lustre/fsw/portfolios/coreai/users/pharrington/model_pkg/stormscope-goes-mrms",
+            "hf://nvidia/stormscope-goes-mrms@3408641c72d9bf631e814c185bb129ac53c80785",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
                 "same_names": True,
@@ -1175,7 +1175,8 @@ class StormScopeGOES(StormScopeBase):
         model_name : str, optional
             Model name to load; allows for selection between different variants of the model:
             - "6km_60min_natten_cos_zenith_input_eoe_v2": 6km resolution, 60 minute timestep
-            - "6km_10min_natten_pure_obs_zenith_6steps": 6km resolution, 10 minute timestep
+            - "6km_10min_natten_pure_obs_zenith_6steps": 6km resolution, 10 minute timestep, sliding window of 6 input timesteps
+            - "6km_10min_natten_pure_obs_zenith_eoe": 6km resolution, 10 minute timestep, single input timestep
             - "3km_10min_natten_pure_obs_cos_zenith_input_eoe": 3km resolution, 10 minute timestep
         conditioning_data_source : DataSource | ForecastSource | None, optional
             Data source to use for conditioning, by default None.

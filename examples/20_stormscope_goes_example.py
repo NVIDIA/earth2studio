@@ -21,7 +21,7 @@ Running StormScope Inference with GOES and MRMS
 
 StormScope inference workflow with GOES satellite imagery and MRMS radar data.
 
-This example will demonstrate how to run an inference workflow to generate
+This example will demonstrate how to run coupled inference to generate
 predictions using StormScope models with both GOES and MRMS data sources.
 
 In this example you will learn:
@@ -29,8 +29,7 @@ In this example you will learn:
 - How to instantiate StormScope models for GOES and MRMS
 - Creating GOES and MRMS data sources
 - Running iterative prognostic forecasts
-- Creating RGB composite visualizations from satellite data
-- Overlaying radar reflectivity on satellite imagery
+- Plotting a single GOES channel with MRMS overlay
 """
 # /// script
 # dependencies = [
@@ -42,17 +41,16 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# StormScope is a nowcasting model that can operate on GOES satellite imagery
-# and MRMS radar data. This example demonstrates using both data sources in
-# a coupled forecast.
+# This example shows a minimal StormScope workflow with GOES satellite imagery
+# and MRMS radar data. We build two models:
+# - :py:class:`earth2studio.models.px.StormScopeGOES` to forecast GOES channels.
+# - :py:class:`earth2studio.models.px.StormScopeMRMS` to forecast radar reflectivity.
 #
-# For this example, we need the following:
-#
-# - Prognostic Models: StormScope GOES and MRMS models :py:class:`earth2studio.models.px.StormScopeGOES` and :py:class:`earth2studio.models.px.StormScopeMRMS`.
-# - Data Sources: Pull data from GOES :py:class:`earth2studio.data.GOES` and MRMS :py:class:`earth2studio.data.MRMS`.
-#
-# StormScope models also require conditioning data sources. We use GFS_FX for
-# the GOES model and GOES model directly for the MRMS model as conditioning inputs.
+# Each model also needs a conditioning data source. For GOES we use
+# :py:class:`earth2studio.data.GFS_FX`, so it can be conditioned on synoptic-scale
+# z500 data, and for MRMS we condition on GOES. The GOES model will provide the
+# conditioning data for the MRMS model in the inference loop as the models are
+# rolled out.
 
 # %%
 import os
@@ -71,41 +69,51 @@ import torch
 from loguru import logger
 
 from earth2studio.data import GFS_FX, GOES, MRMS, fetch_data
+from earth2studio.io import KVBackend
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
 )
-from earth2studio.utils.type import CoordSystem
+
 
 # %%
-# Set deterministic behavior for reproducibility
-torch.backends.cudnn.deterministic = True
-torch.use_deterministic_algorithms(True)
+# Define the initialization time
+# ------------------------------
+# We select the proper GOES platform based on the date and build a single
+# initialization timestamp. GOES-19 replaced GOES-16 (both sometimes
+# referred to as GOES-East, covering the same CONUS domain) in April 2025.
 
 # %%
-# Define the initialization time and select the appropriate GOES satellite
 t = datetime(2023, 12, 5, 12, 00, 0)
 goes_satellite = "goes19" if t >= datetime(2025, 4, 7, 0, 0, 0) else "goes16"
 inits = [np.datetime64(t)]
 
 # %%
-# Set device for computation
+# Select a device
+# ---------------
+# Use GPU when available; otherwise fall back to CPU.
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
 # Load the StormScope models
+# --------------------------
+# Choose pre-trained model names and load them with their conditioning sources.
+#
 # Model options:
 #  - "6km_60min_natten_cos_zenith_input_eoe_v2" for 1hr timestep GOES model
 #  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
 #  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
 #  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
+
+# %%
 goes_model_name = "6km_60min_natten_cos_zenith_input_eoe_v2"
 mrms_model_name = "6km_60min_natten_cos_zenith_input_mrms_eoe"
 
 package = StormScopeBase.load_default_package()
 
-# Load GOES model with GFS_FX conditioning (can be None for 10min model)
+# Load GOES model with GFS_FX conditioning (should be set to None for 10min models)
 model = StormScopeGOES.load_model(
     package=package,
     conditioning_data_source=GFS_FX(),
@@ -114,7 +122,7 @@ model = StormScopeGOES.load_model(
 model = model.to(device)
 model.eval()
 
-# Load MRMS model with GOES conditioning (can be None for 10min model)
+# Load MRMS model with GOES conditioning (should be set to None for 10min models)
 model_mrms = StormScopeMRMS.load_model(
     package=package,
     conditioning_data_source=GOES(),
@@ -124,7 +132,15 @@ model_mrms = model_mrms.to(device)
 model_mrms.eval()
 
 # %%
-# Setup GOES data source and prepare interpolators
+# Setup GOES data source and interpolators
+# ----------------------------------------
+# We fetch GOES data for the model inputs and build interpolators that map the
+# GOES grid and GFS grid into the StormScope model grid. StormScope operates on
+# the HRRR grid, or a downsampled version of it, and for convenience each model
+# defines grid coordinates `model.latitudes` and `model.longitudes` to help with
+# the regridding functionality.
+
+# %%
 scan_mode = "C"
 variables = model.input_coords()["variable"]
 lat_out = model.latitudes.detach().cpu().numpy()
@@ -149,7 +165,12 @@ x, x_coords = fetch_data(
 )
 
 # %%
-# Setup MRMS data source and prepare interpolators
+# Setup MRMS data source and interpolators
+# ----------------------------------------
+# MRMS inputs are fetched and interpolated to the model grid. The MRMS model is
+# conditioned on GOES, so we also build the GOES conditioning interpolator.
+
+# %%
 mrms = MRMS()
 mrms_in_coords = model_mrms.input_coords()
 x_mrms, x_coords_mrms = fetch_data(
@@ -164,7 +185,12 @@ model_mrms.build_input_interpolator(x_coords_mrms["lat"], x_coords_mrms["lon"])
 model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 # %%
-# Add batch dimension: [B, T, L, C, H, W]
+# Add batch dimension
+# -------------------
+# The models expect a batch dimension: [B, T, L, C, H, W]. Up to GPU memory limits,
+# this can be increased to produce multiple ensemble members.
+
+# %%
 batch_size = 1
 if x.dim() == 5:
     x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
@@ -179,201 +205,26 @@ x = x.to(dtype=torch.float32)
 x_mrms = x_mrms.to(dtype=torch.float32)
 
 # %%
-# Helper Functions for Visualization
-# -----------------------------------
-# Define utility functions for creating RGB composites with tone mapping
-
-
-# Khronos PBR Neutral Tone Mapping
-# https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md#pbr-neutral-specification
-def tonemap(rgb):
-    start_compression = 0.8 - 0.04
-    desaturation = 0.15
-    d = 1.0 - start_compression
-
-    height, width, _ = rgb.shape
-    result = rgb.reshape(-1, 3)
-
-    def to_3d(col):
-        return np.repeat(col[:, np.newaxis], repeats=3, axis=1)
-
-    # make array 1d
-    x = result.min(axis=1)
-
-    # apply offset
-    mask = x < 0.08
-    offset = np.full_like(x, 0.04)
-    offset[mask] = x[mask] - 6.25 * x[mask] ** 2
-    result -= to_3d(offset)
-
-    # calculate peak value (after applying offset)
-    peak = result.max(axis=1)
-    # anything not in the peak mask is left untouched from now on
-    peak_mask = peak >= start_compression
-
-    if not peak_mask.any():
-        return result.reshape(height, width, 3)
-
-    new_peak = 1.0 - d * d / (peak[peak_mask] + d - start_compression)
-    result[peak_mask] *= to_3d(new_peak / peak[peak_mask])
-
-    g = 1.0 - 1.0 / (desaturation * (peak[peak_mask] - new_peak) + 1.0)
-    result[peak_mask] = to_3d(1 - g) * result[peak_mask] + to_3d(g * new_peak)
-    return result.reshape(height, width, 3)
-
-
-def rgb_composite(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Create a RGB composite from a 3-channel input array."""
-    rgb = np.stack([r, g, b], axis=-1)
-
-    # Process RGB data
-    rgb = np.nan_to_num(rgb, nan=1.0)
-    rgb = tonemap(2 * rgb)
-    rgb = np.clip(rgb, 0, 1)
-    rgb = np.concatenate(
-        [rgb, np.ones_like(r)[..., np.newaxis]], axis=-1
-    )  # Add alpha channel
-
-    # Set invalid values to transparent
-    full_nanmask = np.stack(
-        [np.isnan(r), np.isnan(g), np.isnan(b), np.isnan(r)], axis=-1
-    )
-    transparent_rgba = np.ones_like(rgb)
-    transparent_rgba[:, :, -1] = 0.0
-    return np.where(full_nanmask, transparent_rgba, rgb)
-
-
-def plot_step(
-    y: torch.Tensor,
-    y_coords: CoordSystem,
-    y_mrms: torch.Tensor,
-    y_coords_mrms: CoordSystem,
-    composite: bool,
-    channel: str,
-    cmap: str,
-    valid_mask: torch.Tensor,
-    lat_plot: np.ndarray,
-    lon_plot: np.ndarray,
-    step_idx: int,
-    ch_idx: int,
-) -> None:
-    """Plot a single forecast step with GOES RGB composite and MRMS overlay."""
-    # Nan-fill invalid gridpoints
-    y = torch.where(valid_mask, y, torch.nan)
-
-    # Prepare HRRR Lambert Conformal projection
-    proj_hrrr = ccrs.LambertConformal(
-        central_longitude=262.5,
-        central_latitude=38.5,
-        standard_parallels=(38.5, 38.5),
-        globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
-    )
-    plt.figure(figsize=(15, 10))
-    ax = plt.axes(projection=proj_hrrr)
-
-    # Dual layer coast/state lines for better day/night visibility
-    # Black halo (thicker)
-    ax.coastlines(color="black", linewidth=1.2)
-    ax.add_feature(cfeature.STATES, edgecolor="black", linewidth=1.0)
-
-    # White inner line (thinner)
-    ax.coastlines(color="white", linewidth=0.4)
-    ax.add_feature(cfeature.STATES, edgecolor="white", linewidth=0.3)
-
-    if composite:
-        b = y[0, 0, 0, 0].detach().cpu().numpy()  # abi01c == ~blue
-        r = y[0, 0, 0, 1].detach().cpu().numpy()  # abi02c == ~red
-        g = y[0, 0, 0, 2].detach().cpu().numpy()  # abi03c == ~green
-        field = rgb_composite(r, 0.45 * r + 0.1 * g + 0.45 * b, b)
-        pcolor_kwargs = {
-            "shading": "gouraud",
-        }
-    else:
-        field = y_mrms[0, 0, 0, ch_idx].detach().cpu().numpy()
-        pcolor_kwargs = {
-            "cmap": cmap,
-            "shading": "auto",
-        }
-
-    im = ax.pcolormesh(
-        lon_plot,
-        lat_plot,
-        field,
-        transform=ccrs.PlateCarree(),
-        **pcolor_kwargs,
-    )
-
-    # Overlay MRMS on top of GOES
-    if composite:
-        # Set low refc and invalid points to nan
-        field_mrms = y_mrms[0, 0, 0, ch_idx]
-        field_mrms = (
-            torch.where(~valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
-        )
-        field_mrms = np.where(field_mrms <= 0, np.nan, field_mrms)
-        im_mrms = ax.pcolormesh(
-            lon_plot,
-            lat_plot,
-            field_mrms,
-            transform=ccrs.PlateCarree(),
-            cmap=cmap,
-            shading="auto",
-            vmin=0.0,
-            vmax=55.0,
-        )
-        plt.colorbar(im_mrms, label=channel, orientation="horizontal", pad=0.05)
-    else:
-        plt.colorbar(im, label=channel, orientation="horizontal", pad=0.05)
-
-    label = "composite" if composite else channel
-    time = y_coords["time"][0].item()
-    lead_time = y_coords["lead_time"][0]
-    plt.title(
-        f"Predicted GOES/MRMS output ({label}) from {time} UTC initialization (lead {lead_time.astype('timedelta64[m]').item()})"
-    )
-
-    plt.tight_layout()
-    plt.savefig(f"outputs/20_stormscope_goes_example_step{step_idx:02d}.png", dpi=300)
-
-
-# %%
 # Execute the Workflow
 # --------------------
-# Run iterative prognostic steps using both GOES and MRMS models. The GOES
-# model predicts future satellite imagery, while the MRMS model predicts radar
-# reflectivity conditioned on the GOES predictions. After one forecast step,
-# we need to use the GOES model predictions as the conditioning input for the
-# MRMS model, so we use the `call_with_conditioning` method.
+# Since the StormScope coupled inference is a bit more involved, we will use
+# a custom forecast loop rather than a bilt-in workflow. Here, the GOES model
+# predicts future satellite imagery, and the MRMS model predicts radar
+# reflectivity conditioned on GOES (initially the raw data, then the forecasted
+# GOES imagery) via `call_with_conditioning`.
 
+# %%
 y, y_coords = x, x_coords
 y_mrms, y_coords_mrms = x_mrms, x_coords_mrms
 
-for step_idx in range(12):
-    # Run one prognostic step with GOES
+n_steps = 2
+for step_idx in range(n_steps):
+    # Run one prognostic step with the GOES model
     y_pred, y_pred_coords = model(y, y_coords)
 
-    # Run one prognostic step with MRMS conditioned on GOES
+    # Run one prognostic step with the MRMS model conditioned on GOES
     y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
         y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
-    )
-
-    # %%
-    # Post Processing
-    # ---------------
-    # Plot the forecast at this step
-    plot_step(
-        y_pred,
-        y_pred_coords,
-        y_mrms_pred,
-        y_coords_mrms_pred,
-        composite=True,
-        channel="refc",
-        cmap="inferno",
-        valid_mask=model.valid_mask,
-        lat_plot=lat_out,
-        lon_plot=lon_out,
-        step_idx=step_idx,
-        ch_idx=list(model_mrms.variables).index("refc"),
     )
 
     # Update sliding window with new prediction
@@ -382,11 +233,85 @@ for step_idx in range(12):
         y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
     )
 
+    # Update the input tensors and coordinate systems for the next step
     y = y_pred
     y_coords = y_pred_coords
     y_mrms = y_mrms_pred
     y_coords_mrms = y_coords_mrms_pred
 
-    logger.info(
-        f"STEP {step_idx} {y_pred_coords['lead_time'][-1].astype('timedelta64[m]').item()}"
-    )
+# %%
+# Store Predictions
+# -----------------
+# Use a lightweight key-value backend to store the forecast outputs in memory.
+
+
+# %%
+# Post Processing
+# ---------------
+# Let's plot the final forecast step: GOES abi13c (Clean IR 10.35um) in 
+# grayscale with MRMS reflectivity (refc) overlaid.
+
+# %%
+goes_channel = "abi13c"
+goes_ch_idx = list(model.variables).index(goes_channel)
+mrms_ch_idx = list(model_mrms.variables).index("refc")
+
+# Nan-fill invalid gridpoints
+y_pred = torch.where(model.valid_mask, y_pred, torch.nan)
+y_mrms_pred = torch.where(model_mrms.valid_mask, y_mrms_pred, torch.nan)
+
+# Prepare HRRR Lambert Conformal projection
+proj_hrrr = ccrs.LambertConformal(
+    central_longitude=262.5,
+    central_latitude=38.5,
+    standard_parallels=(38.5, 38.5),
+    globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+)
+plt.figure(figsize=(9, 6))
+ax = plt.axes(projection=proj_hrrr)
+
+# Dual layer coast/state lines for better day/night visibility
+# Black halo (thicker)
+ax.coastlines(color="black", linewidth=1.2)
+ax.add_feature(cfeature.STATES, edgecolor="black", linewidth=1.0)
+
+# White inner line (thinner)
+ax.coastlines(color="white", linewidth=0.4)
+ax.add_feature(cfeature.STATES, edgecolor="white", linewidth=0.3)
+
+field = y_pred[0, 0, 0, goes_ch_idx].detach().cpu().numpy()
+im = ax.pcolormesh(
+    lon_out,
+    lat_out,
+    field,
+    transform=ccrs.PlateCarree(),
+    cmap="gray_r",
+    shading="auto",
+)
+
+# Overlay MRMS on top of GOES
+field_mrms = y_mrms_pred[0, 0, 0, mrms_ch_idx]
+field_mrms = torch.where(~model.valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+field_mrms = np.where(field_mrms <= 0, np.nan, field_mrms)
+im_mrms = ax.pcolormesh(
+    lon_out,
+    lat_out,
+    field_mrms,
+    transform=ccrs.PlateCarree(),
+    cmap="inferno",
+    shading="auto",
+    vmin=0.0,
+    vmax=55.0,
+)
+plt.colorbar(im, label="GOES Clean IR 10.35um [K]", orientation="horizontal", pad=0.05, shrink=0.5)
+plt.colorbar(im_mrms, label="MRMS Reflectivity [dBZ]", orientation="horizontal", pad=0.1, shrink=0.5)
+
+time = y_coords["time"][0].item()
+lead_time = y_coords["lead_time"][0]
+plt.title(
+    f"Predicted GOES {goes_channel} with MRMS overlay from {time} UTC "
+    f"initialization (lead {lead_time.astype('timedelta64[m]').item()})"
+)
+
+plt.tight_layout()
+plt.savefig("outputs/20_stormscope_goes_example.png", dpi=300)

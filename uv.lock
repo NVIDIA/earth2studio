@@ -626,7 +626,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -892,7 +892,7 @@ name = "click"
 version = "8.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5dfa22e22ed02566950fbfbcdc20311993483657a5c0/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a", size = 295065, upload-time = "2025-11-15T20:45:42.706Z" }
 wheels = [
@@ -1262,7 +1262,7 @@ dependencies = [
     { name = "click" },
     { name = "cloudpickle" },
     { name = "fsspec" },
-    { name = "importlib-metadata", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "importlib-metadata", marker = "python_full_version < '3.12'" },
     { name = "packaging" },
     { name = "partd" },
     { name = "pyyaml" },
@@ -1519,7 +1519,6 @@ all = [
     { name = "microsoft-aurora" },
     { name = "moviepy" },
     { name = "multi-storage-client", extra = ["boto3", "fsspec", "google-cloud-storage"] },
-    { name = "natten" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
@@ -1780,24 +1779,24 @@ requires-dist = [
     { name = "moviepy", marker = "extra == 'sfno'" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'all'", specifier = ">=0.33.0" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'data'", specifier = ">=0.33.0" },
-    { name = "natten", marker = "extra == 'all'" },
     { name = "natten", marker = "extra == 'stormscope'" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
     { name = "numcodecs", specifier = "<0.15.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=main" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.2.0,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.2.0,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=1.0.1,<2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = "==1.3.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1,<2.0" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
@@ -1923,7 +1922,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "cffi" },
-    { name = "eccodeslib", marker = "sys_platform != 'win32' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "eccodeslib", marker = "sys_platform != 'win32'" },
     { name = "findlibs" },
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
@@ -2903,7 +2902,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -4475,6 +4474,12 @@ wheels = [
 ]
 
 [[package]]
+name = "natten"
+version = "0.21.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/ca/002c2a2bb8503af754831b60b89f86ab5b289605bbcfba65daf9923eaccd/natten-0.21.1.tar.gz", hash = "sha256:69263d3e0586e2058c20c0610c6c31ad016834b31860cb096d50614c6039742e", size = 2713938, upload-time = "2025-10-26T20:16:46.303Z" }
+
+[[package]]
 name = "nbformat"
 version = "5.10.4"
 source = { registry = "https://pypi.org/simple" }
@@ -4809,7 +4814,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -4822,7 +4827,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
@@ -4851,9 +4856,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
-    { name = "nvidia-cusparse-cu12" },
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
@@ -4866,7 +4871,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "python_full_version >= '3.13' or sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
@@ -4911,8 +4916,8 @@ wheels = [
 ]
 
 [[package]]
-name = "nvidia-nvimgcodec-cu12"
-version = "0.6.1.37"
+name = "nvidia-nvjitlink-cu12"
+version = "12.8.93"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f6/74/86a07f1d0f42998ca31312f998bd3b9a7eff7f52378f4f270c8679c77fb9/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88", size = 39254836, upload-time = "2025-03-07T01:49:55.661Z" },
@@ -4942,8 +4947,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
-version = "1.4.0a0"
-source = { git = "https://github.com/NVIDIA/physicsnemo.git?rev=main#130f0e898fea3c883ad0d1d8aba8dc0fdf7149da" }
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "einops" },
@@ -6328,7 +6333,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
 wheels = [
@@ -7417,23 +7422,23 @@ dependencies = [
     { name = "fsspec" },
     { name = "jinja2" },
     { name = "networkx" },
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-cusparselt-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
-    { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "nvidia-cublas-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cudnn-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cufft-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cufile-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-curand-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cusolver-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cusparselt-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-nvtx-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "setuptools", marker = "python_full_version >= '3.12'" },
     { name = "sympy" },
-    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "triton", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "typing-extensions" },
 ]
 wheels = [
@@ -7589,7 +7594,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [
@@ -7661,7 +7666,7 @@ name = "triton"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools" },
+    { name = "setuptools", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/39/43325b3b651d50187e591eefa22e236b2981afcebaefd4f2fc0ea99df191/triton-3.4.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7b70f5e6a41e52e48cfc087436c8a28c17ff98db369447bcaff3b887a3ab4467", size = 155531138, upload-time = "2025-07-30T19:58:29.908Z" },
