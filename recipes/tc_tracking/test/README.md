@@ -56,3 +56,31 @@ Repeat the diff call for all reproduced ensemble members, the return should alwa
 
 
 ## Test 2: Extracting indivdual storms from historic data
+
+> [!Note]
+> The test can be done manually following the steps below. Alternatively,
+> `test_historic_tc_extraction.sh` provides an automated way for running
+> the full test. If, at the end you see a message containing `all good, yay (:`,
+> the test finished successfully.
+
+This mode lets users extract stroms from historic data sets. The user can choose
+a storm, the script will look for that storm in the IBTrACS data base, obtain data
+around the storm's life time from a data source (on-prem or online) and then extract
+that storm using TempestExtremes.
+
+For the current test, let us extract Typhoon Hato (2017) and Hurricane Helene (2024)
+from ERA5:
+```bash
+python ../tc_hunt.py --config-path=$(pwd) --config-name=extract_era5.yaml
+```
+
+### Expected Result
+
+The run should produce two reference tracks in `outputs_reference_tracks/`.
+Now, let us compare the extracted tracks with the baseline:
+```bash
+diff outputs_reference_tracks/reference_track_hato_2017_west_pacific.csv \
+     aux_data/reference_track_hato_2017_west_pacific.csv
+diff outputs_reference_tracks/reference_track_helene_2024_north_atlantic.csv \
+     aux_data/reference_track_helene_2024_north_atlantic.csv
+```

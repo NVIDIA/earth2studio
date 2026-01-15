@@ -10,7 +10,7 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo " >>> running baseline. might take a couple of minutes..."
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-python ../tc_hunt.py --config-path=$(pwd) --config-name=baseline_helene.yaml
+python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
 
 # Get track files for members 2, 3, 4
 mapfile -t track_files < <(ls "$baseline_dir"/tracks_*.csv | sort | grep -E 'mem_000[234]' | xargs -n1 basename)
@@ -35,7 +35,7 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo " >>> reproducing members 2, 3 and 4. might take a couple of minutes..."
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-python ../tc_hunt.py --config-path=$(pwd) --config-name=reproduce_helene.yaml
+python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
 
 # Compare track files for members 3 and 4, error if any differ
 for f in "${track_files[@]}"; do

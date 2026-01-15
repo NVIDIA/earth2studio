@@ -10,7 +10,7 @@ cases:
         year: 2017
         basin: west_pacific
 
-ibtracs_source_data: "aux_data_ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
     ncar_era5:
