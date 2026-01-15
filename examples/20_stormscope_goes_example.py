@@ -66,16 +66,13 @@ import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from loguru import logger
 
 from earth2studio.data import GFS_FX, GOES, MRMS, fetch_data
-from earth2studio.io import KVBackend
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
 )
-
 
 # %%
 # Define the initialization time
@@ -248,7 +245,7 @@ for step_idx in range(n_steps):
 # %%
 # Post Processing
 # ---------------
-# Let's plot the final forecast step: GOES abi13c (Clean IR 10.35um) in 
+# Let's plot the final forecast step: GOES abi13c (Clean IR 10.35um) in
 # grayscale with MRMS reflectivity (refc) overlaid.
 
 # %%
@@ -291,7 +288,9 @@ im = ax.pcolormesh(
 
 # Overlay MRMS on top of GOES
 field_mrms = y_mrms_pred[0, 0, 0, mrms_ch_idx]
-field_mrms = torch.where(~model.valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+field_mrms = (
+    torch.where(~model.valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+)
 field_mrms = np.where(field_mrms <= 0, np.nan, field_mrms)
 im_mrms = ax.pcolormesh(
     lon_out,
@@ -303,8 +302,20 @@ im_mrms = ax.pcolormesh(
     vmin=0.0,
     vmax=55.0,
 )
-plt.colorbar(im, label="GOES Clean IR 10.35um [K]", orientation="horizontal", pad=0.05, shrink=0.5)
-plt.colorbar(im_mrms, label="MRMS Reflectivity [dBZ]", orientation="horizontal", pad=0.1, shrink=0.5)
+plt.colorbar(
+    im,
+    label="GOES Clean IR 10.35um [K]",
+    orientation="horizontal",
+    pad=0.05,
+    shrink=0.5,
+)
+plt.colorbar(
+    im_mrms,
+    label="MRMS Reflectivity [dBZ]",
+    orientation="horizontal",
+    pad=0.1,
+    shrink=0.5,
+)
 
 time = y_coords["time"][0].item()
 lead_time = y_coords["lead_time"][0]
