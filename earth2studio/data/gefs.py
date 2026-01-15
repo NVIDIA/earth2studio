@@ -236,7 +236,7 @@ class GEFS_FX:
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         else:
             session = None
 

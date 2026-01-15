@@ -318,7 +318,7 @@ class HRRR:
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         else:
             session = None
 
@@ -360,14 +360,7 @@ class HRRR:
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
 
-        # Close aiohttp client if s3fs
-        try:
-            import aiobotocore  # type: ignore
-
-            _major = int(str(getattr(aiobotocore, "__version__", "0")).split(".", 1)[0])
-        except Exception:
-            _major = 0
-        if session and _major < 3:
+        if session:
             await session.close()
 
         xr_array = xr_array.isel(lead_time=0)
@@ -867,7 +860,7 @@ class HRRR_FX(HRRR):
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         else:
             session = None
 
@@ -914,14 +907,7 @@ class HRRR_FX(HRRR):
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        # Close aiohttp client if s3fs
-        try:
-            import aiobotocore  # type: ignore
-
-            _major = int(str(getattr(aiobotocore, "__version__", "0")).split(".", 1)[0])
-        except Exception:
-            _major = 0
-        if session and _major < 3:
+        if session:
             await session.close()
 
         return xr_array
