@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added derived TCWV diagnostic model
+- Added verbose option for inference workflows in run.py to toggle off tqdm
 
 ### Changed
 
