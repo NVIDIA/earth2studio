@@ -256,7 +256,7 @@ class JPSS:
             await session.close()
 
         # Close aiohttp client cleanly as in GOES implementation
-        await self.fs.set_session()
+        await self.fs.set_session(refresh=True)
         s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         return xr_array
