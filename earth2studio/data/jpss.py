@@ -191,7 +191,7 @@ class JPSS:
         # Add lat/lon to the variable list
         extended_variables = list(variable) + ["_lat", "_lon"]
 
-        session = await self.fs.set_session()
+        session = await self.fs.set_session(refresh=True)
 
         # Determine array dimensions
         y_size, x_size = self.PRODUCT_DIMENSIONS[self._product_type]
