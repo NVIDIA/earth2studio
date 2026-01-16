@@ -30,7 +30,7 @@ def load_tracks(case, pred_track_dir, tru_track_dir, out_dir):
     pred_tracks = extract_tracks(in_dir=os.path.join(pred_track_dir))
     n_members = len(pred_tracks)
 
-    pred_tracks = match_tracks(pred_tracks, tru_track, case)
+    pred_tracks = match_tracks(pred_tracks, tru_track)
 
     if out_dir:
         out_dir = os.path.join(out_dir, case)

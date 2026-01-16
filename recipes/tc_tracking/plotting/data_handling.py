@@ -51,7 +51,7 @@ def add_track_distance(track, tru_track):
     return track
 
 
-def match_tracks(pred_tracks, true_track, case):
+def match_tracks(pred_tracks, true_track):
     # iterate over tracks and see if track exists in simulation
     matched_tracks = []
     min_dist, max_dist = 25371000, -1.0
@@ -98,8 +98,7 @@ def match_tracks(pred_tracks, true_track, case):
                 )
                 break
 
-    line = case.split("_")[:2]
-    line = f"{line[0].upper()} {line[1]}: matched {len(matched_tracks)} out of {len(pred_tracks)} tracks, "
+    line = f"matched {len(matched_tracks)} out of {len(pred_tracks)} tracks, "
     line += f"with distances ranging from {min_dist/1000:.1f} to {max_dist/1000:.1f} km"
     print(line)
 
