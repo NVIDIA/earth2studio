@@ -26,6 +26,7 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
+from earth2studio.models.dx import CorrDiffSolarMD
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
@@ -437,3 +438,109 @@ def ensemble(
 
     logger.success("Inference complete")
     return io
+
+
+
+def diagnostic_solar(
+    time: list[str] | list[datetime] | list[np.datetime64],
+    nsteps: int,
+    prognostic: PrognosticModel,
+    solarcorrdiffic: CorrDiffSolarMD,
+    data: DataSource,
+    io: IOBackend,
+    plt_lr: False,
+    output_coords: CoordSystem = OrderedDict({}),
+    device: torch.device | None = None,
+) -> IOBackend:
+    """Built in diagnostic workflow.
+    This workflow creates a determinstic inference pipeline that couples a prognostic
+    model with a diagnostic model.
+
+    Parameters
+    ----------
+    time : list[str] | list[datetime] | list[np.datetime64]
+        List of string, datetimes or np.datetime64
+    nsteps : int
+        Number of forecast steps
+    prognostic : PrognosticModel
+        Prognostic model
+    solarcorrdiffic: CorrDiffSolarMD
+
+    data : DataSource
+        Data source
+    io : IOBackend
+        IO object
+    output_coords: CoordSystem, optional
+        IO output coordinate system override, by default OrderedDict({})
+    device : torch.device, optional
+        Device to run inference on, by default None
+
+    Returns
+    -------
+    IOBackend
+        Output IO object
+    """
+    # sphinx - diagnostic end
+    print("Running diagnostic workflow!")
+    # Load model onto the device
+    device = (
+        device
+        if device is not None
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
+    print(f"Inference device: {device}")
+    prognostic = prognostic.to(device)
+    solarcorrdiffic = solarcorrdiffic.to(device)
+    # Fetch data from data source and load onto device
+    prognositc_ic = prognostic.input_coords()
+    time = to_time_array(time)
+
+    x, coords = fetch_data(
+        source=data,
+        time=time,
+        variable=prognositc_ic["variable"],
+        lead_time=prognositc_ic["lead_time"],
+        device=device,
+    )
+    print(f"Fetched data from {data.__class__.__name__}")
+
+    if output_coords:
+        total_coords = output_coords
+    else:
+        total_coords = solarcorrdiffic.get_total_coord(time, nsteps)
+    
+    io.add_array(total_coords, "SWDR")
+    
+    # Map lat and lon if needed
+    x, coords = map_coords(x, coords, prognositc_ic)
+    # Create prognostic iterator
+    model = prognostic.create_iterator(x, coords)
+    t_srx = []
+    print("Inference starting!")
+    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
+        for step, (x, coords) in enumerate(model):
+            print("intime", time)
+            print("protime", coords["time"])
+            pro_out, pro_out_coord = copy.deepcopy(x), copy.deepcopy(coords) # record the output of pro model
+            
+            print("diatime", coords["time"])
+
+            x, coords = solarcorrdiffic(pro_out, pro_out_coord, verbose=True, verbose_idx=step)
+            if x is not None:
+                x, coords = map_coords(x, coords, output_coords)
+                if plt_lr:
+                    srx = solarcorrdiffic.srx
+                    t_srx.append(srx)
+                x = x.squeeze(0)
+                coords.pop("variable")
+                io.write(x, coords, "SWDR")
+
+            pbar.update(1)
+            if step == nsteps:
+                break
+
+    print("Inference complete")
+    if plt_lr:
+        return io, torch.cat(t_srx,dim=1)
+    else:
+        return io

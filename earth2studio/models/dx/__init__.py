@@ -20,6 +20,7 @@ from earth2studio.models.dx.cbottle_sr import CBottleSR  # noqa
 from earth2studio.models.dx.cbottle_tc import CBottleTCGuidance  # noqa
 from earth2studio.models.dx.climatenet import ClimateNet  # noqa
 from earth2studio.models.dx.corrdiff import CorrDiff, CorrDiffTaiwan  # noqa
+from earth2studio.models.dx.corrdiffMD import corrdiffMD, CorrDiffSolarMD
 from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
