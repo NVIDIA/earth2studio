@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 from earth2studio.lexicon import (
+    ECMWFOpenDataIFSLexicon,
     MODISFireLexicon,
     OISSTLexicon,
     Sentinel3AODLexicon,
@@ -85,3 +86,20 @@ def test_modis_fire_lexicon(variable: str) -> None:
     sample = np.random.rand(3, 3).astype(np.float32)
     out = modifier(sample.copy())
     assert np.allclose(out, sample)
+
+
+@pytest.mark.parametrize(
+    "variable",
+    ["u10m", "z500", "t850", "v100"],
+)
+def test_ifs_lexicon(variable: str) -> None:
+    """Ensure IFS lexicon entries other than geopotential map cleanly."""
+    label, modifier = ECMWFOpenDataIFSLexicon[variable]
+    assert isinstance(label, str)
+
+    sample = np.random.rand(4, 4).astype(np.float32)
+    out = modifier(sample.copy())
+    if variable == "z500":
+        assert np.allclose(out, sample * 9.81)
+    else:
+        assert np.allclose(out, sample)

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added derived TCWV diagnostic model
 - Added verbose option for inference workflows in run.py to toggle off tqdm
+- Added Planetary Computer data source for ECMWF IFS analysis data
 
 ### Changed
 
@@ -47,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MRMS data source
 - Added IFS and IFS-ENS initial state datasources
 - Local datasource example
-- Added ``TimeWindow`` datasource wrapper for fetching data at multiple time offsets
+- Added `TimeWindow` datasource wrapper for fetching data at multiple time offsets
 - Added NOAA's Integrated Surface Database (ISD) data frame source
 
 ### Changed
