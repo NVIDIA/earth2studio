@@ -27,7 +27,7 @@ def load_tracks(case, pred_track_dir, tru_track_dir, out_dir):
     )
     tru_track["dist"] = np.zeros(len(tru_track))
 
-    pred_tracks = extract_tracks(in_dir=os.path.join(pred_track_dir, case))
+    pred_tracks = extract_tracks(in_dir=os.path.join(pred_track_dir))
     n_members = len(pred_tracks)
 
     pred_tracks = match_tracks(pred_tracks, tru_track, case)

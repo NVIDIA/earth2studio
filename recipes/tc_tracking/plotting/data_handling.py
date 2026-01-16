@@ -136,8 +136,8 @@ def extract_tracks(in_dir):
         # read csv, strip whitespace from column names
         _tracks = extract_tracks_from_file(csv_file)
 
-        mem = int(csv_file.split("_mems")[-1].split(".csv")[0])
-        ic = pd.to_datetime(csv_file.split("_mems")[0][-19:])
+        mem = int(csv_file.split("_mem_")[-1].split("_seed_")[0])
+        ic = pd.to_datetime(csv_file.split("_mem_")[0][-19:])
 
         tracks.append({"ic": ic, "member": mem, "tracks": _tracks})
 

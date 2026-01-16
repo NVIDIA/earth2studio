@@ -19,7 +19,7 @@ data_source:
     # _target_: earth2studio.data.IFS
     # _target_: earth2studio.data.CDS
 
-store_type: "netcdf"
+store_type: "none"
 store_dir: "./outputs_${project}"
 out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m']
 
