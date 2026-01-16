@@ -28,7 +28,7 @@ from earth2studio.utils import handshake_dim
 
 class PhooAtlasModel(torch.nn.Module):
     """Dummy Atlas model for testing.
-    
+
     This model simulates the Atlas forward pass by adding a time delta
     to the input state to represent a prognostic step.
     """
@@ -42,7 +42,7 @@ class PhooAtlasModel(torch.nn.Module):
         """Simple forward that adds delta_t to second time step."""
         # x shape: [batch, 2*n_vars, lat, lon] for two lead times
         # Take second lead time (latest) and add delta_t
-        return x[:, self.n_vars:] + self.delta_t
+        return x[:, self.n_vars :] + self.delta_t
 
 
 class PhooAutoencoder(torch.nn.Module):
@@ -54,6 +54,7 @@ class PhooAutoencoder(torch.nn.Module):
     def forward(self, x, prediction_latent):
         return x
 
+
 class PhooNormalizer(torch.nn.Module):
     """Dummy normalizer for testing."""
 
@@ -62,7 +63,7 @@ class PhooNormalizer(torch.nn.Module):
 
     def normalize(self, x):
         return x
-    
+
 
 class PhooProcessor(torch.nn.Module):
     """Dummy processor for testing."""
@@ -74,10 +75,10 @@ class PhooProcessor(torch.nn.Module):
 
     def forward(self, x):
         return x
-    
+
     def preprocess_input(self, x, current_date):
         return x, x
-    
+
     def intep(self, x, downsample_grid_shape):
         return x
 
@@ -99,18 +100,20 @@ class PhooSinterpolant(torch.nn.Module):
 def atlas_test_components():
     """Create dummy Atlas model components for testing."""
     n_vars = 75  # Atlas has 73 variables
-    
+
     # Create dummy components
     autoencoders = torch.nn.ModuleList([PhooAutoencoder() for _ in range(n_vars)])
-    autoencoder_processors = torch.nn.ModuleList([PhooProcessor() for _ in range(n_vars)])
+    autoencoder_processors = torch.nn.ModuleList(
+        [PhooProcessor() for _ in range(n_vars)]
+    )
     model = PhooAtlasModel(delta_t=6, n_vars=n_vars)
     model_processor = PhooProcessor()
     sinterpolant = PhooSinterpolant()
-    
+
     # Create dummy normalization statistics
     means = torch.zeros(n_vars, 721, 1440)
     stds = torch.ones(n_vars, 721, 1440)
-    
+
     return {
         "autoencoders": autoencoders,
         "autoencoder_processors": autoencoder_processors,
@@ -165,12 +168,19 @@ def test_atlas_call(time, device, batch_size, atlas_test_components):
         time = [time]
 
     assert out.shape == torch.Size(
-        [batch_size, len(time), 1, len(p.output_coords(p.input_coords())["variable"]), 721, 1440]
+        [
+            batch_size,
+            len(time),
+            1,
+            len(p.output_coords(p.input_coords())["variable"]),
+            721,
+            1440,
+        ]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
-    
+
     handshake_dim(out_coords, "lon", 5)
     handshake_dim(out_coords, "lat", 4)
     handshake_dim(out_coords, "variable", 3)
@@ -187,7 +197,7 @@ def test_atlas_call(time, device, batch_size, atlas_test_components):
 def test_atlas_iter(ensemble, atlas_test_components, device):
     """Test Atlas iterator for autoregressive predictions."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    
+
     p = Atlas(**atlas_test_components).to(device)
 
     dc = p.input_coords()
@@ -226,7 +236,7 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
         ).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
-        
+
         handshake_dim(out_coords, "lon", 5)
         handshake_dim(out_coords, "lat", 4)
         handshake_dim(out_coords, "variable", 3)
@@ -250,7 +260,7 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
 def test_atlas_exceptions(dc, atlas_test_components, device):
     """Test that Atlas raises exceptions for invalid coordinates."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    
+
     p = Atlas(**atlas_test_components).to(device)
 
     # Initialize Data Source with invalid coordinates
@@ -269,49 +279,54 @@ def test_atlas_exceptions(dc, atlas_test_components, device):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_atlas_prep_next_input(atlas_test_components, batch_size, device):
     """Test Atlas prep_next_input method for autoregressive stepping.
-    
+
     The prep_next_input method should:
     1. Take the prediction at t+6h and place it as the latest input
     2. Shift the previous latest input (t=0) to the earlier position (t-6h)
     3. Update lead times by +6h
     """
     p = Atlas(**atlas_test_components).to(device)
-    
+
     # Create input data with 2 lead times
     time_steps = 2
     n_vars = 75
     lat = 721
     lon = 1440
-    
+
     # Input state at t-6h and t=0
     x = torch.randn(batch_size, 1, time_steps, n_vars, lat, lon, device=device)
     coords = p.input_coords()
     coords["batch"] = np.arange(batch_size)
     coords["time"] = np.array([np.datetime64("2020-01-01T00:00")])
-    
+
     # Prediction at t+6h (output has shape [batch, 1, n_vars, lat, lon])
     x_pred = torch.randn(batch_size, 1, 1, n_vars, lat, lon, device=device)
     coords_pred = p.output_coords(coords)
     coords_pred["batch"] = coords["batch"]
     coords_pred["time"] = coords["time"]
-    
+
     # Call prep_next_input
-    print(x_pred.shape, [(k, v.shape) for k, v in coords_pred.items()], x.shape, [(k, v.shape) for k, v in coords.items()])
+    print(
+        x_pred.shape,
+        [(k, v.shape) for k, v in coords_pred.items()],
+        x.shape,
+        [(k, v.shape) for k, v in coords.items()],
+    )
     x_next, coords_next = p.prep_next_input(x_pred, coords_pred, x, coords)
-    
+
     # Check that x_next has the correct shape
     assert x_next.shape == x.shape
-    
+
     # Check that the latest lead time contains the prediction
     assert torch.allclose(x_next[:, :, -1:], x_pred[:, :, :1])
-    
+
     # Check that the earlier lead time contains the previous latest
     assert torch.allclose(x_next[:, :, :-1], x[:, :, 1:])
-    
+
     # Check that lead times are updated correctly
     expected_lead_time = coords["lead_time"] + p.DT
     assert np.array_equal(coords_next["lead_time"], expected_lead_time)
-    
+
     # Check other coordinates remain unchanged
     assert np.array_equal(coords_next["batch"], coords["batch"])
     assert np.array_equal(coords_next["time"], coords["time"])
@@ -324,7 +339,7 @@ def test_atlas_prep_next_input(atlas_test_components, batch_size, device):
 def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
     """Test prep_next_input with ensemble dimension."""
     p = Atlas(**atlas_test_components).to(device)
-    
+
     # Create input data with ensemble dimension
     ensemble_size = 3
     batch_size = 2
@@ -332,33 +347,37 @@ def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
     n_vars = 75
     lat = 721
     lon = 1440
-    
+
     # Input state at t-6h and t=0 with ensemble
-    x = torch.randn(ensemble_size, batch_size, 1, time_steps, n_vars, lat, lon, device=device)
+    x = torch.randn(
+        ensemble_size, batch_size, 1, time_steps, n_vars, lat, lon, device=device
+    )
     coords = p.input_coords()
     coords.update({"ensemble": np.arange(ensemble_size)})
     coords.move_to_end("ensemble", last=False)
     coords["batch"] = np.arange(batch_size)
     coords["time"] = np.array([np.datetime64("2020-01-01T00:00")] * batch_size)
-    
+
     # Prediction at t+6h
-    x_pred = torch.randn(ensemble_size, batch_size, 1, 1, n_vars, lat, lon, device=device)
+    x_pred = torch.randn(
+        ensemble_size, batch_size, 1, 1, n_vars, lat, lon, device=device
+    )
     coords_pred = p.output_coords(coords)
     coords_pred.update({"ensemble": coords["ensemble"]})
     coords_pred.move_to_end("ensemble", last=False)
     coords_pred["batch"] = coords["batch"]
     coords_pred["time"] = coords["time"]
-    
+
     # Call prep_next_input
     x_next, coords_next = p.prep_next_input(x_pred, coords_pred, x, coords)
-    
+
     # Check shapes
     assert x_next.shape == x.shape
-    
+
     # Check that sliding window works correctly with ensemble dimension
     assert torch.allclose(x_next[:, :, :, -1:], x_pred[:, :, :, :1])
     assert torch.allclose(x_next[:, :, :, :-1], x[:, :, :, 1:])
-    
+
     # Check ensemble coordinate is preserved
     assert np.array_equal(coords_next["ensemble"], coords["ensemble"])
 
@@ -367,7 +386,7 @@ def test_atlas_input_coords(atlas_test_components):
     """Test that input_coords returns expected coordinate system."""
     p = Atlas(**atlas_test_components)
     coords = p.input_coords()
-    
+
     # Check expected keys
     assert "batch" in coords
     assert "time" in coords
@@ -375,19 +394,19 @@ def test_atlas_input_coords(atlas_test_components):
     assert "variable" in coords
     assert "lat" in coords
     assert "lon" in coords
-    
+
     # Check lead_time has two steps: -6h and 0h
     assert len(coords["lead_time"]) == 2
     assert coords["lead_time"][0] == np.timedelta64(-6, "h")
     assert coords["lead_time"][1] == np.timedelta64(0, "h")
-    
+
     # Check variable count (66 for Atlas)
     assert len(coords["variable"]) == 75
-    
+
     # Check spatial dimensions
     assert len(coords["lat"]) == 721
     assert len(coords["lon"]) == 1440
-    
+
     # Check spatial range
     assert coords["lat"][0] == pytest.approx(90.0, abs=1e-5)
     assert coords["lat"][-1] == pytest.approx(-90.0, abs=1e-5)
@@ -400,7 +419,7 @@ def test_atlas_output_coords(atlas_test_components):
     p = Atlas(**atlas_test_components)
     input_coords = p.input_coords()
     output_coords = p.output_coords(input_coords)
-    
+
     # Check expected keys
     assert "batch" in output_coords
     assert "time" in output_coords
@@ -408,14 +427,14 @@ def test_atlas_output_coords(atlas_test_components):
     assert "variable" in output_coords
     assert "lat" in output_coords
     assert "lon" in output_coords
-    
+
     # Check lead_time is single step at +6h
     assert len(output_coords["lead_time"]) == 1
     assert output_coords["lead_time"][0] == np.timedelta64(6, "h")
-    
+
     # Check variable count matches input
     assert len(output_coords["variable"]) == len(input_coords["variable"])
-    
+
     # Check spatial dimensions match input
     assert len(output_coords["lat"]) == len(input_coords["lat"])
     assert len(output_coords["lon"]) == len(input_coords["lon"])

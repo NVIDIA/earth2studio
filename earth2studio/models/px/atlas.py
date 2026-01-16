@@ -143,6 +143,33 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Atlas consumes two input lead times (t-6h and t) and predicts a single step at
     t+6h on a 721x1440 latitude-longitude grid.
+
+    Parameters
+    ----------
+    autoencoders : nn.ModuleList
+        List of autoencoders for the full-resolution physical state.
+    autoencoder_processors : nn.ModuleList
+        List of autoencoder processors for the full-resolution physical state.
+    model : nn.Module
+        Model for the full-resolution physical state.
+    model_processor : nn.Module
+        Model processor for the full-resolution physical state.
+    sinterpolant : nn.Module
+        Stochastic interpolant for the low-resolution latent state.
+    means : np.ndarray
+        Means for the full-resolution physical state.
+    stds : np.ndarray
+        Standard deviations for the full-resolution physical state.
+    sinterpolant_sample_steps : int
+        Number of steps to sample for the stochastic interpolant.
+
+    Warning
+    ----------
+    This model is expected to use the iterator interface for autoregressive
+    rollouts longer than one step. Iteratively using the ``__call__`` and
+    ``prep_next_input`` methods will not produce correct results, since the model
+    performs autoregressive timestepping using a full-resolution physical state
+    and an internal low-resolution latent state.
     """
 
     DT = np.timedelta64(6, "h")
@@ -274,18 +301,21 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinates describing `x`.
         """
         x_next = x.clone()
-        x_next[:, :, -1:, :, :, :] = x_pred[
-            :, :, :1, :, :, :
-        ]  # Fill latest step with most recent prediction
-        x_next[:, :, :-1, :, :, :] = x[
-            :, :, 1:, :, :, :
-        ]  # Shift the previous latest step
+        # Fill latest step with most recent prediction
+        x_next[:, :, 1:, :, :, :] = x_pred[:, :, :1, :, :, :]
+        # Shift the previous latest step to the earlier position
+        x_next[:, :, :1, :, :, :] = x[:, :, 1:, :, :, :]
         coords_next = coords.copy()
         coords_next["lead_time"] = coords_next["lead_time"] + self.DT
         return x_next, coords_next
 
     @torch.inference_mode()
-    def _forward(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _forward(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        prev_latent: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass of the prognostic model, integrating a single 6h step.
 
         Parameters
@@ -295,11 +325,15 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             to the coordinate system. Lead times expected: [-6h, 0h].
         coords : CoordSystem
             Coordinate dictionary describing `x`.
+        prev_latent : torch.Tensor, optional
+            Low-resolution latent from the previous forecast step. If provided, it will be
+            reused instead of downsampling the input high-resolution state, by default None.
 
         Returns
         -------
-        torch.Tensor
-            Output tensor advanced to t+6h and its coordinate system.
+        tuple[torch.Tensor, torch.Tensor]
+            Tuple containing the decoded forecast at t+6h and the corresponding latent
+            (low-resolution) prediction.
         """
 
         if x.ndim != 4:
@@ -319,6 +353,8 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Preprocess to build high/low-res latent/state
         self.model_processor.add_noise = False  # TODO needed or not?
         high_res, low_res = self.model_processor.preprocess_input(x_cur, current_date)
+        if prev_latent is not None:
+            low_res = prev_latent.clone()
         prev = self.model_processor.normalizer_in.normalize(x_prev)
         prev = self.model_processor.intep(
             prev, self.model_processor.downsample_grid_shape
@@ -340,9 +376,20 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Decode
         pred = self.autoencoders[0](high_res, prediction_latent)
 
+        # Update latent difference prediction into latent state prediction
+        prediction_latent = self.model_processor.normalizer_out.unnormalize(
+            prediction_latent
+        )
+        prediction_latent = (
+            prediction_latent + self.model_processor.normalizer_in.unnormalize(low_res)
+        )
+        prediction_latent = self.model_processor.normalizer_in.normalize(
+            prediction_latent
+        )
+
         # Postprocess to state space
         pred = self.autoencoder_processors[0].postprocess(pred, x_cur)
-        return pred
+        return pred, prediction_latent
 
     @torch.inference_mode()
     @batch_func()
@@ -378,9 +425,43 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             for j, _ in enumerate(coords["time"]):
                 slice_coords = coords.copy()
                 slice_coords["time"] = slice_coords["time"][j : j + 1]
-                out[i, j, :] = self._forward(x[i, j, :], slice_coords)
+                pred, _ = self._forward(x[i, j, :], slice_coords)
+                out[i, j, :] = pred
 
         return out, output_coords
+
+    @torch.inference_mode()
+    def _call_with_latent(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        prev_latents: list[list[torch.Tensor | None]] | None = None,
+    ) -> tuple[torch.Tensor, CoordSystem, list[list[torch.Tensor]]]:
+        """Internal helper that handles cached latents during autoregressive rollout."""
+
+        # Sanitize NaNs in input sst
+        if torch.isnan(x).any():
+            logger.info("Atlas input contains NaNs, replacing with 0.0")
+            x = torch.nan_to_num(x, nan=0.0)
+
+        output_coords = self.output_coords(coords)
+        out = torch.empty_like(x[:, :, :1])
+        latents_out: list[list[torch.Tensor]] = [
+            [None for _ in coords["time"]] for _ in coords["batch"]
+        ]
+
+        for i, _ in enumerate(coords["batch"]):
+            for j, _ in enumerate(coords["time"]):
+                slice_coords = coords.copy()
+                slice_coords["time"] = slice_coords["time"][j : j + 1]
+                prev_latent = None
+                if prev_latents is not None:
+                    prev_latent = prev_latents[i][j]
+                pred, pred_latent = self._forward(x[i, j, :], slice_coords, prev_latent)
+                out[i, j, :] = pred
+                latents_out[i][j] = pred_latent
+
+        return out, output_coords, latents_out
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
@@ -420,11 +501,14 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
         yield x[:, :, -1:, :, :, :], ic_coords
 
+        latent_cache: list[list[torch.Tensor | None]] | None = None
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
             # Forward
-            x_pred, coords_pred = self.__call__(x, coords)
+            x_pred, coords_pred, latent_cache = self._call_with_latent(
+                x, coords, prev_latents=latent_cache
+            )
             # Rear hook
             x_pred, coords_pred = self.rear_hook(x_pred, coords_pred)
             yield x_pred, coords_pred.copy()
@@ -464,8 +548,10 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 nvw_training, config["model_meta"]["autoencoder_processor"][i]
             )
 
-            ae = ae_cls.from_checkpoint(ae_path)
-            aeprocessor = aeprocessor_cls.from_checkpoint(aeprocessor_path)
+            ae = ae_cls.from_checkpoint(ae_path, map_location="cpu")
+            aeprocessor = aeprocessor_cls.from_checkpoint(
+                aeprocessor_path, map_location="cpu"
+            )
 
             autoencoders.append(ae)
             autoencoder_processors.append(aeprocessor)
@@ -475,10 +561,10 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             nvw_training, config["model_meta"]["genmodel_processor"]
         )
         model = model_cls.from_checkpoint(
-            package.resolve(modelpkg["genmodel"]["model_path"])
+            package.resolve(modelpkg["genmodel"]["model_path"]), map_location="cpu"
         )
         model_processor = model_processor_cls.from_checkpoint(
-            package.resolve(modelpkg["genmodel"]["processor_path"])
+            package.resolve(modelpkg["genmodel"]["processor_path"]), map_location="cpu"
         )
 
         means_path = package.resolve(modelpkg["stats"]["means"][0])
