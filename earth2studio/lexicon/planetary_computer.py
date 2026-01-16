@@ -186,7 +186,7 @@ class ECMWFOpenDataIFSLexicon(metaclass=LexiconType):
         # Time maxima
         "max_fg10m": "max_i10fg",
         "max_t2m": "max_2t",
-        "min_t2m": "max_2t",
+        "min_t2m": "min_2t",
     }
     PRS_VARIABLES = {
         "d": "d",
