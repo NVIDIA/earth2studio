@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added derived TCWV diagnostic model
+- Added verbose option for inference workflows in run.py to toggle off tqdm
 - Added Planetary Computer data source for ECMWF IFS analysis data
 
 ### Changed
@@ -67,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Vertical wind variables in GFS / GEFS to be Pa s-1
+- Fixed s3fs datasources to support aiobotocore 3.0 use
 
 ### Dependencies
 
