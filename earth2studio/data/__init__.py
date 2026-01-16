@@ -31,6 +31,7 @@ from .jpss import JPSS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (
+    PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,

@@ -30,11 +30,13 @@ from urllib.parse import urlparse
 import nest_asyncio
 import numpy as np
 import xarray as xr
+from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.planetary_computer import (
+    ECMWFOpenDataIFSLexicon,
     MODISFireLexicon,
     OISSTLexicon,
     Sentinel3AODLexicon,
@@ -99,7 +101,9 @@ class _PlanetaryComputerData:
     lexicon : LexiconType
         Lexicon mapping requested variable names to dataset keys and modifiers.
     asset_key : str, optional
-        Item asset key that contains the requested variables, by default "netcdf"
+        Item asset key that contains the requested variables, by default "netcdf".
+        The available asset keys are listed in the item-level assets table at the
+        bottom of the Planetary Computer overview page of each respective dataset.
     search_kwargs : Mapping[str, Any] | None, optional
         Additional keyword arguments forwarded to ``Client.search``, by default None
     search_tolerance : datetime.timedelta, optional
@@ -144,7 +148,7 @@ class _PlanetaryComputerData:
         lexicon: LexiconType,
         asset_key: str = "netcdf",
         search_kwargs: Mapping[str, Any] | None = None,
-        search_tolerance: timedelta = timedelta(hours=12),
+        search_tolerance: timedelta | None = timedelta(hours=12),
         spatial_dims: Mapping[str, np.ndarray] | None = None,
         data_attrs: Mapping[str, Any] | None = None,
         cache: bool = True,
@@ -482,9 +486,12 @@ class _PlanetaryComputerData:
             self._client = Client.open(self.STAC_API_URL)
 
         # Build a closed interval around the requested timestamp to search for items.
-        start = (when - self._search_tolerance).isoformat()
-        end = (when + self._search_tolerance).isoformat()
-        datetime_param = f"{start}/{end}"
+        if self._search_tolerance is not None:
+            start = (when - self._search_tolerance).isoformat()
+            end = (when + self._search_tolerance).isoformat()
+            datetime_param = f"{start}/{end}"
+        else:
+            datetime_param = when.isoformat()
 
         # Perform the search
         search = self._client.search(
@@ -495,13 +502,22 @@ class _PlanetaryComputerData:
         )
 
         # Return the first item
+        items = search.items()
         try:
-            return next(search.items())
+            item = next(items)
         except StopIteration as error:
-            raise FileNotFoundError(
-                f"No Planetary Computer item found for {when.isoformat()} "
-                f"within ±{self._search_tolerance}"
-            ) from error
+            msg = f"No Planetary Computer item found for {when.isoformat()}"
+            if self._search_tolerance is not None:
+                msg += f" within ±{self._search_tolerance}"
+            raise FileNotFoundError(msg) from error
+
+        try:
+            _ = next(items)
+            logger.warning("Found more than one matching item, returning first match")
+        except StopIteration:
+            pass
+
+        return item
 
     def _local_asset_path(self, href: str) -> pathlib.Path:
         """Resolve the cache path for a remote asset href."""
@@ -871,3 +887,112 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
             values = np.asarray(field.values).astype(np.float32)
             result = np.asarray(spec.modifier(values), dtype=np.float32)
             return result
+
+
+class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
+    """IFS analysis data from the ECMWF Open Data repository.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/ecmwf-forecast
+    """
+
+    COLLECTION_ID = "ecmwf-forecast"
+    ASSET_KEY = "data"
+    SEARCH_KWARGS = {
+        "query": {
+            "ecmwf:stream": {"eq": "oper"},
+            "ecmwf:type": {"eq": "fc"},
+            "ecmwf:step": {"eq": "0h"},
+        },
+    }
+    LATITUDE = np.linspace(90, -90, 721)
+    LONGITUDE = np.linspace(-180, 180, 1440)
+
+    def __init__(
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+    ) -> None:
+        super().__init__(
+            self.COLLECTION_ID,
+            asset_key=self.ASSET_KEY,
+            lexicon=ECMWFOpenDataIFSLexicon,
+            search_kwargs=self.SEARCH_KWARGS,
+            search_tolerance=None,
+            spatial_dims={
+                "latitude": self.LATITUDE,
+                "longitude": self.LONGITUDE,
+            },
+            cache=cache,
+            verbose=verbose,
+            max_workers=max_workers,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+            async_timeout=async_timeout,
+        )
+
+    def extract_variable_numpy(
+        self,
+        plan: AssetPlan,
+        spec: VariableSpec,
+        target_time: datetime,
+    ) -> np.ndarray:
+        """Extract an ECMWF Open Data field as a float32 numpy array.
+
+        Parameters
+        ----------
+        plan : AssetPlan
+            Plan describing the cached asset to open.
+        spec : VariableSpec
+            Variable specification detailing which field and modifier to apply.
+        Returns
+        -------
+        numpy.ndarray
+            Array shaped ``(721, 1440)``.
+        """
+        var, plev, lay = spec.dataset_key.split("::")
+        cfgrib_remapper = {
+            # cfgrib remaps variable names that start with a number
+            "100u": "u100",
+            "100v": "v100",
+            "10u": "u10",
+            "10v": "v10",
+            "2t": "t2m",
+            "2d": "d2m",
+        }
+        with xr.open_dataset(
+            plan.local_path, engine="cfgrib", filter_by_keys={"shortName": var}
+        ) as dataset:
+            field = dataset[cfgrib_remapper.get(var, var)]
+            if plev:
+                field = field.sel(isobaricInhPa=float(plev))
+            if lay:
+                field = field.sel(soilLayer=float(lay))
+            field = field.roll(longitude=-len(self.LONGITUDE) // 2, roll_coords=True)
+            values = np.asarray(field.values).astype(np.float32)
+            result = np.asarray(spec.modifier(values), dtype=np.float32)
+
+        return result
