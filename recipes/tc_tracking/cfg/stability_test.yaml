@@ -24,7 +24,7 @@ data_source:
 
 
 store_type: "netcdf"
-store_dir:  "./outputs"
+store_dir:  "./outputs_${project}"
 out_vars: ['t1000', 'u250', 'v850']
 
 cyclone_tracking:
@@ -36,3 +36,10 @@ cyclone_tracking:
     use_ram: True
     task_timeout_seconds: 120
     print_te_output: False
+
+# hydra logs
+hydra:
+    job:
+        name: ${project}
+    run:
+        dir: ${store_dir}/${project}_logs/${now:%Y-%m-%d_%H-%M-%S}

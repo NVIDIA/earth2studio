@@ -34,8 +34,7 @@ Since torch-harmonics has to be compiled and TempestExtreme is a commandline too
     ```
 
 
-
-## Run
+## run
 
 The project contains a script for running the code.
 
@@ -43,13 +42,15 @@ The project contains a script for running the code.
 python tc_hunt.py --config-name=tc_selection_ens.yaml
 ```
 
-## Modes
+## modes
 
 ### extract Reference tracks from ERA5 using IBTrACS as ground truth
 
 ```yaml
 mode: 'extract_baseline'
 ```
+- download ibtracs file with following command...
+- extract storms from field data to enable fair comparison
 
 IBTrACS is used as ground truth for the reference tracks. However, due to various reasons simulation data is compared against extracting the tracks directly from ERA5...
 
@@ -71,3 +72,31 @@ Only works if exact same batch is reproduced, that means:
 - ensemble size required if final batch of ensemble shall be reproduced
 - random seed has to be provided for each ensemble member, but the global random seed won't have effect here, as it mainly impacts the generation of random seeds for members
 - works only on same machine using identical environment. No guarantees otherwise
+- works only with FCN3
+
+
+## visualise
+
+Have a stab at the notebook...
+
+
+## example workflow
+
+### extract baseline
+
+- download ibtraccs data
+- extract baseline
+
+### produce ensemble
+
+- run forecast loop
+
+### visualise members
+
+- visualise in notebook
+
+### re-run interesting members to extract fields
+
+- reproduce, this time store fields
+- visualise track and field
+

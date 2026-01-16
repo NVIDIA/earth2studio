@@ -24,7 +24,7 @@ data_source:
 
 
 store_type: "none"
-store_dir:  "./outputs"
+store_dir:  "./outputs_${project}"
 out_vars: ['t1000', 'u250', 'v850']
 
 cyclone_tracking:
@@ -40,3 +40,10 @@ cyclone_tracking:
 stability_check:
     variables: ['t1000', 'u250', 'v850']
     thresholds: [10, 10, 10]
+
+# hydra logs
+hydra:
+    job:
+        name: ${project}
+    run:
+        dir: ${store_dir}/${project}_logs/${now:%Y-%m-%d_%H-%M-%S}

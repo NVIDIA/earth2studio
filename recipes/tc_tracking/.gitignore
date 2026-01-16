@@ -5,7 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
-outputs/
+outputs*/
 *.zarr
 *.nc
 .python-version

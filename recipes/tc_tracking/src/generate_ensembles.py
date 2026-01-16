@@ -302,6 +302,8 @@ def generate_ensemble(cfg):
 def reproduce_members(cfg):
     if cfg.store_type == "zarr":
         raise ValueError("Zarr output not suported for reproducing ensemble members")
+    if cfg.model != 'fcn3':
+        raise ValueError('Currently, reproducibility works for FCN3 only')
 
     initialise(cfg)
 
@@ -309,7 +311,6 @@ def reproduce_members(cfg):
 
     model = load_model(cfg)
 
-    # store, out_coords = setup_output(cfg, model, add_arrays=DistributedManager().rank == 0)
     store, out_coords = (
         run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
             setup_output,

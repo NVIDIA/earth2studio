@@ -4,22 +4,20 @@ model: 'fcn3'
 random_seed: 7552
 
 reproduce_members: [
-                    # ['2024-09-24 00:00:00',  2, 4045540270],
                     ['2024-09-24 00:00:00',  3, 4045540270],
                     ['2024-09-24 00:00:00', 14, 3066645577],
-                    ]
+                   ]
 
 n_steps: 15
 ensemble_size: 15
 batch_size: 2
-orography_path: '/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs/orography.nc'
+orography_path: './orography.nc'
 
 data_source:
     _target_: earth2studio.data.NCAR_ERA5
-    # _target_: earth2studio.data.GFS
 
 store_type: "netcdf"
-store_dir: "./outputs"
+store_dir: "./outputs_${project}"
 out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m']
 
 cyclone_tracking:
@@ -31,3 +29,10 @@ cyclone_tracking:
     use_ram: True
     task_timeout_seconds: 120
     print_te_output: False
+
+# hydra logs
+hydra:
+    job:
+        name: ${project}
+    run:
+        dir: ${store_dir}/${project}_logs/${now:%Y-%m-%d_%H-%M-%S}

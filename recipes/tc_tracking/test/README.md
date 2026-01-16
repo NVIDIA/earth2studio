@@ -8,8 +8,8 @@
 > If, at the end you see a message containing `all good, yay (:`, the test
 > finished successfully.
 
-This case will test the whether the pipeline can genreate an ensemble forecast
-using FCN3 and track tropical cylones using TempestExtremes.
+This case will test whether the pipeline can generate an ensemble forecast
+using FCN3 and track tropical cyclones using TempestExtremes.
 Furthermore, it is tested if those exact tracks can be reproduced.
 Note that reproducing with AIFS-ENS won't work as the model does not provide
 access to its internal random state.
@@ -33,7 +33,7 @@ in the yaml file with the seeds from the csv file names.
 Having made sure that the configurations for reproduicing the ensemble members
 is correct, let us now reproduce members three and four of the previous run:
 ```bash
-python ../tc_hunt.py --config-path=$(pwd) --config-name=reproduce_helene.yaml
+python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
 ```
 Note that the baseline run was produced with batch size two. For reproducibility,
 we need to apply the same batch size in the reproduction run and reproduce the full
@@ -44,7 +44,7 @@ that member two will also be reproduced, as it is in the same batch as member th
 
 There should now be three track files in `outputs_reproduce_helene/cyclone_tracks_te`,
 with file names identical to the associated files in `outputs_baseline_helene/cyclone_tracks_te`.
-If also the content of the files, ie the genereted tracks, is identical can be tested trhough
+Whether the content of the files (i.e., the generated tracks) is also identical can be tested through
 a simple `diff` call:
 
 ```bash
@@ -63,7 +63,7 @@ Repeat the diff call for all reproduced ensemble members, the return should alwa
 > the full test. If, at the end you see a message containing `all good, yay (:`,
 > the test finished successfully.
 
-This mode lets users extract stroms from historic data sets. The user can choose
+This mode lets users extract storms from historic data sets. The user can choose
 a storm, the script will look for that storm in the IBTrACS data base, obtain data
 around the storm's life time from a data source (on-prem or online) and then extract
 that storm using TempestExtremes.
@@ -71,13 +71,15 @@ that storm using TempestExtremes.
 For the current test, let us extract Typhoon Hato (2017) and Hurricane Helene (2024)
 from ERA5:
 ```bash
-python ../tc_hunt.py --config-path=$(pwd) --config-name=extract_era5.yaml
+cd earth2studio/recipes/tc_tracking/test
+python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml
 ```
 
 ### Expected Result
 
 The run should produce two reference tracks in `outputs_reference_tracks/`.
-Now, let us compare the extracted tracks with the baseline:
+Now, let us compare the extracted tracks with the baseline, in both cases
+the files should be identical:
 ```bash
 diff outputs_reference_tracks/reference_track_hato_2017_west_pacific.csv \
      aux_data/reference_track_hato_2017_west_pacific.csv

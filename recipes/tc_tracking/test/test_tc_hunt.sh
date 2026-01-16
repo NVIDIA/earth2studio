@@ -20,13 +20,13 @@ seed_mem3=$(printf '%s\n' "${track_files[@]}" | grep 'mem_0003' | grep -oP 'seed
 seed_mem4=$(printf '%s\n' "${track_files[@]}" | grep 'mem_0004' | grep -oP 'seed_\K\d+')
 
 # Check if seeds in reproduce_helene.yaml match, update if not
-yaml_seed3=$(grep -oP "\['2024-09-24 00:00:00', 3, \K\d+" reproduce_helene.yaml)
-yaml_seed4=$(grep -oP "\['2024-09-24 00:00:00', 4, \K\d+" reproduce_helene.yaml)
+yaml_seed3=$(grep -oP "\['2024-09-24 00:00:00', 3, \K\d+" cfg/reproduce_helene.yaml)
+yaml_seed4=$(grep -oP "\['2024-09-24 00:00:00', 4, \K\d+" cfg/reproduce_helene.yaml)
 
 if [ "$seed_mem3" != "$yaml_seed3" ] || [ "$seed_mem4" != "$yaml_seed4" ]; then
-    echo "WARNING: Updating seeds in reproduce_helene.yaml (mem3: $yaml_seed3->$seed_mem3, mem4: $yaml_seed4->$seed_mem4)"
-    sed -i "s/\['2024-09-24 00:00:00', 3, [0-9]*\]/['2024-09-24 00:00:00', 3, $seed_mem3]/" reproduce_helene.yaml
-    sed -i "s/\['2024-09-24 00:00:00', 4, [0-9]*\]/['2024-09-24 00:00:00', 4, $seed_mem4]/" reproduce_helene.yaml
+    echo "WARNING: Updating seeds in cfg/reproduce_helene.yaml (mem3: $yaml_seed3->$seed_mem3, mem4: $yaml_seed4->$seed_mem4)"
+    sed -i "s/\['2024-09-24 00:00:00', 3, [0-9]*\]/['2024-09-24 00:00:00', 3, $seed_mem3]/" cfg/reproduce_helene.yaml
+    sed -i "s/\['2024-09-24 00:00:00', 4, [0-9]*\]/['2024-09-24 00:00:00', 4, $seed_mem4]/" cfg/reproduce_helene.yaml
 fi
 
 # Run reproduce

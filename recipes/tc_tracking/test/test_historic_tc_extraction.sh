@@ -31,6 +31,6 @@ done
 
 echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo " >>> all good, yay (: track files have been reproduced successfully"
+echo " >>> all good, yay (: reference tracks have been reproduced successfully"
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""

@@ -82,7 +82,7 @@ cases:
     #     year: 2017
     #     basin: southern_pacific
 
-ibtracs_source_data: "/fcn3_cyclones/ibtracs_data/ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "./test/aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
     h5_era5_train:
@@ -117,7 +117,7 @@ data_source:
             _target_: earth2studio.data.GFS
 
 orography_path: '/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs/orography.nc'
-store_dir: "./outputs"
+store_dir: "./outputs_${project}"
 
 cyclone_tracking:
     vars: ['msl', 'u10m', 'v10m', 'z300', 'z500']
@@ -126,3 +126,10 @@ cyclone_tracking:
     keep_raw_data: False
     use_ram: True
     print_te_output: False
+
+# hydra logs
+hydra:
+    job:
+        name: ${project}
+    run:
+        dir: ${store_dir}/${project}_logs/${now:%Y-%m-%d_%H-%M-%S}
