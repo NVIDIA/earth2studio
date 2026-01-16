@@ -618,3 +618,147 @@ class DerivedSurfacePressure(torch.nn.Module):
         ).reshape(output_shape)
 
         return sp_pred, output_coords
+
+
+class DerivedTCWV(torch.nn.Module):
+    """Calculates the Total Column Water Vapor (TCWV) from specific humidity at
+    pressure levels and surface pressure. The calculation is based on the vertical
+    integration of specific humidity using the trapezoidal rule:
+
+    TCWV = (1/g) * ∫(p_top to p_surface) q dp
+
+    Discretized as:
+    TCWV ≈ (1/g) * Σ [(q_i + q_{i+1})/2 * (p_i - p_{i+1})]
+
+    Note
+    ----
+    The integration includes the layer between the surface pressure and the lowest
+    pressure level, assuming the surface specific humidity equals the lowest level
+    specific humidity.
+
+    Parameters
+    ----------
+    levels : list[int], optional
+        Pressure levels (hPa) to use for the integration. They will be sorted
+        internally from highest to lowest pressure. Default is
+        [1000, 850, 700, 500, 300, 200, 100].
+    """
+
+    g = 9.8067  # Earth's gravitational constant (m/s**2)
+
+    def __init__(
+        self, levels: list[int] = [1000, 850, 700, 500, 300, 200, 100]
+    ) -> None:
+        super().__init__()
+        # Sort levels from highest to lowest pressure (descending)
+        levels = sorted(levels, reverse=True)
+        self.in_variables = [f"q{level}" for level in levels] + ["sp"]
+        self.out_variables = ["tcwv"]
+
+        # Store pressure levels in Pa as a buffer
+        plevels = torch.tensor(
+            [100.0 * float(level) for level in levels], dtype=torch.float32
+        )
+        self.register_buffer("plevels", plevels)
+
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system of diagnostic model
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(self.in_variables),
+                "lat": np.empty(0),
+                "lon": np.empty(0),
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of diagnostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
+            by default None, will use self.input_coords.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+        target_input_coords = self.input_coords()
+        handshake_dim(input_coords, "variable", 1)
+        handshake_dim(input_coords, "lat", 2)
+        handshake_dim(input_coords, "lon", 3)
+        handshake_coords(input_coords, target_input_coords, "variable")
+
+        output_coords = input_coords.copy()
+        output_coords["variable"] = np.array(self.out_variables)
+        return output_coords
+
+    @torch.inference_mode()
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Forward pass of diagnostic"""
+        output_coords = self.output_coords(coords)
+
+        q_levels = x[..., :-1, :, :]
+        sp = x[..., -1, :, :]
+        tcwv = torch.zeros_like(sp)
+
+        # Create mask for pressure levels below surface pressure
+        # we will zero anywhere this is not true
+        surface_mask = self.plevels.view(1, -1, 1, 1).expand_as(
+            q_levels
+        ) <= sp.unsqueeze(-3)
+
+        # Integrate from surface to top of atmosphere using trapezoidal rule
+        for i, p_level in enumerate(self.plevels):
+            if i == 0:
+                # First layer: from surface pressure to first pressure level
+                # Use q at first level for both endpoints (assume constant in this layer)
+                dp = torch.where(
+                    surface_mask[..., i, :, :], sp - p_level, torch.zeros_like(sp)
+                )
+                tcwv = tcwv + q_levels[..., i, :, :] * dp
+            else:
+                # Subsequent layers: use trapezoidal rule between levels
+                level_mask = surface_mask[..., i, :, :] & surface_mask[..., i - 1, :, :]
+                dp = self.plevels[i - 1] - p_level
+
+                # Trapezoidal contribution: (q_{i-1} + q_i) / 2 * dp
+                contribution = (
+                    0.5 * (q_levels[..., i - 1, :, :] + q_levels[..., i, :, :]) * dp
+                )
+                tcwv = tcwv + torch.where(
+                    level_mask, contribution, torch.zeros_like(contribution)
+                )
+
+                # Handle layer where lower bound is below the surface
+                partial_mask = (
+                    surface_mask[..., i, :, :] & ~surface_mask[..., i - 1, :, :]
+                )
+                if partial_mask.any():
+                    dp_partial = sp - p_level
+                    tcwv = tcwv + torch.where(
+                        partial_mask,
+                        q_levels[..., i, :, :] * dp_partial,
+                        torch.zeros_like(sp),
+                    )
+
+        # Divide by gravity to get TCWV in kg/m^2
+        out_tensor = tcwv.unsqueeze(-3) / self.g
+
+        return out_tensor, output_coords

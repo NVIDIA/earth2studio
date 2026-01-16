@@ -172,6 +172,7 @@ class ZarrBackend:
                     **kwargs,
                 )
                 self.root[dim][:] = values
+                self.coords[dim] = values
 
         # Add any multidim coordinates that were expelled above
         for k in mapping:
@@ -187,11 +188,9 @@ class ZarrBackend:
                 )
                 self.root[k][:] = values
 
-        self.coords = self.coords | adjusted_coords
-
-        shape = [len(v) for v in adjusted_coords.values()]
+        shape = [len(self.coords[dim]) for dim in adjusted_coords]
         chunks = [
-            self.chunks.get(dim, len(adjusted_coords[dim])) for dim in adjusted_coords
+            self.chunks.get(dim, len(self.coords[dim])) for dim in adjusted_coords
         ]
 
         for name, di in zip(array_name, data):
@@ -266,18 +265,17 @@ class ZarrBackend:
 
         for xi, name in zip(x, array_name):
             if name not in self.root:
-                self.add_array(adjusted_coords, array_name, data=xi)
+                self.add_array(adjusted_coords, array_name)
 
-            else:
-                # Get indices as list of arrays and set torch tensor
-                self.root[name][
-                    np.ix_(
-                        *[
-                            np.where(np.isin(self.coords[dim], value))[0]
-                            for dim, value in adjusted_coords.items()
-                        ]
-                    )
-                ] = xi.to("cpu", non_blocking=False).numpy()
+            # Get indices as list of arrays and set torch tensor
+            self.root[name][
+                np.ix_(
+                    *[
+                        np.where(np.isin(self.coords[dim], value))[0]
+                        for dim, value in adjusted_coords.items()
+                    ]
+                )
+            ] = xi.to("cpu", non_blocking=False).numpy()
 
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
