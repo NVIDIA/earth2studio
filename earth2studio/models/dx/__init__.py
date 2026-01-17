@@ -24,6 +24,7 @@ from earth2studio.models.dx.corrdiff import (
     CorrDiffCMIP6,
     CorrDiffTaiwan,
 )
+from earth2studio.models.dx.corrdiff_cmip6 import CorrDiffCMIP6New
 
 # noqa
 from earth2studio.models.dx.derived import (

@@ -447,9 +447,9 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     ) -> None:
         """Register model buffers and handle invariants."""
         # Register grid coordinates and validate
-        self._check_latlon_grid(
-            lat_input_grid, lon_input_grid, lat_output_grid, lon_output_grid
-        )
+        # self._check_latlon_grid(
+        #     lat_input_grid, lon_input_grid, lat_output_grid, lon_output_grid
+        # )
 
         self.register_buffer("lat_input_grid", lat_input_grid)
         self.register_buffer("lon_input_grid", lon_input_grid)
@@ -657,10 +657,10 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
         # Load model checkpoints
         residual = PhysicsNemoModule.from_checkpoint(
-            package.resolve("diffusion.mdlus")
+            package.resolve("diffusion.mdlus"), strict=False
         ).eval()
         regression = PhysicsNemoModule.from_checkpoint(
-            package.resolve("regression.mdlus")
+            package.resolve("regression.mdlus"), strict=False
         ).eval()
 
         # Apply inference optimizations (following CorrDiffTaiwan patterns)
@@ -1452,6 +1452,9 @@ class CorrDiffCMIP6(CorrDiff):
         # If enabled and tqdm is not installed, an error is raised.
         self.show_sample_progress: bool = False
 
+        print(self.in_center)
+        print(self.in_scale)
+
         # Extend in_center and in_scale to include time features (sza, hod) at the end
         # Note: During training, the last invariant position (coslat) mistakenly had hod VALUES,
         # but was normalized using coslat STATISTICS. This bug is replicated in preprocess_input
@@ -1460,7 +1463,7 @@ class CorrDiffCMIP6(CorrDiff):
             # Reshape time features to match the 4D format [1, N, 1, 1]
             time_feature_center = time_feature_center.view(1, -1, 1, 1)
             time_feature_scale = time_feature_scale.view(1, -1, 1, 1)
-
+            print(self.in_center.shape)
             # Append time features after base variables and invariants
             self.in_center: torch.Tensor = torch.cat(
                 [self.in_center, time_feature_center], dim=1
@@ -1828,6 +1831,8 @@ class CorrDiffCMIP6(CorrDiff):
         # 1) Sea-ice/snow derived feature smoothing (in-place update)
         x = self._apply_sai_cover(x)
 
+        torch.save(x, "sai_input.pt")
+
         # 2) Interpolate input to output grid
         x = F.interpolate(x, self.img_shape, mode="bilinear")
 
@@ -1835,8 +1840,13 @@ class CorrDiffCMIP6(CorrDiff):
         if self.invariants is not None:
             x = torch.concat([x, torch.flip(self.invariants.unsqueeze(0), [2])], dim=1)
 
+        torch.save(x, "invars_input.pt")
+
         # 3) Time-dependent features (SZA + HOD) appended after invariants
         x = self._add_time_features(x, valid_time)
+
+        print(valid_time)
+        torch.save(x, "times_input.pt")
 
         # 4) Normalize + pad + reorder channels
         x = self._normalize_pad_reorder(x)
@@ -1903,10 +1913,15 @@ class CorrDiffCMIP6(CorrDiff):
                 f"solver must be either 'euler' or 'heun' but got {self.solver}"
             )
 
+        torch.save(x.cpu(), "input1.pt")
+        print(x.shape)
+        # torch.Size([222, 64, 128])
         # Preprocess input (CMIP6 requires valid_time)
         image_lr = self.preprocess_input(x, valid_time)
+        print(image_lr.shape)  # torch.Size([1, 231, 768, 1536])
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
 
+        torch.save(image_lr.cpu(), "input2.pt")
         # Regression model (mean)
         image_reg = None
         if self.regression_model:
@@ -1973,6 +1988,9 @@ class CorrDiffCMIP6(CorrDiff):
                     device=image_lr.device,
                     mean_hr=mean_hr,
                 )
+
+            torch.save(image_reg, "image_reg.pt")
+            torch.save(image_res, "image_res.pt")
             yi = self.postprocess_output(image_reg + image_res)
             if out is None:
                 out = torch.empty(
@@ -2189,7 +2207,7 @@ class CorrDiffCMIP6(CorrDiff):
                 f"Unknown offsets_units: {offsets_units}. "
                 "Must be one of: 'seconds', 'hours', 'days'"
             )
-
+        print(offsets, suffixes)
         # Create and return TimeWindow wrapper
         return TimeWindow(
             datasource=datasource,
