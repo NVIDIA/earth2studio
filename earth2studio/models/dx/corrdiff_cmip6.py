@@ -244,6 +244,7 @@ class CorrDiffCMIP6New(CorrDiff):
 
         # Store time_window config for create_time_window_wrapper() and input_coords()
         self.time_window = time_window
+        print(time_window)
         self.time_suffixes = time_window.get("suffixes") if time_window else None
 
         # Preprocess caches (built lazily on first use)
@@ -383,7 +384,7 @@ class CorrDiffCMIP6New(CorrDiff):
 
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package, device: str | None = None) -> DiagnosticModel:
+    def load_model(cls, package: Package, device: str = "cpu") -> DiagnosticModel:
         """Load CorrDiffCMIP6 model from package with time feature normalization.
 
         This method extends the base CorrDiff loading to include time feature
@@ -410,22 +411,25 @@ class CorrDiffCMIP6New(CorrDiff):
         stats = cls._load_json_from_package(package, "stats.json")
 
         # Load the base CorrDiff model from the package.
-        residual = PhysicsNemoModule.from_checkpoint(
-            package.resolve("diffusion.mdlus"), strict=False
-        ).eval()
-        regression = PhysicsNemoModule.from_checkpoint(
-            package.resolve("regression.mdlus"), strict=False
-        ).eval()
+        residual = (
+            PhysicsNemoModule.from_checkpoint(
+                package.resolve("diffusion.mdlus"), strict=False
+            )
+            .eval()
+            .to(device)
+        )
+        regression = (
+            PhysicsNemoModule.from_checkpoint(
+                package.resolve("regression.mdlus"), strict=False
+            )
+            .eval()
+            .to(device)
+        )
 
         # Apply inference optimizations (following CorrDiffTaiwan patterns)
         # Disable profiling mode for both models
         residual.profile_mode = False
         regression.profile_mode = False
-
-        # Move to device first (required before channels_last conversion)
-        if device is not None:
-            residual = residual.to(device)
-            regression = regression.to(device)
 
         # Convert to channels_last memory format for better GPU performance
         residual = residual.to(memory_format=torch.channels_last)
@@ -594,15 +598,6 @@ class CorrDiffCMIP6New(CorrDiff):
             }
         return self._cmip6_var_index
 
-    def _time_suffixes(self) -> list[str]:
-        """Suffixes to use for time-windowed variables (from metadata when available)."""
-        if self.time_suffixes is not None:
-            return list(self.time_suffixes)
-        if self.time_window and "suffixes" in self.time_window:
-            return list(self.time_window["suffixes"])
-        # Fallback for older packages / tests
-        return ["_t-1", "_t", "_t+1"]
-
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
         """Cached lon/lat meshgrid on the output grid (numpy arrays)."""
         if self._cmip6_lonlat_meshgrid is None:
@@ -622,7 +617,9 @@ class CorrDiffCMIP6New(CorrDiff):
     def _get_reorder_indices(self) -> list[int]:
         """Cached channel reorder indices after normalization."""
         if self._cmip6_reorder_indices is None:
-            num_input = len(self.input_variables) * len(self._time_suffixes())
+            num_input = (
+                len(self.input_variables) * self.input_coords()["lead_time"].shape[0]
+            )
             num_inv = len(self.invariant_variables)
             self._cmip6_reorder_indices = (
                 list(range(num_input))  # input variables
@@ -639,7 +636,7 @@ class CorrDiffCMIP6New(CorrDiff):
         idx_map = self._var_index()
         kernel = self._get_sai_kernel(x)
 
-        for i, suffix in enumerate(self._time_suffixes()):
+        for i in range(self.input_coords()["lead_time"].shape[0]):
             # siconc_key = f"siconc{suffix}"
             # snc_key = f"snc{suffix}"
             # if siconc_key not in idx_map or snc_key not in idx_map:
@@ -893,6 +890,53 @@ class CorrDiffCMIP6New(CorrDiff):
             out[i] = yi.to(out_device)[0]
 
         return out
+
+    def _register_buffers(
+        self,
+        lat_input_grid: torch.Tensor,
+        lon_input_grid: torch.Tensor,
+        lat_output_grid: torch.Tensor,
+        lon_output_grid: torch.Tensor,
+        in_center: torch.Tensor,
+        in_scale: torch.Tensor,
+        invariant_center: torch.Tensor,
+        invariant_scale: torch.Tensor,
+        out_center: torch.Tensor,
+        out_scale: torch.Tensor,
+        invariants: OrderedDict,
+    ) -> None:
+        """Register model buffers and handle invariants."""
+        # Register grid coordinates and validate
+        self.register_buffer("lat_input_grid", lat_input_grid)
+        self.register_buffer("lon_input_grid", lon_input_grid)
+        self.register_buffer("lat_output_grid", lat_output_grid)
+        self.register_buffer("lon_output_grid", lon_output_grid)
+
+        self._interpolator = None  # Use efficient regular grid interpolation
+
+        self.lat_input_numpy = lat_input_grid.cpu().numpy()
+        self.lon_input_numpy = lon_input_grid.cpu().numpy()
+        self.lat_output_numpy = lat_output_grid.cpu().numpy()
+        self.lon_output_numpy = lon_output_grid.cpu().numpy()
+
+        self.invariant_variables = list(invariants.keys())
+        self.register_buffer(
+            "invariants", torch.stack(list(invariants.values()), dim=0)
+        )
+        # Combine input normalization with invariants
+        in_center = torch.concat([in_center, invariant_center], dim=0)
+        in_scale = torch.concat([in_scale, invariant_scale], dim=0)
+
+        # Register normalization parameters
+        num_inputs = len(self.input_variables) + len(self.invariant_variables)
+        self.register_buffer("in_center", in_center.view(1, num_inputs, 1, 1))
+        self.register_buffer("in_scale", in_scale.view(1, num_inputs, 1, 1))
+        self.register_buffer(
+            "out_center", out_center.view(1, len(self.output_variables), 1, 1)
+        )
+        self.register_buffer(
+            "out_scale", out_scale.view(1, len(self.output_variables), 1, 1)
+        )
 
     @staticmethod
     def _validate_time_window_metadata(time_window: dict) -> dict:
