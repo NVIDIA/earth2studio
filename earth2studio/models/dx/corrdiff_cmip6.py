@@ -6,6 +6,7 @@ from typing import Literal
 import numpy as np
 import torch
 import torch.nn.functional as F
+import xarray as xr
 
 from earth2studio.models.auto import Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -20,6 +21,7 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 try:
+    from physicsnemo.models import Module as PhysicsNemoModule
     from physicsnemo.utils.corrdiff import diffusion_step, regression_step
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:  # pragma: no cover
@@ -381,7 +383,7 @@ class CorrDiffCMIP6New(CorrDiff):
 
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package) -> DiagnosticModel:
+    def load_model(cls, package: Package, device: str | None = None) -> DiagnosticModel:
         """Load CorrDiffCMIP6 model from package with time feature normalization.
 
         This method extends the base CorrDiff loading to include time feature
@@ -405,76 +407,156 @@ class CorrDiffCMIP6New(CorrDiff):
                 "metadata.json is missing required 'time_window' configuration."
             )
         time_window = cls._validate_time_window_metadata(time_window_raw)
-
-        # Load stats for time feature normalization (sza/hod).
         stats = cls._load_json_from_package(package, "stats.json")
 
         # Load the base CorrDiff model from the package.
-        base_model = CorrDiff.load_model.__func__(CorrDiff, package)
+        residual = PhysicsNemoModule.from_checkpoint(
+            package.resolve("diffusion.mdlus"), strict=False
+        ).eval()
+        regression = PhysicsNemoModule.from_checkpoint(
+            package.resolve("regression.mdlus"), strict=False
+        ).eval()
+
+        # Apply inference optimizations (following CorrDiffTaiwan patterns)
+        # Disable profiling mode for both models
+        residual.profile_mode = False
+        regression.profile_mode = False
+
+        # Move to device first (required before channels_last conversion)
+        if device is not None:
+            residual = residual.to(device)
+            regression = regression.to(device)
+
+        # Convert to channels_last memory format for better GPU performance
+        residual = residual.to(memory_format=torch.channels_last)
+        regression = regression.to(memory_format=torch.channels_last)
+
+        # Configure torch dynamo for potential compilation
+        torch._dynamo.config.cache_size_limit = 264
+        torch._dynamo.reset()
+
+        # Load meta data
+        input_variables = metadata["input_variables"]
+        output_variables = metadata["output_variables"]
+        invariant_variables = metadata.get("invariant_variables", None)
+        number_of_samples = metadata.get("number_of_samples", 1)
+        number_of_steps = metadata.get("number_of_steps", 18)
+        solver = metadata.get("solver", "euler")
+        sampler_type = metadata.get("sampler_type", "stochastic")
+        inference_mode = metadata.get("inference_mode", "both")
+        hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
+        seed = metadata.get("seed", None)
+        sigma_min_metadata = metadata.get(
+            "sigma_min", None
+        )  # TODO: Add override with load_model
+        sigma_max_metadata = metadata.get(
+            "sigma_max", None
+        )  # TODO: Add override with load_model
+        grid_spacing_tolerance = metadata.get("grid_spacing_tolerance", 1e-5)
+        grid_bounds_margin = metadata.get("grid_bounds_margin", 0.0)
+
+        in_center_values = []
+        in_scale_values = []
+        for var in input_variables:
+            if var not in stats["input"]:
+                raise KeyError(
+                    f"stats.json is missing normalization statistics for input variable '{var}'."
+                )
+            in_center_values.append(stats["input"][var]["mean"])
+            in_scale_values.append(stats["input"][var]["std"])
+
+        in_center = torch.tensor(in_center_values)
+        in_scale = torch.tensor(in_scale_values)
+
+        # Load output normalization parameters
+        out_center = torch.tensor(
+            [stats["output"][v]["mean"] for v in output_variables]
+        )
+        out_scale = torch.tensor([stats["output"][v]["std"] for v in output_variables])
+
+        with xr.open_dataset(package.resolve("output_latlon_grid.nc")) as ds:
+            lat_output_grid = torch.as_tensor(np.array(ds["lat"][:]))
+            lon_output_grid = torch.as_tensor(np.array(ds["lon"][:]))
+
+            # Validate output grid format and ordering
+            cls._validate_grid_format(
+                lat_output_grid, lon_output_grid, grid_name="output"
+            )
+
+        with xr.open_dataset(package.resolve("input_latlon_grid.nc")) as ds:
+            lat_input_grid = torch.as_tensor(np.array(ds["lat"][:]))
+            lon_input_grid = torch.as_tensor(np.array(ds["lon"][:]))
+
+            # Validate input grid format and ordering
+            cls._validate_grid_format(lat_input_grid, lon_input_grid, grid_name="input")
+
+        with xr.open_dataset(package.resolve("invariants.nc")) as ds:
+            # Determine which variables to load and in what order
+            if invariant_variables is None:
+                # Load all available variables
+                var_names = list(ds.data_vars)
+            else:
+                # Load only specified variables in the specified order
+                var_names = invariant_variables
+                # Validate that all requested variables exist
+                missing_vars = [v for v in var_names if v not in ds.data_vars]
+                if missing_vars:
+                    raise ValueError(
+                        f"Invariant variables {missing_vars} not found in invariants.nc. "
+                        f"Available variables: {list(ds.data_vars)}"
+                    )
+
+            invariants = OrderedDict(
+                (var_name, torch.as_tensor(np.array(ds[var_name])))
+                for var_name in var_names
+            )
+            # Load invariant normalization parameters
+            invariant_center = torch.tensor(
+                [stats["invariants"][v]["mean"] for v in invariants]
+            )
+            invariant_scale = torch.tensor(
+                [stats["invariants"][v]["std"] for v in invariants]
+            )
+            print(invariant_center.shape)
 
         # Create time feature normalization tensors on the same device as the base buffers.
-        buf_device = base_model.in_center.device
         time_feature_center = torch.as_tensor(
             [stats["input"]["sza"]["mean"], stats["input"]["hod"]["mean"]],
-            device=buf_device,
         )
         time_feature_scale = torch.as_tensor(
             [stats["input"]["sza"]["std"], stats["input"]["hod"]["std"]],
-            device=buf_device,
         )
-
-        # Flatten normalization tensors back to 1D for CorrDiff.__init__.
-        base_input_variables = list(base_model.input_variables)
-        n_base = len(base_input_variables)
-        base_in_center = base_model.in_center.squeeze()[:n_base]
-        base_in_scale = base_model.in_scale.squeeze()[:n_base]
-
-        invariant_center_flat = None
-        invariant_scale_flat = None
-        if base_model.invariants_dict is not None:
-            n_inv = len(base_model.invariants_dict)
-            invariant_center_flat = base_model.in_center.squeeze()[
-                n_base : n_base + n_inv
-            ]
-            invariant_scale_flat = base_model.in_scale.squeeze()[
-                n_base : n_base + n_inv
-            ]
-
-        # Expand base input variables and their normalization stats to match time-windowed inputs.
-        input_variables = list(base_model.input_variables)
-        # in_center_flat = base_in_center.repeat_interleave(len(suffixes))
-        # in_scale_flat = base_in_scale.repeat_interleave(len(suffixes))
 
         return cls(
             input_variables=input_variables,
-            output_variables=base_model.output_variables,
-            residual_model=base_model.residual_model,
-            regression_model=base_model.regression_model,
-            lat_input_grid=base_model.lat_input_grid,
-            lon_input_grid=base_model.lon_input_grid,
-            lat_output_grid=base_model.lat_output_grid,
-            lon_output_grid=base_model.lon_output_grid,
-            in_center=base_in_center,
-            in_scale=base_in_scale,
-            invariants=base_model.invariants_dict,
-            invariant_center=invariant_center_flat,
-            invariant_scale=invariant_scale_flat,
-            out_center=base_model.out_center.squeeze(),
-            out_scale=base_model.out_scale.squeeze(),
-            number_of_samples=base_model.number_of_samples,
-            number_of_steps=base_model.number_of_steps,
-            solver=base_model.solver,
-            sampler_type=base_model.sampler_type,
-            inference_mode=base_model.inference_mode,
-            hr_mean_conditioning=base_model.hr_mean_conditioning,
-            seed=base_model.seed,
+            output_variables=output_variables,
+            residual_model=residual,
+            regression_model=regression,
+            lat_input_grid=lat_input_grid,
+            lon_input_grid=lon_input_grid,
+            lat_output_grid=lat_output_grid,
+            lon_output_grid=lon_output_grid,
+            in_center=in_center.squeeze(),
+            in_scale=in_scale.squeeze(),
+            invariants=invariants,
+            invariant_center=invariant_center.squeeze(),
+            invariant_scale=invariant_scale.squeeze(),
+            out_center=out_center.squeeze(),
+            out_scale=out_scale.squeeze(),
+            number_of_samples=number_of_samples,
+            number_of_steps=number_of_steps,
+            solver=solver,
+            sampler_type=sampler_type,
+            inference_mode=inference_mode,
+            hr_mean_conditioning=hr_mean_conditioning,
+            seed=seed,
             time_feature_center=time_feature_center,
             time_feature_scale=time_feature_scale,
             time_window=time_window,
-            grid_spacing_tolerance=base_model.grid_spacing_tolerance,
-            grid_bounds_margin=base_model.grid_bounds_margin,
-            sigma_min=base_model.sigma_min,
-            sigma_max=base_model.sigma_max,
+            grid_spacing_tolerance=grid_spacing_tolerance,
+            grid_bounds_margin=grid_bounds_margin,
+            sigma_min=sigma_min_metadata,
+            sigma_max=sigma_max_metadata,
         )
 
     @batch_func()
