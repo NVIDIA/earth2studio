@@ -570,33 +570,12 @@ class CorrDiffCMIP6New(CorrDiff):
         """Forward pass of diagnostic"""
 
         output_coords = self.output_coords(coords)
-        x = x.squeeze(1)
         out_shape = tuple(len(v) for v in output_coords.values())
         out = torch.empty(out_shape, device=x.device, dtype=torch.float32)
-        for i in range(out.shape[0]):
-
-            x = x.transpose(1, 2).reshape(x.shape[0], -1, x.shape[-2], x.shape[-1])
-            valid_time = timearray_to_datetime(coords["time"])[0] - timedelta(hours=12)
-            out[i] = self._forward(x[i], valid_time)
+        for i in range(out.shape[1]):  # Loop through time stamps
+            valid_time = timearray_to_datetime(coords["time"])[i] - timedelta(hours=12)
+            out[i] = self._forward(x[:, i], valid_time)
         return out, output_coords
-
-    def _ensure_bchw(self, x: torch.Tensor) -> torch.Tensor:
-        """Ensure input is [B, C, H, W]. Accepts [C, H, W] or [B, C, H, W]."""
-        if x.ndim == 3:
-            x = x.unsqueeze(0)
-        if x.ndim != 4:
-            raise ValueError(
-                f"CorrDiffCMIP6.preprocess_input expected [C,H,W] or [B,C,H,W], got {tuple(x.shape)}"
-            )
-        return x
-
-    def _var_index(self) -> dict[str, int]:
-        """Map variable name -> channel index for this model's input variables."""
-        if self._cmip6_var_index is None:
-            self._cmip6_var_index = {
-                name: i for i, name in enumerate(self.input_variables)
-            }
-        return self._cmip6_var_index
 
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
         """Cached lon/lat meshgrid on the output grid (numpy arrays)."""
@@ -632,25 +611,19 @@ class CorrDiffCMIP6New(CorrDiff):
         return self._cmip6_reorder_indices
 
     def _apply_sai_cover(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply sea-air-ice cover smoothing inplace on x ([B,C,H,W])."""
-        idx_map = self._var_index()
+        """Apply sea-air-ice cover smoothing inplace on x ([B, C, L, H, W])."""
         kernel = self._get_sai_kernel(x)
 
-        for i in range(self.input_coords()["lead_time"].shape[0]):
-            # siconc_key = f"siconc{suffix}"
-            # snc_key = f"snc{suffix}"
-            # if siconc_key not in idx_map or snc_key not in idx_map:
-            #     raise ValueError(
-            #         "CorrDiffCMIP6 preprocessing requires channels "
-            #         f"{siconc_key!r} and {snc_key!r} in input_variables."
-            #     )
-
-            siconc_index = 3 * idx_map["siconc"] + i
-            snc_index = 3 * idx_map["snc"] + i
-
+        lead_len = self.input_coords()["lead_time"].shape[0]
+        if "siconc" not in self.input_variables or "snc" not in self.input_variables:
+            return x
+        siconc_channel = self.input_variables.index("siconc")
+        snc_channel = self.input_variables.index("snc")
+        print(x.shape, len(self.input_variables))
+        for i in range(lead_len):
             # [B, 1, H, W] so padding/conv2d operate on 4D tensors
-            siconc = torch.nan_to_num(x[:, siconc_index : siconc_index + 1], nan=0.0)
-            snc = torch.nan_to_num(x[:, snc_index : snc_index + 1], nan=0.0)
+            siconc = torch.nan_to_num(x[:, siconc_channel, i], nan=0.0)
+            snc = torch.nan_to_num(x[:, snc_channel, i], nan=0.0)
             sai_cover = torch.clip(siconc + snc, 0.0, 100.0)
 
             # Pad: circular in lon (W), replicate in lat (H)
@@ -658,7 +631,7 @@ class CorrDiffCMIP6New(CorrDiff):
             sai_cover_pad = F.pad(sai_cover_pad, (0, 0, 1, 1), mode="replicate")
             sai_cover_smooth = F.conv2d(sai_cover_pad, kernel, padding="valid")
 
-            x[:, siconc_index] = sai_cover_smooth.squeeze(1)
+            x[:, siconc_channel, i] = sai_cover_smooth.squeeze(1)
 
         return x
 
@@ -728,27 +701,35 @@ class CorrDiffCMIP6New(CorrDiff):
                 "CorrDiffCMIP6 requires valid_time for time-dependent features"
             )
 
-        x = self._ensure_bchw(x)
+        # [B, L, C, H, W] -> [B, C, L, H, W]
+        print(x.shape, "====")
+        x = x.transpose(1, 2)
 
-        # 1) Sea-ice/snow derived feature smoothing (in-place update)
+        # 1) Sea-ice/snow derived feature smoothing (in-place update) per lead time
         x = self._apply_sai_cover(x)
         torch.save(x, "sai_input_new.pt")
 
-        # 2) Interpolate input to output grid
-        print(self.img_shape, x.shape)
+        # 3) Flatten (variable, lead_time) -> channel to match model expectations
+        B, C, L, H, W = x.shape
+        x = x.contiguous().view(B, -1, H, W)  # [C*L, H, W]
+
+        # 2) Interpolate each lead time slice to output grid
         x = F.interpolate(x, self.img_shape, mode="bilinear")
         print(x.shape)
-        # Concatenate invariants if available
+
+        # 4) Concatenate invariants if available (single set, not per lead)
         if self.invariants is not None:
             x = torch.concat([x, torch.flip(self.invariants.unsqueeze(0), [2])], dim=1)
         print(x.shape, "~~`")
         torch.save(x, "invars_input_new.pt")
-        # 3) Time-dependent features (SZA + HOD) appended after invariants
+
+        # 5) Time-dependent features (SZA + HOD) appended after invariants
         x = self._add_time_features(x, valid_time)
         print(x.shape, "===")
         print(valid_time)  # Should be 2037-09-06 00:00:00
         torch.save(x, "times_input_new.pt")
-        # 4) Normalize + pad + reorder channels
+
+        # 6) Normalize + pad + reorder channels
         x = self._normalize_pad_reorder(x)
         print(x.shape)
         # Debug: expose final channel ordering by rebuilding names from
@@ -903,7 +884,7 @@ class CorrDiffCMIP6New(CorrDiff):
         invariant_scale: torch.Tensor,
         out_center: torch.Tensor,
         out_scale: torch.Tensor,
-        invariants: OrderedDict,
+        invariants: OrderedDict | None,
     ) -> None:
         """Register model buffers and handle invariants."""
         # Register grid coordinates and validate
@@ -919,10 +900,11 @@ class CorrDiffCMIP6New(CorrDiff):
         self.lat_output_numpy = lat_output_grid.cpu().numpy()
         self.lon_output_numpy = lon_output_grid.cpu().numpy()
 
-        self.invariant_variables = list(invariants.keys())
-        self.register_buffer(
-            "invariants", torch.stack(list(invariants.values()), dim=0)
-        )
+        if invariants:
+            self.invariant_variables = list(invariants.keys())
+            self.register_buffer(
+                "invariants", torch.stack(list(invariants.values()), dim=0)
+            )
         # Combine input normalization with invariants
         in_center = torch.concat([in_center, invariant_center], dim=0)
         in_scale = torch.concat([in_scale, invariant_scale], dim=0)

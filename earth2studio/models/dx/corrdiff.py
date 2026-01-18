@@ -447,9 +447,9 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     ) -> None:
         """Register model buffers and handle invariants."""
         # Register grid coordinates and validate
-        # self._check_latlon_grid(
-        #     lat_input_grid, lon_input_grid, lat_output_grid, lon_output_grid
-        # )
+        self._check_latlon_grid(
+            lat_input_grid, lon_input_grid, lat_output_grid, lon_output_grid
+        )
 
         self.register_buffer("lat_input_grid", lat_input_grid)
         self.register_buffer("lon_input_grid", lon_input_grid)
