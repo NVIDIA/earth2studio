@@ -94,10 +94,6 @@ class CorrDiffCMIP6New(CorrDiff):
         Normalization center for time features (sza, hod) of size [2], by default None
     time_feature_scale : torch.Tensor | None, optional
         Normalization scale for time features (sza, hod) of size [2], by default None
-    time_window : dict | None, optional
-        Time window configuration from metadata.json containing "offsets", "suffixes",
-        "offsets_units", and "group_by". Used for create_time_window_wrapper(), by
-        default None
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)
@@ -185,7 +181,6 @@ class CorrDiffCMIP6New(CorrDiff):
         sigma_max: float | None = None,
         time_feature_center: torch.Tensor | None = None,
         time_feature_scale: torch.Tensor | None = None,
-        time_window: dict | None = None,
     ) -> None:
         super().__init__(
             input_variables=input_variables,
@@ -222,11 +217,6 @@ class CorrDiffCMIP6New(CorrDiff):
                 "CorrDiffCMIP6 supports inference_mode in {'both', 'regression'} only "
                 f"but got {self.inference_mode!r}"
             )
-
-        # Store time_window config for create_time_window_wrapper() and input_coords()
-        self.time_window = time_window
-        print(time_window)
-        self.time_suffixes = time_window.get("suffixes") if time_window else None
 
         # Preprocess caches (built lazily on first use)
         self._cmip6_var_index: dict[str, int] | None = None
@@ -346,13 +336,26 @@ class CorrDiffCMIP6New(CorrDiff):
 
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package, device: str = "cpu") -> DiagnosticModel:
+    def load_model(
+        cls,
+        package: Package,
+        sampler_steps: int = 18,
+        sigma_max: int = 400,
+        seed: int | None = None,
+        device: str = "cpu",
+    ) -> DiagnosticModel:
         """Load diagnostic from package
 
         Parameters
         ----------
         package : Package
             Package containing model weights and configuration
+        sampler_steps : int, optional
+            Number of diffusion steps, by default 18
+        sigma_max : float, optional
+            Noise amplitude used to generate latent variables, by default 800
+        seed : int, optional
+            Random generator seed for latent variables, by default None
         device : str, optional
             Device to load model on, by default "cpu"
 
@@ -368,7 +371,7 @@ class CorrDiffCMIP6New(CorrDiff):
             raise ValueError(
                 "metadata.json is missing required 'time_window' configuration."
             )
-        time_window = cls._validate_time_window_metadata(time_window_raw)
+        cls._validate_time_window_metadata(time_window_raw)
         stats = cls._load_json_from_package(package, "stats.json")
 
         # Load the base CorrDiff model from the package.
@@ -402,18 +405,11 @@ class CorrDiffCMIP6New(CorrDiff):
         output_variables = metadata["output_variables"]
         invariant_variables = metadata.get("invariant_variables", None)
         number_of_samples = metadata.get("number_of_samples", 1)
-        number_of_steps = metadata.get("number_of_steps", 18)
         solver = metadata.get("solver", "euler")
         sampler_type = metadata.get("sampler_type", "stochastic")
         inference_mode = metadata.get("inference_mode", "both")
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
-        seed = metadata.get("seed", None)
-        sigma_min_metadata = metadata.get(
-            "sigma_min", None
-        )  # TODO: Add override with load_model
-        sigma_max_metadata = metadata.get(
-            "sigma_max", None
-        )  # TODO: Add override with load_model
+        sigma_min_metadata = metadata.get("sigma_min", 1)
         grid_spacing_tolerance = metadata.get("grid_spacing_tolerance", 1e-5)
         grid_bounds_margin = metadata.get("grid_bounds_margin", 0.0)
 
@@ -505,7 +501,7 @@ class CorrDiffCMIP6New(CorrDiff):
             out_center=out_center.squeeze(),
             out_scale=out_scale.squeeze(),
             number_of_samples=number_of_samples,
-            number_of_steps=number_of_steps,
+            number_of_steps=sampler_steps,
             solver=solver,
             sampler_type=sampler_type,
             inference_mode=inference_mode,
@@ -513,11 +509,10 @@ class CorrDiffCMIP6New(CorrDiff):
             seed=seed,
             time_feature_center=time_feature_center,
             time_feature_scale=time_feature_scale,
-            time_window=time_window,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
             sigma_min=sigma_min_metadata,
-            sigma_max=sigma_max_metadata,
+            sigma_max=sigma_max,
         )
 
     @batch_func()
