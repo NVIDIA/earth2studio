@@ -8,6 +8,7 @@ wheels/
 outputs*/
 *.zarr
 *.nc
+*.gif
 .python-version
 
 # Virtual environments

@@ -1,15 +1,16 @@
-project: 'helene'
+project: 'reproduce_helene'
 mode: 'reproduce_members'
 model: 'fcn3'
-random_seed: 7552
 
 reproduce_members: [
-                    ['2024-09-24 00:00:00',  3, 4045540270],
-                    ['2024-09-24 00:00:00', 14, 3066645577],
+                    ['2024-09-24 00:00:00',  0, 2148531792],
+                    ['2024-09-24 00:00:00',  8, 1342799488],
+                    ['2024-09-24 00:00:00',  9, 1342799488],
+                    ['2024-09-24 00:00:00', 12, 1968734508],
                    ]
 
-n_steps: 15
-ensemble_size: 15
+n_steps: 28
+ensemble_size: 16
 batch_size: 2
 orography_path: './orography.nc'
 
