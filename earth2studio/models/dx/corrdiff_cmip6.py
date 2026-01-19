@@ -32,26 +32,72 @@ except ImportError:  # pragma: no cover
 
 
 class CorrDiffCMIP6New(CorrDiff):
-    """CorrDiff model variant for CMIP6 data.
+    """CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
+    can be used to downscale both in the spatial and temporal dimensions.
 
-    This class extends the base CorrDiff model to work with CMIP6 climate model data.
-    It provides access to time information in preprocessing for time-dependent operations.
-
-    Key differences from base CorrDiff:
-    - Adds time-dependent features (solar zenith angle, hour of day) to inputs
-    - Uses relaxed grid validation tolerances suitable for Gaussian grids (1% spacing, 5% bounds)
-    - Overrides default interpolation
-    - Includes a time dimension in the coordinate system so timestamps are preserved through
-      batching/compression and can be used for time-dependent features (e.g., solar zenith angle)
-
-    Note
-    ----
-    Unlike CorrDiffTaiwan which has fixed input/output variables, CorrDiffCMIP6
-    loads variables names from the model package. Input variables are
-    expanded based on the ``time_window`` configuration in metadata.json
-    (e.g., "t2m" → "t2m_t-6", "t2m_t-3", "t2m_t+0"). After loading, inspect
-    ``model.input_variables`` and ``model.output_variables`` for the actual
-    variable lists.
+    Parameters
+    ----------
+    input_variables : Sequence[str]
+        List of input variable names
+    output_variables : Sequence[str]
+        List of output variable names
+    residual_model : torch.nn.Module
+        Core pytorch model for diffusion step
+    regression_model : torch.nn.Module
+        Core pytorch model for regression step
+    lat_input_grid : torch.Tensor
+        Input latitude grid of size [in_lat]
+    lon_input_grid : torch.Tensor
+        Input longitude grid of size [in_lon]
+    lat_output_grid : torch.Tensor
+        Output latitude grid of size [out_lat]
+    lon_output_grid : torch.Tensor
+        Output longitude grid of size [out_lon]
+    in_center : torch.Tensor
+        Model input center normalization tensor of size [in_var]
+    in_scale : torch.Tensor
+        Model input scale normalization tensor of size [in_var]
+    out_center : torch.Tensor
+        Model output center normalization tensor of size [out_var]
+    out_scale : torch.Tensor
+        Model output scale normalization tensor of size [out_var]
+    invariants : OrderedDict | None, optional
+        Dictionary of invariant features, by default None
+    invariant_center : torch.Tensor | None, optional
+        Model invariant center normalization tensor, by default None
+    invariant_scale : torch.Tensor | None, optional
+        Model invariant scale normalization tensor, by default None
+    number_of_samples : int, optional
+        Number of high resolution samples to draw from diffusion model, by default 1
+    number_of_steps : int, optional
+        Number of langevin diffusion steps during sampling algorithm, by default 18
+    solver : Literal["euler", "heun"], optional
+        Discretization of diffusion process, by default "euler"
+    sampler_type : Literal["deterministic", "stochastic"], optional
+        Type of sampler to use, by default "stochastic"
+    inference_mode : Literal["regression", "both"], optional
+        Which inference mode to use ("both" or "regression"); diffusion-only
+        is not supported in CorrDiffCMIP6. Default is "both".
+    hr_mean_conditioning : bool, optional
+        Whether to use high-res mean conditioning, by default True
+    seed : int | None, optional
+        Random seed for reproducibility, by default None
+    grid_spacing_tolerance : float, optional
+        Relative tolerance for checking regular grid spacing, by default 1e-5
+    grid_bounds_margin : float, optional
+        Fraction of input grid range to allow for extrapolation, by default 0.0
+    sigma_min : float | None, optional
+        Minimum noise level for diffusion process, by default None
+    sigma_max : float | None, optional
+        Maximum noise level for diffusion process, by default None
+    time_feature_center : torch.Tensor | None, optional
+        Normalization center for time features (sza, hod) of size [2], by default None
+    time_feature_scale : torch.Tensor | None, optional
+        Normalization scale for time features (sza, hod) of size [2], by default None
+    time_window : dict | None, optional
+        Time window configuration from metadata.json containing "offsets", "suffixes",
+        "offsets_units", and "group_by". Used for create_time_window_wrapper(), by
+        default None
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)
@@ -141,71 +187,6 @@ class CorrDiffCMIP6New(CorrDiff):
         time_feature_scale: torch.Tensor | None = None,
         time_window: dict | None = None,
     ) -> None:
-        """Initialize CorrDiffCMIP6 model.
-
-        Parameters
-        ----------
-        input_variables : Sequence[str]
-            List of input variable names (time-windowed, e.g., "tas_t-1", "tas_t", "tas_t+1")
-        output_variables : Sequence[str]
-            List of output variable names
-        residual_model : torch.nn.Module
-            Core pytorch model for diffusion step
-        regression_model : torch.nn.Module
-            Core pytorch model for regression step
-        lat_input_grid : torch.Tensor
-            Input latitude grid of size [in_lat]
-        lon_input_grid : torch.Tensor
-            Input longitude grid of size [in_lon]
-        lat_output_grid : torch.Tensor
-            Output latitude grid of size [out_lat]
-        lon_output_grid : torch.Tensor
-            Output longitude grid of size [out_lon]
-        in_center : torch.Tensor
-            Model input center normalization tensor of size [in_var]
-        in_scale : torch.Tensor
-            Model input scale normalization tensor of size [in_var]
-        out_center : torch.Tensor
-            Model output center normalization tensor of size [out_var]
-        out_scale : torch.Tensor
-            Model output scale normalization tensor of size [out_var]
-        invariants : OrderedDict | None, optional
-            Dictionary of invariant features, by default None
-        invariant_center : torch.Tensor | None, optional
-            Model invariant center normalization tensor, by default None
-        invariant_scale : torch.Tensor | None, optional
-            Model invariant scale normalization tensor, by default None
-        number_of_samples : int, optional
-            Number of high resolution samples to draw from diffusion model, by default 1
-        number_of_steps : int, optional
-            Number of langevin diffusion steps during sampling algorithm, by default 18
-        solver : Literal["euler", "heun"], optional
-            Discretization of diffusion process, by default "euler"
-        sampler_type : Literal["deterministic", "stochastic"], optional
-            Type of sampler to use, by default "stochastic"
-        inference_mode : Literal["regression", "both"], optional
-            Which inference mode to use ("both" or "regression"); diffusion-only
-            is not supported in CorrDiffCMIP6. Default is "both".
-        hr_mean_conditioning : bool, optional
-            Whether to use high-res mean conditioning, by default True
-        seed : int | None, optional
-            Random seed for reproducibility, by default None
-        grid_spacing_tolerance : float, optional
-            Relative tolerance for checking regular grid spacing, by default 1e-5
-        grid_bounds_margin : float, optional
-            Fraction of input grid range to allow for extrapolation, by default 0.0
-        sigma_min : float | None, optional
-            Minimum noise level for diffusion process, by default None
-        sigma_max : float | None, optional
-            Maximum noise level for diffusion process, by default None
-        time_feature_center : torch.Tensor | None, optional
-            Normalization center for time features (sza, hod) of size [2], by default None
-        time_feature_scale : torch.Tensor | None, optional
-            Normalization scale for time features (sza, hod) of size [2], by default None
-        time_window : dict | None, optional
-            Time window configuration from metadata.json containing "offsets", "suffixes",
-            "offsets_units", and "group_by". Used for create_time_window_wrapper(), by default None
-        """
         super().__init__(
             input_variables=input_variables,
             output_variables=output_variables,
@@ -257,25 +238,6 @@ class CorrDiffCMIP6New(CorrDiff):
         # memory for large `number_of_samples` / large output channel counts.
         # This does not change the generated samples, only where the final stacked tensor lives.
         self.stream_samples_to_cpu: bool = False
-
-        self.in_center = torch.cat(
-            [
-                self.in_center[:, : -len(self.invariant_variables)].repeat_interleave(  # type: ignore
-                    3, dim=1
-                ),
-                self.in_center[:, -len(self.invariant_variables) :],  # type: ignore
-            ],
-            dim=1,
-        )
-        self.in_scale = torch.cat(
-            [
-                self.in_scale[:, : -len(self.invariant_variables)].repeat_interleave(  # type: ignore
-                    3, dim=1
-                ),
-                self.in_scale[:, -len(self.invariant_variables) :],  # type: ignore
-            ],
-            dim=1,
-        )
 
         # Extend in_center and in_scale to include time features (sza, hod) at the end
         # Note: During training, the last invariant position (coslat) mistakenly had hod VALUES,
@@ -426,16 +388,13 @@ class CorrDiffCMIP6New(CorrDiff):
             .to(device)
         )
 
-        # Apply inference optimizations (following CorrDiffTaiwan patterns)
-        # Disable profiling mode for both models
+        # Apply inference optimizations
         residual.profile_mode = False
         regression.profile_mode = False
 
-        # Convert to channels_last memory format for better GPU performance
         residual = residual.to(memory_format=torch.channels_last)
         regression = regression.to(memory_format=torch.channels_last)
 
-        # Configure torch dynamo for potential compilation
         torch._dynamo.config.cache_size_limit = 264
         torch._dynamo.reset()
 
@@ -521,7 +480,6 @@ class CorrDiffCMIP6New(CorrDiff):
             invariant_scale = torch.tensor(
                 [stats["invariants"][v]["std"] for v in invariants]
             )
-            print(invariant_center.shape)
 
         # Create time feature normalization tensors on the same device as the base buffers.
         time_feature_center = torch.as_tensor(
@@ -670,32 +628,7 @@ class CorrDiffCMIP6New(CorrDiff):
     def preprocess_input(
         self, x: torch.Tensor, valid_time: datetime | None = None
     ) -> torch.Tensor:
-        """Complete input preprocessing pipeline with optional time information.
-
-        Performs interpolation to output grid, adds batch dimension,
-        concatenates invariants if available, and normalizes the input.
-
-        The ``valid_time`` parameter is used for time-dependent preprocessing
-        operations (e.g., solar zenith angle, hour-of-day features).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor [C, H_in, W_in]
-        valid_time : datetime | None, optional
-            Validity time associated with this input sample, required for
-            time-dependent features in CorrDiffCMIP6. Default is None.
-
-        Returns
-        -------
-        torch.Tensor
-            Preprocessed and normalized input tensor [1, C+C_inv, H_out, W_out]
-
-        Raises
-        ------
-        ValueError
-            If valid_time is None (required for CorrDiffCMIP6)
-        """
+        """Input preprocessing pipeline with optional time information."""
         if valid_time is None:
             raise ValueError(
                 "CorrDiffCMIP6 requires valid_time for time-dependent features"
@@ -887,7 +820,7 @@ class CorrDiffCMIP6New(CorrDiff):
         invariants: OrderedDict | None,
     ) -> None:
         """Register model buffers and handle invariants."""
-        # Register grid coordinates and validate
+        # Register grid coordinates
         self.register_buffer("lat_input_grid", lat_input_grid)
         self.register_buffer("lon_input_grid", lon_input_grid)
         self.register_buffer("lat_output_grid", lat_output_grid)
@@ -900,17 +833,43 @@ class CorrDiffCMIP6New(CorrDiff):
         self.lat_output_numpy = lat_output_grid.cpu().numpy()
         self.lon_output_numpy = lon_output_grid.cpu().numpy()
 
+        # Handle invariants
         if invariants:
             self.invariant_variables = list(invariants.keys())
             self.register_buffer(
                 "invariants", torch.stack(list(invariants.values()), dim=0)
             )
-        # Combine input normalization with invariants
+        else:
+            self.invariant_variables = []
+            self.invariants = None
+
+        # Combine input normalization with invariants (1D tensors)
         in_center = torch.concat([in_center, invariant_center], dim=0)
         in_scale = torch.concat([in_scale, invariant_scale], dim=0)
 
-        # Register normalization parameters
-        num_inputs = len(self.input_variables) + len(self.invariant_variables)
+        # Repeat base variable stats for 3 lead times; keep invariants single
+        num_invariants = len(self.invariant_variables)
+        if num_invariants > 0:
+            base_center, inv_center = (
+                in_center[:-num_invariants],
+                in_center[-num_invariants:],
+            )
+            base_scale, inv_scale = (
+                in_scale[:-num_invariants],
+                in_scale[-num_invariants:],
+            )
+        else:
+            base_center, inv_center = in_center, in_center.new_empty((0,))
+            base_scale, inv_scale = in_scale, in_scale.new_empty((0,))
+
+        base_center = base_center.repeat_interleave(3, dim=0)
+        base_scale = base_scale.repeat_interleave(3, dim=0)
+
+        in_center = torch.concat([base_center, inv_center], dim=0)
+        in_scale = torch.concat([base_scale, inv_scale], dim=0)
+
+        # Register normalization parameters with final channel count
+        num_inputs = int(in_center.shape[0])
         self.register_buffer("in_center", in_center.view(1, num_inputs, 1, 1))
         self.register_buffer("in_scale", in_scale.view(1, num_inputs, 1, 1))
         self.register_buffer(
