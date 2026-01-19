@@ -11,7 +11,7 @@ from earth2studio.models.dx import CorrDiffCMIP6, CorrDiffCMIP6New  # noqa
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CorrDiffCMIP6New.load_model(
-    Package("/localhome/local-ngeneva/cmip6_corrdiff/earth2-corrdiff-cmip6-era5_0.1.0")
+    Package("/localhome/local-ngeneva/cmip6_corrdiff")
 )
 model = model.to(device)
 
