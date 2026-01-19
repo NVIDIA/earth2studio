@@ -347,20 +347,19 @@ class CorrDiffCMIP6New(CorrDiff):
     @classmethod
     @check_optional_dependencies()
     def load_model(cls, package: Package, device: str = "cpu") -> DiagnosticModel:
-        """Load CorrDiffCMIP6 model from package with time feature normalization.
-
-        This method extends the base CorrDiff loading to include time feature
-        normalization parameters (sza and hod) from stats.json.
+        """Load diagnostic from package
 
         Parameters
         ----------
         package : Package
             Package containing model weights and configuration
+        device : str, optional
+            Device to load model on, by default "cpu"
 
         Returns
         -------
         DiagnosticModel
-            Initialized CorrDiffCMIP6 model
+            Diagnostic model
         """
         # Load and validate metadata first (we need time_window for input expansion).
         metadata = cls._load_json_from_package(package, "metadata.json")
@@ -634,48 +633,20 @@ class CorrDiffCMIP6New(CorrDiff):
                 "CorrDiffCMIP6 requires valid_time for time-dependent features"
             )
 
-        # [B, L, C, H, W] -> [B, C, L, H, W]
-        print(x.shape, "====")
-        x = x.transpose(1, 2)
-
-        # 1) Sea-ice/snow derived feature smoothing (in-place update) per lead time
+        x = x.transpose(1, 2)  # [B, L, C, H, W] -> [B, C, L, H, W]
         x = self._apply_sai_cover(x)
-        torch.save(x, "sai_input_new.pt")
 
-        # 3) Flatten (variable, lead_time) -> channel to match model expectations
         B, C, L, H, W = x.shape
-        x = x.contiguous().view(B, -1, H, W)  # [C*L, H, W]
-
-        # 2) Interpolate each lead time slice to output grid
+        x = x.contiguous().view(
+            B, -1, H, W
+        )  # Flatten (variable, lead_time) -> [C*L, H, W]
         x = F.interpolate(x, self.img_shape, mode="bilinear")
-        print(x.shape)
 
-        # 4) Concatenate invariants if available (single set, not per lead)
         if self.invariants is not None:
             x = torch.concat([x, torch.flip(self.invariants.unsqueeze(0), [2])], dim=1)
-        print(x.shape, "~~`")
-        torch.save(x, "invars_input_new.pt")
 
-        # 5) Time-dependent features (SZA + HOD) appended after invariants
         x = self._add_time_features(x, valid_time)
-        print(x.shape, "===")
-        print(valid_time)  # Should be 2037-09-06 00:00:00
-        torch.save(x, "times_input_new.pt")
-
-        # 6) Normalize + pad + reorder channels
         x = self._normalize_pad_reorder(x)
-        print(x.shape)
-        # Debug: expose final channel ordering by rebuilding names from
-        # (input_variables + invariant_variables + ["sza", "hod"]) and applying reorder indices.
-        # pre_names = (
-        #     list(self.input_variables) + list(self.invariant_variables) + ["sza", "hod"]
-        # )
-        # indices = self._get_reorder_indices()
-        # if indices and max(indices) >= len(pre_names):
-        #     raise RuntimeError(
-        #         "Internal error: channel reorder indices are inconsistent with channel naming."
-        #     )
-        # self._last_preprocess_channel_names = [pre_names[i] for i in indices]
 
         return x
 
