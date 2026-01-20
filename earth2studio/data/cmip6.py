@@ -330,13 +330,27 @@ class CMIP6:
                     )
 
                 try:
+                    # First try exact match
                     data_arr = data_arr.sel(plev=target_pa)
-                except KeyError as e:  # pragma: no cover
-                    available = data_arr.plev.values / 100.0
-                    raise ValueError(
-                        f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found."
-                        f" Available levels: {available}"
-                    ) from e
+                except KeyError:
+                    # Fallback to nearest neighbor for models with precision issues
+                    # Use tolerance of 100 Pa (1 hPa) to ensure we don't match to wrong levels
+                    try:
+                        data_arr = data_arr.sel(
+                            plev=target_pa, method="nearest", tolerance=100
+                        )
+                        warnings.warn(
+                            f"Exact pressure level {level} hPa not found for variable '{cmip6_var}'. "
+                            f"Using nearest neighbor matching (tolerance=100 Pa) instead. "
+                            f"This may occur due to floating-point precision differences in some models.",
+                            UserWarning,
+                        )
+                    except KeyError as e:  # pragma: no cover
+                        available = data_arr.plev.values / 100.0
+                        raise ValueError(
+                            f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found "
+                            f"within tolerance (100 Pa). Available levels: {available}"
+                        ) from e
 
             # At this point data_arr dims should be (time, lat, lon)
             # Convert to numpy (trigger load) and apply modifier

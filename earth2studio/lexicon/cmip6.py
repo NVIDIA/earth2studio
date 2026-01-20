@@ -80,12 +80,18 @@ class CMIP6Lexicon(metaclass=LexiconType):
             "hursmin": ("hursmin", -1),  # minimum near-surface relative humidity (%)
             # "sic": ("siconc", -1), # sea ice concentration
             # "sp": ("ps", -1),    # surface pressure
-            # "tcwv": ("prw", -1), # total column water vapor
-            # "rsut": ("rsut", -1), # outgoing shortwave radiation
             "ts": ("ts", -1),  # surface temperature (K)
             "siconc": ("siconc", -1),  # sea ice concentration (alias of sic) [%]
             # "lsm": ("sftlf", -1), # land-sea mask (for cmip6 this is fraction of land)
             # "z": ("orog", -1),   # surface geopotential height (orography)
+            "prw": (
+                "prw",
+                -1,
+            ),  # precipitable water / total column water vapor (kg m-2)
+            "tcwv": ("prw", -1),  # alias for prw
+            "clwvi": ("clwvi", -1),  # condensed water path - liquid (kg m-2)
+            "clivi": ("clivi", -1),  # condensed water path - ice (kg m-2)
+            "rsut": ("rsut", -1),  # TOA outgoing shortwave radiation (W m-2)
         }
 
         param_map = {
@@ -107,7 +113,9 @@ class CMIP6Lexicon(metaclass=LexiconType):
             10,
             50,
             100,
+            200,
             250,
+            300,
             500,
             700,
             850,
