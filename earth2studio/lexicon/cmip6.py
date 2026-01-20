@@ -84,10 +84,7 @@ class CMIP6Lexicon(metaclass=LexiconType):
             "siconc": ("siconc", -1),  # sea ice concentration (alias of sic) [%]
             # "lsm": ("sftlf", -1), # land-sea mask (for cmip6 this is fraction of land)
             # "z": ("orog", -1),   # surface geopotential height (orography)
-            "prw": (
-                "prw",
-                -1,
-            ),  # precipitable water / total column water vapor (kg m-2)
+            "prw": ("prw", -1),  # precipitable water / total column water vapor (kg m-2)
             "tcwv": ("prw", -1),  # alias for prw
             "clwvi": ("clwvi", -1),  # condensed water path - liquid (kg m-2)
             "clivi": ("clivi", -1),  # condensed water path - ice (kg m-2)
