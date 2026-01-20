@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added CorrDiff CMIP6->ERA5 diagnostic model
+- Added derived TCWV diagnostic model
+- Added verbose option for inference workflows in run.py to toggle off tqdm
 
 ### Changed
 
@@ -19,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CDS and NCAR lexica have been updated with variables for AIFS-ENS
 - Switch grib reads in HRRR data sources from xarray to pygrib to fix memory leak
 - Updated AIFS model to 1.1 checkpoint version
+- Updated GFS lexicon to include composite reflectivity
 
 ### Deprecated
 
@@ -27,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Made tp in HRRR and GFS units m for package consistency
+- Fixed batched inference support for AIFS and AIFS ENS
 
 ### Security
 
@@ -64,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Vertical wind variables in GFS / GEFS to be Pa s-1
+- Fixed s3fs datasources to support aiobotocore 3.0 use
 
 ### Dependencies
 

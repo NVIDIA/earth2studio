@@ -51,6 +51,7 @@ class GFSLexicon(metaclass=LexiconType):
         "tp": "596::APCP::surface",  # 3 hour acc
         "2d": "DPT::2 m above ground",
         "fg10m": "GUST::surface",  # Surface
+        "refc": "REFC::entire atmosphere",
         "u1": "UGRD::1 mb",
         "u2": "UGRD::2 mb",
         "u3": "UGRD::3 mb",

@@ -44,6 +44,7 @@ def deterministic(
     io: IOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
+    verbose: bool = True,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -65,6 +66,8 @@ def deterministic(
         IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
+    verbose : bool, optional
+        Print inference progress, by default True
 
     Returns
     -------
@@ -134,7 +137,9 @@ def deterministic(
     model = prognostic.create_iterator(x, coords)
 
     logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference", position=1) as pbar:
+    with tqdm(
+        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
+    ) as pbar:
         for step, (x, coords) in enumerate(model):
             # Subselect domain/variables as indicated in output_coords
             x, coords = map_coords(x, coords, output_coords)
@@ -157,6 +162,7 @@ def diagnostic(
     io: IOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
+    verbose: bool = True,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -180,6 +186,8 @@ def diagnostic(
         IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
+    verbose : bool, optional
+        Print inference progress, by default True
 
     Returns
     -------
@@ -250,7 +258,9 @@ def diagnostic(
     model = prognostic.create_iterator(x, coords)
 
     logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference", position=1) as pbar:
+    with tqdm(
+        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
+    ) as pbar:
         for step, (x, coords) in enumerate(model):
 
             # Run diagnostic
@@ -279,6 +289,7 @@ def ensemble(
     batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
+    verbose: bool = True,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -305,6 +316,8 @@ def ensemble(
         IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
+    verbose : bool, optional
+        Print inference progress, by default True
 
     Returns
     -------
@@ -380,6 +393,7 @@ def ensemble(
         total=number_of_batches,
         desc="Total Ensemble Batches",
         position=2,
+        disable=(not verbose),
     ):
 
         # Get fresh batch data
@@ -408,6 +422,7 @@ def ensemble(
             desc=f"Running batch {batch_id} inference",
             position=1,
             leave=False,
+            disable=(not verbose),
         ) as pbar:
             for step, (x, coords) in enumerate(model):
                 # Subselect domain/variables as indicated in output_coords
