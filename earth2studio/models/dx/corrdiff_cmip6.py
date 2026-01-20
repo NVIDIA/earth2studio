@@ -127,7 +127,7 @@ class CorrDiffCMIP6(CorrDiff):
     Run a single forward pass to predict CMIP6->ERA5 at two lead times within input window
 
     >>> model = CorrDiffCMIP6.load_model(
-    ...     CorrDiffCMIP6.load_defualt_package(),
+    ...     CorrDiffCMIP6.load_default_package(),
     ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
     ... )
     >>> model.seed = 1 # Set seed for reprod
