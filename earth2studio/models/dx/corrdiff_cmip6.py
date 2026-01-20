@@ -1,9 +1,26 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from collections import OrderedDict
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 import xarray as xr
@@ -17,8 +34,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordSystem, LeadTimeArray
 
 try:
     from physicsnemo.models import Module as PhysicsNemoModule
@@ -98,6 +114,44 @@ class CorrDiffCMIP6New(CorrDiff):
         Normalization center for time features (sza, hod) of size [2], by default None
     time_feature_scale : torch.Tensor | None, optional
         Normalization scale for time features (sza, hod) of size [2], by default None
+    output_lead_times: LeadTimeArray, optional
+        Output lead times to sample at. The default package is trained to support lead
+        times between [-12,12] at hourly intervalys, by default
+        np.array([np.timedelta64(-12, "h")])
+
+    Examples
+    --------
+    Run a single forward pass to predict CMIP6->ERA5
+
+    >>> model = CorrDiffCMIP6New.load_model(
+    ...     CorrDiffCMIP6New.load_defualt_package(),
+    ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
+    ... )
+    >>> model.seed = 1 # Set seed for reprod
+    >>> model.number_of_samples = 1 # Modify number of samples if needed
+    >>> model = model.to(device)
+    >>>
+    >>> # Build CMIP6 multi-realm data source
+    >>> cmip6_kwargs = dict(
+    ...     experiment_id="ssp585",
+    ...     source_id="CanESM5",
+    ...     variant_label="r1i1p2f1",
+    ...     exact_time_match=True,
+    ... )
+    >>> data = CMIP6MultiRealm([CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")])
+    >>>
+    >>> x, coords = fetch_data(
+    ...     source=data,
+    ...     time=np.array([np.datetime64("2037-09-06T12:00")]),
+    ...     lead_time=model.input_coords()["lead_time"],
+    ...     variable=model.input_coords()["variable"],
+    ...     device=device,
+    ... )
+    >>>
+    >>> # Run model forward pass
+    >>> out, out_coords = model(x, coords)
+    >>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
+
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)
@@ -185,6 +239,7 @@ class CorrDiffCMIP6New(CorrDiff):
         sigma_max: float | None = None,
         time_feature_center: torch.Tensor | None = None,
         time_feature_scale: torch.Tensor | None = None,
+        output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, "h")]),
     ) -> None:
         super().__init__(
             input_variables=input_variables,
@@ -232,6 +287,9 @@ class CorrDiffCMIP6New(CorrDiff):
         # memory for large `number_of_samples` / large output channel counts.
         # This does not change the generated samples, only where the final stacked tensor lives.
         self.stream_samples_to_cpu: bool = False
+
+        # Controls the output lead times, should be hourly between [-12, 12]
+        self.output_lead_times = output_lead_times
 
         # Extend in_center and in_scale to include time features (sza, hod) at the end
         # Note: During training, the last invariant position (coslat) mistakenly had hod VALUES,
@@ -286,7 +344,6 @@ class CorrDiffCMIP6New(CorrDiff):
         ----------
         input_coords : CoordSystem
             Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
 
         Returns
         -------
@@ -303,13 +360,12 @@ class CorrDiffCMIP6New(CorrDiff):
         handshake_coords(input_coords, target_input_coords, "lat")
         handshake_coords(input_coords, target_input_coords, "variable")
 
-        if input_coords["time"].shape[0] != 1:
-            raise ValueError('CorrDiffCMIP6 only supports a singleton "time" axis.')
-
         output_coords = OrderedDict(
             {
                 "batch": input_coords["batch"],
                 "sample": np.arange(self.number_of_samples),
+                "time": input_coords["time"],
+                "lead_time": self.output_lead_times,
                 "variable": np.array(self.output_variables),
                 "lat": self.lat_output_numpy,
                 "lon": self.lon_output_numpy,
@@ -319,12 +375,7 @@ class CorrDiffCMIP6New(CorrDiff):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Return the default pre-trained CorrDiffCMIP6 package.
-
-        Notes
-        -----
-        The canonical NGC URI is not yet finalized.
-        """
+        """Load diagnostic package"""
         package = Package(
             "ngc://models/<org>/<team>/<model>@<version>",
             cache_options={
@@ -343,9 +394,7 @@ class CorrDiffCMIP6New(CorrDiff):
     def load_model(
         cls,
         package: Package,
-        sampler_steps: int = 18,
-        sigma_max: int = 400,
-        seed: int | None = None,
+        output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, "h")]),
         device: str = "cpu",
     ) -> DiagnosticModel:
         """Load diagnostic from package
@@ -354,12 +403,8 @@ class CorrDiffCMIP6New(CorrDiff):
         ----------
         package : Package
             Package containing model weights and configuration
-        sampler_steps : int, optional
-            Number of diffusion steps, by default 18
-        sigma_max : float, optional
-            Noise amplitude used to generate latent variables, by default 800
-        seed : int, optional
-            Random generator seed for latent variables, by default None
+        output_lead_times : LeadTimeArray, optional
+            Output lead times to sample at, by default np.array([np.timedelta64(-12, "h")])
         device : str, optional
             Device to load model on, by default "cpu"
 
@@ -370,12 +415,6 @@ class CorrDiffCMIP6New(CorrDiff):
         """
         # Load and validate metadata first (we need time_window for input expansion).
         metadata = cls._load_json_from_package(package, "metadata.json")
-        time_window_raw = metadata.get("time_window")
-        if time_window_raw is None:
-            raise ValueError(
-                "metadata.json is missing required 'time_window' configuration."
-            )
-        cls._validate_time_window_metadata(time_window_raw)
         stats = cls._load_json_from_package(package, "stats.json")
 
         # Load the base CorrDiff model from the package.
@@ -409,10 +448,12 @@ class CorrDiffCMIP6New(CorrDiff):
         output_variables = metadata["output_variables"]
         invariant_variables = metadata.get("invariant_variables", None)
         number_of_samples = metadata.get("number_of_samples", 1)
+        number_of_steps = metadata.get("number_of_steps", 18)
         solver = metadata.get("solver", "euler")
         sampler_type = metadata.get("sampler_type", "stochastic")
         inference_mode = metadata.get("inference_mode", "both")
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
+        sigma_max_metadata = metadata.get("sigma_max", 400)
         sigma_min_metadata = metadata.get("sigma_min", 1)
         grid_spacing_tolerance = metadata.get("grid_spacing_tolerance", 1e-5)
         grid_bounds_margin = metadata.get("grid_bounds_margin", 0.0)
@@ -505,18 +546,19 @@ class CorrDiffCMIP6New(CorrDiff):
             out_center=out_center.squeeze(),
             out_scale=out_scale.squeeze(),
             number_of_samples=number_of_samples,
-            number_of_steps=sampler_steps,
+            number_of_steps=number_of_steps,
             solver=solver,
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
-            seed=seed,
+            seed=None,
             time_feature_center=time_feature_center,
             time_feature_scale=time_feature_scale,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
             sigma_min=sigma_min_metadata,
-            sigma_max=sigma_max,
+            sigma_max=sigma_max_metadata,
+            output_lead_times=output_lead_times,
         )
 
     @batch_func()
@@ -528,9 +570,15 @@ class CorrDiffCMIP6New(CorrDiff):
         output_coords = self.output_coords(coords)
         out_shape = tuple(len(v) for v in output_coords.values())
         out = torch.empty(out_shape, device=x.device, dtype=torch.float32)
-        for i in range(out.shape[1]):  # Loop through time stamps
-            valid_time = timearray_to_datetime(coords["time"])[i] - timedelta(hours=12)
-            out[i] = self._forward(x[:, i], valid_time)
+        # Iterate of different time-stamps and lead time
+        for i in range(out.shape[2]):
+            for j in range(out.shape[3]):
+                valid_time = output_coords["time"][i] + output_coords["lead_time"][j]
+                print(valid_time)
+                # Input to forward should be [b, l, c, h, w]
+                out[:, :, i, j] = self._forward(
+                    x[:, i, :], pd.to_datetime(valid_time).to_pydatetime()
+                )
         return out, output_coords
 
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
@@ -575,11 +623,10 @@ class CorrDiffCMIP6New(CorrDiff):
             return x
         siconc_channel = self.input_variables.index("siconc")
         snc_channel = self.input_variables.index("snc")
-        print(x.shape, len(self.input_variables))
         for i in range(lead_len):
             # [B, 1, H, W] so padding/conv2d operate on 4D tensors
-            siconc = torch.nan_to_num(x[:, siconc_channel, i], nan=0.0)
-            snc = torch.nan_to_num(x[:, snc_channel, i], nan=0.0)
+            siconc = torch.nan_to_num(x[:, siconc_channel, i], nan=0.0).unsqueeze(1)
+            snc = torch.nan_to_num(x[:, snc_channel, i], nan=0.0).unsqueeze(1)
             sai_cover = torch.clip(siconc + snc, 0.0, 100.0)
 
             # Pad: circular in lon (W), replicate in lat (H)
@@ -597,7 +644,7 @@ class CorrDiffCMIP6New(CorrDiff):
         cos_sza = cos_zenith_angle(valid_time, lon_grid, lat_grid).astype(np.float32)
         cos_sza_tensor = (
             torch.from_numpy(cos_sza).unsqueeze(0).unsqueeze(0).to(x.device)
-        )
+        ).expand(x.shape[0], -1, -1, -1)
         x = torch.concat([x, cos_sza_tensor], dim=1)
 
         hour_tensor = torch.full_like(cos_sza_tensor, float(valid_time.hour))
@@ -642,7 +689,9 @@ class CorrDiffCMIP6New(CorrDiff):
         x = F.interpolate(x, self.img_shape, mode="bilinear")
 
         if self.invariants is not None:
-            x = torch.concat([x, torch.flip(self.invariants.unsqueeze(0), [2])], dim=1)
+            # Flip invars lat to match inverted cmip data
+            invar = torch.flip(self.invariants.unsqueeze(0), [-2])
+            x = torch.concat([x, invar.expand(x.shape[0], -1, -1, -1)], dim=1)
 
         x = self._add_time_features(x, valid_time)
         x = self._normalize_pad_reorder(x)
@@ -662,7 +711,7 @@ class CorrDiffCMIP6New(CorrDiff):
         torch.Tensor
             Denormalized output tensor x * scale + center
         """
-        # 1) Crop padding added during preprocessing (see _LAT_PAD, _LON_PAD)
+        # 1) Crop padding added during preprocessing [S, C, H, W] (see _LAT_PAD, _LON_PAD)
         x = x[
             :,
             :,
@@ -702,71 +751,66 @@ class CorrDiffCMIP6New(CorrDiff):
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
 
         # Regression model (mean)
-        image_reg = None
-        if self.regression_model:
-            latents_shape = (1, len(self.output_variables), *image_lr.shape[-2:])
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                image_reg = regression_step(
+        image_reg = torch.empty(
+            (image_lr.shape[0], 1, len(self.output_variables), *image_lr.shape[-2:]),
+            device=x.device,
+            dtype=image_lr.dtype,
+        )
+        latents_shape = (1, len(self.output_variables), *image_lr.shape[-2:])
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            # CorrDiff utils do not support batches, so we in-efficiently loop
+            for i in range(image_lr.shape[0]):
+                image_reg[i, 0] = regression_step(
                     net=self.regression_model,
-                    img_lr=image_lr,
+                    img_lr=image_lr[i : i + 1],
                     latents_shape=latents_shape,
                 )
 
-        # Validate required models
-        if image_reg is None:
-            raise RuntimeError(
-                "Missing regression output: regression_model must be set."
-            )
-
         # Regression-only: all samples are identical (deterministic mean)
         if self.inference_mode == "regression":
-            out = self.postprocess_output(image_reg)
-            out_device = (
-                torch.device("cpu") if self.stream_samples_to_cpu else out.device
-            )
-            out = out.to(out_device)
-            return out.expand(self.number_of_samples, -1, -1, -1).clone()
-
-        # inference_mode == "both": need diffusion model
-        if self.residual_model is None:
-            raise RuntimeError(
-                "Missing diffusion model: residual_model must be set for inference_mode='both'."
+            return self.postprocess_output(image_reg).expand(
+                -1, self.number_of_samples, -1, -1, -1
             )
 
         # Compute base seed once (sample index added in loop)
         seed0 = (
             int(self.seed) if self.seed is not None else int(np.random.randint(2**32))
         )
-        mean_hr = image_reg[:1] if self.hr_mean_conditioning else None
 
         # Where to accumulate samples (CPU streaming reduces GPU peak memory)
         out_device = (
             torch.device("cpu") if self.stream_samples_to_cpu else image_lr.device
         )
-
-        out = None
-
-        for i in range(self.number_of_samples):
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                image_res = diffusion_step(
-                    net=self.residual_model,
-                    sampler_fn=self.sampler,
-                    img_shape=image_lr.shape[-2:],
-                    img_out_channels=len(self.output_variables),
-                    rank_batches=[[seed0 + i]],
-                    img_lr=image_lr,
-                    rank=1,
-                    device=image_lr.device,
-                    mean_hr=mean_hr,
-                )
-            yi = self.postprocess_output(image_reg + image_res)
-            if out is None:
-                out = torch.empty(
-                    (self.number_of_samples, yi.shape[1], yi.shape[2], yi.shape[3]),
-                    device=out_device,
-                    dtype=yi.dtype,
-                )
-            out[i] = yi.to(out_device)[0]
+        out = torch.empty(
+            (
+                image_reg.shape[0],
+                self.number_of_samples,
+                len(self.output_variables),
+                self.lat_output_numpy.shape[0],
+                self.lon_output_numpy.shape[0],
+            ),
+            device=out_device,
+            dtype=image_reg.dtype,
+        )
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            # CorrDiff utils do not support batches, so we in-efficiently loop
+            for i in range(out.shape[0]):
+                mean_hr = image_reg[i] if self.hr_mean_conditioning else None
+                for j in range(self.number_of_samples):
+                    image_res = diffusion_step(
+                        net=self.residual_model,
+                        sampler_fn=self.sampler,
+                        img_shape=image_lr.shape[-2:],
+                        img_out_channels=len(self.output_variables),
+                        rank_batches=[[seed0 + j]],
+                        img_lr=image_lr[i : i + 1],
+                        rank=1,
+                        device=image_lr.device,
+                        mean_hr=mean_hr,
+                    )
+                    out[i, j] = self.postprocess_output(image_reg[i, 0] + image_res).to(
+                        out_device
+                    )
 
         return out
 
@@ -843,20 +887,3 @@ class CorrDiffCMIP6New(CorrDiff):
         self.register_buffer(
             "out_scale", out_scale.view(1, len(self.output_variables), 1, 1)
         )
-
-    @staticmethod
-    def _validate_time_window_metadata(time_window: dict) -> dict:
-        """Validate and normalize time window metadata loaded from package."""
-        offsets = list(time_window["offsets"])
-        suffixes = [str(suffix) for suffix in time_window["suffixes"]]
-        offsets_units = time_window.get("offsets_units", "seconds")
-        group_by = time_window.get("group_by", "variable")
-        validated = {
-            "offsets": offsets,
-            "suffixes": suffixes,
-            "offsets_units": offsets_units,
-            "group_by": group_by,
-        }
-        if "description" in time_window:
-            validated["description"] = time_window["description"]
-        return validated
