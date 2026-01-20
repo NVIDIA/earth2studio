@@ -47,7 +47,7 @@ except ImportError:  # pragma: no cover
     cos_zenith_angle = None  # type: ignore[assignment]
 
 
-class CorrDiffCMIP6New(CorrDiff):
+class CorrDiffCMIP6(CorrDiff):
     """CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
     can be used to downscale both in the spatial and temporal dimensions.
 
@@ -131,7 +131,7 @@ class CorrDiffCMIP6New(CorrDiff):
     >>> model.number_of_samples = 1 # Modify number of samples if needed
     >>> model = model.to(device)
     >>>
-    >>> # Build CMIP6 multi-realm data source
+    >>> # Build CMIP6 multi-realm data source, about 60 Gbs of data will be fetched
     >>> cmip6_kwargs = dict(
     ...     experiment_id="ssp585",
     ...     source_id="CanESM5",

@@ -21,10 +21,9 @@ from earth2studio.models.dx.cbottle_tc import CBottleTCGuidance  # noqa
 from earth2studio.models.dx.climatenet import ClimateNet  # noqa
 from earth2studio.models.dx.corrdiff import (
     CorrDiff,
-    CorrDiffCMIP6,
     CorrDiffTaiwan,
 )
-from earth2studio.models.dx.corrdiff_cmip6 import CorrDiffCMIP6New
+from earth2studio.models.dx.corrdiff_cmip6 import CorrDiffCMIP6
 
 # noqa
 from earth2studio.models.dx.derived import (
