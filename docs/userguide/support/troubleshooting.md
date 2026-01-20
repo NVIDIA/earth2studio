@@ -122,9 +122,21 @@ There are a few options to try outside of just waiting for the build to complete
     export FLASH_ATTENTION_DISABLE_HDIM256=TRUE
     ```
 
-## Failed to Install Earth2Grid `Python.h: No such file or directory`
+## Earth2Grid or TorchHarmonics Build Failure `Python.h: No such file or directory`
 
-[Earth2Grid](https://github.com/NVlabs/earth2grid) needs to be installed from source.
+[Earth2Grid](https://github.com/NVlabs/earth2grid) and [TorchHarmonics](https://github.com/NVIDIA/torch-harmonics)
+sometimes need to be installed from source and built on the users machine.
+This requires the installation of the Python 3 developer tools.
+Without it the following error will occur on attempted install:
+
+```bash
+...fatal error: Python.h: No such file or directory
+    12 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+ninja: build stopped: subcommand failed.
+```
+
 To build this dependency, the Python developer library is needed, on debian systems this
 can be installed with:
 
