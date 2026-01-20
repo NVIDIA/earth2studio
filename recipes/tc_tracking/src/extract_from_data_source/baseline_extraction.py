@@ -1,4 +1,3 @@
-import copy
 import os
 
 import numpy as np
@@ -7,9 +6,7 @@ import tropycal.tracks as tropytracks
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
-from earth2studio.io import KVBackend
-from earth2studio.utils.coords import split_coords
-from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
+from src.tempest_extremes import TempestExtremes
 from src.data.utils import DataSourceManager, load_heights
 from src.utils import great_circle_distance
 
@@ -188,7 +185,7 @@ def extract_baseline(cfg,
     ibtracs = tropytracks.TrackDataset(basin='all',
                                        source='ibtracs',
                                        ibtracs_mode='jtwc_neumann',
-                                       ibtracs_url=cfg.ibtracs_source_data)
+                                       ibtracs_url=os.path.abspath(cfg.ibtracs_source_data))
 
     data_source_mngr = DataSourceManager(cfg)
 

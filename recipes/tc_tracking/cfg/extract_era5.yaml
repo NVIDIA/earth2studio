@@ -62,9 +62,9 @@ cases:
     #     year: 2017
     #     basin: west_pacific
 
-    # hato:
-    #     year: 2017
-    #     basin: west_pacific
+    hato:
+        year: 2017
+        basin: west_pacific
 
     # mawar:
     #     year: 2023
@@ -82,41 +82,41 @@ cases:
     #     year: 2017
     #     basin: southern_pacific
 
-ibtracs_source_data: "./test/aux_data/ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "./test/aux_data/ibtracs.HATO_HELENE.list.v04r01.csv"
 
 data_source:
-    h5_era5_train:
-        years: "1980-2016"
-        source:
-            _target_: src.data.localh5.LocalArchiveHDF5
-            dirs: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/train"
-            metadata_file: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/metadata/data.json"
+    # h5_era5_train:
+    #     years: "1980-2016"
+    #     source:
+    #         _target_: src.data.localh5.LocalArchiveHDF5
+    #         dirs: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/train"
+    #         metadata_file: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/metadata/data.json"
 
-    h5_era5_test:
-        years: 2017
-        source:
-            _target_: src.data.localh5.LocalArchiveHDF5
-            dirs: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/test"
-            metadata_file: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/metadata/data.json"
+    # h5_era5_test:
+    #     years: 2017
+    #     source:
+    #         _target_: src.data.localh5.LocalArchiveHDF5
+    #         dirs: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/test"
+    #         metadata_file: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/metadata/data.json"
 
-    h5_era5_oos:
-        years: "2018-2022"
-        source:
-            _target_: src.data.localh5.LocalArchiveHDF5
-            dirs: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/out_of_sample"
-            metadata_file: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/metadata/data.json"
+    # h5_era5_oos:
+    #     years: "2018-2022"
+    #     source:
+    #         _target_: src.data.localh5.LocalArchiveHDF5
+    #         dirs: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/out_of_sample"
+    #         metadata_file: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/metadata/data.json"
 
     ncar_era5:
-        years: "2023-2024"
+        years: "2017-2024"
         source:
             _target_: earth2studio.data.NCAR_ERA5
 
-    gfs:
-        years: "2025"
-        source:
-            _target_: earth2studio.data.GFS
+    # gfs:
+    #     years: "2025"
+    #     source:
+    #         _target_: earth2studio.data.GFS
 
-orography_path: '/fcn3_cyclones/checkpoints/fcn2_sc2_edim45_layers10_finetune_2013-2016_8step_centered_4member/flexible_5epochs/orography.nc'
+orography_path: './orography.nc'
 store_dir: "./outputs_${project}"
 
 cyclone_tracking:
