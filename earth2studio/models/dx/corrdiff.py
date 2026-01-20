@@ -29,11 +29,6 @@ import torch
 import xarray as xr
 import zarr
 
-try:
-    from tqdm.auto import tqdm
-except ImportError:  # pragma: no cover
-    tqdm = None
-
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
