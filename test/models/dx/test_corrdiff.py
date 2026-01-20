@@ -19,7 +19,7 @@ import tempfile
 from collections import OrderedDict
 from pathlib import Path
 from typing import ClassVar
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -864,3 +864,280 @@ class TestCorrDiffForward:
         )
         out_both, _ = model_both(x, coords)
         assert out_both.shape == (1, 1, 4, 320, 320)
+
+
+class TestCorrDiffLoadModel:
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_basic(self, mock_package, temp_model_files):
+        """Test basic load_model functionality."""
+
+        # Configure mock package to return our temp files.
+        # Simulate missing invariants.nc (no invariants for basic case).
+        def resolve_side_effect(path: str) -> str:
+            if Path(path).name == "invariants.nc":
+                raise FileNotFoundError
+            return str(temp_model_files / Path(path).name)
+
+        mock_package.resolve.side_effect = resolve_side_effect
+
+        # Load model
+        model = CorrDiff.load_model(mock_package)
+
+        # Verify model was created correctly
+        assert isinstance(model, CorrDiff)
+        assert model.input_variables == ["t2m", "u10m", "v10m", "z500"]
+        assert model.output_variables == ["mrr", "t2m", "u10m", "v10m"]
+        assert model.invariants is None
+        assert model.invariant_variables == []
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_device_calls_model_to_before_channels_last(
+        self, mock_package, temp_model_files
+    ):
+        """Ensure `load_model(device=...)` applies `.to(device)` before `channels_last`.
+        Why this matters:
+        - `channels_last` conversion should happen after moving the model to the target
+          device, because the memory-format optimization is device-dependent.
+        - This test makes that behavior explicit by checking the order of `.to(...)`
+          calls on the mocked PhysicsNemo models (residual + regression).
+        """
+        MockPhysicsNemoModule.created.clear()
+
+        def resolve_side_effect(path: str) -> str:
+            if Path(path).name == "invariants.nc":
+                raise FileNotFoundError
+            return str(temp_model_files / Path(path).name)
+
+        mock_package.resolve.side_effect = resolve_side_effect
+
+        _ = CorrDiff.load_model(mock_package, device="cpu")
+
+        assert len(MockPhysicsNemoModule.created) == 2
+        for m in MockPhysicsNemoModule.created:
+            # Expect: to(device) first, then to(memory_format=channels_last)
+            assert m.to_calls[0] == ("cpu", None)
+            assert m.to_calls[1][0] is None
+            assert m.to_calls[1][1] is torch.channels_last
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_device_places_buffers_on_cuda(
+        self, mock_package, temp_model_files
+    ):
+        """If CUDA is available, verify `load_model(device='cuda:0')` places buffers on GPU.
+        This complements the CPU-only call-order test by validating actual tensor placement
+        on CUDA (when available). We check representative buffers that must match the
+        model's device to avoid implicit CPU↔GPU transfers during inference.
+        """
+        MockPhysicsNemoModule.created.clear()
+
+        def resolve_side_effect(path: str) -> str:
+            if Path(path).name == "invariants.nc":
+                raise FileNotFoundError
+            return str(temp_model_files / Path(path).name)
+
+        mock_package.resolve.side_effect = resolve_side_effect
+
+        model = CorrDiff.load_model(mock_package, device="cuda:0")
+        assert model.in_center.device.type == "cuda"
+        assert model.lat_output_grid.device.type == "cuda"
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_with_invariants(
+        self, mock_package, temp_model_files_with_invariants
+    ):
+        """Test load_model functionality with invariant features."""
+        # Configure mock package to return our temp files
+        mock_package.resolve.side_effect = lambda path: str(
+            temp_model_files_with_invariants / Path(path).name
+        )
+
+        # Load model
+        model = CorrDiff.load_model(mock_package)
+
+        # Verify model was created correctly
+        assert isinstance(model, CorrDiff)
+        assert model.input_variables == ["t2m", "u10m", "v10m", "z500"]
+        assert model.output_variables == ["mrr", "t2m", "u10m", "v10m"]
+        assert model.invariants is not None
+        assert model.invariant_variables == ["orography", "landsea_mask"]
+        assert model.invariants.shape == (2, 320, 320)
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", None)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", None)
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", None)
+    def test_corrdiff_load_model_missing_dependencies(self, mock_package):
+        """Test load_model raises ImportError when dependencies are missing."""
+        with pytest.raises(
+            ImportError,
+            match="Additional CorrDiff model dependencies are not installed",
+        ):
+            CorrDiff.load_model(mock_package)
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_missing_files(self, mock_package, temp_model_files):
+        """Test load_model handles missing files gracefully."""
+        # Configure mock package to return non-existent files
+        mock_package.resolve.side_effect = lambda path: "/non/existent/path"
+
+        with pytest.raises(FileNotFoundError):
+            CorrDiff.load_model(mock_package)
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_invalid_metadata(self, mock_package, temp_model_files):
+        """Test load_model with invalid metadata."""
+        # Modify metadata to be invalid
+        with open(temp_model_files / "metadata.json", "w") as f:
+            json.dump({"invalid": "metadata"}, f)
+
+        mock_package.resolve.side_effect = lambda path: str(
+            temp_model_files / Path(path).name
+        )
+
+        with pytest.raises(KeyError):
+            CorrDiff.load_model(mock_package)
+
+    @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
+    @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    def test_corrdiff_load_model_invalid_stats(self, mock_package, temp_model_files):
+        """Test load_model with invalid stats."""
+        # Modify stats to be invalid
+        with open(temp_model_files / "stats.json", "w") as f:
+            json.dump({"invalid": "stats"}, f)
+
+        mock_package.resolve.side_effect = lambda path: str(
+            temp_model_files / Path(path).name
+        )
+
+        with pytest.raises(KeyError):
+            CorrDiff.load_model(mock_package)
+
+    def test_corrdiff_hr_mean_conditioning_validation(self):
+        """Test validation of hr_mean_conditioning parameter."""
+        # Test that hr_mean_conditioning=True with deterministic sampler raises error
+        lat_input_grid = torch.linspace(19.25, 28, 36)
+        lon_input_grid = torch.linspace(116, 126, 41)[:-1]
+        lat_output_grid = torch.linspace(24.25, 27.75, 320)
+        lon_output_grid = torch.linspace(116.25, 119.75, 320)
+        lat_output_grid, lon_output_grid = torch.meshgrid(
+            lat_output_grid, lon_output_grid, indexing="ij"
+        )
+        with pytest.raises(
+            NotImplementedError,
+            match="High-res mean conditioning is not yet implemented",
+        ):
+            CorrDiff(
+                input_variables=["t2m", "u10m"],
+                output_variables=["mrr", "t2m"],
+                residual_model=MockPhysicsNemoModule(),
+                regression_model=MockPhysicsNemoModule(),
+                lat_input_grid=lat_input_grid,
+                lon_input_grid=lon_input_grid,
+                lat_output_grid=lat_output_grid,
+                lon_output_grid=lon_output_grid,
+                in_center=torch.zeros(2),
+                in_scale=torch.ones(2),
+                invariant_center=torch.zeros(0),
+                invariant_scale=torch.ones(0),
+                out_center=torch.zeros(2),
+                out_scale=torch.ones(2),
+                sampler_type="deterministic",
+                hr_mean_conditioning=True,
+            )
+
+    def test_corrdiff_buffer_registration(self):
+        """Test that model buffers are properly registered."""
+
+        lat_input_grid = torch.linspace(19.25, 28, 36)
+        lon_input_grid = torch.linspace(116, 126, 41)[:-1]
+        lat_output_grid = torch.linspace(24.25, 27.75, 320)
+        lon_output_grid = torch.linspace(116.25, 119.75, 320)
+        lat_output_grid, lon_output_grid = torch.meshgrid(
+            lat_output_grid, lon_output_grid, indexing="ij"
+        )
+        model = CorrDiff(
+            input_variables=["t2m", "u10m"],
+            output_variables=["mrr", "t2m"],
+            residual_model=MockPhysicsNemoModule(),
+            regression_model=MockPhysicsNemoModule(),
+            lat_input_grid=lat_input_grid,
+            lon_input_grid=lon_input_grid,
+            lat_output_grid=lat_output_grid,
+            lon_output_grid=lon_output_grid,
+            in_center=torch.zeros(2),
+            in_scale=torch.ones(2),
+            invariant_center=torch.zeros(0),
+            invariant_scale=torch.ones(0),
+            out_center=torch.zeros(2),
+            out_scale=torch.ones(2),
+        )
+
+        # Check that buffers are registered
+        assert hasattr(model, "lat_input_grid")
+        assert hasattr(model, "lon_input_grid")
+        assert hasattr(model, "lat_output_grid")
+        assert hasattr(model, "lon_output_grid")
+        assert hasattr(model, "in_center")
+        assert hasattr(model, "in_scale")
+        assert hasattr(model, "out_center")
+        assert hasattr(model, "out_scale")
+
+        # Check buffer shapes
+        assert model.in_center.shape == (1, 2, 1, 1)
+        assert model.in_scale.shape == (1, 2, 1, 1)
+        assert model.out_center.shape == (1, 2, 1, 1)
+        assert model.out_scale.shape == (1, 2, 1, 1)
+
+    def test_corrdiff_buffer_registration_with_invariants(self):
+        """Test that model buffers are properly registered with invariants."""
+        invariants = {
+            "orography": torch.randn(128, 128),
+            "landsea_mask": torch.randn(128, 128),
+        }
+
+        lat_input_grid = torch.linspace(19.25, 28, 36)
+        lon_input_grid = torch.linspace(116, 126, 41)[:-1]
+        lat_output_grid = torch.linspace(24.25, 27.75, 320)
+        lon_output_grid = torch.linspace(116.25, 119.75, 320)
+        lat_output_grid, lon_output_grid = torch.meshgrid(
+            lat_output_grid, lon_output_grid, indexing="ij"
+        )
+        model = CorrDiff(
+            input_variables=["t2m", "u10m"],
+            output_variables=["mrr", "t2m"],
+            residual_model=MockPhysicsNemoModule(),
+            regression_model=MockPhysicsNemoModule(),
+            lat_input_grid=lat_input_grid,
+            lon_input_grid=lon_input_grid,
+            lat_output_grid=lat_output_grid,
+            lon_output_grid=lon_output_grid,
+            in_center=torch.zeros(2),
+            in_scale=torch.ones(2),
+            invariant_center=torch.zeros(2),
+            invariant_scale=torch.ones(2),
+            out_center=torch.zeros(2),
+            out_scale=torch.ones(2),
+            invariants=invariants,
+        )
+
+        # Check that invariants are registered
+        assert hasattr(model, "invariants")
+        assert model.invariants is not None
+        assert model.invariant_variables == ["orography", "landsea_mask"]
+
+        # Check that input normalization includes invariants
+        assert model.in_center.shape == (1, 4, 1, 1)  # 2 input + 2 invariant
+        assert model.in_scale.shape == (1, 4, 1, 1)  # 2 input + 2 invariant
