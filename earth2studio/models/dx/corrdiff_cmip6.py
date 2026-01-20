@@ -50,10 +50,13 @@ except ImportError:  # pragma: no cover
 class CorrDiffCMIP6(CorrDiff):
     """CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
     can be used to downscale both in the spatial and temporal dimensions.
+    This model works with the :py:class:`earth2studio.data.CMIP6MultiRealm` data source.
 
     Note
     ----
-    This model works with the :py:class:`earth2studio.data.CMIP6MultiRealm` data source.
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/corrdiff-cmip6-era5
 
     Parameters
     ----------
@@ -121,7 +124,7 @@ class CorrDiffCMIP6(CorrDiff):
 
     Examples
     --------
-    Run a single forward pass to predict CMIP6->ERA5 at two times within input window
+    Run a single forward pass to predict CMIP6->ERA5 at two lead times within input window
 
     >>> model = CorrDiffCMIP6.load_model(
     ...     CorrDiffCMIP6.load_defualt_package(),
