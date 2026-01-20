@@ -88,8 +88,8 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
         oco = model.output_coords(model.input_coords())
 
         heights, height_coords = (
-            load_heights(cfg.orography_path)
-            if "orography_path" in cfg
+            load_heights(cfg.cyclone_tracking.orography_path)
+            if "orography_path" in cfg.cyclone_tracking
             else (None, None)
         )
 

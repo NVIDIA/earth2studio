@@ -1,21 +1,11 @@
-# cyclone tracking
+# Analysing and Plotting TC Tracks
 
-This script is used to analyse cyclone tracks extracted using this framework from either model output or from ERA5.
+## Notebooks
 
-## Usage
+- **`plot_tracks_n_fields.ipynb`** – Plotting tracks and fields for individual ensemble members
+- **`tracks_slayground.ipynb`** – Analysing and plotting complete tracks from a full ensemble run for a case study on a given storm
 
-```bash
-python analyse_n_plot_tracks.py
-```
+## Additional Information
 
-### individual storms
-
-set the `individual_storms` flag to `True` in `analyse_n_plot_tracks.py`.
-
-### ensemble of storms
-
-set the `ensemble_of_storms` flag to `True` in `analyse_n_plot_tracks.py`.
-
-
-## Output
-...
+- This directory includes Python scripts with methods for plotting and analysing results, which are called from the notebooks
+- Each notebook specifies at the beginning what data is required and how to produce it using the TC tracking pipeline

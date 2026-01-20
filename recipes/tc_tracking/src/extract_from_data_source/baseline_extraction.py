@@ -31,7 +31,11 @@ def extract_from_historic_data(cfg,
     coords["ensemble"] = np.array([0])
     coords.move_to_end("ensemble", last=False)
 
-    heights, height_coords = load_heights(cfg.orography_path)
+    heights, height_coords = (
+        load_heights(cfg.cyclone_tracking.orography_path)
+        if "orography_path" in cfg.cyclone_tracking
+        else (None, None)
+    )
 
     # set up TC tracking, add downloaded data and execute tracking algorithm
     cyclone_tracking = TempestExtremes(detect_cmd=cfg.cyclone_tracking.detect_cmd,

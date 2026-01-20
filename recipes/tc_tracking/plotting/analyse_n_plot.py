@@ -259,27 +259,6 @@ def analyse_ensemble_of_storms(cases, pred_track_dir, tru_track_dir, out_path):
     ensemble_metrics = reduce_over_all_storms(storm_metrics)
 
     plot_ensemble_mean_metrics(ens_means, out_path)
-    # plot average dist in space and intensity over lead time (reduced over all storms)
-
-    # print()
-    # print(f'{storm_metrics.keys()=}')
-    # print(f'{storm_metrics['case']=}')
-    # print(f'{storm_metrics['var']=}')
-    # print(f'{storm_metrics['metric']=}')
-    # print(f'{storm_metrics['data'].shape=}')
-    # print(f'{storm_metrics['weights'].shape=}')
-
-    # print()
-    # print(f'{ensemble_metrics.keys()=}')
-    # print(f'{ensemble_metrics['msl']['mae'].shape=}')
-    # print(f'{ensemble_metrics['n_members'].shape=}')
-
-    # print()
-    # print(f'{ens_means['helene_2024_north_atlantic'].keys()=}')
-    # print(f'{ens_means['helene_2024_north_atlantic']['mean'].keys()=}')
-    # print(f'{ens_means['helene_2024_north_atlantic']['time']=}')
-    # print(f'{ens_means['helene_2024_north_atlantic']['n_members'].shape=}')
-    # print(f'{ens_means['helene_2024_north_atlantic']['mean']['dist'].shape=}')
 
     return ensemble_metrics
 
@@ -312,11 +291,11 @@ def analyse_n_plot_tracks():
     individual_storms = False
     ensemble_of_storms = True
 
-    pred_track_dir = f"/home/mkoch/Documents/projects/fcn3_tcs/track_data/predictions/case_studies_256_mem_random_seed_issue/cyclone_tracks_te"
+    pred_track_dir = f"/path/to/predictions/cyclone_tracks_te"
     tru_track_dir = (
-        f"/home/mkoch/Documents/projects/fcn3_tcs/track_data/reference_tracks"
+        f"/path/to/reference_tracks"
     )
-    out_dir = f"/home/mkoch/Documents/projects/fcn3_tcs/plots/case_studies_256_random_seed_issue"
+    out_dir = f"./plots"
 
     if individual_storms:
         analyse_individual_storms(
