@@ -101,19 +101,10 @@ aifsens = [
 ]
 atlas = [
     "natten",
-    "earth2grid",
-    "nvw",
-    "zencfg",
-    "safetensors",
     "timm",
     "torch-harmonics",
-    "transformer_engine[pytorch]",
-    "transformers",
-    "accelerate",
-    "configmypy",
-    "diffusers",
     "einops",
-    "numba",
+    "nvidia-physicsnemo<2.0",
 ]
 aurora = [
     "microsoft-aurora>=1.6.0",

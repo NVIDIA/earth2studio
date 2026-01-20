@@ -26,6 +26,7 @@ from loguru import logger
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.auto.package import Package
 from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import handshake_coords, handshake_dim
@@ -36,16 +37,10 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from nvw import models as nvw_models
-    from nvw import training as nvw_training
-    from nvw.models.base_model import BaseModel as AtlasBaseModel
-    from nvw.stochastic.interpolants import StochasticInterpolant
+    from physicsnemo import Module
 except ImportError:
     OptionalDependencyFailure("atlas")
-    AtlasBaseModel = None
-    nvw_models = None
-    nvw_training = None
-    StochasticInterpolant = None
+    Module = None
 
 
 VARIABLES: list[str] = [
@@ -129,7 +124,6 @@ VARIABLES: list[str] = [
 # Helper for datetime convention compatible with nvw internal cos zenith calculation
 _EPOCH = datetime(1970, 1, 1)
 
-
 def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
     delta_us = (
         t.astype("datetime64[us]") - np.datetime64("1970-01-01T00:00:00", "us")
@@ -156,10 +150,6 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Model processor for the full-resolution physical state.
     sinterpolant : nn.Module
         Stochastic interpolant for the low-resolution latent state.
-    means : np.ndarray
-        Means for the full-resolution physical state.
-    stds : np.ndarray
-        Standard deviations for the full-resolution physical state.
     sinterpolant_sample_steps : int
         Number of steps to sample for the stochastic interpolant.
 
@@ -181,8 +171,6 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model: nn.Module,
         model_processor: nn.Module,
         sinterpolant: nn.Module,
-        means: np.ndarray,
-        stds: np.ndarray,
         sinterpolant_sample_steps: int = 60,
     ) -> None:
         super().__init__()
@@ -191,8 +179,6 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model = model
         self.model_processor = model_processor
         self.sinterpolant = sinterpolant
-        self.register_buffer("means", means)
-        self.register_buffer("stds", stds)
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
 
     def input_coords(self) -> CoordSystem:
@@ -520,7 +506,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default package for the Atlas model."""
         package = Package(
-            "/lustre/fsw/portfolios/nvr/projects/nvr_earth2_e2/users/pharrington/model_pkg/atlas",
+            "/lustre/fsw/portfolios/nvr/projects/nvr_earth2_e2/users/pharrington/model_pkg/atlas_mdlus_v1.3.0/",
             cache_options={
                 "cache_storage": Package.default_cache("atlas"),
                 "same_names": True,
@@ -542,35 +528,19 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         autoencoder_processors = nn.ModuleList()
         for i, ae_cfg in enumerate(modelpkg["autoencoders"]):
             ae_path = package.resolve(ae_cfg["model_path"])
-            ae_cls = getattr(nvw_models, config["model_meta"]["autoencoder_model"][i])
             aeprocessor_path = package.resolve(ae_cfg["processor_path"])
-            aeprocessor_cls = getattr(
-                nvw_training, config["model_meta"]["autoencoder_processor"][i]
-            )
-
-            ae = ae_cls.from_checkpoint(ae_path, map_location="cpu")
-            aeprocessor = aeprocessor_cls.from_checkpoint(
-                aeprocessor_path, map_location="cpu"
-            )
+            ae = Module.from_checkpoint(ae_path)
+            aeprocessor = Module.from_checkpoint(aeprocessor_path)
 
             autoencoders.append(ae)
             autoencoder_processors.append(aeprocessor)
 
-        model_cls = getattr(nvw_models, config["model_meta"]["genmodel_model"])
-        model_processor_cls = getattr(
-            nvw_training, config["model_meta"]["genmodel_processor"]
+        model = Module.from_checkpoint(
+            package.resolve(modelpkg["genmodel"]["model_path"])
         )
-        model = model_cls.from_checkpoint(
-            package.resolve(modelpkg["genmodel"]["model_path"]), map_location="cpu"
+        model_processor = Module.from_checkpoint(
+            package.resolve(modelpkg["genmodel"]["processor_path"])
         )
-        model_processor = model_processor_cls.from_checkpoint(
-            package.resolve(modelpkg["genmodel"]["processor_path"]), map_location="cpu"
-        )
-
-        means_path = package.resolve(modelpkg["stats"]["means"][0])
-        stds_path = package.resolve(modelpkg["stats"]["stds"][0])
-        means = torch.from_numpy(np.load(means_path)).to(dtype=torch.float32)
-        stds = torch.from_numpy(np.load(stds_path)).to(dtype=torch.float32)
 
         sinterpolant = StochasticInterpolant(
             alpha=config["sinterpolant"]["alpha"],
@@ -589,8 +559,6 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             autoencoder_processors=autoencoder_processors,
             model=model,
             model_processor=model_processor,
-            means=means,
-            stds=stds,
             sinterpolant=sinterpolant,
             sinterpolant_sample_steps=config["sinterpolant"]["sample_steps"],
         )
