@@ -506,7 +506,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default package for the Atlas model."""
         package = Package(
-            "/lustre/fsw/portfolios/nvr/projects/nvr_earth2_e2/users/pharrington/model_pkg/atlas_mdlus_v1.3.0/",
+            "hf://nvidia/atlas-era5@fdce0480c5e6f03d409089bf285f4bcc1d84519e",
             cache_options={
                 "cache_storage": Package.default_cache("atlas"),
                 "same_names": True,
