@@ -51,6 +51,7 @@ class GFSLexicon(metaclass=LexiconType):
         "tp": "596::APCP::surface",  # 3 hour acc
         "2d": "DPT::2 m above ground",
         "fg10m": "GUST::surface",  # Surface
+        "refc": "REFC::entire atmosphere",
         "u1": "UGRD::1 mb",
         "u2": "UGRD::2 mb",
         "u3": "UGRD::3 mb",
@@ -294,6 +295,14 @@ class GFSLexicon(metaclass=LexiconType):
             def mod(x: np.array) -> np.array:
                 """Modify data value (if necessary)."""
                 return x * 9.81
+
+        elif gfs_key.split("::")[1] == "APCP":
+
+            # TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
 
         else:
 

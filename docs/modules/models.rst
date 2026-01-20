@@ -80,9 +80,10 @@ etc.
    ClimateNet
    DerivedRH
    DerivedRHDewpoint
+   DerivedSurfacePressure
+   DerivedTCWV
    DerivedVPD
    DerivedWS
-   DerivedSurfacePressure
    PrecipitationAFNO
    PrecipitationAFNOv2
    SolarRadiationAFNO1H

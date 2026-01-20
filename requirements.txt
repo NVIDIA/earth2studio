@@ -6,7 +6,7 @@ aiobotocore==2.25.1
     # via s3fs
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.2
+aiohttp==3.13.3
     # via
     #   aiobotocore
     #   gcsfs
@@ -381,7 +381,7 @@ typing-extensions==4.15.0
     #   zarr
 tzdata==2025.2
     # via pandas
-urllib3==2.6.0
+urllib3==2.6.3
     # via
     #   botocore
     #   distributed
