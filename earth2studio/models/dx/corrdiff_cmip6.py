@@ -115,13 +115,13 @@ class CorrDiffCMIP6New(CorrDiff):
     time_feature_scale : torch.Tensor | None, optional
         Normalization scale for time features (sza, hod) of size [2], by default None
     output_lead_times: LeadTimeArray, optional
-        Output lead times to sample at. The default package is trained to support lead
-        times between [-12,12] at hourly intervalys, by default
-        np.array([np.timedelta64(-12, "h")])
+        Output lead times to sample at within the input time window. The default package
+        is trained to support lead times between [-12, 12] at hourly intervals, by
+        default np.array([np.timedelta64(-12, "h")])
 
     Examples
     --------
-    Run a single forward pass to predict CMIP6->ERA5
+    Run a single forward pass to predict CMIP6->ERA5 at two times within input window
 
     >>> model = CorrDiffCMIP6New.load_model(
     ...     CorrDiffCMIP6New.load_defualt_package(),
