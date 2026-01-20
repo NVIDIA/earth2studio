@@ -35,6 +35,10 @@ class CorrDiffCMIP6New(CorrDiff):
     """CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
     can be used to downscale both in the spatial and temporal dimensions.
 
+    Note
+    ----
+    This model works with the :py:class:`earth2studio.data.CMIP6MultiRealm` data source.
+
     Parameters
     ----------
     input_variables : Sequence[str]
@@ -693,13 +697,10 @@ class CorrDiffCMIP6New(CorrDiff):
                 f"solver must be either 'euler' or 'heun' but got {self.solver}"
             )
 
-        torch.save(x.cpu(), "input1_new.pt")
         # Preprocess input (CMIP6 requires valid_time)
         image_lr = self.preprocess_input(x, valid_time)
-        print(image_lr.shape)  # ([1, 83, 768, 1536])
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
 
-        torch.save(image_lr.cpu(), "input2_new.pt")
         # Regression model (mean)
         image_reg = None
         if self.regression_model:
@@ -758,8 +759,6 @@ class CorrDiffCMIP6New(CorrDiff):
                     device=image_lr.device,
                     mean_hr=mean_hr,
                 )
-            torch.save(image_reg, "image_reg_new.pt")
-            torch.save(image_res, "image_res_new.pt")
             yi = self.postprocess_output(image_reg + image_res)
             if out is None:
                 out = torch.empty(
