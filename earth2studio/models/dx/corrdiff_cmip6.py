@@ -300,7 +300,6 @@ class CorrDiffCMIP6New(CorrDiff):
             time_feature_center = time_feature_center.view(1, -1, 1, 1)
             time_feature_scale = time_feature_scale.view(1, -1, 1, 1)
 
-            # print(self.in_center.shape)  # Should be torch.Size([1, 229, 1, 1])
             # Append time features after base variables and invariants
             self.in_center: torch.Tensor = torch.cat(  # type: ignore
                 [self.in_center, time_feature_center], dim=1
@@ -574,7 +573,6 @@ class CorrDiffCMIP6New(CorrDiff):
         for i in range(out.shape[2]):
             for j in range(out.shape[3]):
                 valid_time = output_coords["time"][i] + output_coords["lead_time"][j]
-                print(valid_time)
                 # Input to forward should be [b, l, c, h, w]
                 out[:, :, i, j] = self._forward(
                     x[:, i, :], pd.to_datetime(valid_time).to_pydatetime()
