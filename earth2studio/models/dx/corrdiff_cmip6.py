@@ -376,15 +376,11 @@ class CorrDiffCMIP6(CorrDiff):
     def load_default_package(cls) -> Package:
         """Load diagnostic package"""
         package = Package(
-            "ngc://models/<org>/<team>/<model>@<version>",
+            "hf://nvidia/corrdiff-cmip6-era5",  # TODO: tag commit
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cmip6"),
                 "same_names": True,
             },
-        )
-        raise NotImplementedError(
-            "CorrDiffCMIP6 default package URI is not configured yet. "
-            "Please replace the placeholder URI in CorrDiffCMIP6.load_default_package()."
         )
         return package
 
@@ -710,13 +706,14 @@ class CorrDiffCMIP6(CorrDiff):
             Denormalized output tensor x * scale + center
         """
         # 1) Crop padding added during preprocessing [S, C, H, W] (see _LAT_PAD, _LON_PAD)
+        print(x.shape)
         x = x[
             :,
             :,
             self._LAT_PAD[0] : -self._LAT_PAD[1],
             self._LON_PAD[0] : -self._LON_PAD[1],
         ]
-
+        print(x.shape)
         # 2) Denormalize (reuse base implementation)
         x = super().postprocess_output(x)
 
@@ -750,24 +747,29 @@ class CorrDiffCMIP6(CorrDiff):
 
         # Regression model (mean)
         image_reg = torch.empty(
-            (image_lr.shape[0], 1, len(self.output_variables), *image_lr.shape[-2:]),
+            (image_lr.shape[0], len(self.output_variables), *image_lr.shape[-2:]),
             device=x.device,
             dtype=image_lr.dtype,
         )
+        print(image_reg.shape, image_lr.shape)
         latents_shape = (1, len(self.output_variables), *image_lr.shape[-2:])
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             # CorrDiff utils do not support batches, so we in-efficiently loop
             for i in range(image_lr.shape[0]):
-                image_reg[i, 0] = regression_step(
+                image_reg[i] = regression_step(
                     net=self.regression_model,
                     img_lr=image_lr[i : i + 1],
                     latents_shape=latents_shape,
                 )
+                print(image_reg[i].shape)
 
         # Regression-only: all samples are identical (deterministic mean)
         if self.inference_mode == "regression":
-            return self.postprocess_output(image_reg).expand(
-                -1, self.number_of_samples, -1, -1, -1
+            print(image_reg.shape)
+            return (
+                self.postprocess_output(image_reg)
+                .unsqueeze(1)
+                .expand(-1, self.number_of_samples, -1, -1, -1)
             )
 
         # Compute base seed once (sample index added in loop)
