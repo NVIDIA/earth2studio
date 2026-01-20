@@ -94,9 +94,7 @@ def mock_regression_model():
 def cmip6_model_minimal(mock_residual_model, mock_regression_model):
     """Minimal CorrDiffCMIP6 instance suitable for unit tests."""
     n = 128
-    suffixes = ["_t-1", "_t", "_t+1"]
-    base_vars = ["siconc", "snc", "t2m"]
-    input_variables = [f"{v}{s}" for v in base_vars for s in suffixes]
+    input_variables = ["siconc", "snc", "t2m"]
     output_variables = ["u10m", "v10m", "t2m", "sp"]
 
     lat_in = torch.linspace(-1.0, 1.0, n)

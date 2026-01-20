@@ -123,8 +123,8 @@ class CorrDiffCMIP6(CorrDiff):
     --------
     Run a single forward pass to predict CMIP6->ERA5 at two times within input window
 
-    >>> model = CorrDiffCMIP6New.load_model(
-    ...     CorrDiffCMIP6New.load_defualt_package(),
+    >>> model = CorrDiffCMIP6.load_model(
+    ...     CorrDiffCMIP6.load_defualt_package(),
     ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
     ... )
     >>> model.seed = 1 # Set seed for reprod
@@ -706,14 +706,12 @@ class CorrDiffCMIP6(CorrDiff):
             Denormalized output tensor x * scale + center
         """
         # 1) Crop padding added during preprocessing [S, C, H, W] (see _LAT_PAD, _LON_PAD)
-        print(x.shape)
         x = x[
             :,
             :,
             self._LAT_PAD[0] : -self._LAT_PAD[1],
             self._LON_PAD[0] : -self._LON_PAD[1],
         ]
-        print(x.shape)
         # 2) Denormalize (reuse base implementation)
         x = super().postprocess_output(x)
 
@@ -751,7 +749,6 @@ class CorrDiffCMIP6(CorrDiff):
             device=x.device,
             dtype=image_lr.dtype,
         )
-        print(image_reg.shape, image_lr.shape)
         latents_shape = (1, len(self.output_variables), *image_lr.shape[-2:])
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             # CorrDiff utils do not support batches, so we in-efficiently loop
@@ -761,11 +758,9 @@ class CorrDiffCMIP6(CorrDiff):
                     img_lr=image_lr[i : i + 1],
                     latents_shape=latents_shape,
                 )
-                print(image_reg[i].shape)
 
         # Regression-only: all samples are identical (deterministic mean)
         if self.inference_mode == "regression":
-            print(image_reg.shape)
             return (
                 self.postprocess_output(image_reg)
                 .unsqueeze(1)
