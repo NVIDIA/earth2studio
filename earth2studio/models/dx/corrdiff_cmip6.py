@@ -147,7 +147,7 @@ class CorrDiffCMIP6(CorrDiff):
     >>>
     >>> x, coords = fetch_data(
     ...     source=data,
-    ...     time=np.array([np.datetime64("2037-09-06T12:00")]),
+    ...     time=np.array([np.datetime64("2037-09-06T12:00")]), # Time must be 12:00 UTC
     ...     lead_time=model.input_coords()["lead_time"],
     ...     variable=model.input_coords()["variable"],
     ...     device=device,
