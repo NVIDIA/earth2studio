@@ -14,7 +14,6 @@ license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
     "cftime",
-    "eccodes",
     "fsspec>=2024.2.0",
     "gcsfs",
     "h5py>=3.2.0",

@@ -1406,7 +1406,6 @@ source = { editable = "." }
 dependencies = [
     { name = "cfgrib" },
     { name = "cftime" },
-    { name = "eccodes" },
     { name = "fsspec" },
     { name = "gcsfs" },
     { name = "h5netcdf" },
@@ -1674,7 +1673,6 @@ requires-dist = [
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
     { name = "earthkit-regrid", marker = "extra == 'aifsens'", specifier = "==0.4.0" },
     { name = "earthkit-regrid", marker = "extra == 'all'", specifier = "==0.4.0" },
-    { name = "eccodes" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.38.0" },
     { name = "ecmwf-opendata", marker = "extra == 'aifs'", specifier = ">=0.3.3" },
@@ -1904,16 +1902,14 @@ wheels = [
 
 [[package]]
 name = "ecmwflibs"
-version = "0.6.3"
+version = "0.6.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "findlibs" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/6d/499d92a412aa82c9d7030566a4f9df208fdd95af4fce863d842189a94383/ecmwflibs-0.6.3-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:d949bb1dac472b9ae9800897ed72894240d0a6a484ce496af3624d4f02ebfb61", size = 44231306, upload-time = "2024-03-06T22:29:55.649Z" },
-    { url = "https://files.pythonhosted.org/packages/af/a0/d59eab9167b90c11f416a992b1258aa240e1761842ea548d300ca09f9fea/ecmwflibs-0.6.3-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:258ce3b7c5a1e4381ba5aa9b4c1a6c4d3d8336ff7fb40a9b3509e4c42cf3bae8", size = 42850191, upload-time = "2024-03-06T22:09:17.932Z" },
-    { url = "https://files.pythonhosted.org/packages/e0/34/9c6b3ed7cde581983b99f0f0677cac76c6f3354f0eefdbad0584ba92aad4/ecmwflibs-0.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8f0e641b12152bc329fef7a63bc0a8432d3869094a28743ab5d2e80d928a337b", size = 78422939, upload-time = "2024-03-06T22:22:34.224Z" },
-    { url = "https://files.pythonhosted.org/packages/38/2b/0611f8fb19a1878fa75a07ef46c025b5228e09d26fbaa8f25b47affa4a08/ecmwflibs-0.6.3-cp311-cp311-win_amd64.whl", hash = "sha256:400cf97dea913c3032b6a191fb2c19c363c1b1f622d5cacb1035750ffdbde8bd", size = 44371435, upload-time = "2024-03-06T22:57:29.391Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/de/5ad5d37391c7229ebab792753f57118bac690edceb4e41be99df26b1e6b3/ecmwflibs-0.6.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:0ddf7bad829e89fe95fb45553f299ed36a62db738bc54f47cb1708b36d8a8adb", size = 44231275, upload-time = "2024-03-06T21:49:06.005Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/2f/5cd431923255f83e72b1f76408668e25d65ef02a4c5ada13682e076e1a13/ecmwflibs-0.6.2-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:d9caf71447d43820d589f1210747d79e888783de7b978052663ca8d4e8f3cd67", size = 42870729, upload-time = "2024-03-06T21:43:24.612Z" },
 ]
 
 [[package]]
