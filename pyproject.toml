@@ -67,7 +67,7 @@ data = [
     "httpx==0.28.1",
     "rasterio>=1.3.9",
     "rioxarray>=0.15.5",
-    "pyproj>=3.7.1",
+    "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
     "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
 ]
