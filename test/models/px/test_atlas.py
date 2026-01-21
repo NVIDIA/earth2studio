@@ -23,7 +23,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Atlas
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
 
 
 class PhooAtlasModel(torch.nn.Module):
@@ -64,6 +64,9 @@ class PhooNormalizer(torch.nn.Module):
     def normalize(self, x):
         return x
 
+    def unnormalize(self, x):
+        return x
+
 
 class PhooProcessor(torch.nn.Module):
     """Dummy processor for testing."""
@@ -71,6 +74,7 @@ class PhooProcessor(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.normalizer_in = PhooNormalizer()
+        self.normalizer_out = PhooNormalizer()
         self.downsample_grid_shape = (181, 360)
 
     def forward(self, x):
@@ -99,7 +103,7 @@ class PhooSinterpolant(torch.nn.Module):
 @pytest.fixture()
 def atlas_test_components():
     """Create dummy Atlas model components for testing."""
-    n_vars = 75  # Atlas has 73 variables
+    n_vars = 75
 
     # Create dummy components
     autoencoders = torch.nn.ModuleList([PhooAutoencoder() for _ in range(n_vars)])
@@ -110,18 +114,12 @@ def atlas_test_components():
     model_processor = PhooProcessor()
     sinterpolant = PhooSinterpolant()
 
-    # Create dummy normalization statistics
-    means = torch.zeros(n_vars, 721, 1440)
-    stds = torch.ones(n_vars, 721, 1440)
-
     return {
         "autoencoders": autoencoders,
         "autoencoder_processors": autoencoder_processors,
         "model": model,
         "model_processor": model_processor,
         "sinterpolant": sinterpolant,
-        "means": means,
-        "stds": stds,
         "sinterpolant_sample_steps": 60,
     }
 
@@ -306,12 +304,6 @@ def test_atlas_prep_next_input(atlas_test_components, batch_size, device):
     coords_pred["time"] = coords["time"]
 
     # Call prep_next_input
-    print(
-        x_pred.shape,
-        [(k, v.shape) for k, v in coords_pred.items()],
-        x.shape,
-        [(k, v.shape) for k, v in coords.items()],
-    )
     x_next, coords_next = p.prep_next_input(x_pred, coords_pred, x, coords)
 
     # Check that x_next has the correct shape
@@ -400,7 +392,7 @@ def test_atlas_input_coords(atlas_test_components):
     assert coords["lead_time"][0] == np.timedelta64(-6, "h")
     assert coords["lead_time"][1] == np.timedelta64(0, "h")
 
-    # Check variable count (66 for Atlas)
+    # Check variable count
     assert len(coords["variable"]) == 75
 
     # Check spatial dimensions
@@ -438,3 +430,48 @@ def test_atlas_output_coords(atlas_test_components):
     # Check spatial dimensions match input
     assert len(output_coords["lat"]) == len(input_coords["lat"])
     assert len(output_coords["lon"]) == len(input_coords["lon"])
+
+
+@pytest.mark.package
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_atlas_package(device):
+    """Test that Atlas loads from package and runs a forward pass."""
+    torch.cuda.empty_cache()
+
+    model = Atlas.load_model(Atlas.load_default_package()).to(device)
+    model.sinterpolant_sample_steps = 4  # reduce sample steps for testing
+
+    batch_size = 1
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    input_coords = model.input_coords()
+    lead_time = input_coords["lead_time"]
+    variable = input_coords["variable"]
+    lat = len(input_coords["lat"])
+    lon = len(input_coords["lon"])
+
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(lead_time),
+        len(variable),
+        lat,
+        lon,
+        device=device,
+    )
+
+    input_coords["batch"] = np.arange(batch_size)
+    input_coords["time"] = time
+
+    output, output_coords = model(x, input_coords)
+    expected_coords = model.output_coords(input_coords)
+
+    assert output.shape == (
+        batch_size,
+        len(time),
+        len(expected_coords["lead_time"]),
+        len(variable),
+        lat,
+        lon,
+    )
+    for key in expected_coords:
+        handshake_coords(output_coords, expected_coords, key)

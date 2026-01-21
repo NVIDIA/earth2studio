@@ -121,8 +121,9 @@ VARIABLES: list[str] = [
     "tp",
 ]
 
-# Helper for datetime convention compatible with nvw internal cos zenith calculation
+# Helper for datetime convention compatible with custom cos zenith calculation
 _EPOCH = datetime(1970, 1, 1)
+
 
 def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
     delta_us = (
@@ -188,7 +189,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         -----
         - Lead times are fixed to [-6h, 0h].
         - Variables are defined by the module-level `VARIABLES`.
-        - Spatial grid is 0.25° lat-lon: 721 latitudes (-90..90), 1440 longitudes (0..360).
+        - Spatial grid is 0.25° lat-lon: 721 latitudes, 1440 longitudes.
 
         Returns
         -------
@@ -207,7 +208,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
                 "lon": np.linspace(
-                    0.0, 360.0 - (360.0 / 1440.0), 1440, dtype=np.float32
+                    0.0,
+                    360.0,
+                    1440,
+                    dtype=np.float32,
+                    endpoint=False,
                 ),
             }
         )
@@ -240,7 +245,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(VARIABLES),
                 "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
                 "lon": np.linspace(
-                    0.0, 360.0 - (360.0 / 1440.0), 1440, dtype=np.float32
+                    0.0,
+                    360.0,
+                    1440,
+                    dtype=np.float32,
+                    endpoint=False,
                 ),
             }
         )
@@ -337,7 +346,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         current_date = np.array([[npdt64_to_naive_utc(t)]])
 
         # Preprocess to build high/low-res latent/state
-        self.model_processor.add_noise = False  # TODO needed or not?
+        self.model_processor.add_noise = False
         high_res, low_res = self.model_processor.preprocess_input(x_cur, current_date)
         if prev_latent is not None:
             low_res = prev_latent.clone()
@@ -432,7 +441,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         output_coords = self.output_coords(coords)
         out = torch.empty_like(x[:, :, :1])
-        latents_out: list[list[torch.Tensor]] = [
+        latents_out: list[list[torch.Tensor | None]] = [
             [None for _ in coords["time"]] for _ in coords["batch"]
         ]
 
@@ -509,7 +518,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "hf://nvidia/atlas-era5@fdce0480c5e6f03d409089bf285f4bcc1d84519e",
             cache_options={
                 "cache_storage": Package.default_cache("atlas"),
-                "same_names": True,
+                "same_names": False,  # prevents overwrites from files with same name in different directories
             },
         )
         return package
