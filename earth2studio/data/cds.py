@@ -26,7 +26,6 @@ from typing import Any
 
 import numpy as np
 import xarray as xr
-from cfgrib.xarray_to_grib import to_grib
 from loguru import logger
 from tqdm import tqdm
 
@@ -40,6 +39,7 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
     import cdsapi
+    from cfgrib.xarray_to_grib import to_grib
 except ImportError:
     OptionalDependencyFailure("data")
     cdsapi = None
@@ -208,7 +208,7 @@ class CDS:
         )
 
         for i, request in enumerate(requests):
-            # Open into xarray data-array
+            # Open into xarray data-array, TODO pygrib
             grib = xr.open_dataarray(
                 return_dict[i], engine="cfgrib", backend_kwargs={"indexpath": ""}
             )
