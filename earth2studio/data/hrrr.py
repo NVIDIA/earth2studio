@@ -21,7 +21,6 @@ import hashlib
 import os
 import pathlib
 import shutil
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -29,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 import gcsfs
 import nest_asyncio
 import numpy as np
+import pygrib
 import s3fs
 import xarray as xr
 from fsspec.implementations.http import HTTPFileSystem
@@ -48,18 +48,13 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 try:
-    import pygrib
     import pyproj
 except ImportError:
     OptionalDependencyFailure("data")
     pyproj = None
-    pygrib = None
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-# Silence FutureWarning from cfgrib
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 @dataclass
@@ -514,6 +509,10 @@ class HRRR:
         # Load with pygrib, xarray with cfgrib is 10x slower and leaks memory
         try:
             grbs = pygrib.open(grib_file)
+        except Exception as e:
+            logger.error(f"Failed to open grib file {grib_file}")
+            raise e
+        try:
             values = modifier(grbs[1].values)
         except Exception as e:
             logger.error(f"Failed to read grib file {grib_file}")
