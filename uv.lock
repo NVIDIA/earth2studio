@@ -1406,6 +1406,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cfgrib" },
     { name = "cftime" },
+    { name = "eccodeslib" },
     { name = "fsspec" },
     { name = "gcsfs" },
     { name = "h5netcdf" },
@@ -1455,7 +1456,6 @@ all = [
     { name = "earth2grid" },
     { name = "earthkit-regrid" },
     { name = "eccodes" },
-    { name = "eccodeslib" },
     { name = "ecmwf-opendata" },
     { name = "ecmwflibs" },
     { name = "einops" },
@@ -1515,7 +1515,6 @@ cyclone = [
 data = [
     { name = "cdsapi" },
     { name = "eccodes" },
-    { name = "eccodeslib" },
     { name = "ecmwf-opendata" },
     { name = "globus-sdk" },
     { name = "httpx" },
@@ -1677,8 +1676,7 @@ requires-dist = [
     { name = "earthkit-regrid", marker = "extra == 'all'", specifier = "==0.4.0" },
     { name = "eccodes", marker = "extra == 'all'", specifier = ">=2.38.0" },
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.38.0" },
-    { name = "eccodeslib", marker = "extra == 'all'" },
-    { name = "eccodeslib", marker = "extra == 'data'" },
+    { name = "eccodeslib" },
     { name = "ecmwf-opendata", marker = "extra == 'aifs'", specifier = ">=0.3.3" },
     { name = "ecmwf-opendata", marker = "extra == 'aifsens'", specifier = ">=0.3.3" },
     { name = "ecmwf-opendata", marker = "extra == 'all'", specifier = ">=0.3.3" },

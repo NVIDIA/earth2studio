@@ -14,6 +14,7 @@ license = "Apache-2.0"
 dependencies = [
     "cfgrib >= 0.9.10.3",
     "cftime",
+    "eccodeslib",
     "fsspec>=2024.2.0",
     "gcsfs",
     "h5py>=3.2.0",
@@ -60,7 +61,6 @@ data = [
     "cdsapi>=0.7.5",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
-    "eccodeslib",
     "intake-esgf>=2025.9.26",
     "planetary-computer>=0.5.0",
     "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
