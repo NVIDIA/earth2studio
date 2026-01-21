@@ -60,7 +60,7 @@ class MRMS:
     ----------
     max_offset_minutes : float, optional
         Time tolerance in minutes to search for the nearest available MRMS
-        file to the requested timestamp, by default 0 (exact match only).
+        file to the requested timestamp, by default 10 minutes.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
     verbose : bool, optional

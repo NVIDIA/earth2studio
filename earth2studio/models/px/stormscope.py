@@ -963,9 +963,11 @@ class StormScopeGOES(StormScopeBase):
     """StormScope model forecasting GOES data on the HRRR grid.
 
     This model supports multiple variants at different spatiotemporal resolutions:
+
       - 6km resolution, 60 minute timestep
       - 6km resolution, 10 minute timestep
       - 3km resolution, 10 minute timestep
+
     Selection between these can be made by passing the ``model_name argument`` to this
     class's ``load_model`` method.
 
