@@ -180,7 +180,7 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
 
         if cyclone_tracking and (not stability_check or stab.all()):
             cyclone_tracking(
-                out_file_names=[
+                out_file_names=[  # TODO add seed only for FCN3 members, as the seed in AIFS is not exposed. also check for netcdf output
                     f"tracks_{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}_seed_{seed}_bs_{cfg.batch_size}.csv"
                     for mem in mems
                 ]

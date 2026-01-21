@@ -107,8 +107,7 @@ def extract_from_ibtracs(cfg, ibtracs, case, time_step):
 
 def match_tracks(ib_storm, hist_tracks, case):
     # add time as np.datetime64
-    times = np.array([pd.to_datetime(f'{hist_tracks["year"].iloc[jj]}-{int(hist_tracks.iloc[jj]["month"]):02d}-{int(hist_tracks.iloc[jj]["day"]):02d} {int(hist_tracks.iloc[jj]["hour"]):02d}:00:00') for jj in range(len(hist_tracks))])#.astype('datetime64[h]')
-    # hist_tracks.drop(columns=['year', 'month', 'day', 'hour', 'i', 'j', 'track_id'], inplace=True)
+    times = np.array([pd.to_datetime(f'{hist_tracks["year"].iloc[jj]}-{int(hist_tracks.iloc[jj]["month"]):02d}-{int(hist_tracks.iloc[jj]["day"]):02d} {int(hist_tracks.iloc[jj]["hour"]):02d}:00:00') for jj in range(len(hist_tracks))])
     hist_tracks.insert(0, 'time', times)
 
     n_tracks = hist_tracks['track_id'].nunique()

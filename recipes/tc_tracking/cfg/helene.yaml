@@ -1,22 +1,14 @@
 project: 'helene'
 mode: 'generate_ensemble'
-model: 'aifs' # 'fcn3' 'aifs'
-random_seed: 7777
+model: 'fcn3' # 'fcn3' 'aifs'
 
-# ic_block_start: "2024-09-23 00:00:00" # first IC
-# ic_block_end: "2024-09-27 00:00:00" # upper boundary for ICs
-# ic_block_step: 24            # number of hours between individual ICs
-ics: ["2024-09-24 00:00:00"] #, "2024-09-24 06:00:00"] #, "2024-09-24 12:00:00"]
-
+ics: ["2024-09-24 00:00:00"]
 n_steps: 28
 ensemble_size: 16
 batch_size: 2
 
 data_source:
-    # _target_: earth2studio.data.NCAR_ERA5
-    # _target_: earth2studio.data.GFS
-    # _target_: earth2studio.data.IFS
-    _target_: earth2studio.data.CDS
+    _target_: earth2studio.data.NCAR_ERA5
 
 store_type: "netcdf"
 store_dir: "./outputs_${project}"
@@ -32,6 +24,10 @@ cyclone_tracking:
     use_ram: True
     task_timeout_seconds: 120
     print_te_output: False
+
+stability_check:
+    variables: ['t1000', 'u250', 'v850']
+    thresholds: [10, 10, 10]
 
 # hydra logs
 hydra:

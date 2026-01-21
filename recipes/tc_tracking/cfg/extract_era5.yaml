@@ -54,9 +54,9 @@ cases:
     #     year: 2024
     #     basin: north_atlantic
 
-    helene:
-        year: 2024
-        basin: north_atlantic
+    # helene:
+    #     year: 2024
+    #     basin: north_atlantic
 
     # lan:
     #     year: 2017
@@ -82,39 +82,19 @@ cases:
     #     year: 2017
     #     basin: southern_pacific
 
+# ibtracs file for hato and helene only. obtain full data at https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
 ibtracs_source_data: "./test/aux_data/ibtracs.HATO_HELENE.list.v04r01.csv"
 
 data_source:
-    # h5_era5_train:
-    #     years: "1980-2016"
-    #     source:
-    #         _target_: src.data.localh5.LocalArchiveHDF5
-    #         dirs: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/train"
-    #         metadata_file: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/metadata/data.json"
-
-    # h5_era5_test:
-    #     years: 2017
-    #     source:
-    #         _target_: src.data.localh5.LocalArchiveHDF5
-    #         dirs: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/test"
-    #         metadata_file: "/lustre/fsw/coreai_climate_earth2/datasets/era5_75var/metadata/data.json"
-
-    # h5_era5_oos:
-    #     years: "2018-2022"
-    #     source:
-    #         _target_: src.data.localh5.LocalArchiveHDF5
-    #         dirs: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/out_of_sample"
-    #         metadata_file: "/lustre/fsw/coreai_climate_earth2/tkurth/73varQ-hourly/metadata/data.json"
-
-    ncar_era5:
-        years: "2017-2024"
+    era5_train:
+        years: "1980-2017"
         source:
             _target_: earth2studio.data.NCAR_ERA5
 
-    # gfs:
-    #     years: "2025"
-    #     source:
-    #         _target_: earth2studio.data.GFS
+    era5_oos:
+        years: "2018-2022"
+        source:
+            _target_: earth2studio.data.CDS
 
 store_dir: "./outputs_${project}"
 
