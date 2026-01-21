@@ -810,7 +810,7 @@ class CorrDiffCMIP6(CorrDiff):
                         device=image_lr.device,
                         mean_hr=mean_hr,
                     )
-                    out[i, j] = self.postprocess_output(image_reg[i, 0] + image_res).to(
+                    out[i, j] = self.postprocess_output(image_reg[i] + image_res).to(
                         out_device
                     )
 
