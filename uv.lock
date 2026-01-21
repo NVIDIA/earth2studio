@@ -1435,12 +1435,14 @@ aifs = [
     { name = "anemoi-models" },
     { name = "earthkit-regrid" },
     { name = "ecmwf-opendata" },
+    { name = "ecmwflibs" },
     { name = "flash-attn" },
 ]
 aifsens = [
     { name = "anemoi-models" },
     { name = "earthkit-regrid" },
     { name = "ecmwf-opendata" },
+    { name = "ecmwflibs" },
     { name = "flash-attn" },
 ]
 all = [
@@ -1454,6 +1456,7 @@ all = [
     { name = "earthkit-regrid" },
     { name = "eccodes" },
     { name = "ecmwf-opendata" },
+    { name = "ecmwflibs" },
     { name = "einops" },
     { name = "flash-attn" },
     { name = "flax" },
@@ -1512,6 +1515,7 @@ data = [
     { name = "cdsapi" },
     { name = "eccodes" },
     { name = "ecmwf-opendata" },
+    { name = "ecmwflibs" },
     { name = "globus-sdk" },
     { name = "httpx" },
     { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -1676,6 +1680,10 @@ requires-dist = [
     { name = "ecmwf-opendata", marker = "extra == 'aifsens'", specifier = ">=0.3.3" },
     { name = "ecmwf-opendata", marker = "extra == 'all'", specifier = ">=0.3.3" },
     { name = "ecmwf-opendata", marker = "extra == 'data'", specifier = ">=0.3.3" },
+    { name = "ecmwflibs", marker = "extra == 'aifs'" },
+    { name = "ecmwflibs", marker = "extra == 'aifsens'" },
+    { name = "ecmwflibs", marker = "extra == 'all'" },
+    { name = "ecmwflibs", marker = "extra == 'data'" },
     { name = "einops", marker = "extra == 'all'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
@@ -1892,6 +1900,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b6/16/074aee6fd1fa21b6445fb8429a16c50dac91053b66f3c99ada86b09665e2/ecmwf_opendata-0.3.26.tar.gz", hash = "sha256:8b49eed2282c167e50663b38768631a5b6d758fd947c4ea764d37433ac92523a", size = 28873, upload-time = "2025-12-04T15:08:29.677Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/56/74/7795b50a4a74dd0d9b8f8b028912878da0e64969eb4889e64b7a75aeef63/ecmwf_opendata-0.3.26-py3-none-any.whl", hash = "sha256:e158bab54f86908dbc634c1660a527bd1d27dbe26ba4d8484f622cd8565185d6", size = 21818, upload-time = "2025-12-04T15:08:28.531Z" },
+]
+
+[[package]]
+name = "ecmwflibs"
+version = "0.6.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "findlibs" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/6d/499d92a412aa82c9d7030566a4f9df208fdd95af4fce863d842189a94383/ecmwflibs-0.6.3-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:d949bb1dac472b9ae9800897ed72894240d0a6a484ce496af3624d4f02ebfb61", size = 44231306, upload-time = "2024-03-06T22:29:55.649Z" },
+    { url = "https://files.pythonhosted.org/packages/af/a0/d59eab9167b90c11f416a992b1258aa240e1761842ea548d300ca09f9fea/ecmwflibs-0.6.3-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:258ce3b7c5a1e4381ba5aa9b4c1a6c4d3d8336ff7fb40a9b3509e4c42cf3bae8", size = 42850191, upload-time = "2024-03-06T22:09:17.932Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/34/9c6b3ed7cde581983b99f0f0677cac76c6f3354f0eefdbad0584ba92aad4/ecmwflibs-0.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8f0e641b12152bc329fef7a63bc0a8432d3869094a28743ab5d2e80d928a337b", size = 78422939, upload-time = "2024-03-06T22:22:34.224Z" },
+    { url = "https://files.pythonhosted.org/packages/38/2b/0611f8fb19a1878fa75a07ef46c025b5228e09d26fbaa8f25b47affa4a08/ecmwflibs-0.6.3-cp311-cp311-win_amd64.whl", hash = "sha256:400cf97dea913c3032b6a191fb2c19c363c1b1f622d5cacb1035750ffdbde8bd", size = 44371435, upload-time = "2024-03-06T22:57:29.391Z" },
 ]
 
 [[package]]
@@ -4407,7 +4429,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -4419,7 +4441,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
@@ -4447,9 +4469,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
-    { name = "nvidia-cusparse-cu12" },
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
@@ -4461,7 +4483,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
@@ -7327,7 +7349,7 @@ name = "triton"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools" },
+    { name = "setuptools", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/39/43325b3b651d50187e591eefa22e236b2981afcebaefd4f2fc0ea99df191/triton-3.4.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7b70f5e6a41e52e48cfc087436c8a28c17ff98db369447bcaff3b887a3ab4467", size = 155531138, upload-time = "2025-07-30T19:58:29.908Z" },
