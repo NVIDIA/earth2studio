@@ -72,7 +72,7 @@ class MockPhysicsNemoModule(torch.nn.Module):
         return self
 
     @classmethod
-    def from_checkpoint(cls, path):
+    def from_checkpoint(cls, path, strict=False):
         inst = cls()
         cls.created.append(inst)
         return inst
