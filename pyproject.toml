@@ -89,14 +89,12 @@ ace2 = [
 aifs = [
     "anemoi-models==0.5.1",
     "earthkit-regrid==0.4.0",
-    "ecmwflibs",
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
 aifsens = [
     "anemoi-models==0.5.1",
     "earthkit-regrid==0.4.0",
-    "ecmwflibs",
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
