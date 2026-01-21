@@ -72,7 +72,7 @@ class MockPhysicsNemoModule(torch.nn.Module):
         return self
 
     @classmethod
-    def from_checkpoint(cls, path):
+    def from_checkpoint(cls, path, strict=False):
         inst = cls()
         cls.created.append(inst)
         return inst
@@ -899,7 +899,6 @@ class TestCorrDiffLoadModel:
         self, mock_package, temp_model_files
     ):
         """Ensure `load_model(device=...)` applies `.to(device)` before `channels_last`.
-
         Why this matters:
         - `channels_last` conversion should happen after moving the model to the target
           device, because the memory-format optimization is device-dependent.
@@ -932,7 +931,6 @@ class TestCorrDiffLoadModel:
         self, mock_package, temp_model_files
     ):
         """If CUDA is available, verify `load_model(device='cuda:0')` places buffers on GPU.
-
         This complements the CPU-only call-order test by validating actual tensor placement
         on CUDA (when available). We check representative buffers that must match the
         model's device to avoid implicit CPU↔GPU transfers during inference.
