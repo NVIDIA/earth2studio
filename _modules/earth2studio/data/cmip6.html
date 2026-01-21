@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.data.cmip6 &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>earth2studio.data.cmip6 &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -30,7 +30,7 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -44,13 +44,13 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/cmip6';</script>
@@ -65,7 +65,7 @@
     <link rel="search" title="Search" href="../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -1021,6 +1021,8 @@
 
 
 
+<div class="viewcode-block" id="CMIP6MultiRealm">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html#earth2studio.data.CMIP6MultiRealm">[docs]</a>
 <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CMIP6MultiRealm</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;CMIP6 data source for Earth2Studio with multiple realms.</span>
@@ -1083,6 +1085,8 @@
         <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="n">cmip6_source_list</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">available_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">available_variables</span><span class="p">)</span>
 
+<div class="viewcode-block" id="CMIP6MultiRealm.__call__">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html#earth2studio.data.CMIP6MultiRealm.__call__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
@@ -1177,8 +1181,11 @@
 
         <span class="c1"># Reorder variables to match the requested order</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">result</span>
+        <span class="k">return</span> <span class="n">result</span></div>
 
+
+<div class="viewcode-block" id="CMIP6MultiRealm.available">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html#earth2studio.data.CMIP6MultiRealm.available">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
@@ -1205,8 +1212,8 @@
 <span class="sd">        time availability. For multiple sources, this can result in significant</span>
 <span class="sd">        data transfer.</span>
 
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
 <span class="sd">        This method checks that ALL sources have data available at the requested time,</span>
 <span class="sd">        since combining multi-realm data requires data from all sources. Each source</span>
 <span class="sd">        is checked by downloading at least one file to verify the time coordinate range.</span>
@@ -1225,7 +1232,8 @@
             <span class="p">):</span>
                 <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -1365,7 +1373,8 @@
         <span class="n">coords</span> <span class="o">=</span> <span class="n">target_da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">da_curvilinear</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">regridded_data</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">target_da</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">regridded_data</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">target_da</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">)</span></div>
+
 </pre></div>
 
                 </article>
@@ -1416,7 +1425,7 @@
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Data Sources &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>Data and Forecast Sources &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -45,13 +45,13 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/components/datasources';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="Diagnostic Models" href="diagnostic.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -385,7 +385,7 @@
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Data Sources</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Data and Forecast Sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="perturbation.html">Perturbations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="io.html">Output Handling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="statistics.html">Statistics</a></li>
@@ -454,7 +454,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Data Sources</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Data and Forecast Sources</span></li>
   </ul>
 </nav>
 </div>
@@ -471,8 +471,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="data-sources">
-<span id="datasources-userguide"></span><h1>Data Sources<a class="headerlink" href="#data-sources" title="Link to this heading">#</a></h1>
+  <section id="data-and-forecast-sources">
+<span id="datasources-userguide"></span><h1>Data and Forecast Sources<a class="headerlink" href="#data-and-forecast-sources" title="Link to this heading">#</a></h1>
 <p>Datasources are objects that offer a simple API to access a “dataset” of weather/climate
 data at a certain index.
 Many implemented in the package provide access to data generated from numerical models,
@@ -546,69 +546,6 @@ results from a predictive model.</p>
 <span class="sd">            ids.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
-
-
-<span class="nd">@runtime_checkable</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ForecastSource</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Forecast source interface&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
-        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
-        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
-<span class="sd">            Datetime, list of datetimes or array of np.datetime64 to return data for.</span>
-<span class="sd">        lead_time: timedelta | list[timedelta], LeadTimeArray</span>
-<span class="sd">            Timedelta, list of timedeltas or array of np.timedelta that refers to the</span>
-<span class="sd">            forecast lead time to fetch.</span>
-<span class="sd">        variable : str | list[str] | VariableArray</span>
-<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            An xarray data-array with the dimensions [time, variable, lead_time, ...].</span>
-<span class="sd">            The coords should be provided. Time coordinate should be a TimeArray,</span>
-<span class="sd">            lead time coordinate a LeadTimeArray and the variable coordinate should be</span>
-<span class="sd">            an array of strings with Earth2Studio variable ids.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
-
-    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
-        <span class="n">lead_time</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">|</span> <span class="n">LeadTimeArray</span><span class="p">,</span>
-        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data. Async forecast sources support this.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
-<span class="sd">            Datetime, list of datetimes or array of np.datetime64 to return data for.</span>
-<span class="sd">        lead_time: timedelta | list[timedelta], LeadTimeArray</span>
-<span class="sd">            Timedelta, list of timedeltas or array of np.timedelta that refers to the</span>
-<span class="sd">            forecast lead time to fetch.</span>
-<span class="sd">        variable : str | list[str] | VariableArray</span>
-<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
-<span class="sd">            return.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        xr.DataArray</span>
-<span class="sd">            An xarray data-array with the dimensions [time, variable, lead_time, ...].</span>
-<span class="sd">            The coords should be provided. Time coordinate should be a TimeArray,</span>
-<span class="sd">            lead time coordinate a LeadTimeArray and the variable coordinate should be</span>
-<span class="sd">            an array of strings with Earth2Studio variable ids.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -617,6 +554,19 @@ results from a predictive model.</p>
 data which is stored in the Earth2Studio cache. See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">Configuration</span></a> for
 details on how to customize this location.</p>
 </div>
+<section id="beyond-n-d-array-data">
+<h3>Beyond N-D Array Data<a class="headerlink" href="#beyond-n-d-array-data" title="Link to this heading">#</a></h3>
+<p>Earth2Studio attempts to stick with N-D array data structures when possible,
+however this is not always possible or practical.
+As a result, Earth2Studio also supports remote data sources for tabular data which is
+typically used when sparse observations / measurements are involved.</p>
+<ul class="simple">
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.DataFrameSource</span></code></p></li>
+<li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.ForecastFrameSource</span></code></p></li>
+</ul>
+<p>The call signatures mirror data/forecast sources; the difference is the return type: a
+pandas DataFrame (tabular) instead of an Xarray DataArray.</p>
+</section>
 </section>
 <section id="data-source-usage">
 <h2>Data Source Usage<a class="headerlink" href="#data-source-usage" title="Link to this heading">#</a></h2>
@@ -758,7 +708,10 @@ the repo and we can discuss.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-source-interface">Data Source Interface</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-source-interface">Data Source Interface</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#beyond-n-d-array-data">Beyond N-D Array Data</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-source-usage">Data Source Usage</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-data-fetch-data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data.fetch_data</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-data-prep-data-array"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data.prep_data_array</span></code></a></li>
@@ -812,7 +765,7 @@ the repo and we can discuss.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

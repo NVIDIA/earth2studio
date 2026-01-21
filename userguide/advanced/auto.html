@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>AutoModels &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>AutoModels &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -45,13 +45,13 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/advanced/auto';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="Batch Dimension" href="batch.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -385,7 +385,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
@@ -505,11 +505,11 @@ Any automodel in Earth2Studio needs to implement both the
 <code class="xref py py-func docutils literal notranslate"><span class="pre">load_default_package()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">load_model()</span></code> functions.</p>
 <dl class="py class">
 <dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">AutoModelMixin</span></span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.auto.</span></span><span class="sig-name descname"><span class="pre">AutoModelMixin</span></span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Abstract class that defines the utils needed auto loading / instantiating models</p>
 <dl class="py method">
 <dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Loads the default model package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -523,7 +523,7 @@ Any automodel in Earth2Studio needs to implement both the
 
 <dl class="py method">
 <dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/earth2studio/models/auto/mixin.html#AutoModelMixin.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Instantiates and loads default model object from provided model package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -721,7 +721,7 @@ Fsspec and the specification it defines for advanced usage.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

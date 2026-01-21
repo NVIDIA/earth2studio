@@ -1,0 +1,1442 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.models.dx.corrdiff_cmip6 &#8212; Earth2Studio 0.12.0a0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/dx/corrdiff_cmip6';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.12" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.models.dx.corrdiff_cmip6</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.models.dx.corrdiff_cmip6</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">Package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx.corrdiff</span><span class="w"> </span><span class="kn">import</span> <span class="n">CorrDiff</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handshake_coords</span><span class="p">,</span> <span class="n">handshake_dim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">LeadTimeArray</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span> <span class="k">as</span> <span class="n">PhysicsNemoModule</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.corrdiff</span><span class="w"> </span><span class="kn">import</span> <span class="n">diffusion_step</span><span class="p">,</span> <span class="n">regression_step</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.zenith_angle</span><span class="w"> </span><span class="kn">import</span> <span class="n">cos_zenith_angle</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;corrdiff&quot;</span><span class="p">)</span>
+    <span class="n">diffusion_step</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
+    <span class="n">regression_step</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
+    <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
+
+
+<div class="viewcode-block" id="CorrDiffCMIP6">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html#earth2studio.models.dx.CorrDiffCMIP6">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CorrDiffCMIP6</span><span class="p">(</span><span class="n">CorrDiff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model</span>
+<span class="sd">    can be used to downscale both in the spatial and temporal dimensions.</span>
+<span class="sd">    This model works with the :py:class:`earth2studio.data.CMIP6MultiRealm` data source.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For more information see the following references:</span>
+
+<span class="sd">    - https://huggingface.co/nvidia/corrdiff-cmip6-era5</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_variables : Sequence[str]</span>
+<span class="sd">        List of input variable names</span>
+<span class="sd">    output_variables : Sequence[str]</span>
+<span class="sd">        List of output variable names</span>
+<span class="sd">    residual_model : torch.nn.Module</span>
+<span class="sd">        Core pytorch model for diffusion step</span>
+<span class="sd">    regression_model : torch.nn.Module</span>
+<span class="sd">        Core pytorch model for regression step</span>
+<span class="sd">    lat_input_grid : torch.Tensor</span>
+<span class="sd">        Input latitude grid of size [in_lat]</span>
+<span class="sd">    lon_input_grid : torch.Tensor</span>
+<span class="sd">        Input longitude grid of size [in_lon]</span>
+<span class="sd">    lat_output_grid : torch.Tensor</span>
+<span class="sd">        Output latitude grid of size [out_lat]</span>
+<span class="sd">    lon_output_grid : torch.Tensor</span>
+<span class="sd">        Output longitude grid of size [out_lon]</span>
+<span class="sd">    in_center : torch.Tensor</span>
+<span class="sd">        Model input center normalization tensor of size [in_var]</span>
+<span class="sd">    in_scale : torch.Tensor</span>
+<span class="sd">        Model input scale normalization tensor of size [in_var]</span>
+<span class="sd">    out_center : torch.Tensor</span>
+<span class="sd">        Model output center normalization tensor of size [out_var]</span>
+<span class="sd">    out_scale : torch.Tensor</span>
+<span class="sd">        Model output scale normalization tensor of size [out_var]</span>
+<span class="sd">    invariants : OrderedDict | None, optional</span>
+<span class="sd">        Dictionary of invariant features, by default None</span>
+<span class="sd">    invariant_center : torch.Tensor | None, optional</span>
+<span class="sd">        Model invariant center normalization tensor, by default None</span>
+<span class="sd">    invariant_scale : torch.Tensor | None, optional</span>
+<span class="sd">        Model invariant scale normalization tensor, by default None</span>
+<span class="sd">    number_of_samples : int, optional</span>
+<span class="sd">        Number of high resolution samples to draw from diffusion model, by default 1</span>
+<span class="sd">    number_of_steps : int, optional</span>
+<span class="sd">        Number of langevin diffusion steps during sampling algorithm, by default 18</span>
+<span class="sd">    solver : Literal[&quot;euler&quot;, &quot;heun&quot;], optional</span>
+<span class="sd">        Discretization of diffusion process, by default &quot;euler&quot;</span>
+<span class="sd">    sampler_type : Literal[&quot;deterministic&quot;, &quot;stochastic&quot;], optional</span>
+<span class="sd">        Type of sampler to use, by default &quot;stochastic&quot;</span>
+<span class="sd">    inference_mode : Literal[&quot;regression&quot;, &quot;both&quot;], optional</span>
+<span class="sd">        Which inference mode to use (&quot;both&quot; or &quot;regression&quot;); diffusion-only</span>
+<span class="sd">        is not supported in CorrDiffCMIP6. Default is &quot;both&quot;.</span>
+<span class="sd">    hr_mean_conditioning : bool, optional</span>
+<span class="sd">        Whether to use high-res mean conditioning, by default True</span>
+<span class="sd">    seed : int | None, optional</span>
+<span class="sd">        Random seed for reproducibility, by default None</span>
+<span class="sd">    grid_spacing_tolerance : float, optional</span>
+<span class="sd">        Relative tolerance for checking regular grid spacing, by default 1e-5</span>
+<span class="sd">    grid_bounds_margin : float, optional</span>
+<span class="sd">        Fraction of input grid range to allow for extrapolation, by default 0.0</span>
+<span class="sd">    sigma_min : float | None, optional</span>
+<span class="sd">        Minimum noise level for diffusion process, by default None</span>
+<span class="sd">    sigma_max : float | None, optional</span>
+<span class="sd">        Maximum noise level for diffusion process, by default None</span>
+<span class="sd">    time_feature_center : torch.Tensor | None, optional</span>
+<span class="sd">        Normalization center for time features (sza, hod) of size [2], by default None</span>
+<span class="sd">    time_feature_scale : torch.Tensor | None, optional</span>
+<span class="sd">        Normalization scale for time features (sza, hod) of size [2], by default None</span>
+<span class="sd">    output_lead_times: LeadTimeArray, optional</span>
+<span class="sd">        Output lead times to sample at within the input time window. The default package</span>
+<span class="sd">        is trained to support lead times between [-12, +11] hours at hourly intervals.</span>
+<span class="sd">        This constraint ensures the input data remains aligned with the temporal features</span>
+<span class="sd">        (SZA, HOD) calculated at the valid time. By default np.array([np.timedelta64(-12, &quot;h&quot;)])</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    Run a single forward pass to predict CMIP6-&gt;ERA5 at two lead times within input window</span>
+
+<span class="sd">    &gt;&gt;&gt; device = torch.device(&quot;cuda&quot; if torch.cuda.is_available() else &quot;cpu&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; model = CorrDiffCMIP6.load_model(</span>
+<span class="sd">    ...     CorrDiffCMIP6.load_default_package(),</span>
+<span class="sd">    ...     output_lead_times=np.array([np.timedelta64(-12, &quot;h&quot;), np.timedelta64(-6, &quot;h&quot;)]),</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; model.seed = 1 # Set seed for reprod</span>
+<span class="sd">    &gt;&gt;&gt; model.number_of_samples = 1 # Modify number of samples if needed</span>
+<span class="sd">    &gt;&gt;&gt; model = model.to(device)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Build CMIP6 multi-realm data source, about 60 Gbs of data will be fetched</span>
+<span class="sd">    &gt;&gt;&gt; cmip6_kwargs = dict(</span>
+<span class="sd">    ...     experiment_id=&quot;ssp585&quot;,</span>
+<span class="sd">    ...     source_id=&quot;CanESM5&quot;,</span>
+<span class="sd">    ...     variant_label=&quot;r1i1p2f1&quot;,</span>
+<span class="sd">    ...     exact_time_match=True,</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; data = CMIP6MultiRealm([CMIP6(table_id=t, **cmip6_kwargs) for t in (&quot;day&quot;, &quot;Eday&quot;, &quot;SIday&quot;)])</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; x, coords = fetch_data(</span>
+<span class="sd">    ...     source=data,</span>
+<span class="sd">    ...     time=np.array([np.datetime64(&quot;2037-09-06T12:00&quot;)]), # Time must be 12:00 UTC</span>
+<span class="sd">    ...     lead_time=model.input_coords()[&quot;lead_time&quot;],</span>
+<span class="sd">    ...     variable=model.input_coords()[&quot;variable&quot;],</span>
+<span class="sd">    ...     device=device,</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Run model forward pass</span>
+<span class="sd">    &gt;&gt;&gt; out, out_coords = model(x, coords)</span>
+<span class="sd">    &gt;&gt;&gt; da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Variables that must be non-negative (clipped to min=0 during postprocessing)</span>
+    <span class="c1"># These represent physical quantities that cannot be negative (temperature, pressure, etc.)</span>
+    <span class="n">_NONNEGATIVE_VARS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sp&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;msl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcwv&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sst&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;d2m&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Padding applied during preprocessing (must be cropped in postprocessing)</span>
+    <span class="c1"># Format: (top, bottom) for lat, (left, right) for lon</span>
+    <span class="n">_LAT_PAD</span> <span class="o">=</span> <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="mi">24</span><span class="p">)</span>  <span class="c1"># reflect padding in latitude</span>
+    <span class="n">_LON_PAD</span> <span class="o">=</span> <span class="p">(</span><span class="mi">48</span><span class="p">,</span> <span class="mi">48</span><span class="p">)</span>  <span class="c1"># circular padding in longitude</span>
+
+    <span class="c1"># Valid range for output lead times in hours</span>
+    <span class="n">_MIN_LEAD_TIME_HOURS</span> <span class="o">=</span> <span class="o">-</span><span class="mi">12</span>
+    <span class="n">_MAX_LEAD_TIME_HOURS</span> <span class="o">=</span> <span class="mi">11</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">output_variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">residual_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">regression_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">lat_input_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">lon_input_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">lat_output_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">lon_output_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">in_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">in_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">out_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">out_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">invariants</span><span class="p">:</span> <span class="n">OrderedDict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">invariant_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">invariant_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">number_of_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">number_of_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">18</span><span class="p">,</span>
+        <span class="n">solver</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;euler&quot;</span><span class="p">,</span> <span class="s2">&quot;heun&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;euler&quot;</span><span class="p">,</span>
+        <span class="n">sampler_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;deterministic&quot;</span><span class="p">,</span> <span class="s2">&quot;stochastic&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;stochastic&quot;</span><span class="p">,</span>
+        <span class="n">inference_mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;regression&quot;</span><span class="p">,</span> <span class="s2">&quot;diffusion&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span>
+        <span class="n">hr_mean_conditioning</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">grid_spacing_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+        <span class="n">grid_bounds_margin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">sigma_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sigma_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">time_feature_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">time_feature_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">output_lead_times</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="o">-</span><span class="mi">12</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">input_variables</span><span class="o">=</span><span class="n">input_variables</span><span class="p">,</span>
+            <span class="n">output_variables</span><span class="o">=</span><span class="n">output_variables</span><span class="p">,</span>
+            <span class="n">residual_model</span><span class="o">=</span><span class="n">residual_model</span><span class="p">,</span>
+            <span class="n">regression_model</span><span class="o">=</span><span class="n">regression_model</span><span class="p">,</span>
+            <span class="n">lat_input_grid</span><span class="o">=</span><span class="n">lat_input_grid</span><span class="p">,</span>
+            <span class="n">lon_input_grid</span><span class="o">=</span><span class="n">lon_input_grid</span><span class="p">,</span>
+            <span class="n">lat_output_grid</span><span class="o">=</span><span class="n">lat_output_grid</span><span class="p">,</span>
+            <span class="n">lon_output_grid</span><span class="o">=</span><span class="n">lon_output_grid</span><span class="p">,</span>
+            <span class="n">in_center</span><span class="o">=</span><span class="n">in_center</span><span class="p">,</span>
+            <span class="n">in_scale</span><span class="o">=</span><span class="n">in_scale</span><span class="p">,</span>
+            <span class="n">out_center</span><span class="o">=</span><span class="n">out_center</span><span class="p">,</span>
+            <span class="n">out_scale</span><span class="o">=</span><span class="n">out_scale</span><span class="p">,</span>
+            <span class="n">invariants</span><span class="o">=</span><span class="n">invariants</span><span class="p">,</span>
+            <span class="n">invariant_center</span><span class="o">=</span><span class="n">invariant_center</span><span class="p">,</span>
+            <span class="n">invariant_scale</span><span class="o">=</span><span class="n">invariant_scale</span><span class="p">,</span>
+            <span class="n">number_of_samples</span><span class="o">=</span><span class="n">number_of_samples</span><span class="p">,</span>
+            <span class="n">number_of_steps</span><span class="o">=</span><span class="n">number_of_steps</span><span class="p">,</span>
+            <span class="n">solver</span><span class="o">=</span><span class="n">solver</span><span class="p">,</span>
+            <span class="n">sampler_type</span><span class="o">=</span><span class="n">sampler_type</span><span class="p">,</span>
+            <span class="n">inference_mode</span><span class="o">=</span><span class="n">inference_mode</span><span class="p">,</span>
+            <span class="n">hr_mean_conditioning</span><span class="o">=</span><span class="n">hr_mean_conditioning</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+            <span class="n">grid_spacing_tolerance</span><span class="o">=</span><span class="n">grid_spacing_tolerance</span><span class="p">,</span>
+            <span class="n">grid_bounds_margin</span><span class="o">=</span><span class="n">grid_bounds_margin</span><span class="p">,</span>
+            <span class="n">sigma_min</span><span class="o">=</span><span class="n">sigma_min</span><span class="p">,</span>
+            <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># CMIP6 wrapper only supports &quot;both&quot; or &quot;regression&quot; modes (no diffusion-only)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;regression&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;CorrDiffCMIP6 supports inference_mode in {&#39;both&#39;, &#39;regression&#39;} only &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_mode</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Preprocess caches (built lazily on first use)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_var_index</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_sai_kernel</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_lonlat_meshgrid</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_reorder_indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># When True, CorrDiffCMIP6 will accumulate multi-sample outputs on CPU to reduce GPU peak</span>
+        <span class="c1"># memory for large `number_of_samples` / large output channel counts.</span>
+        <span class="c1"># This does not change the generated samples, only where the final stacked tensor lives.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream_samples_to_cpu</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># Controls the output lead times, should be hourly between [-12, +11]</span>
+        <span class="c1"># Validate lead times are within the valid range</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_output_lead_times</span><span class="p">(</span><span class="n">output_lead_times</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_lead_times</span> <span class="o">=</span> <span class="n">output_lead_times</span>
+
+        <span class="c1"># Extend in_center and in_scale to include time features (sza, hod) at the end</span>
+        <span class="c1"># Note: During training, the last invariant position (coslat) mistakenly had hod VALUES,</span>
+        <span class="c1"># but was normalized using coslat STATISTICS. This bug is replicated in preprocess_input</span>
+        <span class="c1"># by putting hod values in the coslat position during channel reordering.</span>
+        <span class="k">if</span> <span class="n">time_feature_center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">time_feature_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Reshape time features to match the 4D format [1, N, 1, 1]</span>
+            <span class="n">time_feature_center</span> <span class="o">=</span> <span class="n">time_feature_center</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">time_feature_scale</span> <span class="o">=</span> <span class="n">time_feature_scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+            <span class="c1"># Append time features after base variables and invariants</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">in_center</span><span class="p">,</span> <span class="n">time_feature_center</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">in_scale</span><span class="p">,</span> <span class="n">time_feature_scale</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Cache indices of output variables that must be non-negative so we don&#39;t</span>
+        <span class="c1"># recompute them on every postprocess call.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nonnegative_output_indices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">i</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NONNEGATIVE_VARS</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="o">-</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span>
+                    <span class="p">]</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_input_numpy</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon_input_numpy</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;sample&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">),</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">input_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_lead_times</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_output_numpy</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lon_output_numpy</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="CorrDiffCMIP6.load_default_package">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html#earth2studio.models.dx.CorrDiffCMIP6.load_default_package">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic package&quot;&quot;&quot;</span>
+        <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
+            <span class="s2">&quot;hf://nvidia/corrdiff-cmip6-era5@9440a890c0f2acc058c281a81bd1cc81c6398fe9&quot;</span><span class="p">,</span>
+            <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;corrdiff_cmip6&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">package</span></div>
+
+
+<div class="viewcode-block" id="CorrDiffCMIP6.load_model">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html#earth2studio.models.dx.CorrDiffCMIP6.load_model">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_model</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">package</span><span class="p">:</span> <span class="n">Package</span><span class="p">,</span>
+        <span class="n">output_lead_times</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="o">-</span><span class="mi">12</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DiagnosticModel</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic from package</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        package : Package</span>
+<span class="sd">            Package containing model weights and configuration</span>
+<span class="sd">        output_lead_times : LeadTimeArray, optional</span>
+<span class="sd">            Output lead times to sample at, by default np.array([np.timedelta64(-12, &quot;h&quot;)])</span>
+<span class="sd">        device : str, optional</span>
+<span class="sd">            Device to load model on, by default &quot;cpu&quot;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        DiagnosticModel</span>
+<span class="sd">            Diagnostic model</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Load and validate metadata first (we need time_window for input expansion).</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_json_from_package</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="s2">&quot;metadata.json&quot;</span><span class="p">)</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_json_from_package</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="s2">&quot;stats.json&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Load the base CorrDiff model from the package.</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+                <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;diffusion.mdlus&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">regression</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+                <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;regression.mdlus&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Apply inference optimizations</span>
+        <span class="n">residual</span><span class="o">.</span><span class="n">profile_mode</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">regression</span><span class="o">.</span><span class="n">profile_mode</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
+        <span class="n">regression</span> <span class="o">=</span> <span class="n">regression</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
+
+        <span class="n">torch</span><span class="o">.</span><span class="n">_dynamo</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">cache_size_limit</span> <span class="o">=</span> <span class="mi">264</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">_dynamo</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+        <span class="c1"># Load meta data</span>
+        <span class="n">input_variables</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;input_variables&quot;</span><span class="p">]</span>
+        <span class="n">output_variables</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;output_variables&quot;</span><span class="p">]</span>
+        <span class="n">invariant_variables</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;invariant_variables&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">number_of_samples</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;number_of_samples&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">number_of_steps</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;number_of_steps&quot;</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+        <span class="n">solver</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;solver&quot;</span><span class="p">,</span> <span class="s2">&quot;euler&quot;</span><span class="p">)</span>
+        <span class="n">sampler_type</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sampler_type&quot;</span><span class="p">,</span> <span class="s2">&quot;stochastic&quot;</span><span class="p">)</span>
+        <span class="n">inference_mode</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inference_mode&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">)</span>
+        <span class="n">hr_mean_conditioning</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hr_mean_conditioning&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">sigma_max_metadata</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sigma_max&quot;</span><span class="p">,</span> <span class="mi">400</span><span class="p">)</span>
+        <span class="n">sigma_min_metadata</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sigma_min&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">grid_spacing_tolerance</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;grid_spacing_tolerance&quot;</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">)</span>
+        <span class="n">grid_bounds_margin</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;grid_bounds_margin&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="n">in_center_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">in_scale_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">input_variables</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">var</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;stats.json is missing normalization statistics for input variable &#39;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">in_center_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="n">var</span><span class="p">][</span><span class="s2">&quot;mean&quot;</span><span class="p">])</span>
+            <span class="n">in_scale_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="n">var</span><span class="p">][</span><span class="s2">&quot;std&quot;</span><span class="p">])</span>
+
+        <span class="n">in_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">in_center_values</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">in_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">in_scale_values</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Load output normalization parameters</span>
+        <span class="n">out_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="s2">&quot;mean&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">output_variables</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">out_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="s2">&quot;std&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">output_variables</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;output_latlon_grid.nc&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+            <span class="n">lat_output_grid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">lon_output_grid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+            <span class="c1"># Validate output grid format and ordering</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_grid_format</span><span class="p">(</span>
+                <span class="n">lat_output_grid</span><span class="p">,</span> <span class="n">lon_output_grid</span><span class="p">,</span> <span class="n">grid_name</span><span class="o">=</span><span class="s2">&quot;output&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;input_latlon_grid.nc&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+            <span class="n">lat_input_grid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">lon_input_grid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+            <span class="c1"># Validate input grid format and ordering</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_grid_format</span><span class="p">(</span><span class="n">lat_input_grid</span><span class="p">,</span> <span class="n">lon_input_grid</span><span class="p">,</span> <span class="n">grid_name</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;invariants.nc&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+            <span class="c1"># Determine which variables to load and in what order</span>
+            <span class="k">if</span> <span class="n">invariant_variables</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Load all available variables</span>
+                <span class="n">var_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Load only specified variables in the specified order</span>
+                <span class="n">var_names</span> <span class="o">=</span> <span class="n">invariant_variables</span>
+                <span class="c1"># Validate that all requested variables exist</span>
+                <span class="n">missing_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">var_names</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">missing_vars</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Invariant variables </span><span class="si">{</span><span class="n">missing_vars</span><span class="si">}</span><span class="s2"> not found in invariants.nc. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Available variables: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="n">invariants</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">var_name</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="n">var_name</span><span class="p">]),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">var_name</span> <span class="ow">in</span> <span class="n">var_names</span>
+            <span class="p">)</span>
+            <span class="c1"># Load invariant normalization parameters</span>
+            <span class="n">invariant_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;invariants&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="s2">&quot;mean&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">invariants</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+            <span class="p">)</span>
+            <span class="n">invariant_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;invariants&quot;</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="s2">&quot;std&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">invariants</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Create time feature normalization tensors on the same device as the base buffers.</span>
+        <span class="n">time_feature_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;sza&quot;</span><span class="p">][</span><span class="s2">&quot;mean&quot;</span><span class="p">],</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;hod&quot;</span><span class="p">][</span><span class="s2">&quot;mean&quot;</span><span class="p">]],</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">time_feature_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;sza&quot;</span><span class="p">][</span><span class="s2">&quot;std&quot;</span><span class="p">],</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;hod&quot;</span><span class="p">][</span><span class="s2">&quot;std&quot;</span><span class="p">]],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">input_variables</span><span class="o">=</span><span class="n">input_variables</span><span class="p">,</span>
+            <span class="n">output_variables</span><span class="o">=</span><span class="n">output_variables</span><span class="p">,</span>
+            <span class="n">residual_model</span><span class="o">=</span><span class="n">residual</span><span class="p">,</span>
+            <span class="n">regression_model</span><span class="o">=</span><span class="n">regression</span><span class="p">,</span>
+            <span class="n">lat_input_grid</span><span class="o">=</span><span class="n">lat_input_grid</span><span class="p">,</span>
+            <span class="n">lon_input_grid</span><span class="o">=</span><span class="n">lon_input_grid</span><span class="p">,</span>
+            <span class="n">lat_output_grid</span><span class="o">=</span><span class="n">lat_output_grid</span><span class="p">,</span>
+            <span class="n">lon_output_grid</span><span class="o">=</span><span class="n">lon_output_grid</span><span class="p">,</span>
+            <span class="n">in_center</span><span class="o">=</span><span class="n">in_center</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span>
+            <span class="n">in_scale</span><span class="o">=</span><span class="n">in_scale</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span>
+            <span class="n">invariants</span><span class="o">=</span><span class="n">invariants</span><span class="p">,</span>
+            <span class="n">invariant_center</span><span class="o">=</span><span class="n">invariant_center</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span>
+            <span class="n">invariant_scale</span><span class="o">=</span><span class="n">invariant_scale</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span>
+            <span class="n">out_center</span><span class="o">=</span><span class="n">out_center</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span>
+            <span class="n">out_scale</span><span class="o">=</span><span class="n">out_scale</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(),</span>
+            <span class="n">number_of_samples</span><span class="o">=</span><span class="n">number_of_samples</span><span class="p">,</span>
+            <span class="n">number_of_steps</span><span class="o">=</span><span class="n">number_of_steps</span><span class="p">,</span>
+            <span class="n">solver</span><span class="o">=</span><span class="n">solver</span><span class="p">,</span>
+            <span class="n">sampler_type</span><span class="o">=</span><span class="n">sampler_type</span><span class="p">,</span>
+            <span class="n">inference_mode</span><span class="o">=</span><span class="n">inference_mode</span><span class="p">,</span>
+            <span class="n">hr_mean_conditioning</span><span class="o">=</span><span class="n">hr_mean_conditioning</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">time_feature_center</span><span class="o">=</span><span class="n">time_feature_center</span><span class="p">,</span>
+            <span class="n">time_feature_scale</span><span class="o">=</span><span class="n">time_feature_scale</span><span class="p">,</span>
+            <span class="n">grid_spacing_tolerance</span><span class="o">=</span><span class="n">grid_spacing_tolerance</span><span class="p">,</span>
+            <span class="n">grid_bounds_margin</span><span class="o">=</span><span class="n">grid_bounds_margin</span><span class="p">,</span>
+            <span class="n">sigma_min</span><span class="o">=</span><span class="n">sigma_min_metadata</span><span class="p">,</span>
+            <span class="n">sigma_max</span><span class="o">=</span><span class="n">sigma_max_metadata</span><span class="p">,</span>
+            <span class="n">output_lead_times</span><span class="o">=</span><span class="n">output_lead_times</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CorrDiffCMIP6.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html#earth2studio.models.dx.CorrDiffCMIP6.__call__">[docs]</a>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="n">out_shape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">output_coords</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">out_shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="c1"># Iterate of different time-stamps and lead time</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]):</span>
+                <span class="n">valid_time</span> <span class="o">=</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
+                <span class="c1"># Input to forward should be [b, l, c, h, w]</span>
+                <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
+                    <span class="n">x</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">valid_time</span><span class="p">)</span><span class="o">.</span><span class="n">to_pydatetime</span><span class="p">()</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">output_coords</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_lonlat_meshgrid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cached lon/lat meshgrid on the output grid (numpy arrays).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_lonlat_meshgrid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_lonlat_meshgrid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lon_output_numpy</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lat_output_numpy</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_lonlat_meshgrid</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_sai_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cached 3x3 averaging kernel (on correct device/dtype).&quot;&quot;&quot;</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_sai_kernel</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">k</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="n">x</span><span class="o">.</span><span class="n">device</span> <span class="ow">or</span> <span class="n">k</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">new_ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">/</span> <span class="mf">9.0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_sai_kernel</span> <span class="o">=</span> <span class="n">k</span>
+        <span class="k">return</span> <span class="n">k</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_reorder_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cached channel reorder indices after normalization.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_reorder_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_input</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">num_inv</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">invariant_variables</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_reorder_indices</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_input</span><span class="p">))</span>  <span class="c1"># input variables</span>
+                <span class="o">+</span> <span class="p">[</span><span class="n">num_input</span> <span class="o">+</span> <span class="n">num_inv</span><span class="p">]</span>  <span class="c1"># sza</span>
+                <span class="o">+</span> <span class="nb">list</span><span class="p">(</span>
+                    <span class="nb">range</span><span class="p">(</span><span class="n">num_input</span><span class="p">,</span> <span class="n">num_input</span> <span class="o">+</span> <span class="n">num_inv</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="p">)</span>  <span class="c1"># invariants except coslat</span>
+                <span class="o">+</span> <span class="p">[</span><span class="n">num_input</span> <span class="o">+</span> <span class="n">num_inv</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">num_input</span> <span class="o">+</span> <span class="n">num_inv</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>  <span class="c1"># hod variants</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cmip6_reorder_indices</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_sai_cover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply sea-air-ice cover smoothing inplace on x ([B, C, L, H, W]).&quot;&quot;&quot;</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_sai_kernel</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">lead_len</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;siconc&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span> <span class="ow">or</span> <span class="s2">&quot;snc&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span>
+        <span class="n">siconc_channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;siconc&quot;</span><span class="p">)</span>
+        <span class="n">snc_channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;snc&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lead_len</span><span class="p">):</span>
+            <span class="c1"># [B, 1, H, W] so padding/conv2d operate on 4D tensors</span>
+            <span class="n">siconc</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">siconc_channel</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">snc</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">snc_channel</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">sai_cover</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">siconc</span> <span class="o">+</span> <span class="n">snc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">)</span>
+
+            <span class="c1"># Pad: circular in lon (W), replicate in lat (H)</span>
+            <span class="n">sai_cover_pad</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">sai_cover</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;circular&quot;</span><span class="p">)</span>
+            <span class="n">sai_cover_pad</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">sai_cover_pad</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;replicate&quot;</span><span class="p">)</span>
+            <span class="n">sai_cover_smooth</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">conv2d</span><span class="p">(</span><span class="n">sai_cover_pad</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="s2">&quot;valid&quot;</span><span class="p">)</span>
+
+            <span class="n">x</span><span class="p">[:,</span> <span class="n">siconc_channel</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">sai_cover_smooth</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_time_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">valid_time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Append SZA and HOD features to x ([B,C,H,W]).&quot;&quot;&quot;</span>
+        <span class="n">lon_grid</span><span class="p">,</span> <span class="n">lat_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lonlat_meshgrid</span><span class="p">()</span>
+        <span class="n">cos_sza</span> <span class="o">=</span> <span class="n">cos_zenith_angle</span><span class="p">(</span><span class="n">valid_time</span><span class="p">,</span> <span class="n">lon_grid</span><span class="p">,</span> <span class="n">lat_grid</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">cos_sza_tensor</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">cos_sza</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">cos_sza_tensor</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">hour_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cos_sza_tensor</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">valid_time</span><span class="o">.</span><span class="n">hour</span><span class="p">))</span>
+
+        <span class="c1"># Overwrite coslat slot with HOD values before normalization (training quirk replication).</span>
+        <span class="n">num_input</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="p">)</span>
+        <span class="n">num_inv</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">invariant_variables</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_inv</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">[:,</span> <span class="n">num_input</span> <span class="o">+</span> <span class="n">num_inv</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">hour_tensor</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+
+        <span class="c1"># Also add HOD at the end</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">hour_tensor</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_pad_reorder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normalize, pad, and reorder channels to match training quirks.&quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize_input</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_LAT_PAD</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_LAT_PAD</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;reflect&quot;</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_LON_PAD</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_LON_PAD</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;circular&quot;</span><span class="p">)</span>
+
+        <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_reorder_indices</span><span class="p">()</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="n">indices</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">preprocess_input</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">valid_time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input preprocessing pipeline with optional time information.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">valid_time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;CorrDiffCMIP6 requires valid_time for time-dependent features&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># [B, L, C, H, W] -&gt; [B, C, L, H, W]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_sai_cover</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span>
+            <span class="n">B</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span>
+        <span class="p">)</span>  <span class="c1"># Flatten (variable, lead_time) -&gt; [C*L, H, W]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">img_shape</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;bilinear&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariants</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Flip invars lat to match inverted cmip data</span>
+            <span class="n">invar</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">invariants</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">invar</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_time_features</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">valid_time</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_pad_reorder</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">postprocess_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Denormalize output tensor using model&#39;s center and scale parameters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Normalized output tensor to denormalize</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Denormalized output tensor x * scale + center</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 1) Crop padding added during preprocessing [S, C, H, W] (see _LAT_PAD, _LON_PAD)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span>
+            <span class="p">:,</span>
+            <span class="p">:,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_LAT_PAD</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_LAT_PAD</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_LON_PAD</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_LON_PAD</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">]</span>
+        <span class="c1"># 2) Denormalize (reuse base implementation)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">postprocess_output</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># 3) Enforce physical non-negativity constraints on selected channels</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nonnegative_output_indices</span><span class="p">:</span>
+            <span class="c1"># NOTE: advanced indexing returns a copy; assign back to update `x`.</span>
+            <span class="n">x</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nonnegative_output_indices</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span>
+                <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nonnegative_output_indices</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># 4) Flip latitude (model outputs S-&gt;N, we want N-&gt;S)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">valid_time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass with optional CPU streaming for multi-sample inference.</span>
+
+<span class="sd">        This override keeps the base `CorrDiff` class unchanged, but allows the CMIP6 wrapper</span>
+<span class="sd">        to reduce GPU peak memory by avoiding a GPU-side concat of all samples.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;euler&quot;</span><span class="p">,</span> <span class="s2">&quot;heun&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;solver must be either &#39;euler&#39; or &#39;heun&#39; but got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Preprocess input (CMIP6 requires valid_time)</span>
+        <span class="n">image_lr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocess_input</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">valid_time</span><span class="p">)</span>
+        <span class="n">image_lr</span> <span class="o">=</span> <span class="n">image_lr</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
+
+        <span class="c1"># Regression model (mean)</span>
+        <span class="n">image_reg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">image_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span> <span class="o">*</span><span class="n">image_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]),</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">image_lr</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">latents_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span> <span class="o">*</span><span class="n">image_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">device_type</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">):</span>
+            <span class="c1"># CorrDiff utils do not support batches, so we in-efficiently loop</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">image_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">image_reg</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">regression_step</span><span class="p">(</span>
+                    <span class="n">net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">regression_model</span><span class="p">,</span>
+                    <span class="n">img_lr</span><span class="o">=</span><span class="n">image_lr</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
+                    <span class="n">latents_shape</span><span class="o">=</span><span class="n">latents_shape</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Regression-only: all samples are identical (deterministic mean)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_mode</span> <span class="o">==</span> <span class="s2">&quot;regression&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">postprocess_output</span><span class="p">(</span><span class="n">image_reg</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Compute base seed once (sample index added in loop)</span>
+        <span class="n">seed0</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Where to accumulate samples (CPU streaming reduces GPU peak memory)</span>
+        <span class="n">out_device</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream_samples_to_cpu</span> <span class="k">else</span> <span class="n">image_lr</span><span class="o">.</span><span class="n">device</span>
+        <span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">image_reg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lat_output_numpy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lon_output_numpy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="p">),</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">out_device</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">image_reg</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">device_type</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">):</span>
+            <span class="c1"># CorrDiff utils do not support batches, so we in-efficiently loop</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">mean_hr</span> <span class="o">=</span> <span class="n">image_reg</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hr_mean_conditioning</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">number_of_samples</span><span class="p">):</span>
+                    <span class="n">image_res</span> <span class="o">=</span> <span class="n">diffusion_step</span><span class="p">(</span>
+                        <span class="n">net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">residual_model</span><span class="p">,</span>
+                        <span class="n">sampler_fn</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampler</span><span class="p">,</span>
+                        <span class="n">img_shape</span><span class="o">=</span><span class="n">image_lr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:],</span>
+                        <span class="n">img_out_channels</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span>
+                        <span class="n">rank_batches</span><span class="o">=</span><span class="p">[[</span><span class="n">seed0</span> <span class="o">+</span> <span class="n">j</span><span class="p">]],</span>
+                        <span class="n">img_lr</span><span class="o">=</span><span class="n">image_lr</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
+                        <span class="n">rank</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="n">device</span><span class="o">=</span><span class="n">image_lr</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+                        <span class="n">mean_hr</span><span class="o">=</span><span class="n">mean_hr</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">postprocess_output</span><span class="p">(</span><span class="n">image_reg</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">image_res</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+                        <span class="n">out_device</span>
+                    <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_register_buffers</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">lat_input_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">lon_input_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">lat_output_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">lon_output_grid</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">in_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">in_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">invariant_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">invariant_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">out_center</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">out_scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">invariants</span><span class="p">:</span> <span class="n">OrderedDict</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Register model buffers and handle invariants.&quot;&quot;&quot;</span>
+        <span class="c1"># Register grid coordinates</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;lat_input_grid&quot;</span><span class="p">,</span> <span class="n">lat_input_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;lon_input_grid&quot;</span><span class="p">,</span> <span class="n">lon_input_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;lat_output_grid&quot;</span><span class="p">,</span> <span class="n">lat_output_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;lon_output_grid&quot;</span><span class="p">,</span> <span class="n">lon_output_grid</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interpolator</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Use efficient regular grid interpolation</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">lat_input_numpy</span> <span class="o">=</span> <span class="n">lat_input_grid</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lon_input_numpy</span> <span class="o">=</span> <span class="n">lon_input_grid</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lat_output_numpy</span> <span class="o">=</span> <span class="n">lat_output_grid</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lon_output_numpy</span> <span class="o">=</span> <span class="n">lon_output_grid</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="c1"># Handle invariants</span>
+        <span class="k">if</span> <span class="n">invariants</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">invariant_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">invariants</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+                <span class="s2">&quot;invariants&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">invariants</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">invariant_variables</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">invariants</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Combine input normalization with invariants (1D tensors)</span>
+        <span class="n">in_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">in_center</span><span class="p">,</span> <span class="n">invariant_center</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">in_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">in_scale</span><span class="p">,</span> <span class="n">invariant_scale</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Repeat base variable stats for 3 lead times; keep invariants single</span>
+        <span class="n">num_invariants</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">invariant_variables</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_invariants</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">base_center</span><span class="p">,</span> <span class="n">inv_center</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">in_center</span><span class="p">[:</span><span class="o">-</span><span class="n">num_invariants</span><span class="p">],</span>
+                <span class="n">in_center</span><span class="p">[</span><span class="o">-</span><span class="n">num_invariants</span><span class="p">:],</span>
+            <span class="p">)</span>
+            <span class="n">base_scale</span><span class="p">,</span> <span class="n">inv_scale</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">in_scale</span><span class="p">[:</span><span class="o">-</span><span class="n">num_invariants</span><span class="p">],</span>
+                <span class="n">in_scale</span><span class="p">[</span><span class="o">-</span><span class="n">num_invariants</span><span class="p">:],</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base_center</span><span class="p">,</span> <span class="n">inv_center</span> <span class="o">=</span> <span class="n">in_center</span><span class="p">,</span> <span class="n">in_center</span><span class="o">.</span><span class="n">new_empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,))</span>
+            <span class="n">base_scale</span><span class="p">,</span> <span class="n">inv_scale</span> <span class="o">=</span> <span class="n">in_scale</span><span class="p">,</span> <span class="n">in_scale</span><span class="o">.</span><span class="n">new_empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,))</span>
+
+        <span class="n">base_center</span> <span class="o">=</span> <span class="n">base_center</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">base_scale</span> <span class="o">=</span> <span class="n">base_scale</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">in_center</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">base_center</span><span class="p">,</span> <span class="n">inv_center</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">in_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">base_scale</span><span class="p">,</span> <span class="n">inv_scale</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Register normalization parameters with final channel count</span>
+        <span class="n">num_inputs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">in_center</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;in_center&quot;</span><span class="p">,</span> <span class="n">in_center</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_inputs</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;in_scale&quot;</span><span class="p">,</span> <span class="n">in_scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_inputs</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;out_center&quot;</span><span class="p">,</span> <span class="n">out_center</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;out_scale&quot;</span><span class="p">,</span> <span class="n">out_scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_output_lead_times</span><span class="p">(</span><span class="n">output_lead_times</span><span class="p">:</span> <span class="n">LeadTimeArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that output lead times are within the valid range [-12, +11] hours.</span>
+
+<span class="sd">        The model requires input data at lead times [-24h, 0h, +24h] centered on the</span>
+<span class="sd">        requested time. The temporal features (SZA, HOD) are calculated for the valid</span>
+<span class="sd">        time (time + lead_time). To ensure alignment between input data and temporal</span>
+<span class="sd">        features, output lead times must stay within [-12, +11] hours.</span>
+
+<span class="sd">        For example, to get output for 2026-12-23 00:00:00:</span>
+<span class="sd">        - Use time=2026-12-23 12:00:00 with lead_time=-12h (correct)</span>
+<span class="sd">        - NOT time=2026-12-22 12:00:00 with lead_time=+12h (misaligned features)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        output_lead_times : LeadTimeArray</span>
+<span class="sd">            Array of lead times to validate</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If any lead time is outside the valid range [-12, +11] hours</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">min_hours</span> <span class="o">=</span> <span class="n">CorrDiffCMIP6</span><span class="o">.</span><span class="n">_MIN_LEAD_TIME_HOURS</span>
+        <span class="n">max_hours</span> <span class="o">=</span> <span class="n">CorrDiffCMIP6</span><span class="o">.</span><span class="n">_MAX_LEAD_TIME_HOURS</span>
+
+        <span class="k">for</span> <span class="n">lt</span> <span class="ow">in</span> <span class="n">output_lead_times</span><span class="p">:</span>
+            <span class="c1"># Convert to hours for validation</span>
+            <span class="n">hours</span> <span class="o">=</span> <span class="n">lt</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="n">min_hours</span> <span class="ow">or</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="n">max_hours</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;output_lead_times must be within [</span><span class="si">{</span><span class="n">min_hours</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">max_hours</span><span class="si">}</span><span class="s2">] hours, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="n">hours</span><span class="si">}</span><span class="s2">h. To get a specific valid time, adjust the input &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&#39;time&#39; parameter instead of using lead times outside this range. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;For example, to get 2026-12-23 00:00:00, use time=2026-12-23T12:00 &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;with lead_time=-12h, not time=2026-12-22T12:00 with lead_time=+12h.&quot;</span>
+                <span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

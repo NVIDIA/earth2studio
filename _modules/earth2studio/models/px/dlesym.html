@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.px.dlesym &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>earth2studio.models.px.dlesym &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -30,7 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -44,13 +44,13 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/dlesym';</script>
@@ -65,7 +65,7 @@
     <link rel="search" title="Search" href="../../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -503,36 +503,6 @@
 <span class="sd">    we provide convenience methods for retrieving the valid atmospheric and</span>
 <span class="sd">    oceanic outputs.</span>
 
-<span class="sd">    Example</span>
-<span class="sd">    -------</span>
-<span class="sd">    .. highlight:: python</span>
-<span class="sd">    .. code-block:: python</span>
-
-<span class="sd">        pkg = DLESyM.load_default_package()</span>
-<span class="sd">        model = DLESyM.load_model(pkg)</span>
-
-<span class="sd">        # Create iterator</span>
-<span class="sd">        iterator = model.create_iterator(x, coords)</span>
-
-<span class="sd">        for step, (x, coords) in enumerate(iterator):</span>
-<span class="sd">            if step &gt; 0:</span>
-<span class="sd">                # Valid atmos and ocean predictions with their respective coordinates extracted below</span>
-<span class="sd">                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)</span>
-<span class="sd">                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)</span>
-<span class="sd">                ...</span>
-
-<span class="sd">    Note</span>
-<span class="sd">    ----</span>
-<span class="sd">    For more information about this model see:</span>
-
-<span class="sd">    - https://arxiv.org/abs/2409.16247</span>
-<span class="sd">    - https://arxiv.org/abs/2311.06253v2</span>
-<span class="sd">    - https://huggingface.co/nvidia/dlesym-v1-era5</span>
-
-<span class="sd">    For more information about the HEALPix grid see:</span>
-
-<span class="sd">    - https://github.com/NVlabs/earth2grid</span>
-
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    atmos_model : torch.nn.Module</span>
@@ -567,6 +537,36 @@
 <span class="sd">        Atmospheric coupling variables</span>
 <span class="sd">    ocean_coupling_variables : list[str]</span>
 <span class="sd">        Ocean coupling variables</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For more information about this model see:</span>
+
+<span class="sd">    - https://arxiv.org/abs/2409.16247</span>
+<span class="sd">    - https://arxiv.org/abs/2311.06253v2</span>
+<span class="sd">    - https://huggingface.co/nvidia/dlesym-v1-era5</span>
+
+<span class="sd">    For more information about the HEALPix grid see:</span>
+
+<span class="sd">    - https://github.com/NVlabs/earth2grid</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. highlight:: python</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        pkg = DLESyM.load_default_package()</span>
+<span class="sd">        model = DLESyM.load_model(pkg)</span>
+
+<span class="sd">        # Create iterator</span>
+<span class="sd">        iterator = model.create_iterator(x, coords)</span>
+
+<span class="sd">        for step, (x, coords) in enumerate(iterator):</span>
+<span class="sd">            if step &gt; 0:</span>
+<span class="sd">                # Valid atmos and ocean predictions with their respective coordinates extracted below</span>
+<span class="sd">                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)</span>
+<span class="sd">                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)</span>
+<span class="sd">                ...</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -1744,7 +1744,7 @@
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

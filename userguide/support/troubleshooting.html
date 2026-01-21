@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Troubleshooting &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>Troubleshooting &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -45,13 +45,13 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/support/troubleshooting';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="Recipe Guide" href="../developer/recipes.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -385,7 +385,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
@@ -586,10 +586,20 @@ a crash:</p>
 </li>
 </ol>
 </section>
-<section id="failed-to-install-earth2grid-python-h-no-such-file-or-directory">
-<h2>Failed to Install Earth2Grid <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code><a class="headerlink" href="#failed-to-install-earth2grid-python-h-no-such-file-or-directory" title="Link to this heading">#</a></h2>
-<p><a class="reference external" href="https://github.com/NVlabs/earth2grid">Earth2Grid</a> needs to be installed from source.
-To build this dependency, the Python developer library is needed, on debian systems this
+<section id="earth2grid-or-torchharmonics-build-failure-python-h-no-such-file-or-directory">
+<h2>Earth2Grid or TorchHarmonics Build Failure <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code><a class="headerlink" href="#earth2grid-or-torchharmonics-build-failure-python-h-no-such-file-or-directory" title="Link to this heading">#</a></h2>
+<p><a class="reference external" href="https://github.com/NVlabs/earth2grid">Earth2Grid</a> and <a class="reference external" href="https://github.com/NVIDIA/torch-harmonics">TorchHarmonics</a>
+sometimes need to be installed from source and built on the users machine.
+This requires the installation of the Python 3 developer tools.
+Without it the following error will occur on attempted install:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>...fatal<span class="w"> </span>error:<span class="w"> </span>Python.h:<span class="w"> </span>No<span class="w"> </span>such<span class="w"> </span>file<span class="w"> </span>or<span class="w"> </span>directory
+<span class="w">    </span><span class="m">12</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="c1">#include &lt;Python.h&gt;</span>
+<span class="w">      </span><span class="p">|</span><span class="w">          </span>^~~~~~~~~~
+compilation<span class="w"> </span>terminated.
+ninja:<span class="w"> </span>build<span class="w"> </span>stopped:<span class="w"> </span>subcommand<span class="w"> </span>failed.
+</pre></div>
+</div>
+<p>To build this dependency, the Python developer library is needed, on debian systems this
 can be installed with:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>python3-dev
 </pre></div>
@@ -670,7 +680,7 @@ the cuda extensions:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#importerror-object-is-not-installed-install-manually-or-using-pip">ImportError: object is not installed, install manually or using pip</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-models-from-ngc">Earth2Studio not authorized to download public models from NGC</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs-models">Flash Attention has long build time for AIFS models</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#failed-to-install-earth2grid-python-h-no-such-file-or-directory">Failed to Install Earth2Grid <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2grid-or-torchharmonics-build-failure-python-h-no-such-file-or-directory">Earth2Grid or TorchHarmonics Build Failure <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#torch-harmonics-has-long-build-time-for-fcnv3">Torch Harmonics has long build time for FCNv3</a></li>
 </ul>
   </nav></div>
@@ -718,7 +728,7 @@ the cuda extensions:</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**31:00.022** total execution time for 22 files **from all galleries**:
+**04:35.602** total execution time for 20 files **from all galleries**:
 
 .. container::
 
@@ -32,69 +32,63 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_16_cbottle_super_resolution.py` (``../examples/16_cbottle_super_resolution.py``)
-     - 04:37.024
-     - 0.0
-   * - :ref:`sphx_glr_examples_10_stormcast_ensemble_example.py` (``../examples/10_stormcast_ensemble_example.py``)
-     - 03:15.258
-     - 0.0
-   * - :ref:`sphx_glr_examples_11_huge_ensembles.py` (``../examples/11_huge_ensembles.py``)
-     - 02:44.001
-     - 0.0
-   * - :ref:`sphx_glr_examples_15_cbottle_generation.py` (``../examples/15_cbottle_generation.py``)
-     - 02:39.056
-     - 0.0
-   * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``../examples/07_seasonal_statistics.py``)
-     - 02:10.118
-     - 0.0
-   * - :ref:`sphx_glr_examples_19_local_datasource.py` (``../examples/19_local_datasource.py``)
-     - 01:59.607
-     - 0.0
    * - :ref:`sphx_glr_examples_17_io_performance.py` (``../examples/17_io_performance.py``)
-     - 01:47.824
-     - 0.0
-   * - :ref:`sphx_glr_examples_09_stormcast_example.py` (``../examples/09_stormcast_example.py``)
-     - 01:45.501
-     - 0.0
-   * - :ref:`sphx_glr_examples_18_ensemble_downscaling.py` (``../examples/18_ensemble_downscaling.py``)
-     - 01:37.804
-     - 0.0
-   * - :ref:`sphx_glr_examples_13_cyclone_tracking.py` (``../examples/13_cyclone_tracking.py``)
-     - 01:23.603
-     - 0.0
-   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
-     - 01:18.463
-     - 0.0
-   * - :ref:`sphx_glr_examples_14_dlesym_example.py` (``../examples/14_dlesym_example.py``)
-     - 01:16.012
-     - 0.0
-   * - :ref:`sphx_glr_examples_12_temporal_interpolation.py` (``../examples/12_temporal_interpolation.py``)
-     - 00:59.125
+     - 04:35.602
      - 0.0
    * - :ref:`sphx_glr_examples_01_deterministic_workflow.py` (``../examples/01_deterministic_workflow.py``)
-     - 00:50.356
-     - 0.0
-   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
-     - 00:37.042
-     - 0.0
-   * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
-     - 00:35.589
-     - 0.0
-   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
-     - 00:20.066
-     - 0.0
-   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
-     - 00:16.410
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_02_diagnostic_workflow.py` (``../examples/02_diagnostic_workflow.py``)
-     - 00:15.573
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
-     - 00:15.062
+   * - :ref:`sphx_glr_examples_03_ensemble_workflow.py` (``../examples/03_ensemble_workflow.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_04_corrdiff_inference.py` (``../examples/04_corrdiff_inference.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_05_ensemble_workflow_extend.py` (``../examples/05_ensemble_workflow_extend.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_06_model_perturbation_hook.py` (``../examples/06_model_perturbation_hook.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_seasonal_statistics.py` (``../examples/07_seasonal_statistics.py``)
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_08_distributed_manager.py` (``../examples/08_distributed_manager.py``)
-     - 00:10.640
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_09_stormcast_example.py` (``../examples/09_stormcast_example.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_10_stormcast_ensemble_example.py` (``../examples/10_stormcast_ensemble_example.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_11_huge_ensembles.py` (``../examples/11_huge_ensembles.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_12_temporal_interpolation.py` (``../examples/12_temporal_interpolation.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_13_cyclone_tracking.py` (``../examples/13_cyclone_tracking.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_14_dlesym_example.py` (``../examples/14_dlesym_example.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_15_cbottle_generation.py` (``../examples/15_cbottle_generation.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_16_cbottle_super_resolution.py` (``../examples/16_cbottle_super_resolution.py``)
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_extend_01_custom_prognostic.py` (``../examples/extend/01_custom_prognostic.py``)
-     - 00:05.889
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_02_custom_diagnostic.py` (``../examples/extend/02_custom_diagnostic.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_extend_03_custom_datasource.py` (``../examples/extend/03_custom_datasource.py``)
+     - 00:00.000
      - 0.0

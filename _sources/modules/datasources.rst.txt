@@ -26,6 +26,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.ARCO
    data.CDS
    data.CMIP6
+   data.CMIP6MultiRealm
    data.GFS
    data.GOES
    data.HRRR
@@ -67,6 +68,19 @@ Typically used in intercomparison workflows.
    data.HRRR_FX
    data.IFS_FX
    data.IFS_ENS_FX
+
+DataFrame Sources
+~~~~~~~~~~~~~~~~~
+
+Data sources that provide tabular data.
+
+.. currentmodule:: earth2studio
+
+.. autosummary::
+   :toctree: generated/data/
+   :template: datasource.rst
+
+   data.ISD
 
 AI Sources
 ~~~~~~~~~~

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Lexicon &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>Lexicon &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -45,13 +45,13 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/advanced/lexicon';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="AutoModels" href="auto.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -385,7 +385,7 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
@@ -491,6 +491,18 @@ Many of these names are based on ECMWF’s parameter database but not all.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">z500</span></code>: Geo-potential at 500 hPa</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tcwv</span></code>: Total column water vapor</p></li>
 </ul>
+<p>Additionally, the lexicon may also be used to track various metadata / coordinate
+fields.
+This is particularly relevant for <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.DataFrameSource</span></code> where
+tabular data is used and variables map to the columns of a data frame.
+Earth2Studio takes a best-effort approach to make these metadata fields standardized
+across the package.</p>
+<p>Some examples include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lat</span></code>: Latitude coordinate of data / observation / sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lon</span></code>: Longitude coordinate of data / observation / sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">elev</span></code>: Elevation (meters) relative to mean sea level of data / observation / sensor</p></li>
+</ul>
 <section id="altitude-pressure-levels">
 <h2>Altitude / Pressure Levels<a class="headerlink" href="#altitude-pressure-levels" title="Link to this heading">#</a></h2>
 <p>Note that there are a variety of ways to represent the vertical coordinates for 3D
@@ -563,13 +575,13 @@ Note that the class has a <code class="docutils literal notranslate"><span class
         <span class="s2">&quot;tp&quot;</span><span class="p">:</span> <span class="s2">&quot;596::APCP::surface&quot;</span><span class="p">,</span>  <span class="c1"># 3 hour acc</span>
         <span class="s2">&quot;2d&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
         <span class="s2">&quot;fg10m&quot;</span><span class="p">:</span> <span class="s2">&quot;GUST::surface&quot;</span><span class="p">,</span>  <span class="c1"># Surface</span>
+        <span class="s2">&quot;refc&quot;</span><span class="p">:</span> <span class="s2">&quot;REFC::entire atmosphere&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u1&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::1 mb&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u2&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::2 mb&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u3&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::3 mb&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u5&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::5 mb&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u7&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::7 mb&quot;</span><span class="p">,</span>
         <span class="s2">&quot;u10&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 mb&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;u15&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::15 mb&quot;</span><span class="p">,</span>
 </pre></div>
 </div>
 <p>Values of each variable is left up the the data source.
@@ -619,6 +631,14 @@ sources inside Earth2Studio.</p>
             <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
 <span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
                 <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">9.81</span>
+
+        <span class="k">elif</span> <span class="n">gfs_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;APCP&quot;</span><span class="p">:</span>
+
+            <span class="c1"># TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+                <span class="c1"># Assume density of water is 1000 kg m-3</span>
+                <span class="c1"># x (kg m-2) / 1000 (kg m-3) = (m)</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">/</span> <span class="mf">1000.0</span>
 
         <span class="k">else</span><span class="p">:</span>
 
@@ -734,7 +754,7 @@ missing you would like to add? Open an issue!</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>earth2studio.models.px.aifs &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>earth2studio.models.px.aifs &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -30,7 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -44,13 +44,13 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/px/aifs';</script>
@@ -65,7 +65,7 @@
     <link rel="search" title="Search" href="../../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -441,6 +441,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">IFS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.auto</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelMixin</span><span class="p">,</span> <span class="n">Package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
@@ -453,131 +455,12 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">anemoi.inference</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">anemoi.models</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">earthkit.regrid</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">ecmwf.opendata</span>  <span class="c1"># noqa: F401</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">flash_attn</span>  <span class="c1"># noqa: F401</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;aifs&quot;</span><span class="p">)</span>
-
-<span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;q50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q100&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q150&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q200&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q250&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q300&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q400&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q600&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q700&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q925&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;q1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t100&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t150&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t200&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t250&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t300&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t400&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t600&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t700&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t925&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u100&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u150&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u200&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u250&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u300&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u400&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u600&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u700&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u925&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v100&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v150&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v200&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v250&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v300&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v400&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v600&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v700&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v925&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w100&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w150&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w200&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w250&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w300&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w400&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w600&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w700&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w925&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;w1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z50&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z100&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z150&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z200&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z250&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z300&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z400&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z600&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z700&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z850&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z925&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v10m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;d2m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lsm&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;msl&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sdor&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;skt&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;slor&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sp&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;tcw&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;z&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cp06&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;tp06&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cos_latitude&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cos_longitude&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sin_latitude&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sin_longitude&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cos_julian_day&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cos_local_time&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sin_julian_day&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sin_local_time&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;insolation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;hcc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lcc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mcc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ro&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sf&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ssrd06&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;stl1&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;stl2&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;strd06&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;swvl1&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;swvl2&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;tcc&quot;</span><span class="p">,</span>
-<span class="p">]</span>  <span class="c1"># from config.json &gt;&gt; dataset.variables</span>
 
 
 <div class="viewcode-block" id="AIFS">
@@ -594,10 +477,17 @@
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
 <span class="sd">    This model uses the checkpoints provided by ECMWF.</span>
+<span class="sd">    Multiple checkpoint versions are supported. Use:</span>
+
+<span class="sd">    - `AIFS.load_default_package()` for the default (AIFS-Single v1.0)</span>
+<span class="sd">    - `AIFS.load_default_package(version=&quot;1.1&quot;)` for AIFS-Single v1.1</span>
+
+<span class="sd">    The checkpoint metadata (`ai-models.json`) is used to derive the correct variable</span>
+<span class="sd">    ordering and indices for each checkpoint version.</span>
 <span class="sd">    For additional information see the following resources:</span>
 
 <span class="sd">    - https://arxiv.org/abs/2406.01465</span>
-<span class="sd">    - https://huggingface.co/ecmwf/aifs-single-1.0</span>
+<span class="sd">    - https://huggingface.co/ecmwf/aifs-single-1.1</span>
 <span class="sd">    - https://github.com/ecmwf/anemoi-core</span>
 
 <span class="sd">    Parameters</span>
@@ -615,6 +505,9 @@
 <span class="sd">    inverse_interpolation_matrix : torch.Tensor</span>
 <span class="sd">        CSR sparse matrix mapping outputs from the octahedral grid back to ERA5</span>
 <span class="sd">        lat/lon.</span>
+<span class="sd">    invariants : torch.Tensor</span>
+<span class="sd">        Tensor of shape [4, 721, 1440] containing the invariant fields &quot;lsm&quot;, &quot;sdor&quot;,</span>
+<span class="sd">        &quot;slor&quot; and &quot;z&quot;</span>
 
 <span class="sd">    Warning</span>
 <span class="sd">    -------</span>
@@ -623,6 +516,136 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v10m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;d2m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_julian_day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_latitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_local_time&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_longitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cp06&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;insolation&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;lsm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;msl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sdor&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_julian_day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_latitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_local_time&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_longitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;skt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;slor&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sp&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcw&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tp06&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;w925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z100&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z150&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z200&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z250&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z300&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z400&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z50&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z600&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z700&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z850&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;z925&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;swvl1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;swvl2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;stl1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;stl2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ssrd06&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;strd06&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcc&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mcc&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;hcc&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;lcc&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ro&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">VARIABLE_INVARIANTS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lsm&quot;</span><span class="p">,</span> <span class="s2">&quot;sdor&quot;</span><span class="p">,</span> <span class="s2">&quot;slor&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">]</span>
+    <span class="n">VARIABLE_FORCINGS</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;cos_latitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_longitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_latitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_longitude&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_julian_day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cos_local_time&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_julian_day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sin_local_time&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;insolation&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
@@ -630,9 +653,11 @@
         <span class="n">longitudes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">interpolation_matrix</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">inverse_interpolation_matrix</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">invariants</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;invariants&quot;</span><span class="p">,</span> <span class="n">invariants</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;latitudes&quot;</span><span class="p">,</span> <span class="n">latitudes</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;longitudes&quot;</span><span class="p">,</span> <span class="n">longitudes</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;interpolation_matrix&quot;</span><span class="p">,</span> <span class="n">interpolation_matrix</span><span class="p">)</span>
@@ -640,48 +665,41 @@
             <span class="s2">&quot;inverse_interpolation_matrix&quot;</span><span class="p">,</span> <span class="n">inverse_interpolation_matrix</span>
         <span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">input_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">prognostic</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span><span class="p">,</span>
-            <span class="p">]</span>
+        <span class="c1"># Check to make sure that the models total variable input variables are</span>
+        <span class="c1"># consistent with the wrappers</span>
+        <span class="c1"># Useful: https://github.com/ecmwf/anemoi-core/blob/main/models/src/anemoi/models/data_indices/tensor.py</span>
+        <span class="c1"># https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information</span>
+        <span class="n">name_to_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">_name_to_index</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">name_to_index</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ckpt_var_to_e2s</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Model variables are not the same as wrapper VARIABLES, your checkpoint is not expected...&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;input_full_ids&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">full</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;invariant_ids&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">IntTensor</span><span class="p">([</span><span class="n">name_to_index</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">VARIABLE_INVARIANTS</span><span class="p">]),</span>
         <span class="p">)</span>
-
-        <span class="c1"># Sort the concatenated tensor</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">values</span>
-
-        <span class="c1"># Create the range of values to remove</span>
-        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>  <span class="c1"># generated forcings</span>
-
-        <span class="c1"># Keep only elements NOT in to_remove</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
-
-        <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
-        <span class="k">return</span> <span class="n">selected</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">output_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="c1"># Input constants + prognostic and diagnostic - generated forcings</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">full</span><span class="p">,</span>
-            <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;forcing_ids&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">IntTensor</span><span class="p">([</span><span class="n">name_to_index</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">VARIABLE_FORCINGS</span><span class="p">]),</span>
         <span class="p">)</span>
-
-        <span class="c1"># Sort the concatenated tensor</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">indices</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-
-        <span class="c1"># Create the range of values to remove</span>
-        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>  <span class="c1"># generated forcings</span>
-
-        <span class="c1"># Keep only elements NOT in to_remove</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
-
-        <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
-        <span class="k">return</span> <span class="n">selected</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;input_ids&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">prognostic</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;output_ids&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">prognostic</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">diagnostic</span><span class="p">,</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of the prognostic model</span>
@@ -697,7 +715,7 @@
                 <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
                     <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="o">-</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]</span>
                 <span class="p">),</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_variables</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_ids</span><span class="p">]),</span>
                 <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">90.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">90.0</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
                 <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
             <span class="p">}</span>
@@ -721,7 +739,7 @@
                 <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
                 <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
                 <span class="s2">&quot;lead_time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
-                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_variables</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_ids</span><span class="p">]),</span>
                 <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">90.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">90.0</span><span class="p">,</span> <span class="mi">721</span><span class="p">),</span>
                 <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
             <span class="p">}</span>
@@ -753,9 +771,9 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;hf://ecmwf/aifs-single-1.0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://ecmwf/aifs-single-1.1&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;aifs-single-1.0&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;aifs-single-1.1&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
@@ -770,7 +788,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic from package&quot;&quot;&quot;</span>
 
         <span class="c1"># Load model</span>
-        <span class="n">model_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;aifs-single-mse-1.0.ckpt&quot;</span><span class="p">)</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;aifs-single-mse-1.1.ckpt&quot;</span><span class="p">)</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span>
             <span class="n">model_path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">device</span>
         <span class="p">)</span>
@@ -798,7 +816,7 @@
             <span class="s2">&quot;https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span>
-                    <span class="s2">&quot;aifs-single-1.0_interpolation_matrix&quot;</span>
+                    <span class="s2">&quot;aifs-single-1.1_interpolation_matrix&quot;</span>
                 <span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="p">},</span>
@@ -818,7 +836,7 @@
             <span class="s2">&quot;https://get.ecmwf.int/repository/earthkit/regrid/db/1/mir_16_linear/&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span>
-                    <span class="s2">&quot;aifs-single-1.0_inverse_interpolation_matrix&quot;</span>
+                    <span class="s2">&quot;aifs-single-1.1_inverse_interpolation_matrix&quot;</span>
                 <span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
             <span class="p">},</span>
@@ -838,6 +856,33 @@
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="c1"># Fetch invariants from IFS, note that there are deviations between these</span>
+        <span class="c1"># invariant fields depending on where and what time the data is fetched.</span>
+        <span class="c1"># For this model, we will use ECMWF&#39;s own invarints in the IFS data store.</span>
+        <span class="n">ifs</span> <span class="o">=</span> <span class="n">IFS</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">invariants</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">ifs</span><span class="p">,</span>
+            <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2026-01-01T00:00:00&quot;</span><span class="p">)]),</span>
+            <span class="n">variable</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;lsm&quot;</span><span class="p">,</span> <span class="s2">&quot;sdor&quot;</span><span class="p">,</span> <span class="s2">&quot;slor&quot;</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">invariants</span> <span class="o">=</span> <span class="n">invariants</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+
+        <span class="c1"># Can also fetch from NCAR ERA5 backup but these have some differences</span>
+        <span class="c1"># invariant_package = Package(</span>
+        <span class="c1">#     &quot;https://nsf-ncar-era5.s3.amazonaws.com/e5.oper.invariant/197901/&quot;,</span>
+        <span class="c1">#     cache_options={</span>
+        <span class="c1">#         &quot;cache_storage&quot;: Package.default_cache(</span>
+        <span class="c1">#             &quot;aifs-single-1.0&quot;</span>
+        <span class="c1">#         ),</span>
+        <span class="c1">#         &quot;same_names&quot;: True,</span>
+        <span class="c1">#     },</span>
+        <span class="c1"># )</span>
+        <span class="c1"># invariant_arrays = []</span>
+        <span class="c1"># for key, value in {&quot;lsm&quot;: 172, &quot;sdor&quot;: 160, &quot;slor&quot;: 163, &quot;z&quot;: 129}.items():</span>
+        <span class="c1">#     ds = xr.load_dataset(invariant_package.resolve(f&quot;e5.oper.invariant.128_{value:03d}_{key}.ll025sc.1979010100_1979010100.nc&quot;))</span>
+        <span class="c1">#     invariant_arrays.append(ds[key.upper()].values)</span>
+        <span class="c1"># invariants = torch.Tensor(invariant_arrays).squeeze()</span>
+
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">model</span><span class="p">,</span>
             <span class="n">latitudes</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">supporting_arrays</span><span class="p">[</span><span class="s2">&quot;latitudes&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
@@ -846,8 +891,43 @@
             <span class="p">),</span>
             <span class="n">interpolation_matrix</span><span class="o">=</span><span class="n">torch_interpolation_matrix</span><span class="p">,</span>
             <span class="n">inverse_interpolation_matrix</span><span class="o">=</span><span class="n">torch_inverse_interpolation_matrix</span><span class="p">,</span>
+            <span class="n">invariants</span><span class="o">=</span><span class="n">invariants</span><span class="p">,</span>
         <span class="p">)</span></div>
 
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_ckpt_var_to_e2s</span><span class="p">(</span><span class="n">names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Translate checkpoint variable names into Earth2Studio variable IDs.&quot;&quot;&quot;</span>
+        <span class="n">surface_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;10u&quot;</span><span class="p">:</span> <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;10v&quot;</span><span class="p">:</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2d&quot;</span><span class="p">:</span> <span class="s2">&quot;d2m&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;2t&quot;</span><span class="p">:</span> <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;100u&quot;</span><span class="p">:</span> <span class="s2">&quot;u100m&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;100v&quot;</span><span class="p">:</span> <span class="s2">&quot;v100m&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">accum_6h_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;cp&quot;</span><span class="p">:</span> <span class="s2">&quot;cp06&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;tp&quot;</span><span class="p">:</span> <span class="s2">&quot;tp06&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ssrd&quot;</span><span class="p">:</span> <span class="s2">&quot;ssrd06&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;strd&quot;</span><span class="p">:</span> <span class="s2">&quot;strd06&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_map_one</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="c1"># Surface shorthand</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">surface_map</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">surface_map</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="c1"># 6-hour accumulations</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">accum_6h_map</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">accum_6h_map</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="c1"># Pressure level e.g. q_50 -&gt; q50</span>
+            <span class="k">if</span> <span class="s2">&quot;_&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}{</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">return</span> <span class="n">name</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">_map_one</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_cos_sin_julian_day</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -951,7 +1031,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare input tensor and coordinates for the AIFS model.&quot;&quot;&quot;</span>
         <span class="c1"># Interpolate the input tensor to the model grid</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
@@ -964,67 +1044,91 @@
         <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">n_bt</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">n_lead</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">n_nodes</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
 
-        <span class="c1"># Get cos, sin of latitude and longitude</span>
-        <span class="c1"># (cos_latitude, sin_latitude, cos_longitude, sin_longitude)</span>
-        <span class="n">cos_latitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">))</span>
-        <span class="n">sin_latitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">))</span>
-        <span class="n">cos_longitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span><span class="p">))</span>
-        <span class="n">sin_longitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span><span class="p">))</span>
-        <span class="n">cos_latitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_latitude</span><span class="p">,</span> <span class="n">cos_latitude</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">cos_longitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_longitude</span><span class="p">,</span> <span class="n">cos_longitude</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">sin_latitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_latitude</span><span class="p">,</span> <span class="n">sin_latitude</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">sin_longitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_longitude</span><span class="p">,</span> <span class="n">sin_longitude</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># Interpolate invariants</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariants</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">start_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interpolation_matrix</span> <span class="o">@</span> <span class="n">i</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
-        <span class="c1"># Get cos, sin of Julian day</span>
+        <span class="c1"># Reconstruct full feature tensor in checkpoint variable space (ordering and</span>
+        <span class="c1"># indices are checkpoint dependent).</span>
+        <span class="n">x_full</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">n_bt</span><span class="p">,</span> <span class="n">n_lead</span><span class="p">,</span> <span class="n">n_nodes</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">)),</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariant_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+        <span class="c1"># Compute generated forcings</span>
+        <span class="n">cos_latitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">sin_latitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">cos_longitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+        <span class="n">sin_longitude</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+        <span class="n">cos_latitude</span> <span class="o">=</span> <span class="n">cos_latitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">n_bt</span><span class="p">,</span> <span class="n">n_lead</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sin_latitude</span> <span class="o">=</span> <span class="n">sin_latitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">n_bt</span><span class="p">,</span> <span class="n">n_lead</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">cos_longitude</span> <span class="o">=</span> <span class="n">cos_longitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">n_bt</span><span class="p">,</span> <span class="n">n_lead</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sin_longitude</span> <span class="o">=</span> <span class="n">sin_longitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">n_bt</span><span class="p">,</span> <span class="n">n_lead</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
         <span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
             <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
         <span class="n">cos_julian_day_1</span><span class="p">,</span> <span class="n">sin_julian_day_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
             <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
-        <span class="n">cos_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">cos_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">sin_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cos_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">cos_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+            <span class="n">n_bt</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="n">sin_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+            <span class="n">n_bt</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
 
-        <span class="c1"># Get cos, sin local time</span>
         <span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
             <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
         <span class="n">cos_local_time_1</span><span class="p">,</span> <span class="n">sin_local_time_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
             <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
-        <span class="n">cos_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">cos_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">sin_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cos_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">cos_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+            <span class="n">n_bt</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="n">sin_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+            <span class="n">n_bt</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
 
-        <span class="c1"># Get cosine zenith angle</span>
-        <span class="c1"># Add insolation / cosine zenith angle</span>
         <span class="n">cos_zenith_angle_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
             <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
         <span class="n">cos_zenith_angle_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
             <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
-        <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_zenith_angle_0</span><span class="p">,</span> <span class="n">cos_zenith_angle_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">cos_zenith_angle_0</span><span class="p">,</span> <span class="n">cos_zenith_angle_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">n_bt</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># Combine inputs</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">90</span><span class="p">],</span>
-                <span class="n">cos_latitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">cos_longitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">sin_latitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">sin_longitude</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">cos_julian_day</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">cos_local_time</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">sin_julian_day</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">sin_local_time</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">cos_zenith_angle</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">90</span><span class="p">:],</span>
-            <span class="p">],</span>
-            <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_latitude</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_longitude</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sin_latitude</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">3</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sin_longitude</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">4</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_julian_day</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">5</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_local_time</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">6</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sin_julian_day</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">7</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sin_local_time</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x_full</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">8</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_zenith_angle</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">x</span>
+        <span class="n">x_full</span> <span class="o">=</span> <span class="n">x_full</span><span class="p">[</span>
+            <span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_full_ids</span>
+        <span class="p">]</span>  <span class="c1"># Select input (prognostic + forcing + invar)</span>
+        <span class="k">return</span> <span class="n">x_full</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_update_input</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1033,32 +1137,47 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Update time based inputs.&quot;&quot;&quot;</span>
 
-        <span class="c1"># Select only inputs</span>
-        <span class="c1"># From AnemoiModelInterface.DataIndices</span>
-        <span class="c1"># https://anemoi.readthedocs.io/projects/models/en/latest/modules/data_indices.html#usage-information</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">full</span><span class="p">]</span>
+        <span class="n">time0</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">time1</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
 
         <span class="c1"># Get cos, sin of Julian day</span>
-        <span class="n">cos_julian_day</span><span class="p">,</span> <span class="n">sin_julian_day</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
+            <span class="n">time0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
+        <span class="n">cos_julian_day_1</span><span class="p">,</span> <span class="n">sin_julian_day_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_julian_day</span><span class="p">(</span>
+            <span class="n">time1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="p">)</span>
+        <span class="n">cos_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_julian_day_0</span><span class="p">,</span> <span class="n">cos_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sin_julian_day</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_julian_day_0</span><span class="p">,</span> <span class="n">sin_julian_day_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># Get cos, sin of local time</span>
-        <span class="n">cos_local_time</span><span class="p">,</span> <span class="n">sin_local_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="c1"># Get cos, sin local time</span>
+        <span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
+            <span class="n">time0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
+        <span class="n">cos_local_time_1</span><span class="p">,</span> <span class="n">sin_local_time_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cos_sin_local_time</span><span class="p">(</span>
+            <span class="n">time1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="p">)</span>
+        <span class="n">cos_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_local_time_0</span><span class="p">,</span> <span class="n">cos_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sin_local_time</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">sin_local_time_0</span><span class="p">,</span> <span class="n">sin_local_time_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># Get cosine zenith angle</span>
-        <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
-            <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="c1"># Add insolation / cosine zenith angle</span>
+        <span class="n">cos_zenith_angle_0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
+            <span class="n">time0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
         <span class="p">)</span>
+        <span class="n">cos_zenith_angle_1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_cosine_zenith_fields</span><span class="p">(</span>
+            <span class="n">time1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">latitudes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">longitudes</span>
+        <span class="p">)</span>
+        <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">cos_zenith_angle_0</span><span class="p">,</span> <span class="n">cos_zenith_angle_1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># Add terms to x</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">94</span><span class="p">:</span><span class="mi">95</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_julian_day</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">95</span><span class="p">:</span><span class="mi">96</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_local_time</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">96</span><span class="p">:</span><span class="mi">97</span><span class="p">]</span> <span class="o">=</span> <span class="n">sin_julian_day</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">97</span><span class="p">:</span><span class="mi">98</span><span class="p">]</span> <span class="o">=</span> <span class="n">sin_local_time</span>
-        <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">98</span><span class="p">:</span><span class="mi">99</span><span class="p">]</span> <span class="o">=</span> <span class="n">cos_zenith_angle</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">4</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_julian_day</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">5</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_local_time</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">6</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sin_julian_day</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">7</span><span class="p">]]</span> <span class="o">=</span> <span class="n">sin_local_time</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">[</span><span class="mi">8</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cos_zenith_angle</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Select out actual input variables from the full fields set</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_full_ids</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">x</span>
 
@@ -1069,9 +1188,7 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare input tensor and coordinates for the AIFS model.&quot;&quot;&quot;</span>
         <span class="c1"># Remove generated forcings</span>
-        <span class="n">all_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-        <span class="n">keep</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">all_indices</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span> <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">keep</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_ids</span><span class="p">]</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
 
         <span class="c1"># Interpolate the model grid to the lat lon grid</span>
@@ -1096,29 +1213,30 @@
                 <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
             <span class="p">],</span>
         <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">x</span>
 
-    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
         <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">device_type</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">):</span>
-            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict_step</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-            <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">)),</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict_step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fcstep</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">)),</span>
                 <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">full</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span>
-                <span class="p">:,</span>
-                <span class="mi">1</span><span class="p">,</span>
-            <span class="p">]</span>
-            <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">full</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span>
-            <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span>
-                <span class="p">:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span>
-            <span class="p">]</span>
+            <span class="n">out</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_full_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">out</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">full</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">forcing_full</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">forcing_ids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariant_ids</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_full_ids</span><span class="p">,</span> <span class="n">forcing_full</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="n">forcing_full</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span>
 
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">output_coords</span>
 
@@ -1152,44 +1270,26 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_fill_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-            <span class="p">(</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">),</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
-            <span class="p">),</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper function of create a lat/lon tensor with the input prognostic and zero</span>
+<span class="sd">        filled diagnostic variables.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># add invariants to prognostics</span>
+        <span class="n">batch</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">lead</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="c1"># Prepare empty output tensor with VARIABLE dimension</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">lead</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">),</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span>
             <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
-            <span class="p">[</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">prognostic</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">data_indices</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">forcing</span><span class="p">,</span>
-            <span class="p">]</span>
-        <span class="p">)</span>
 
-        <span class="c1"># Sort the concatenated tensor</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">values</span>
-
-        <span class="c1"># Create the range of values to remove</span>
-        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>  <span class="c1"># generated forcings</span>
-
-        <span class="c1"># Keep only elements NOT in to_remove</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
-
-        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-
-        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">92</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">91</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">101</span><span class="p">:,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">VARIABLES</span><span class="p">))</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">torch</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
-        <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]</span>
+        <span class="c1"># Fill tensor: copy input slices into selected variable slots</span>
+        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariant_ids</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariants</span>
+        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_ids</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariant_ids</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">invariants</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_ids</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 
         <span class="n">out_coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
+        <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_ids</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
 
@@ -1200,19 +1300,20 @@
         <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
-        <span class="n">first_out</span><span class="p">,</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fill_input</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">output_tensor</span><span class="p">,</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fill_input</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
         <span class="n">coords_out</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="k">yield</span> <span class="n">first_out</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">coords_out</span>
+        <span class="k">yield</span> <span class="n">output_tensor</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">coords_out</span>
 
         <span class="c1"># Prepare input tensor</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_input</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="mi">1</span>
 
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="c1"># Front hook</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">front_hook</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 
             <span class="c1"># Forward is identity operator</span>
-            <span class="n">y</span><span class="p">,</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="n">y</span><span class="p">,</span> <span class="n">coords_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
 
             <span class="c1"># Prepare output tensor</span>
             <span class="n">output_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_output</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">coords_out</span><span class="p">)</span>
@@ -1230,6 +1331,7 @@
             <span class="p">)</span>
             <span class="c1"># Prepare input tensor</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_input</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>
 
 <div class="viewcode-block" id="AIFS.create_iterator">
 <a class="viewcode-back" href="../../../../modules/generated/models/px/earth2studio.models.px.AIFS.html#earth2studio.models.px.AIFS.create_iterator">[docs]</a>
@@ -1303,7 +1405,7 @@
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>
