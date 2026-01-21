@@ -565,3 +565,81 @@ def test_stormscope_staged_denoising(device):
     t_low = torch.tensor(5.0, device=device)
     expert_low = model._select_expert(t_low)
     assert expert_low == model.stage_models[1]
+
+
+@pytest.mark.package
+def test_stormscope_package_loading():
+    """Test StormScope GOES package loading and a minimal inference step."""
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+
+    package = StormScopeGOES.load_default_package()
+    model = StormScopeGOES.load_model(package, conditioning_data_source=None)
+    model = model.to(device)
+    model.eval()
+    model.sampler_args = {"num_steps": 2, "S_churn": 0}
+
+    batch_size = 1
+    time = np.array([np.datetime64("2025-07-01T00:00")])
+    coords = model.input_coords()
+    coords["batch"] = np.arange(batch_size)
+    coords["time"] = time
+    lead_times = coords["lead_time"]
+    variables = coords["variable"]
+
+    h, w = len(model.y), len(model.x)
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(lead_times),
+        len(variables),
+        h,
+        w,
+        device=device,
+    )
+
+    if (
+        model.conditioning_variables is not None
+        and len(model.conditioning_variables) > 0
+    ):
+        conditioning = torch.randn(
+            batch_size,
+            len(time),
+            len(lead_times),
+            len(model.conditioning_variables),
+            h,
+            w,
+            device=device,
+        )
+        conditioning_coords = OrderedDict(
+            {
+                "time": coords["time"],
+                "lead_time": lead_times,
+                "variable": model.conditioning_variables,
+                "y": model.y,
+                "x": model.x,
+            }
+        )
+        conditioning_coords.update({"batch": np.arange(batch_size)})
+        conditioning_coords.move_to_end("batch", last=False)
+
+        out, out_coords = model.call_with_conditioning(
+            x, coords, conditioning, conditioning_coords
+        )
+    else:
+        out, out_coords = model(x, coords)
+
+    expected_coords = model.output_coords(coords)
+    expected_shape = (
+        batch_size,
+        len(time),
+        len(model.output_times),
+        len(model.variables),
+        h,
+        w,
+    )
+    assert out.shape == torch.Size(expected_shape)
+    assert np.array_equal(out_coords["lead_time"], expected_coords["lead_time"])
+    assert (out_coords["variable"] == expected_coords["variable"]).all()
