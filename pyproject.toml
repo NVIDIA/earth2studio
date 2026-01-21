@@ -279,9 +279,6 @@ docs = [
     "pydata-sphinx-theme==0.16.1"
 ]
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
 [tool.hatch.version]
 path = "earth2studio/__init__.py"
 
