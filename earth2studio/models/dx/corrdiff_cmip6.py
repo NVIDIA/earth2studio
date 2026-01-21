@@ -794,7 +794,7 @@ class CorrDiffCMIP6(CorrDiff):
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             # CorrDiff utils do not support batches, so we in-efficiently loop
             for i in range(out.shape[0]):
-                mean_hr = image_reg[i] if self.hr_mean_conditioning else None
+                mean_hr = image_reg[i : i + 1] if self.hr_mean_conditioning else None
                 for j in range(self.number_of_samples):
                     image_res = diffusion_step(
                         net=self.residual_model,
