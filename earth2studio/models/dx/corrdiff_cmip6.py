@@ -380,7 +380,7 @@ class CorrDiffCMIP6(CorrDiff):
     def load_default_package(cls) -> Package:
         """Load diagnostic package"""
         package = Package(
-            "hf://nvidia/corrdiff-cmip6-era5",  # TODO: tag commit
+            "hf://nvidia/corrdiff-cmip6-era5@9440a890c0f2acc058c281a81bd1cc81c6398fe9",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cmip6"),
                 "same_names": True,
@@ -467,18 +467,20 @@ class CorrDiffCMIP6(CorrDiff):
             in_center_values.append(stats["input"][var]["mean"])
             in_scale_values.append(stats["input"][var]["std"])
 
-        in_center = torch.tensor(in_center_values)
-        in_scale = torch.tensor(in_scale_values)
+        in_center = torch.tensor(in_center_values, device=device)
+        in_scale = torch.tensor(in_scale_values, device=device)
 
         # Load output normalization parameters
         out_center = torch.tensor(
-            [stats["output"][v]["mean"] for v in output_variables]
+            [stats["output"][v]["mean"] for v in output_variables], device=device
         )
-        out_scale = torch.tensor([stats["output"][v]["std"] for v in output_variables])
+        out_scale = torch.tensor(
+            [stats["output"][v]["std"] for v in output_variables], device=device
+        )
 
         with xr.open_dataset(package.resolve("output_latlon_grid.nc")) as ds:
-            lat_output_grid = torch.as_tensor(np.array(ds["lat"][:]))
-            lon_output_grid = torch.as_tensor(np.array(ds["lon"][:]))
+            lat_output_grid = torch.as_tensor(np.array(ds["lat"][:]), device=device)
+            lon_output_grid = torch.as_tensor(np.array(ds["lon"][:]), device=device)
 
             # Validate output grid format and ordering
             cls._validate_grid_format(
@@ -486,8 +488,8 @@ class CorrDiffCMIP6(CorrDiff):
             )
 
         with xr.open_dataset(package.resolve("input_latlon_grid.nc")) as ds:
-            lat_input_grid = torch.as_tensor(np.array(ds["lat"][:]))
-            lon_input_grid = torch.as_tensor(np.array(ds["lon"][:]))
+            lat_input_grid = torch.as_tensor(np.array(ds["lat"][:]), device=device)
+            lon_input_grid = torch.as_tensor(np.array(ds["lon"][:]), device=device)
 
             # Validate input grid format and ordering
             cls._validate_grid_format(lat_input_grid, lon_input_grid, grid_name="input")
@@ -509,23 +511,24 @@ class CorrDiffCMIP6(CorrDiff):
                     )
 
             invariants = OrderedDict(
-                (var_name, torch.as_tensor(np.array(ds[var_name])))
+                (var_name, torch.as_tensor(np.array(ds[var_name]), device=device))
                 for var_name in var_names
             )
             # Load invariant normalization parameters
             invariant_center = torch.tensor(
-                [stats["invariants"][v]["mean"] for v in invariants]
+                [stats["invariants"][v]["mean"] for v in invariants], device=device
             )
             invariant_scale = torch.tensor(
-                [stats["invariants"][v]["std"] for v in invariants]
+                [stats["invariants"][v]["std"] for v in invariants], device=device
             )
 
         # Create time feature normalization tensors on the same device as the base buffers.
         time_feature_center = torch.as_tensor(
             [stats["input"]["sza"]["mean"], stats["input"]["hod"]["mean"]],
+            device=device,
         )
         time_feature_scale = torch.as_tensor(
-            [stats["input"]["sza"]["std"], stats["input"]["hod"]["std"]],
+            [stats["input"]["sza"]["std"], stats["input"]["hod"]["std"]], device=device
         )
 
         return cls(

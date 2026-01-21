@@ -274,7 +274,7 @@ class TestCorrDiffCMIP6Utils:
 )
 @pytest.mark.parametrize("number_of_samples", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_corrdiff_forward(
+def test_corrdiff_cmip6_forward(
     inference_mode,
     time,
     output_lead_times,
@@ -321,10 +321,10 @@ def test_corrdiff_forward(
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_corrdiff_package(device):
+def test_corrdiff_cmip6_package(device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package AIFS
+    # Test the cached model package
     package = CorrDiffCMIP6.load_default_package()
     dx = CorrDiffCMIP6.load_model(package, device=device)
     dx.number_of_samples = 2
@@ -342,10 +342,16 @@ def test_corrdiff_package(device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     out, out_coords = dx(x, coords)
 
+    assert out.shape[0] == 2
+    assert out.shape[1] == 1
+    assert out.shape[2] == 1
+    assert out.shape[3] == len(dx.output_variables)
+
     # Check variables
     assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "sample", 1)
-    handshake_dim(out_coords, "batch", 0)
+    handshake_dim(out_coords, "lon", 5)
+    handshake_dim(out_coords, "lat", 4)
+    handshake_dim(out_coords, "variable", 3)
+    handshake_dim(out_coords, "lead_time", 2)
+    handshake_dim(out_coords, "time", 1)
+    handshake_dim(out_coords, "sample", 0)
