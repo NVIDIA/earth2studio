@@ -776,8 +776,8 @@ class CMIP6MultiRealm:
         time availability. For multiple sources, this can result in significant
         data transfer.
 
-        Notes
-        -----
+        Note
+        ----
         This method checks that ALL sources have data available at the requested time,
         since combining multi-realm data requires data from all sources. Each source
         is checked by downloading at least one file to verify the time coordinate range.
