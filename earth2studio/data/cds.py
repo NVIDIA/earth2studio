@@ -39,7 +39,6 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
     import cdsapi
-    from cfgrib.xarray_to_grib import to_grib
 except ImportError:
     OptionalDependencyFailure("data")
     cdsapi = None
@@ -368,6 +367,9 @@ class CDS:
         ]
         tp_data[-1].values = np.sum(np.stack([tp.values for tp in tp_data]), axis=0)
         tp06_ds = xr.Dataset({"tp06": tp_data[-1]})
+        # Lazy import here to avoid eccodes error, TODO: Pygrib
+        from cfgrib.xarray_to_grib import to_grib
+
         to_grib(tp06_ds, cache_path, no_warn=True, grib_keys={"edition": 2})
 
     @property
