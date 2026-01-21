@@ -400,8 +400,8 @@ class GEFS_FX:
 
         Returns
         -------
-        xr.DataArray
-            FS data array for given time and lead time
+        np.ndarray
+            GEFS array for given time and lead time
         """
         logger.debug(f"Fetching GEFS grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache

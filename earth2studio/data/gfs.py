@@ -374,8 +374,8 @@ class GFS:
 
         Returns
         -------
-        xr.DataArray
-            FS data array for given time and lead time
+        np.ndarray
+            GFS array for given time and lead time
         """
         logger.debug(f"Fetching GFS grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache
