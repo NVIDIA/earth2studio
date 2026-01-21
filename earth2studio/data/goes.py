@@ -68,11 +68,15 @@ class GOES:
     https://aws.amazon.com/marketplace/pp/prodview-ngejrbcumyjtu#usage
 
     ABI Data:
+
     - 16 spectral bands (abi01c-abi16c):
+
         - abi01c, abi02c (Visible: Blue, Red)
         - abi03c-abi06c (Near IR: Vegetation, Cirrus, Snow/Ice, Cloud particles)
         - abi07c-abi16c (IR: Thermal and water vapor channels)
+
     - Scan modes:
+
         - Full Disk (F): Entire Earth view
         - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
     """

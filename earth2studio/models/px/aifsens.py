@@ -146,8 +146,8 @@ VARIABLES = [
     "insolation",  # cosine zenith angle
     "stl1",
     "stl2",
-    "ssrd",
-    "strd",
+    "ssrd06",
+    "strd06",
     "sf",
     "tcc",
     "mcc",

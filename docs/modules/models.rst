@@ -77,6 +77,7 @@ etc.
    CBottleInfill
    CBottleSR
    CBottleTCGuidance
+   CorrDiffCMIP6
    CorrDiffTaiwan
    ClimateNet
    DerivedRH
