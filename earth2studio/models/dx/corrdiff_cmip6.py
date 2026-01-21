@@ -119,8 +119,9 @@ class CorrDiffCMIP6(CorrDiff):
         Normalization scale for time features (sza, hod) of size [2], by default None
     output_lead_times: LeadTimeArray, optional
         Output lead times to sample at within the input time window. The default package
-        is trained to support lead times between [-12, 12] at hourly intervals, by
-        default np.array([np.timedelta64(-12, "h")])
+        is trained to support lead times between [-12, +11] hours at hourly intervals.
+        This constraint ensures the input data remains aligned with the temporal features
+        (SZA, HOD) calculated at the valid time. By default np.array([np.timedelta64(-12, "h")])
 
     Examples
     --------
@@ -213,6 +214,10 @@ class CorrDiffCMIP6(CorrDiff):
     _LAT_PAD = (23, 24)  # reflect padding in latitude
     _LON_PAD = (48, 48)  # circular padding in longitude
 
+    # Valid range for output lead times in hours
+    _MIN_LEAD_TIME_HOURS = -12
+    _MAX_LEAD_TIME_HOURS = 11
+
     def __init__(
         self,
         input_variables: Sequence[str],
@@ -292,7 +297,9 @@ class CorrDiffCMIP6(CorrDiff):
         # This does not change the generated samples, only where the final stacked tensor lives.
         self.stream_samples_to_cpu: bool = False
 
-        # Controls the output lead times, should be hourly between [-12, 12]
+        # Controls the output lead times, should be hourly between [-12, +11]
+        # Validate lead times are within the valid range
+        self._validate_output_lead_times(output_lead_times)
         self.output_lead_times = output_lead_times
 
         # Extend in_center and in_scale to include time features (sza, hod) at the end
@@ -319,6 +326,44 @@ class CorrDiffCMIP6(CorrDiff):
             for i, v in enumerate(self.output_variables)
             if v in self._NONNEGATIVE_VARS
         ]
+
+    @staticmethod
+    def _validate_output_lead_times(output_lead_times: LeadTimeArray) -> None:
+        """Validate that output lead times are within the valid range [-12, +11] hours.
+
+        The model requires input data at lead times [-24h, 0h, +24h] centered on the
+        requested time. The temporal features (SZA, HOD) are calculated for the valid
+        time (time + lead_time). To ensure alignment between input data and temporal
+        features, output lead times must stay within [-12, +11] hours.
+
+        For example, to get output for 2026-12-23 00:00:00:
+        - Use time=2026-12-23 12:00:00 with lead_time=-12h (correct)
+        - NOT time=2026-12-22 12:00:00 with lead_time=+12h (misaligned features)
+
+        Parameters
+        ----------
+        output_lead_times : LeadTimeArray
+            Array of lead times to validate
+
+        Raises
+        ------
+        ValueError
+            If any lead time is outside the valid range [-12, +11] hours
+        """
+        min_hours = CorrDiffCMIP6._MIN_LEAD_TIME_HOURS
+        max_hours = CorrDiffCMIP6._MAX_LEAD_TIME_HOURS
+
+        for lt in output_lead_times:
+            # Convert to hours for validation
+            hours = lt / np.timedelta64(1, "h")
+            if hours < min_hours or hours > max_hours:
+                raise ValueError(
+                    f"output_lead_times must be within [{min_hours}, {max_hours}] hours, "
+                    f"but got {hours}h. To get a specific valid time, adjust the input "
+                    f"'time' parameter instead of using lead times outside this range. "
+                    f"For example, to get 2026-12-23 00:00:00, use time=2026-12-23T12:00 "
+                    f"with lead_time=-12h, not time=2026-12-22T12:00 with lead_time=+12h."
+                )
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system"""
