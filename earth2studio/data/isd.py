@@ -91,6 +91,7 @@ class ISD:
     -------
     .. highlight:: python
     .. code-block:: python
+
         # Bay area, lat lon bounding box (lat min, lon min, lat max, lon max)
         stations = ISD.get_stations_bbox((36, -124, 40, -120))
         ds = ISD(stations, tolerance=timedelta(hours=2))

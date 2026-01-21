@@ -13,6 +13,12 @@ RUN apt-get update && apt-get install -y \
     rsync \
     && rm -rf /var/lib/apt/lists/*
 
+# Install eccodes
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libeccodes-tools \
+    libeccodes-dev \
+ && rm -rf /var/lib/apt/lists/*
+
 # Installing newer version of cmake (for dm-tree)
 RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
   | gpg --dearmor -o /usr/share/keyrings/kitware-archive-keyring.gpg \
