@@ -331,7 +331,9 @@ class NCAR_ERA5:
         else:
             # New fs every call so we dont block, netcdf reads seems to not support
             # open_async -> S3AsyncStreamedFile (big sad)
-            fs = s3fs.S3FileSystem(anon=True, asynchronous=False)
+            fs = s3fs.S3FileSystem(
+                anon=True, asynchronous=False, skip_instance_cache=True
+            )
             with fs.open(nc_file_uri, "rb", block_size=4 * 1400 * 720) as f:
                 ds = await asyncio.to_thread(
                     xr.open_dataset, f, engine="h5netcdf", cache=False

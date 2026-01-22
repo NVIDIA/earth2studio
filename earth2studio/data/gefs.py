@@ -145,7 +145,9 @@ class GEFS_FX:
         ----
         Async fsspec expects initialization inside of the execution loop
         """
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        )
 
     def __call__(
         self,

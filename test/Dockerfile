@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libeccodes-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Installing newer version of cmake (for dm-tree)
+# Installing newer version of cmake (for dm-tree and natten)
 RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
   | gpg --dearmor -o /usr/share/keyrings/kitware-archive-keyring.gpg \
   && sh -c 'echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/kitware.list' \
