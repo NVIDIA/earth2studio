@@ -19,6 +19,7 @@ import warnings
 from earth2studio.models.px.ace2 import ACE2ERA5
 from earth2studio.models.px.aifs import AIFS
 from earth2studio.models.px.aifsens import AIFSENS
+from earth2studio.models.px.atlas import Atlas
 from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.cbottle_video import CBottleVideo
@@ -36,6 +37,7 @@ from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
+from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
 
 # TODO: Remove upon physics-nemo update...
 # package turned on logging of warnings in 1.1.0, this is silencing them
