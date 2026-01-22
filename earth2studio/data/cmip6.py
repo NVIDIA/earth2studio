@@ -87,6 +87,8 @@ class CMIP6:
     exact_time_match : bool, optional
         If True, raise an error when requested times don't match dataset times exactly.
         If False (default), use nearest neighbor time matching and issue a warning, by default False
+    pressure_level_tolerance: int, optional
+        Tolerance for selecting pressure levels in pascals, by default 0
 
     Warning
     -------
@@ -125,6 +127,7 @@ class CMIP6:
         cache: bool = True,
         verbose: bool = True,
         exact_time_match: bool = False,
+        pressure_level_tolerance: int = 0,
     ):
         self.experiment_id = experiment_id
         self.source_id = source_id
@@ -135,6 +138,7 @@ class CMIP6:
         self._cache = cache
         self._verbose = verbose
         self._exact_time_match = exact_time_match
+        self._pressure_level_tolerance = pressure_level_tolerance
 
         # Create catalog
         intake_esgf.conf.set(local_cache=self.cache)
@@ -329,28 +333,25 @@ class CMIP6:
                         f"Variable '{cmip6_var}' expected to have a 'plev' coordinate but none found"
                     )
 
+                # Select nearest pressure level within tolerance
                 try:
-                    # First try exact match
-                    data_arr = data_arr.sel(plev=target_pa)
-                except KeyError:
-                    # Fallback to nearest neighbor for models with precision issues
-                    # Use tolerance of 100 Pa (1 hPa) to ensure we don't match to wrong levels
-                    try:
-                        data_arr = data_arr.sel(
-                            plev=target_pa, method="nearest", tolerance=100
-                        )
-                        warnings.warn(
-                            f"Exact pressure level {level} hPa not found for variable '{cmip6_var}'. "
-                            f"Using nearest neighbor matching (tolerance=100 Pa) instead. "
-                            f"This may occur due to floating-point precision differences in some models.",
-                            UserWarning,
-                        )
-                    except KeyError as e:  # pragma: no cover
-                        available = data_arr.plev.values / 100.0
-                        raise ValueError(
-                            f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found "
-                            f"within tolerance (100 Pa). Available levels: {available}"
-                        ) from e
+                    data_arr = data_arr.sel(
+                        plev=target_pa,
+                        method="nearest",
+                        tolerance=self._pressure_level_tolerance,
+                    )
+                    warnings.warn(
+                        f"Exact pressure level {level} hPa not found for variable '{cmip6_var}'. "
+                        f"Using nearest neighbor matching (tolerance={self._pressure_level_tolerance} Pa) instead. "
+                        f"This may occur due to floating-point precision differences in some models.",
+                        UserWarning,
+                    )
+                except KeyError as e:  # pragma: no cover
+                    available = data_arr.plev.values / 100.0
+                    raise KeyError(
+                        f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found "
+                        f"within tolerance ({self._pressure_level_tolerance} Pa). Available levels: {available}"
+                    ) from e
 
             # At this point data_arr dims should be (time, lat, lon)
             # Convert to numpy (trigger load) and apply modifier

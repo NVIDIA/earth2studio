@@ -20,6 +20,7 @@ from datetime import datetime
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import CMIP6
 from earth2studio.data.cmip6 import CMIP6MultiRealm
@@ -159,6 +160,49 @@ def test_cmip6_input(variable, expected_exc):
 
     with pytest.raises(expected_exc):
         _ = ds(datetime(2015, 1, 16), variable)
+
+
+def test_cmip6_pressure_level_tolerance():
+
+    class DummyCatalog:
+        def __init__(self, dataset: xr.Dataset):
+            self._dataset = dataset
+
+        def to_dataset_dict(self, *args, **kwargs):
+            return {"ta": self._dataset}
+
+    time = np.array([np.datetime64("2000-01-01")])
+    lat = np.array([-10.0, 10.0])
+    lon = np.array([0.0, 90.0])
+    plev = np.array([50000.5])  # Pa, slightly offset from 50000
+    data = np.ones((1, 1, len(lat), len(lon)), dtype=np.float32)
+
+    fake_ds = xr.Dataset(
+        {"ta": (("time", "plev", "lat", "lon"), data)},
+        coords={"time": time, "plev": plev, "lat": lat, "lon": lon},
+    )
+
+    ds = CMIP6.__new__(CMIP6)
+    ds.experiment_id = "test"
+    ds.source_id = "test"
+    ds.table_id = "Amon"
+    ds.variant_label = "r1i1p1f1"
+    ds.file_start = None
+    ds.file_end = None
+    ds._cache = True
+    ds._verbose = False
+    ds._exact_time_match = False
+    ds.available_variables = {"ta"}
+    ds.catalog = DummyCatalog(fake_ds)
+    ds._search_catalog = lambda *args, **kwargs: None  # type: ignore[assignment]
+
+    ds._pressure_level_tolerance = 0
+    with pytest.raises(KeyError):
+        _ = ds(datetime(2000, 1, 1), ["t500"])
+
+    ds._pressure_level_tolerance = 1
+    data_ok = ds(datetime(2000, 1, 1), ["t500"])
+    assert data_ok.shape == (1, 1, len(lat), len(lon))
 
 
 @pytest.mark.parametrize(
@@ -393,9 +437,6 @@ def test_cmip6_multi_realm_with_sea_ice():
     assert "lon" in data.coords
 
 
-# Tests for exact_time_match feature
-
-
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
@@ -419,7 +460,7 @@ def test_cmip6_exact_time_match_fails_on_mismatch():
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(60)
-def test_cmip6_exact_time_match_succeeds_on_match():
+def test_cmip6_exact_time_match():
     """Test that exact_time_match=True succeeds when time matches exactly."""
     # First fetch with default to discover exact timestamp
     ds_default = CMIP6(
@@ -449,9 +490,6 @@ def test_cmip6_exact_time_match_succeeds_on_match():
     data_exact = ds_exact(actual_time, ["u10m"])
     assert data_exact.shape[0] == 1
     assert data_exact.shape[1] == 1
-
-
-# Tests for CMIP6MultiRealm exact_time_match validation
 
 
 def test_cmip6_multi_realm_mismatched_exact_time_match():
