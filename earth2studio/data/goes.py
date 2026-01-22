@@ -205,6 +205,7 @@ class GOES:
 
         # Set up S3 filesystem
         try:
+            nest_asyncio.apply()
             loop = asyncio.get_running_loop()
             loop.run_until_complete(self._async_init())
         except RuntimeError:
@@ -282,11 +283,11 @@ class GOES:
             )
 
         time, variable = prep_data_inputs(time, variable)
-        # Create cache dir if doesn't exist
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-
         # Make sure input time is valid
         self._validate_time(time)
+
+        # Create cache dir if doesn't exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         session = await self.fs.set_session(refresh=True)
@@ -326,12 +327,6 @@ class GOES:
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
-
-        # Close aiohttp client
-        # https://github.com/fsspec/s3fs/issues/943
-        # https://github.com/zarr-developers/zarr-python/issues/2901
-        await self.fs.set_session()  # Make sure the session was actually initalized
-        s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         # Add the grid coords to the data array
         xr_array = xr_array.assign_coords(
