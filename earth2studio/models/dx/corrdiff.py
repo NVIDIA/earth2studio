@@ -649,10 +649,10 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
         # Load model checkpoints
         residual = PhysicsNemoModule.from_checkpoint(
-            package.resolve("diffusion.mdlus")
+            package.resolve("diffusion.mdlus"), strict=False
         ).eval()
         regression = PhysicsNemoModule.from_checkpoint(
-            package.resolve("regression.mdlus")
+            package.resolve("regression.mdlus"), strict=False
         ).eval()
 
         # Apply inference optimizations (following CorrDiffTaiwan patterns)
@@ -990,15 +990,17 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         return x * self.out_scale + self.out_center
 
     def _inference_context(self) -> nullcontext:
-        """Return context manager for model inference.
+        """Return context manager to wrap model inference operations.
 
-        Base class returns nullcontext (no-op). Subclasses can override
-        to add autocast, profiling, or other context-dependent behavior.
+        This is a CorrDiff-internal hook (not a PyTorch `torch.nn.Module` method).
+        Subclasses can override it to change inference behavior (e.g., autocast,
+        profiling) without duplicating the full `_forward` implementation.
 
         Returns
         -------
         nullcontext
-            Context manager to wrap inference operations
+            Base class returns nullcontext (no-op). Subclasses can override to
+            return autocast, profiling contexts, or other context managers.
         """
         return nullcontext()
 

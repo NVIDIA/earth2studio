@@ -168,3 +168,27 @@ pip install --no-build-isolation --force-reinstall --upgrade --no-deps \
   --no-cache  --verbose torch-harmonics==0.8.0
 # Or respective uv command
 ```
+
+## Install Failure: `RuntimeError: Cannot find CMake executable`
+
+Some packages that need to get built from source like dm-tree or natten require some
+additional build tools on the system.
+This error indicates that the system needs [cmake](https://cmake.org/download/)
+installed.
+For debian systems this can be done through APT:
+
+```bash
+apt install cmake
+```
+
+## RuntimeError: Cannot find the ecCodes library
+
+This can surface when using a data source (e.g. CDS, GFS, HRRR, etc) that needs to
+read grib files indicating that ECMWF's eccodes library needs to be installed.
+Eccodes has several [install methods](https://github.com/ecmwf/eccodes), provided on
+[conda forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and
+APT for debian based systems:
+
+```bash
+apt-get install -y --no-install-recommends libeccodes-tools libeccodes-dev
+```

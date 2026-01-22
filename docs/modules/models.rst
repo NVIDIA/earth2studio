@@ -49,6 +49,8 @@ Thus are typically used to generate forecast predictions.
    Persistence
    SFNO
    StormCast
+   StormScopeGOES
+   StormScopeMRMS
 
 .. _earth2studio.models.dx:
 
@@ -76,6 +78,7 @@ etc.
    CBottleInfill
    CBottleSR
    CBottleTCGuidance
+   CorrDiffCMIP6
    CorrDiffTaiwan
    ClimateNet
    DerivedRH

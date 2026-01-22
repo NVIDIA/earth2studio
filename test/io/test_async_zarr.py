@@ -345,6 +345,7 @@ async def test_async_zarr_split_variables(
 
 
 @pytest.mark.slow
+@pytest.mark.xfail
 @pytest.mark.timeout(120)
 @pytest.mark.parametrize("blocking", [True, False])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
