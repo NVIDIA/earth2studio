@@ -169,6 +169,18 @@ pip install --no-build-isolation --force-reinstall --upgrade --no-deps \
 # Or respective uv command
 ```
 
+## Install Failure: `RuntimeError: Cannot find CMake executable`
+
+Some packages that need to get built from source like dm-tree or natten require some
+additional build tools on the system.
+This error indicates that the system needs [cmake](https://cmake.org/download/)
+installed.
+For debian systems this can be done through APT:
+
+```bash
+apt install cmake
+```
+
 ## RuntimeError: Cannot find the ecCodes library
 
 This can surface when using a data source (e.g. CDS, GFS, HRRR, etc) that needs to

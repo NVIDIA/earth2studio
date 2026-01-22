@@ -396,6 +396,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.StormScopeGOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormScopeGOES</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/px/earth2studio.models.px.StormScopeMRMS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormScopeMRMS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.CBottleInfill.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleInfill</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.CBottleSR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleSR</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../models/dx/earth2studio.models.dx.CBottleTCGuidance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</a></li>
@@ -578,7 +580,7 @@
 <h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.MRMS<a class="headerlink" href="#earth2studio-data-mrms" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.data.MRMS">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">MRMS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_offset_minutes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">MRMS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_offset_minutes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS" title="Link to this definition">#</a></dt>
 <dd><p>NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.</p>
 <p>This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
 public S3 bucket, decompresses them into the Earth2Studio cache, and opens
@@ -588,7 +590,7 @@ product is supported, exposed via the Earth2Studio variable id <code class="docu
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>max_offset_minutes</strong> (<em>float</em><em>, </em><em>optional</em>) – Time tolerance in minutes to search for the nearest available MRMS
-file to the requested timestamp, by default 0 (exact match only).</p></li>
+file to the requested timestamp, by default 10 minutes.</p></li>
 <li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source in local filesystem cache, by default True.</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print basic progress logs, by default True.</p></li>
 <li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Max workers in async IO thread pool for concurrent downloads, by default 24.</p></li>
@@ -636,16 +638,20 @@ source file.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MRMS.fetch">
 <span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.fetch" title="Link to this definition">#</a></dt>
-<dd><p>Async retrieval of MRMS data for given times and variables.</p>
+<dd><p>Async function to get data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>ndarray</em><em>[</em><em>datetime64</em><em>]</em>)</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>ndarray</em><em>[</em><em>str</em><em>]</em>)</p></li>
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR lexicon.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>DataArray</em></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>MRMS weather data array</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.DataArray</p>
 </dd>
 </dl>
 </dd></dl>
@@ -653,7 +659,7 @@ source file.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MRMS.available">
 <span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_offset_minutes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.available" title="Link to this definition">#</a></dt>
-<dd><p>Check if an MRMS file exists for a given time.</p>
+<dd><p>Check if an MRMS file exists for a given time. Only supports exact match.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -675,7 +681,13 @@ file to the requested timestamp, by default 0 (exact match only).</p></li>
 
 </dd></dl>
 
-<div class="clearer"></div></section>
+<section id="examples-using-earth2studio-data-mrms">
+<span id="sphx-glr-backref-earth2studio-data-mrms"></span><h2>Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.MRMS</span></code><a class="headerlink" href="#examples-using-earth2studio-data-mrms" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="StormScope inference workflow with GOES satellite imagery and MRMS radar data."><img alt="" src="../../../_images/sphx_glr_20_stormscope_goes_example_thumb.png" />
+<p><a class="reference internal" href="../../../examples/20_stormscope_goes_example.html"><span class="doc">StormScope Satellite and Radar Nowcasting</span></a></p>
+  <div class="sphx-glr-thumbnail-title">StormScope Satellite and Radar Nowcasting</div>
+</div></div><div class="clearer"></div></section>
+</section>
 
 
                 </article>
@@ -730,6 +742,7 @@ file to the requested timestamp, by default 0 (exact match only).</p></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.MRMS.available"><code class="docutils literal notranslate"><span class="pre">MRMS.available()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-earth2studio-data-mrms">Examples using <code class="docutils literal notranslate"><span class="pre">earth2studio.data.MRMS</span></code></a></li>
 </ul>
   </nav></div>
 

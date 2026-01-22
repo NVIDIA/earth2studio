@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 19 files **from examples**:
+**00:00.000** total execution time for 20 files **from examples**:
 
 .. container::
 
@@ -87,5 +87,8 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_19_local_datasource.py` (``19_local_datasource.py``)
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_20_stormscope_goes_example.py` (``20_stormscope_goes_example.py``)
      - 00:00.000
      - 0.0

@@ -468,7 +468,7 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    satellite : str, optional</span>
-<span class="sd">        Which GOES satellite to use (&#39;goes16&#39; or &#39;goes18&#39;), by default &#39;goes16&#39;</span>
+<span class="sd">        Which GOES satellite to use (&#39;goes16&#39;, &#39;goes17&#39;, &#39;goes18&#39;, or &#39;goes19&#39;), by default &#39;goes16&#39;</span>
 <span class="sd">    scan_mode : str, optional</span>
 <span class="sd">        For ABI: Scan mode (&#39;F&#39; for Full Disk, &#39;C&#39; for Continental US)</span>
 <span class="sd">        Mesoscale data is currently not supported due to the changing scan position.</span>
@@ -619,11 +619,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
 
+        <span class="c1"># Stash the grid coords so they can be added to data arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">satellite</span><span class="o">=</span><span class="n">satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="o">=</span><span class="n">scan_mode</span><span class="p">)</span>
+
         <span class="c1"># Validate satellite and scan mode</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_satellite_scan_mode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">)</span>
 
         <span class="c1"># Set up S3 filesystem</span>
         <span class="k">try</span><span class="p">:</span>
+            <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
             <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
             <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
@@ -631,7 +635,9 @@
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_async_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Async initialization of S3 filesystem&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="GOES.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GOES.html#earth2studio.data.GOES.__call__">[docs]</a>
@@ -706,11 +712,11 @@
             <span class="p">)</span>
 
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
-        <span class="c1"># Create cache dir if doesn&#39;t exist</span>
-        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
         <span class="c1"># Make sure input time is valid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="c1"># Create cache dir if doesn&#39;t exist</span>
+        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
         <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -751,12 +757,10 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
 
-        <span class="c1"># Close aiohttp client</span>
-        <span class="c1"># https://github.com/fsspec/s3fs/issues/943</span>
-        <span class="c1"># https://github.com/zarr-developers/zarr-python/issues/2901</span>
-        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">()</span>  <span class="c1"># Make sure the session was actually initalized</span>
-        <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="o">.</span><span class="n">close_session</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">s3</span><span class="p">)</span>
-
+        <span class="c1"># Add the grid coords to the data array</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr_array</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;_lat&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">),</span> <span class="s2">&quot;_lon&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span><span class="p">)}</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">xr_array</span></div>
 
 

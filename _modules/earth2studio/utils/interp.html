@@ -437,12 +437,23 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">nn</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">earth2grid.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">ang2vec</span><span class="p">,</span> <span class="n">haversine_distance</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearNDInterpolator</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">KDTree</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;utils&quot;</span><span class="p">)</span>
+    <span class="n">KDTree</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ang2vec</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">haversine_distance</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">LinearNDInterpolator</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">nn</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">latlon_interpolation_regular</span><span class="p">(</span>
@@ -524,6 +535,7 @@
 
 <div class="viewcode-block" id="LatLonInterpolation">
 <a class="viewcode-back" href="../../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html#earth2studio.utils.interp.LatLonInterpolation">[docs]</a>
+<span class="nd">@check_optional_dependencies</span><span class="p">(</span><span class="s2">&quot;utils&quot;</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">LatLonInterpolation</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Bilinear interpolation between arbitrary grids.</span>
 
@@ -622,6 +634,192 @@
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">lerp</span><span class="p">(</span><span class="n">f0</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">i0</span><span class="p">)</span></div>
 </div>
 
+
+
+<span class="nd">@check_optional_dependencies</span><span class="p">(</span><span class="s2">&quot;utils&quot;</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">NearestNeighborInterpolator</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Nearest-neighbor interpolation between arbitrary lat/lon grids.</span>
+
+<span class="sd">    This module precomputes the nearest source-grid index for every target-grid</span>
+<span class="sd">    location (with an optional maximum great-circle distance threshold) and stores</span>
+<span class="sd">    the mapping as device-movable buffers. Interpolation then becomes a fast tensor</span>
+<span class="sd">    gather that can run on GPU via ``.to(device)``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    source_lats : torch.Tensor | ArrayLike</span>
+<span class="sd">        Latitude of the source grid. Either 2D meshgrid [H_src, W_src] or 1D vector [H_src, ].</span>
+<span class="sd">    source_lons : torch.Tensor | ArrayLike</span>
+<span class="sd">        Longitude of the source grid. Either 2D meshgrid [H_src, W_src] or 1D vector [W_src, ].</span>
+<span class="sd">        Longitudes may be in [-180, 180] or [0, 360] range.</span>
+<span class="sd">    target_lats : torch.Tensor | ArrayLike</span>
+<span class="sd">        Latitude of the target grid. Either 2D meshgrid [H_tgt, W_tgt] or 1D vector [H_tgt, ].</span>
+<span class="sd">    target_lons : torch.Tensor | ArrayLike</span>
+<span class="sd">        Longitude of the target grid. Either 2D meshgrid [H_tgt, W_tgt] or 1D vector [W_tgt, ].</span>
+<span class="sd">    max_dist_km : float, optional</span>
+<span class="sd">        Maximum great-circle distance (km) to accept a nearest neighbor match.</span>
+<span class="sd">        Target points farther than this threshold are marked invalid and will</span>
+<span class="sd">        receive NaNs in the output. By default 6.0.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - Mapping is computed on CPU using a KDTree and stored as buffers</span>
+<span class="sd">      ``source_flat_index`` (shape [H_tgt*W_tgt], dtype int64) and</span>
+<span class="sd">      ``valid_mask`` (shape [H_tgt*W_tgt], dtype bool).</span>
+<span class="sd">    - Forward expects values with shape [..., H_src, W_src] and returns</span>
+<span class="sd">      [..., H_tgt, W_tgt].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">source_lats</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">source_lons</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">target_lats</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">target_lons</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">max_dist_km</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">6.0</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Convert to torch tensors on CPU for processing</span>
+        <span class="n">src_lat_t</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">source_lats</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source_lats</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span>
+                <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">source_lats</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">src_lon_t</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">source_lons</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source_lons</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span>
+                <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">source_lons</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">tgt_lat_t</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">target_lats</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_lats</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span>
+                <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">target_lats</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">tgt_lon_t</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">target_lons</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_lons</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span>
+                <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">target_lons</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Normalize to 2D grids if 1D vectors were provided</span>
+        <span class="k">if</span> <span class="n">src_lat_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">src_lon_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">src_lat_t</span><span class="p">,</span> <span class="n">src_lon_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span>
+                <span class="n">src_lat_t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">src_lon_t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="n">src_lat_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">src_lon_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;source_lats and source_lons must both be 2D or both 1D vectors.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">tgt_lat_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">tgt_lon_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">tgt_lat_t</span><span class="p">,</span> <span class="n">tgt_lon_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span>
+                <span class="n">tgt_lat_t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">tgt_lon_t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="n">tgt_lat_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">tgt_lon_t</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;target_lats and target_lons must both be 2D or both 1D vectors.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Flatten source/target and mask invalid source coordinates</span>
+        <span class="n">src_lat_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">src_lat_t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">src_lon_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">src_lon_t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">nan_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">src_lat_flat</span><span class="p">)</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">src_lon_flat</span><span class="p">)</span>
+        <span class="n">valid_src_lat</span> <span class="o">=</span> <span class="n">src_lat_flat</span><span class="p">[</span><span class="o">~</span><span class="n">nan_mask</span><span class="p">]</span>
+        <span class="n">valid_src_lon</span> <span class="o">=</span> <span class="n">src_lon_flat</span><span class="p">[</span><span class="o">~</span><span class="n">nan_mask</span><span class="p">]</span>
+
+        <span class="n">tgt_lat_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tgt_lat_t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">tgt_lon_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">tgt_lon_t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># Build KDTree in 3D unit-vector space for numerical stability</span>
+        <span class="n">src_vec</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">ang2vec</span><span class="p">(</span><span class="n">valid_src_lon</span><span class="p">,</span> <span class="n">valid_src_lat</span><span class="p">),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">tree</span> <span class="o">=</span> <span class="n">KDTree</span><span class="p">(</span><span class="n">src_vec</span><span class="p">)</span>  <span class="c1"># type: ignore[misc]</span>
+        <span class="n">tgt_vec</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">ang2vec</span><span class="p">(</span><span class="n">tgt_lon_flat</span><span class="p">,</span> <span class="n">tgt_lat_flat</span><span class="p">),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">nn_idx_valid_subset</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">tgt_vec</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># indices into valid subset</span>
+
+        <span class="c1"># Map back to indices into the full flattened source grid</span>
+        <span class="n">valid_src_indices</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">nan_mask</span><span class="p">)</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">as_tuple</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">src_flat_index_full</span> <span class="o">=</span> <span class="n">valid_src_indices</span><span class="p">[</span><span class="n">nn_idx_valid_subset</span><span class="p">]</span>  <span class="c1"># shape [N_tgt]</span>
+
+        <span class="c1"># Distance-based validity</span>
+        <span class="n">ang_dist</span> <span class="o">=</span> <span class="n">haversine_distance</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
+            <span class="n">tgt_lon_flat</span><span class="p">,</span>
+            <span class="n">tgt_lat_flat</span><span class="p">,</span>
+            <span class="n">valid_src_lon</span><span class="p">[</span><span class="n">nn_idx_valid_subset</span><span class="p">],</span>
+            <span class="n">valid_src_lat</span><span class="p">[</span><span class="n">nn_idx_valid_subset</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">dist_km</span> <span class="o">=</span> <span class="n">ang_dist</span> <span class="o">*</span> <span class="mf">6371.0</span>
+        <span class="n">valid_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">dist_km</span> <span class="o">&lt;</span> <span class="n">max_dist_km</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+
+        <span class="c1"># Register buffers (moved with .to(device))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;source_flat_index&quot;</span><span class="p">,</span> <span class="n">src_flat_index_full</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;valid_mask&quot;</span><span class="p">,</span> <span class="n">valid_mask</span><span class="p">)</span>
+
+        <span class="c1"># Save target shape for reshape on output</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_h</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tgt_lat_t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_w</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tgt_lat_t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_h</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">src_lat_t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source_w</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">src_lat_t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply nearest-neighbor interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        values : torch.Tensor</span>
+<span class="sd">            Input values with shape [..., H_src, W_src] defined on the source grid.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Interpolated values with shape [..., H_tgt, W_tgt]. Any targets without</span>
+<span class="sd">            a valid neighbor within the distance threshold are filled with NaN.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_h</span> <span class="ow">or</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_w</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Input spatial shape [..., </span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">] does not &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;match source grid [</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">source_h</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">source_w</span><span class="si">}</span><span class="s2">].&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Flatten spatial dims of input and gather with precomputed indices</span>
+        <span class="n">leading_shape</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">values_flat</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">*</span><span class="n">leading_shape</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># [..., H_src*W_src]</span>
+
+        <span class="c1"># Expand indices to match leading dims for gather</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_flat_index</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">index_expanded</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">leading_shape</span><span class="p">)),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">leading_shape</span><span class="p">,</span> <span class="n">index</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="n">gathered</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">values_flat</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index_expanded</span><span class="p">)</span>
+
+        <span class="c1"># Mask out invalid targets with NaN</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valid_mask</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">values</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">valid_expanded</span> <span class="o">=</span> <span class="n">valid</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">leading_shape</span><span class="p">)),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand_as</span><span class="p">(</span><span class="n">gathered</span><span class="p">)</span>
+        <span class="n">gathered</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">valid_expanded</span><span class="p">,</span> <span class="n">gathered</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">gathered</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">gathered</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">*</span><span class="n">leading_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_w</span><span class="p">)</span>
 </pre></div>
 
                 </article>

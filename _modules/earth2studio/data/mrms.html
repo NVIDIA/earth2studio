@@ -445,6 +445,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pygrib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
@@ -483,7 +484,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    max_offset_minutes : float, optional</span>
 <span class="sd">        Time tolerance in minutes to search for the nearest available MRMS</span>
-<span class="sd">        file to the requested timestamp, by default 0 (exact match only).</span>
+<span class="sd">        file to the requested timestamp, by default 10 minutes.</span>
 <span class="sd">    cache : bool, optional</span>
 <span class="sd">        Cache data source in local filesystem cache, by default True.</span>
 <span class="sd">    verbose : bool, optional</span>
@@ -513,7 +514,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">max_offset_minutes</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">max_offset_minutes</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
@@ -528,7 +529,19 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Set up S3 filesystem</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_async_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async initialization of S3 filesystem&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="MRMS.__call__">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.MRMS.html#earth2studio.data.MRMS.__call__">[docs]</a>
@@ -564,6 +577,9 @@
             <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span><span class="p">)</span>
         <span class="p">)</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+
         <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
             <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span><span class="p">)</span>
         <span class="p">)</span>
@@ -582,13 +598,37 @@
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async retrieval of MRMS data for given times and variables.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the HRRR lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            MRMS weather data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;File store is not initialized! If you are calling this </span><span class="se">\</span>
+<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
+<span class="s2">            loop!&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
         <span class="c1"># Validate requested times are within MRMS availability window</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
 
         <span class="c1"># Create cache dir if needed</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Group variables by MRMS product and keep (var_index, modifier)</span>
         <span class="n">product_to_vars</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -644,6 +684,10 @@
             <span class="k">for</span> <span class="n">var_index</span><span class="p">,</span> <span class="n">modifier</span> <span class="ow">in</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;idx_mods&quot;</span><span class="p">]:</span>
                 <span class="n">out</span><span class="p">[</span><span class="n">ti</span><span class="p">,</span> <span class="n">var_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">field_values</span><span class="p">)</span>
 
+        <span class="c1"># Close aiohttp client if s3fs</span>
+        <span class="k">if</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
         <span class="k">return</span> <span class="n">out</span></div>
 
 
@@ -655,75 +699,73 @@
         <span class="n">idx_mods</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Internal coroutine to fetch a single MRMS product field for a time.&quot;&quot;&quot;</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># Resolve to an exact available S3 object within tolerance in a thread</span>
-            <span class="n">resolved</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resolve_s3_time</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No MRMS file found near requested time </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;within ±</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_offset_minutes</span><span class="si">}</span><span class="s2"> minutes for product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="kc">None</span>
-            <span class="n">_</span><span class="p">,</span> <span class="n">s3_uri</span> <span class="o">=</span> <span class="n">resolved</span>
-
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching MRMS file: </span><span class="si">{</span><span class="n">s3_uri</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="c1"># Download and decompress in a thread</span>
-            <span class="n">grib_file</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_download_and_decompress</span><span class="p">,</span> <span class="n">s3_uri</span><span class="p">)</span>
-
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">grbs</span> <span class="o">=</span> <span class="n">pygrib</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">grib_file</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to open grib file </span><span class="si">{</span><span class="n">grib_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">grb</span> <span class="o">=</span> <span class="n">grbs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-                <span class="n">values</span> <span class="o">=</span> <span class="n">grb</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># (ny, nx)</span>
-                <span class="n">lats</span><span class="p">,</span> <span class="n">lons</span> <span class="o">=</span> <span class="n">grb</span><span class="o">.</span><span class="n">latlons</span><span class="p">()</span>
-                <span class="n">lat</span> <span class="o">=</span> <span class="n">lats</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-                <span class="n">lon</span> <span class="o">=</span> <span class="n">lons</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to read grib file </span><span class="si">{</span><span class="n">grib_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="n">e</span>
-            <span class="k">finally</span><span class="p">:</span>
-                <span class="n">grbs</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-
-            <span class="k">return</span> <span class="p">{</span>
-                <span class="s2">&quot;time_index&quot;</span><span class="p">:</span> <span class="n">time_index</span><span class="p">,</span>
-                <span class="s2">&quot;idx_mods&quot;</span><span class="p">:</span> <span class="n">idx_mods</span><span class="p">,</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon</span><span class="p">,</span>
-                <span class="s2">&quot;field_values&quot;</span><span class="p">:</span> <span class="n">values</span><span class="p">,</span>
-            <span class="p">}</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;MRMS fetch failed for </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Resolve to an exact available S3 object within tolerance in a thread</span>
+        <span class="n">resolved</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_s3_time</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">product</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_offset_minutes</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;No MRMS file found near requested time </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;within ±</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_offset_minutes</span><span class="si">}</span><span class="s2"> minutes for product </span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Consider increasing the max_offset_minutes parameter.&quot;</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">s3_uri</span> <span class="o">=</span> <span class="n">resolved</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_download_and_decompress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s3_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Download gzipped GRIB2 from S3 and decompress into cache; return path.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching MRMS file: </span><span class="si">{</span><span class="n">s3_uri</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Download and decompress using async APIs</span>
+        <span class="n">grib_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_and_decompress_async</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">grbs</span> <span class="o">=</span> <span class="n">pygrib</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">grib_file</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to open grib file </span><span class="si">{</span><span class="n">grib_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">grb</span> <span class="o">=</span> <span class="n">grbs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">grb</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># (ny, nx)</span>
+            <span class="n">lats</span><span class="p">,</span> <span class="n">lons</span> <span class="o">=</span> <span class="n">grb</span><span class="o">.</span><span class="n">latlons</span><span class="p">()</span>
+            <span class="n">lat</span> <span class="o">=</span> <span class="n">lats</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">lon</span> <span class="o">=</span> <span class="n">lons</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to read grib file </span><span class="si">{</span><span class="n">grib_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">grbs</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;time_index&quot;</span><span class="p">:</span> <span class="n">time_index</span><span class="p">,</span>
+            <span class="s2">&quot;idx_mods&quot;</span><span class="p">:</span> <span class="n">idx_mods</span><span class="p">,</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat</span><span class="p">,</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon</span><span class="p">,</span>
+            <span class="s2">&quot;field_values&quot;</span><span class="p">:</span> <span class="n">values</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_download_and_decompress_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s3_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async download of gzipped GRIB2 from S3 and decompress into cache; return path.&quot;&quot;&quot;</span>
         <span class="c1"># Cache filenames derived from key</span>
         <span class="n">key_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">s3_uri</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-        <span class="n">gz_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key_hash</span><span class="si">}</span><span class="s2">.grib2.gz&quot;</span><span class="p">)</span>
         <span class="n">grib_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key_hash</span><span class="si">}</span><span class="s2">.grib2&quot;</span><span class="p">)</span>
 
         <span class="c1"># Download gz and decompress if not present</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">grib_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fsrc</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">gz_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fdst</span><span class="p">:</span>
-                <span class="n">fdst</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fsrc</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
-
-            <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">gz_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">grib_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
-                <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">fin</span><span class="p">,</span> <span class="n">fout</span><span class="p">)</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">gz_path</span><span class="p">)</span>
+            <span class="c1"># Read gzipped payload into memory and decompress to GRIB</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_cat_file</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+            <span class="n">decompressed</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">grib_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
+                <span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">decompressed</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">grib_path</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_s3_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">product</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_s3_key</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">product</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the S3 object key for a given time and product.&quot;&quot;&quot;</span>
         <span class="n">date_str</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">hms</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H%M%S&quot;</span><span class="p">)</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;MRMS_</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">hms</span><span class="si">}</span><span class="s2">.grib2.gz&quot;</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MRMS_REGION</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">MRMS_REGION</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify requested times are within MRMS availability window.</span>
@@ -747,22 +789,27 @@
                     <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">dt</span><span class="si">}</span><span class="s2"> must not be in the future for MRMS&quot;</span>
                 <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_s3_time</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">product</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_s3_time</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">fs</span><span class="p">:</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">product</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">max_offset_minutes</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find nearest-available S3 object within the configured minute tolerance.</span>
 
 <span class="sd">        Returns the resolved timestamp and full S3 URI if found, else None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Exact match fast path</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_s3_key</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
-        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MRMS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_s3_key</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
+        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">MRMS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="k">await</span> <span class="n">fs</span><span class="o">.</span><span class="n">_exists</span><span class="p">(</span><span class="n">s3_uri</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">time</span><span class="p">,</span> <span class="n">s3_uri</span>
 
         <span class="c1"># List candidate days (can cross day boundary within tolerance)</span>
-        <span class="n">t_min</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_offset_minutes</span><span class="p">)</span>
-        <span class="n">t_max</span> <span class="o">=</span> <span class="n">time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_offset_minutes</span><span class="p">)</span>
+        <span class="n">t_min</span> <span class="o">=</span> <span class="n">time</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">max_offset_minutes</span><span class="p">)</span>
+        <span class="n">t_max</span> <span class="o">=</span> <span class="n">time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">max_offset_minutes</span><span class="p">)</span>
         <span class="n">candidate_dates</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">t_min</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">),</span>
             <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">),</span>
@@ -778,10 +825,10 @@
 
         <span class="k">for</span> <span class="n">date_str</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">candidate_dates</span><span class="p">):</span>
             <span class="n">dir_uri</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MRMS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">MRMS_REGION</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">/&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">MRMS_BUCKET_NAME</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">MRMS_REGION</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">product</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">date_str</span><span class="si">}</span><span class="s2">/&quot;</span>
             <span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">keys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">dir_uri</span><span class="p">)</span>
+                <span class="n">keys</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fs</span><span class="o">.</span><span class="n">_ls</span><span class="p">(</span><span class="n">dir_uri</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="k">for</span> <span class="n">key_path</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
@@ -799,7 +846,7 @@
                     <span class="n">second</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">hms</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">6</span><span class="p">]),</span>
                 <span class="p">)</span>
                 <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">((</span><span class="n">ts</span> <span class="o">-</span> <span class="n">time</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">diff</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_offset_minutes</span> <span class="o">*</span> <span class="mi">60</span> <span class="ow">and</span> <span class="n">diff</span> <span class="o">&lt;</span> <span class="n">best_diff</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">diff</span> <span class="o">&lt;=</span> <span class="n">max_offset_minutes</span> <span class="o">*</span> <span class="mi">60</span> <span class="ow">and</span> <span class="n">diff</span> <span class="o">&lt;</span> <span class="n">best_diff</span><span class="p">:</span>
                     <span class="n">best_diff</span> <span class="o">=</span> <span class="n">diff</span>
                     <span class="n">best_dt</span> <span class="o">=</span> <span class="n">ts</span>
                     <span class="c1"># key_path can be either with or without s3:// prefix; construct URI</span>
@@ -829,7 +876,7 @@
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
         <span class="n">max_offset_minutes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if an MRMS file exists for a given time.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if an MRMS file exists for a given time. Only supports exact match.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -853,10 +900,9 @@
             <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">,</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
 
         <span class="c1"># Offline time bounds check</span>
-        <span class="n">time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">EARLIEST_AVAILABLE</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">cls</span><span class="o">.</span><span class="n">EARLIEST_AVAILABLE</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="n">time</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
 
         <span class="c1"># Derive MRMS product from requested variables</span>
@@ -877,9 +923,25 @@
             <span class="p">)</span>
         <span class="n">product</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">products</span><span class="p">))</span>
 
-        <span class="c1"># Delegate to instance resolver to avoid duplicating S3 listing logic</span>
-        <span class="n">tmp</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">max_offset_minutes</span><span class="o">=</span><span class="n">max_offset_minutes</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">tmp</span><span class="o">.</span><span class="n">_resolve_s3_time</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span> <span class="n">product</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_helper</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+                <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
+                <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="k">await</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_resolve_s3_time</span><span class="p">(</span><span class="n">fs</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">product</span><span class="p">,</span> <span class="n">max_offset_minutes</span><span class="p">)</span>
+                <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">_resolve_helper</span><span class="p">())</span></div>
 </div>
 
 </pre></div>

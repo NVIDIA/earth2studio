@@ -633,7 +633,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source</span> <span class="o">==</span> <span class="s2">&quot;aws&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
-                <span class="n">anon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">HRRR_BUCKET_ANON</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span>
+                <span class="n">anon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">HRRR_BUCKET_ANON</span><span class="p">,</span>
+                <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span>
+                <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source</span> <span class="o">==</span> <span class="s2">&quot;google&quot;</span><span class="p">:</span>
             <span class="n">fs</span> <span class="o">=</span> <span class="n">gcsfs</span><span class="o">.</span><span class="n">GCSFileSystem</span><span class="p">(</span>

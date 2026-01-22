@@ -627,6 +627,17 @@ the cuda extensions:</p>
 </pre></div>
 </div>
 </section>
+<section id="install-failure-runtimeerror-cannot-find-cmake-executable">
+<h2>Install Failure: <code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">Cannot</span> <span class="pre">find</span> <span class="pre">CMake</span> <span class="pre">executable</span></code><a class="headerlink" href="#install-failure-runtimeerror-cannot-find-cmake-executable" title="Link to this heading">#</a></h2>
+<p>Some packages that need to get built from source like dm-tree or natten require some
+additional build tools on the system.
+This error indicates that the system needs <a class="reference external" href="https://cmake.org/download/">cmake</a>
+installed.
+For debian systems this can be done through APT:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apt<span class="w"> </span>install<span class="w"> </span>cmake
+</pre></div>
+</div>
+</section>
 <section id="runtimeerror-cannot-find-the-eccodes-library">
 <h2>RuntimeError: Cannot find the ecCodes library<a class="headerlink" href="#runtimeerror-cannot-find-the-eccodes-library" title="Link to this heading">#</a></h2>
 <p>This can surface when using a data source (e.g. CDS, GFS, HRRR, etc) that needs to
@@ -693,6 +704,7 @@ APT for debian based systems:</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs-models">Flash Attention has long build time for AIFS models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2grid-or-torchharmonics-build-failure-python-h-no-such-file-or-directory">Earth2Grid or TorchHarmonics Build Failure <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#torch-harmonics-has-long-build-time-for-fcnv3">Torch Harmonics has long build time for FCNv3</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-failure-runtimeerror-cannot-find-cmake-executable">Install Failure: <code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">Cannot</span> <span class="pre">find</span> <span class="pre">CMake</span> <span class="pre">executable</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#runtimeerror-cannot-find-the-eccodes-library">RuntimeError: Cannot find the ecCodes library</a></li>
 </ul>
   </nav></div>

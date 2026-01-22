@@ -366,6 +366,23 @@ and commonly used workflows.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="StormScope inference workflow with GOES satellite imagery and MRMS radar data.">
+
+.. only:: html
+
+  .. image:: /examples/images/thumb/sphx_glr_20_stormscope_goes_example_thumb.png
+    :alt:
+
+  :doc:`/examples/20_stormscope_goes_example`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">StormScope Satellite and Radar Nowcasting</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -395,6 +412,7 @@ and commonly used workflows.
    /examples/17_io_performance
    /examples/18_ensemble_downscaling
    /examples/19_local_datasource
+   /examples/20_stormscope_goes_example
 
 
 Extending Earth2Studio
