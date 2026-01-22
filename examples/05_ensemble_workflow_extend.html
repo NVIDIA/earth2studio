@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Single Variable Perturbation Method &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>Single Variable Perturbation Method &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -45,13 +45,13 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/05_ensemble_workflow_extend';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="Generative Downscaling" href="04_corrdiff_inference.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -392,6 +392,7 @@
 <li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l1"><a class="reference internal" href="20_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -503,6 +504,7 @@ handed to them. In this example, we will use the built in ensemble workflow
     <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({}),</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Built in ensemble workflow.</span>
 
@@ -529,6 +531,8 @@ handed to them. In this example, we will use the built in ensemble workflow
 <span class="sd">        IO output coordinate system override, by default OrderedDict({})</span>
 <span class="sd">    device : torch.device, optional</span>
 <span class="sd">        Device to run inference on, by default None</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print inference progress, by default True</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -632,74 +636,72 @@ members which will be ran in 2 batches with batch size 4.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-12-15 01:14:58.600 | INFO     | earth2studio.run:ensemble:315 - Running ensemble inference!
-2025-12-15 01:14:58.601 | INFO     | earth2studio.run:ensemble:323 - Inference device: cuda
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-01-22 19:31:53.437 | INFO     | earth2studio.run:ensemble:328 - Running ensemble inference!
+2026-01-22 19:31:53.437 | INFO     | earth2studio.run:ensemble:336 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.611 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 251230645-803982
+2026-01-22 19:31:53.520 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 420029701-1181204
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.634 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 294691465-856457
+2026-01-22 19:31:53.532 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 397402829-996456
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.657 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 408062467-879185
+2026-01-22 19:31:53.543 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 329116923-847018
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.680 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 420029701-1181204
+2026-01-22 19:31:53.555 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 294691465-856457
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.703 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 208052937-721817
+2026-01-22 19:31:53.566 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 408062467-879185
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.726 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 397402829-996456
+2026-01-22 19:31:53.578 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 208052937-721817
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.749 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 329116923-847018
+2026-01-22 19:31:53.589 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231231/18/atmos/gfs.t18z.pgrb2.0p25.f000 251230645-803982
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.20it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.35it/s]
-
-Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-
-2025-12-15 01:14:58.777 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 87.36it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.799 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
+2026-01-22 19:31:53.669 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.822 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
+2026-01-22 19:31:53.680 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.846 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+2026-01-22 19:31:53.692 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.869 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
+2026-01-22 19:31:53.703 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.892 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+2026-01-22 19:31:53.714 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:14:58.914 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
+2026-01-22 19:31:53.725 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.24it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 43.63it/s]
-2025-12-15 01:14:58.986 | SUCCESS  | earth2studio.run:ensemble:345 - Fetched data from GFS
-2025-12-15 01:14:59.015 | INFO     | earth2studio.run:ensemble:373 - Starting 8 Member Ensemble Inference with             2 number of batches.
+
+2026-01-22 19:31:53.737 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+
+Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 88.58it/s]
+2026-01-22 19:31:53.777 | SUCCESS  | earth2studio.run:ensemble:358 - Fetched data from GFS
+2026-01-22 19:31:53.804 | INFO     | earth2studio.run:ensemble:386 - Starting 8 Member Ensemble Inference with             2 number of batches.
 
 
 
@@ -707,63 +709,63 @@ Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:03,  3.02it/s]
+Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:03,  3.28it/s]
 
-Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:02,  3.07it/s]
+Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:02,  3.10it/s]
 
-Running batch 0 inference:  27%|██▋       | 3/11 [00:00&lt;00:02,  3.19it/s]
+Running batch 0 inference:  27%|██▋       | 3/11 [00:00&lt;00:02,  3.25it/s]
 
-Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  3.19it/s]
+Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  3.27it/s]
 
-Running batch 0 inference:  45%|████▌     | 5/11 [00:01&lt;00:01,  3.27it/s]
+Running batch 0 inference:  45%|████▌     | 5/11 [00:01&lt;00:01,  3.36it/s]
 
-Running batch 0 inference:  55%|█████▍    | 6/11 [00:01&lt;00:01,  3.25it/s]
+Running batch 0 inference:  55%|█████▍    | 6/11 [00:01&lt;00:01,  3.35it/s]
 
-Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  3.29it/s]
+Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  3.40it/s]
 
-Running batch 0 inference:  73%|███████▎  | 8/11 [00:02&lt;00:00,  3.26it/s]
+Running batch 0 inference:  73%|███████▎  | 8/11 [00:02&lt;00:00,  3.40it/s]
 
-Running batch 0 inference:  82%|████████▏ | 9/11 [00:02&lt;00:00,  3.31it/s]
+Running batch 0 inference:  82%|████████▏ | 9/11 [00:02&lt;00:00,  3.42it/s]
 
-Running batch 0 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  3.25it/s]
+Running batch 0 inference:  91%|█████████ | 10/11 [00:02&lt;00:00,  3.38it/s]
 
-Running batch 0 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  3.28it/s]
-
-
+Running batch 0 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  3.45it/s]
 
 
-Total Ensemble Batches:  50%|█████     | 1/2 [00:08&lt;00:08,  8.77s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:08&lt;00:08,  8.18s/it]
 
 Running batch 4 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:03,  3.27it/s]
+Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:02,  3.36it/s]
 
-Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:02,  3.12it/s]
+Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:02,  3.33it/s]
 
-Running batch 4 inference:  27%|██▋       | 3/11 [00:00&lt;00:02,  3.22it/s]
+Running batch 4 inference:  27%|██▋       | 3/11 [00:00&lt;00:02,  3.42it/s]
 
-Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  3.21it/s]
+Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  3.36it/s]
 
-Running batch 4 inference:  45%|████▌     | 5/11 [00:01&lt;00:01,  3.28it/s]
+Running batch 4 inference:  45%|████▌     | 5/11 [00:01&lt;00:01,  3.42it/s]
 
-Running batch 4 inference:  55%|█████▍    | 6/11 [00:01&lt;00:01,  3.27it/s]
+Running batch 4 inference:  55%|█████▍    | 6/11 [00:01&lt;00:01,  3.39it/s]
 
-Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  3.32it/s]
+Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  3.42it/s]
 
-Running batch 4 inference:  73%|███████▎  | 8/11 [00:02&lt;00:00,  3.28it/s]
+Running batch 4 inference:  73%|███████▎  | 8/11 [00:02&lt;00:00,  3.40it/s]
 
-Running batch 4 inference:  82%|████████▏ | 9/11 [00:02&lt;00:00,  3.33it/s]
+Running batch 4 inference:  82%|████████▏ | 9/11 [00:02&lt;00:00,  3.44it/s]
 
-Running batch 4 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  3.31it/s]
+Running batch 4 inference:  91%|█████████ | 10/11 [00:02&lt;00:00,  3.41it/s]
 
-Running batch 4 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  3.35it/s]
-
-
+Running batch 4 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  3.43it/s]
 
 
-Total Ensemble Batches: 100%|██████████| 2/2 [00:17&lt;00:00,  8.67s/it]
-Total Ensemble Batches: 100%|██████████| 2/2 [00:17&lt;00:00,  8.69s/it]
-2025-12-15 01:15:16.386 | SUCCESS  | earth2studio.run:ensemble:423 - Inference complete
+
+
+Total Ensemble Batches: 100%|██████████| 2/2 [00:16&lt;00:00,  8.16s/it]
+Total Ensemble Batches: 100%|██████████| 2/2 [00:16&lt;00:00,  8.16s/it]
+2026-01-22 19:32:10.134 | SUCCESS  | earth2studio.run:ensemble:438 - Inference complete
 </pre></div>
 </div>
 </section>
@@ -843,7 +845,7 @@ perturbing the temperature field.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/05_</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">_ensemble.jpg&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" srcset="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" alt="2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 20.066 seconds)</p>
+<img src="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" srcset="../_images/sphx_glr_05_ensemble_workflow_extend_002.png" alt="2024-01-01 - tcwv - Lead time: 24hrs - Mean, 2024-01-01 - tcwv - Lead time: 24hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 20.216 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-05-ensemble-workflow-extend-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/2378c87289a3578422b539cf3ed00001/05_ensemble_workflow_extend.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">05_ensemble_workflow_extend.ipynb</span></code></a></p>
@@ -955,7 +957,7 @@ perturbing the temperature field.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>CBottle Data Generation and Infilling &#8212; Earth2Studio 0.11.0a0 documentation</title>
+    <title>CBottle Data Generation and Infilling &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -31,7 +31,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
@@ -45,13 +45,13 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=c2fa852a"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'examples/15_cbottle_generation';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="Running DLESyM Inference" href="14_dlesym_example.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11" />
+  <meta name="docsearch:version" content="0.12" />
   </head>
   
   
@@ -392,6 +392,7 @@
 <li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l1"><a class="reference internal" href="20_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -524,6 +525,148 @@ prognostic or diagnostic model.</p>
 <span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
 </pre></div>
 </div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading training-state-000512000.checkpoint: 0%|          | 0.00/568M [00:00&lt;?, ?B/s]
+Downloading training-state-000512000.checkpoint: 1%|          | 5.76M/568M [00:00&lt;00:09, 59.9MB/s]
+Downloading training-state-000512000.checkpoint: 6%|▌         | 33.3M/568M [00:00&lt;00:02, 194MB/s]
+Downloading training-state-000512000.checkpoint: 11%|█         | 60.1M/568M [00:00&lt;00:02, 234MB/s]
+Downloading training-state-000512000.checkpoint: 15%|█▌        | 85.9M/568M [00:00&lt;00:02, 248MB/s]
+Downloading training-state-000512000.checkpoint: 20%|█▉        | 112M/568M [00:00&lt;00:01, 257MB/s]
+Downloading training-state-000512000.checkpoint: 24%|██▍       | 138M/568M [00:00&lt;00:01, 264MB/s]
+Downloading training-state-000512000.checkpoint: 29%|██▉       | 165M/568M [00:00&lt;00:01, 269MB/s]
+Downloading training-state-000512000.checkpoint: 34%|███▎      | 191M/568M [00:00&lt;00:01, 270MB/s]
+Downloading training-state-000512000.checkpoint: 38%|███▊      | 219M/568M [00:00&lt;00:01, 273MB/s]
+Downloading training-state-000512000.checkpoint: 43%|████▎     | 246M/568M [00:01&lt;00:01, 276MB/s]
+Downloading training-state-000512000.checkpoint: 48%|████▊     | 272M/568M [00:01&lt;00:01, 274MB/s]
+Downloading training-state-000512000.checkpoint: 53%|█████▎    | 298M/568M [00:01&lt;00:01, 275MB/s]
+Downloading training-state-000512000.checkpoint: 57%|█████▋    | 324M/568M [00:01&lt;00:00, 266MB/s]
+Downloading training-state-000512000.checkpoint: 62%|██████▏   | 350M/568M [00:01&lt;00:00, 268MB/s]
+Downloading training-state-000512000.checkpoint: 66%|██████▋   | 377M/568M [00:01&lt;00:00, 271MB/s]
+Downloading training-state-000512000.checkpoint: 71%|███████   | 403M/568M [00:01&lt;00:00, 269MB/s]
+Downloading training-state-000512000.checkpoint: 76%|███████▌  | 430M/568M [00:01&lt;00:00, 274MB/s]
+Downloading training-state-000512000.checkpoint: 81%|████████  | 458M/568M [00:01&lt;00:00, 277MB/s]
+Downloading training-state-000512000.checkpoint: 85%|████████▌ | 484M/568M [00:01&lt;00:00, 277MB/s]
+Downloading training-state-000512000.checkpoint: 90%|████████▉ | 511M/568M [00:02&lt;00:00, 278MB/s]
+Downloading training-state-000512000.checkpoint: 95%|█████████▍| 538M/568M [00:02&lt;00:00, 278MB/s]
+Downloading training-state-000512000.checkpoint: 99%|█████████▉| 564M/568M [00:02&lt;00:00, 278MB/s]
+Downloading training-state-000512000.checkpoint: 100%|██████████| 568M/568M [00:02&lt;00:00, 266MB/s]
+
+Downloading training-state-002048000.checkpoint: 0%|          | 0.00/568M [00:00&lt;?, ?B/s]
+Downloading training-state-002048000.checkpoint: 4%|▍         | 24.6M/568M [00:00&lt;00:02, 258MB/s]
+Downloading training-state-002048000.checkpoint: 9%|▊         | 49.2M/568M [00:00&lt;00:02, 254MB/s]
+Downloading training-state-002048000.checkpoint: 13%|█▎        | 73.5M/568M [00:00&lt;00:02, 254MB/s]
+Downloading training-state-002048000.checkpoint: 17%|█▋        | 98.6M/568M [00:00&lt;00:01, 258MB/s]
+Downloading training-state-002048000.checkpoint: 22%|██▏       | 123M/568M [00:00&lt;00:01, 256MB/s]
+Downloading training-state-002048000.checkpoint: 26%|██▌       | 148M/568M [00:00&lt;00:01, 251MB/s]
+Downloading training-state-002048000.checkpoint: 31%|███       | 175M/568M [00:00&lt;00:01, 261MB/s]
+Downloading training-state-002048000.checkpoint: 35%|███▌      | 200M/568M [00:00&lt;00:01, 260MB/s]
+Downloading training-state-002048000.checkpoint: 40%|███▉      | 225M/568M [00:00&lt;00:01, 263MB/s]
+Downloading training-state-002048000.checkpoint: 44%|████▍     | 252M/568M [00:01&lt;00:01, 267MB/s]
+Downloading training-state-002048000.checkpoint: 49%|████▉     | 279M/568M [00:01&lt;00:01, 272MB/s]
+Downloading training-state-002048000.checkpoint: 54%|█████▍    | 306M/568M [00:01&lt;00:01, 274MB/s]
+Downloading training-state-002048000.checkpoint: 59%|█████▊    | 332M/568M [00:01&lt;00:00, 275MB/s]
+Downloading training-state-002048000.checkpoint: 63%|██████▎   | 360M/568M [00:01&lt;00:00, 279MB/s]
+Downloading training-state-002048000.checkpoint: 68%|██████▊   | 386M/568M [00:01&lt;00:00, 279MB/s]
+Downloading training-state-002048000.checkpoint: 73%|███████▎  | 413M/568M [00:01&lt;00:00, 277MB/s]
+Downloading training-state-002048000.checkpoint: 78%|███████▊  | 440M/568M [00:01&lt;00:00, 279MB/s]
+Downloading training-state-002048000.checkpoint: 82%|████████▏ | 467M/568M [00:01&lt;00:00, 280MB/s]
+Downloading training-state-002048000.checkpoint: 87%|████████▋ | 494M/568M [00:01&lt;00:00, 280MB/s]
+Downloading training-state-002048000.checkpoint: 92%|█████████▏| 521M/568M [00:02&lt;00:00, 278MB/s]
+Downloading training-state-002048000.checkpoint: 96%|█████████▋| 548M/568M [00:02&lt;00:00, 278MB/s]
+Downloading training-state-002048000.checkpoint: 100%|██████████| 568M/568M [00:02&lt;00:00, 271MB/s]
+
+Downloading training-state-009856000.checkpoint: 0%|          | 0.00/1.66G [00:00&lt;?, ?B/s]
+Downloading training-state-009856000.checkpoint: 1%|          | 20.1M/1.66G [00:00&lt;00:08, 211MB/s]
+Downloading training-state-009856000.checkpoint: 3%|▎         | 44.8M/1.66G [00:00&lt;00:07, 239MB/s]
+Downloading training-state-009856000.checkpoint: 4%|▍         | 72.1M/1.66G [00:00&lt;00:06, 261MB/s]
+Downloading training-state-009856000.checkpoint: 6%|▌         | 97.0M/1.66G [00:00&lt;00:06, 245MB/s]
+Downloading training-state-009856000.checkpoint: 7%|▋         | 121M/1.66G [00:00&lt;00:07, 235MB/s]
+Downloading training-state-009856000.checkpoint: 8%|▊         | 143M/1.66G [00:00&lt;00:07, 227MB/s]
+Downloading training-state-009856000.checkpoint: 10%|▉         | 166M/1.66G [00:00&lt;00:07, 229MB/s]
+Downloading training-state-009856000.checkpoint: 11%|█▏        | 192M/1.66G [00:00&lt;00:06, 245MB/s]
+Downloading training-state-009856000.checkpoint: 13%|█▎        | 218M/1.66G [00:00&lt;00:06, 252MB/s]
+Downloading training-state-009856000.checkpoint: 14%|█▍        | 245M/1.66G [00:01&lt;00:05, 261MB/s]
+Downloading training-state-009856000.checkpoint: 16%|█▌        | 271M/1.66G [00:01&lt;00:05, 266MB/s]
+Downloading training-state-009856000.checkpoint: 17%|█▋        | 297M/1.66G [00:01&lt;00:05, 261MB/s]
+Downloading training-state-009856000.checkpoint: 19%|█▉        | 324M/1.66G [00:01&lt;00:05, 266MB/s]
+Downloading training-state-009856000.checkpoint: 20%|██        | 349M/1.66G [00:01&lt;00:05, 250MB/s]
+Downloading training-state-009856000.checkpoint: 22%|██▏       | 378M/1.66G [00:01&lt;00:05, 263MB/s]
+Downloading training-state-009856000.checkpoint: 24%|██▎       | 403M/1.66G [00:01&lt;00:05, 264MB/s]
+Downloading training-state-009856000.checkpoint: 25%|██▌       | 430M/1.66G [00:01&lt;00:04, 268MB/s]
+Downloading training-state-009856000.checkpoint: 27%|██▋       | 458M/1.66G [00:01&lt;00:04, 276MB/s]
+Downloading training-state-009856000.checkpoint: 28%|██▊       | 484M/1.66G [00:01&lt;00:04, 277MB/s]
+Downloading training-state-009856000.checkpoint: 30%|██▉       | 511M/1.66G [00:02&lt;00:04, 276MB/s]
+Downloading training-state-009856000.checkpoint: 32%|███▏      | 537M/1.66G [00:02&lt;00:04, 271MB/s]
+Downloading training-state-009856000.checkpoint: 33%|███▎      | 563M/1.66G [00:02&lt;00:04, 267MB/s]
+Downloading training-state-009856000.checkpoint: 35%|███▍      | 590M/1.66G [00:02&lt;00:04, 271MB/s]
+Downloading training-state-009856000.checkpoint: 36%|███▌      | 616M/1.66G [00:02&lt;00:04, 271MB/s]
+Downloading training-state-009856000.checkpoint: 38%|███▊      | 643M/1.66G [00:02&lt;00:04, 273MB/s]
+Downloading training-state-009856000.checkpoint: 39%|███▉      | 669M/1.66G [00:02&lt;00:04, 263MB/s]
+Downloading training-state-009856000.checkpoint: 41%|████      | 694M/1.66G [00:02&lt;00:04, 232MB/s]
+Downloading training-state-009856000.checkpoint: 42%|████▏     | 717M/1.66G [00:02&lt;00:04, 215MB/s]
+Downloading training-state-009856000.checkpoint: 43%|████▎     | 740M/1.66G [00:03&lt;00:04, 222MB/s]
+Downloading training-state-009856000.checkpoint: 45%|████▍     | 762M/1.66G [00:03&lt;00:05, 176MB/s]
+Downloading training-state-009856000.checkpoint: 46%|████▌     | 782M/1.66G [00:03&lt;00:05, 185MB/s]
+Downloading training-state-009856000.checkpoint: 47%|████▋     | 801M/1.66G [00:03&lt;00:06, 150MB/s]
+Downloading training-state-009856000.checkpoint: 48%|████▊     | 817M/1.66G [00:03&lt;00:06, 138MB/s]
+Downloading training-state-009856000.checkpoint: 49%|████▉     | 831M/1.66G [00:03&lt;00:07, 120MB/s]
+Downloading training-state-009856000.checkpoint: 50%|████▉     | 844M/1.66G [00:04&lt;00:07, 114MB/s]
+Downloading training-state-009856000.checkpoint: 50%|█████     | 860M/1.66G [00:04&lt;00:07, 126MB/s]
+Downloading training-state-009856000.checkpoint: 52%|█████▏    | 878M/1.66G [00:04&lt;00:06, 141MB/s]
+Downloading training-state-009856000.checkpoint: 53%|█████▎    | 903M/1.66G [00:04&lt;00:04, 171MB/s]
+Downloading training-state-009856000.checkpoint: 55%|█████▍    | 930M/1.66G [00:04&lt;00:03, 203MB/s]
+Downloading training-state-009856000.checkpoint: 56%|█████▌    | 956M/1.66G [00:04&lt;00:03, 221MB/s]
+Downloading training-state-009856000.checkpoint: 58%|█████▊    | 984M/1.66G [00:04&lt;00:03, 241MB/s]
+Downloading training-state-009856000.checkpoint: 59%|█████▉    | 0.99G/1.66G [00:04&lt;00:02, 251MB/s]
+Downloading training-state-009856000.checkpoint: 61%|██████    | 1.01G/1.66G [00:04&lt;00:02, 260MB/s]
+Downloading training-state-009856000.checkpoint: 62%|██████▏   | 1.04G/1.66G [00:04&lt;00:02, 265MB/s]
+Downloading training-state-009856000.checkpoint: 64%|██████▍   | 1.07G/1.66G [00:05&lt;00:02, 271MB/s]
+Downloading training-state-009856000.checkpoint: 66%|██████▌   | 1.09G/1.66G [00:05&lt;00:02, 270MB/s]
+Downloading training-state-009856000.checkpoint: 67%|██████▋   | 1.12G/1.66G [00:05&lt;00:02, 271MB/s]
+Downloading training-state-009856000.checkpoint: 69%|██████▊   | 1.14G/1.66G [00:05&lt;00:02, 274MB/s]
+Downloading training-state-009856000.checkpoint: 70%|███████   | 1.17G/1.66G [00:05&lt;00:03, 168MB/s]
+Downloading training-state-009856000.checkpoint: 72%|███████▏  | 1.19G/1.66G [00:05&lt;00:02, 191MB/s]
+Downloading training-state-009856000.checkpoint: 73%|███████▎  | 1.22G/1.66G [00:05&lt;00:02, 208MB/s]
+Downloading training-state-009856000.checkpoint: 75%|███████▍  | 1.24G/1.66G [00:05&lt;00:02, 224MB/s]
+Downloading training-state-009856000.checkpoint: 76%|███████▋  | 1.27G/1.66G [00:06&lt;00:01, 238MB/s]
+Downloading training-state-009856000.checkpoint: 78%|███████▊  | 1.30G/1.66G [00:06&lt;00:01, 250MB/s]
+Downloading training-state-009856000.checkpoint: 80%|███████▉  | 1.32G/1.66G [00:06&lt;00:01, 259MB/s]
+Downloading training-state-009856000.checkpoint: 81%|████████  | 1.35G/1.66G [00:06&lt;00:01, 263MB/s]
+Downloading training-state-009856000.checkpoint: 83%|████████▎ | 1.38G/1.66G [00:06&lt;00:01, 270MB/s]
+Downloading training-state-009856000.checkpoint: 84%|████████▍ | 1.40G/1.66G [00:06&lt;00:01, 266MB/s]
+Downloading training-state-009856000.checkpoint: 86%|████████▌ | 1.43G/1.66G [00:06&lt;00:00, 269MB/s]
+Downloading training-state-009856000.checkpoint: 87%|████████▋ | 1.45G/1.66G [00:06&lt;00:00, 271MB/s]
+Downloading training-state-009856000.checkpoint: 89%|████████▉ | 1.48G/1.66G [00:06&lt;00:00, 271MB/s]
+Downloading training-state-009856000.checkpoint: 90%|█████████ | 1.50G/1.66G [00:06&lt;00:00, 263MB/s]
+Downloading training-state-009856000.checkpoint: 92%|█████████▏| 1.53G/1.66G [00:07&lt;00:00, 254MB/s]
+Downloading training-state-009856000.checkpoint: 93%|█████████▎| 1.55G/1.66G [00:07&lt;00:00, 252MB/s]
+Downloading training-state-009856000.checkpoint: 95%|█████████▍| 1.58G/1.66G [00:07&lt;00:00, 261MB/s]
+Downloading training-state-009856000.checkpoint: 96%|█████████▋| 1.60G/1.66G [00:07&lt;00:00, 267MB/s]
+Downloading training-state-009856000.checkpoint: 98%|█████████▊| 1.63G/1.66G [00:07&lt;00:00, 270MB/s]
+Downloading training-state-009856000.checkpoint: 100%|█████████▉| 1.66G/1.66G [00:07&lt;00:00, 271MB/s]
+Downloading training-state-009856000.checkpoint: 100%|██████████| 1.66G/1.66G [00:07&lt;00:00, 234MB/s]
+
+Downloading amip_midmonth_sst.nc: 0%|          | 0.00/454M [00:00&lt;?, ?B/s]
+Downloading amip_midmonth_sst.nc: 3%|▎         | 14.5M/454M [00:00&lt;00:03, 151MB/s]
+Downloading amip_midmonth_sst.nc: 6%|▋         | 28.9M/454M [00:00&lt;00:03, 142MB/s]
+Downloading amip_midmonth_sst.nc: 10%|█         | 47.3M/454M [00:00&lt;00:02, 164MB/s]
+Downloading amip_midmonth_sst.nc: 16%|█▌        | 73.8M/454M [00:00&lt;00:01, 208MB/s]
+Downloading amip_midmonth_sst.nc: 22%|██▏       | 98.2M/454M [00:00&lt;00:01, 225MB/s]
+Downloading amip_midmonth_sst.nc: 26%|██▋       | 120M/454M [00:00&lt;00:01, 215MB/s]
+Downloading amip_midmonth_sst.nc: 33%|███▎      | 149M/454M [00:00&lt;00:01, 243MB/s]
+Downloading amip_midmonth_sst.nc: 38%|███▊      | 172M/454M [00:00&lt;00:01, 238MB/s]
+Downloading amip_midmonth_sst.nc: 44%|████▍     | 200M/454M [00:00&lt;00:01, 254MB/s]
+Downloading amip_midmonth_sst.nc: 50%|████▉     | 226M/454M [00:01&lt;00:00, 259MB/s]
+Downloading amip_midmonth_sst.nc: 55%|█████▌    | 251M/454M [00:01&lt;00:00, 261MB/s]
+Downloading amip_midmonth_sst.nc: 61%|██████    | 276M/454M [00:01&lt;00:00, 255MB/s]
+Downloading amip_midmonth_sst.nc: 66%|██████▋   | 302M/454M [00:01&lt;00:00, 258MB/s]
+Downloading amip_midmonth_sst.nc: 72%|███████▏  | 327M/454M [00:01&lt;00:00, 262MB/s]
+Downloading amip_midmonth_sst.nc: 78%|███████▊  | 352M/454M [00:01&lt;00:00, 256MB/s]
+Downloading amip_midmonth_sst.nc: 83%|████████▎ | 377M/454M [00:01&lt;00:00, 246MB/s]
+Downloading amip_midmonth_sst.nc: 89%|████████▉ | 403M/454M [00:01&lt;00:00, 254MB/s]
+Downloading amip_midmonth_sst.nc: 95%|█████████▍| 429M/454M [00:01&lt;00:00, 260MB/s]
+Downloading amip_midmonth_sst.nc: 100%|██████████| 454M/454M [00:01&lt;00:00, 243MB/s]
+</pre></div>
+</div>
 </section>
 <section id="generating-synthetic-weather-data">
 <h2>Generating Synthetic Weather Data<a class="headerlink" href="#generating-synthetic-weather-data" title="Link to this heading">#</a></h2>
@@ -550,19 +693,29 @@ One can use <cite>set_seed</cite> for reproducibility.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:29:56.210 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: tcwv at 2022-09-05T00:00:00
+2026-01-22 19:52:04.169 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:29:56.211 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+2026-01-22 19:52:04.170 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: tcwv at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 130.46it/s]
+
+2026-01-22 19:52:04.230 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/mean_sea_level_pressure/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:04.287 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.59it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  4.23it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.86it/s]
 
 Generating cBottle Data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Generating cBottle Data:  50%|█████     | 1/2 [00:19&lt;00:19, 19.09s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:24&lt;00:00, 11.14s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:24&lt;00:00, 12.33s/it]
+Generating cBottle Data:  50%|█████     | 1/2 [00:09&lt;00:09,  9.96s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:15&lt;00:00,  7.17s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:15&lt;00:00,  7.59s/it]
 &lt;xarray.DataArray (time: 1, variable: 2, lat: 721, lon: 1440)&gt; Size: 17MB
 array([[[[1.01743422e+05, 1.01743422e+05, 1.01743422e+05, ...,
           1.01743422e+05, 1.01743422e+05, 1.01743422e+05],
@@ -590,57 +743,56 @@ array([[[[1.01743422e+05, 1.01743422e+05, 1.01743422e+05, ...,
          [2.75253296e-01, 2.75253296e-01, 2.75253296e-01, ...,
           2.75253296e-01, 2.75253296e-01, 2.75253296e-01],
          [2.73891449e-01, 2.73891449e-01, 2.73891449e-01, ...,
-          2.73891449e-01, 2.73891449e-01, 2.73891449e-01]]]],
-      shape=(1, 2, 721, 1440))
+          2.73891449e-01, 2.73891449e-01, 2.73891449e-01]]]])
 Coordinates:
-  * time      (time) datetime64[ns] 8B 2022-09-05
+  * time      (time) datetime64[us] 8B 2022-09-05
   * variable  (variable) &lt;U4 32B &#39;msl&#39; &#39;tcwv&#39;
   * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 &lt;xarray.DataArray (time: 5, variable: 2, lat: 721, lon: 1440)&gt; Size: 83MB
-array([[[[ 9.94898853e+04,  9.94898853e+04,  9.94898853e+04, ...,
-           9.94898853e+04,  9.94898853e+04,  9.94898853e+04],
-         [ 9.95081757e+04,  9.95076879e+04,  9.95072000e+04, ...,
-           9.95096393e+04,  9.95091514e+04,  9.95086636e+04],
-         [ 9.95264662e+04,  9.95254905e+04,  9.95245147e+04, ...,
-           9.95293933e+04,  9.95284176e+04,  9.95274419e+04],
+array([[[[1.00847501e+05, 1.00847501e+05, 1.00847501e+05, ...,
+          1.00847501e+05, 1.00847501e+05, 1.00847501e+05],
+         [1.00837448e+05, 1.00836990e+05, 1.00836532e+05, ...,
+          1.00838821e+05, 1.00838363e+05, 1.00837905e+05],
+         [1.00827395e+05, 1.00826479e+05, 1.00825564e+05, ...,
+          1.00830141e+05, 1.00829225e+05, 1.00828310e+05],
          ...,
-         [ 1.00292890e+05,  1.00292783e+05,  1.00292676e+05, ...,
-           1.00293212e+05,  1.00293104e+05,  1.00292997e+05],
-         [ 1.00259169e+05,  1.00259115e+05,  1.00259061e+05, ...,
-           1.00259329e+05,  1.00259276e+05,  1.00259222e+05],
-         [ 1.00225447e+05,  1.00225447e+05,  1.00225447e+05, ...,
-           1.00225447e+05,  1.00225447e+05,  1.00225447e+05]],
+         [1.00373232e+05, 1.00372761e+05, 1.00372289e+05, ...,
+          1.00374647e+05, 1.00374176e+05, 1.00373704e+05],
+         [1.00394021e+05, 1.00393785e+05, 1.00393549e+05, ...,
+          1.00394728e+05, 1.00394492e+05, 1.00394257e+05],
+         [1.00414809e+05, 1.00414809e+05, 1.00414809e+05, ...,
+          1.00414809e+05, 1.00414809e+05, 1.00414809e+05]],
 
-        [[ 8.40453500e+00,  8.40453500e+00,  8.40453500e+00, ...,
-           8.40453500e+00,  8.40453500e+00,  8.40453500e+00],
-         [ 8.16755280e+00,  8.17045734e+00,  8.17336188e+00, ...,
-           8.15883918e+00,  8.16174372e+00,  8.16464826e+00],
-         [ 7.93057060e+00,  7.93637968e+00,  7.94218876e+00, ...,
-           7.91314336e+00,  7.91895244e+00,  7.92476152e+00],
+        [[9.93866086e+00, 9.93866086e+00, 9.93866086e+00, ...,
+          9.93866086e+00, 9.93866086e+00, 9.93866086e+00],
+         [9.51572431e+00, 9.51544396e+00, 9.51516361e+00, ...,
+          9.51656535e+00, 9.51628500e+00, 9.51600466e+00],
+         [9.09278776e+00, 9.09222707e+00, 9.09166637e+00, ...,
+          9.09446985e+00, 9.09390915e+00, 9.09334846e+00],
 ...
-           1.00296600e+05,  1.00296487e+05,  1.00296374e+05],
-         [ 1.00260336e+05,  1.00260280e+05,  1.00260223e+05, ...,
-           1.00260505e+05,  1.00260449e+05,  1.00260392e+05],
-         [ 1.00224410e+05,  1.00224410e+05,  1.00224410e+05, ...,
-           1.00224410e+05,  1.00224410e+05,  1.00224410e+05]],
+         [1.00365897e+05, 1.00365436e+05, 1.00364974e+05, ...,
+          1.00367283e+05, 1.00366821e+05, 1.00366359e+05],
+         [1.00386528e+05, 1.00386298e+05, 1.00386067e+05, ...,
+          1.00387221e+05, 1.00386990e+05, 1.00386759e+05],
+         [1.00407160e+05, 1.00407160e+05, 1.00407160e+05, ...,
+          1.00407160e+05, 1.00407160e+05, 1.00407160e+05]],
 
-        [[ 8.46428986e+00,  8.46428986e+00,  8.46428986e+00, ...,
-           8.46428986e+00,  8.46428986e+00,  8.46428986e+00],
-         [ 8.20822348e+00,  8.21096599e+00,  8.21370851e+00, ...,
-           8.19999594e+00,  8.20273845e+00,  8.20548097e+00],
-         [ 7.95215710e+00,  7.95764213e+00,  7.96312715e+00, ...,
-           7.93570202e+00,  7.94118705e+00,  7.94667207e+00],
+        [[9.95770234e+00, 9.95770234e+00, 9.95770234e+00, ...,
+          9.95770234e+00, 9.95770234e+00, 9.95770234e+00],
+         [9.53456179e+00, 9.53433456e+00, 9.53410734e+00, ...,
+          9.53524347e+00, 9.53501624e+00, 9.53478901e+00],
+         [9.11142124e+00, 9.11096679e+00, 9.11051234e+00, ...,
+          9.11278460e+00, 9.11233014e+00, 9.11187569e+00],
          ...,
-         [-1.11390560e+00, -1.11031634e+00, -1.10672707e+00, ...,
-          -1.12467340e+00, -1.12108414e+00, -1.11749487e+00],
-         [-1.10651629e+00, -1.10472166e+00, -1.10292703e+00, ...,
-          -1.11190019e+00, -1.11010556e+00, -1.10831092e+00],
-         [-1.09912698e+00, -1.09912698e+00, -1.09912698e+00, ...,
-          -1.09912698e+00, -1.09912698e+00, -1.09912698e+00]]]],
-      shape=(5, 2, 721, 1440))
+         [2.12832864e+00, 2.12843265e+00, 2.12853667e+00, ...,
+          2.12801658e+00, 2.12812060e+00, 2.12822462e+00],
+         [2.05668957e+00, 2.05674158e+00, 2.05679359e+00, ...,
+          2.05653354e+00, 2.05658555e+00, 2.05663756e+00],
+         [1.98505050e+00, 1.98505050e+00, 1.98505050e+00, ...,
+          1.98505050e+00, 1.98505050e+00, 1.98505050e+00]]]])
 Coordinates:
-  * time      (time) datetime64[ns] 40B 2022-09-05 2022-09-05 ... 2022-09-05
+  * time      (time) datetime64[us] 40B 2022-09-05 2022-09-05 ... 2022-09-05
   * variable  (variable) &lt;U4 32B &#39;msl&#39; &#39;tcwv&#39;
   * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
@@ -730,48 +882,178 @@ variables.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">output_0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading cBottle-3d.zip: 0%|          | 0.00/1.66G [00:00&lt;?, ?B/s]
+Downloading cBottle-3d.zip: 1%|          | 11.5M/1.66G [00:00&lt;00:14, 121MB/s]
+Downloading cBottle-3d.zip: 2%|▏         | 38.5M/1.66G [00:00&lt;00:08, 216MB/s]
+Downloading cBottle-3d.zip: 4%|▍         | 64.2M/1.66G [00:00&lt;00:07, 240MB/s]
+Downloading cBottle-3d.zip: 5%|▌         | 90.1M/1.66G [00:00&lt;00:06, 252MB/s]
+Downloading cBottle-3d.zip: 7%|▋         | 117M/1.66G [00:00&lt;00:06, 263MB/s]
+Downloading cBottle-3d.zip: 8%|▊         | 142M/1.66G [00:00&lt;00:06, 263MB/s]
+Downloading cBottle-3d.zip: 10%|▉         | 168M/1.66G [00:00&lt;00:06, 264MB/s]
+Downloading cBottle-3d.zip: 11%|█▏        | 193M/1.66G [00:00&lt;00:06, 260MB/s]
+Downloading cBottle-3d.zip: 13%|█▎        | 219M/1.66G [00:00&lt;00:05, 263MB/s]
+Downloading cBottle-3d.zip: 14%|█▍        | 244M/1.66G [00:01&lt;00:05, 261MB/s]
+Downloading cBottle-3d.zip: 16%|█▌        | 269M/1.66G [00:01&lt;00:05, 263MB/s]
+Downloading cBottle-3d.zip: 17%|█▋        | 295M/1.66G [00:01&lt;00:05, 266MB/s]
+Downloading cBottle-3d.zip: 19%|█▉        | 322M/1.66G [00:01&lt;00:05, 270MB/s]
+Downloading cBottle-3d.zip: 20%|██        | 348M/1.66G [00:01&lt;00:05, 272MB/s]
+Downloading cBottle-3d.zip: 22%|██▏       | 375M/1.66G [00:01&lt;00:05, 274MB/s]
+Downloading cBottle-3d.zip: 24%|██▎       | 401M/1.66G [00:01&lt;00:05, 273MB/s]
+Downloading cBottle-3d.zip: 25%|██▌       | 428M/1.66G [00:01&lt;00:04, 274MB/s]
+Downloading cBottle-3d.zip: 27%|██▋       | 455M/1.66G [00:01&lt;00:04, 275MB/s]
+Downloading cBottle-3d.zip: 28%|██▊       | 481M/1.66G [00:01&lt;00:04, 274MB/s]
+Downloading cBottle-3d.zip: 30%|██▉       | 508M/1.66G [00:02&lt;00:04, 278MB/s]
+Downloading cBottle-3d.zip: 31%|███▏      | 535M/1.66G [00:02&lt;00:04, 278MB/s]
+Downloading cBottle-3d.zip: 33%|███▎      | 562M/1.66G [00:02&lt;00:04, 273MB/s]
+Downloading cBottle-3d.zip: 34%|███▍      | 588M/1.66G [00:02&lt;00:04, 273MB/s]
+Downloading cBottle-3d.zip: 36%|███▌      | 614M/1.66G [00:02&lt;00:04, 274MB/s]
+Downloading cBottle-3d.zip: 38%|███▊      | 641M/1.66G [00:02&lt;00:04, 276MB/s]
+Downloading cBottle-3d.zip: 39%|███▉      | 668M/1.66G [00:02&lt;00:03, 277MB/s]
+Downloading cBottle-3d.zip: 41%|████      | 694M/1.66G [00:02&lt;00:03, 277MB/s]
+Downloading cBottle-3d.zip: 42%|████▏     | 721M/1.66G [00:02&lt;00:03, 277MB/s]
+Downloading cBottle-3d.zip: 44%|████▍     | 748M/1.66G [00:02&lt;00:03, 279MB/s]
+Downloading cBottle-3d.zip: 45%|████▌     | 774M/1.66G [00:03&lt;00:03, 274MB/s]
+Downloading cBottle-3d.zip: 47%|████▋     | 801M/1.66G [00:03&lt;00:03, 275MB/s]
+Downloading cBottle-3d.zip: 49%|████▊     | 827M/1.66G [00:03&lt;00:03, 276MB/s]
+Downloading cBottle-3d.zip: 50%|█████     | 854M/1.66G [00:03&lt;00:03, 275MB/s]
+Downloading cBottle-3d.zip: 52%|█████▏    | 880M/1.66G [00:03&lt;00:03, 273MB/s]
+Downloading cBottle-3d.zip: 53%|█████▎    | 906M/1.66G [00:03&lt;00:03, 273MB/s]
+Downloading cBottle-3d.zip: 55%|█████▍    | 932M/1.66G [00:03&lt;00:02, 273MB/s]
+Downloading cBottle-3d.zip: 56%|█████▌    | 958M/1.66G [00:03&lt;00:02, 272MB/s]
+Downloading cBottle-3d.zip: 58%|█████▊    | 985M/1.66G [00:03&lt;00:02, 273MB/s]
+Downloading cBottle-3d.zip: 59%|█████▉    | 0.99G/1.66G [00:03&lt;00:02, 274MB/s]
+Downloading cBottle-3d.zip: 61%|██████    | 1.01G/1.66G [00:04&lt;00:02, 276MB/s]
+Downloading cBottle-3d.zip: 62%|██████▏   | 1.04G/1.66G [00:04&lt;00:02, 276MB/s]
+Downloading cBottle-3d.zip: 64%|██████▍   | 1.07G/1.66G [00:04&lt;00:02, 276MB/s]
+Downloading cBottle-3d.zip: 66%|██████▌   | 1.09G/1.66G [00:04&lt;00:02, 277MB/s]
+Downloading cBottle-3d.zip: 67%|██████▋   | 1.12G/1.66G [00:04&lt;00:02, 278MB/s]
+Downloading cBottle-3d.zip: 69%|██████▊   | 1.14G/1.66G [00:04&lt;00:02, 279MB/s]
+Downloading cBottle-3d.zip: 70%|███████   | 1.17G/1.66G [00:04&lt;00:01, 270MB/s]
+Downloading cBottle-3d.zip: 72%|███████▏  | 1.20G/1.66G [00:04&lt;00:01, 272MB/s]
+Downloading cBottle-3d.zip: 73%|███████▎  | 1.22G/1.66G [00:04&lt;00:01, 273MB/s]
+Downloading cBottle-3d.zip: 75%|███████▍  | 1.25G/1.66G [00:04&lt;00:01, 265MB/s]
+Downloading cBottle-3d.zip: 77%|███████▋  | 1.27G/1.66G [00:05&lt;00:01, 274MB/s]
+Downloading cBottle-3d.zip: 78%|███████▊  | 1.30G/1.66G [00:05&lt;00:01, 275MB/s]
+Downloading cBottle-3d.zip: 80%|███████▉  | 1.33G/1.66G [00:05&lt;00:01, 218MB/s]
+Downloading cBottle-3d.zip: 81%|████████  | 1.35G/1.66G [00:05&lt;00:01, 201MB/s]
+Downloading cBottle-3d.zip: 82%|████████▏ | 1.37G/1.66G [00:05&lt;00:01, 206MB/s]
+Downloading cBottle-3d.zip: 84%|████████▎ | 1.39G/1.66G [00:05&lt;00:01, 219MB/s]
+Downloading cBottle-3d.zip: 85%|████████▌ | 1.41G/1.66G [00:05&lt;00:01, 224MB/s]
+Downloading cBottle-3d.zip: 86%|████████▋ | 1.44G/1.66G [00:05&lt;00:01, 225MB/s]
+Downloading cBottle-3d.zip: 88%|████████▊ | 1.46G/1.66G [00:05&lt;00:00, 241MB/s]
+Downloading cBottle-3d.zip: 89%|████████▉ | 1.49G/1.66G [00:06&lt;00:00, 252MB/s]
+Downloading cBottle-3d.zip: 91%|█████████ | 1.51G/1.66G [00:06&lt;00:00, 260MB/s]
+Downloading cBottle-3d.zip: 93%|█████████▎| 1.54G/1.66G [00:06&lt;00:00, 255MB/s]
+Downloading cBottle-3d.zip: 94%|█████████▍| 1.57G/1.66G [00:06&lt;00:00, 261MB/s]
+Downloading cBottle-3d.zip: 96%|█████████▌| 1.59G/1.66G [00:06&lt;00:00, 266MB/s]
+Downloading cBottle-3d.zip: 97%|█████████▋| 1.62G/1.66G [00:06&lt;00:00, 269MB/s]
+Downloading cBottle-3d.zip: 99%|█████████▊| 1.64G/1.66G [00:06&lt;00:00, 266MB/s]
+Downloading cBottle-3d.zip: 100%|██████████| 1.66G/1.66G [00:06&lt;00:00, 263MB/s]
 
-2025-12-15 01:30:36.666 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+Downloading amip_midmonth_sst.nc: 0%|          | 0.00/454M [00:00&lt;?, ?B/s]
+Downloading amip_midmonth_sst.nc: 0%|          | 255k/454M [00:00&lt;03:14, 2.45MB/s]
+Downloading amip_midmonth_sst.nc: 7%|▋         | 30.4M/454M [00:00&lt;00:02, 182MB/s]
+Downloading amip_midmonth_sst.nc: 13%|█▎        | 59.5M/454M [00:00&lt;00:01, 236MB/s]
+Downloading amip_midmonth_sst.nc: 19%|█▉        | 85.9M/454M [00:00&lt;00:01, 252MB/s]
+Downloading amip_midmonth_sst.nc: 25%|██▍       | 111M/454M [00:00&lt;00:01, 257MB/s]
+Downloading amip_midmonth_sst.nc: 30%|███       | 138M/454M [00:00&lt;00:01, 266MB/s]
+Downloading amip_midmonth_sst.nc: 36%|███▋      | 165M/454M [00:00&lt;00:01, 271MB/s]
+Downloading amip_midmonth_sst.nc: 42%|████▏     | 192M/454M [00:00&lt;00:01, 274MB/s]
+Downloading amip_midmonth_sst.nc: 48%|████▊     | 219M/454M [00:00&lt;00:00, 277MB/s]
+Downloading amip_midmonth_sst.nc: 54%|█████▍    | 246M/454M [00:01&lt;00:00, 278MB/s]
+Downloading amip_midmonth_sst.nc: 60%|██████    | 273M/454M [00:01&lt;00:00, 279MB/s]
+Downloading amip_midmonth_sst.nc: 66%|██████▌   | 300M/454M [00:01&lt;00:00, 275MB/s]
+Downloading amip_midmonth_sst.nc: 72%|███████▏  | 326M/454M [00:01&lt;00:00, 276MB/s]
+Downloading amip_midmonth_sst.nc: 78%|███████▊  | 352M/454M [00:01&lt;00:00, 276MB/s]
+Downloading amip_midmonth_sst.nc: 83%|████████▎ | 379M/454M [00:01&lt;00:00, 271MB/s]
+Downloading amip_midmonth_sst.nc: 89%|████████▉ | 405M/454M [00:01&lt;00:00, 272MB/s]
+Downloading amip_midmonth_sst.nc: 95%|█████████▌| 432M/454M [00:01&lt;00:00, 274MB/s]
+Downloading amip_midmonth_sst.nc: 100%|██████████| 454M/454M [00:02&lt;00:00, 234MB/s]
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.666 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.019 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.666 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.019 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.667 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.020 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.667 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.020 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.667 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.021 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.668 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.021 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.668 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.021 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.668 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.021 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:30:36.669 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:44.022 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 320.17it/s]
+
+2026-01-22 19:52:44.022 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.119 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.120 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.172 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.175 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.181 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.182 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.182 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.236 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.238 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:44.240 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  10%|█         | 1/10 [00:00&lt;00:03,  2.54it/s]
+Fetching WB2 data:  50%|█████     | 5/10 [00:00&lt;00:00, 11.54it/s]
+Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 17.11it/s]
 torch.Size([5, 1, 45, 721, 1440])
 </pre></div>
 </div>
@@ -810,269 +1092,477 @@ information.</p>
 </div>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.487 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.960 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.488 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.960 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.488 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.961 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.488 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.961 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.489 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.961 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.489 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.962 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.489 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.962 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.489 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.962 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.490 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.963 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.490 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.963 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.490 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.963 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.491 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.964 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.491 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.964 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.491 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.964 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.492 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.964 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.492 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.965 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.493 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.965 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.493 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.965 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.493 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+2026-01-22 19:52:58.966 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.493 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.966 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.494 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.966 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.494 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.966 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.494 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.967 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.494 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.967 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.495 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.967 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.495 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.968 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.495 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.968 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.495 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.968 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.496 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+2026-01-22 19:52:58.968 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.496 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.969 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.496 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.969 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.497 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.969 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.497 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.969 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.497 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.970 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.497 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.970 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.498 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.970 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.498 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.971 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.498 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.971 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.498 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.971 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.499 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.971 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.499 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.972 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.499 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.972 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.500 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+2026-01-22 19:52:58.972 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.500 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.973 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.500 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.973 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.500 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.973 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.501 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.974 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.501 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.974 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.501 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.974 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.501 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.974 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.502 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.975 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.502 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.975 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.502 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.975 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.502 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.976 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.503 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.976 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.503 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.976 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.503 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.976 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.504 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+2026-01-22 19:52:58.977 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.504 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.977 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.504 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.977 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.504 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.977 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.505 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.978 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.505 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+2026-01-22 19:52:58.978 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.505 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+2026-01-22 19:52:58.978 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:04.505 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+2026-01-22 19:52:58.979 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/65 [00:01&lt;01:09,  1.09s/it]
-Fetching WB2 data:  18%|█▊        | 12/65 [00:01&lt;00:04, 12.85it/s]
-Fetching WB2 data:  40%|████      | 26/65 [00:01&lt;00:01, 23.49it/s]
-Fetching WB2 data: 100%|██████████| 65/65 [00:01&lt;00:00, 41.28it/s]
+
+2026-01-22 19:52:59.050 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:59.051 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:59.066 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:59.066 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2026-01-22 19:52:59.068 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.070 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.071 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.071 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.075 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.088 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.096 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.102 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.104 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.105 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.106 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.106 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.107 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.108 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.108 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.109 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.110 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.111 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.112 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.112 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.113 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.117 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.119 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.119 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.119 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.120 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.120 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.121 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.122 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.123 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.125 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.126 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.127 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.127 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.128 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.128 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.129 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.141 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.143 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.143 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.144 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.144 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.147 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.154 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.162 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+
+2026-01-22 19:52:59.168 | DEBUG    | earth2studio.data.utils:_make_local_details:657 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:  22%|██▏       | 14/65 [00:00&lt;00:00, 126.98it/s]
+Fetching WB2 data:  42%|████▏     | 27/65 [00:02&lt;00:03,  9.59it/s]
+Fetching WB2 data:  51%|█████     | 33/65 [00:03&lt;00:03,  9.10it/s]
+Fetching WB2 data:  57%|█████▋    | 37/65 [00:03&lt;00:02, 10.40it/s]
+Fetching WB2 data:  63%|██████▎   | 41/65 [00:03&lt;00:01, 12.19it/s]
+Fetching WB2 data:  68%|██████▊   | 44/65 [00:03&lt;00:01, 12.91it/s]
+Fetching WB2 data:  72%|███████▏  | 47/65 [00:04&lt;00:01,  9.03it/s]
+Fetching WB2 data:  80%|████████  | 52/65 [00:04&lt;00:01, 10.52it/s]
+Fetching WB2 data:  91%|█████████ | 59/65 [00:04&lt;00:00, 15.20it/s]
+Fetching WB2 data:  95%|█████████▌| 62/65 [00:05&lt;00:00, 12.39it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:05&lt;00:00, 12.69it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:05&lt;00:00, 11.91it/s]
 torch.Size([5, 1, 45, 721, 1440])
 </pre></div>
 </div>
@@ -1139,13 +1629,13 @@ truth due the additional information provided.</p>
 </div>
 <img src="../_images/sphx_glr_15_cbottle_generation_002.png" srcset="../_images/sphx_glr_15_cbottle_generation_002.png" alt="ERA5, 3 Input Variables Mean, 13 Input Variables Mean, 3 Input Variables Std, 13 Input Variables Std" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
 
-2025-12-15 01:31:26.906 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: tcwv at 2022-09-05T00:00:00
+2026-01-22 19:53:17.099 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: tcwv at 2022-09-05T00:00:00
 
 Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 252.70it/s]
+Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 107.58it/s]
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 39.056 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 35.607 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-15-cbottle-generation-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/73324f5954f9a6cb5a3d0a38669e4d9a/15_cbottle_generation.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">15_cbottle_generation.ipynb</span></code></a></p>
@@ -1259,7 +1749,7 @@ Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 252
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>
