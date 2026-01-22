@@ -66,7 +66,8 @@ class CMIP6Lexicon(metaclass=LexiconType):
             "rsus": ("rsus", -1),  # surface upwelling shortwave radiation (W/m2)
             "sfcWind": ("sfcWind", -1),  # near-surface wind speed (m s-1)
             "sfcWindmax": ("sfcWindmax", -1),  # maximum near-surface wind speed (m s-1)
-            "snc": ("snc", -1),  # snow area fraction (%)
+            "snc": ("snc", -1),  # snow area percentage (alias for snowc) (%)
+            "snowc": ("snc", -1),  # snow area percentage (%)
             "snw": ("snw", -1),  # surface snow water equivalent (kg m-2)
             "sst": ("tos", -1),  # sea surface temperature (K)
             "tos": ("tos", -1),  # sea surface temperature (K)
@@ -81,13 +82,17 @@ class CMIP6Lexicon(metaclass=LexiconType):
             # "sic": ("siconc", -1), # sea ice concentration
             # "sp": ("ps", -1),    # surface pressure
             "ts": ("ts", -1),  # surface temperature (K)
-            "siconc": ("siconc", -1),  # sea ice concentration (alias of sic) [%]
+            "sic": ("siconc", -1),  # sea ice concentration (0-1)
+            "siconc": ("siconc", -1),  # sea ice concentration (%)
             # "lsm": ("sftlf", -1), # land-sea mask (for cmip6 this is fraction of land)
             # "z": ("orog", -1),   # surface geopotential height (orography)
-            "prw": ("prw", -1),  # precipitable water / total column water vapor (kg m-2)
+            "prw": (
+                "prw",
+                -1,
+            ),  # precipitable water / total column water vapor (kg m-2)
             "tcwv": ("prw", -1),  # alias for prw
-            "clwvi": ("clwvi", -1),  # condensed water path - liquid (kg m-2)
-            "clivi": ("clivi", -1),  # condensed water path - ice (kg m-2)
+            "tclw": ("clwvi", -1),  # condensed water path - liquid (kg m-2)
+            "tciw": ("clivi", -1),  # condensed water path - ice (kg m-2)
             "rsut": ("rsut", -1),  # TOA outgoing shortwave radiation (W m-2)
         }
 
