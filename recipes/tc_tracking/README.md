@@ -1,39 +1,41 @@
 # Cyclone Tracking
 
+![Helene Prediction](helene_pred.gif)
+
 > [!Note]
-> This recipe serves as an example of how to integrate custom downstream models into a forecasting pipeline. Whilst TempestExtremes is used here for tropical cyclone tracking, the patterns demonstrated—such as asynchronous CPU/GPU execution, in-memory file handling, and diagnostic model integration—can be adapted for other downstream analysis tools.
+> This recipe serves as an example of how to integrate custom downstream models into a forecasting pipeline. While TempestExtremes is used here for tropical cyclone tracking, the patterns demonstrated—such as asynchronous CPU/GPU execution, in-memory file handling, and diagnostic model integration—can be adapted for other downstream analysis tools.
 
-This pipeline produces ensemble prediction and tracks tropical cyclones (TCs) within the prediction. Here, we demonstrate how to integrate downstream analysis tools like [TempestExtremes](https://github.com/ClimateGlobalChange/tempestextremes) into a prediction workflow whilst avoiding the need to store large atmospheric field data to disk, which can grow prohibitively large and significantly impact inference speed.
+This pipeline produces ensemble prediction and tracks tropical cyclones (TCs) within the prediction. Here, we demonstrate how to integrate downstream analysis tools like [TempestExtremes](https://github.com/ClimateGlobalChange/tempestextremes) into a prediction workflow while avoiding the need to store large atmospheric field data to disk, which can grow prohibitively large and significantly impact inference speed.
 
-Although TempestExtremes is not GPU-accelerated, its execution time on CPU is typically shorter than the time required for the GPU to produce the next prediction. We therefore implement an asynchronous mode where the CPU executes TempestExtremes on completed time steps whilst the GPU continues producing subsequent predictions, resulting in virtually no computational overhead from the tracking process.
+Although TempestExtremes is not GPU-accelerated, its execution time on CPU is typically shorter than the time required for the GPU to produce the next prediction. We therefore implement an asynchronous mode where the CPU executes TempestExtremes on completed time steps while the GPU continues producing subsequent predictions, resulting in virtually no computational overhead from the tracking process.
 
 ## Table of Contents
 
-- [Setting up the Environment](#setting-up-the-environment)
-  - [Container (Recommended)](#1-container-recommended)
-  - [UV Environment](#2-uv-environment)
-- [Configure and Execute Runs](#configure-and-execute-runs)
-  - [Generate Ensemble](#generate-ensemble)
-  - [Reproduce Individual Ensemble Members](#reproduce-individual-ensemble-members)
-  - [Extract Reference Tracks from ERA5](#extract-reference-tracks-from-era5-using-ibtracs-as-ground-truth)
-- [Visualisation](#visualisation)
-- [TempestExtremes Integration](#tempestextremes-integration)
-- [Example Workflow](#example-workflow)
-  - [Extract Baseline](#extract-baseline-optional)
-  - [Produce Ensemble Forecasts](#produce-ensemble-forecasts)
-  - [Analyse Tracks](#analyse-tracks)
-  - [Reproduce Interesting Members](#reproduce-interesting-members-to-extract-fields)
+1. [Setting up the Environment](#1-setting-up-the-environment)
+   - [1.1 Container (Recommended)](#11-container-recommended)
+   - [1.2 UV Environment](#12-uv-environment)
+2. [Configure and Execute Runs](#2-configure-and-execute-runs)
+   - [2.1 Generate Ensemble](#21-generate-ensemble)
+   - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
+   - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5-using-ibtracs-as-ground-truth)
+3. [Visualisation](#3-visualisation)
+4. [TempestExtremes Integration](#4-tempestextremes-integration)
+5. [Example Workflow](#5-example-workflow)
+   - [5.1 Extract Baseline](#51-extract-baseline-optional)
+   - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
+   - [5.3 Analyse Tracks](#53-analyse-tracks)
+   - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
 
 
-## Setting up the Environment
+## 1. Setting up the Environment
 
 There are two ways to set up the environment: either directly using a uv environment, or using uv to install dependencies inside a container. Since flash-attention, torch-harmonics and TempestExtremes all require compilation, **the container approach is strongly recommended**.
 
-### 1. Container (Recommended)
+### 1.1 Container (Recommended)
 
 A Dockerfile is provided in the top-level directory of the repository. [Building an image from this Dockerfile](https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image) is highly recommended as it avoids the need to compile flash-attention (which otherwise can take hours) and installs TempestExtremes.
 
-### 2. UV Environment
+### 1.2 UV Environment
 
 > [!Note]
 > When installing through uv, note that compiling `flash-attn` (required for AIFS-ENS) can take several hours. See the [troubleshooting notes](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models) for more information. Consider using the container instead, where `flash-attn` is pre-installed in the base image.
@@ -64,7 +66,7 @@ GIT_LFS_SKIP_SMUDGE=1 uv sync
 ```
 
 
-## Configure and Execute Runs
+## 2. Configure and Execute Runs
 
 Runs are configured through YAML files located in `tc_tracking/cfg`. To execute the pipeline:
 
@@ -86,7 +88,7 @@ The pipeline has three operational modes:
 
 In the following we will explain how to configure the yaml files for those three modes. You can find example configs in `./cfg`.
 
-### Generate Ensemble
+### 2.1 Generate Ensemble
 
 Here we explain how to configure a yaml file to produce an ensemble prediction with either FCN3 or AIFS-ENS and track tropical cyclones within the predictions. A full example can be found at `cfg/helene.yaml`.
 
@@ -123,13 +125,13 @@ out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m'] # field variables to write to 
 
 The data source can be any of the Earth-2 Studio data sources or a custom data source implementation.
 
-**Storage Considerations**: Exercise caution when storing field variables, as storage requirements grow rapidly (proportional to number of ICs × ensemble size × forecast length). Additionally, writing large volumes of data to disk can significantly slow down inference. For FCN3 workflows, consider storing only track data initially and using the [reproducibility feature](#reproduce-individual-ensemble-members) to regenerate fields for ensemble members with interesting tracks.
+**Storage Considerations**: Exercise caution when storing field variables, as storage requirements grow rapidly (proportional to number of ICs × ensemble size × forecast length). Additionally, writing large volumes of data to disk can significantly slow down inference. For FCN3 workflows, consider storing only track data initially and using the [reproducibility feature](#22-reproduce-individual-ensemble-members) to regenerate fields for ensemble members with interesting tracks.
 
 **Cyclone Tracking with TempestExtremes** (optional)
 
 ```yaml
 cyclone_tracking:
-    asynchronous: True                             # let GPU produce next prediction whilst CPU executes TempestExtremes
+    asynchronous: True                             # let GPU produce next prediction while CPU executes TempestExtremes
     vars: ['msl', 'u10m', 'v10m', 'z300', 'z500']  # variables required by TempestExtremes
     detect_cmd: 'DetectNodes --verbosity 0 --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,1.0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0'
     stitch_cmd: 'StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10'
@@ -171,14 +173,12 @@ hydra:
         dir: ${store_dir}/${project}_logs/${now:%Y-%m-%d_%H-%M-%S}
 ```
 
-[expand below]
 This propagates the project name and output directory to Hydra's logging system. You will most likely never need to modify this section.
 
 
-### Reproduce Individual Ensemble Members
+### 2.2 Reproduce Individual Ensemble Members
 
-[expand below]
-A common workflow is to run ensemble forecasts without storing atmospheric fields, since track data is approximately five orders of magnitude smaller than the associated field data. This enables sending results of hundreds of hypothetical cyclone seasons as an email attachment. However, for ensemble members with particularly interesting tracks, examining the atmospheric fields can provide valuable insights into the storm's evolution.
+A common workflow is to run ensemble forecasts without storing atmospheric fields, since track data is approximately five orders of magnitude smaller than the associated field data. This enables sending results of hundreds of hypothetical cyclone seasons as an email attachment. However, for ensemble members with particularly interesting tracks, examining the atmospheric fields can help understand the storm's evolution.
 
 FCN3 provides access to its internal random state, enabling exact reproduction of individual ensemble members. In theory, AIFS-ENS should have this capability as well, but the internal random state is not exposed through the Anemoi models interface, preventing reproducibility of AIFS-ENS runs.
 
@@ -211,10 +211,10 @@ reproduce_members: [
 
 The example above would reproduce members 5 and 8 from the ensemble starting at midnight, and members 4, 5, and 13 from the ensemble starting at midday.
 
-**Batch Reproduction Behaviour**: Note that the internal random state can only be set for a complete batch. Whilst individual members within a batch will produce independent predictions, they share the same random seed. This means a full batch must always be reproduced. For example, with a batch size of 2 in the example above, the run would reproduce members 4, 5, 8, and 9 from the midnight ensemble, and members 4, 5, 12, and 13 from the midday ensemble.
+**Batch Reproduction Behaviour**: Note that the internal random state can only be set for a complete batch. While individual members within a batch will produce independent predictions, they share the same random seed. This means a full batch must always be reproduced. For example, with a batch size of 2 in the example above, the run would reproduce members 4, 5, 8, and 9 from the midnight ensemble, and members 4, 5, 12, and 13 from the midday ensemble.
 
 
-### Extract Reference Tracks from ERA5 Using IBTrACS as Ground Truth
+### 2.3 Extract Reference Tracks from ERA5 Using IBTrACS as Ground Truth
 
 [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive) (International Best Track Archive for Climate Stewardship) is considered the gold standard for tropical cyclone observation data. However, it represents point observations that a global model at quarter-degree resolution cannot reproduce accurately. Therefore, a meaningful validation of model predictions must be performed against ERA5. To do so, we first have to extract tropical cyclone tracks directly from reanalysis data (such as ERA5) and compare the predictions against these reference tracks. This pipeline demonstrates how to extract reference tracks for named storms, using IBTrACS to identify the temporal windows and approximate locations of storms of interest.
 
@@ -274,15 +274,15 @@ data_source:
 ```
 
 
-## Visualisation
+## 3. Visualisation
 
 Two Jupyter notebooks are provided in `./plotting` for analysing and visualising tropical cyclone tracking results:
 
-- **`tracks_slayground.ipynb`**: Comprehensive ensemble track analysis including spaghetti plots (trajectory visualisation), absolute and relative intensity metrics (wind speed, MSLP), comparisons against ERA5 reference tracks and IBTrACS observations, extreme value statistics, and error moment analysis over lead time.
+- **`tracks_slayground.ipynb`**: Ensemble track analysis including spaghetti plots (trajectory visualisation), absolute and relative intensity metrics (wind speed, MSLP), comparisons against ERA5 reference tracks and IBTrACS observations, extreme value statistics, and error moment analysis over lead time.
 
 - **`plot_tracks_n_fields.ipynb`**: Create animated visualisations of storm tracks overlaid on atmospheric field data.
 
-## TempestExtremes Integration
+## 4. TempestExtremes Integration
 
 This pipeline uses TempestExtremes to demonstrate how to integrate custom downstream analysis tools into a prediction workflow. TempestExtremes requires file-based input, does not run on GPU, and cannot be installed as a Python library—making it a useful reference case, as tools with fewer constraints should be simpler to integrate. The current implementation avoids writing atmospheric field data to disk and reading it back, which would otherwise slow down inference significantly and become prohibitive given the large data volumes involved.
 
@@ -302,11 +302,11 @@ On many platforms, executing TempestExtremes on the CPU is faster than producing
 - If you encounter issues, first verify whether they also occur with asynchronous mode disabled before debugging further.
 
 
-## Example Workflow
+## 5. Example Workflow
 
 This section walks through an example workflow demonstrating the pipeline's core functionality: generating an ensemble prediction, reproducing individual members, visualising results, and comparing predicted tracks against reference tracks extracted from ERA5 data.
 
-### Extract Baseline (Optional)
+### 5.1 Extract Baseline (Optional)
 
 This step extracts reference tracks from ERA5 reanalysis for comparison with forecast predictions. Note that downloading the ERA5 field data for Hato and Helene is required and can take some time. If it takes too long, you can skip this step and use the pre-computed reference tracks provided in `./test/aux_data` instead.
 
@@ -320,7 +320,7 @@ This should produce a folder called `outputs_reference_tracks/` containing two r
 - `reference_track_hato_2017_west_pacific.csv`
 - `reference_track_helene_2024_north_atlantic.csv`
 
-### Produce Ensemble Forecasts
+### 5.2 Produce Ensemble Forecasts
 
 Run the forecast loop for Helene using FCN3 and for Hato using AIFS-ENS:
 
@@ -331,7 +331,7 @@ python tc_hunt.py --config-name=hato.yaml
 
 This should produce two output folders: `outputs_helene` and `outputs_hato`, each containing tracked tropical cyclone trajectories.
 
-### Analyse Tracks
+### 5.3 Analyse Tracks
 
 Visualise the results using the notebook `plotting/tracks_slayground.ipynb`.
 
@@ -353,7 +353,7 @@ tru_track_dir = '/path/to/outputs_reference_tracks'
 # tru_track_dir = '/path/to/test/aux_data'
 ```
 
-### Reproduce Interesting Members to Extract Fields
+### 5.4 Reproduce Interesting Members to Extract Fields
 
 Suppose that after conducting the above anysis you want to take a closer look at ensemble members 0, 8, 9, and 12 of the Helene prediction. Since the forecast was produced with FCN3, we can reproduce these members and store the atmospheric fields for detailed analysis.
 
