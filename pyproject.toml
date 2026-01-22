@@ -61,6 +61,7 @@ data = [
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
     "intake-esgf>=2025.9.26",
+    "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
     "planetary-computer>=0.5.0",
     "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
     "pystac-client>=0.9.0",
