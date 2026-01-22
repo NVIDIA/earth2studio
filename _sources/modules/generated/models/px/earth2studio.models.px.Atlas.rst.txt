@@ -1,0 +1,23 @@
+﻿:mod:`earth2studio.models.px`.Atlas
+==========================================
+
+.. currentmodule:: earth2studio.models.px
+
+.. autoclass:: Atlas
+
+   
+    .. automethod:: __call__
+    .. automethod:: create_iterator
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.px.Atlas:
+
+.. minigallery:: earth2studio.models.px.Atlas
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

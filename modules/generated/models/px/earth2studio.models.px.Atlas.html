@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.px.AIFS &#8212; Earth2Studio 0.12.0a0 documentation</title>
+    <title>earth2studio.models.px.Atlas &#8212; Earth2Studio 0.12.0a0 documentation</title>
   
   
   
@@ -54,7 +54,7 @@
     <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.AIFS';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/models/px/earth2studio.models.px.Atlas';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -64,8 +64,8 @@
         </script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="earth2studio.models.px.AIFSENS" href="earth2studio.models.px.AIFSENS.html" />
-    <link rel="prev" title="earth2studio.models.px.ACE2ERA5" href="earth2studio.models.px.ACE2ERA5.html" />
+    <link rel="next" title="earth2studio.models.px.Aurora" href="earth2studio.models.px.Aurora.html" />
+    <link rel="prev" title="earth2studio.models.px.AIFSENS" href="earth2studio.models.px.AIFSENS.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.12" />
@@ -375,9 +375,9 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.ACE2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.ACE2ERA5</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.AIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.AIFSENS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Atlas.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Atlas</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Atlas</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.CBottleVideo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.CBottleVideo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DiagnosticWrapper.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DiagnosticWrapper</a></li>
@@ -560,7 +560,7 @@
     
     <li class="breadcrumb-item"><a href="../../../models.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Atlas</span></li>
   </ul>
 </nav>
 </div>
@@ -577,68 +577,48 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-models-px-aifs">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS<a class="headerlink" href="#earth2studio-models-px-aifs" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-models-px-atlas">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Atlas<a class="headerlink" href="#earth2studio-models-px-atlas" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.models.px.AIFS">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">AIFS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">latitudes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">longitudes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interpolation_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverse_interpolation_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invariants</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifs.html#AIFS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFS" title="Link to this definition">#</a></dt>
-<dd><p>Artificial Intelligence Forecasting System (AIFS), a data driven forecast model
-developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS is
-based on a graph neural network (GNN) encoder and decoder, and a sliding window
-transformer processor, and is trained on ECMWF’s ERA5 re-analysis and ECMWF’s
-operational numerical weather prediction (NWP) analyses.
-Consists of a single model with a time-step size of 6 hours.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This model uses the checkpoints provided by ECMWF.
-Multiple checkpoint versions are supported. Use:</p>
-<ul class="simple">
-<li><p><cite>AIFS.load_default_package()</cite> for the default (AIFS-Single v1.0)</p></li>
-<li><p><cite>AIFS.load_default_package(version=”1.1”)</cite> for AIFS-Single v1.1</p></li>
-</ul>
-<p>The checkpoint metadata (<cite>ai-models.json</cite>) is used to derive the correct variable
-ordering and indices for each checkpoint version.
-For additional information see the following resources:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://arxiv.org/abs/2406.01465">https://arxiv.org/abs/2406.01465</a></p></li>
-<li><p><a class="reference external" href="https://huggingface.co/ecmwf/aifs-single-1.1">https://huggingface.co/ecmwf/aifs-single-1.1</a></p></li>
-<li><p><a class="github reference external" href="https://github.com/ecmwf/anemoi-core">ecmwf/anemoi-core</a></p></li>
-</ul>
-</div>
+<dt class="sig sig-object py" id="earth2studio.models.px.Atlas">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">Atlas</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">autoencoders</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoencoder_processors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_processor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sinterpolant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sinterpolant_sample_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/atlas.html#Atlas"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Atlas" title="Link to this definition">#</a></dt>
+<dd><p>Atlas prognostic model for ERA5 variables on a 0.25° global lat-lon grid.</p>
+<p>Atlas consumes two input lead times (t-6h and t) and predicts a single step at
+t+6h on a 721x1440 latitude-longitude grid.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>model</strong> (<em>torch.nn.Module</em>) – Core PyTorch module with the pretrained AIFS weights loaded.</p></li>
-<li><p><strong>latitudes</strong> (<em>torch.Tensor</em>) – Latitude values for the native octahedral grid, registered as a buffer for
-interpolation.</p></li>
-<li><p><strong>longitudes</strong> (<em>torch.Tensor</em>) – Longitude values for the native octahedral grid, registered as a buffer for
-interpolation.</p></li>
-<li><p><strong>interpolation_matrix</strong> (<em>torch.Tensor</em>) – CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.</p></li>
-<li><p><strong>inverse_interpolation_matrix</strong> (<em>torch.Tensor</em>) – CSR sparse matrix mapping outputs from the octahedral grid back to ERA5
-lat/lon.</p></li>
-<li><p><strong>invariants</strong> (<em>torch.Tensor</em>) – Tensor of shape [4, 721, 1440] containing the invariant fields “lsm”, “sdor”,
-“slor” and “z”</p></li>
+<li><p><strong>autoencoders</strong> (<em>nn.ModuleList</em>) – List of autoencoders for the full-resolution physical state.</p></li>
+<li><p><strong>autoencoder_processors</strong> (<em>nn.ModuleList</em>) – List of autoencoder processors for the full-resolution physical state.</p></li>
+<li><p><strong>model</strong> (<em>nn.Module</em>) – Model for the full-resolution physical state.</p></li>
+<li><p><strong>model_processor</strong> (<em>nn.Module</em>) – Model processor for the full-resolution physical state.</p></li>
+<li><p><strong>sinterpolant</strong> (<em>nn.Module</em>) – Stochastic interpolant for the low-resolution latent state.</p></li>
+<li><p><strong>sinterpolant_sample_steps</strong> (<em>int</em>) – Number of steps to sample for the stochastic interpolant.</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>We encourage users to familiarize themselves with the license restrictions of this
-model’s checkpoints.</p>
+<p>This model is expected to use the iterator interface for autoregressive
+rollouts longer than one step. Iteratively using the <code class="docutils literal notranslate"><span class="pre">__call__</span></code> and
+<code class="docutils literal notranslate"><span class="pre">prep_next_input</span></code> methods will not produce correct results, since the model
+performs autoregressive timestepping using a full-resolution physical state
+and an internal low-resolution latent state.</p>
 </div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.AIFS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifs.html#AIFS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFS.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Runs prognostic model 1 step.</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.Atlas.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/atlas.html#Atlas.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Atlas.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Forward pass of the prognostic model, integrating a single 6h step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor</p></li>
-<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Input coordinate system</p></li>
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor of shape (…, lead_time, variable, lat, lon) corresponding
+to the coordinate system. Lead times expected: [-6h, 0h].</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinate dictionary describing <cite>x</cite>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Output tensor and coordinate system 6 hours in the future</p>
+<dd class="field-even"><p>Output tensor advanced to t+6h and its coordinate system.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple[torch.Tensor, CoordSystem]</p>
@@ -647,24 +627,18 @@ model’s checkpoints.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.AIFS.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifs.html#AIFS.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFS.create_iterator" title="Link to this definition">#</a></dt>
-<dd><p>Creates a iterator which can be used to perform time-integration of the
-prognostic model. Will return the initial condition first (0th step).
-:param x: Input tensor
-:type x: torch.Tensor
-:param coords: Input coordinate system
-:type coords: CoordSystem</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.Atlas.create_iterator">
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/atlas.html#Atlas.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Atlas.create_iterator" title="Link to this definition">#</a></dt>
+<dd><p>Create an iterator that yields the initial state then successive 6h steps.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Yields<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator that generates time-steps of the prognostic model container the
-output data tensor and coordinate system dictionary.</p>
-</dd>
-<dt class="field-even">Parameters<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>x</strong> (<em>Tensor</em>)</p></li>
-<li><p><strong>coords</strong> (<em>OrderedDict</em><em>[</em><em>str</em><em>, </em><em>ndarray</em><em>]</em>)</p></li>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>torch.Tensor</em>) – Initial data tensor on device representing the initial condition.</p></li>
+<li><p><strong>coords</strong> (<em>CoordSystem</em>) – Coordinate system for the initial data tensor.</p></li>
 </ul>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Iterator[tuple[torch.Tensor, CoordSystem]]</em> – Iterator yielding successive model outputs and their coordinates.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><em>Iterator</em>[tuple[<em>Tensor</em>, <em>OrderedDict</em>[str, <em>ndarray</em>]]]</p>
@@ -673,9 +647,9 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.AIFS.load_default_package">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifs.html#AIFS.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFS.load_default_package" title="Link to this definition">#</a></dt>
-<dd><p>Load prognostic package</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.Atlas.load_default_package">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/atlas.html#Atlas.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Atlas.load_default_package" title="Link to this definition">#</a></dt>
+<dd><p>Load the default package for the Atlas model.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a></p>
@@ -684,9 +658,9 @@ output data tensor and coordinate system dictionary.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.models.px.AIFS.load_model">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifs.html#AIFS.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFS.load_model" title="Link to this definition">#</a></dt>
-<dd><p>Load prognostic from package</p>
+<dt class="sig sig-object py" id="earth2studio.models.px.Atlas.load_model">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/atlas.html#Atlas.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Atlas.load_model" title="Link to this definition">#</a></dt>
+<dd><p>Instantiate and load Atlas from a package.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.package.Package"><em>Package</em></a>)</p>
@@ -712,20 +686,20 @@ output data tensor and coordinate system dictionary.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.models.px.ACE2ERA5.html"
+       href="earth2studio.models.px.AIFSENS.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.ACE2ERA5</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.models.px.AIFSENS.html"
+       href="earth2studio.models.px.Aurora.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -748,11 +722,11 @@ output data tensor and coordinate system dictionary.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFS"><code class="docutils literal notranslate"><span class="pre">AIFS</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFS.__call__"><code class="docutils literal notranslate"><span class="pre">AIFS.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFS.create_iterator"><code class="docutils literal notranslate"><span class="pre">AIFS.create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFS.load_default_package"><code class="docutils literal notranslate"><span class="pre">AIFS.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFS.load_model"><code class="docutils literal notranslate"><span class="pre">AIFS.load_model()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Atlas"><code class="docutils literal notranslate"><span class="pre">Atlas</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Atlas.__call__"><code class="docutils literal notranslate"><span class="pre">Atlas.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Atlas.create_iterator"><code class="docutils literal notranslate"><span class="pre">Atlas.create_iterator()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Atlas.load_default_package"><code class="docutils literal notranslate"><span class="pre">Atlas.load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.Atlas.load_model"><code class="docutils literal notranslate"><span class="pre">Atlas.load_model()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -762,7 +736,7 @@ output data tensor and coordinate system dictionary.</p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.AIFS.rst.txt"
+      <li><a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.Atlas.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div></div>
