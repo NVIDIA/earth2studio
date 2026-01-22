@@ -1088,7 +1088,7 @@ wandb==0.19.10
     # via makani
 wcwidth==0.2.13
     # via prettytable
-wheel==0.45.1
+wheel==0.46.2
     # via astunparse
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
