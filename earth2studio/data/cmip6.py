@@ -23,6 +23,7 @@ from typing import Union, cast
 import cftime
 import numpy as np
 import xarray as xr
+from loguru import logger
 from tqdm.auto import tqdm
 
 # Project-level imports come after stdlib/third-party
@@ -340,12 +341,10 @@ class CMIP6:
                         method="nearest",
                         tolerance=self._pressure_level_tolerance,
                     )
-                    warnings.warn(
-                        f"Exact pressure level {level} hPa not found for variable '{cmip6_var}'. "
-                        f"Using nearest neighbor matching (tolerance={self._pressure_level_tolerance} Pa) instead. "
-                        f"This may occur due to floating-point precision differences in some models.",
-                        UserWarning,
-                    )
+                    if not data_arr.coords["plev"].values == target_pa:
+                        logger.warning(
+                            f"Exact pressure level {level} hPa not found for {var}. Using nearest neighbor matching (tolerance={self._pressure_level_tolerance} Pa) instead. "
+                        )
                 except KeyError as e:  # pragma: no cover
                     available = data_arr.plev.values / 100.0
                     raise KeyError(
