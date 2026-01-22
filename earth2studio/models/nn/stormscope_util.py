@@ -18,12 +18,23 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from physicsnemo.experimental.models.dit.dit import DiT as PNM_DiT
+
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from physicsnemo.experimental.models.dit.dit import DiT as PNM_DiT
+except ImportError:
+    OptionalDependencyFailure("stormscope")
+    PNM_DiT = None  # type: ignore[assignment]
 
 # Items copied from research repository; to be upstreamed to physicsnemo
 # TODO: Remove once upstreamed
 
 
+@check_optional_dependencies()
 class EDMPrecond(torch.nn.Module):
     def __init__(
         self,

@@ -1471,6 +1471,7 @@ all = [
     { name = "microsoft-aurora" },
     { name = "moviepy" },
     { name = "multi-storage-client", extra = ["boto3", "fsspec", "google-cloud-storage"] },
+    { name = "natten" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
     { name = "omegaconf" },
@@ -1731,10 +1732,12 @@ requires-dist = [
     { name = "moviepy", marker = "extra == 'sfno'" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'all'", specifier = ">=0.33.0" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'data'", specifier = ">=0.33.0" },
+    { name = "natten", marker = "extra == 'all'" },
     { name = "natten", marker = "extra == 'stormscope'" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
     { name = "numcodecs", specifier = "<0.15.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = "==1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1,<2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.2.0,<2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=1.2.0,<2.0" },
@@ -4137,7 +4140,7 @@ wheels = [
 name = "natten"
 version = "0.21.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/ca/002c2a2bb8503af754831b60b89f86ab5b289605bbcfba65daf9923eaccd/natten-0.21.1.tar.gz", hash = "sha256:69263d3e0586e2058c20c0610c6c31ad016834b31860cb096d50614c6039742e", size = 2713938, upload-time = "2025-10-26T20:16:46.303Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/ca/002c2a2bb8503af754831b60b89f86ab5b289605bbcfba65daf9923eaccd/natten-0.21.1.tar.gz", hash = "sha256:69263d3e0586e2058c20c0610c6c31ad016834b31860cb096d50614c6039742e", size = 2713938 }
 
 [[package]]
 name = "nbformat"
