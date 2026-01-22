@@ -423,8 +423,7 @@ class MRMS:
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
         # Offline time bounds check
-        if time.tzinfo is None:
-            time = time.replace(tzinfo=timezone.utc)
+        time = time.replace(tzinfo=timezone.utc)
         if time < cls.EARLIEST_AVAILABLE:
             return False
         if time > datetime.now(timezone.utc):
@@ -450,4 +449,4 @@ class MRMS:
 
         # Delegate to instance resolver to avoid duplicating S3 listing logic
         tmp = cls(max_offset_minutes=max_offset_minutes, cache=True, verbose=False)
-        return tmp._resolve_s3_time(time, product) is not None
+        return tmp._resolve_s3_time(time.replace(tzinfo=None), product) is not None
