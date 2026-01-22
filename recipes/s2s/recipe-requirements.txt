@@ -208,7 +208,7 @@ urllib3==2.4.0
 validators==0.35.0
 wandb==0.20.0
 wcwidth==0.2.13
-wheel==0.45.1
+wheel==0.46.2
 win32-setctime==1.2.0 ; sys_platform == 'win32'
 wrapt==1.17.2
 xarray==2025.4.0
