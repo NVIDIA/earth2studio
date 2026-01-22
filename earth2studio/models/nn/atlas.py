@@ -20,7 +20,6 @@ from enum import Enum
 from functools import cache, partial
 from timeit import default_timer
 
-import einops
 import numpy as np
 import torch
 import torch.nn as nn
@@ -30,12 +29,14 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from earth2studio.utils.imports import OptionalDependencyFailure
 
 try:
+    import einops
     import physicsnemo
     from natten import NeighborhoodAttention2D
     from timm.models.vision_transformer import Mlp, PatchEmbed
     from torch_harmonics import InverseRealSHT
 except ImportError:
     OptionalDependencyFailure("atlas")
+    einops = None
 
 
 @cache
