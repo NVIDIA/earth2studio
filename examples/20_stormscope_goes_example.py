@@ -33,7 +33,7 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
-#   "earth2studio[data,stormscope,utils]",
+#   "earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
 # ///
@@ -43,6 +43,7 @@ In this example you will learn:
 # ------
 # This example shows a minimal StormScope workflow with GOES satellite imagery
 # and MRMS radar data. We build two models:
+#
 # - :py:class:`earth2studio.models.px.StormScopeGOES` to forecast GOES channels.
 # - :py:class:`earth2studio.models.px.StormScopeMRMS` to forecast radar reflectivity.
 #
@@ -75,36 +76,21 @@ from earth2studio.models.px.stormscope import (
 )
 
 # %%
-# Define the initialization time
-# ------------------------------
 # We select the proper GOES platform based on the date and build a single
 # initialization timestamp. GOES-19 replaced GOES-16 (both sometimes
 # referred to as GOES-East, covering the same CONUS domain) in April 2025.
-
-# %%
-t = datetime(2023, 12, 5, 12, 00, 0)
-goes_satellite = "goes19" if t >= datetime(2025, 4, 7, 0, 0, 0) else "goes16"
-inits = [np.datetime64(t)]
-
-# %%
-# Select a device
-# ---------------
-# Use GPU when available; otherwise fall back to CPU.
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# %%
-# Load the StormScope models
-# --------------------------
 # Choose pre-trained model names and load them with their conditioning sources.
 #
 # Model options:
+#
 #  - "6km_60min_natten_cos_zenith_input_eoe_v2" for 1hr timestep GOES model
 #  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
 #  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
 #  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
 
 # %%
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 goes_model_name = "6km_60min_natten_cos_zenith_input_eoe_v2"
 mrms_model_name = "6km_60min_natten_cos_zenith_input_mrms_eoe"
 
@@ -129,7 +115,7 @@ model_mrms = model_mrms.to(device)
 model_mrms.eval()
 
 # %%
-# Setup GOES data source and interpolators
+# Setup GOES Data Source and Interpolators
 # ----------------------------------------
 # We fetch GOES data for the model inputs and build interpolators that map the
 # GOES grid and GFS grid into the StormScope model grid. StormScope operates on
@@ -138,7 +124,10 @@ model_mrms.eval()
 # the regridding functionality.
 
 # %%
+start_date = [np.datetime64(datetime(2023, 12, 5, 12, 00, 0))]
+goes_satellite = "goes16"
 scan_mode = "C"
+
 variables = model.input_coords()["variable"]
 lat_out = model.latitudes.detach().cpu().numpy()
 lon_out = model.longitudes.detach().cpu().numpy()
@@ -155,14 +144,14 @@ in_coords = model.input_coords()
 # Fetch GOES data
 x, x_coords = fetch_data(
     goes,
-    time=inits,
+    time=start_date,
     variable=np.array(variables),
     lead_time=in_coords["lead_time"],
     device=device,
 )
 
 # %%
-# Setup MRMS data source and interpolators
+# Setup MRMS Data Source and Interpolators
 # ----------------------------------------
 # MRMS inputs are fetched and interpolated to the model grid. The MRMS model is
 # conditioned on GOES, so we also build the GOES conditioning interpolator.
@@ -172,7 +161,7 @@ mrms = MRMS()
 mrms_in_coords = model_mrms.input_coords()
 x_mrms, x_coords_mrms = fetch_data(
     mrms,
-    time=inits,
+    time=start_date,
     variable=np.array(["refc"]),
     lead_time=mrms_in_coords["lead_time"],
     device=device,
@@ -182,7 +171,7 @@ model_mrms.build_input_interpolator(x_coords_mrms["lat"], x_coords_mrms["lon"])
 model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 # %%
-# Add batch dimension
+# Add Batch Dimension
 # -------------------
 # The models expect a batch dimension: [B, T, L, C, H, W]. Up to GPU memory limits,
 # this can be increased to produce multiple ensemble members.
@@ -235,12 +224,6 @@ for step_idx in range(n_steps):
     y_coords = y_pred_coords
     y_mrms = y_mrms_pred
     y_coords_mrms = y_coords_mrms_pred
-
-# %%
-# Store Predictions
-# -----------------
-# Use a lightweight key-value backend to store the forecast outputs in memory.
-
 
 # %%
 # Post Processing
