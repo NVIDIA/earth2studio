@@ -26,6 +26,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
+import pygrib
 import s3fs
 import xarray as xr
 from loguru import logger
@@ -53,7 +54,7 @@ class MRMS:
 
     This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
     public S3 bucket, decompresses them into the Earth2Studio cache, and opens
-    the result with Xarray/cfgrib. Initially, only the composite reflectivity
+    the result with pygrib. Initially, only the composite reflectivity
     product is supported, exposed via the Earth2Studio variable id ``refc``.
 
     Parameters
@@ -156,7 +157,6 @@ class MRMS:
     ) -> xr.DataArray:
         """Async retrieval of MRMS data for given times and variables."""
         time, variable = prep_data_inputs(time, variable)
-
         # Validate requested times are within MRMS availability window
         self._validate_time(time)
 
@@ -222,7 +222,7 @@ class MRMS:
     async def _fetch_task(
         self,
         time_index: int,
-        time: datetime,
+        time: datetime,  # tz aware time
         product: str,
         idx_mods: list[tuple[int, Callable]],
     ) -> dict | None:
@@ -242,30 +242,24 @@ class MRMS:
                 logger.info(f"Fetching MRMS file: {s3_uri}")
 
             # Download and decompress in a thread
-            grib_path = await asyncio.to_thread(self._download_and_decompress, s3_uri)
+            grib_file = await asyncio.to_thread(self._download_and_decompress, s3_uri)
 
-            # Open dataset and extract field values in a thread
-            def _open_and_extract(
-                path: str,
-            ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-                ds = xr.open_dataset(
-                    path, engine="cfgrib", backend_kwargs={"indexpath": ""}
-                )
-                if len(ds.data_vars) == 0:
-                    raise RuntimeError(
-                        f"No data variables found in MRMS file: {s3_uri}"
-                    )
-                data_var_name = list(ds.data_vars)[0]
-                field = ds[data_var_name].rename(
-                    {"latitude": "lat", "longitude": "lon"}
-                )
-                return (
-                    field.coords["lat"].values,
-                    field.coords["lon"].values,
-                    field.values,
-                )
-
-            lat, lon, values = await asyncio.to_thread(_open_and_extract, grib_path)
+            try:
+                grbs = pygrib.open(grib_file)
+            except Exception as e:
+                logger.error(f"Failed to open grib file {grib_file}")
+                raise e
+            try:
+                grb = grbs[1]
+                values = grb.values  # (ny, nx)
+                lats, lons = grb.latlons()
+                lat = lats[:, 0]
+                lon = lons[0, :]
+            except Exception as e:
+                logger.error(f"Failed to read grib file {grib_file}")
+                raise e
+            finally:
+                grbs.close()
 
             return {
                 "time_index": time_index,
@@ -312,17 +306,17 @@ class MRMS:
             List of date times to fetch data for.
         """
         now_utc = datetime.now(timezone.utc)
-        for i in range(len(times)):
-            if times[i].tzinfo is None:
+        for dt in times:
+            if dt.tzinfo is None:
                 # Enforce UTC timezone
-                times[i] = times[i].replace(tzinfo=timezone.utc)
-            if times[i] < self.EARLIEST_AVAILABLE:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt < self.EARLIEST_AVAILABLE:
                 raise ValueError(
-                    f"Requested date time {times[i]} needs to be after {self.EARLIEST_AVAILABLE.date()} for MRMS"
+                    f"Requested date time {dt} needs to be after {self.EARLIEST_AVAILABLE.date()} for MRMS"
                 )
-            if times[i] > now_utc:
+            if dt > now_utc:
                 raise ValueError(
-                    f"Requested date time {times[i]} must not be in the future for MRMS"
+                    f"Requested date time {dt} must not be in the future for MRMS"
                 )
 
     def _resolve_s3_time(
@@ -375,7 +369,6 @@ class MRMS:
                     hour=int(hms[0:2]),
                     minute=int(hms[2:4]),
                     second=int(hms[4:6]),
-                    tzinfo=timezone.utc,
                 )
                 diff = abs((ts - time).total_seconds())
                 if diff <= self.max_offset_minutes * 60 and diff < best_diff:
@@ -430,8 +423,7 @@ class MRMS:
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
         # Offline time bounds check
-        if time.tzinfo is None:
-            time = time.replace(tzinfo=timezone.utc)
+        time = time.replace(tzinfo=timezone.utc)
         if time < cls.EARLIEST_AVAILABLE:
             return False
         if time > datetime.now(timezone.utc):
@@ -457,4 +449,4 @@ class MRMS:
 
         # Delegate to instance resolver to avoid duplicating S3 listing logic
         tmp = cls(max_offset_minutes=max_offset_minutes, cache=True, verbose=False)
-        return tmp._resolve_s3_time(time, product) is not None
+        return tmp._resolve_s3_time(time.replace(tzinfo=None), product) is not None
