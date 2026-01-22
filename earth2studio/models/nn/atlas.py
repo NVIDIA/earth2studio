@@ -33,8 +33,8 @@ from earth2studio.utils.imports import (
 
 try:
     import einops
-    import physicsnemo.Module as PhysicsNeMoModule
     from natten import NeighborhoodAttention2D
+    from physicsnemo import Module as PhysicsNeMoModule
     from timm.models.vision_transformer import Mlp, PatchEmbed
     from torch_harmonics import InverseRealSHT
 except ImportError:
@@ -1414,10 +1414,13 @@ class PatchUnpad(nn.Module):
         return x[..., : self.target_size[0], : self.target_size[1]]
 
 
+@check_optional_dependencies()
 class NattenCombineDiT(PhysicsNeMoModule):
     """
     Diffusion model with a Transformer backbone.
     """
+
+    __model_checkpoint_version__ = "0.1.0"
 
     def __init__(
         self,
