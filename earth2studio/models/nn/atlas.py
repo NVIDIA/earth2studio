@@ -26,17 +26,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
-from earth2studio.utils.imports import OptionalDependencyFailure
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
 try:
     import einops
-    import physicsnemo
+    import physicsnemo.Module as PhysicsNeMoModule
     from natten import NeighborhoodAttention2D
     from timm.models.vision_transformer import Mlp, PatchEmbed
     from torch_harmonics import InverseRealSHT
 except ImportError:
     OptionalDependencyFailure("atlas")
     einops = None
+    PhysicsNeMoModule = object
 
 
 @cache
@@ -319,6 +323,7 @@ def follmer_g(t, sigma, sigma_dot, beta, beta_dot):
     )
 
 
+@check_optional_dependencies()
 class StochasticInterpolant(torch.nn.Module):
     def __init__(
         self,
@@ -1126,7 +1131,8 @@ def get_dit_block(natten=False, kernel_size=None, grid_size=None, bfloat_cast=Fa
     return block
 
 
-class SInterpolantLatentDiT(physicsnemo.Module):
+@check_optional_dependencies()
+class SInterpolantLatentDiT(PhysicsNeMoModule):
     def __init__(
         self,
         input_shape_1=[181, 360],
@@ -1408,7 +1414,7 @@ class PatchUnpad(nn.Module):
         return x[..., : self.target_size[0], : self.target_size[1]]
 
 
-class NattenCombineDiT(physicsnemo.Module):
+class NattenCombineDiT(PhysicsNeMoModule):
     """
     Diffusion model with a Transformer backbone.
     """
@@ -1631,7 +1637,7 @@ class NattenCombineDiT(physicsnemo.Module):
         return x
 
 
-class BaseProcessor(physicsnemo.Module):
+class BaseProcessor(PhysicsNeMoModule):
     def __init__(
         self,
         normalization="gaussian",
