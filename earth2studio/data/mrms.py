@@ -117,7 +117,9 @@ class MRMS:
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        )
 
     def __call__(
         self,

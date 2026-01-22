@@ -87,9 +87,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----------
     model_spec : list[dict[str, Any]]
         Sequence of stage specifications. Each entry must contain:
+
         - 'model': physicsnemo.Module
         - 'sigma_min': float
         - 'sigma_max': float
+
         The sigma interval determines which expert is applied during denoising.
     means : torch.Tensor
         Per-variable mean used to normalize inputs. Expected shape [1, C, 1, 1].

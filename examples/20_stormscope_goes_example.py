@@ -16,8 +16,8 @@
 
 # %%
 """
-Running StormScope Inference with GOES and MRMS
-================================================
+StormScope Satellite and Radar Nowcasting
+=========================================
 
 StormScope inference workflow with GOES satellite imagery and MRMS radar data.
 
@@ -83,10 +83,10 @@ from earth2studio.models.px.stormscope import (
 #
 # Model options:
 #
-#  - "6km_60min_natten_cos_zenith_input_eoe_v2" for 1hr timestep GOES model
-#  - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
-#  - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
-#  - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
+# - "6km_60min_natten_cos_zenith_input_eoe_v2" for 1hr timestep GOES model
+# - "6km_10min_natten_pure_obs_zenith_6steps" for 10min timestep GOES model
+# - "6km_60min_natten_cos_zenith_input_mrms_eoe" for 1hr timestep MRMS model
+# - "6km_10min_natten_pure_obs_mrms_obs_6steps" for 10min timestep MRMS model
 
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -211,7 +211,10 @@ class HRRR:
         """
         if self._source == "aws":
             self.fs = s3fs.S3FileSystem(
-                anon=self.HRRR_BUCKET_ANON, client_kwargs={}, asynchronous=True
+                anon=self.HRRR_BUCKET_ANON,
+                client_kwargs={},
+                asynchronous=True,
+                skip_instance_cache=True,
             )
         elif self._source == "google":
             fs = gcsfs.GCSFileSystem(
