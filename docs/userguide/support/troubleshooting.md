@@ -180,3 +180,15 @@ For debian systems this can be done through APT:
 ```bash
 apt install cmake
 ```
+
+## RuntimeError: Cannot find the ecCodes library
+
+This can surface when using a data source (e.g. CDS, GFS, HRRR, etc) that needs to
+read grib files indicating that ECMWF's eccodes library needs to be installed.
+Eccodes has several [install methods](https://github.com/ecmwf/eccodes), provided on
+[conda forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and
+APT for debian based systems:
+
+```bash
+apt-get install -y --no-install-recommends libeccodes-tools libeccodes-dev
+```

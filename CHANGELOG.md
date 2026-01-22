@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Switch grib reads in HRRR data sources from xarray to pygrib to fix memory leak
 - Updated AIFS model to 1.1 checkpoint version
 - Updated GFS lexicon to include composite reflectivity
+- Moved most data sources from cfgrib to pygrib
 
 ### Deprecated
 
@@ -37,8 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-- Added pygrib to data dependency group
+- Added pygrib to core dependency group
+- Moved cfgrib to optional dependency group
 - Resolved conflict between AIFS and AIFS ENS groups
+- Removed old numcodecs limit
 
 ## [0.11.0] - 2025-12-19
 

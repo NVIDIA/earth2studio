@@ -157,7 +157,6 @@ def test_fss_accuracy(device: str) -> None:
     # this (==0.8) should be the fss for 50% exceedence
     reference_value = 1 - 0.5**2 / (0.5**2 + 1.0**2)
     # allow some tolerance due to finite-size windows
-    print((z - reference_value).cpu().numpy())
     assert (abs(z - reference_value) < 0.01 * reference_value).all()
 
     # test that FSS is 1 for comparison to self
