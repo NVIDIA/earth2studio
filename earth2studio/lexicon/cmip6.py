@@ -164,7 +164,16 @@ class CMIP6Lexicon(metaclass=LexiconType):
                     return x + 273.15
                 return x
 
-        elif val in ["siconc", "clt", "r2m", "hurs", "hursmax", "hursmin", "snc"]:
+        elif val in [
+            "siconc",
+            "clt",
+            "r2m",
+            "hurs",
+            "hursmax",
+            "hursmin",
+            "snc",
+            "snowc",
+        ]:
             # Convert concentration/percentage variables from fraction [0-1] to percentage [0-100]
             # Applies to: cloud cover (clt), relative humidity (r2m/hurs/hursmax/hursmin),
             # sea ice concentration (siconc), snow cover (snc)
