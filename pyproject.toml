@@ -23,6 +23,7 @@ dependencies = [
     "nest_asyncio",
     "pygrib",
     "python-dotenv",
+    "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
     "rich",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
