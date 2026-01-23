@@ -299,7 +299,7 @@ psutil==5.9.8
     #   ngcsdk
 pyarrow==19.0.1
     # via dask
-pyasn1==0.6.1
+pyasn1==0.6.2
     # via
     #   pyasn1-modules
     #   rsa
@@ -876,7 +876,7 @@ psutil==5.9.8
     #   wandb
 pyarrow==20.0.0
     # via dask
-pyasn1==0.6.1
+pyasn1==0.6.2
     # via
     #   pyasn1-modules
     #   rsa
