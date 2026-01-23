@@ -78,6 +78,7 @@ perturbation = [
 ]
 statistics = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 utils = [
     "scipy>=1.15.2",
@@ -108,6 +109,7 @@ atlas = [
     "torch-harmonics",
     "einops",
     "nvidia-physicsnemo>=1.3.0,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 aurora = [
     "microsoft-aurora>=1.6.0",
@@ -117,20 +119,24 @@ dlesym = [
     "earth2grid",
     "omegaconf>=2.3.0",
     "hydra-core>=1.3.2",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 dlwp = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
     "importlib_metadata",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 fcn = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 fcn3 = [
     "makani",
     "ruamel.yaml>=0.18.14",
     "scipy>=1.10.0",
     "torch-harmonics>=0.8.0",
-    "moviepy"
+    "moviepy",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 fengwu = [
     "onnx",
@@ -149,6 +155,7 @@ graphcast = [
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 pangu = [
     "onnx",
@@ -169,12 +176,14 @@ stormcast = [
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
     "pyproj>=3.7.1",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 stormscope = [
     "natten",
     "nvidia-physicsnemo==1.3.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 # DX Models
 cbottle = [
@@ -187,6 +196,7 @@ corrdiff = [
     "nvidia-physicsnemo>=1.2.0,<2.0",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 cyclone = [
     "cucim-cu12>=25.4.0",
@@ -195,15 +205,19 @@ cyclone = [
 derived = []
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 precip-afno-v2 = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 solarradiation-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 windgust-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 # All, must not have conflicts
 all = [
