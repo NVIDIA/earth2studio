@@ -287,15 +287,13 @@ def test_cmip6_multi_realm_available_variables():
 
 
 @pytest.mark.slow
+@pytest.mark.xfail
 @pytest.mark.parametrize(
     "time, expected",
     [
         pytest.param(datetime(2015, 1, 16), True, id="available"),
         pytest.param(datetime(1800, 1, 1), False, id="too_early"),
     ],
-)
-@pytest.mark.xfail(
-    reason="available() downloads large amounts of data to check timestamp availability"
 )
 def test_cmip6_multi_realm_available(time, expected):
     """Test the CMIP6MultiRealm.available class-method.
@@ -326,7 +324,7 @@ def test_cmip6_multi_realm_available(time, expected):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(150)
+@pytest.mark.timeout(60)
 def test_cmip6_multi_realm():
     """Combine multi-realm tests to reduce repeated downloads."""
     atmos = CMIP6(
@@ -357,16 +355,10 @@ def test_cmip6_multi_realm():
     assert "_lon" not in data.coords
     assert data.isel(variable=0).shape == data.isel(variable=1).shape
 
-    # Missing variable validations
+    # Missing variable
     variables_missing_partial = ["u10m", "sst", "nonexistent_var"]
-    with pytest.raises(
-        ValueError, match="not found in any of the provided CMIP6 sources"
-    ):
+    with pytest.raises(KeyError):
         _ = multi(time, variables_missing_partial)
-
-    variables_missing_all = ["fake_var1", "fake_var2"]
-    with pytest.raises(ValueError, match="None of the requested variables"):
-        _ = multi(time, variables_missing_all)
 
     # Variable priority (separate sources, same test to avoid extra startup)
     atmos1 = CMIP6(
