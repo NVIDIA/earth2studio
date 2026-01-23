@@ -263,6 +263,8 @@ E2STUDIO_VOCAB = {
     "hcc": "high cloud cover (0 - 1)",
     "mcc": "medium cloud cover (0 - 1)",
     "lcc": "low cloud cover (0 - 1)",
+    "ssrd": "surface short-wave (solar) radiation downwards (J m-2) accumulated over a time period",
+    "strd": "surface long-wave (thermal) radiation downwards (J m-2) accumulated over a time period",
     "ssrd06": "surface short-wave (solar) radiation downwards (J m-2) past 6 hours",
     "strd06": "surface long-wave (thermal) radiation downwards (J m-2) past 6 hours",
     "sf": "snowfall water equivalent (kg m-2)",

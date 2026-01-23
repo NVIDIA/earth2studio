@@ -23,6 +23,7 @@ from typing import Union, cast
 import cftime
 import numpy as np
 import xarray as xr
+from loguru import logger
 from tqdm.auto import tqdm
 
 # Project-level imports come after stdlib/third-party
@@ -87,6 +88,8 @@ class CMIP6:
     exact_time_match : bool, optional
         If True, raise an error when requested times don't match dataset times exactly.
         If False (default), use nearest neighbor time matching and issue a warning, by default False
+    pressure_level_tolerance: int, optional
+        Tolerance for selecting pressure levels in pascals, by default 0
 
     Warning
     -------
@@ -125,6 +128,7 @@ class CMIP6:
         cache: bool = True,
         verbose: bool = True,
         exact_time_match: bool = False,
+        pressure_level_tolerance: int = 0,
     ):
         self.experiment_id = experiment_id
         self.source_id = source_id
@@ -135,6 +139,7 @@ class CMIP6:
         self._cache = cache
         self._verbose = verbose
         self._exact_time_match = exact_time_match
+        self._pressure_level_tolerance = pressure_level_tolerance
 
         # Create catalog
         intake_esgf.conf.set(local_cache=self.cache)
@@ -329,13 +334,22 @@ class CMIP6:
                         f"Variable '{cmip6_var}' expected to have a 'plev' coordinate but none found"
                     )
 
+                # Select nearest pressure level within tolerance
                 try:
-                    data_arr = data_arr.sel(plev=target_pa)
+                    data_arr = data_arr.sel(
+                        plev=target_pa,
+                        method="nearest",
+                        tolerance=self._pressure_level_tolerance,
+                    )
+                    if not data_arr.coords["plev"].values == target_pa:
+                        logger.warning(
+                            f"Exact pressure level {level} hPa not found for {var}. Using nearest neighbor matching (tolerance={self._pressure_level_tolerance} Pa) instead. "
+                        )
                 except KeyError as e:  # pragma: no cover
                     available = data_arr.plev.values / 100.0
-                    raise ValueError(
-                        f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found."
-                        f" Available levels: {available}"
+                    raise KeyError(
+                        f"Requested pressure level {level} hPa for variable '{cmip6_var}' not found "
+                        f"within tolerance ({self._pressure_level_tolerance} Pa). Available levels: {available}"
                     ) from e
 
             # At this point data_arr dims should be (time, lat, lon)
@@ -776,8 +790,8 @@ class CMIP6MultiRealm:
         time availability. For multiple sources, this can result in significant
         data transfer.
 
-        Notes
-        -----
+        Note
+        ----
         This method checks that ALL sources have data available at the requested time,
         since combining multi-realm data requires data from all sources. Each source
         is checked by downloading at least one file to verify the time coordinate range.
