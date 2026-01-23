@@ -111,7 +111,7 @@ class TempestExtremes:
         print_te_output: bool = False,
         use_ram: bool = True,
         **kwargs: Any,
-    ):  # leave kwars to make call robust to switching between this and async version
+    ):  # leave kwargs to make call robust to switching between this and async version
 
         self.rank = DistributedManager().rank
         self.print_te_output = print_te_output
@@ -185,7 +185,6 @@ class TempestExtremes:
             try:
                 run(cmd, capture_output=True)  # noqa: S603
             except Exception as e:
-                # TODO discuss implementation of below before merging
                 self.dependency_failure(e.__traceback__, e)
 
         return

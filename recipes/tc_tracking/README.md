@@ -355,7 +355,7 @@ tru_track_dir = '/path/to/outputs_reference_tracks'
 
 ### 5.4 Reproduce Interesting Members to Extract Fields
 
-Suppose that after conducting the above anysis you want to take a closer look at ensemble members 0, 8, 9, and 12 of the Helene prediction. Since the forecast was produced with FCN3, we can reproduce these members and store the atmospheric fields for detailed analysis.
+Suppose that after conducting the above analysis you want to take a closer look at ensemble members 0, 8, 9, and 12 of the Helene prediction. Since the forecast was produced with FCN3, we can reproduce these members and store the atmospheric fields for detailed analysis.
 
 **Reproduce with Field Storage**:
 

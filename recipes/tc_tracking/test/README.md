@@ -21,7 +21,7 @@ python ../tc_hunt.py --config-path=$(pwd) --config-name=baseline_helene.yaml
 ```
 
 You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
-The directory should contain five csv files with naming pattern accrding to
+The directory should contain five csv files with naming pattern according to
 `tracks_2024-09-29T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
 This pattern provides information about initial condition, ensemble member ID
 and batch size.
@@ -30,7 +30,7 @@ Next, check if the random seeds for members three and four provided in `reproduc
 are identical to the seeds in the csv file names. If not, replace the seeds for both members
 in the yaml file with the seeds from the csv file names.
 
-Having made sure that the configurations for reproduicing the ensemble members
+Having made sure that the configurations for reproducing the ensemble members
 is correct, let us now reproduce members three and four of the previous run:
 ```bash
 python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
@@ -55,7 +55,7 @@ diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-29T00:00:00_mem_00
 Repeat the diff call for all reproduced ensemble members, the return should always be empty.
 
 
-## Test 2: Extracting indivdual storms from historic data
+## Test 2: Extracting individual storms from historic data
 
 > [!Note]
 > The test can be done manually following the steps below. Alternatively,

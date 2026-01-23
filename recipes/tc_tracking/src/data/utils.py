@@ -12,13 +12,13 @@ def load_heights(oro_path):
     coords = OrderedDict(
         {"variable": np.array(["height"]), "lat": oro.latitude, "lon": oro.longitude}
     )
-    geop = torch.Tensor(oro["Z"].to_numpy()) / 9.80665  # devide by gravi to get height
+    geop = torch.Tensor(oro["Z"].to_numpy()) / 9.80665  # divide by gravity to get height
 
     return geop, coords
 
 
 class DataSourceManager:
-    # TODO: catch case in which ther's only single data source
+    # TODO: catch case in which there's only single data source
 
     def __init__(self, cfg):
         self.cfg = cfg

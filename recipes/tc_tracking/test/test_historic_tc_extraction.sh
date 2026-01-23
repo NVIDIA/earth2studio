@@ -17,13 +17,13 @@ reference_tracks=(
     "reference_track_helene_2024_north_atlantic.csv"
 )
 for f in "${reference_tracks[@]}"; do
-    if ! diff -q "aux_data/$f" "outputs_reference_tracks/$f" > /dev/null 2>&1; then
+    if ! diff -q "../aux_data/$f" "outputs_reference_tracks/$f" > /dev/null 2>&1; then
         echo ""
         echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
         echo " >>> oh no!!! ERROR: $f differs between baseline and reproduce"
         echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
         echo ""
-        diff "aux_data/$f" "outputs_reference_tracks/$f"
+        diff "../aux_data/$f" "outputs_reference_tracks/$f"
         exit 1
     fi
 done

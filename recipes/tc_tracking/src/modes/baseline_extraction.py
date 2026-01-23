@@ -112,7 +112,7 @@ def match_tracks(ib_storm, hist_tracks, case):
 
     n_tracks = hist_tracks['track_id'].nunique()
 
-    # go over tracks and see if they match ibtracks
+    # go over tracks and see if they match ibtracs
     matched_track = None
     for time in ib_storm['time']:
         lat_ib = ib_storm.loc[ib_storm['time'] == time]['lat'].item()
@@ -128,7 +128,7 @@ def match_tracks(ib_storm, hist_tracks, case):
                 dist = great_circle_distance(lat_ib, lon_ib, lat_track, lon_track)
                 if dist < 300000:
                     matched_track = track_id
-                    print(f'matched track {matched_track} for strom {case} with distance {dist/1000:.2f}km')
+                    print(f'matched track {matched_track} for storm {case} with distance {dist/1000:.2f}km')
                     break
 
         if matched_track is not None:

@@ -534,7 +534,5 @@ def plot_ensemble_mean_metrics(ens_means, out_path):
         errs.append(means)
 
     errs = np.stack(errs)
-    print(errs.shape)
-    exit()
 
     return

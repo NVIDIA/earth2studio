@@ -22,7 +22,7 @@ def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
     Returns
     -------
     list[np.datetime64]
-        Dictionary containing model, model class and model package.
+        List of initial condition times.
     """
     # list of ICs
     if "ics" in cfg:

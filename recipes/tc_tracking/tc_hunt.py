@@ -9,8 +9,8 @@ os.environ.setdefault("MKL_DYNAMIC", "FALSE")
 
 import hydra
 from omegaconf import DictConfig
-from src.extract_from_data_source.baseline_extraction import extract_baseline
-from src.generate_ensembles import generate_ensemble, reproduce_members
+from src.modes.baseline_extraction import extract_baseline
+from src.modes.generate_ensembles import generate_ensemble, reproduce_members
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")

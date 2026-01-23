@@ -192,7 +192,7 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
 
     # Consolidate metadata in zarr files
     if dist.rank == 0 and cfg.store_type == "zarr":
-        # TODO add barrier such that rank 0 finsihes last
+        # TODO add barrier such that rank 0 finishes last
         consolidate_metadata(store.store)
 
     return store
@@ -301,7 +301,7 @@ def generate_ensemble(cfg):
 
 def reproduce_members(cfg):
     if cfg.store_type == "zarr":
-        raise ValueError("Zarr output not suported for reproducing ensemble members")
+        raise ValueError("Zarr output not supported for reproducing ensemble members")
     if cfg.model != 'fcn3':
         raise ValueError('Currently, reproducibility works for FCN3 only')
 
