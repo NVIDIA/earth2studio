@@ -33,7 +33,7 @@ There are two ways to set up the environment: either directly using a uv environ
 
 ### 1.1 Container (Recommended)
 
-A Dockerfile is provided in the top-level directory of the repository. [Building an image from this Dockerfile](https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image) is highly recommended as it avoids the need to compile flash-attention (which otherwise can take hours) and installs TempestExtremes.
+A Dockerfile is provided in the top-level directory of the repository. [Building an image from this Dockerfile](https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image) is highly recommended as it avoids the need to compile flash-attention (which otherwise can take hours) and installs TempestExtremes. Note that compiling torch-harmonics and therefore building the container might still take around 20min.
 
 ### 1.2 UV Environment
 
