@@ -46,7 +46,6 @@ from earth2studio.models.dx.tc_tracking import (
 from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
 
 __all__ = [
-    "AsyncTempestExtremes",
     "ClimateNet",
     "CorrDiff",
     "CorrDiffCMIP6",
@@ -55,6 +54,5 @@ __all__ = [
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",
     "SolarRadiationAFNO6H",
-    "TempestExtremes",
     "WindgustAFNO",
 ]
