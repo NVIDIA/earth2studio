@@ -290,7 +290,7 @@ psutil==7.1.3
     # via distributed
 pyarrow==22.0.0
     # via dask
-pyasn1==0.6.1
+pyasn1==0.6.2
     # via
     #   pyasn1-modules
     #   rsa
