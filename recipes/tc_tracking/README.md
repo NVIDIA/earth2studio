@@ -182,7 +182,7 @@ A common workflow is to run ensemble forecasts without storing atmospheric field
 
 FCN3 provides access to its internal random state, enabling exact reproduction of individual ensemble members. In theory, AIFS-ENS should have this capability as well, but the internal random state is not exposed through the Anemoi models interface, preventing reproducibility of AIFS-ENS runs.
 
-Note that reproducibility [is challenging](https://arxiv.org/abs/1605.04339) and only works reliably when using the same environment on the same system to produce the predictions.
+Note that [reproducibility is challenging](https://arxiv.org/abs/1605.04339) and only works reliably when using the same environment on the same system to produce the predictions.
 
 To reproduce a run, you need:
 - Configuration file from the original run (ideally)
