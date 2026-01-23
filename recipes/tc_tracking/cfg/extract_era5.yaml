@@ -54,9 +54,9 @@ cases:
     #     year: 2024
     #     basin: north_atlantic
 
-    # helene:
-    #     year: 2024
-    #     basin: north_atlantic
+    helene:
+        year: 2024
+        basin: north_atlantic
 
     # lan:
     #     year: 2017
@@ -82,7 +82,7 @@ cases:
     #     year: 2017
     #     basin: southern_pacific
 
-# ibtracs file for hato and helene only. obtain full data at https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+# CAUTION: ibtracs file for hato and helene only. obtain full data at https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
 ibtracs_source_data: "./test/aux_data/ibtracs.HATO_HELENE.list.v04r01.csv"
 
 data_source:
