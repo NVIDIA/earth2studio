@@ -1,0 +1,3 @@
+export LOGURU_LEVEL=INFO
+export PYTHONWARNINGS=ignore
+export HYDRA_FULL_ERROR=1
