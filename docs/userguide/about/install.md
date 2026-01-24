@@ -405,9 +405,6 @@ uv add earth2studio --extra stormcast
 :::
 ::::
 :::::
-:::
-::::
-:::::
 :::::{tab-item} StormScope
 Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
 which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
