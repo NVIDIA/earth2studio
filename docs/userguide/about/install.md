@@ -221,7 +221,7 @@ be installed manually for pip users.
 :::{tab-item} pip
 
 ```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@fbbfe29b0a8bebb85a43c7027288d9f294b435cc"
 pip install earth2studio[dlesym]
 ```
 
@@ -414,7 +414,7 @@ needs to be installed manually for pip users.
 :::{tab-item} pip
 
 ```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@fbbfe29b0a8bebb85a43c7027288d9f294b435cc"
 pip install earth2studio[stormscope]
 ```
 
@@ -462,7 +462,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
 ```bash
 pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@fbbfe29b0a8bebb85a43c7027288d9f294b435cc"
 pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9250793894f8a9963f6968d62112884869fde3e1"
 pip install earth2studio[cbottle]
 ```
