@@ -153,6 +153,27 @@ uv add earth2studio --extra aifsens
 :::
 ::::
 :::::
+:::::{tab-item} Atlas
+Notes: The Atlas model depends on [natten](https://github.com/SHI-Labs/NATTEN), which
+can take a long time to compile.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[atlas]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra atlas
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Aurora
 Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
 package for inference.
@@ -194,7 +215,7 @@ uv add earth2studio --extra dlwp
 :::::
 :::::{tab-item} DLESyM
 Notes: For all DLESyM models, [Earth2Grid](https://github.com/NVlabs/earth2grid) needs to
-be installed manually.
+be installed manually for pip users.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -379,6 +400,32 @@ pip install earth2studio[stormcast]
 
 ```bash
 uv add earth2studio --extra stormcast
+```
+
+:::
+::::
+:::::
+:::
+::::
+:::::
+:::::{tab-item} StormScope
+Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
+needs to be installed manually for pip users.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install earth2studio[stormscope]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormscope
 ```
 
 :::
