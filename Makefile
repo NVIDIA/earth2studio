@@ -14,6 +14,7 @@ setup-ci:
 	uv sync
 	uv run pre-commit install --install-hooks
 	uv tool install tox --with tox-uv
+	uv sync --extra all
 
 .PHONY: format
 format:
