@@ -11,7 +11,6 @@ install-docker:
 .PHONY: setup-ci
 setup-ci:
 	uv venv --python=3.12
-	uv pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.4.17/flash_attn-2.8.3%2Bcu128torch2.9-cp313-cp313-linux_x86_64.whl
 	uv sync
 	uv run pre-commit install --install-hooks
 	uv tool install tox --with tox-uv
