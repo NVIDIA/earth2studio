@@ -138,7 +138,7 @@ def deterministic(
 
     logger.info("Inference starting!")
     with tqdm(
-        total=nsteps + 1, desc="Running inference", position=0, disable=(not verbose)
+        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
     ) as pbar:
         for step, (x, coords) in enumerate(model):
             # Subselect domain/variables as indicated in output_coords
@@ -148,7 +148,7 @@ def deterministic(
             if step == nsteps:
                 break
 
-    logger.success("Inference complete")
+    logger.success("\nInference complete")
     return io
 
 
@@ -259,7 +259,7 @@ def diagnostic(
 
     logger.info("Inference starting!")
     with tqdm(
-        total=nsteps + 1, desc="Running inference", position=0, disable=(not verbose)
+        total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
     ) as pbar:
         for step, (x, coords) in enumerate(model):
 
@@ -273,7 +273,7 @@ def diagnostic(
             if step == nsteps:
                 break
 
-    logger.success("Inference complete")
+    logger.success("\nInference complete")
     return io
 
 
@@ -392,7 +392,7 @@ def ensemble(
         range(0, nensemble, batch_size),
         total=number_of_batches,
         desc="Total Ensemble Batches",
-        position=1,
+        position=2,
         disable=(not verbose),
     ):
 
@@ -420,7 +420,7 @@ def ensemble(
         with tqdm(
             total=nsteps + 1,
             desc=f"Running batch {batch_id} inference",
-            position=0,
+            position=1,
             leave=False,
             disable=(not verbose),
         ) as pbar:
@@ -435,5 +435,5 @@ def ensemble(
 
         batch_id += 1
 
-    logger.success("Inference complete")
+    logger.success("\nInference complete")
     return io
