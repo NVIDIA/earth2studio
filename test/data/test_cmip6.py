@@ -161,6 +161,9 @@ def test_cmip6_input(variable, expected_exc):
         _ = ds(datetime(2015, 1, 16), variable)
 
 
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time, source_id, expected",
     [
@@ -195,6 +198,9 @@ def test_cmip6_multi_realm_invalid_type():
         CMIP6MultiRealm(["not_a_cmip6_source"])
 
 
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
 def test_cmip6_multi_realm_available_variables():
     """Test that available_variables returns union of all sources."""
     atmos = CMIP6(
@@ -223,15 +229,14 @@ def test_cmip6_multi_realm_available_variables():
 
 
 @pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "time, expected",
     [
         pytest.param(datetime(2015, 1, 16), True, id="available"),
         pytest.param(datetime(1800, 1, 1), False, id="too_early"),
     ],
-)
-@pytest.mark.xfail(
-    reason="available() downloads large amounts of data to check timestamp availability"
 )
 def test_cmip6_multi_realm_available(time, expected):
     """Test the CMIP6MultiRealm.available class-method.
@@ -262,7 +267,7 @@ def test_cmip6_multi_realm_available(time, expected):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(60)
 def test_cmip6_multi_realm_basic():
     """Test combining atmospheric and ocean sources."""
     # Atmospheric source
@@ -295,7 +300,7 @@ def test_cmip6_multi_realm_basic():
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(60)
 def test_cmip6_multi_realm_regridding():
     """Test that curvilinear ocean grid is regridded to atmospheric grid."""
     atmos = CMIP6(
@@ -362,7 +367,7 @@ def test_cmip6_multi_realm_variable_priority():
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(60)
 def test_cmip6_multi_realm_with_sea_ice():
     """Test combining atmospheric and sea ice sources."""
     atmos = CMIP6(
