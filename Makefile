@@ -50,7 +50,7 @@ pytest:
 
 .PHONY: pytest-full
 pytest-full:
-	uvx tox -c tox.ini run -- -s --cov --cov-append --slow --package --testmon-noselect
+	uvx tox -c tox.ini run -- --cov --cov-append --slow --package --testmon-noselect
 
 # Select which pytest target to run in CI based on environment
 ifneq (,$(filter 1 true TRUE True yes YES on ON,$(CI_PYTEST_ALL)))
