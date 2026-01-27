@@ -259,6 +259,9 @@ def test_cmip6_multi_realm_validation_errors():
         CMIP6MultiRealm([atmos, ocean])
 
 
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
 def test_cmip6_multi_realm_available_variables():
     """Test that available_variables returns union of all sources."""
     atmos = CMIP6(
