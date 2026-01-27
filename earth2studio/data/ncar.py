@@ -53,7 +53,7 @@ class NCARAsyncTask:
     ncar_time_indices: dict[int, datetime]
     # Dictionary mapping level index -> varaible id
     ncar_level_indices: dict[int, str]
-    ncar_time: str
+    ncar_time: datetime
 
 
 class NCAR_ERA5:
@@ -386,7 +386,7 @@ class NCAR_ERA5:
         data_variable: str,
         time_idx: list[int],
         level_idx: list[int],
-        nc_time: str,
+        nc_time: datetime,
     ) -> xr.DataArray:
         """Fetches requested array from remote store
 
