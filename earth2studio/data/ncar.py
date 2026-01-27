@@ -46,12 +46,14 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 class NCARAsyncTask:
     """Small helper struct for Async tasks"""
 
+    ncar_product: str
     ncar_file_uri: str
     ncar_data_variable: str
     # Dictionary mapping time index -> time id
     ncar_time_indices: dict[int, datetime]
     # Dictionary mapping level index -> varaible id
     ncar_level_indices: dict[int, str]
+    ncar_time: str
 
 
 class NCAR_ERA5:
@@ -197,7 +199,10 @@ class NCAR_ERA5:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return res.sel(time=time, variable=variable)
+        try:
+            return res.sel(time=time, variable=variable)
+        except Exception as e:
+            return res.sel(variable=variable)
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]
@@ -220,6 +225,7 @@ class NCAR_ERA5:
         tasks: dict[str, NCARAsyncTask] = {}  # group pressure-level variables
 
         s3_pattern = "s3://nsf-ncar-era5/{product}/{year}{month:02}/{product}.{variable}.{grid}.{year}{month:02}{daystart:02}00_{year}{month:02}{dayend:02}23.nc"
+        s3_pattern_accum = "s3://nsf-ncar-era5/{product}/{year1}{month1:02}/{product}.{variable}.{grid}.{year1}{month1:02}{daystart:02}06_{year2}{month2:02}{dayend:02}06.nc"
         for i, t in enumerate(time):
             for j, v in enumerate(variable):
                 ncar_name, _ = NCAR_ERA5Lexicon[v]
@@ -235,6 +241,89 @@ class NCAR_ERA5:
                     daystart = t.day
                     dayend = t.day
                     time_index = t.hour
+                    file_name = s3_pattern.format(
+                        product=product,
+                        variable=variable_name,
+                        grid=grid,
+                        year=t.year,
+                        month=t.month,
+                        daystart=daystart,
+                        dayend=dayend,
+                    )
+                    nc_time = t
+
+                # Accum held in bi-monthly
+                elif product == "e5.oper.fc.sfc.accumu":
+                    if t.day < 16:
+                        if t.month == 1 and t.hour <=6:
+                            daystart = 16
+                            dayend = 1
+                            file_name = s3_pattern_accum.format(
+                                product=product,
+                                variable=variable_name,
+                                grid=grid,
+                                year1=t.year-1,
+                                year2=t.year,
+                                month1=12,
+                                month2=t.month,
+                                daystart=daystart,
+                                dayend=dayend,
+                            )
+                        else:
+                            daystart = 1
+                            dayend = 16
+                            file_name = s3_pattern_accum.format(
+                                product=product,
+                                variable=variable_name,
+                                grid=grid,
+                                year1=t.year,
+                                year2=t.year,
+                                month1=t.month,
+                                month2=t.month,
+                                daystart=daystart,
+                                dayend=dayend,
+                            )
+                    else:
+                        daystart = 16
+                        dayend = 1
+                        if t.month != 12:
+                            file_name = s3_pattern_accum.format(
+                                product=product,
+                                variable=variable_name,
+                                grid=grid,
+                                year1=t.year,
+                                year2=t.year,
+                                month1=t.month,
+                                month2=t.month+1,
+                                daystart=daystart,
+                                dayend=dayend,
+                            )
+                        else:
+                            file_name = s3_pattern_accum.format(
+                                product=product,
+                                variable=variable_name,
+                                grid=grid,
+                                year1=t.year,
+                                year2=t.year+1,
+                                month1=t.month,
+                                month2=1,
+                                daystart=daystart,
+                                dayend=dayend,
+                            )
+                    if t.hour <= 6 and t.hour >= 0:
+                        nc_time = t - pd.Timedelta(days=1)
+                        nc_time = nc_time.replace(hour=18)
+                    elif t.hour > 18:
+                        nc_time = t
+                        nc_time = nc_time.replace(hour=18)
+                    else:
+                        nc_time = t
+                        nc_time = nc_time.replace(hour=6)
+                        
+                    time_index = int(
+                        (t - nc_time).total_seconds() / 3600
+                    )
+
                 # Surface held in monthly
                 else:
                     daystart = 1
@@ -243,25 +332,28 @@ class NCAR_ERA5:
                         (t - datetime(t.year, t.month, 1)).total_seconds() / 3600
                     )
 
-                file_name = s3_pattern.format(
-                    product=product,
-                    variable=variable_name,
-                    grid=grid,
-                    year=t.year,
-                    month=t.month,
-                    daystart=daystart,
-                    dayend=dayend,
-                )
+                    file_name = s3_pattern.format(
+                        product=product,
+                        variable=variable_name,
+                        grid=grid,
+                        year=t.year,
+                        month=t.month,
+                        daystart=daystart,
+                        dayend=dayend,
+                    )
+                    nc_time = t
 
                 if file_name in tasks:
                     tasks[file_name].ncar_time_indices[time_index] = t
                     tasks[file_name].ncar_level_indices[level_index] = v
                 else:
                     tasks[file_name] = NCARAsyncTask(
+                        ncar_product=product,
                         ncar_file_uri=file_name,
                         ncar_data_variable=data_variable,
                         ncar_time_indices={time_index: t},
                         ncar_level_indices={level_index: v},
+                        ncar_time=nc_time,
                     )
 
         return tasks
@@ -272,25 +364,29 @@ class NCAR_ERA5:
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
         out = await self.fetch_array(
+            task.ncar_product,
             task.ncar_file_uri,
             task.ncar_data_variable,
             list(task.ncar_time_indices.keys()),
             list(task.ncar_level_indices.keys()),
+            task.ncar_time,
         )
 
         # Rename levels coord to variable
         out = out.rename({"level": "variable", "longitude": "lon", "latitude": "lat"})
         out = out.assign_coords(variable=list(task.ncar_level_indices.values()))
         # Shouldnt be needed but just in case
-        out = out.assign_coords(time=list(task.ncar_time_indices.values()))
+        #out = out.assign_coords(time=list(task.ncar_time_indices.values()))
         return out
 
     async def fetch_array(
         self,
+        nc_product: str,
         nc_file_uri: str,
         data_variable: str,
         time_idx: list[int],
         level_idx: list[int],
+        nc_time: str,
     ) -> xr.DataArray:
         """Fetches requested array from remote store
 
@@ -355,7 +451,10 @@ class NCAR_ERA5:
                     ]
                 # Other product
                 else:
-                    ds = ds.isel(time=list(time_idx))[data_variable]
+                    if nc_product == "e5.oper.an.sfc":
+                        ds = ds.isel(time=list(time_idx))[data_variable]
+                    elif nc_product == "e5.oper.fc.sfc.accumu":
+                        ds = ds.sel(forecast_initial_time=nc_time, forecast_hour=time_idx)[data_variable]
                     ds = ds.expand_dims({"level": [0]}, axis=1)
                 # Load the data, this is the actual download
                 ds = await asyncio.to_thread(ds.load)
