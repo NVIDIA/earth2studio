@@ -7,6 +7,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0a0] - 2026-03-xx
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed dependency issue with the LinearInterpolator not working with SciPy installed
+
+### Security
+
+### Dependencies
+
+- Added onnxscript to onnx models to add support for newer torch versions
+- Moved lock file / CI system to torch 2.9.1
+
 ## [0.12.0a0] - 2026-01-xx
 
 ### Added
