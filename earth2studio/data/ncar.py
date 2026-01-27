@@ -319,7 +319,7 @@ class NCAR_ERA5:
                     else:
                         nc_time = t
                         nc_time = nc_time.replace(hour=6)
-                        
+                        nc_time = nc_time.replace(hour=6)
                     time_index = int(
                         (t - nc_time).total_seconds() / 3600
                     )
