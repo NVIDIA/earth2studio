@@ -266,7 +266,7 @@ class NCAR_ERA5:
                 # Accum held in bi-monthly
                 elif product == "e5.oper.fc.sfc.accumu":
                     if t.day < 16:
-                        if t.month == 1 and t.hour <= 6:
+                        if t.month == 1 and t.day == 1 and t.hour <= 6:
                             daystart = 16
                             dayend = 1
                             file_name = s3_pattern_accum.format(
