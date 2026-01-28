@@ -98,5 +98,5 @@ coverage:
 include:
 
   - project: 'modulus/modulus-ci'
-    ref: ngeneva/e2s-rework
+    ref: main
     file: '.gitlab-ci/earth2studio/common.gitlab-ci.yml'

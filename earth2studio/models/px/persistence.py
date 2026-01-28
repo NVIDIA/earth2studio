@@ -37,13 +37,18 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         The variable or list of variables predicted by the model.
     domain_coords : CoordSystem
         The coordinates representing the domain for this model to operate on.
+    history : int, optional
+        Specifies the number of previous time steps to include as input, by default set
+        to 1.
+    dt : np.timedelta64, optional
+        Time-step size of model between inputs and output, by default np.timedelta64(6, "h")
     """
 
     def __init__(
         self,
         variable: str | list[str],
         domain_coords: CoordSystem,
-        history: int = 1,  # TODO
+        history: int = 1,
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ):
         super().__init__()
@@ -54,11 +59,12 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         self._input_coords = OrderedDict(
             {
                 "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "lead_time": np.array(
+                    [np.timedelta64(-dt * i, "h") for i in reversed(range(history))]
+                ),
                 "variable": np.array(variable),
             }
         )
-
         self._output_coords = OrderedDict(
             {
                 "batch": np.empty(0),
@@ -120,7 +126,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
         output_coords["batch"] = input_coords["batch"]
         output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+            output_coords["lead_time"] + input_coords["lead_time"][-1]
         )
         return output_coords
 
@@ -134,7 +140,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         # Update coordinates
         output_coords = self.output_coords(coords)
 
-        return x, output_coords
+        return x[:, -1:], output_coords
 
     @batch_func()
     def __call__(
@@ -149,7 +155,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
             Input tensor
         coords : CoordSystem
-            Coordinate system, should have dimensions ``[time, variable, *domain_dims]``
+            Coordinate system, should have dimensions ``[time, lead_time, variable, *domain_dims]``
 
         Returns
         ------
@@ -162,21 +168,28 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
 
-        self.output_coords(coords)
-        yield x, coords
+        self.output_coords(coords.copy())
+        coords_out = coords.copy()
+        coords_out["lead_time"] = coords["lead_time"][-1:]
+        yield x[:, -1:], coords_out
 
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            x, coords = self._forward(x, coords)
+            x_out, coords_out = self._forward(x, coords)
 
             # Rear hook
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords
+            x_out, coords_out = self.rear_hook(x_out, coords_out)
+
+            coords["lead_time"] = np.concatenate(
+                [coords["lead_time"][1:], coords_out["lead_time"]]
+            )
+            x = torch.cat([x[:, 1:], x_out], dim=1)
+
+            yield x_out, coords_out
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem

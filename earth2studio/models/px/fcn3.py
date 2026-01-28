@@ -258,7 +258,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://nvidia/fourcastnet3",
+            "hf://nvidia/fourcastnet3@76ef0c60237e458b33196ba027134e27f3fc4538",
             cache_options={
                 "cache_storage": Package.default_cache("fcn3"),
                 "same_names": True,

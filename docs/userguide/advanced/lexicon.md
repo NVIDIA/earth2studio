@@ -21,6 +21,19 @@ Below are a few examples:
 - `z500`: Geo-potential at 500 hPa
 - `tcwv`: Total column water vapor
 
+Additionally, the lexicon may also be used to track various metadata / coordinate
+fields.
+This is particularly relevant for {py:obj}`earth2studio.data.base.DataFrameSource` where
+tabular data is used and variables map to the columns of a data frame.
+Earth2Studio takes a best-effort approach to make these metadata fields standardized
+across the package.
+
+Some examples include:
+
+- `lat`: Latitude coordinate of data / observation / sensor
+- `lon`: Longitude coordinate of data / observation / sensor
+- `elev`: Elevation (meters) relative to mean sea level of data / observation / sensor
+
 ## Altitude / Pressure Levels
 
 Note that there are a variety of ways to represent the vertical coordinates for 3D

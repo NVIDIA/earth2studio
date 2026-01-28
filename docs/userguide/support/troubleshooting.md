@@ -122,9 +122,21 @@ There are a few options to try outside of just waiting for the build to complete
     export FLASH_ATTENTION_DISABLE_HDIM256=TRUE
     ```
 
-## Failed to Install Earth2Grid `Python.h: No such file or directory`
+## Earth2Grid or TorchHarmonics Build Failure `Python.h: No such file or directory`
 
-[Earth2Grid](https://github.com/NVlabs/earth2grid) needs to be installed from source.
+[Earth2Grid](https://github.com/NVlabs/earth2grid) and [TorchHarmonics](https://github.com/NVIDIA/torch-harmonics)
+sometimes need to be installed from source and built on the users machine.
+This requires the installation of the Python 3 developer tools.
+Without it the following error will occur on attempted install:
+
+```bash
+...fatal error: Python.h: No such file or directory
+    12 | #include <Python.h>
+      |          ^~~~~~~~~~
+compilation terminated.
+ninja: build stopped: subcommand failed.
+```
+
 To build this dependency, the Python developer library is needed, on debian systems this
 can be installed with:
 
@@ -155,4 +167,28 @@ the cuda extensions:
 pip install --no-build-isolation --force-reinstall --upgrade --no-deps \
   --no-cache  --verbose torch-harmonics==0.8.0
 # Or respective uv command
+```
+
+## Install Failure: `RuntimeError: Cannot find CMake executable`
+
+Some packages that need to get built from source like dm-tree or natten require some
+additional build tools on the system.
+This error indicates that the system needs [cmake](https://cmake.org/download/)
+installed.
+For debian systems this can be done through APT:
+
+```bash
+apt install cmake
+```
+
+## RuntimeError: Cannot find the ecCodes library
+
+This can surface when using a data source (e.g. CDS, GFS, HRRR, etc) that needs to
+read grib files indicating that ECMWF's eccodes library needs to be installed.
+Eccodes has several [install methods](https://github.com/ecmwf/eccodes), provided on
+[conda forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and
+APT for debian based systems:
+
+```bash
+apt-get install -y --no-install-recommends libeccodes-tools libeccodes-dev
 ```

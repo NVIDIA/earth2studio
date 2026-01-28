@@ -29,7 +29,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 :::{dropdown} uv Install
@@ -153,6 +153,27 @@ uv add earth2studio --extra aifsens
 :::
 ::::
 :::::
+:::::{tab-item} Atlas
+Notes: The Atlas model depends on [natten](https://github.com/SHI-Labs/NATTEN), which
+can take a long time to compile.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[atlas]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra atlas
+```
+
+:::
+::::
+:::::
 :::::{tab-item} Aurora
 Notes: The Aurora model relies on the [microsoft aurora](https://github.com/microsoft/aurora)
 package for inference.
@@ -194,13 +215,13 @@ uv add earth2studio --extra dlwp
 :::::
 :::::{tab-item} DLESyM
 Notes: For all DLESyM models, [Earth2Grid](https://github.com/NVlabs/earth2grid) needs to
-be installed manually.
+be installed manually for pip users.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@fbbfe29b0a8bebb85a43c7027288d9f294b435cc"
 pip install earth2studio[dlesym]
 ```
 
@@ -384,6 +405,29 @@ uv add earth2studio --extra stormcast
 :::
 ::::
 :::::
+:::::{tab-item} StormScope
+Notes: The StormScope model depends on [natten](https://github.com/SHI-Labs/NATTEN),
+which can take a long time to compile. [Earth2Grid](https://github.com/NVlabs/earth2grid)
+needs to be installed manually for pip users.
+
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@fbbfe29b0a8bebb85a43c7027288d9f294b435cc"
+pip install earth2studio[stormscope]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra stormscope
+```
+
+:::
+::::
+:::::
 :::::{tab-item} InterpModAFNO
 Notes: Requires a base prognostic model to be installed.
 
@@ -418,7 +462,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 
 ```bash
 pip install hatchling
-pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@661445e2c68edc76f52632aa0528af482357f1b8"
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@fbbfe29b0a8bebb85a43c7027288d9f294b435cc"
 pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9250793894f8a9963f6968d62112884869fde3e1"
 pip install earth2studio[cbottle]
 ```
@@ -699,14 +743,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 (pytorch_container_environment)=
@@ -726,7 +770,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
 >>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -739,7 +783,7 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 :::
@@ -767,7 +811,7 @@ WORKDIR /app
 # Disable constraint files in the container
 ENV PIP_CONSTRAINT=
 # Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 ## Conda Environment
@@ -783,7 +827,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.10.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
 ```
 
 # System Recommendations

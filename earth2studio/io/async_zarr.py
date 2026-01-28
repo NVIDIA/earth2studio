@@ -407,7 +407,7 @@ class AsyncZarrBackend:
         # https://s3fs.readthedocs.io/en/latest/#async
         session = None
         try:
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         except AttributeError:
             pass
 
@@ -558,7 +558,7 @@ class AsyncZarrBackend:
         # https://s3fs.readthedocs.io/en/latest/#async
         session = None
         try:
-            session = await fs.set_session()
+            session = await fs.set_session(refresh=True)
         except AttributeError:
             pass
 

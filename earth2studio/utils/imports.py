@@ -108,7 +108,10 @@ class OptionalDependencyFailure:
             key = caller_frame.filename
 
         if key in self.failures:
-            raise ValueError(f"Extra dependency key already defined: {key}")
+            # Raising error here actually causes problems when theres two imports from
+            # same file, should be fine to just return None if already registered.
+            # raise ValueError(f"Extra dependency key already defined: {key}")
+            return
         if group_name is None:
             group_name = key
 

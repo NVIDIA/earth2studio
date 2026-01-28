@@ -51,6 +51,7 @@ class GFSLexicon(metaclass=LexiconType):
         "tp": "596::APCP::surface",  # 3 hour acc
         "2d": "DPT::2 m above ground",
         "fg10m": "GUST::surface",  # Surface
+        "refc": "REFC::entire atmosphere",
         "u1": "UGRD::1 mb",
         "u2": "UGRD::2 mb",
         "u3": "UGRD::3 mb",
@@ -117,39 +118,39 @@ class GFSLexicon(metaclass=LexiconType):
         "v950": "VGRD::950 mb",
         "v975": "VGRD::975 mb",
         "v1000": "VGRD::1000 mb",
-        "w1": "DZDT::1 mb",
-        "w2": "DZDT::2 mb",
-        "w3": "DZDT::3 mb",
-        "w5": "DZDT::5 mb",
-        "w7": "DZDT::7 mb",
-        "w10": "DZDT::10 mb",
-        "w15": "DZDT::15 mb",
-        "w20": "DZDT::20 mb",
-        "w30": "DZDT::30 mb",
-        "w40": "DZDT::40 mb",
-        "w50": "DZDT::50 mb",
-        "w70": "DZDT::70 mb",
-        "w100": "DZDT::100 mb",
-        "w150": "DZDT::150 mb",
-        "w200": "DZDT::200 mb",
-        "w250": "DZDT::250 mb",
-        "w300": "DZDT::300 mb",
-        "w350": "DZDT::350 mb",
-        "w400": "DZDT::400 mb",
-        "w450": "DZDT::450 mb",
-        "w500": "DZDT::500 mb",
-        "w550": "DZDT::550 mb",
-        "w600": "DZDT::600 mb",
-        "w650": "DZDT::650 mb",
-        "w700": "DZDT::700 mb",
-        "w750": "DZDT::750 mb",
-        "w800": "DZDT::800 mb",
-        "w850": "DZDT::850 mb",
-        "w900": "DZDT::900 mb",
-        "w925": "DZDT::925 mb",
-        "w950": "DZDT::950 mb",
-        "w975": "DZDT::975 mb",
-        "w1000": "DZDT::1000 mb",
+        "w1": "VVEL::1 mb",
+        "w2": "VVEL::2 mb",
+        "w3": "VVEL::3 mb",
+        "w5": "VVEL::5 mb",
+        "w7": "VVEL::7 mb",
+        "w10": "VVEL::10 mb",
+        "w15": "VVEL::15 mb",
+        "w20": "VVEL::20 mb",
+        "w30": "VVEL::30 mb",
+        "w40": "VVEL::40 mb",
+        "w50": "VVEL::50 mb",
+        "w70": "VVEL::70 mb",
+        "w100": "VVEL::100 mb",
+        "w150": "VVEL::150 mb",
+        "w200": "VVEL::200 mb",
+        "w250": "VVEL::250 mb",
+        "w300": "VVEL::300 mb",
+        "w350": "VVEL::350 mb",
+        "w400": "VVEL::400 mb",
+        "w450": "VVEL::450 mb",
+        "w500": "VVEL::500 mb",
+        "w550": "VVEL::550 mb",
+        "w600": "VVEL::600 mb",
+        "w650": "VVEL::650 mb",
+        "w700": "VVEL::700 mb",
+        "w750": "VVEL::750 mb",
+        "w800": "VVEL::800 mb",
+        "w850": "VVEL::850 mb",
+        "w900": "VVEL::900 mb",
+        "w925": "VVEL::925 mb",
+        "w950": "VVEL::950 mb",
+        "w975": "VVEL::975 mb",
+        "w1000": "VVEL::1000 mb",
         "z1": "HGT::1 mb",
         "z2": "HGT::2 mb",
         "z3": "HGT::3 mb",
@@ -294,6 +295,14 @@ class GFSLexicon(metaclass=LexiconType):
             def mod(x: np.array) -> np.array:
                 """Modify data value (if necessary)."""
                 return x * 9.81
+
+        elif gfs_key.split("::")[1] == "APCP":
+
+            # TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
 
         else:
 

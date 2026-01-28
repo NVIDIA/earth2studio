@@ -25,7 +25,9 @@ import shutil
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
+import nest_asyncio
 import numpy as np
+import pygrib
 import s3fs
 import xarray as xr
 from loguru import logger
@@ -53,14 +55,14 @@ class MRMS:
 
     This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
     public S3 bucket, decompresses them into the Earth2Studio cache, and opens
-    the result with Xarray/cfgrib. Initially, only the composite reflectivity
+    the result with pygrib. Initially, only the composite reflectivity
     product is supported, exposed via the Earth2Studio variable id ``refc``.
 
     Parameters
     ----------
     max_offset_minutes : float, optional
         Time tolerance in minutes to search for the nearest available MRMS
-        file to the requested timestamp, by default 0 (exact match only).
+        file to the requested timestamp, by default 10 minutes.
     cache : bool, optional
         Cache data source in local filesystem cache, by default True.
     verbose : bool, optional
@@ -90,7 +92,7 @@ class MRMS:
 
     def __init__(
         self,
-        max_offset_minutes: float = 0,
+        max_offset_minutes: float = 10,
         cache: bool = True,
         verbose: bool = True,
         max_workers: int = 24,
@@ -105,7 +107,19 @@ class MRMS:
         self._verbose = verbose
         self._max_workers = max_workers
         self.async_timeout = async_timeout
-        self.fs = s3fs.S3FileSystem(anon=True)
+        # Set up S3 filesystem
+        try:
+            nest_asyncio.apply()
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            self.fs = None
+
+    async def _async_init(self) -> None:
+        """Async initialization of S3 filesystem"""
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        )
 
     def __call__(
         self,
@@ -139,9 +153,16 @@ class MRMS:
             concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
         )
 
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
+
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
+
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -150,14 +171,37 @@ class MRMS:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async retrieval of MRMS data for given times and variables."""
-        time, variable = prep_data_inputs(time, variable)
+        """Async function to get data
 
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the HRRR lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            MRMS weather data array
+        """
+        if self.fs is None:
+            raise ValueError(
+                "File store is not initialized! If you are calling this \
+            function directly make sure the data source is initialized inside the async \
+            loop!"
+            )
+
+        time, variable = prep_data_inputs(time, variable)
         # Validate requested times are within MRMS availability window
         self._validate_time(time)
 
         # Create cache dir if needed
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        session = await self.fs.set_session(refresh=True)
 
         # Group variables by MRMS product and keep (var_index, modifier)
         product_to_vars: dict[str, list[tuple[int, Callable]]] = {}
@@ -213,95 +257,87 @@ class MRMS:
             for var_index, modifier in res["idx_mods"]:
                 out[ti, var_index] = modifier(field_values)
 
-        # Delete cache if requested
-        if not self._cache:
-            shutil.rmtree(self.cache)
+        # Close aiohttp client if s3fs
+        if session:
+            await session.close()
 
         return out
 
     async def _fetch_task(
         self,
         time_index: int,
-        time: datetime,
+        time: datetime,  # tz aware time
         product: str,
         idx_mods: list[tuple[int, Callable]],
     ) -> dict | None:
         """Internal coroutine to fetch a single MRMS product field for a time."""
-        try:
-            # Resolve to an exact available S3 object within tolerance in a thread
-            resolved = await asyncio.to_thread(self._resolve_s3_time, time, product)
-            if resolved is None:
-                logger.warning(
-                    f"No MRMS file found near requested time {time.isoformat()} "
-                    f"within ±{self.max_offset_minutes} minutes for product {product}"
-                )
-                return None
-            _, s3_uri = resolved
-
-            if self._verbose:
-                logger.info(f"Fetching MRMS file: {s3_uri}")
-
-            # Download and decompress in a thread
-            grib_path = await asyncio.to_thread(self._download_and_decompress, s3_uri)
-
-            # Open dataset and extract field values in a thread
-            def _open_and_extract(
-                path: str,
-            ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-                ds = xr.open_dataset(
-                    path, engine="cfgrib", backend_kwargs={"indexpath": ""}
-                )
-                if len(ds.data_vars) == 0:
-                    raise RuntimeError(
-                        f"No data variables found in MRMS file: {s3_uri}"
-                    )
-                data_var_name = list(ds.data_vars)[0]
-                field = ds[data_var_name].rename(
-                    {"latitude": "lat", "longitude": "lon"}
-                )
-                return (
-                    field.coords["lat"].values,
-                    field.coords["lon"].values,
-                    field.values,
-                )
-
-            lat, lon, values = await asyncio.to_thread(_open_and_extract, grib_path)
-
-            return {
-                "time_index": time_index,
-                "idx_mods": idx_mods,
-                "lat": lat,
-                "lon": lon,
-                "field_values": values,
-            }
-        except Exception as e:
-            logger.error(f"MRMS fetch failed for {time} {product}: {e}")
+        # Resolve to an exact available S3 object within tolerance in a thread
+        resolved = await self._resolve_s3_time(
+            self.fs, time, product, self.max_offset_minutes
+        )
+        if resolved is None:
+            logger.warning(
+                f"No MRMS file found near requested time {time.isoformat()} "
+                f"within ±{self.max_offset_minutes} minutes for product {product}."
+                f"Consider increasing the max_offset_minutes parameter."
+            )
             return None
+        _, s3_uri = resolved
 
-    def _download_and_decompress(self, s3_uri: str) -> str:
-        """Download gzipped GRIB2 from S3 and decompress into cache; return path."""
+        if self._verbose:
+            logger.info(f"Fetching MRMS file: {s3_uri}")
+
+        # Download and decompress using async APIs
+        grib_file = await self._download_and_decompress_async(s3_uri)
+
+        try:
+            grbs = pygrib.open(grib_file)
+        except Exception as e:
+            logger.error(f"Failed to open grib file {grib_file}")
+            raise e
+        try:
+            grb = grbs[1]
+            values = grb.values  # (ny, nx)
+            lats, lons = grb.latlons()
+            lat = lats[:, 0]
+            lon = lons[0, :]
+        except Exception as e:
+            logger.error(f"Failed to read grib file {grib_file}")
+            raise e
+        finally:
+            grbs.close()
+
+        return {
+            "time_index": time_index,
+            "idx_mods": idx_mods,
+            "lat": lat,
+            "lon": lon,
+            "field_values": values,
+        }
+
+    async def _download_and_decompress_async(self, s3_uri: str) -> str:
+        """Async download of gzipped GRIB2 from S3 and decompress into cache; return path."""
         # Cache filenames derived from key
         key_hash = hashlib.sha256(s3_uri.encode()).hexdigest()
-        gz_path = os.path.join(self.cache, f"{key_hash}.grib2.gz")
         grib_path = os.path.join(self.cache, f"{key_hash}.grib2")
 
         # Download gz and decompress if not present
         if not pathlib.Path(grib_path).is_file():
-            with self.fs.open(s3_uri, mode="rb") as fsrc, open(gz_path, "wb") as fdst:
-                fdst.write(fsrc.read())
-
-            with gzip.open(gz_path, "rb") as fin, open(grib_path, "wb") as fout:
-                shutil.copyfileobj(fin, fout)
-            os.remove(gz_path)
+            # Read gzipped payload into memory and decompress to GRIB
+            data = await self.fs._cat_file(s3_uri)  # type: ignore[attr-defined]
+            decompressed = gzip.decompress(data)
+            with open(grib_path, "wb") as fout:
+                fout.write(decompressed)
 
         return grib_path
 
-    def _s3_key(self, time: datetime, product: str) -> str:
+    @classmethod
+    def _s3_key(cls, time: datetime, product: str) -> str:
         """Build the S3 object key for a given time and product."""
         date_str = time.strftime("%Y%m%d")
         hms = time.strftime("%H%M%S")
         filename = f"MRMS_{product}_{date_str}-{hms}.grib2.gz"
-        return f"{self.MRMS_REGION}/{product}/{date_str}/{filename}"
+        return f"{cls.MRMS_REGION}/{product}/{date_str}/{filename}"
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify requested times are within MRMS availability window.
@@ -312,35 +348,40 @@ class MRMS:
             List of date times to fetch data for.
         """
         now_utc = datetime.now(timezone.utc)
-        for i in range(len(times)):
-            if times[i].tzinfo is None:
+        for dt in times:
+            if dt.tzinfo is None:
                 # Enforce UTC timezone
-                times[i] = times[i].replace(tzinfo=timezone.utc)
-            if times[i] < self.EARLIEST_AVAILABLE:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt < self.EARLIEST_AVAILABLE:
                 raise ValueError(
-                    f"Requested date time {times[i]} needs to be after {self.EARLIEST_AVAILABLE.date()} for MRMS"
+                    f"Requested date time {dt} needs to be after {self.EARLIEST_AVAILABLE.date()} for MRMS"
                 )
-            if times[i] > now_utc:
+            if dt > now_utc:
                 raise ValueError(
-                    f"Requested date time {times[i]} must not be in the future for MRMS"
+                    f"Requested date time {dt} must not be in the future for MRMS"
                 )
 
-    def _resolve_s3_time(
-        self, time: datetime, product: str
+    @classmethod
+    async def _resolve_s3_time(
+        cls,
+        fs: s3fs.S3FileSystem,
+        time: datetime,
+        product: str,
+        max_offset_minutes: float = 10,
     ) -> tuple[datetime, str] | None:
         """Find nearest-available S3 object within the configured minute tolerance.
 
         Returns the resolved timestamp and full S3 URI if found, else None.
         """
         # Exact match fast path
-        key = self._s3_key(time, product)
-        s3_uri = f"s3://{self.MRMS_BUCKET_NAME}/{key}"
-        if self.fs.exists(s3_uri):
+        key = cls._s3_key(time, product)
+        s3_uri = f"s3://{cls.MRMS_BUCKET_NAME}/{key}"
+        if await fs._exists(s3_uri):
             return time, s3_uri
 
         # List candidate days (can cross day boundary within tolerance)
-        t_min = time - timedelta(minutes=self.max_offset_minutes)
-        t_max = time + timedelta(minutes=self.max_offset_minutes)
+        t_min = time - timedelta(minutes=max_offset_minutes)
+        t_max = time + timedelta(minutes=max_offset_minutes)
         candidate_dates = {
             t_min.strftime("%Y%m%d"),
             time.strftime("%Y%m%d"),
@@ -356,10 +397,10 @@ class MRMS:
 
         for date_str in sorted(candidate_dates):
             dir_uri = (
-                f"s3://{self.MRMS_BUCKET_NAME}/{self.MRMS_REGION}/{product}/{date_str}/"
+                f"s3://{cls.MRMS_BUCKET_NAME}/{cls.MRMS_REGION}/{product}/{date_str}/"
             )
             try:
-                keys = self.fs.ls(dir_uri)
+                keys = await fs._ls(dir_uri)
             except FileNotFoundError:
                 continue
             for key_path in keys:
@@ -375,10 +416,9 @@ class MRMS:
                     hour=int(hms[0:2]),
                     minute=int(hms[2:4]),
                     second=int(hms[4:6]),
-                    tzinfo=timezone.utc,
                 )
                 diff = abs((ts - time).total_seconds())
-                if diff <= self.max_offset_minutes * 60 and diff < best_diff:
+                if diff <= max_offset_minutes * 60 and diff < best_diff:
                     best_diff = diff
                     best_dt = ts
                     # key_path can be either with or without s3:// prefix; construct URI
@@ -406,7 +446,7 @@ class MRMS:
         variable: str | list[str] | VariableArray,
         max_offset_minutes: int = 10,
     ) -> bool:
-        """Check if an MRMS file exists for a given time.
+        """Check if an MRMS file exists for a given time. Only supports exact match.
 
         Parameters
         ----------
@@ -430,11 +470,9 @@ class MRMS:
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
         # Offline time bounds check
-        if time.tzinfo is None:
-            time = time.replace(tzinfo=timezone.utc)
-        if time < cls.EARLIEST_AVAILABLE:
+        if time.replace(tzinfo=timezone.utc) < cls.EARLIEST_AVAILABLE:
             return False
-        if time > datetime.now(timezone.utc):
+        if time.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
             return False
 
         # Derive MRMS product from requested variables
@@ -455,6 +493,22 @@ class MRMS:
             )
         product = next(iter(products))
 
-        # Delegate to instance resolver to avoid duplicating S3 listing logic
-        tmp = cls(max_offset_minutes=max_offset_minutes, cache=True, verbose=False)
-        return tmp._resolve_s3_time(time, product) is not None
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _resolve_helper() -> bool:
+            fs = s3fs.S3FileSystem(
+                anon=True,
+                client_kwargs={},
+                asynchronous=True,
+                skip_instance_cache=False,
+            )
+            return (
+                await cls._resolve_s3_time(fs, time, product, max_offset_minutes)
+                is not None
+            )
+
+        return loop.run_until_complete(_resolve_helper())

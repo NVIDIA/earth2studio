@@ -46,7 +46,7 @@ class GOES:
     Parameters
     ----------
     satellite : str, optional
-        Which GOES satellite to use ('goes16' or 'goes18'), by default 'goes16'
+        Which GOES satellite to use ('goes16', 'goes17', 'goes18', or 'goes19'), by default 'goes16'
     scan_mode : str, optional
         For ABI: Scan mode ('F' for Full Disk, 'C' for Continental US)
         Mesoscale data is currently not supported due to the changing scan position.
@@ -68,11 +68,15 @@ class GOES:
     https://aws.amazon.com/marketplace/pp/prodview-ngejrbcumyjtu#usage
 
     ABI Data:
+
     - 16 spectral bands (abi01c-abi16c):
+
         - abi01c, abi02c (Visible: Blue, Red)
         - abi03c-abi06c (Near IR: Vegetation, Cirrus, Snow/Ice, Cloud particles)
         - abi07c-abi16c (IR: Thermal and water vapor channels)
+
     - Scan modes:
+
         - Full Disk (F): Entire Earth view
         - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
     """
@@ -193,11 +197,15 @@ class GOES:
         self._verbose = verbose
         self._async_timeout = async_timeout
 
+        # Stash the grid coords so they can be added to data arrays
+        self._lat, self._lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
+
         # Validate satellite and scan mode
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
 
         # Set up S3 filesystem
         try:
+            nest_asyncio.apply()
             loop = asyncio.get_running_loop()
             loop.run_until_complete(self._async_init())
         except RuntimeError:
@@ -205,7 +213,9 @@ class GOES:
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        )
 
     def __call__(
         self,
@@ -275,14 +285,14 @@ class GOES:
             )
 
         time, variable = prep_data_inputs(time, variable)
-        # Create cache dir if doesn't exist
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-
         # Make sure input time is valid
         self._validate_time(time)
 
+        # Create cache dir if doesn't exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session()
+        session = await self.fs.set_session(refresh=True)
 
         # Create DataArray with appropriate dimensions
         if self._scan_mode == "F":
@@ -320,12 +330,10 @@ class GOES:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        # Close aiohttp client
-        # https://github.com/fsspec/s3fs/issues/943
-        # https://github.com/zarr-developers/zarr-python/issues/2901
-        await self.fs.set_session()  # Make sure the session was actually initalized
-        s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
-
+        # Add the grid coords to the data array
+        xr_array = xr_array.assign_coords(
+            {"_lat": (("y", "x"), self._lat), "_lon": (("y", "x"), self._lon)}
+        )
         return xr_array
 
     async def fetch_wrapper(

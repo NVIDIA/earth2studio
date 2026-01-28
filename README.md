@@ -29,45 +29,79 @@ climate science.
 
 ## Quick start
 
-Install Earth2Studio:
+Running AI weather prediction can be done with just a few lines of code.
 
-```bash
-pip install earth2studio[dlwp]
-```
+- For detailed installation steps, including model-specific installations, see the
+    [install guide][e2studio_install_url].
+- See the [examples][e2studio_examples_url] gallery providing different inference
+    workflow samples.
+- Swap out [data sources][e2studio_data_api] or [models][e2studio_px_api] depending on
+    your use case!
 
-Run a deterministic AI weather prediction in just a few lines of code:
+### NVIDIA FourCastNet3
 
 ```python
-from earth2studio.models.px import DLWP
+from earth2studio.models.px import FCN3
 from earth2studio.data import GFS
-from earth2studio.io import NetCDF4Backend
+from earth2studio.io import ZarrBackend
 from earth2studio.run import deterministic as run
 
-model = DLWP.load_model(DLWP.load_default_package())
-ds = GFS()
-io = NetCDF4Backend("output.nc")
-
-run(["2024-01-01"], 10, model, ds, io)
+model = FCN3.load_model(FCN3.load_default_package())
+data = GFS()
+io = ZarrBackend("outputs/fcn3_forecast.zarr")
+run(["2025-01-01T00:00:00"], 10, model, data, io)
 ```
 
-Swap out for a different AI model by just [installing](https://nvidia.github.io/earth2studio/userguide/about/install.html#prognostics)
-and replacing `DLWP` references with another [forecast model][e2studio_px_api].
+### ECMWF AIFS
+
+```python
+from earth2studio.models.px import AIFS
+from earth2studio.data import IFS
+from earth2studio.io import ZarrBackend
+from earth2studio.run import deterministic as run
+
+model = AIFS.load_model(AIFS.load_default_package())
+data = IFS()
+io = ZarrBackend("outputs/aifs_forecast.zarr")
+run(["2025-01-01T00:00:00"], 10, model, data, io)
+```
+
+### Google Graphcast
+
+```python
+from earth2studio.models.px import GraphCastOperational
+from earth2studio.data import GFS
+from earth2studio.io import ZarrBackend
+from earth2studio.run import deterministic as run
+
+package = GraphCastOperational.load_default_package()
+model = GraphCastOperational.load_model(package)
+data = GFS()
+io = ZarrBackend("outputs/graphcast_operational_forecast.zarr")
+run(["2025-01-01T00:00:00"], 4, model, data, io)
+```
+
+> [!IMPORTANT]
+> Earth2Studio is an interface to third‑party models, checkpoints, and datasets.
+> Licenses for these assets are owned by their providers.
+> Ensure you have the rights to download, use, and (if applicable) redistribute each
+> model and dataset.
+> Links to the original license and source are often provided in the API docs for each
+> model/data source.
 
 ## Latest News
 
-- The latest [**Climate in a Bottle**](https://blogs.nvidia.com/blog/earth2-generative-ai-foundation-model-global-climate-kilometer-scale-resolution/)
-    generative AI model from NVIDIA research has been
-    added via several APIs including a [data source](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CBottle3D.html),
-    [infilling](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html)
-    and [super-resolution](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html)
-    APIs. See the [cBottle examples](https://nvidia.github.io/earth2studio/examples/index.html)
-    for more.
-- The long awaited **GraphCast 1 degree** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html)
-    and **GraphCast Operational** [prognostic model](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html)
-    are now added.
-- Advanced **Subseasonal-to-Seasonal (S2S) forecasting** [recipe](./recipes/s2s/)
-    added demonstrating new inference pipelines for subseasonal weather forecasts (from
-    2 weeks to 3 months).
+- [**CorrDiff for CMIP6 to ERA5**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html)
+    is a novel generative downscaling model to generate ERA5 fields from CMIP
+    data enabling users to run ERA5 based prognostic and diagnostic models on future
+    climate simulations.
+- **Microsoft PlanetaryComputerData, MRMS, and NOAA ISD (station dataframe)** data
+    sources are now in Earth2Studio, see [data source APIs](e2studio_api_url).
+- **ECMWF AIFSENS** model wrapper added, an ensemble-based probablistic data driven
+    forecast model developed by the European Centre for Medium-Range Weather Forecasts
+    (ECMWF).
+- **CMIP6 datasource** has been added to improve support for usecases that are focused
+    on climate modeling. See [data source APIs](e2studio_api_url) for more information.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -105,8 +139,10 @@ statistical operations and more to accelerate your pipelines.
 
 </div>
 
-Earth2Studio can be used for seamless deployment of Earth-2 models trained in
-[PhysicsNeMo][physicsnemo_repo_url].
+### Earth-2 Open Models
+
+Access state of the art Nvidia open models for climate and weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
+For training recipes for these models, see the [PhysicsNeMo repository][physicsnemo_repo_url].
 
 ## Features
 
@@ -209,8 +245,8 @@ Available data sources include but are not limited to:
 | NCAR_ERA5 | Reanalysis | 0.25° | Global | NetCDF |
 | WeatherBench2 | Reanalysis | 0.25° | Global | Zarr |
 | GEFS_FX | Ensemble Forecast | 0.25° | Global | GRIB2 |
-| IMERG | Precipitation | 0.1° | Global | NetCDF |
-| CBottle3D | AI Generated | 100km | Global | HEALPix |
+| ISD | Observational | Point | Regional (US) | CSV |
+| MRMS | Reanalysis | 1km | Regional (US) | GRIB2 |
 
 For a complete list, see the [data source API docs][e2studio_data_api].
 

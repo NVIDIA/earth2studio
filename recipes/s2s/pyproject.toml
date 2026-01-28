@@ -8,7 +8,7 @@ authors = [
   { name="NVIDIA Earth-2 Team" },
 ]
 dependencies = [
-    "earth2studio[dlesym,sfno,data,precip-afno]",
+    "earth2studio[dlesym,sfno,data,precip-afno]>=0.9.0",
     "hydra-core>=1.3.0",
     "omegaconf",
     "termcolor>=3.0.1",

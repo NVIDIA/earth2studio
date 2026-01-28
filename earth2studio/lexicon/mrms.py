@@ -30,6 +30,7 @@ class MRMSLexicon(metaclass=LexiconType):
     Note
     ----
     Additional resources:
+
     - https://registry.opendata.aws/noaa-mrms-pds/
     - https://www.nssl.noaa.gov/projects/mrms/
     """
@@ -46,13 +47,13 @@ class MRMSLexicon(metaclass=LexiconType):
         Parameters
         ----------
         val : str
-                Earth2Studio variable id.
+            Earth2Studio variable id.
 
         Returns
         -------
         tuple[str, Callable]
-                - MRMS product name used in the S3 key path.
-                - A modifier function to apply to the loaded values (identity).
+            - MRMS product name used in the S3 key path.
+            - A modifier function to apply to the loaded values (identity).
         """
         mrms_key = cls.VOCAB[val]
 

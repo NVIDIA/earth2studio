@@ -28,6 +28,7 @@ from datetime import datetime, timedelta
 from typing import Any, Literal
 
 import numpy as np
+import pygrib
 import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
@@ -329,14 +330,34 @@ class _ECMWFOpenDataSource(ABC):
             levtype=task.levtype,
             level=task.level,
         )
-        # Open into xarray data-array
-        # Provided [-180, 180], roll to [0, 360]
-        da = xr.open_dataarray(
-            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        ).roll(longitude=-len(self.LON) // 2, roll_coords=True)
-        if "number" in da.dims:
-            da = da.sel(number=self._members)  # reorder
-        xr_array[task.data_array_indices] = task.modifier(da.values)
+        # Open with pygrib for faster, lower-memory access and roll longitudes
+        try:
+            grbs = pygrib.open(grib_file)
+        except Exception as e:
+            logger.error(f"Failed to open GRIB file {grib_file}")
+            raise e
+        try:
+            # Handle ensemble (pf) by stacking members in requested order
+            if self._fc_type == "pf" and len(self._members) > 0:
+                member_arrays: list[np.ndarray] = []
+                for m in self._members:
+                    msgs = grbs.select(number=m)
+                    if not msgs:
+                        raise RuntimeError(
+                            f"No GRIB messages found for ensemble member {m} in {grib_file}"
+                        )
+                    member_arrays.append(msgs[0].values)
+                values = np.stack(member_arrays, axis=0)  # [sample, y, x]
+            else:
+                values = grbs[1].values  # [y, x]
+            # Provided [-180, 180], roll to [0, 360] along x dimension
+            values = np.roll(values, shift=-len(self.LON) // 2, axis=-1)
+            xr_array[task.data_array_indices] = task.modifier(values)
+        except Exception as e:
+            logger.error(f"Failed to read data from GRIB file {grib_file}")
+            raise e
+        finally:
+            grbs.close()
 
     async def _download_ifs_grib_cached(
         self,
@@ -411,7 +432,9 @@ class _ECMWFOpenDataSource(ABC):
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_dir = self._model.lower()  # note that model is not part of cache hash
+        cache_dir = (
+            self._model.lower() + "-opendata"
+        )  # note that model is not part of cache hash
         cache_location = os.path.join(datasource_cache_root(), cache_dir)
 
         if not self._cache:

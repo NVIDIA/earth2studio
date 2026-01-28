@@ -1,6 +1,6 @@
 (datasources_userguide)=
 
-# Data Sources
+# Data and Forecast Sources
 
 Datasources are objects that offer a simple API to access a "dataset" of weather/climate
 data at a certain index.
@@ -25,7 +25,7 @@ The full requirements for a standard diagnostic model are defined explicitly in 
 `earth2studio/models/dx/base.py`.
 
 ```{literalinclude} ../../../earth2studio/data/base.py
-:lines: 25-
+:lines: 26-78
 :language: python
 ```
 
@@ -34,6 +34,19 @@ While not a requirement, built in remote data sources offer local caching when f
 data which is stored in the Earth2Studio cache. See {ref}`configuration_userguide` for
 details on how to customize this location.
 :::
+
+### Beyond N-D Array Data
+
+Earth2Studio attempts to stick with N-D array data structures when possible,
+however this is not always possible or practical.
+As a result, Earth2Studio also supports remote data sources for tabular data which is
+typically used when sparse observations / measurements are involved.
+
+- {py:obj}`earth2studio.data.base.DataFrameSource`
+- {py:obj}`earth2studio.data.base.ForecastFrameSource`
+
+The call signatures mirror data/forecast sources; the difference is the return type: a
+pandas DataFrame (tabular) instead of an Xarray DataArray.
 
 ## Data Source Usage
 

@@ -17,12 +17,23 @@
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
+from torch import Tensor, nn
+
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
 try:
+    from earth2grid.spatial import ang2vec, haversine_distance
     from scipy.interpolate import LinearNDInterpolator
+    from scipy.spatial import KDTree
 except ImportError:
+    OptionalDependencyFailure("utils")
+    KDTree = None
+    ang2vec = None
+    haversine_distance = None
     LinearNDInterpolator = None
-from torch import Tensor, nn
 
 
 def latlon_interpolation_regular(
@@ -102,6 +113,7 @@ def latlon_interpolation_regular(
     return result.reshape(*values.shape[:-2], latshape, lonshape)
 
 
+@check_optional_dependencies("utils")
 class LatLonInterpolation(nn.Module):
     """Bilinear interpolation between arbitrary grids.
 
@@ -196,3 +208,189 @@ class LatLonInterpolation(nn.Module):
         f0 = torch.lerp(f00, f01, dj)
         f1 = torch.lerp(f10, f11, dj)
         return torch.lerp(f0, f1, i - i0)
+
+
+@check_optional_dependencies("utils")
+class NearestNeighborInterpolator(nn.Module):
+    """Nearest-neighbor interpolation between arbitrary lat/lon grids.
+
+    This module precomputes the nearest source-grid index for every target-grid
+    location (with an optional maximum great-circle distance threshold) and stores
+    the mapping as device-movable buffers. Interpolation then becomes a fast tensor
+    gather that can run on GPU via ``.to(device)``.
+
+    Parameters
+    ----------
+    source_lats : torch.Tensor | ArrayLike
+        Latitude of the source grid. Either 2D meshgrid [H_src, W_src] or 1D vector [H_src, ].
+    source_lons : torch.Tensor | ArrayLike
+        Longitude of the source grid. Either 2D meshgrid [H_src, W_src] or 1D vector [W_src, ].
+        Longitudes may be in [-180, 180] or [0, 360] range.
+    target_lats : torch.Tensor | ArrayLike
+        Latitude of the target grid. Either 2D meshgrid [H_tgt, W_tgt] or 1D vector [H_tgt, ].
+    target_lons : torch.Tensor | ArrayLike
+        Longitude of the target grid. Either 2D meshgrid [H_tgt, W_tgt] or 1D vector [W_tgt, ].
+    max_dist_km : float, optional
+        Maximum great-circle distance (km) to accept a nearest neighbor match.
+        Target points farther than this threshold are marked invalid and will
+        receive NaNs in the output. By default 6.0.
+
+    Notes
+    -----
+    - Mapping is computed on CPU using a KDTree and stored as buffers
+      ``source_flat_index`` (shape [H_tgt*W_tgt], dtype int64) and
+      ``valid_mask`` (shape [H_tgt*W_tgt], dtype bool).
+    - Forward expects values with shape [..., H_src, W_src] and returns
+      [..., H_tgt, W_tgt].
+    """
+
+    def __init__(
+        self,
+        source_lats: torch.Tensor | ArrayLike,
+        source_lons: torch.Tensor | ArrayLike,
+        target_lats: torch.Tensor | ArrayLike,
+        target_lons: torch.Tensor | ArrayLike,
+        max_dist_km: float = 6.0,
+    ):
+        super().__init__()
+
+        # Convert to torch tensors on CPU for processing
+        src_lat_t = (
+            (
+                source_lats
+                if isinstance(source_lats, Tensor)
+                else torch.tensor(source_lats)
+            )
+            .detach()
+            .cpu()
+        )
+        src_lon_t = (
+            (
+                source_lons
+                if isinstance(source_lons, Tensor)
+                else torch.tensor(source_lons)
+            )
+            .detach()
+            .cpu()
+        )
+        tgt_lat_t = (
+            (
+                target_lats
+                if isinstance(target_lats, Tensor)
+                else torch.tensor(target_lats)
+            )
+            .detach()
+            .cpu()
+        )
+        tgt_lon_t = (
+            (
+                target_lons
+                if isinstance(target_lons, Tensor)
+                else torch.tensor(target_lons)
+            )
+            .detach()
+            .cpu()
+        )
+
+        # Normalize to 2D grids if 1D vectors were provided
+        if src_lat_t.ndim == 1 and src_lon_t.ndim == 1:
+            src_lat_t, src_lon_t = torch.meshgrid(
+                src_lat_t.to(torch.float32), src_lon_t.to(torch.float32), indexing="ij"
+            )
+        elif not (src_lat_t.ndim == 2 and src_lon_t.ndim == 2):
+            raise ValueError(
+                "source_lats and source_lons must both be 2D or both 1D vectors."
+            )
+        if tgt_lat_t.ndim == 1 and tgt_lon_t.ndim == 1:
+            tgt_lat_t, tgt_lon_t = torch.meshgrid(
+                tgt_lat_t.to(torch.float32), tgt_lon_t.to(torch.float32), indexing="ij"
+            )
+        elif not (tgt_lat_t.ndim == 2 and tgt_lon_t.ndim == 2):
+            raise ValueError(
+                "target_lats and target_lons must both be 2D or both 1D vectors."
+            )
+
+        # Flatten source/target and mask invalid source coordinates
+        src_lat_flat = torch.deg2rad(src_lat_t.reshape(-1))
+        src_lon_flat = torch.deg2rad(src_lon_t.reshape(-1))
+        nan_mask = torch.isnan(src_lat_flat) | torch.isnan(src_lon_flat)
+        valid_src_lat = src_lat_flat[~nan_mask]
+        valid_src_lon = src_lon_flat[~nan_mask]
+
+        tgt_lat_flat = torch.deg2rad(tgt_lat_t.reshape(-1))
+        tgt_lon_flat = torch.deg2rad(tgt_lon_t.reshape(-1))
+
+        # Build KDTree in 3D unit-vector space for numerical stability
+        src_vec = torch.stack(ang2vec(valid_src_lon, valid_src_lat), dim=-1).numpy()  # type: ignore[arg-type]
+        tree = KDTree(src_vec)  # type: ignore[misc]
+        tgt_vec = torch.stack(ang2vec(tgt_lon_flat, tgt_lat_flat), dim=-1).numpy()  # type: ignore[arg-type]
+        _, nn_idx_valid_subset = tree.query(tgt_vec, k=1)  # indices into valid subset
+
+        # Map back to indices into the full flattened source grid
+        valid_src_indices = (~nan_mask).nonzero(as_tuple=False).reshape(-1)
+        src_flat_index_full = valid_src_indices[nn_idx_valid_subset]  # shape [N_tgt]
+
+        # Distance-based validity
+        ang_dist = haversine_distance(  # type: ignore[misc]
+            tgt_lon_flat,
+            tgt_lat_flat,
+            valid_src_lon[nn_idx_valid_subset],
+            valid_src_lat[nn_idx_valid_subset],
+        )
+        dist_km = ang_dist * 6371.0
+        valid_mask = (dist_km < max_dist_km).to(dtype=torch.bool)
+
+        # Register buffers (moved with .to(device))
+        self.register_buffer(
+            "source_flat_index", src_flat_index_full.to(dtype=torch.int64)
+        )
+        self.register_buffer("valid_mask", valid_mask)
+
+        # Save target shape for reshape on output
+        self.target_h = int(tgt_lat_t.shape[0])
+        self.target_w = int(tgt_lat_t.shape[1])
+        self.source_h = int(src_lat_t.shape[0])
+        self.source_w = int(src_lat_t.shape[1])
+
+    @torch.inference_mode()
+    def forward(self, values: Tensor) -> Tensor:
+        """Apply nearest-neighbor interpolation.
+
+        Parameters
+        ----------
+        values : torch.Tensor
+            Input values with shape [..., H_src, W_src] defined on the source grid.
+
+        Returns
+        -------
+        torch.Tensor
+            Interpolated values with shape [..., H_tgt, W_tgt]. Any targets without
+            a valid neighbor within the distance threshold are filled with NaN.
+        """
+        if values.shape[-2] != self.source_h or values.shape[-1] != self.source_w:
+            raise ValueError(
+                f"Input spatial shape [..., {values.shape[-2]}, {values.shape[-1]}] does not "
+                f"match source grid [{self.source_h}, {self.source_w}]."
+            )
+
+        # Flatten spatial dims of input and gather with precomputed indices
+        leading_shape = values.shape[:-2]
+        values_flat = values.reshape(*leading_shape, -1)  # [..., H_src*W_src]
+
+        # Expand indices to match leading dims for gather
+        index = self.source_flat_index
+        index = index.to(device=values.device)
+        index_expanded = index.view(*([1] * len(leading_shape)), -1).expand(
+            *leading_shape, index.numel()
+        )
+
+        gathered = torch.gather(values_flat, dim=-1, index=index_expanded)
+
+        # Mask out invalid targets with NaN
+        valid = self.valid_mask.to(device=values.device)
+        valid_expanded = valid.view(*([1] * len(leading_shape)), -1).expand_as(gathered)
+        gathered = torch.where(
+            valid_expanded, gathered, torch.full_like(gathered, float("nan"))
+        )
+
+        return gathered.reshape(*leading_shape, self.target_h, self.target_w)

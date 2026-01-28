@@ -17,6 +17,7 @@
 from datetime import datetime, timedelta
 from typing import Protocol, runtime_checkable
 
+import pandas as pd
 import xarray as xr
 
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
@@ -136,5 +137,123 @@ class ForecastSource(Protocol):
             The coords should be provided. Time coordinate should be a TimeArray,
             lead time coordinate a LeadTimeArray and the variable coordinate should be
             an array of strings with Earth2Studio variable ids.
+        """
+        pass
+
+
+@runtime_checkable
+class DataFrameSource(Protocol):
+    """Data frame source interface. Commonly used for sparse sensor data"""
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> pd.DataFrame:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
+        """
+        pass
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> pd.DataFrame:
+        """Async function to get data. Async data frame sources support this.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
+        """
+        pass
+
+
+@runtime_checkable
+class ForecastFrameSource(Protocol):
+    """Forecast data frame source interface. Commonly used for sparse sensor data"""
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> pd.DataFrame:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        lead_time: timedelta | list[timedelta], LeadTimeArray
+            Timedelta, list of timedeltas or array of np.timedelta that refers to the
+            forecast lead time to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
+        """
+        pass
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> pd.DataFrame:
+        """Async function to get data. Async data frame sources support this.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        lead_time: timedelta | list[timedelta], LeadTimeArray
+            Timedelta, list of timedeltas or array of np.timedelta that refers to the
+            forecast lead time to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas DataFrame like object where the columns are the requested variable
+            list and rows filtered for the time requested. Variables/columns in data
+            frame sources may refer to geospatial fields/data (e.g. wind speed) or
+            relevant metadata (e.g. time of observation).
         """
         pass

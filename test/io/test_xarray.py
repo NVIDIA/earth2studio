@@ -308,3 +308,28 @@ def test_xarray_fields_multidim(
 
     xx, _ = z.read(total_coords, "fields_1", device=device)
     assert torch.allclose(x, xx)
+
+
+def test_xarray_write_uninitialized_array(tmp_path: str) -> None:
+    lat = np.arange(4)
+    lon = np.arange(10)
+    coords = OrderedDict({"lat": lat, "lon": lon})
+
+    io = XarrayBackend()
+    io.add_array(coords, ["init"])
+    io.write(
+        torch.zeros((4, 2), dtype=torch.float32),
+        {"lat": lat, "lon": lon[:2]},
+        "init",
+    )
+    io.write(
+        torch.ones((4, 5), dtype=torch.float32),
+        {"lat": lat, "lon": lon[:5]},
+        "newvar",
+    )
+
+    # Verify via xarray
+    assert "init" in io.root
+    assert "newvar" in io.root
+    assert np.allclose(io["init"].isel(lon=slice(0, 2)), 0.0)
+    assert np.allclose(io["newvar"].isel(lon=slice(0, 5)), 1.0)

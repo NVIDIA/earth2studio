@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.utils.interp import LatLonInterpolation
+from earth2studio.utils.interp import LatLonInterpolation, NearestNeighborInterpolator
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -80,3 +80,47 @@ def test_interpolation_analytical(device):
 
     epsilon = 1e-6  # allow for some FP roundoff
     assert (abs(y - y_correct) < epsilon).all()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_nearest_neighbor_interpolator_1d_correctness(device):
+    source_lats = torch.tensor([0.0, 45.0])
+    source_lons = torch.tensor([0.0, 90.0])
+    target_lats = torch.tensor([1.0, 44.0])
+    target_lons = torch.tensor([5.0, 85.0])
+
+    interp = NearestNeighborInterpolator(
+        source_lats=source_lats,
+        source_lons=source_lons,
+        target_lats=target_lats,
+        target_lons=target_lons,
+        max_dist_km=1000.0,
+    ).to(device=device)
+
+    values = torch.tensor([[0.0, 1.0], [2.0, 3.0]], device=device)
+    y = interp(values)
+
+    expected = torch.tensor([[0.0, 1.0], [2.0, 3.0]], device=device)
+    assert torch.equal(y, expected)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_nearest_neighbor_interpolator_2d_correctness(device):
+    source_lats = torch.tensor([[0.0, 0.0], [45.0, 45.0]])
+    source_lons = torch.tensor([[0.0, 90.0], [0.0, 90.0]])
+    target_lats = torch.tensor([[1.0, 1.0], [44.0, 44.0]])
+    target_lons = torch.tensor([[5.0, 85.0], [5.0, 85.0]])
+
+    interp = NearestNeighborInterpolator(
+        source_lats=source_lats,
+        source_lons=source_lons,
+        target_lats=target_lats,
+        target_lons=target_lons,
+        max_dist_km=20000.0,
+    ).to(device=device)
+
+    values = torch.tensor([[0.0, 1.0], [2.0, 3.0]], device=device)
+    y = interp(values)
+
+    expected = torch.tensor([[0.0, 1.0], [2.0, 3.0]], device=device)
+    assert torch.equal(y, expected)

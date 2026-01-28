@@ -243,7 +243,6 @@ class NCAR_ERA5:
                     daystart = t.day
                     dayend = t.day
                     time_index = t.hour
-
                     file_name = s3_pattern.format(
                         product=product,
                         variable=variable_name,
@@ -254,6 +253,7 @@ class NCAR_ERA5:
                         dayend=dayend,
                     )
                     nc_time = t
+
                 # Accum held in bi-monthly
                 elif product == "e5.oper.fc.sfc.accumu":
                     if t.day < 16:
@@ -325,6 +325,7 @@ class NCAR_ERA5:
                     time_index = int(
                         (t - nc_time).total_seconds() / 3600
                     )
+
                 # Surface held in monthly
                 else:
                     daystart = 1
@@ -370,7 +371,7 @@ class NCAR_ERA5:
             task.ncar_data_variable,
             list(task.ncar_time_indices.keys()),
             list(task.ncar_level_indices.keys()),
-            task.ncar_time
+            task.ncar_time,
         )
 
         # Rename levels coord to variable
@@ -428,7 +429,9 @@ class NCAR_ERA5:
         else:
             # New fs every call so we dont block, netcdf reads seems to not support
             # open_async -> S3AsyncStreamedFile (big sad)
-            fs = s3fs.S3FileSystem(anon=True, asynchronous=False)
+            fs = s3fs.S3FileSystem(
+                anon=True, asynchronous=False, skip_instance_cache=True
+            )
             with fs.open(nc_file_uri, "rb", block_size=4 * 1400 * 720) as f:
                 ds = await asyncio.to_thread(
                     xr.open_dataset, f, engine="h5netcdf", cache=False
@@ -452,10 +455,9 @@ class NCAR_ERA5:
                 else:
                     if nc_product == "e5.oper.an.sfc":
                         ds = ds.isel(time=list(time_idx))[data_variable]
-                        ds = ds.expand_dims({"level": [0]}, axis=1)
                     elif nc_product == "e5.oper.fc.sfc.accumu":
                         ds = ds.sel(forecast_initial_time=nc_time, forecast_hour=time_idx)[data_variable]
-                        ds = ds.expand_dims({"level": [0]}, axis=1)
+                    ds = ds.expand_dims({"level": [0]}, axis=1)
                 # Load the data, this is the actual download
                 ds = await asyncio.to_thread(ds.load)
                 # Cache nc file if present

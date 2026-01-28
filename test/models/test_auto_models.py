@@ -134,7 +134,7 @@ def cache_folder(tmp_path_factory):
     "url,file",
     [
         (None, "temp.txt"),
-        ("hf://NickGeneva/earth_ai", "README.md"),
+        ("hf://nvidia/fourcastnet3", "README.md"),
         (
             "ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0",
             "sfno_73ch_small/metadata.json",
@@ -162,7 +162,7 @@ def test_package(url, file, cache_folder, model_cache_context):
     "url,file,should_cache",
     [
         (None, "local_test_file.txt", False),  # Local file should NOT cache
-        ("hf://NickGeneva/earth_ai", "README.md", True),  # Remote file should cache
+        ("hf://nvidia/fourcastnet3", "README.md", True),  # Remote file should cache
         (
             "s3://noaa-swpc-pds",
             "text/3-day-geomag-forecast.txt",

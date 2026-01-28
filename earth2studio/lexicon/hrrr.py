@@ -47,14 +47,26 @@ class HRRRLexicon(metaclass=LexiconType):
             "u80m": "wrfsfc::UGRD::80 m above ground::anl",
             "v80m": "wrfsfc::VGRD::80 m above ground::anl",
             "t2m": "wrfsfc::TMP::2 m above ground::anl",
+            "q2m": "wrfsfc::SPFH::2 m above ground",
+            "d2m": "wrfsfc::DPT::2 m above ground",
+            "r2m": "wrfsfc::RH::2 m above ground",
             "refc": "wrfsfc::REFC::entire atmosphere::anl",
             "sp": "wrfsfc::PRES::surface::anl",
-            "mslp": "wrfsfc::MSLMA::mean sea level::anl",
+            "msl": "wrfsfc::MSLMA::mean sea level::anl",
+            "mslp": "wrfsfc::MSLMA::mean sea level::anl",  # TODO: deprecate
+            "fg10m": "wrfsfc::GUST::surface",
+            "tp": "wrfsfc::APCP::surface::0-0 hour acc",  # will be zero
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)::anl",
+            "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
+            "sd": "wrfsfc::WEASD::surface::anl",
+            "sde": "wrfsfc::SNOD::surface::anl",
+            "snowc": "wrfsfc::SNOWC::surface::anl",
             "csnow": "wrfsfc::CSNOW::surface::anl",
             "cicep": "wrfsfc::CICEP::surface::anl",
             "cfrzr": "wrfsfc::CFRZR::surface::anl",
             "crain": "wrfsfc::CRAIN::surface::anl",
+            "aerot": "wrfsfc::AOTK::entire atmosphere (considered as a single layer)",  # will be zero
+            "rsds": "wrfsfc::DSWRF::surface",
         }
         prs_levels = [
             50,
@@ -126,8 +138,20 @@ class HRRRLexicon(metaclass=LexiconType):
         if hrrr_key.split("::")[1] == "HGT" and val.startswith("z"):
 
             def mod(x: np.array) -> np.array:
-                """Modify data value (if necessary)."""
                 return x * 9.81
+
+        elif hrrr_key.split("::")[1] == "TCDC":
+
+            def mod(x: np.array) -> np.array:
+                return x / 100.0  # Percentage to (0-1)
+
+        elif hrrr_key.split("::")[1] == "APCP":
+
+            # TP in HRRR is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
 
         else:
 
@@ -166,15 +190,26 @@ class HRRRFXLexicon(metaclass=LexiconType):
             "u80m": "wrfsfc::UGRD::80 m above ground",
             "v80m": "wrfsfc::VGRD::80 m above ground",
             "t2m": "wrfsfc::TMP::2 m above ground",
+            "q2m": "wrfsfc::SPFH::2 m above ground",
+            "d2m": "wrfsfc::DPT::2 m above ground",
+            "r2m": "wrfsfc::RH::2 m above ground",
             "refc": "wrfsfc::REFC::entire atmosphere",
             "sp": "wrfsfc::PRES::surface",
-            "mslp": "wrfsfc::MSLMA::mean sea level",
+            "msl": "wrfsfc::MSLMA::mean sea level",
+            "mslp": "wrfsfc::MSLMA::mean sea level",  # TODO: deprecate
             "tp": "wrfsfc::APCP::surface::x-x hour acc",  # 1 hour accumulated
+            "fg10m": "wrfsfc::GUST::surface",
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)",
+            "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
+            "sd": "wrfsfc::WEASD::surface::anl",  # will be zero
+            "sde": "wrfsfc::SNOD::surface::anl",  # will be zero
+            "snowc": "wrfsfc::SNOWC::surface::anl",  # will be zero
             "csnow": "wrfsfc::CSNOW::surface",
             "cicep": "wrfsfc::CICEP::surface",
             "cfrzr": "wrfsfc::CFRZR::surface",
             "crain": "wrfsfc::CRAIN::surface",
+            "aerot": "wrfsfc::AOTK::entire atmosphere (considered as a single layer)",
+            "rsds": "wrfsfc::DSWRF::surface",
         }
         prs_levels = [
             50,
@@ -246,8 +281,20 @@ class HRRRFXLexicon(metaclass=LexiconType):
         if hrrr_key.split("::")[1] == "HGT" and val.startswith("z"):
 
             def mod(x: np.array) -> np.array:
-                """Modify data value (if necessary)."""
                 return x * 9.81
+
+        elif hrrr_key.split("::")[1] == "TCDC":
+
+            def mod(x: np.array) -> np.array:
+                return x / 100.0  # Percentage to (0-1)
+
+        elif hrrr_key.split("::")[1] == "APCP":
+
+            # TP in HRRR is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
 
         else:
 

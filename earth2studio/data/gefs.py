@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 
 import nest_asyncio
 import numpy as np
+import pygrib
 import s3fs
 import xarray as xr
 from loguru import logger
@@ -144,7 +145,9 @@ class GEFS_FX:
         ----
         Async fsspec expects initialization inside of the execution loop
         """
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        )
 
     def __call__(
         self,
@@ -190,6 +193,10 @@ class GEFS_FX:
             )
         )
 
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
+
         return xr_array
 
     async def fetch(
@@ -232,7 +239,7 @@ class GEFS_FX:
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         else:
             session = None
 
@@ -268,10 +275,6 @@ class GEFS_FX:
         await tqdm.gather(
             *func_map, desc="Fetching GEFS data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         # Close aiohttp client if s3fs
         if session:
@@ -399,8 +402,8 @@ class GEFS_FX:
 
         Returns
         -------
-        xr.DataArray
-            FS data array for given time and lead time
+        np.ndarray
+            GEFS array for given time and lead time
         """
         logger.debug(f"Fetching GEFS grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache
@@ -410,10 +413,20 @@ class GEFS_FX:
             byte_length=byte_length,
         )
         # Open into xarray data-array
-        da = xr.open_dataarray(
-            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        )
-        return modifier(da.values)
+        # Load with pygrib (faster and lower memory than xarray for slices)
+        try:
+            grbs = pygrib.open(grib_file)
+        except Exception as e:
+            logger.error(f"Failed to open grib file {grib_file}")
+            raise e
+        try:
+            values = modifier(grbs[1].values)
+        except Exception as e:
+            logger.error(f"Failed to read grib file {grib_file}")
+            raise e
+        finally:
+            grbs.close()
+        return values
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for GEFS based on offline knowledge

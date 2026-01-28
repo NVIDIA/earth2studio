@@ -26,7 +26,6 @@ from typing import Any
 
 import numpy as np
 import xarray as xr
-from cfgrib.xarray_to_grib import to_grib
 from loguru import logger
 from tqdm import tqdm
 
@@ -208,7 +207,7 @@ class CDS:
         )
 
         for i, request in enumerate(requests):
-            # Open into xarray data-array
+            # Open into xarray data-array, TODO pygrib
             grib = xr.open_dataarray(
                 return_dict[i], engine="cfgrib", backend_kwargs={"indexpath": ""}
             )
@@ -368,6 +367,9 @@ class CDS:
         ]
         tp_data[-1].values = np.sum(np.stack([tp.values for tp in tp_data]), axis=0)
         tp06_ds = xr.Dataset({"tp06": tp_data[-1]})
+        # Lazy import here to avoid eccodes error, TODO: Pygrib
+        from cfgrib.xarray_to_grib import to_grib
+
         to_grib(tp06_ds, cache_path, no_warn=True, grib_keys={"edition": 2})
 
     @property

@@ -27,10 +27,11 @@ class ECMWFOpenDataLexicon(metaclass=LexiconType):
 
     Note
     ----
-    Additional resources:
-    https://codes.ecmwf.int/grib/param-db/?filter=grib2
-    https://www.ecmwf.int/en/forecasts/datasets/open-data
-    Best bet is to download an index file from the AWS bucket and read it.
+    Best bet is to download an index file from the AWS bucket and read it. Additional
+    resources:
+
+    - https://codes.ecmwf.int/grib/param-db/?filter=grib2
+    - https://www.ecmwf.int/en/forecasts/datasets/open-data
     """
 
     PRS_NAMES = {
@@ -171,7 +172,15 @@ class IFSLexicon(ECMWFOpenDataLexicon):
 
 
 class AIFSLexicon(ECMWFOpenDataLexicon):
-    """Artificial Intelligence Forecast System (AIFS) lexicon."""
+    """Artificial Intelligence Forecast System (AIFS) lexicon.
+
+    Warning
+    =======
+    The AIFS data store has a lot of inconsistencies with the IFS data store, be very
+    careful adding new variables. See the open data documentation for details:
+
+    - https://www.ecmwf.int/en/forecasts/datasets/open-data
+    """
 
     # From a recent GRIB2 index file on AWS S3
     SFC_VARIABLES = {
@@ -193,12 +202,12 @@ class AIFSLexicon(ECMWFOpenDataLexicon):
         "skt": "skt::sfc::",
         "slor": "slor::sfc::",
         "sp": "sp::sfc::",
-        "ssrd": "ssrd::sfc::",
-        "strd": "strd::sfc::",
+        "ssrd06": "ssrd::sfc::",
+        "strd06": "strd::sfc::",
         "tcc": "tcc::sfc::",
         "tcw": "tcw::sfc::",
         "tp": "tp::sfc::",
-        "z": "z::sfc::",
+        # "z": "z::sfc::", # Grib error with unique keys
     }
     SOIL_VARIABLES = {
         "stl1": "sot::sl::1",
@@ -229,11 +238,47 @@ class AIFSLexicon(ECMWFOpenDataLexicon):
         925,
         1000,
     ]
+    PRS_NAMES = {
+        "d": "d",
+        "q": "q",
+        "r": "r",
+        "t": "t",
+        "u": "u",
+        "v": "v",
+        "vo": "vo",
+        "w": "w",
+        "z": "z",  # z in AIFS store, NOT gh
+    }
 
     VOCAB = ECMWFOpenDataLexicon.build_vocab(
         sfc_variables=SFC_VARIABLES,
         soil_variables=SOIL_VARIABLES,
         prs_variables=PRS_VARIABLES,
-        prs_names=ECMWFOpenDataLexicon.PRS_NAMES,
+        prs_names=PRS_NAMES,
         prs_levels=PRS_LEVELS,
     )
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Retrieve name from vocabulary."""
+        aifs_key = cls.VOCAB[val]
+
+        if aifs_key.split("::")[0] in ["tcc", "hcc", "mcc", "lcc"]:
+            # TCC in AIFS is precentage param id 228164, convert to 0-1 param id 164
+            def mod(x: np.ndarray) -> np.ndarray:
+                return x / 100.0
+
+        elif aifs_key.split("::")[0] == "tp":
+            # TP in AIFS is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
+
+        else:
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Modify data value (if necessary)."""
+                return x
+
+        return aifs_key, mod

@@ -66,7 +66,8 @@ class CMIP6Lexicon(metaclass=LexiconType):
             "rsus": ("rsus", -1),  # surface upwelling shortwave radiation (W/m2)
             "sfcWind": ("sfcWind", -1),  # near-surface wind speed (m s-1)
             "sfcWindmax": ("sfcWindmax", -1),  # maximum near-surface wind speed (m s-1)
-            "snc": ("snc", -1),  # snow area fraction (%)
+            "snc": ("snc", -1),  # snow area percentage (alias for snowc) (%)
+            "snowc": ("snc", -1),  # snow area percentage (%)
             "snw": ("snw", -1),  # surface snow water equivalent (kg m-2)
             "sst": ("tos", -1),  # sea surface temperature (K)
             "tos": ("tos", -1),  # sea surface temperature (K)
@@ -80,12 +81,19 @@ class CMIP6Lexicon(metaclass=LexiconType):
             "hursmin": ("hursmin", -1),  # minimum near-surface relative humidity (%)
             # "sic": ("siconc", -1), # sea ice concentration
             # "sp": ("ps", -1),    # surface pressure
-            # "tcwv": ("prw", -1), # total column water vapor
-            # "rsut": ("rsut", -1), # outgoing shortwave radiation
             "ts": ("ts", -1),  # surface temperature (K)
-            "siconc": ("siconc", -1),  # sea ice concentration (alias of sic) [%]
+            "sic": ("siconc", -1),  # sea ice concentration (0-1)
+            "siconc": ("siconc", -1),  # sea ice concentration (%)
             # "lsm": ("sftlf", -1), # land-sea mask (for cmip6 this is fraction of land)
             # "z": ("orog", -1),   # surface geopotential height (orography)
+            "prw": (
+                "prw",
+                -1,
+            ),  # precipitable water / total column water vapor (kg m-2)
+            "tcwv": ("prw", -1),  # alias for prw
+            "tclw": ("clwvi", -1),  # condensed water path - liquid (kg m-2)
+            "tciw": ("clivi", -1),  # condensed water path - ice (kg m-2)
+            "rsut": ("rsut", -1),  # TOA outgoing shortwave radiation (W m-2)
         }
 
         param_map = {
@@ -107,7 +115,9 @@ class CMIP6Lexicon(metaclass=LexiconType):
             10,
             50,
             100,
+            200,
             250,
+            300,
             500,
             700,
             850,
@@ -154,7 +164,16 @@ class CMIP6Lexicon(metaclass=LexiconType):
                     return x + 273.15
                 return x
 
-        elif val in ["siconc", "clt", "r2m", "hurs", "hursmax", "hursmin", "snc"]:
+        elif val in [
+            "siconc",
+            "clt",
+            "r2m",
+            "hurs",
+            "hursmax",
+            "hursmin",
+            "snc",
+            "snowc",
+        ]:
             # Convert concentration/percentage variables from fraction [0-1] to percentage [0-100]
             # Applies to: cloud cover (clt), relative humidity (r2m/hurs/hursmax/hursmin),
             # sea ice concentration (siconc), snow cover (snc)

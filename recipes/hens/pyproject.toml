@@ -4,13 +4,13 @@ version = "0.1.0"
 description = "Huge Ensembles (HENS) Recipe"
 readme = "README.md"
 # Restrict to below 3.13 until rapids updates for 3.13
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.14"
 authors = [
   { name="NVIDIA Earth-2 Team" },
 ]
 dependencies = [
     "cartopy>=0.24.1",
-    "earth2studio[cyclone,sfno]",
+    "earth2studio[cyclone,sfno]>=0.9.0",
     "hydra-core>=1.3.0",
     "omegaconf",
     "termcolor>=3.0.1",

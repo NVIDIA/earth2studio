@@ -28,8 +28,11 @@ from earth2studio.models.px import Persistence
     "variable",
     ["t2m", ["t2m", "tcwv"]],
 )
+@pytest.mark.parametrize("history", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_persistence_lat_lon(variable: str | list[str], device: str) -> None:
+def test_persistence_lat_lon(
+    variable: str | list[str], history: int, device: str
+) -> None:
     time = np.array(
         [np.datetime64("1999-10-11T12:00"), np.datetime64("2001-06-04T00:00")]
     )
@@ -42,7 +45,7 @@ def test_persistence_lat_lon(variable: str | list[str], device: str) -> None:
     )
 
     # Initialize Model
-    p = Persistence(variable, dc)
+    p = Persistence(variable, dc, history=history)
 
     # Initialize Data Source
     r = Random(dc)
@@ -54,9 +57,9 @@ def test_persistence_lat_lon(variable: str | list[str], device: str) -> None:
 
     # Get generator
     out, out_coords = p(x, coords)
-
-    assert torch.allclose(x, out)  # Persistence Model
+    assert torch.allclose(x[:, -1:], out)  # Persistence Model
     assert out_coords["lead_time"] == np.timedelta64(6, "h")
+    assert lead_time.shape[0] == history
 
 
 @pytest.mark.parametrize(
@@ -89,7 +92,7 @@ def test_persistence_unstructured(variable, device):
     # Get generator
     out, out_coords = p(x, coords)
 
-    assert torch.allclose(x, out)  # Persistence Model
+    assert torch.allclose(x[:, -1:], out)  # Persistence Model
     assert (out_coords["time"] == coords["time"]).all()
     assert out_coords["lead_time"] == np.timedelta64(6, "h")
 
@@ -102,13 +105,14 @@ def test_persistence_unstructured(variable, device):
     "variable",
     [["t2m"], ["t2m", "tcwv"]],
 )
+@pytest.mark.parametrize("history", [1, 3])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_persistence_iter(ensemble, variable, device):
+def test_persistence_iter(ensemble, variable, history, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Construct Domain Coordinates
     dc = OrderedDict({"lat": np.random.randn(60), "lon": np.random.randn(60)})
     # Initialize Model
-    p = Persistence(variable, dc)
+    p = Persistence(variable, dc, history=history)
 
     # Initialize Data Source
     r = Random(dc)
@@ -129,9 +133,9 @@ def test_persistence_iter(ensemble, variable, device):
     next(p_iter)  # Skip first which should return the input
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert torch.allclose(x, out)  # Persistence Model
+        assert torch.allclose(x[:, :, -1:], out)  # Persistence Model
         assert out.shape[0] == ensemble
-        assert out.shape[2] == lead_time.shape[0]
+        assert out.shape[2] == 1
         assert out.shape[3] == variable.shape[0]
         assert out_coords["time"] == coords["time"]
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")

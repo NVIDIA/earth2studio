@@ -22,6 +22,7 @@ from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
 )
+from earth2studio.utils.coords import CoordSystem
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -371,12 +372,14 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
         x[t, 2] = 100 * msl  # msl
 
     # Set up mock coordinates dictionary
-    coords = {
-        "time": np.array([1]),
-        "variable": ct.input_coords()["variable"],
-        "lat": lats,
-        "lon": lons,
-    }
+    coords = CoordSystem(
+        {
+            "time": np.array([1]),
+            "variable": ct.input_coords()["variable"],
+            "lat": lats,
+            "lon": lons,
+        }
+    )
     # Forward pass through the model
     for t in range(x.shape[0]):
         y, c = ct(x[t : t + 1], coords)
@@ -550,12 +553,14 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
         x[t, 7] = z200
 
     # Set up mock coordinates dictionary
-    coords = {
-        "time": np.array(list(range(0, num_timesteps))),
-        "variable": ct.input_coords()["variable"],
-        "lat": lats,
-        "lon": lons,
-    }
+    coords = CoordSystem(
+        {
+            "time": np.array(list(range(0, num_timesteps))),
+            "variable": ct.input_coords()["variable"],
+            "lat": lats,
+            "lon": lons,
+        }
+    )
 
     # Forward pass through the model
     for t in range(x.shape[0]):

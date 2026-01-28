@@ -527,3 +527,32 @@ def test_netcdf4_fields_multidim(
     assert torch.allclose(x, xx)
 
     nc.close()
+
+
+def test_netcdf4_write_uninitialized_array(tmp_path: str) -> None:
+    lat = np.arange(4)
+    lon = np.arange(10)
+    coords = OrderedDict({"lat": lat, "lon": lon})
+
+    nc_path = tmp_path / "uninitialized.nc"
+    nc = NetCDF4Backend(nc_path, backend_kwargs={"mode": "w"})
+    nc.add_array(coords, ["init"])
+
+    nc.write(
+        torch.zeros((4, 2), dtype=torch.float32),
+        {"lat": lat, "lon": lon[:2]},
+        "init",
+    )
+    nc.write(
+        torch.ones((4, 5), dtype=torch.float32),
+        {"lat": lat, "lon": lon[:5]},
+        "newvar",
+    )
+    nc.close()
+
+    # Verify via xarray
+    ds = xarray.open_dataset(nc_path)
+    assert "init" in ds.data_vars
+    assert "newvar" in ds.data_vars
+    assert np.allclose(ds["init"].isel(lon=slice(0, 2)).values, 0.0)
+    assert np.allclose(ds["newvar"].isel(lon=slice(0, 5)).values, 1.0)

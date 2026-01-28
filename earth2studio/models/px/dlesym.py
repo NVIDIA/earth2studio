@@ -81,36 +81,6 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     we provide convenience methods for retrieving the valid atmospheric and
     oceanic outputs.
 
-    Example
-    -------
-    .. highlight:: python
-    .. code-block:: python
-
-        pkg = DLESyM.load_default_package()
-        model = DLESyM.load_model(pkg)
-
-        # Create iterator
-        iterator = model.create_iterator(x, coords)
-
-        for step, (x, coords) in enumerate(iterator):
-            if step > 0:
-                # Valid atmos and ocean predictions with their respective coordinates extracted below
-                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
-                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
-                ...
-
-    Note
-    ----
-    For more information about this model see:
-
-    - https://arxiv.org/abs/2409.16247
-    - https://arxiv.org/abs/2311.06253v2
-    - https://huggingface.co/nvidia/dlesym-v1-era5
-
-    For more information about the HEALPix grid see:
-
-    - https://github.com/NVlabs/earth2grid
-
     Parameters
     ----------
     atmos_model : torch.nn.Module
@@ -145,6 +115,36 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Atmospheric coupling variables
     ocean_coupling_variables : list[str]
         Ocean coupling variables
+
+    Note
+    ----
+    For more information about this model see:
+
+    - https://arxiv.org/abs/2409.16247
+    - https://arxiv.org/abs/2311.06253v2
+    - https://huggingface.co/nvidia/dlesym-v1-era5
+
+    For more information about the HEALPix grid see:
+
+    - https://github.com/NVlabs/earth2grid
+
+    Example
+    -------
+    .. highlight:: python
+    .. code-block:: python
+
+        pkg = DLESyM.load_default_package()
+        model = DLESyM.load_model(pkg)
+
+        # Create iterator
+        iterator = model.create_iterator(x, coords)
+
+        for step, (x, coords) in enumerate(iterator):
+            if step > 0:
+                # Valid atmos and ocean predictions with their respective coordinates extracted below
+                atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+                ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+                ...
     """
 
     def __init__(
@@ -357,7 +357,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLESyM model package on NGC"""
         package = Package(
-            "hf://nvidia/dlesym-v1-era5",
+            "hf://nvidia/dlesym-v1-era5@9dbcdb83706702ac3b7d93f5dad5e535abc2fb72",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym"),
                 "same_names": True,

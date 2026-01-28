@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 import nest_asyncio
 import numpy as np
+import pygrib
 import s3fs
 import xarray as xr
 from fsspec.implementations.ftp import FTPFileSystem
@@ -154,7 +155,9 @@ class GFS:
         ----
         Async fsspec expects initialization inside of the execution loop
         """
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        )
 
     def __call__(
         self,
@@ -189,6 +192,9 @@ class GFS:
         xr_array = loop.run_until_complete(
             asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
         )
+        # Delete cache if needed
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -228,7 +234,7 @@ class GFS:
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         else:
             session = None
 
@@ -262,10 +268,6 @@ class GFS:
         # Close aiohttp client if s3fs
         if session:
             await session.close()
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         return xr_array.isel(lead_time=0)
 
@@ -374,8 +376,8 @@ class GFS:
 
         Returns
         -------
-        xr.DataArray
-            FS data array for given time and lead time
+        np.ndarray
+            GFS array for given time and lead time
         """
         logger.debug(f"Fetching GFS grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache
@@ -384,11 +386,20 @@ class GFS:
             byte_offset=byte_offset,
             byte_length=byte_length,
         )
-        # Open into xarray data-array
-        da = xr.open_dataarray(
-            grib_file, engine="cfgrib", backend_kwargs={"indexpath": ""}
-        )
-        return modifier(da.values)
+        # Load with pygrib (faster and lower memory than xarray for slices)
+        try:
+            grbs = pygrib.open(grib_file)
+        except Exception as e:
+            logger.error(f"Failed to open grib file {grib_file}")
+            raise e
+        try:
+            values = modifier(grbs[1].values)
+        except Exception as e:
+            logger.error(f"Failed to read grib file {grib_file}")
+            raise e
+        finally:
+            grbs.close()
+        return values
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for GFS based on offline knowledge
@@ -655,7 +666,7 @@ class GFS_FX(GFS):
 
         # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session()
+            session = await self.fs.set_session(refresh=True)
         else:
             session = None
 
@@ -699,13 +710,6 @@ class GFS_FX(GFS):
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
-
-        # Close aiohttp client if s3fs
-        # https://github.com/fsspec/s3fs/issues/943
-        # https://github.com/zarr-developers/zarr-python/issues/2901
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            await self.fs.set_session()  # Make sure the session was actually initalized
-            s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)
 
         return xr_array
 

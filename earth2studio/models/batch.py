@@ -41,6 +41,13 @@ class batch_func:
     A model attributes `input_coords` and `output_coords` must have "batch" as the
     coordinate system of the first dimensions. I.e. first key entry needs to be "batch".
 
+    Note
+    ----
+    When decorating a method of a model, such as `__call__`, the method is required to
+    have a signature of `(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, CoordSystem]`.
+    All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
+    passed through to the wrapped function without modification.
+
     Example
     -------
     .. highlight:: python
@@ -165,17 +172,52 @@ class batch_func:
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
-            model: Any,
-            x: torch.Tensor,
-            coords: CoordSystem,
+            model: Any, *args: Any, **kwargs: Any
         ) -> tuple[torch.Tensor, CoordSystem]:
+            # Validate positional args are ONLY a sequence of (x, CoordSystem) pairs
+            if len(args) == 0:
+                raise ValueError(
+                    "batch_func requires at least one positional (x, CoordSystem) pair"
+                )
+            if len(args) % 2 != 0:
+                raise ValueError(
+                    "Invalid positional arguments: expected (x, CoordSystem) pairs"
+                )
 
-            x, flatten_coords, batched_coords, batched_shape = self._compress_batch(
-                model, x, coords
-            )
+            for i in range(0, len(args), 2):
+                xi = args[i]
+                ci = args[i + 1]
+                if not isinstance(xi, torch.Tensor) or not isinstance(ci, OrderedDict):
+                    raise ValueError(
+                        "Invalid positional arguments: only (torch.Tensor, CoordSystem) pairs are supported"
+                    )
+
+            # Support any number of paired (x, CoordSystem) positional args; kwargs won't be batched
+            new_args: list[Any] = list(args)
+            ref_shape = None
+            ref_coords = None
+            for i in range(0, len(new_args), 2):
+                xi = new_args[i]
+                ci = new_args[i + 1]
+                (
+                    x_comp,
+                    coords_comp,
+                    batched_coords,
+                    batched_shape,
+                ) = self._compress_batch(model, xi, ci)
+                new_args[i] = x_comp
+                new_args[i + 1] = coords_comp
+                if ref_shape is None and ref_coords is None:
+                    ref_shape = batched_shape
+                    ref_coords = batched_coords
+                elif batched_shape != ref_shape:
+                    # Guarantee that all batched_shape / batched_coords pairs match
+                    raise ValueError(
+                        "Mismatched batched dimensions across input (x, CoordSystem) pairs"
+                    )
 
             # Model forward
-            out, out_coords = func(model, x, flatten_coords)
+            out, out_coords = func(model, *new_args, **kwargs)
             out, out_coords = self._decompress_batch(
                 out, out_coords, batched_coords, batched_shape
             )
