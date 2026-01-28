@@ -1,0 +1,23 @@
+﻿:mod:`earth2studio.models.px`.ACE2ERA5
+=============================================
+
+.. currentmodule:: earth2studio.models.px
+
+.. autoclass:: ACE2ERA5
+
+   
+    .. automethod:: __call__
+    .. automethod:: create_iterator
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.px.ACE2ERA5:
+
+.. minigallery:: earth2studio.models.px.ACE2ERA5
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

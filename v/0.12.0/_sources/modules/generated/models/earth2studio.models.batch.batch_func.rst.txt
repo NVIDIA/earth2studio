@@ -1,0 +1,16 @@
+﻿..
+    The empty line below should not be removed. It is added such that the `rst_prolog`
+    is added before the :mod: directive. Otherwise, the rendering will show as a
+    paragraph instead of a header.
+
+:mod:`earth2studio.models.batch`.batch_func
+==================================================
+
+.. currentmodule:: earth2studio.models.batch
+
+.. autoclass:: batch_func
+    :members:
+
+.. raw:: html
+
+    <div class="clearer"></div>

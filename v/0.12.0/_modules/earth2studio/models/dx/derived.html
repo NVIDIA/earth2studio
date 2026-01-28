@@ -1,0 +1,1294 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.models.dx.derived &#8212; Earth2Studio 0.12.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../_static/documentation_options.js?v=61ccb1f1"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/dx/derived';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.12.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.12" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.models.dx.derived</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.models.dx.derived</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_coords</span><span class="p">,</span> <span class="n">batch_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">handshake_coords</span><span class="p">,</span>
+    <span class="n">handshake_dim</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
+
+
+<div class="viewcode-block" id="DerivedWS">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html#earth2studio.models.dx.DerivedWS">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedWS</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the Wind Speed (WS) magnitude from eastward and northward wind</span>
+<span class="sd">    components for specified levels. The calculation is based on the formula:</span>
+<span class="sd">    ws = sqrt(u^2 + v^2)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    levels : list[int  |  str], optional</span>
+<span class="sd">        Pressure / height levels to compute WS for. The resulting expected input fields</span>
+<span class="sd">        are u and v wind components pairs for each level. E.g. for level 100 the input</span>
+<span class="sd">        fields should be [u100, v100], by default [100]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">levels</span> <span class="o">=</span> <span class="n">levels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">input_level</span> <span class="ow">in</span> <span class="p">[[</span><span class="sa">f</span><span class="s2">&quot;u</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;v</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">input_level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ws</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="DerivedWS.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html#earth2studio.models.dx.DerivedWS.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="c1"># This function expects [u, v] pairs</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DerivedRH">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html#earth2studio.models.dx.DerivedRH">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedRH</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the relative humidity (RH) from specific humidity and temperature</span>
+<span class="sd">    for specified pressure levels. Based on the calculations ECMWF uses in the IFS</span>
+<span class="sd">    numerical simulator which accounts for estimating the water vapor and ice present</span>
+<span class="sd">    in the atmosphere.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    See reference, equation 7.98 onwards:</span>
+
+<span class="sd">    - https://www.ecmwf.int/en/elibrary/81370-ifs-documentation-cy48r1-part-iv-physical-processes</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    levels : list[int  |  str], optional</span>
+<span class="sd">        hPa Pressure levels to compute RH. The resulting expected input fields</span>
+<span class="sd">        are specific humidity and temperature pairs for each pressure level. E.g. for</span>
+<span class="sd">        level 100 hPa the input fields should be [t100, q100], by default [100]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">levels</span> <span class="o">=</span> <span class="n">levels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">input_level</span> <span class="ow">in</span> <span class="p">[[</span><span class="sa">f</span><span class="s2">&quot;t</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;q</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">input_level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;r</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+        <span class="c1"># Set up pressure levels tensor</span>
+        <span class="n">pressure_levels</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">level</span><span class="p">)</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pressure_levels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">pressure_levels</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="DerivedRH.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html#earth2studio.models.dx.DerivedRH.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.621981</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>  <span class="c1"># K</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>  <span class="c1"># g/kg</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pressure_levels</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">e</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="o">*</span> <span class="n">q</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">epsilon</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">q</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">epsilon</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">es_w</span> <span class="o">=</span> <span class="mf">611.21</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">17.502</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="mf">273.16</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="mf">32.19</span><span class="p">))</span>
+        <span class="n">es_i</span> <span class="o">=</span> <span class="mf">611.21</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">22.587</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="mf">273.16</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.7</span><span class="p">))</span>
+
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clip</span><span class="p">((</span><span class="n">t</span> <span class="o">-</span> <span class="mf">250.16</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">273.16</span> <span class="o">-</span> <span class="mf">250.16</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">es</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">es_w</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">es_i</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">e</span> <span class="o">/</span> <span class="n">es</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DerivedRHDewpoint">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html#earth2studio.models.dx.DerivedRHDewpoint">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedRHDewpoint</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the surface relative humidity (RH) from dewpoint temperature and air</span>
+<span class="sd">    temperature. This calculation is based on the August-Roche-Magnus approximation.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For more details see the following references:</span>
+
+<span class="sd">    - https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)</span>
+<span class="sd">    - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)</span>
+<span class="sd">    - https://doi.org/10.1175/1520-0450(1996)035&lt;0601:IMFAOS&gt;2.0.CO;2 (Eq. 21)</span>
+<span class="sd">    - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;d2m&quot;</span><span class="p">]),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;r2m&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="DerivedRHDewpoint.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html#earth2studio.models.dx.DerivedRHDewpoint.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">t</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="mf">273.16</span>  <span class="c1"># K -&gt; C</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="mf">273.16</span>  <span class="c1"># K -&gt; C</span>
+
+        <span class="c1"># Calculate saturation vapor pressure (es) and vapor pressure (e)</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">17.62</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="mf">243.12</span><span class="p">))</span>
+        <span class="n">es</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">17.62</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">243.12</span><span class="p">))</span>
+
+        <span class="c1"># Improved fit for cold temperatures (Sonntag 1990)</span>
+        <span class="n">e_cold</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">22.46</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="mf">272.62</span><span class="p">))</span>
+        <span class="n">es_cold</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="mf">22.46</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">272.62</span><span class="p">))</span>
+
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">e_cold</span> <span class="o">/</span> <span class="n">es_cold</span><span class="p">,</span> <span class="n">e</span> <span class="o">/</span> <span class="n">es</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="c1"># Clamp to 0-100%</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DerivedVPD">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html#earth2studio.models.dx.DerivedVPD">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedVPD</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity</span>
+<span class="sd">    and temperature fields. The calculation is based on the formula:</span>
+
+<span class="sd">    VPD = es * ((100 - rh) / 100)</span>
+
+<span class="sd">    The variable es is the saturation vapor pressure calculated using the formula:</span>
+
+<span class="sd">    es = 6.11 * exp((L / Rv) * ((1 / 273) - (1 / T)))</span>
+
+<span class="sd">    where L is the latent heat of vaporization (2.26e6 J/kg), Rv is the gas constant for</span>
+<span class="sd">    water vapor (461 J/kg/K).</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    For additional information on the VPD calculation in millibars, please refer to:</span>
+
+<span class="sd">    - Dennis Hartman &quot;Global Physical Climatology&quot; (p 350)</span>
+<span class="sd">    - https://www.sciencedirect.com/book/9780123285317/global-physical-climatology</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    levels : list[int  |  str], optional</span>
+<span class="sd">        Pressure / height levels to compute VPD for. The resulting expected input fields</span>
+<span class="sd">        are temperature and relative humidity pairs for each level. E.g. for level 100</span>
+<span class="sd">        the input fields should be [t100, r100], by default [100]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">levels</span> <span class="o">=</span> <span class="n">levels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">input_level</span> <span class="ow">in</span> <span class="p">[[</span><span class="sa">f</span><span class="s2">&quot;t</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;r</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">input_level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;vpd</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="DerivedVPD.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html#earth2studio.models.dx.DerivedVPD.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="c1"># This function expects [temp, rh] pairs</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="mf">2.26e6</span>
+        <span class="n">Rv</span> <span class="o">=</span> <span class="mi">461</span>
+        <span class="n">es</span> <span class="o">=</span> <span class="mf">6.11</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">L</span> <span class="o">/</span> <span class="n">Rv</span><span class="p">)</span> <span class="o">*</span> <span class="p">((</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">273.16</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">t</span><span class="p">)))</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">es</span> <span class="o">*</span> <span class="p">((</span><span class="mf">100.0</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="o">/</span> <span class="mf">100.0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DerivedSurfacePressure">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html#earth2studio.models.dx.DerivedSurfacePressure">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedSurfacePressure</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Interpolates the surface pressure in hPa from pressure level geopotential,</span>
+<span class="sd">    surface geopotential and optionally temperature. The calculation is based on</span>
+<span class="sd">    linear interpolation of the logarithm of pressure, as well as an optional</span>
+<span class="sd">    second-order correction based on temperature and an empirical adjustment.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    A more detailed description of the method is available at</span>
+<span class="sd">    https://nvidia.github.io/earth2studio/userguide/notes/surface_pressure.md.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    p_levels : list[int]</span>
+<span class="sd">        Pressure levels (hPa) that are used as input for the surface pressure</span>
+<span class="sd">        interpolation. At least 2 levels are needed. They must be ordered from</span>
+<span class="sd">        highest to lowest pressure.</span>
+<span class="sd">    temperature_correction : bool, optional, default True</span>
+<span class="sd">        Whether to apply the second-order correction to surface pressure accounting</span>
+<span class="sd">        for temperature.</span>
+<span class="sd">    corr_adjustment : tuple[float, float], optional, default (3.4257e-5, 1.5224)</span>
+<span class="sd">        An empirical adjustment to the temperature correction. The correction is modified</span>
+<span class="sd">        as correction = corr_adjustment[0] + correction * corr_adjustment[1]. The default</span>
+<span class="sd">        value was derived empirically optimizing the prediction of surface pressure in</span>
+<span class="sd">        ERA5 data. The adjustment can be effectively disabled by passing</span>
+<span class="sd">        `corr_adjustment=(0.0, 1.0)`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">Rs</span> <span class="o">=</span> <span class="mf">287.053</span>  <span class="c1"># gas constant for dry air (J/kg/K)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="mf">9.8067</span>  <span class="c1"># Earth&#39;s gravitational constant (m/s**2)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="o">-</span><span class="mf">6.5e-3</span>  <span class="c1"># average temperature lapse rate (K/m)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">p_levels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">surface_geopotential</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">surface_geopotential_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+        <span class="n">temperature_correction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">corr_adjustment</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">3.4257e-5</span><span class="p">,</span> <span class="mf">1.5224</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature_correction</span> <span class="o">=</span> <span class="n">temperature_correction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">corr_adjustment</span> <span class="o">=</span> <span class="n">corr_adjustment</span>
+
+        <span class="n">p_levels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">p_levels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">p_levels</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">p_levels</span><span class="p">,</span> <span class="n">descending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;z</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">p_levels</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature_correction</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;t</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">p_levels</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;sp&quot;</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
+            <span class="s2">&quot;log_p_levels&quot;</span><span class="p">,</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p_levels</span> <span class="o">*</span> <span class="mi">100</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;surface_geopotential&quot;</span><span class="p">,</span> <span class="n">surface_geopotential</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential_coords</span> <span class="o">=</span> <span class="n">surface_geopotential_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The surface geopotential must be two-dimensional.&quot;</span><span class="p">)</span>
+        <span class="n">coords_shape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential_coords</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">coords_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The surface geopotential coordinates must match the size of the tensor.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_find_pressure_level_below</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">z_target</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">z_levels</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find the index of the nearest pressure level in z_levels where z is lower than</span>
+<span class="sd">        the corresponding index in z_target.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Create a mask where z_levels are smaller than z</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">z_levels</span> <span class="o">&lt;</span> <span class="n">z_target</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># Find the largest index where the condition is True along the last dimension</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="n">z_levels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">indices</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_interpolate_pressure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">z_target</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">z_levels</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">t_levels</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform pressure level interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        z_target : torch.Tensor</span>
+<span class="sd">            Tensor of geopotentials (m**2 / s**2) at the target level (e.g. surface).</span>
+<span class="sd">            Can be of any shape of one or more dimensions.</span>
+<span class="sd">        z_levels : torch.Tensor</span>
+<span class="sd">            Tensor of geopotentials (m**2 / s**2) at the given pressure levels</span>
+<span class="sd">            corresponding to the `levels` attribute of the constructor.</span>
+<span class="sd">            Shape `(N_levels, *data_shape)` where `N_levels` is the number of pressure</span>
+<span class="sd">            levels and `data_shape` is identical to the shape of `z_target`.</span>
+<span class="sd">        t_levels: torch.Tensor or None, optional, default None</span>
+<span class="sd">            Can be None if `temperature_correction == False`, otherwise a Tensor of</span>
+<span class="sd">            temperatures (K) at the given pressure levels. Shape must be identical to</span>
+<span class="sd">            that of `z_levels`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Tensor of estimated surface pressures (Pa) with shape identical to that of</span>
+<span class="sd">            `z_target`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># find index of pressure level below z_target</span>
+        <span class="n">plevel_indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_pressure_level_below</span><span class="p">(</span><span class="n">z_target</span><span class="p">,</span> <span class="n">z_levels</span><span class="p">)</span>
+
+        <span class="c1"># flatten data for analysis</span>
+        <span class="n">data_shape</span> <span class="o">=</span> <span class="n">z_target</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">data_shape</span><span class="p">)</span>
+        <span class="n">all_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">z_target</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">z_target</span> <span class="o">=</span> <span class="n">z_target</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">z_levels</span> <span class="o">=</span> <span class="n">z_levels</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">z_levels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">plevel_indices</span> <span class="o">=</span> <span class="n">plevel_indices</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t_levels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_levels</span> <span class="o">=</span> <span class="n">t_levels</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">t_levels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n</span><span class="p">)</span>
+
+        <span class="c1"># select pressure and geopotential values above and below target level</span>
+        <span class="n">z0</span> <span class="o">=</span> <span class="n">z_levels</span><span class="p">[</span><span class="n">plevel_indices</span><span class="p">,</span> <span class="n">all_indices</span><span class="p">]</span>
+        <span class="n">z1</span> <span class="o">=</span> <span class="n">z_levels</span><span class="p">[</span><span class="n">plevel_indices</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">all_indices</span><span class="p">]</span>
+        <span class="n">dz</span> <span class="o">=</span> <span class="n">z_target</span> <span class="o">-</span> <span class="n">z0</span>
+        <span class="n">log_p0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_p_levels</span><span class="p">[</span><span class="n">plevel_indices</span><span class="p">]</span>
+        <span class="n">log_p1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_p_levels</span><span class="p">[</span><span class="n">plevel_indices</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># linear interpolation of log_p</span>
+        <span class="n">log_p</span> <span class="o">=</span> <span class="n">log_p0</span> <span class="o">+</span> <span class="n">dz</span> <span class="o">/</span> <span class="p">(</span><span class="n">z1</span> <span class="o">-</span> <span class="n">z0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">log_p1</span> <span class="o">-</span> <span class="n">log_p0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature_correction</span><span class="p">:</span>
+            <span class="c1"># apply second-order correction based on temperature</span>
+            <span class="n">t0</span> <span class="o">=</span> <span class="n">t_levels</span><span class="p">[</span><span class="n">plevel_indices</span><span class="p">,</span> <span class="n">all_indices</span><span class="p">]</span>
+            <span class="n">t1</span> <span class="o">=</span> <span class="n">t_levels</span><span class="p">[</span><span class="n">plevel_indices</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">all_indices</span><span class="p">]</span>
+            <span class="n">tm</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">t0</span> <span class="o">+</span> <span class="n">t1</span><span class="p">)</span>
+
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Rs</span><span class="p">)</span> <span class="o">/</span> <span class="n">tm</span><span class="o">**</span><span class="mi">2</span>
+
+            <span class="n">log_p_corr</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">dz</span> <span class="o">*</span> <span class="p">(</span><span class="n">z_target</span> <span class="o">-</span> <span class="n">z1</span><span class="p">)</span>
+
+            <span class="n">log_p_corr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">corr_adjustment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">corr_adjustment</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">log_p_corr</span>
+            <span class="n">log_p</span> <span class="o">=</span> <span class="n">log_p</span> <span class="o">+</span> <span class="n">log_p_corr</span>
+
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">log_p</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">*</span><span class="n">data_shape</span><span class="p">)</span>
+
+<div class="viewcode-block" id="DerivedSurfacePressure.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html#earth2studio.models.dx.DerivedSurfacePressure.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="n">num_levels</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_p_levels</span><span class="p">)</span>
+
+        <span class="c1"># unpack inputs, swap variable dimension to dim 0, flatten batch dims to dim 1</span>
+        <span class="n">variable_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+        <span class="n">z_levels</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="p">:</span><span class="n">num_levels</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable_dim</span><span class="p">)</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">z_levels</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">flat_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">]),</span> <span class="o">*</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="n">z_levels</span> <span class="o">=</span> <span class="n">z_levels</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">*</span><span class="n">flat_shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature_correction</span><span class="p">:</span>
+            <span class="n">t_levels</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="n">num_levels</span><span class="p">:]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable_dim</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">flat_shape</span><span class="p">)</span>
+        <span class="n">z_target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">surface_geopotential</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">flat_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">*</span><span class="n">flat_shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+        <span class="n">output_shape</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">output_shape</span><span class="p">[</span><span class="n">variable_dim</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="n">sp_pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interpolate_pressure</span><span class="p">(</span>
+            <span class="n">z_target</span><span class="p">,</span>
+            <span class="n">z_levels</span><span class="p">,</span>
+            <span class="n">t_levels</span><span class="o">=</span><span class="n">t_levels</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature_correction</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sp_pred</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DerivedTCWV">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html#earth2studio.models.dx.DerivedTCWV">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DerivedTCWV</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the Total Column Water Vapor (TCWV) from specific humidity at</span>
+<span class="sd">    pressure levels and surface pressure. The calculation is based on the vertical</span>
+<span class="sd">    integration of specific humidity using the trapezoidal rule:</span>
+
+<span class="sd">    TCWV = (1/g) * ∫(p_top to p_surface) q dp</span>
+
+<span class="sd">    Discretized as:</span>
+<span class="sd">    TCWV ≈ (1/g) * Σ [(q_i + q_{i+1})/2 * (p_i - p_{i+1})]</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    The integration includes the layer between the surface pressure and the lowest</span>
+<span class="sd">    pressure level, assuming the surface specific humidity equals the lowest level</span>
+<span class="sd">    specific humidity.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    levels : list[int], optional</span>
+<span class="sd">        Pressure levels (hPa) to use for the integration. They will be sorted</span>
+<span class="sd">        internally from highest to lowest pressure. Default is</span>
+<span class="sd">        [1000, 850, 700, 500, 300, 200, 100].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">g</span> <span class="o">=</span> <span class="mf">9.8067</span>  <span class="c1"># Earth&#39;s gravitational constant (m/s**2)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">850</span><span class="p">,</span> <span class="mi">700</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># Sort levels from highest to lowest pressure (descending)</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">levels</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;q</span><span class="si">{</span><span class="n">level</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;sp&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Store pressure levels in Pa as a buffer</span>
+        <span class="n">plevels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="mf">100.0</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">level</span><span class="p">)</span> <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;plevels&quot;</span><span class="p">,</span> <span class="n">plevels</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of diagnostic model</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;batch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_variables</span><span class="p">),</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="nd">@batch_coords</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of diagnostic model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : CoordSystem</span>
+<span class="sd">            Input coordinate system to transform into output_coords</span>
+<span class="sd">            by default None, will use self.input_coords.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        CoordSystem</span>
+<span class="sd">            Coordinate system dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="n">target_input_coords</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="n">input_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out_variables</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_coords</span>
+
+<div class="viewcode-block" id="DerivedTCWV.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html#earth2studio.models.dx.DerivedTCWV.__call__">[docs]</a>
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
+    <span class="nd">@batch_func</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of diagnostic&quot;&quot;&quot;</span>
+        <span class="n">output_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+        <span class="n">q_levels</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">sp</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">tcwv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+
+        <span class="c1"># Create mask for pressure levels below surface pressure</span>
+        <span class="c1"># we will zero anywhere this is not true</span>
+        <span class="n">surface_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plevels</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand_as</span><span class="p">(</span>
+            <span class="n">q_levels</span>
+        <span class="p">)</span> <span class="o">&lt;=</span> <span class="n">sp</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># Integrate from surface to top of atmosphere using trapezoidal rule</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p_level</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plevels</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># First layer: from surface pressure to first pressure level</span>
+                <span class="c1"># Use q at first level for both endpoints (assume constant in this layer)</span>
+                <span class="n">dp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="n">surface_mask</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">sp</span> <span class="o">-</span> <span class="n">p_level</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">tcwv</span> <span class="o">=</span> <span class="n">tcwv</span> <span class="o">+</span> <span class="n">q_levels</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">dp</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Subsequent layers: use trapezoidal rule between levels</span>
+                <span class="n">level_mask</span> <span class="o">=</span> <span class="n">surface_mask</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">&amp;</span> <span class="n">surface_mask</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+                <span class="n">dp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plevels</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p_level</span>
+
+                <span class="c1"># Trapezoidal contribution: (q_{i-1} + q_i) / 2 * dp</span>
+                <span class="n">contribution</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">q_levels</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">q_levels</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">*</span> <span class="n">dp</span>
+                <span class="p">)</span>
+                <span class="n">tcwv</span> <span class="o">=</span> <span class="n">tcwv</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="n">level_mask</span><span class="p">,</span> <span class="n">contribution</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">contribution</span><span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Handle layer where lower bound is below the surface</span>
+                <span class="n">partial_mask</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">surface_mask</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">surface_mask</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">partial_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                    <span class="n">dp_partial</span> <span class="o">=</span> <span class="n">sp</span> <span class="o">-</span> <span class="n">p_level</span>
+                    <span class="n">tcwv</span> <span class="o">=</span> <span class="n">tcwv</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                        <span class="n">partial_mask</span><span class="p">,</span>
+                        <span class="n">q_levels</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">dp_partial</span><span class="p">,</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">sp</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+        <span class="c1"># Divide by gravity to get TCWV in kg/m^2</span>
+        <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">tcwv</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">g</span>
+
+        <span class="k">return</span> <span class="n">out_tensor</span><span class="p">,</span> <span class="n">output_coords</span></div>
+</div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

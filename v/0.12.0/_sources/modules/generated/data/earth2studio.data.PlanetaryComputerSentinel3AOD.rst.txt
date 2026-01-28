@@ -1,0 +1,22 @@
+﻿:mod:`earth2studio.data`.PlanetaryComputerSentinel3AOD
+=============================================================
+
+.. currentmodule:: earth2studio.data
+
+.. autoclass:: PlanetaryComputerSentinel3AOD
+
+   
+    .. automethod:: __call__
+    .. automethod:: fetch
+    .. automethod:: available
+   
+
+.. _sphx_glr_backref_earth2studio.data.PlanetaryComputerSentinel3AOD:
+
+.. minigallery:: earth2studio.data.PlanetaryComputerSentinel3AOD
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

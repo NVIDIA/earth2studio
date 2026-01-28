@@ -1,0 +1,1177 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>StormScope Satellite and Radar Nowcasting &#8212; Earth2Studio 0.12.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=61ccb1f1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/20_stormscope_goes_example';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.12.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending Earth2Studio" href="extend/index.html" />
+    <link rel="prev" title="Creating a Local Data Source" href="19_local_datasource.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.12" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">StormScope Satellite and Radar Nowcasting</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-20-stormscope-goes-example-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="stormscope-satellite-and-radar-nowcasting">
+<span id="sphx-glr-examples-20-stormscope-goes-example-py"></span><h1>StormScope Satellite and Radar Nowcasting<a class="headerlink" href="#stormscope-satellite-and-radar-nowcasting" title="Link to this heading">#</a></h1>
+<p>StormScope inference workflow with GOES satellite imagery and MRMS radar data.</p>
+<p>This example will demonstrate how to run coupled inference to generate
+predictions using StormScope models with both GOES and MRMS data sources.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to instantiate StormScope models for GOES and MRMS</p></li>
+<li><p>Creating GOES and MRMS data sources</p></li>
+<li><p>Running iterative prognostic forecasts</p></li>
+<li><p>Plotting a single GOES channel with MRMS overlay</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>This example shows a minimal StormScope workflow with GOES satellite imagery
+and MRMS radar data. We build two models:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html#earth2studio.models.px.StormScopeGOES" title="earth2studio.models.px.StormScopeGOES"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.StormScopeGOES</span></code></a> to forecast GOES channels.</p></li>
+<li><p><a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.StormScopeMRMS.html#earth2studio.models.px.StormScopeMRMS" title="earth2studio.models.px.StormScopeMRMS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.StormScopeMRMS</span></code></a> to forecast radar reflectivity.</p></li>
+</ul>
+<p>Each model also needs a conditioning data source. For GOES we use
+<a class="reference internal" href="../modules/generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX" title="earth2studio.data.GFS_FX"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS_FX</span></code></a>, so it can be conditioned on synoptic-scale
+z500 data, and for MRMS we condition on GOES. The GOES model will provide the
+conditioning data for the MRMS model in the inference loop as the models are
+rolled out.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.feature</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cfeature</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS_FX</span><span class="p">,</span> <span class="n">GOES</span><span class="p">,</span> <span class="n">MRMS</span><span class="p">,</span> <span class="n">fetch_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px.stormscope</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">StormScopeBase</span><span class="p">,</span>
+    <span class="n">StormScopeGOES</span><span class="p">,</span>
+    <span class="n">StormScopeMRMS</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>We select the proper GOES platform based on the date and build a single
+initialization timestamp. GOES-19 replaced GOES-16 (both sometimes
+referred to as GOES-East, covering the same CONUS domain) in April 2025.
+Choose pre-trained model names and load them with their conditioning sources.</p>
+<p>Model options:</p>
+<ul class="simple">
+<li><p>“6km_60min_natten_cos_zenith_input_eoe_v2” for 1hr timestep GOES model</p></li>
+<li><p>“6km_10min_natten_pure_obs_zenith_6steps” for 10min timestep GOES model</p></li>
+<li><p>“6km_60min_natten_cos_zenith_input_mrms_eoe” for 1hr timestep MRMS model</p></li>
+<li><p>“6km_10min_natten_pure_obs_mrms_obs_6steps” for 10min timestep MRMS model</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+
+<span class="n">goes_model_name</span> <span class="o">=</span> <span class="s2">&quot;6km_60min_natten_cos_zenith_input_eoe_v2&quot;</span>
+<span class="n">mrms_model_name</span> <span class="o">=</span> <span class="s2">&quot;6km_60min_natten_cos_zenith_input_mrms_eoe&quot;</span>
+
+<span class="n">package</span> <span class="o">=</span> <span class="n">StormScopeBase</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+
+<span class="c1"># Load GOES model with GFS_FX conditioning (should be set to None for 10min models)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">StormScopeGOES</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
+    <span class="n">package</span><span class="o">=</span><span class="n">package</span><span class="p">,</span>
+    <span class="n">conditioning_data_source</span><span class="o">=</span><span class="n">GFS_FX</span><span class="p">(),</span>
+    <span class="n">model_name</span><span class="o">=</span><span class="n">goes_model_name</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+<span class="c1"># Load MRMS model with GOES conditioning (should be set to None for 10min models)</span>
+<span class="n">model_mrms</span> <span class="o">=</span> <span class="n">StormScopeMRMS</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
+    <span class="n">package</span><span class="o">=</span><span class="n">package</span><span class="p">,</span>
+    <span class="n">conditioning_data_source</span><span class="o">=</span><span class="n">GOES</span><span class="p">(),</span>
+    <span class="n">model_name</span><span class="o">=</span><span class="n">mrms_model_name</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">model_mrms</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="n">model_mrms</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading registry.json: 0%|          | 0.00/3.97k [00:00&lt;?, ?B/s]
+Downloading registry.json: 100%|██████████| 3.97k/3.97k [00:00&lt;00:00, 35.8kB/s]
+Downloading registry.json: 100%|██████████| 3.97k/3.97k [00:00&lt;00:00, 35.5kB/s]
+
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 0%|          | 0.00/742M [00:00&lt;?, ?B/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 1%|▏         | 10.0M/742M [00:00&lt;00:15, 48.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 5%|▌         | 40.0M/742M [00:00&lt;00:04, 154MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 11%|█         | 80.0M/742M [00:00&lt;00:03, 217MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 15%|█▍        | 110M/742M [00:00&lt;00:02, 242MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 19%|█▉        | 140M/742M [00:00&lt;00:02, 252MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 23%|██▎       | 170M/742M [00:00&lt;00:02, 265MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 27%|██▋       | 200M/742M [00:00&lt;00:02, 221MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 31%|███       | 230M/742M [00:01&lt;00:02, 185MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 34%|███▎      | 250M/742M [00:01&lt;00:02, 177MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 36%|███▋      | 270M/742M [00:01&lt;00:02, 173MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 39%|███▉      | 290M/742M [00:01&lt;00:02, 160MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 42%|████▏     | 310M/742M [00:01&lt;00:03, 149MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 44%|████▍     | 330M/742M [00:02&lt;00:03, 130MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 47%|████▋     | 350M/742M [00:02&lt;00:03, 113MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 50%|████▉     | 370M/742M [00:02&lt;00:03, 117MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 53%|█████▎    | 390M/742M [00:02&lt;00:03, 109MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 55%|█████▌    | 410M/742M [00:02&lt;00:03, 105MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 58%|█████▊    | 430M/742M [00:03&lt;00:03, 99.7MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 59%|█████▉    | 440M/742M [00:03&lt;00:03, 96.8MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 61%|██████    | 450M/742M [00:03&lt;00:03, 92.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 62%|██████▏   | 460M/742M [00:03&lt;00:03, 94.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 65%|██████▍   | 480M/742M [00:03&lt;00:02, 100MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 67%|██████▋   | 500M/742M [00:03&lt;00:02, 104MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 69%|██████▉   | 510M/742M [00:03&lt;00:02, 99.7MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 71%|███████▏  | 530M/742M [00:04&lt;00:02, 101MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 73%|███████▎  | 540M/742M [00:04&lt;00:02, 101MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 74%|███████▍  | 550M/742M [00:04&lt;00:02, 99.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 77%|███████▋  | 570M/742M [00:04&lt;00:01, 105MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 80%|███████▉  | 590M/742M [00:04&lt;00:01, 108MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 82%|████████▏ | 610M/742M [00:05&lt;00:01, 81.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 84%|████████▎ | 620M/742M [00:05&lt;00:01, 73.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 85%|████████▍ | 630M/742M [00:05&lt;00:01, 73.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 86%|████████▋ | 640M/742M [00:05&lt;00:01, 71.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 88%|████████▊ | 650M/742M [00:05&lt;00:01, 71.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 89%|████████▉ | 660M/742M [00:05&lt;00:01, 72.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 90%|█████████ | 670M/742M [00:06&lt;00:01, 71.5MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 92%|█████████▏| 680M/742M [00:06&lt;00:00, 70.5MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 93%|█████████▎| 690M/742M [00:06&lt;00:00, 65.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 94%|█████████▍| 700M/742M [00:06&lt;00:00, 58.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 96%|█████████▌| 710M/742M [00:07&lt;00:00, 44.8MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 97%|█████████▋| 720M/742M [00:07&lt;00:00, 29.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 98%|█████████▊| 730M/742M [00:11&lt;00:01, 7.93MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 100%|█████████▉| 740M/742M [00:11&lt;00:00, 9.62MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_0.mdlus: 100%|██████████| 742M/742M [00:11&lt;00:00, 65.6MB/s]
+
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 0%|          | 0.00/742M [00:00&lt;?, ?B/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 1%|▏         | 10.0M/742M [00:00&lt;00:25, 30.2MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 3%|▎         | 20.0M/742M [00:00&lt;00:16, 46.9MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 4%|▍         | 30.0M/742M [00:00&lt;00:13, 54.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 5%|▌         | 40.0M/742M [00:00&lt;00:11, 62.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 7%|▋         | 50.0M/742M [00:00&lt;00:11, 64.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 8%|▊         | 60.0M/742M [00:01&lt;00:11, 64.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 9%|▉         | 70.0M/742M [00:01&lt;00:10, 68.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 11%|█         | 80.0M/742M [00:01&lt;00:09, 70.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 12%|█▏        | 90.0M/742M [00:01&lt;00:09, 69.9MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 13%|█▎        | 100M/742M [00:01&lt;00:09, 68.1MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 15%|█▍        | 110M/742M [00:01&lt;00:09, 69.9MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 16%|█▌        | 120M/742M [00:01&lt;00:09, 72.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 18%|█▊        | 130M/742M [00:02&lt;00:08, 73.5MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 19%|█▉        | 140M/742M [00:02&lt;00:08, 71.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 20%|██        | 150M/742M [00:02&lt;00:08, 71.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 22%|██▏       | 160M/742M [00:02&lt;00:08, 74.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 23%|██▎       | 170M/742M [00:02&lt;00:08, 74.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 24%|██▍       | 180M/742M [00:02&lt;00:08, 73.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 26%|██▌       | 190M/742M [00:02&lt;00:08, 70.7MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 27%|██▋       | 200M/742M [00:03&lt;00:07, 74.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 28%|██▊       | 210M/742M [00:03&lt;00:07, 74.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 30%|██▉       | 220M/742M [00:03&lt;00:06, 79.8MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 31%|███       | 230M/742M [00:03&lt;00:06, 84.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 32%|███▏      | 240M/742M [00:03&lt;00:05, 89.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 35%|███▌      | 260M/742M [00:03&lt;00:05, 97.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 36%|███▋      | 270M/742M [00:03&lt;00:05, 94.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 39%|███▉      | 290M/742M [00:04&lt;00:04, 99.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 42%|████▏     | 310M/742M [00:04&lt;00:04, 100MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 43%|████▎     | 320M/742M [00:04&lt;00:04, 96.2MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 44%|████▍     | 330M/742M [00:04&lt;00:04, 93.7MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 46%|████▌     | 340M/742M [00:04&lt;00:04, 89.9MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 47%|████▋     | 350M/742M [00:04&lt;00:04, 85.8MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 49%|████▊     | 360M/742M [00:04&lt;00:04, 86.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 50%|████▉     | 370M/742M [00:05&lt;00:04, 86.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 51%|█████     | 380M/742M [00:05&lt;00:04, 84.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 53%|█████▎    | 390M/742M [00:05&lt;00:04, 82.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 54%|█████▍    | 400M/742M [00:05&lt;00:04, 82.2MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 55%|█████▌    | 410M/742M [00:05&lt;00:04, 81.6MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 57%|█████▋    | 420M/742M [00:05&lt;00:04, 82.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 58%|█████▊    | 430M/742M [00:05&lt;00:03, 83.5MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 59%|█████▉    | 440M/742M [00:05&lt;00:03, 80.8MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 61%|██████    | 450M/742M [00:06&lt;00:03, 80.7MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 62%|██████▏   | 460M/742M [00:06&lt;00:03, 78.9MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 63%|██████▎   | 470M/742M [00:06&lt;00:03, 77.9MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 65%|██████▍   | 480M/742M [00:06&lt;00:03, 79.0MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 66%|██████▌   | 490M/742M [00:06&lt;00:03, 81.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 67%|██████▋   | 500M/742M [00:06&lt;00:02, 85.4MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 70%|███████   | 520M/742M [00:06&lt;00:02, 100MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 73%|███████▎  | 540M/742M [00:06&lt;00:01, 119MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 76%|███████▌  | 560M/742M [00:07&lt;00:01, 127MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 78%|███████▊  | 580M/742M [00:07&lt;00:01, 126MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 81%|████████  | 600M/742M [00:07&lt;00:01, 132MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 84%|████████▎ | 620M/742M [00:07&lt;00:00, 139MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 86%|████████▋ | 640M/742M [00:07&lt;00:00, 141MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 89%|████████▉ | 660M/742M [00:07&lt;00:00, 141MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 92%|█████████▏| 680M/742M [00:08&lt;00:00, 148MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 94%|█████████▍| 700M/742M [00:08&lt;00:00, 144MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 97%|█████████▋| 720M/742M [00:08&lt;00:00, 141MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 100%|█████████▉| 740M/742M [00:08&lt;00:00, 139MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_eoe_v2_1.mdlus: 100%|██████████| 742M/742M [00:08&lt;00:00, 91.6MB/s]
+
+Downloading lat.npy: 0%|          | 0.00/7.27M [00:00&lt;?, ?B/s]
+Downloading lat.npy: 100%|██████████| 7.27M/7.27M [00:00&lt;00:00, 39.3MB/s]
+Downloading lat.npy: 100%|██████████| 7.27M/7.27M [00:00&lt;00:00, 38.2MB/s]
+
+Downloading lon.npy: 0%|          | 0.00/7.27M [00:00&lt;?, ?B/s]
+Downloading lon.npy: 100%|██████████| 7.27M/7.27M [00:00&lt;00:00, 45.9MB/s]
+Downloading lon.npy: 100%|██████████| 7.27M/7.27M [00:00&lt;00:00, 43.7MB/s]
+
+Downloading goes_means.npy: 0%|          | 0.00/160 [00:00&lt;?, ?B/s]
+Downloading goes_means.npy: 100%|██████████| 160/160 [00:00&lt;00:00, 392B/s]
+Downloading goes_means.npy: 100%|██████████| 160/160 [00:00&lt;00:00, 391B/s]
+
+Downloading goes_stds.npy: 0%|          | 0.00/192 [00:00&lt;?, ?B/s]
+Downloading goes_stds.npy: 100%|██████████| 192/192 [00:00&lt;00:00, 1.53kB/s]
+Downloading goes_stds.npy: 100%|██████████| 192/192 [00:00&lt;00:00, 1.46kB/s]
+
+Downloading era5_means.npy: 0%|          | 0.00/132 [00:00&lt;?, ?B/s]
+Downloading era5_means.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 1.15kB/s]
+Downloading era5_means.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 1.14kB/s]
+
+Downloading era5_stds.npy: 0%|          | 0.00/132 [00:00&lt;?, ?B/s]
+Downloading era5_stds.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 833B/s]
+Downloading era5_stds.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 827B/s]
+
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 0%|          | 0.00/741M [00:00&lt;?, ?B/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 1%|▏         | 10.0M/741M [00:00&lt;00:25, 29.7MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 4%|▍         | 30.0M/741M [00:00&lt;00:10, 74.3MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 9%|▉         | 70.0M/741M [00:00&lt;00:04, 158MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 15%|█▍        | 110M/741M [00:00&lt;00:02, 221MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 20%|██        | 150M/741M [00:00&lt;00:02, 260MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 26%|██▌       | 190M/741M [00:00&lt;00:02, 284MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 31%|███       | 230M/741M [00:01&lt;00:01, 308MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 36%|███▋      | 270M/741M [00:01&lt;00:01, 327MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 42%|████▏     | 310M/741M [00:01&lt;00:01, 338MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 47%|████▋     | 350M/741M [00:01&lt;00:01, 349MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 53%|█████▎    | 390M/741M [00:01&lt;00:01, 355MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 58%|█████▊    | 430M/741M [00:01&lt;00:00, 357MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 63%|██████▎   | 470M/741M [00:01&lt;00:00, 358MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 69%|██████▉   | 510M/741M [00:01&lt;00:00, 365MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 74%|███████▍  | 550M/741M [00:01&lt;00:00, 368MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 80%|███████▉  | 590M/741M [00:02&lt;00:00, 343MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 85%|████████▌ | 630M/741M [00:02&lt;00:00, 348MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 90%|█████████ | 670M/741M [00:02&lt;00:00, 353MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 96%|█████████▌| 710M/741M [00:02&lt;00:00, 348MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_0.mdlus: 100%|██████████| 741M/741M [00:02&lt;00:00, 300MB/s]
+
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 0%|          | 0.00/741M [00:00&lt;?, ?B/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 1%|▏         | 10.0M/741M [00:00&lt;00:13, 55.5MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 7%|▋         | 50.0M/741M [00:00&lt;00:03, 199MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 12%|█▏        | 90.0M/741M [00:00&lt;00:02, 267MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 18%|█▊        | 130M/741M [00:00&lt;00:02, 305MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 23%|██▎       | 170M/741M [00:00&lt;00:01, 327MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 28%|██▊       | 210M/741M [00:00&lt;00:01, 341MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 34%|███▎      | 250M/741M [00:00&lt;00:01, 350MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 39%|███▉      | 290M/741M [00:00&lt;00:01, 353MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 45%|████▍     | 330M/741M [00:01&lt;00:01, 355MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 50%|████▉     | 370M/741M [00:01&lt;00:01, 362MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 55%|█████▌    | 410M/741M [00:01&lt;00:00, 360MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 61%|██████    | 450M/741M [00:01&lt;00:00, 351MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 66%|██████▌   | 490M/741M [00:01&lt;00:00, 349MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 72%|███████▏  | 530M/741M [00:01&lt;00:00, 356MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 77%|███████▋  | 570M/741M [00:01&lt;00:00, 358MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 82%|████████▏ | 610M/741M [00:01&lt;00:00, 365MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 88%|████████▊ | 650M/741M [00:02&lt;00:00, 361MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 93%|█████████▎| 690M/741M [00:02&lt;00:00, 343MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 99%|█████████▊| 730M/741M [00:02&lt;00:00, 346MB/s]
+Downloading 6km_60min_natten_cos_zenith_input_mrms_eoe_1.mdlus: 100%|██████████| 741M/741M [00:02&lt;00:00, 333MB/s]
+
+Downloading mrms_means.npy: 0%|          | 0.00/132 [00:00&lt;?, ?B/s]
+Downloading mrms_means.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 1.29kB/s]
+Downloading mrms_means.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 1.28kB/s]
+
+Downloading mrms_stds.npy: 0%|          | 0.00/132 [00:00&lt;?, ?B/s]
+Downloading mrms_stds.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 666B/s]
+Downloading mrms_stds.npy: 100%|██████████| 132/132 [00:00&lt;00:00, 662B/s]
+
+StormScopeMRMS(
+  (stage_models): ModuleList(
+    (0-1): 2 x EDMPrecond(
+      (model): DropInDiT(
+        (pnm): DiT(
+          (tokenizer): PatchEmbed2DTokenizer(
+            (x_embedder): PatchEmbed2D(
+              (pad): ZeroPad2d((0, 0, 0, 0))
+              (proj): Conv2d(14, 768, kernel_size=(4, 4), stride=(4, 4))
+            )
+          )
+          (t_embedder): PositionalEmbedding(
+            (mlp): Sequential(
+              (0): Linear(in_features=256, out_features=768, bias=True)
+              (1): SiLU()
+              (2): Linear(in_features=768, out_features=768, bias=True)
+            )
+          )
+          (detokenizer): ProjReshape2DDetokenizer(
+            (proj_layer): ProjLayer(
+              (proj_layer_norm): LayerNorm((768,), eps=1e-06, elementwise_affine=False)
+              (output_projection): Linear(in_features=768, out_features=16, bias=True)
+              (adaptive_modulation): Sequential(
+                (0): SiLU()
+                (1): Linear(in_features=768, out_features=1536, bias=True)
+              )
+            )
+          )
+          (blocks): ModuleList(
+            (0-15): 16 x DiTBlock(
+              (attention): Natten2DSelfAttention(
+                (qkv): Linear(in_features=768, out_features=2304, bias=True)
+                (q_norm): Identity()
+                (k_norm): Identity()
+                (proj): Linear(in_features=768, out_features=768, bias=True)
+                (attn_drop): Dropout(p=0.0, inplace=False)
+                (proj_drop): Dropout(p=0.0, inplace=False)
+              )
+              (pre_attention_norm): LayerNorm((768,), eps=1e-06, elementwise_affine=False)
+              (pre_mlp_norm): LayerNorm((768,), eps=1e-06, elementwise_affine=False)
+              (linear): Mlp(
+                (layers): Sequential(
+                  (0): Linear(in_features=768, out_features=3072, bias=True)
+                  (1): GELU(approximate=&#39;tanh&#39;)
+                  (2): Linear(in_features=3072, out_features=768, bias=True)
+                )
+              )
+              (adaptive_modulation): Sequential(
+                (0): SiLU()
+                (1): Linear(in_features=768, out_features=4608, bias=True)
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+)
+</pre></div>
+</div>
+</section>
+<section id="setup-goes-data-source-and-interpolators">
+<h2>Setup GOES Data Source and Interpolators<a class="headerlink" href="#setup-goes-data-source-and-interpolators" title="Link to this heading">#</a></h2>
+<p>We fetch GOES data for the model inputs and build interpolators that map the
+GOES grid and GFS grid into the StormScope model grid. StormScope operates on
+the HRRR grid, or a downsampled version of it, and for convenience each model
+defines grid coordinates <cite>model.latitudes</cite> and <cite>model.longitudes</cite> to help with
+the regridding functionality.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">start_date</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">00</span><span class="p">,</span> <span class="mi">0</span><span class="p">))]</span>
+<span class="n">goes_satellite</span> <span class="o">=</span> <span class="s2">&quot;goes16&quot;</span>
+<span class="n">scan_mode</span> <span class="o">=</span> <span class="s2">&quot;C&quot;</span>
+
+<span class="n">variables</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+<span class="n">lat_out</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">latitudes</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">lon_out</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">longitudes</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="n">goes</span> <span class="o">=</span> <span class="n">GOES</span><span class="p">(</span><span class="n">satellite</span><span class="o">=</span><span class="n">goes_satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="o">=</span><span class="n">scan_mode</span><span class="p">)</span>
+<span class="n">goes_lat</span><span class="p">,</span> <span class="n">goes_lon</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">satellite</span><span class="o">=</span><span class="n">goes_satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="o">=</span><span class="n">scan_mode</span><span class="p">)</span>
+
+<span class="c1"># Build interpolators for transforming data to model grid</span>
+<span class="n">model</span><span class="o">.</span><span class="n">build_input_interpolator</span><span class="p">(</span><span class="n">goes_lat</span><span class="p">,</span> <span class="n">goes_lon</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">build_conditioning_interpolator</span><span class="p">(</span><span class="n">GFS_FX</span><span class="o">.</span><span class="n">GFS_LAT</span><span class="p">,</span> <span class="n">GFS_FX</span><span class="o">.</span><span class="n">GFS_LON</span><span class="p">)</span>
+
+<span class="n">in_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+
+<span class="c1"># Fetch GOES data</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+    <span class="n">goes</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span>
+    <span class="n">lead_time</span><span class="o">=</span><span class="n">in_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-01-27 23:18:34.262 | WARNING  | earth2studio.models.px.stormscope:build_input_interpolator:294 - Some input gridpoints are invalid after interpolation. This may be expected if the input data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model&#39;s _INPUT_INVALID_FILL_CONSTANT (0.0).
+
+Fetching GOES data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+
+2026-01-27 23:18:35.116 | DEBUG    | earth2studio.data.goes:fetch_array:373 - Fetching GOES file: noaa-goes16/ABI-L2-MCMIPC/2023/339/12/OR_ABI-L2-MCMIPC-M6_G16_s20233391201173_e20233391203557_c20233391204066.nc
+
+Fetching GOES data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching GOES data: 100%|██████████| 1/1 [01:38&lt;00:00, 98.45s/it]
+Fetching GOES data: 100%|██████████| 1/1 [01:38&lt;00:00, 98.45s/it]
+</pre></div>
+</div>
+</section>
+<section id="setup-mrms-data-source-and-interpolators">
+<h2>Setup MRMS Data Source and Interpolators<a class="headerlink" href="#setup-mrms-data-source-and-interpolators" title="Link to this heading">#</a></h2>
+<p>MRMS inputs are fetched and interpolated to the model grid. The MRMS model is
+conditioned on GOES, so we also build the GOES conditioning interpolator.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">mrms</span> <span class="o">=</span> <span class="n">MRMS</span><span class="p">()</span>
+<span class="n">mrms_in_coords</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<span class="n">x_mrms</span><span class="p">,</span> <span class="n">x_coords_mrms</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+    <span class="n">mrms</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;refc&quot;</span><span class="p">]),</span>
+    <span class="n">lead_time</span><span class="o">=</span><span class="n">mrms_in_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">model_mrms</span><span class="o">.</span><span class="n">build_input_interpolator</span><span class="p">(</span><span class="n">x_coords_mrms</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">x_coords_mrms</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span>
+<span class="n">model_mrms</span><span class="o">.</span><span class="n">build_conditioning_interpolator</span><span class="p">(</span><span class="n">goes_lat</span><span class="p">,</span> <span class="n">goes_lon</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching MRMS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+
+2026-01-27 23:20:14.965 | INFO     | earth2studio.data.mrms:_fetch_task:288 - Fetching MRMS file: s3://noaa-mrms-pds/CONUS/MergedReflectivityQCComposite_00.50/20231205/MRMS_MergedReflectivityQCComposite_00.50_20231205-120039.grib2.gz
+
+Fetching MRMS data:   0%|          | 0/1 [00:01&lt;?, ?it/s]
+Fetching MRMS data: 100%|██████████| 1/1 [00:09&lt;00:00,  9.77s/it]
+Fetching MRMS data: 100%|██████████| 1/1 [00:09&lt;00:00,  9.77s/it]
+2026-01-27 23:20:32.354 | WARNING  | earth2studio.models.px.stormscope:build_input_interpolator:294 - Some input gridpoints are invalid after interpolation. This may be expected if the input data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model&#39;s _INPUT_INVALID_FILL_CONSTANT (-0.25285158).
+2026-01-27 23:20:34.119 | WARNING  | earth2studio.models.px.stormscope:build_conditioning_interpolator:340 - Some conditioning gridpoints are invalid after interpolation. This may be expected if the conditioning data source is not available at all gridpoints, but consider double-checking coordinates and/or the max_dist_km parameter. Invalid points will be filled with the model&#39;s _INPUT_INVALID_FILL_CONSTANT (-0.25285158).
+</pre></div>
+</div>
+</section>
+<section id="add-batch-dimension">
+<h2>Add Batch Dimension<a class="headerlink" href="#add-batch-dimension" title="Link to this heading">#</a></h2>
+<p>The models expect a batch dimension: [B, T, L, C, H, W]. Up to GPU memory limits,
+this can be increased to produce multiple ensemble members.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">x_coords</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+    <span class="n">x_coords</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">x_mrms</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+    <span class="n">x_mrms</span> <span class="o">=</span> <span class="n">x_mrms</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">x_coords_mrms</span><span class="p">[</span><span class="s2">&quot;batch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+    <span class="n">x_coords_mrms</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;batch&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">x_mrms</span> <span class="o">=</span> <span class="n">x_mrms</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="execute-the-workflow">
+<h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
+<p>Since the StormScope coupled inference is a bit more involved, we will use
+a custom forecast loop rather than a bilt-in workflow. Here, the GOES model
+predicts future satellite imagery, and the MRMS model predicts radar
+reflectivity conditioned on GOES (initially the raw data, then the forecasted
+GOES imagery) via <cite>call_with_conditioning</cite>.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span>
+<span class="n">y_mrms</span><span class="p">,</span> <span class="n">y_coords_mrms</span> <span class="o">=</span> <span class="n">x_mrms</span><span class="p">,</span> <span class="n">x_coords_mrms</span>
+
+<span class="n">n_steps</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="k">for</span> <span class="n">step_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+    <span class="c1"># Run one prognostic step with the GOES model</span>
+    <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_pred_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+
+    <span class="c1"># Run one prognostic step with the MRMS model conditioned on GOES</span>
+    <span class="n">y_mrms_pred</span><span class="p">,</span> <span class="n">y_coords_mrms_pred</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">call_with_conditioning</span><span class="p">(</span>
+        <span class="n">y_mrms</span><span class="p">,</span> <span class="n">y_coords_mrms</span><span class="p">,</span> <span class="n">conditioning</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">conditioning_coords</span><span class="o">=</span><span class="n">y_coords</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Update sliding window with new prediction</span>
+    <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_pred_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">next_input</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_pred_coords</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+    <span class="n">y_mrms_pred</span><span class="p">,</span> <span class="n">y_coords_mrms_pred</span> <span class="o">=</span> <span class="n">model_mrms</span><span class="o">.</span><span class="n">next_input</span><span class="p">(</span>
+        <span class="n">y_mrms_pred</span><span class="p">,</span> <span class="n">y_coords_mrms_pred</span><span class="p">,</span> <span class="n">y_mrms</span><span class="p">,</span> <span class="n">y_coords_mrms</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Update the input tensors and coordinate systems for the next step</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y_pred</span>
+    <span class="n">y_coords</span> <span class="o">=</span> <span class="n">y_pred_coords</span>
+    <span class="n">y_mrms</span> <span class="o">=</span> <span class="n">y_mrms_pred</span>
+    <span class="n">y_coords_mrms</span> <span class="o">=</span> <span class="n">y_coords_mrms_pred</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+
+2026-01-27 23:20:34.511 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231205/12/atmos/gfs.t12z.pgrb2.0p25.f000 249984047-806119
+
+Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:01&lt;00:00,  1.04s/it]
+Fetching GFS data: 100%|██████████| 1/1 [00:01&lt;00:00,  1.04s/it]
+
+Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+
+2026-01-27 23:23:12.847 | DEBUG    | earth2studio.data.gfs:fetch_array:382 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20231205/12/atmos/gfs.t12z.pgrb2.0p25.f001 251001283-806171
+
+Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.89it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.89it/s]
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>Let’s plot the final forecast step: GOES abi13c (Clean IR 10.35um) in
+grayscale with MRMS reflectivity (refc) overlaid.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">goes_channel</span> <span class="o">=</span> <span class="s2">&quot;abi13c&quot;</span>
+<span class="n">goes_ch_idx</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">variables</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">goes_channel</span><span class="p">)</span>
+<span class="n">mrms_ch_idx</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_mrms</span><span class="o">.</span><span class="n">variables</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;refc&quot;</span><span class="p">)</span>
+
+<span class="c1"># Nan-fill invalid gridpoints</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">valid_mask</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+<span class="n">y_mrms_pred</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">model_mrms</span><span class="o">.</span><span class="n">valid_mask</span><span class="p">,</span> <span class="n">y_mrms_pred</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+
+<span class="c1"># Prepare HRRR Lambert Conformal projection</span>
+<span class="n">proj_hrrr</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">LambertConformal</span><span class="p">(</span>
+    <span class="n">central_longitude</span><span class="o">=</span><span class="mf">262.5</span><span class="p">,</span>
+    <span class="n">central_latitude</span><span class="o">=</span><span class="mf">38.5</span><span class="p">,</span>
+    <span class="n">standard_parallels</span><span class="o">=</span><span class="p">(</span><span class="mf">38.5</span><span class="p">,</span> <span class="mf">38.5</span><span class="p">),</span>
+    <span class="n">globe</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">Globe</span><span class="p">(</span><span class="n">semimajor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">,</span> <span class="n">semiminor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">projection</span><span class="o">=</span><span class="n">proj_hrrr</span><span class="p">)</span>
+
+<span class="c1"># Dual layer coast/state lines for better day/night visibility</span>
+<span class="c1"># Black halo (thicker)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="n">cfeature</span><span class="o">.</span><span class="n">STATES</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+<span class="c1"># White inner line (thinner)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.4</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="n">cfeature</span><span class="o">.</span><span class="n">STATES</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+<span class="n">field</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">goes_ch_idx</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">lon_out</span><span class="p">,</span>
+    <span class="n">lat_out</span><span class="p">,</span>
+    <span class="n">field</span><span class="p">,</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gray_r&quot;</span><span class="p">,</span>
+    <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Overlay MRMS on top of GOES</span>
+<span class="n">field_mrms</span> <span class="o">=</span> <span class="n">y_mrms_pred</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">mrms_ch_idx</span><span class="p">]</span>
+<span class="n">field_mrms</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">model</span><span class="o">.</span><span class="n">valid_mask</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">field_mrms</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="p">)</span>
+<span class="n">field_mrms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">field_mrms</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">field_mrms</span><span class="p">)</span>
+<span class="n">im_mrms</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">lon_out</span><span class="p">,</span>
+    <span class="n">lat_out</span><span class="p">,</span>
+    <span class="n">field_mrms</span><span class="p">,</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;inferno&quot;</span><span class="p">,</span>
+    <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mf">55.0</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span>
+    <span class="n">im</span><span class="p">,</span>
+    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;GOES Clean IR 10.35um [K]&quot;</span><span class="p">,</span>
+    <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
+    <span class="n">pad</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">shrink</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span>
+    <span class="n">im_mrms</span><span class="p">,</span>
+    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;MRMS Reflectivity [dBZ]&quot;</span><span class="p">,</span>
+    <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
+    <span class="n">pad</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">shrink</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">time</span> <span class="o">=</span> <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="n">lead_time</span> <span class="o">=</span> <span class="n">y_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+    <span class="sa">f</span><span class="s2">&quot;Predicted GOES </span><span class="si">{</span><span class="n">goes_channel</span><span class="si">}</span><span class="s2"> with MRMS overlay from </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> UTC &quot;</span>
+    <span class="sa">f</span><span class="s2">&quot;initialization (lead </span><span class="si">{</span><span class="n">lead_time</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;timedelta64[m]&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+<span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/20_stormscope_goes_example.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_20_stormscope_goes_example_001.png" srcset="../_images/sphx_glr_20_stormscope_goes_example_001.png" alt="Predicted GOES abi13c with MRMS overlay from 2023-12-05 12:00:00 UTC initialization (lead 2:00:00)" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (8 minutes 5.232 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-20-stormscope-goes-example-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/b25392c284f807b9b86601f4865de6dc/20_stormscope_goes_example.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">20_stormscope_goes_example.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/d1a8ee19ba57b4e88e0ca042cb4f1652/20_stormscope_goes_example.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">20_stormscope_goes_example.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/db8f7835a2cc237ce716d006e2311080/20_stormscope_goes_example.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">20_stormscope_goes_example.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="19_local_datasource.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Creating a Local Data Source</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="extend/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Extending Earth2Studio</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup-goes-data-source-and-interpolators">Setup GOES Data Source and Interpolators</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup-mrms-data-source-and-interpolators">Setup MRMS Data Source and Interpolators</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#add-batch-dimension">Add Batch Dimension</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-the-workflow">Execute the Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/20_stormscope_goes_example.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

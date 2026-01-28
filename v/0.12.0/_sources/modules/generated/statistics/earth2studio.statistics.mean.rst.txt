@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.mean
+==========================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: mean
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.statistics.mean:
+
+.. minigallery:: earth2studio.statistics.mean
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

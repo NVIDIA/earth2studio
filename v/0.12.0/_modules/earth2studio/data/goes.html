@@ -1,0 +1,1191 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.data.goes &#8212; Earth2Studio 0.12.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=61ccb1f1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/goes';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.12.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.12" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.data.goes</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.data.goes</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">datasource_cache_root</span><span class="p">,</span>
+    <span class="n">prep_data_inputs</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">GOESLexicon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+
+
+<div class="viewcode-block" id="GOES">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GOES.html#earth2studio.data.GOES">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GOES</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GOES (Geostationary Operational Environmental Satellite) data source.</span>
+
+<span class="sd">    This data source provides access to GOES-16 and GOES-18 satellite data from AWS S3.</span>
+<span class="sd">    The data is exclusively ABI (Advanced Baseline Imager) data for now.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    satellite : str, optional</span>
+<span class="sd">        Which GOES satellite to use (&#39;goes16&#39;, &#39;goes17&#39;, &#39;goes18&#39;, or &#39;goes19&#39;), by default &#39;goes16&#39;</span>
+<span class="sd">    scan_mode : str, optional</span>
+<span class="sd">        For ABI: Scan mode (&#39;F&#39; for Full Disk, &#39;C&#39; for Continental US)</span>
+<span class="sd">        Mesoscale data is currently not supported due to the changing scan position.</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Maximum number of workers for parallel downloads, by default 24</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Whether to cache downloaded files, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Whether to print progress information, by default True</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Timeout for async operations in seconds, by default 600</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Beginners Guide to GOES-R Series Data:</span>
+<span class="sd">    https://noaa-goes16.s3.amazonaws.com/Beginners_Guide_to_GOES-R_Series_Data.pdf</span>
+
+<span class="sd">    AWS S3 Bucket:</span>
+<span class="sd">    https://aws.amazon.com/marketplace/pp/prodview-ngejrbcumyjtu#usage</span>
+
+<span class="sd">    ABI Data:</span>
+
+<span class="sd">    - 16 spectral bands (abi01c-abi16c):</span>
+
+<span class="sd">        - abi01c, abi02c (Visible: Blue, Red)</span>
+<span class="sd">        - abi03c-abi06c (Near IR: Vegetation, Cirrus, Snow/Ice, Cloud particles)</span>
+<span class="sd">        - abi07c-abi16c (IR: Thermal and water vapor channels)</span>
+
+<span class="sd">    - Scan modes:</span>
+
+<span class="sd">        - Full Disk (F): Entire Earth view</span>
+<span class="sd">        - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SCAN_TIME_FREQUENCY</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="mi">600</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="mi">300</span><span class="p">,</span>
+    <span class="p">}</span>  <span class="c1"># Scan time frequency in seconds</span>
+    <span class="n">SCAN_DIMENSIONS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">5424</span><span class="p">,</span> <span class="mi">5424</span><span class="p">),</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1500</span><span class="p">,</span> <span class="mi">2500</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">VALID_SCAN_MODES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;goes16&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;goes17&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;goes18&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;goes19&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+    <span class="n">GOES_HISTORY_RANGE</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;goes16&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">datetime</span><span class="p">(</span><span class="mi">2017</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">18</span><span class="p">),</span>
+            <span class="n">datetime</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+        <span class="p">),</span>  <span class="c1"># GOES-16 operational from Dec 18, 2017</span>
+        <span class="s2">&quot;goes17&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">datetime</span><span class="p">(</span><span class="mi">2019</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span>
+            <span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+        <span class="p">),</span>  <span class="c1"># GOES-17 operational from Feb 12, 2019</span>
+        <span class="s2">&quot;goes18&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># GOES-18 operational from Jan 4, 2023</span>
+        <span class="s2">&quot;goes19&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># GOES-19 operational from Apr 7, 2025</span>
+    <span class="p">}</span>
+    <span class="n">PERSPECTIVE_POINT_HEIGHT</span> <span class="o">=</span> <span class="mf">35786023.0</span>
+    <span class="n">SEMI_MAJOR_AXIS</span> <span class="o">=</span> <span class="mf">6378137.0</span>
+    <span class="n">SEMI_MINOR_AXIS</span> <span class="o">=</span> <span class="mf">6356752.31414</span>
+    <span class="n">LATITUDE_OF_PROJECTION_ORIGIN</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">LONGITUDE_OF_PROJECTION_ORIGIN</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;goes16&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">75.0</span><span class="p">,</span>
+        <span class="s2">&quot;goes17&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">137.0</span><span class="p">,</span>
+        <span class="s2">&quot;goes18&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">137.0</span><span class="p">,</span>
+        <span class="s2">&quot;goes19&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">75.0</span><span class="p">,</span>
+    <span class="p">}</span>  <span class="c1"># https://www.ospo.noaa.gov/operations/goes/east/fd-img16.html</span>
+    <span class="n">FULL_DISK_YX</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+            <span class="o">-</span><span class="mf">0.15184399485588074</span><span class="p">,</span>
+            <span class="mf">0.15184399485588074</span><span class="p">,</span>
+            <span class="mi">5424</span><span class="p">,</span>
+        <span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+            <span class="o">-</span><span class="mf">0.15184399485588074</span><span class="p">,</span>
+            <span class="mf">0.15184399485588074</span><span class="p">,</span>
+            <span class="mi">5424</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">CONTINENTAL_US_YX</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;goes16&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="mf">0.04426800459623337</span><span class="p">,</span>
+                <span class="mf">0.12821200489997864</span><span class="p">,</span>
+                <span class="mi">1500</span><span class="p">,</span>
+            <span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.10133200138807297</span><span class="p">,</span>
+                <span class="mf">0.038612000644207</span><span class="p">,</span>
+                <span class="mi">2500</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;goes17&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="mf">0.04426800459623337</span><span class="p">,</span>
+                <span class="mf">0.12821200489997864</span><span class="p">,</span>
+                <span class="mi">1500</span><span class="p">,</span>
+            <span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.06997200101613998</span><span class="p">,</span>
+                <span class="mf">0.06997200101613998</span><span class="p">,</span>
+                <span class="mi">2500</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;goes18&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="mf">0.04426800459623337</span><span class="p">,</span>
+                <span class="mf">0.12821200489997864</span><span class="p">,</span>
+                <span class="mi">1500</span><span class="p">,</span>
+            <span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.06997200101613998</span><span class="p">,</span>
+                <span class="mf">0.06997200101613998</span><span class="p">,</span>
+                <span class="mi">2500</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;goes19&quot;</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="mf">0.04426800459623337</span><span class="p">,</span>
+                <span class="mf">0.12821200489997864</span><span class="p">,</span>
+                <span class="mi">1500</span><span class="p">,</span>
+            <span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.10133200138807297</span><span class="p">,</span>
+                <span class="mf">0.038612000644207</span><span class="p">,</span>
+                <span class="mi">2500</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;s3://noaa-</span><span class="si">{satellite}</span><span class="s2">/ABI-L2-MCMIP</span><span class="si">{scan_mode}</span><span class="s2">/</span><span class="si">{year:04d}</span><span class="s2">/</span><span class="si">{day_of_year:03d}</span><span class="s2">/</span><span class="si">{hour:02d}</span><span class="s2">/&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">satellite</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;goes16&quot;</span><span class="p">,</span>
+        <span class="n">scan_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span> <span class="o">=</span> <span class="n">satellite</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span> <span class="o">=</span> <span class="n">scan_mode</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
+
+        <span class="c1"># Stash the grid coords so they can be added to data arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">satellite</span><span class="o">=</span><span class="n">satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="o">=</span><span class="n">scan_mode</span><span class="p">)</span>
+
+        <span class="c1"># Validate satellite and scan mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_satellite_scan_mode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">)</span>
+
+        <span class="c1"># Set up S3 filesystem</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_async_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async initialization of S3 filesystem&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="GOES.__call__">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GOES.html#earth2studio.data.GOES.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the GOES lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Data array containing the requested GOES data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># Patch asyncio to work in notebooks</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="c1"># If no event loop exists, create one</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_timeout</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
+
+<div class="viewcode-block" id="GOES.fetch">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GOES.html#earth2studio.data.GOES.fetch">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            Variables to return using standardized names</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            GOES data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;File store is not initialized! If you are calling this </span><span class="se">\</span>
+<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
+<span class="s2">            loop!&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="c1"># Make sure input time is valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+        <span class="c1"># Create cache dir if doesn&#39;t exist</span>
+        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Create DataArray with appropriate dimensions</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span> <span class="o">==</span> <span class="s2">&quot;F&quot;</span><span class="p">:</span>
+            <span class="n">y_coords</span><span class="p">,</span> <span class="n">x_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FULL_DISK_YX</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y_coords</span><span class="p">,</span> <span class="n">x_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CONTINENTAL_US_YX</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">]</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">SCAN_DIMENSIONS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">])</span>
+            <span class="p">),</span>
+            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">],</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable</span><span class="p">,</span>
+                <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y_coords</span><span class="p">,</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x_coords</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create download tasks</span>
+        <span class="n">async_tasks</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time</span><span class="p">)]</span>
+        <span class="n">func_map</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span>
+            <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_wrapper</span><span class="p">,</span> <span class="n">xr_array</span><span class="o">=</span><span class="n">xr_array</span><span class="p">),</span> <span class="n">async_tasks</span>
+        <span class="p">)</span>
+
+        <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GOES data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Close aiohttp client if s3fs</span>
+        <span class="k">if</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="c1"># Delete cache if needed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span>
+
+        <span class="c1"># Add the grid coords to the data array</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr_array</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;_lat&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">),</span> <span class="s2">&quot;_lon&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span><span class="p">)}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">e</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+        <span class="n">xr_array</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Small wrapper to pack arrays into the DataArray&quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_array</span><span class="p">(</span>
+            <span class="n">time</span><span class="o">=</span><span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">variable</span><span class="o">=</span><span class="n">e</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">xr_array</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">out</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_array</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch GOES data array</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime</span>
+<span class="sd">            Time to get data for</span>
+<span class="sd">        variable : str</span>
+<span class="sd">            Variable to get</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            GOES data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Get the S3 path for the GOES data file</span>
+        <span class="n">goes_uri</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_s3_path</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetching GOES file: </span><span class="si">{</span><span class="n">goes_uri</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Download the file to cache</span>
+        <span class="n">goes_file</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">goes_uri</span><span class="p">)</span>
+        <span class="c1"># Open into xarray data-array</span>
+        <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">goes_file</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="p">),</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">SCAN_DIMENSIONS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">]))</span>
+
+        <span class="c1"># Pre-process lexicon lookups to avoid try-except in loop</span>
+        <span class="n">variable_mappings</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">GOESLexicon</span><span class="o">.</span><span class="n">VOCAB</span><span class="p">:</span>
+                <span class="n">goes_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GOESLexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+                <span class="n">variable_mappings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">v</span><span class="p">,</span> <span class="n">goes_name</span><span class="p">,</span> <span class="n">modifier</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in GOES lexicon, using as is&quot;</span><span class="p">)</span>
+                <span class="n">variable_mappings</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">goes_name</span><span class="p">,</span> <span class="n">modifier</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable_mappings</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">modifier</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">modifier</span><span class="p">(</span><span class="n">da</span><span class="p">[</span><span class="n">goes_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">da</span><span class="p">[</span><span class="n">goes_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_get_s3_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the S3 path for the GOES data file&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File system is not initialized&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get needed date components</span>
+        <span class="n">year</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">year</span>
+        <span class="n">day_of_year</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()</span><span class="o">.</span><span class="n">tm_yday</span>
+        <span class="n">hour</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">hour</span>
+
+        <span class="n">base_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">BASE_URL</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">satellite</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">,</span>
+            <span class="n">scan_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">,</span>
+            <span class="n">day_of_year</span><span class="o">=</span><span class="n">day_of_year</span><span class="p">,</span>
+            <span class="n">hour</span><span class="o">=</span><span class="n">hour</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># List files in the directory to find the most recent one</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_ls</span><span class="p">(</span><span class="n">base_url</span><span class="p">)</span>
+
+        <span class="c1"># Filter for files matching the product and scan mode (M1, and M2 will be in the same directory for example)</span>
+        <span class="n">pattern</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;OR_ABI-L2-MCMIP</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">matching_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+
+        <span class="c1"># Get time stamps from file names</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_time</span><span class="p">(</span><span class="n">file_name</span><span class="p">):</span>
+            <span class="n">start_str</span> <span class="o">=</span> <span class="n">file_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">3</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">start_str</span><span class="p">,</span> <span class="s2">&quot;%Y%j%H%M%S&quot;</span><span class="p">)</span>
+
+        <span class="n">time_stamps</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_time</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">matching_files</span><span class="p">]</span>
+
+        <span class="c1"># Get the index of the file that is the closest to the requested time</span>
+        <span class="c1"># NOTE: Some of the M1 and M2 files seem to have ~10 min gaps here and there.</span>
+        <span class="c1"># This fixes this issue by just taking the closest file. Still, some caution</span>
+        <span class="c1"># is advised. Currently we only support F and C scan modes and those do not</span>
+        <span class="c1"># have any gaps. Keeping this here for future reference though.</span>
+        <span class="n">file_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_stamps</span><span class="p">)</span> <span class="o">-</span> <span class="n">time</span><span class="p">))</span>
+
+        <span class="c1"># Get the file name</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">matching_files</span><span class="p">[</span><span class="n">file_index</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">file_name</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GOES</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            List of date times to fetch data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="c1"># Check scan frequency interval</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+                <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCAN_TIME_FREQUENCY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">]</span>
+                <span class="o">==</span> <span class="mi">0</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">SCAN_TIME_FREQUENCY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">]</span><span class="si">}</span><span class="s2"> second interval for GOES with scan mode </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">GOES_HISTORY_RANGE</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">start_date</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> is before </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="si">}</span><span class="s2"> became operational (</span><span class="si">{</span><span class="n">start_date</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">end_date</span> <span class="ow">and</span> <span class="n">time</span> <span class="o">&gt;</span> <span class="n">end_date</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> is after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="si">}</span><span class="s2"> was retired (</span><span class="si">{</span><span class="n">end_date</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_remote_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches remote file into cache&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File system is not initialized&quot;</span><span class="p">)</span>
+
+        <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+        <span class="n">cache_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">async_impl</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_cat_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">read_block</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cache_path</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
+        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;goes&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_location</span><span class="p">,</span> <span class="s2">&quot;tmp_goes&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cache_location</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_satellite_scan_mode</span><span class="p">(</span><span class="n">satellite</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scan_mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate satellite and scan mode combination.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        satellite : str</span>
+<span class="sd">            Satellite name to validate</span>
+<span class="sd">        scan_mode : str</span>
+<span class="sd">            Scan mode to validate</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If satellite or scan mode is invalid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">satellite</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">GOES</span><span class="o">.</span><span class="n">VALID_SCAN_MODES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid satellite </span><span class="si">{</span><span class="n">satellite</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scan_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">GOES</span><span class="o">.</span><span class="n">VALID_SCAN_MODES</span><span class="p">[</span><span class="n">satellite</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">scan_mode</span> <span class="o">==</span> <span class="s2">&quot;M1&quot;</span> <span class="ow">or</span> <span class="n">scan_mode</span> <span class="o">==</span> <span class="s2">&quot;M2&quot;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Mesoscale data (</span><span class="si">{</span><span class="n">scan_mode</span><span class="si">}</span><span class="s2">) is currently not supported by this data source due to the changing scan position.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid scan mode </span><span class="si">{</span><span class="n">scan_mode</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">satellite</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GOES.available">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.GOES.html#earth2studio.data.GOES.available">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">available</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span>
+        <span class="n">satellite</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;goes16&quot;</span><span class="p">,</span>
+        <span class="n">scan_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if given date time is available in the GOES object store</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | np.datetime64</span>
+<span class="sd">            Date time to access</span>
+<span class="sd">        satellite : str, optional</span>
+<span class="sd">            Which GOES satellite to check, by default &quot;goes16&quot;</span>
+<span class="sd">        scan_mode : str, optional</span>
+<span class="sd">            Which scan mode to check, by default &quot;F&quot;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            If date time is available</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>  <span class="c1"># np.datetime64 -&gt; datetime</span>
+            <span class="n">_unix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
+            <span class="n">_ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">)</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">((</span><span class="n">time</span> <span class="o">-</span> <span class="n">_unix</span><span class="p">)</span> <span class="o">/</span> <span class="n">_ds</span><span class="p">,</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+
+        <span class="c1"># Validate satellite and scan mode</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_satellite_scan_mode</span><span class="p">(</span><span class="n">satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="p">)</span>
+
+        <span class="c1"># Check if data exists in S3</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Get needed date components</span>
+        <span class="n">year</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">year</span>
+        <span class="n">day_of_year</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()</span><span class="o">.</span><span class="n">tm_yday</span>
+        <span class="n">hour</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">hour</span>
+
+        <span class="c1"># Construct the base URL</span>
+        <span class="n">base_url</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">BASE_URL</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">satellite</span><span class="o">=</span><span class="n">satellite</span><span class="p">,</span>
+            <span class="n">scan_mode</span><span class="o">=</span><span class="n">scan_mode</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">,</span>
+            <span class="n">day_of_year</span><span class="o">=</span><span class="n">day_of_year</span><span class="p">,</span>
+            <span class="n">hour</span><span class="o">=</span><span class="n">hour</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># List files in the directory</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">base_url</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Filter for files matching the product and scan mode</span>
+        <span class="n">pattern</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;OR_ABI-L2-MCMIP</span><span class="si">{</span><span class="n">scan_mode</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">matching_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">matching_files</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Sort files by time (same logic as _get_s3_path)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_time</span><span class="p">(</span><span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+            <span class="n">start_str</span> <span class="o">=</span> <span class="n">file_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">3</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">start_str</span><span class="p">,</span> <span class="s2">&quot;%Y%j%H%M%S&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">tzinfo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">t</span>
+
+        <span class="n">time_stamps</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_time</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">matching_files</span><span class="p">]</span>
+
+        <span class="c1"># Get the index of the file that is the closest to the requested time</span>
+        <span class="n">file_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_stamps</span><span class="p">)</span> <span class="o">-</span> <span class="n">time</span><span class="p">))</span>
+
+        <span class="c1"># Check if the specific file exists</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">matching_files</span><span class="p">[</span><span class="n">file_index</span><span class="p">]</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">grid</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">satellite</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;goes16&quot;</span><span class="p">,</span> <span class="n">scan_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return (lat, lon) in degrees for the native GOES grid.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        satellite : str, optional</span>
+<span class="sd">            Which GOES satellite to use, by default &quot;goes16&quot;</span>
+<span class="sd">        scan_mode : str, optional</span>
+<span class="sd">            Scan mode (&#39;F&#39; for Full Disk, &#39;C&#39; for Continental US), by default &quot;F&quot;</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        This function is based on the GOES ABI fixed grid projection variables and constants.</span>
+<span class="sd">        The projection comes from the recommended NOAA documentation:</span>
+<span class="sd">        https://www.star.nesdis.noaa.gov/atmospheric-composition-training/python_abi_lat_lon.php</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[np.ndarray, np.ndarray]</span>
+<span class="sd">            Tuple of (lat, lon) in degrees</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Validate satellite and scan mode</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_validate_satellite_scan_mode</span><span class="p">(</span><span class="n">satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="p">)</span>
+
+        <span class="c1"># Read in GOES ABI fixed grid projection variables and constants</span>
+        <span class="k">if</span> <span class="n">scan_mode</span> <span class="o">==</span> <span class="s2">&quot;F&quot;</span><span class="p">:</span>
+            <span class="n">x_coordinate_1d</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">FULL_DISK_YX</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># E/W scanning angle in radians</span>
+            <span class="n">y_coordinate_1d</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">FULL_DISK_YX</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># N/S elevation angle in radians</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x_coordinate_1d</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">CONTINENTAL_US_YX</span><span class="p">[</span><span class="n">satellite</span><span class="p">][</span>
+                <span class="mi">1</span>
+            <span class="p">]</span>  <span class="c1"># E/W scanning angle in radians</span>
+            <span class="n">y_coordinate_1d</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">CONTINENTAL_US_YX</span><span class="p">[</span><span class="n">satellite</span><span class="p">][</span>
+                <span class="mi">0</span>
+            <span class="p">]</span>  <span class="c1"># N/S elevation angle in radians</span>
+        <span class="n">lon_origin</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">LONGITUDE_OF_PROJECTION_ORIGIN</span><span class="p">[</span><span class="n">satellite</span><span class="p">]</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">PERSPECTIVE_POINT_HEIGHT</span> <span class="o">+</span> <span class="n">GOES</span><span class="o">.</span><span class="n">SEMI_MAJOR_AXIS</span>
+        <span class="n">r_eq</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">SEMI_MAJOR_AXIS</span>
+        <span class="n">r_pol</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">SEMI_MINOR_AXIS</span>
+
+        <span class="c1"># Create 2D coordinate matrices from 1D coordinate vectors</span>
+        <span class="n">x_coordinate_2d</span><span class="p">,</span> <span class="n">y_coordinate_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_coordinate_1d</span><span class="p">,</span> <span class="n">y_coordinate_1d</span><span class="p">)</span>
+
+        <span class="c1"># Equations to calculate latitude and longitude</span>
+        <span class="c1"># Use errstate context manager to suppress invalid operations (e.g., sqrt of negative numbers)</span>
+        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+            <span class="n">lambda_0</span> <span class="o">=</span> <span class="p">(</span><span class="n">lon_origin</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">/</span> <span class="mf">180.0</span>
+            <span class="n">a_var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x_coordinate_2d</span><span class="p">),</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_coordinate_2d</span><span class="p">),</span> <span class="mf">2.0</span><span class="p">)</span>
+                <span class="o">*</span> <span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">y_coordinate_2d</span><span class="p">),</span> <span class="mf">2.0</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="p">(</span>
+                        <span class="p">((</span><span class="n">r_eq</span> <span class="o">*</span> <span class="n">r_eq</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">r_pol</span> <span class="o">*</span> <span class="n">r_pol</span><span class="p">))</span>
+                        <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">y_coordinate_2d</span><span class="p">),</span> <span class="mf">2.0</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">b_var</span> <span class="o">=</span> <span class="o">-</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">H</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_coordinate_2d</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">y_coordinate_2d</span><span class="p">)</span>
+            <span class="n">c_var</span> <span class="o">=</span> <span class="p">(</span><span class="n">H</span><span class="o">**</span><span class="mf">2.0</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">r_eq</span><span class="o">**</span><span class="mf">2.0</span><span class="p">)</span>
+            <span class="n">r_s</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">b_var</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">b_var</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">a_var</span> <span class="o">*</span> <span class="n">c_var</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span>
+                <span class="mf">2.0</span> <span class="o">*</span> <span class="n">a_var</span>
+            <span class="p">)</span>
+            <span class="n">s_x</span> <span class="o">=</span> <span class="n">r_s</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_coordinate_2d</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">y_coordinate_2d</span><span class="p">)</span>
+            <span class="n">s_y</span> <span class="o">=</span> <span class="o">-</span><span class="n">r_s</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x_coordinate_2d</span><span class="p">)</span>
+            <span class="n">s_z</span> <span class="o">=</span> <span class="n">r_s</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_coordinate_2d</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">y_coordinate_2d</span><span class="p">)</span>
+
+            <span class="n">abi_lat</span> <span class="o">=</span> <span class="p">(</span><span class="mf">180.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span>
+                    <span class="p">((</span><span class="n">r_eq</span> <span class="o">*</span> <span class="n">r_eq</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">r_pol</span> <span class="o">*</span> <span class="n">r_pol</span><span class="p">))</span>
+                    <span class="o">*</span> <span class="p">(</span><span class="n">s_z</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(((</span><span class="n">H</span> <span class="o">-</span> <span class="n">s_x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="n">s_x</span><span class="p">))</span> <span class="o">+</span> <span class="p">(</span><span class="n">s_y</span> <span class="o">*</span> <span class="n">s_y</span><span class="p">)))</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">abi_lon</span> <span class="o">=</span> <span class="p">(</span><span class="n">lambda_0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">s_y</span> <span class="o">/</span> <span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="n">s_x</span><span class="p">)))</span> <span class="o">*</span> <span class="p">(</span><span class="mf">180.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">abi_lat</span><span class="p">,</span> <span class="n">abi_lon</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
