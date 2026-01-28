@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Install &#8212; Earth2Studio 0.12.0a0 documentation</title>
+    <title>Install &#8212; Earth2Studio 0.13.0a0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=1e1bc2a1"></script>
+    <script src="../../_static/documentation_options.js?v=e36bfde7"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="User Guide" href="../index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.12" />
+  <meta name="docsearch:version" content="0.13" />
   </head>
   
   
@@ -483,7 +483,9 @@ model installs and suggested environment set up for the most complete experience
 </div>
 <section id="install-using-pip">
 <h2>Install using Pip<a class="headerlink" href="#install-using-pip" title="Link to this heading">#</a></h2>
-<p>To get the latest release of Earth2Studio, install from the Python index:</p>
+<p>Earth2Studio runs on <a class="reference external" href="https://pytorch.org/get-started/locally/">PyTorch</a>; make sure it
+is installed correctly for your system first.
+To get the latest release of Earth2Studio, install from the Python index.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio
 </pre></div>
 </div>
@@ -494,7 +496,7 @@ model installs and suggested environment set up for the most complete experience
 and it’s recommended that users use an uv project for the best install experience:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
 uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;</span>
 </pre></div>
 </div>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -1225,29 +1227,32 @@ Assuming <a class="reference external" href="https://docs.astral.sh/uv/getting-s
 the following commands:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
 uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;</span>
 </pre></div>
 </div>
 <p>or if you are already inside an existing uv project:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;</span>
 </pre></div>
 </div>
 </section>
-<section id="pytorch-docker-container">
-<span id="pytorch-container-environment"></span><h2>PyTorch Docker Container<a class="headerlink" href="#pytorch-docker-container" title="Link to this heading">#</a></h2>
-<p>For a docker environment the <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch">Nvidia PyTorch container</a>
-provides a good base with many dependencies already installed and optimized for NVIDIA
-hardware.
+<section id="docker-container">
+<span id="pytorch-container-environment"></span><h2>Docker Container<a class="headerlink" href="#docker-container" title="Link to this heading">#</a></h2>
+<p>For a docker environment, the recommended process is to still use <code class="docutils literal notranslate"><span class="pre">uv</span></code> help install
+packages for you.
+The <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch">Nvidia PyTorch container</a>
+typically provides a good base with many dependencies already installed and optimized
+for NVIDIA hardware.
 In container instances, using a virtual environment is often <a class="reference external" href="https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments">not necessary</a>.
 It is recommended to use the following commands to install using the container’s Python
 interpreter:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:25.05-py3
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:25.12-py3
 
-&gt;&gt;&gt;<span class="w"> </span>apt-get<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>git<span class="w"> </span>make<span class="w"> </span>curl<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span>/var/lib/apt/lists/*
+&gt;&gt;&gt;<span class="w"> </span>apt-get<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>git<span class="w"> </span>make<span class="w"> </span>curl<span class="w"> </span>cmake<span class="w"> </span>python3-dev<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>libeccodes-tools<span class="w"> </span>libeccodes-dev
 &gt;&gt;&gt;<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>PIP_CONSTRAINT
 &gt;&gt;&gt;<span class="w"> </span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span><span class="nv">$HOME</span>/.local/bin/env
-&gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
+&gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;</span>
 </pre></div>
 </div>
 <!-- markdownlint-disable MD013 -->
@@ -1257,35 +1262,19 @@ interpreter:</p>
 do with pip e.g.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--break-system-packages<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">&quot;earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
+<span class="w">    </span><span class="s2">&quot;earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;</span>
 </pre></div>
 </div>
 </div>
-<!-- markdownlint-enable MD013 -->
-</section>
-<section id="custom-container">
-<h2>Custom Container<a class="headerlink" href="#custom-container" title="Link to this heading">#</a></h2>
-<p>For a dedicated docker container the following can be used to get started.
-There is some complexity to undo the pip constraints from the PyTorch container, but
-otherwise the install process is the same.</p>
-<div class="highlight-dockerfile notranslate"><div class="highlight"><pre><span></span><span class="k">FROM</span><span class="w"> </span><span class="s">nvcr.io/nvidia/pytorch:25.05-py3</span>
-<span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>ghcr.io/astral-sh/uv:0.6.13<span class="w"> </span>/uv<span class="w"> </span>/uvx<span class="w"> </span>/bin/
-
-<span class="c"># Install system dependencies</span>
-<span class="k">RUN</span><span class="w"> </span>apt-get<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>make<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>curl<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span>/var/lib/apt/lists/*
-
-<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
-
-<span class="c"># Disable constraint files in the container</span>
-<span class="k">ENV</span><span class="w"> </span><span class="nv">PIP_CONSTRAINT</span><span class="o">=</span>
-<span class="c"># Install Earth2Studio and dependencies</span>
-<span class="k">RUN</span><span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
-</pre></div>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header sd-bg-warning sd-bg-text-warning">
+<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-alert-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm1 6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Z"></path></svg></span><span class="sd-summary-text">Earth2Studio in Docker</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">Some models and dependencies have specific system requirements (for example, CUDA
+versions) that may require a different container than the one listed here. If you are
+comfortable with Docker, refer to the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/test/Dockerfile">testing Dockerfile</a>
+as a reference for building a general-purpose Earth2Studio image.</p>
 </div>
-</section>
+</details></section>
 <section id="conda-environment">
 <h2>Conda Environment<a class="headerlink" href="#conda-environment" title="Link to this heading">#</a></h2>
 <p>It is no longer recommended to use any conda environment manager for Earth2Studio in
@@ -1297,7 +1286,7 @@ package tooling.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.12
 conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
 
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0&quot;</span>
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -1432,8 +1421,7 @@ for relevant data sources.</p></li>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#environments">Environments</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#uv-project">uv Project</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-docker-container">PyTorch Docker Container</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-container">Custom Container</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#docker-container">Docker Container</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conda-environment">Conda Environment</a></li>
 </ul>
 </li>

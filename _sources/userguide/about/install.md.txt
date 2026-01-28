@@ -15,7 +15,9 @@ model installs and suggested environment set up for the most complete experience
 
 ## Install using Pip
 
-To get the latest release of Earth2Studio, install from the Python index:
+Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); make sure it
+is installed correctly for your system first.
+To get the latest release of Earth2Studio, install from the Python index.
 
 ```bash
 pip install earth2studio
@@ -29,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0"
 ```
 
 :::{dropdown} uv Install
@@ -743,34 +745,37 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0"
 ```
 
 (pytorch_container_environment)=
 
-## PyTorch Docker Container
+## Docker Container
 
-For a docker environment the [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
-provides a good base with many dependencies already installed and optimized for NVIDIA
-hardware.
+For a docker environment, the recommended process is to still use `uv` help install
+packages for you.
+The [Nvidia PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
+typically provides a good base with many dependencies already installed and optimized
+for NVIDIA hardware.
 In container instances, using a virtual environment is often [not necessary](https://docs.astral.sh/uv/pip/environments/#using-arbitrary-python-environments).
 It is recommended to use the following commands to install using the container's Python
 interpreter:
 
 ```bash
-docker run -it -t nvcr.io/nvidia/pytorch:25.05-py3
+docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
 
->>> apt-get update && apt-get install -y git make curl && rm -rf /var/lib/apt/lists/*
+>>> apt-get update && apt-get install -y git make curl cmake python3-dev \
+    libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -783,36 +788,21 @@ do with pip e.g.
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[all]@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.12.0"
 ```
 
 :::
 
-<!-- markdownlint-enable MD013 -->
+:::{dropdown} Earth2Studio in Docker
+:color: warning
+:icon: alert-fill
+:animate: fade-in
 
-## Custom Container
-
-For a dedicated docker container the following can be used to get started.
-There is some complexity to undo the pip constraints from the PyTorch container, but
-otherwise the install process is the same.
-
-```dockerfile
-FROM nvcr.io/nvidia/pytorch:25.05-py3
-COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    make \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Disable constraint files in the container
-ENV PIP_CONSTRAINT=
-# Install Earth2Studio and dependencies
-RUN uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
-```
+Some models and dependencies have specific system requirements (for example, CUDA
+versions) that may require a different container than the one listed here. If you are
+comfortable with Docker, refer to the [testing Dockerfile](https://github.com/NVIDIA/earth2studio/blob/main/test/Dockerfile)
+as a reference for building a general-purpose Earth2Studio image.
+:::
 
 ## Conda Environment
 
@@ -827,7 +817,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.11.0"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.0"
 ```
 
 # System Recommendations
