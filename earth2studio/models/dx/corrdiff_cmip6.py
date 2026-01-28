@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
@@ -422,6 +423,12 @@ class CorrDiffCMIP6(CorrDiff):
         # Load and validate metadata first (we need time_window for input expansion).
         metadata = cls._load_json_from_package(package, "metadata.json")
         stats = cls._load_json_from_package(package, "stats.json")
+
+        # Download config.json for tracking download statistics
+        try:
+            package.resolve("config.json")
+        except Exception:
+            warnings.warn("Failed to download config.json")
 
         # Load the base CorrDiff model from the package.
         residual = (
