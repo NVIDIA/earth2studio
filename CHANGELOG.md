@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added onnxscript to onnx models to add support for newer torch versions
+- Moved lock file / CI system to torch 2.9.1
+
 ### Changed
 
 ### Deprecated
@@ -19,16 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed dependency issue with the LinearInterpolator not working with SciPy installed
-
 ### Security
 
-### Dependencies
-
-- Added onnxscript to onnx models to add support for newer torch versions
-- Moved lock file / CI system to torch 2.9.1
-
-## [0.12.0a0] - 2026-01-xx
+## [0.12.0] - 2026-01-26
 
 ### Added
 
@@ -47,16 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated GFS lexicon to include composite reflectivity
 - Moved most data sources from cfgrib to pygrib
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Made tp in HRRR and GFS units m for package consistency
 - Fixed batched inference support for AIFS and AIFS ENS
-
-### Security
 
 ### Dependencies
 

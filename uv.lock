@@ -1484,6 +1484,7 @@ all = [
     { name = "pynvml" },
     { name = "pyproj" },
     { name = "pystac-client" },
+    { name = "pytz" },
     { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "rioxarray", version = "0.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -1498,6 +1499,7 @@ atlas = [
     { name = "einops" },
     { name = "natten" },
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
     { name = "timm" },
     { name = "torch-harmonics" },
 ]
@@ -1513,6 +1515,7 @@ corrdiff = [
     { name = "einops" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
+    { name = "pytz" },
     { name = "scipy" },
 ]
 cyclone = [
@@ -1529,6 +1532,7 @@ data = [
     { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "intake-esgf", version = "2026.1.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "multi-storage-client", extra = ["boto3", "fsspec", "google-cloud-storage"] },
+    { name = "pandas" },
     { name = "planetary-computer" },
     { name = "pyproj" },
     { name = "pystac-client" },
@@ -1543,17 +1547,21 @@ dlesym = [
     { name = "hydra-core" },
     { name = "nvidia-physicsnemo" },
     { name = "omegaconf" },
+    { name = "pytz" },
 ]
 dlwp = [
     { name = "importlib-metadata" },
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 fcn = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 fcn3 = [
     { name = "makani" },
     { name = "moviepy" },
+    { name = "pytz" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
     { name = "torch-harmonics" },
@@ -1577,6 +1585,7 @@ graphcast = [
 ]
 interp-modafno = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 pangu = [
     { name = "onnx" },
@@ -1589,9 +1598,11 @@ perturbation = [
 ]
 precip-afno = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 precip-afno-v2 = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 sfno = [
     { name = "makani" },
@@ -1603,9 +1614,11 @@ sfno = [
 ]
 solarradiation-afno = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 statistics = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 stormcast = [
     { name = "einops" },
@@ -1613,6 +1626,7 @@ stormcast = [
     { name = "nvtx" },
     { name = "omegaconf" },
     { name = "pyproj" },
+    { name = "pytz" },
     { name = "scipy" },
 ]
 stormscope = [
@@ -1620,6 +1634,7 @@ stormscope = [
     { name = "natten" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
+    { name = "pytz" },
     { name = "scipy" },
 ]
 utils = [
@@ -1628,6 +1643,7 @@ utils = [
 ]
 windgust-afno = [
     { name = "nvidia-physicsnemo" },
+    { name = "pytz" },
 ]
 
 [package.dev-dependencies]
@@ -1792,7 +1808,9 @@ requires-dist = [
     { name = "onnxscript", marker = "extra == 'pangu'" },
     { name = "pandas", specifier = "<3.0" },
     { name = "pandas", marker = "extra == 'ace2'", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "extra == 'all'", specifier = "<3.0" },
     { name = "pandas", marker = "extra == 'all'", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "extra == 'data'", specifier = "<3.0" },
     { name = "planetary-computer", marker = "extra == 'all'", specifier = ">=0.5.0" },
     { name = "planetary-computer", marker = "extra == 'data'", specifier = ">=0.5.0" },
     { name = "pygrib" },
@@ -1804,6 +1822,21 @@ requires-dist = [
     { name = "pystac-client", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "pystac-client", marker = "extra == 'data'", specifier = ">=0.9.0" },
     { name = "python-dotenv" },
+    { name = "pytz", marker = "extra == 'all'" },
+    { name = "pytz", marker = "extra == 'atlas'" },
+    { name = "pytz", marker = "extra == 'corrdiff'" },
+    { name = "pytz", marker = "extra == 'dlesym'" },
+    { name = "pytz", marker = "extra == 'dlwp'" },
+    { name = "pytz", marker = "extra == 'fcn'" },
+    { name = "pytz", marker = "extra == 'fcn3'" },
+    { name = "pytz", marker = "extra == 'interp-modafno'" },
+    { name = "pytz", marker = "extra == 'precip-afno'" },
+    { name = "pytz", marker = "extra == 'precip-afno-v2'" },
+    { name = "pytz", marker = "extra == 'solarradiation-afno'" },
+    { name = "pytz", marker = "extra == 'statistics'" },
+    { name = "pytz", marker = "extra == 'stormcast'" },
+    { name = "pytz", marker = "extra == 'stormscope'" },
+    { name = "pytz", marker = "extra == 'windgust-afno'" },
     { name = "rasterio", marker = "extra == 'all'", specifier = ">=1.3.9" },
     { name = "rasterio", marker = "extra == 'data'", specifier = ">=1.3.9" },
     { name = "rich" },
