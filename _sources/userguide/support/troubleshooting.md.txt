@@ -87,39 +87,20 @@ a known issue with the library with several [issues](https://github.com/Dao-AILa
 on the subject.
 There are a few options to try outside of just waiting for the build to complete.
 
-1. If using a docker container is possible, the PyTorch docker container on NGC has
+1. Install a prebuilt flash attention wheel, either from the official repo or other
+  contributor projects like [flashattn.dev](https://flashattn.dev/#finder).
+
+2. If using a docker container is possible, the PyTorch docker container on NGC has
   flash attention already built inside of it. See {ref}`pytorch_container_environment`
   for details on how to install Earth2Studio inside a container.
 
-2. Speed up the compile time by increasing the number of jobs used during the build
+3. Speed up the compile time by increasing the number of jobs used during the build
   process. The upper limit depends on the systems memory, too large may result in
   a crash:
 
     ```bash
     # Ninja build jobs, increase depending on system memory
     export MAX_JOBS=8
-    ```
-
-3. Disable unused features in the library not needed for inference:
-
-    ```bash
-    # https://github.com/Dao-AILab/flash-attention/issues/1486
-    export FLASH_ATTENTION_DISABLE_HDIM128=FALSE
-    export FLASH_ATTENTION_DISABLE_CLUSTER=FALSE
-    export FLASH_ATTENTION_DISABLE_BACKWARD=TRUE
-    export FLASH_ATTENTION_DISABLE_SPLIT=TRUE
-    export FLASH_ATTENTION_DISABLE_LOCAL=TRUE
-    export FLASH_ATTENTION_DISABLE_PAGEDKV=TRUE
-    export FLASH_ATTENTION_DISABLE_FP16=TRUE
-    export FLASH_ATTENTION_DISABLE_FP8=TRUE
-    export FLASH_ATTENTION_DISABLE_APPENDKV=TRUE
-    export FLASH_ATTENTION_DISABLE_VARLEN=TRUE
-    export FLASH_ATTENTION_DISABLE_PACKGQA=TRUE
-    export FLASH_ATTENTION_DISABLE_SOFTCAP=TRUE
-    export FLASH_ATTENTION_DISABLE_HDIM64=TRUE
-    export FLASH_ATTENTION_DISABLE_HDIM96=TRUE
-    export FLASH_ATTENTION_DISABLE_HDIM192=TRUE
-    export FLASH_ATTENTION_DISABLE_HDIM256=TRUE
     ```
 
 ## Earth2Grid or TorchHarmonics Build Failure `Python.h: No such file or directory`
