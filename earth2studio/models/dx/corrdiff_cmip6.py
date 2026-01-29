@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
@@ -388,7 +387,7 @@ class CorrDiffCMIP6(CorrDiff):
     def load_default_package(cls) -> Package:
         """Load diagnostic package"""
         package = Package(
-            "hf://nvidia/corrdiff-cmip6-era5@9440a890c0f2acc058c281a81bd1cc81c6398fe9",
+            "hf://nvidia/corrdiff-cmip6-era5@f756fad5b85efec64df4868aead14dda698b8aea",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cmip6"),
                 "same_names": True,
@@ -424,11 +423,10 @@ class CorrDiffCMIP6(CorrDiff):
         metadata = cls._load_json_from_package(package, "metadata.json")
         stats = cls._load_json_from_package(package, "stats.json")
 
-        # Download config.json for tracking download statistics
         try:
-            package.resolve("config.json")
-        except Exception:
-            warnings.warn("Failed to download config.json")
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
 
         # Load the base CorrDiff model from the package.
         residual = (
