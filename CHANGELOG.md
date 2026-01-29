@@ -13,8 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Moved cBottle checkpoints to huggingface repo
-
 ### Deprecated
 
 ### Removed
@@ -22,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+### Dependencies
+
+## [0.12.1] - 2026-01-29
+
+### Changed
+
+- Moved cBottle checkpoints to huggingface repo
+- Added config.json download for HF models to track downloads
 
 ### Dependencies
 
