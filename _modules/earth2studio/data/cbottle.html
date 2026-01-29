@@ -797,7 +797,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default pre-trained CBottle3D model package from Nvidia model registry&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;ngc://models/nvidia/earth-2/cbottle@1.2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://nvidia/cbottle@c4d6b7ba8352d32c6494d13d5af6481c1bd89bdc&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
@@ -858,6 +858,11 @@
         <span class="n">core_model</span> <span class="o">=</span> <span class="n">MixtureOfExpertsDenoiser</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
             <span class="n">checkpoints</span><span class="p">,</span> <span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
         <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>  <span class="c1"># HF tracking download statistics</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
 
         <span class="c1"># The following code is left here for reference of how to access the AMIP SST</span>
         <span class="c1"># data from the original data store. NGC is faster and cleaner so it is also</span>

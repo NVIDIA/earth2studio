@@ -668,7 +668,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load prognostic package&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;hf://nvidia/stormcast-v1-era5-hrrr@ed5d4eda664e65555aafe1ccbcf19130d1f84bf8&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://nvidia/stormcast-v1-era5-hrrr@39afdc7848766011a7e76c65af77f2853e079f45&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;stormcast&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
@@ -700,6 +700,11 @@
 <span class="sd">        PrognosticModel</span>
 <span class="sd">            Prognostic model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>  <span class="c1"># HF tracking download statistics</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
         <span class="k">try</span><span class="p">:</span>
             <span class="n">OmegaConf</span><span class="o">.</span><span class="n">register_new_resolver</span><span class="p">(</span><span class="s2">&quot;eval&quot;</span><span class="p">,</span> <span class="nb">eval</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>

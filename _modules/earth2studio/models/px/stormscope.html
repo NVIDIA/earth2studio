@@ -659,7 +659,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a default local package for StormScope models.&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;hf://nvidia/stormscope-goes-mrms@3408641c72d9bf631e814c185bb129ac53c80785&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://nvidia/stormscope-goes-mrms@6ee31e07afe3decb012740f3be17531207c3db5e&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;stormscope&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
@@ -1614,6 +1614,11 @@
 <span class="sd">        PrognosticModel</span>
 <span class="sd">            Instantiated StormScopeGOES model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>  <span class="c1"># HF tracking download statistics</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;registry.json&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">registry</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
             <span class="n">pkg</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="n">model_name</span><span class="p">]</span>
@@ -1961,6 +1966,10 @@
 <span class="sd">        PrognosticModel</span>
 <span class="sd">            Instantiated StormScopeMRMS model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>  <span class="c1"># HF tracking download statistics</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
 
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;registry.json&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">registry</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>

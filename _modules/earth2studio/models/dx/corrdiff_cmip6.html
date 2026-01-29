@@ -811,7 +811,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load diagnostic package&quot;&quot;&quot;</span>
         <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;hf://nvidia/corrdiff-cmip6-era5@9440a890c0f2acc058c281a81bd1cc81c6398fe9&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://nvidia/corrdiff-cmip6-era5@f756fad5b85efec64df4868aead14dda698b8aea&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;corrdiff_cmip6&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
@@ -849,6 +849,11 @@
         <span class="c1"># Load and validate metadata first (we need time_window for input expansion).</span>
         <span class="n">metadata</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_json_from_package</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="s2">&quot;metadata.json&quot;</span><span class="p">)</span>
         <span class="n">stats</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_load_json_from_package</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="s2">&quot;stats.json&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>  <span class="c1"># HF tracking download statistics</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
 
         <span class="c1"># Load the base CorrDiff model from the package.</span>
         <span class="n">residual</span> <span class="o">=</span> <span class="p">(</span>
