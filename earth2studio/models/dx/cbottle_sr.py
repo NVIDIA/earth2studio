@@ -369,7 +369,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.2",
+            "hf://nvidia/cbottle@c4d6b7ba8352d32c6494d13d5af6481c1bd89bdc",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -421,6 +421,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         DiagnosticModel
             Diagnostic model
         """
+
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
+
         checkpoint_name = (
             "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
         )

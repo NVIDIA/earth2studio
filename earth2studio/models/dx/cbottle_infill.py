@@ -284,7 +284,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         DiagnosticModel
             Diagnostic model
         """
-
         with Checkpoint(package.resolve("cBottle-3d.zip")) as checkpoint:
             core_model = checkpoint.read_model()
 

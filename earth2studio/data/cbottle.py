@@ -370,7 +370,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.2",
+            "hf://nvidia/cbottle@c4d6b7ba8352d32c6494d13d5af6481c1bd89bdc",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -428,6 +428,11 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         core_model = MixtureOfExpertsDenoiser.from_pretrained(
             checkpoints, (100.0, 10.0)
         )
+
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
 
         # The following code is left here for reference of how to access the AMIP SST
         # data from the original data store. NGC is faster and cleaner so it is also
