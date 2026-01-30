@@ -369,7 +369,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
-            "hf://nvidia/cbottle@c4d6b7ba8352d32c6494d13d5af6481c1bd89bdc",
+            "hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
