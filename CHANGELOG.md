@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bug in cbottle datasource resulting identical samples for multiple samples
+
 ### Security
 
 ### Dependencies

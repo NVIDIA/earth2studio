@@ -225,7 +225,8 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             batch["second_of_day"] = second_of_day[start_idx:end_idx]
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
-            output, coords = self.core_model.sample(batch, seed=self.seed)
+            seed = None if self.seed is None else self.seed + i
+            output, coords = self.core_model.sample(batch, seed=seed)
             output = output[:, varidx]
             outputs.append(output)
 
@@ -370,7 +371,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "hf://nvidia/cbottle@c4d6b7ba8352d32c6494d13d5af6481c1bd89bdc",
+            "hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
