@@ -42,10 +42,10 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import TimeArray, VariableArray
 
 try:
-    import h5py
+    import h5netcdf
 except ImportError:
     OptionalDependencyFailure("data")
-    h5py = None  # type: ignore[assignment]
+    h5netcdf = None  # type: ignore[assignment]
 
 SATELLITE_COLUMNS = {
     "Latitude": "lat",
@@ -212,6 +212,7 @@ class GSI_Conventional:
             *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
         )
 
+        return self._compile_dataframe(async_tasks, ["u10m"])
         # tasks = [self._read_file(path) for path in file_paths]
         # frames = await tqdm.gather(
         #     *tasks, desc="Fetching UFS data", disable=(not self._verbose)
@@ -281,10 +282,62 @@ class GSI_Conventional:
             with open(cache_path, "wb") as file:
                 file.write(data)
 
-    def _compile_dataframe(self, async_tasks: list[GSIAsyncTask]) -> pd.DataFrame:
-        pass
+    def _compile_dataframe(
+        self, async_tasks: list[GSIAsyncTask], variables: list[str]
+    ) -> pd.DataFrame:
+        frames: list[pd.DataFrame] = []
+        for task in async_tasks:
+            local_path = self.cache_path(task.gsi_file_uri)
+            if not pathlib.Path(local_path).is_file():
+                logger.warning("Cached file missing for {}", task.gsi_file_uri)
+                continue
+            try:
+                with h5netcdf.File(local_path, "r") as ds:
+                    nobs = ds.dimensions["nobs"].size
+                    data: dict[str, np.ndarray] = {}
+                    for name, dset in ds.variables.items():
+                        shape = getattr(dset, "shape", None)
+                        if shape is None or len(shape) == 0 or shape[0] != nobs:
+                            continue
+                        # Convert char arrays into strings for DF
+                        values = np.asarray(dset[:])
+                        if values.dtype.kind == "S" and values.ndim == 2:
+                            values = np.apply_along_axis(
+                                lambda row: b"".join(row)
+                                .decode("utf-8")
+                                .rstrip("\x00"),
+                                1,
+                                values,
+                            )
+                        data[name] = values
+                df = pd.DataFrame(data)
+                print(df["Time"])
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Failed to read {}: {}", local_path, exc)
+                raise exc
 
-    def _read_satellite(self, ds: h5py.File) -> pd.DataFrame:
+            if df.empty or "Time" not in df.columns:
+                continue
+
+            time_values = pd.to_datetime(df["Time"], errors="coerce")
+            mask = (time_values >= task.datetime_min) & (
+                time_values <= task.datetime_max
+            )
+            df = df.loc[mask]
+            if df.empty:
+                continue
+
+            for col in variables:
+                if col not in df.columns:
+                    df[col] = None
+            frames.append(df.loc[:, variables])
+
+        return frames
+        # if len(frames) == 0:
+        #     return pd.DataFrame(columns=variables)
+        # return pd.concat(frames, ignore_index=True)
+
+    def _read_satellite(self, ds: h5netcdf.File) -> pd.DataFrame:
         data: dict[str, np.ndarray] = {}
         for src, dst in SATELLITE_COLUMNS.items():
             if src in ds:
@@ -298,7 +351,7 @@ class GSI_Conventional:
             data["raw_channel_id"] = raw
         return pd.DataFrame(data)
 
-    def _read_conventional(self, ds: h5py.File) -> pd.DataFrame:
+    def _read_conventional(self, ds: h5netcdf.File) -> pd.DataFrame:
         data: dict[str, np.ndarray] = {}
         for src, dst in CONV_METADATA_COLUMNS.items():
             if src in ds:
@@ -361,4 +414,4 @@ class GSI_Conventional:
 if __name__ == "__main__":
 
     ds = GSI_Conventional(tolerance=timedelta(hours=6))
-    da = ds([datetime(2027, 1, 1, 3)], ["u10m"])
+    da = ds([datetime(2024, 1, 1, 3)], ["u10m"])
