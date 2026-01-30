@@ -670,7 +670,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load_default_package</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Package</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Default pre-trained cBottle model package from Nvidia model registry&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Package</span><span class="p">(</span>
-            <span class="s2">&quot;ngc://models/nvidia/earth-2/cbottle@1.1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4&quot;</span><span class="p">,</span>
             <span class="n">cache_options</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;cache_storage&quot;</span><span class="p">:</span> <span class="n">Package</span><span class="o">.</span><span class="n">default_cache</span><span class="p">(</span><span class="s2">&quot;cbottle&quot;</span><span class="p">),</span>
                 <span class="s2">&quot;same_names&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
@@ -711,6 +711,11 @@
 <span class="sd">        DiagnosticModel</span>
 <span class="sd">            Diagnostic model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>  <span class="c1"># HF tracking download statistics</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
         <span class="k">with</span> <span class="n">Checkpoint</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;cBottle-3d.zip&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">checkpoint</span><span class="p">:</span>
             <span class="n">core_model</span> <span class="o">=</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">read_model</span><span class="p">()</span>
 
