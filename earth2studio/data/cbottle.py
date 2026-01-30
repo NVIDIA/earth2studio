@@ -225,7 +225,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
             batch["second_of_day"] = second_of_day[start_idx:end_idx]
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
-            output, coords = self.core_model.sample(batch, seed=self.seed)
+            output, coords = self.core_model.sample(batch, seed=self.seed + i)
             output = output[:, varidx]
             outputs.append(output)
 
