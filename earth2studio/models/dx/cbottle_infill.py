@@ -284,6 +284,11 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         DiagnosticModel
             Diagnostic model
         """
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
+
         with Checkpoint(package.resolve("cBottle-3d.zip")) as checkpoint:
             core_model = checkpoint.read_model()
 
