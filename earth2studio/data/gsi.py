@@ -35,6 +35,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.lexicon import GSIConventionalLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -86,6 +87,8 @@ class GSIAsyncTask:
     datetime_min: datetime
     gsi_file_uri: str
     gsi_modifier: Callable
+    gsi_obs_name: str
+    e2s_obs_name: str
 
 
 @check_optional_dependencies()
@@ -235,32 +238,39 @@ class GSI_Conventional:
         # return out.loc[:, variable_list]
 
     def _create_tasks(
-        self, time_list: list[datetime], variable_list: list[str]
+        self, time_list: list[datetime], variable: list[str]
     ) -> list[GSIAsyncTask]:
-        def _identity(df: pd.DataFrame) -> pd.DataFrame:
-            return df
 
-        tasks: list[GSIAsyncTask] = []
-        for t in time_list:
-            tmin = t - self.tolerance
-            tmax = t + self.tolerance
-            day = tmin.replace(minute=0, second=0, microsecond=0)
-            day = day.replace(hour=(day.hour // 6) * 6)
-            while day <= tmax:
-                year_key = day.strftime("%Y")
-                month_key = day.strftime("%m")
-                datetime_key = day.strftime("%Y%m%d%H")
-                variable_key = "uv"  # TODO: Move to lexicon
-                s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_conv_{variable_key}_{self.obs_type}.{datetime_key}_control.nc4"
-                tasks.append(
-                    GSIAsyncTask(
-                        datetime_min=tmin,
-                        datetime_max=tmax,
-                        gsi_file_uri=s3_uri,
-                        gsi_modifier=_identity,
+        for v in variable:
+            try:
+                gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
+                gsi_platform, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
+            except KeyError as e:
+                logger.error(f"Variable id {v} not found in GSI conventional lexicon")
+                raise e
+
+            tasks: list[GSIAsyncTask] = []
+            for t in time_list:
+                tmin = t - self.tolerance
+                tmax = t + self.tolerance
+                day = tmin.replace(minute=0, second=0, microsecond=0)
+                day = day.replace(hour=(day.hour // 6) * 6)
+                while day <= tmax:
+                    year_key = day.strftime("%Y")
+                    month_key = day.strftime("%m")
+                    datetime_key = day.strftime("%Y%m%d%H")
+                    s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
+                    tasks.append(
+                        GSIAsyncTask(
+                            datetime_min=tmin,
+                            datetime_max=tmax,
+                            gsi_file_uri=s3_uri,
+                            gsi_modifier=modifier,
+                            gsi_obs_name=gsi_name,
+                            e2s_obs_name=v,
+                        )
                     )
-                )
-                day = day + timedelta(hours=6)
+                    day = day + timedelta(hours=6)
         return tasks
 
     async def _fetch_remote_file(
@@ -283,8 +293,12 @@ class GSI_Conventional:
                 file.write(data)
 
     def _compile_dataframe(
-        self, async_tasks: list[GSIAsyncTask], variables: list[str]
+        self,
+        async_tasks: list[GSIAsyncTask],
+        variables: list[str],
     ) -> pd.DataFrame:
+
+        column_map = GSIConventionalLexicon.column_map()
         frames: list[pd.DataFrame] = []
         for task in async_tasks:
             local_path = self.cache_path(task.gsi_file_uri)
@@ -293,11 +307,9 @@ class GSI_Conventional:
                 continue
             try:
                 with h5netcdf.File(local_path, "r") as ds:
-                    nobs = ds.dimensions["nobs"].size
                     data: dict[str, np.ndarray] = {}
                     for name, dset in ds.variables.items():
-                        shape = getattr(dset, "shape", None)
-                        if shape is None or len(shape) == 0 or shape[0] != nobs:
+                        if name not in column_map:
                             continue
                         # Convert char arrays into strings for DF
                         values = np.asarray(dset[:])
@@ -311,13 +323,15 @@ class GSI_Conventional:
                             )
                         data[name] = values
                 df = pd.DataFrame(data)
-                print(df["Time"])
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Failed to read {}: {}", local_path, exc)
                 raise exc
 
-            if df.empty or "Time" not in df.columns:
-                continue
+            # Rename column
+            df.rename(columns=column_map, inplace=True)
+            df["variable"] = task.e2s_obs_name
+
+            print(df)
 
             time_values = pd.to_datetime(df["Time"], errors="coerce")
             mask = (time_values >= task.datetime_min) & (

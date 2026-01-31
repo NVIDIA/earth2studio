@@ -23,6 +23,7 @@ from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .goes import GOESLexicon
+from .gsi import GSIConventionalLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSLexicon
