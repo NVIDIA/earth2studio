@@ -38,6 +38,7 @@ from earth2studio.models.px.persistence import Persistence
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
+from earth2studio.models.px.solarstormcast import SolarStormCast
 
 # TODO: Remove upon physics-nemo update...
 # package turned on logging of warnings in 1.1.0, this is silencing them
