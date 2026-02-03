@@ -481,7 +481,6 @@ class GSI_Conventional(_GSIBase):
             ),
             pa.field("observation", pa.float32()),
             pa.field("variable", pa.string()),
-            pa.field("source", pa.string()),
         ]
     )
 
