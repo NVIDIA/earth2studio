@@ -89,18 +89,24 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > Links to the original license and source are often provided in the API docs for each
 > model/data source.
 
+[![Watch the video](https://img.youtube.com/vi/Sog6aCapZeA/hqdefault.jpg)](https://www.youtube.com/watch?v=Sog6aCapZeA)
+
 ## Latest News
 
-- **Microsoft PlanetaryComputerData, MRMS, and NOAA ISD (station dataframe)** data
-    sources are now in Earth2Studio, see [data source APIs](e2studio_api_url).
+- [**StormScope**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html),
+    NVIDIA's latest regional nowcasting model, is now available in
+    Earth2Studio with a dedicated [inference example](https://nvidia.github.io/earth2studio/examples/20_stormscope_goes_example.html)
+    to demonstrate its use for predicting CONUS satellite and radar data.
+- [**Atlas**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.Atlas.html),
+    NVIDIA's latest medium range model, is now available in Earth2Studio
+    providing *state-of-the-art* accuracy for medium range global forecasts.
+- [**CorrDiff for CMIP6 to ERA5**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html)
+    is a novel generative downscaling model to generate ERA5 fields from CMIP
+    data enabling users to run ERA5 based prognostic and diagnostic models on future
+    climate simulations.
 - **ECMWF AIFSENS** model wrapper added, an ensemble-based probablistic data driven
     forecast model developed by the European Centre for Medium-Range Weather Forecasts
     (ECMWF).
-- **CMIP6 datasource** has been added to improve support for usecases that are focused
-    on climate modeling. See [data source APIs](e2studio_api_url) for more information.
-- [**Ai2 Climate Emulator (ACE) 2 ERA5 model**](https://arxiv.org/pdf/2411.11268v1) has
-    been added which is a 1 degree, 6 hour time-step, forecast model that supports long
-    roll outs with user specified SST forcing.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 

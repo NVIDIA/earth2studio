@@ -12,7 +12,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
-    "cfgrib >= 0.9.10.3",
     "cftime",
     "fsspec>=2024.2.0",
     "gcsfs",
@@ -21,15 +20,16 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
-    "nest_asyncio", # TODO Remove
+    "nest_asyncio",
+    "pygrib",
     "python-dotenv",
+    "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
     "rich",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=3.1.0",
-    "numcodecs<0.15.0", # TODO: Remove
+    "zarr>=3.1.0"
 ]
 
 classifiers = [
@@ -58,17 +58,18 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 data = [
     "cdsapi>=0.7.5",
+    "cfgrib >= 0.9.10.3",
     "eccodes>=2.38.0",
     "ecmwf-opendata>=0.3.3",
     "intake-esgf>=2025.9.26",
+    "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
     "planetary-computer>=0.5.0",
     "globus-sdk<4.0.0", # TODO: Remove once intake-esgf updates
-    "pygrib",
     "pystac-client>=0.9.0",
     "httpx==0.28.1",
     "rasterio>=1.3.9",
     "rioxarray>=0.15.5",
-    "pyproj>=3.7.1",
+    "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
     "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
 ]
@@ -78,6 +79,11 @@ perturbation = [
 ]
 statistics = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
+]
+utils = [
+    "scipy>=1.15.2",
+    "earth2grid",
 ]
 # PX Models
 ace2 = [
@@ -98,6 +104,14 @@ aifsens = [
     "ecmwf-opendata>=0.3.3",
     "flash-attn",
 ]
+atlas = [
+    "natten",
+    "timm",
+    "torch-harmonics",
+    "einops",
+    "nvidia-physicsnemo>=1.3.0,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
+]
 aurora = [
     "microsoft-aurora>=1.6.0",
 ]
@@ -106,27 +120,33 @@ dlesym = [
     "earth2grid",
     "omegaconf>=2.3.0",
     "hydra-core>=1.3.2",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 dlwp = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
     "importlib_metadata",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 fcn = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 fcn3 = [
     "makani",
     "ruamel.yaml>=0.18.14",
     "scipy>=1.10.0",
     "torch-harmonics>=0.8.0",
-    "moviepy"
+    "moviepy",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 fengwu = [
     "onnx",
+    "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
 fuxi = [
     "onnx",
+    "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
 graphcast = [
@@ -138,9 +158,11 @@ graphcast = [
 ]
 interp-modafno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 pangu = [
     "onnx",
+    "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
 sfno = [
@@ -158,6 +180,14 @@ stormcast = [
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
     "pyproj>=3.7.1",
+    "pytz", # Remove on physicsnemo 2.0
+]
+stormscope = [
+    "natten",
+    "nvidia-physicsnemo==1.3.0",
+    "nvtx>=0.2.11",
+    "earth2studio[utils]",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 # DX Models
 cbottle = [
@@ -170,6 +200,7 @@ corrdiff = [
     "nvidia-physicsnemo>=1.2.0,<2.0",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 cyclone = [
     "cucim-cu12>=25.4.0",
@@ -178,39 +209,44 @@ cyclone = [
 derived = []
 precip-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 precip-afno-v2 = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 solarradiation-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 windgust-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
+    "pytz", # Remove on physicsnemo 2.0
 ]
 # All, must not have conflicts
 all = [
-    "earth2studio[data,perturbation,statistics]",
-    "earth2studio[ace2,aifs,aifsens,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,graphcast]",
+    "earth2studio[data,perturbation,statistics,utils]",
+    "earth2studio[ace2,aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,stormscope,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
 ]
 
 # ==== UV configuration ====
 [tool.uv]
-conflicts = [ ]
+conflicts = []
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
-no-build-isolation-package = ["earth2grid", "flash-attn", "torch-harmonics"]
+no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 override-dependencies = []
 
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
 flash-attn = ["torch", "packaging", "ninja"]
+natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
-earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "fbbfe29b0a8bebb85a43c7027288d9f294b435cc" }
+earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
@@ -273,7 +309,7 @@ docs = [
 path = "earth2studio/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = ["earth2studio/**/*.py"]
+include = ["earth2studio/**/*.py", "earth2studio/data/*.yaml"]
 exclude = []
 
 # ==== Ruff configuration ====

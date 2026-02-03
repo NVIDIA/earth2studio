@@ -7,13 +7,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.0a0] - 2026-01-xx
+## [0.13.0a0] - 2026-03-xx
 
 ### Added
 
+- Added Planetary Computer data source for ECMWF IFS analysis data
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Bug in cbottle datasource resulting identical samples for multiple samples
+
+### Security
+
+### Dependencies
+
+## [0.12.1] - 2026-01-29
+
+### Changed
+
+- Moved cBottle checkpoints to huggingface repo
+- Added config.json download for HF models to track downloads
+
+### Dependencies
+
+- Added onnxscript to onnx models to add support for newer torch versions
+- Moved lock file / CI system to torch 2.9.1
+
+## [0.12.0] - 2026-01-26
+
+### Added
+
+- Added CorrDiff CMIP6->ERA5 diagnostic model
 - Added derived TCWV diagnostic model
 - Added verbose option for inference workflows in run.py to toggle off tqdm
-- Added Planetary Computer data source for ECMWF IFS analysis data
+- Added Atlas prognostic model
+- Added StormScope GOES and MRMS models
 
 ### Changed
 
@@ -22,22 +56,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Switch grib reads in HRRR data sources from xarray to pygrib to fix memory leak
 - Updated AIFS model to 1.1 checkpoint version
 - Updated GFS lexicon to include composite reflectivity
-
-### Deprecated
-
-### Removed
+- Moved most data sources from cfgrib to pygrib
 
 ### Fixed
 
 - Made tp in HRRR and GFS units m for package consistency
 - Fixed batched inference support for AIFS and AIFS ENS
 
-### Security
-
 ### Dependencies
 
-- Added pygrib to data dependency group
+- Added pygrib to core dependency group
+- Moved cfgrib to optional dependency group
 - Resolved conflict between AIFS and AIFS ENS groups
+- Removed old numcodecs limit
 
 ## [0.11.0] - 2025-12-19
 
