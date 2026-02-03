@@ -23,7 +23,6 @@ from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .goes import GOESLexicon
-from .gsi import GSIConventionalLexicon, GSISatelliteLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSLexicon
@@ -34,4 +33,5 @@ from .planetary_computer import (
     OISSTLexicon,
     Sentinel3AODLexicon,
 )
+from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
