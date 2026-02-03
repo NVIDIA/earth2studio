@@ -51,7 +51,7 @@ except ImportError:
 
 
 @dataclass
-class GSIAsyncTask:
+class _GSIAsyncTask:
     """Small helper struct for Async tasks"""
 
     datetime_file: datetime
@@ -186,7 +186,7 @@ class _GSIBase:
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
-    ) -> list[GSIAsyncTask]:
+    ) -> list[_GSIAsyncTask]:
         """Create async tasks for fetching data. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement _create_tasks.")
 
@@ -228,7 +228,7 @@ class _GSIBase:
 
     def _compile_dataframe(
         self,
-        async_tasks: list[GSIAsyncTask],
+        async_tasks: list[_GSIAsyncTask],
         variables: list[str],
         schema: pa.Schema,
     ) -> pd.DataFrame:
@@ -294,13 +294,13 @@ class _GSIBase:
         self,
         name: str,
         values: np.ndarray,
-        task: GSIAsyncTask,
+        task: _GSIAsyncTask,
         ds: h5netcdf.File,
     ) -> np.ndarray:
         """Transform column values. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement _transform_column.")
 
-    def _add_task_columns(self, df: pd.DataFrame, task: GSIAsyncTask) -> None:
+    def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add task-specific columns to DataFrame. Override in subclasses."""
         df.attrs["source"] = self.SOURCE_ID
 
@@ -487,8 +487,8 @@ class GSI_Conventional(_GSIBase):
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
-    ) -> list[GSIAsyncTask]:
-        tasks: list[GSIAsyncTask] = []
+    ) -> list[_GSIAsyncTask]:
+        tasks: list[_GSIAsyncTask] = []
         for v in variable:
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
@@ -508,7 +508,7 @@ class GSI_Conventional(_GSIBase):
                     datetime_key = day.strftime("%Y%m%d%H")
                     s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_platform}_{gsi_sensor}_{gsi_product}.{datetime_key}_control.nc4"
                     tasks.append(
-                        GSIAsyncTask(
+                        _GSIAsyncTask(
                             datetime_file=day,
                             datetime_min=tmin,
                             datetime_max=tmax,
@@ -525,7 +525,7 @@ class GSI_Conventional(_GSIBase):
         self,
         name: str,
         values: np.ndarray,
-        task: GSIAsyncTask,
+        task: _GSIAsyncTask,
         ds: h5netcdf.File,
     ) -> np.ndarray:
         """Transform column values for conventional data."""
@@ -542,7 +542,7 @@ class GSI_Conventional(_GSIBase):
         column_map[elev_field.metadata[b"gsi_name"].decode("utf-8")] = elev_field.name
         return column_map
 
-    def _add_task_columns(self, df: pd.DataFrame, task: GSIAsyncTask) -> None:
+    def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add source column for conventional data."""
         super()._add_task_columns(df, task)
         df["source"] = self.SOURCE_ID
@@ -666,8 +666,8 @@ class GSI_Satellite(_GSIBase):
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
-    ) -> list[GSIAsyncTask]:
-        tasks: list[GSIAsyncTask] = []
+    ) -> list[_GSIAsyncTask]:
+        tasks: list[_GSIAsyncTask] = []
         for v in variable:
             try:
                 gsi_name, modifier = GSISatelliteLexicon[v]  # type: ignore
@@ -691,7 +691,7 @@ class GSI_Satellite(_GSIBase):
                         datetime_key = day.strftime("%Y%m%d%H")
                         s3_uri = f"s3://{self.UFS_BUCKET}/{year_key}/{month_key}/{datetime_key}/gsi/diag_{gsi_sensor}_{gsi_platform}_{gsi_product}.{datetime_key}_control.nc4"
                         tasks.append(
-                            GSIAsyncTask(
+                            _GSIAsyncTask(
                                 datetime_file=day,
                                 datetime_min=tmin,
                                 datetime_max=tmax,
@@ -713,7 +713,7 @@ class GSI_Satellite(_GSIBase):
         self,
         name: str,
         values: np.ndarray,
-        task: GSIAsyncTask,
+        task: _GSIAsyncTask,
         ds: h5netcdf.File,
     ) -> np.ndarray:
         """Transform column values for satellite data."""
@@ -726,7 +726,7 @@ class GSI_Satellite(_GSIBase):
             values = sensor_chan[values.astype(np.uint16) - 1]
         return values
 
-    def _add_task_columns(self, df: pd.DataFrame, task: GSIAsyncTask) -> None:
+    def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add satellite column for satellite data."""
         super()._add_task_columns(df, task)
         df["satellite"] = task.satellite
