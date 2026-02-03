@@ -29,6 +29,7 @@ from urllib.parse import urlparse
 
 import nest_asyncio
 import numpy as np
+import pygrib
 import xarray as xr
 from loguru import logger
 from tqdm import tqdm
@@ -109,6 +110,8 @@ class _PlanetaryComputerData:
     search_tolerance : datetime.timedelta, optional
         Maximum time delta when locating the closest STAC item to the request time,
         by default 12 hours.
+    data_dtype: type, optional
+        Numpy dtype for the data array, by default np.float32.
     spatial_dims : Mapping[str, numpy.ndarray]
         Mapping of spatial dimension names to coordinate arrays defining the grid, by
         default None
@@ -148,7 +151,8 @@ class _PlanetaryComputerData:
         lexicon: LexiconType,
         asset_key: str = "netcdf",
         search_kwargs: Mapping[str, Any] | None = None,
-        search_tolerance: timedelta | None = timedelta(hours=12),
+        search_tolerance: timedelta = timedelta(hours=0),
+        data_dtype: type = np.float32,
         spatial_dims: Mapping[str, np.ndarray] | None = None,
         data_attrs: Mapping[str, Any] | None = None,
         cache: bool = True,
@@ -164,6 +168,7 @@ class _PlanetaryComputerData:
         self._lexicon = lexicon
         self._search_kwargs = dict(search_kwargs or {})
         self._search_tolerance = search_tolerance
+        self._data_dtype = data_dtype
         if not spatial_dims:
             raise ValueError("At least one spatial dimension must be provided.")
         self._spatial_dim_names = tuple(spatial_dims.keys())
@@ -273,7 +278,8 @@ class _PlanetaryComputerData:
             coords[dim_name] = self._spatial_coords[dim_name]
         xr_array = xr.DataArray(
             data=np.zeros(
-                (len(times), len(variables), *self._spatial_shape), dtype=np.float32
+                (len(times), len(variables), *self._spatial_shape),
+                dtype=self._data_dtype,
             ),
             dims=["time", "variable", *self._spatial_dim_names],
             coords=coords,
@@ -358,16 +364,12 @@ class _PlanetaryComputerData:
         if download_tasks:
             await asyncio.gather(*download_tasks)
 
-        # Allocate the [variable, spatial…] stack that will be populated below.
-        data_stack = np.zeros((len(variables), *self._spatial_shape), dtype=np.float32)
-
         # Extract each variable from its source asset and record completion.
         for plan in asset_plans:
             for spec in plan.variables:
                 array = self.extract_variable_numpy(plan, spec, requested_time)
-                data_stack[spec.index] = array
+                xr_array[time_index, spec.index] = array
 
-        xr_array[time_index] = data_stack
         progress.update(len(variables))
 
     def extract_variable_numpy(
@@ -486,7 +488,7 @@ class _PlanetaryComputerData:
             self._client = Client.open(self.STAC_API_URL)
 
         # Build a closed interval around the requested timestamp to search for items.
-        if self._search_tolerance is not None:
+        if self._search_tolerance.total_seconds() > 0:
             start = (when - self._search_tolerance).isoformat()
             end = (when + self._search_tolerance).isoformat()
             datetime_param = f"{start}/{end}"
@@ -506,10 +508,10 @@ class _PlanetaryComputerData:
         try:
             item = next(items)
         except StopIteration as error:
-            msg = f"No Planetary Computer item found for {when.isoformat()}"
-            if self._search_tolerance is not None:
-                msg += f" within ±{self._search_tolerance}"
-            raise FileNotFoundError(msg) from error
+            raise FileNotFoundError(
+                f"No Planetary Computer item found for {when.isoformat()} "
+                f"within ±{self._search_tolerance}"
+            ) from error
 
         try:
             _ = next(items)
@@ -925,7 +927,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
         },
     }
     LATITUDE = np.linspace(90, -90, 721)
-    LONGITUDE = np.linspace(-180, 180, 1440)
+    LONGITUDE = np.linspace(0, 360, 1440, endpoint=False)
 
     def __init__(
         self,
@@ -941,10 +943,10 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
             asset_key=self.ASSET_KEY,
             lexicon=ECMWFOpenDataIFSLexicon,
             search_kwargs=self.SEARCH_KWARGS,
-            search_tolerance=None,
+            data_dtype=np.float64,
             spatial_dims={
-                "latitude": self.LATITUDE,
-                "longitude": self.LONGITUDE,
+                "lat": self.LATITUDE,
+                "lon": self.LONGITUDE,
             },
             cache=cache,
             verbose=verbose,
@@ -974,25 +976,29 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
             Array shaped ``(721, 1440)``.
         """
         var, plev, lay = spec.dataset_key.split("::")
-        cfgrib_remapper = {
-            # cfgrib remaps variable names that start with a number
-            "100u": "u100",
-            "100v": "v100",
-            "10u": "u10",
-            "10v": "v10",
-            "2t": "t2m",
-            "2d": "d2m",
-        }
-        with xr.open_dataset(
-            plan.local_path, engine="cfgrib", filter_by_keys={"shortName": var}
-        ) as dataset:
-            field = dataset[cfgrib_remapper.get(var, var)]
-            if plev:
-                field = field.sel(isobaricInhPa=float(plev))
-            if lay:
-                field = field.sel(soilLayer=float(lay))
-            field = field.roll(longitude=-len(self.LONGITUDE) // 2, roll_coords=True)
-            values = np.asarray(field.values).astype(np.float32)
-            result = np.asarray(spec.modifier(values), dtype=np.float32)
-
-        return result
+        gsel: dict[str, Any] = {"shortName": var}
+        if plev:
+            gsel["typeOfLevel"] = "isobaricInhPa"
+            gsel["level"] = float(plev)
+        if lay:
+            gsel["typeOfLevel"] = "soilLayer"
+            gsel["level"] = float(lay)
+        try:
+            grbidx = pygrib.index(str(plan.local_path), *list(gsel))
+        except Exception as e:
+            logger.error(f"Failed to open GRIB file {plan.local_path}")
+            raise e
+        try:
+            selection = grbidx.select(**gsel)
+            if len(selection) > 1:
+                raise Exception("Selection contains more than one GRIB element")
+            values = selection[0].values
+            # Roll to prime meridian
+            values = np.roll(values, -len(self.LONGITUDE) // 2, -1)
+            values = spec.modifier(values)
+        except Exception as e:
+            logger.error(f"Failed to read GRIB file {plan.local_path}")
+            raise e
+        finally:
+            grbidx.close()
+        return values

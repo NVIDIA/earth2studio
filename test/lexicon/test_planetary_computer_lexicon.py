@@ -38,7 +38,7 @@ from earth2studio.lexicon import (
         ("sic", 0.01),
     ],
 )
-def test_oisst_lexicon(variable: str, expected: float) -> None:
+def test_planetary_computer_oisst_lexicon(variable: str, expected: float) -> None:
     """Check OISST modifiers and labels."""
     label, modifier = OISSTLexicon[variable]
     assert isinstance(label, str)
@@ -67,7 +67,7 @@ def test_oisst_lexicon(variable: str, expected: float) -> None:
         "s3sy_lon",
     ],
 )
-def test_sentinel3_aod_lexicon(variable: str) -> None:
+def test_planetary_computer_sentinel3_aod_lexicon(variable: str) -> None:
     """Ensure Sentinel-3 SYNERGY lexicon entries map cleanly."""
     label, modifier = Sentinel3AODLexicon[variable]
     assert isinstance(label, str)
@@ -78,7 +78,7 @@ def test_sentinel3_aod_lexicon(variable: str) -> None:
 
 
 @pytest.mark.parametrize("variable", ["fmask", "mfrp", "qa"])
-def test_modis_fire_lexicon(variable: str) -> None:
+def test_planetary_computer_modis_fire_lexicon(variable: str) -> None:
     """Check MODIS Fire lexicon mappings."""
     label, modifier = MODISFireLexicon[variable]
     assert isinstance(label, str)
@@ -92,7 +92,7 @@ def test_modis_fire_lexicon(variable: str) -> None:
     "variable",
     ["u10m", "z500", "t850", "v100"],
 )
-def test_ifs_lexicon(variable: str) -> None:
+def test_planetary_computer_ifs_lexicon(variable: str) -> None:
     """Ensure IFS lexicon entries other than geopotential map cleanly."""
     label, modifier = ECMWFOpenDataIFSLexicon[variable]
     assert isinstance(label, str)

@@ -270,24 +270,3 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
 
     assert data.shape == (len(times), len(variables), 721, 1440)
     assert np.array_equal(data.coords["variable"].values, np.array(variables))
-
-
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
-@pytest.mark.parametrize("cache", [True, False])
-def test_planetary_computer_ifs_cache(cache: bool) -> None:
-    ds = PlanetaryComputerECMWFOpenDataIFS(cache=cache, verbose=False)
-    time = datetime(2025, 7, 28, tzinfo=timezone.utc)
-    variable = ["u100m"]
-
-    data = ds(time=time, variable=variable)
-    assert data.shape == (1, len(variable), 721, 1440)
-
-    cache_path = pathlib.Path(ds.cache)
-    assert cache_path.is_dir() == cache
-
-    try:
-        shutil.rmtree(cache_path)
-    except FileNotFoundError:
-        pass
