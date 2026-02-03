@@ -49,19 +49,6 @@ except ImportError:
     OptionalDependencyFailure("data")
     h5netcdf = None  # type: ignore[assignment]
 
-SATELLITE_COLUMNS = {
-    "Latitude": "lat",
-    "Longitude": "lon",
-    "Observation": "observation",
-    "Channel_Index": "channel_index",
-    "Obs_Time": "obs_time",
-    "Sat_Zenith_Angle": "sat_zenith_angle",
-    "Sol_Zenith_Angle": "sol_zenith_angle",
-    "Scan_Angle": "scan_angle",
-    "QC_Flag": "qc_flag",
-    "Obs_Minus_Forecast_adjusted": "obs_minus_forecast_adjusted",
-    "Obs_Minus_Forecast_unadjusted": "obs_minus_forecast_unadjusted",
-}
 
 @dataclass
 class GSIAsyncTask:
@@ -75,86 +62,19 @@ class GSIAsyncTask:
     gsi_obs_name: str
     e2s_obs_name: str
     satellite: str | None = None
-    satellite_sensor: str | None = None
 
-@check_optional_dependencies()
-class GSI_Conventional:
-    """NOAA UFS GEFS-v13 replay observations in-situ data
 
-    Parameters
-    ----------
-    sensors : str | list[str], optional
-        Sensor names to include. Use "all" for every sensor. Conventional sensors can
-        be specified as "conv" or as "conv_<platform>" (e.g., "conv_uv").
-    obs_type : {"ges", "anl"}, optional
-        Observation type to read ("ges" or "anl"), by default "ges".
-    tolerance : timedelta | np.timedelta64, optional
-        Time tolerance; observations within +/- tolerance of any requested time are
-        returned, by default np.timedelta64(0).
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent downloads, by default 24.
-    cache : bool, optional
-        Cache data source in local filesystem cache, by default True.
-    async_timeout : int, optional
-        Time in seconds after which the async fetch will be cancelled if not finished,
-        by default 600.
-    verbose : bool, optional
-        Log basic progress information, by default True.
+class _GSIBase:
+    """Base class for GSI data sources.
 
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
-
-    Note
-    ----
-    Additional resources:
-
-    - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
-    - https://psl.noaa.gov/data/ufs_replay/
+    This abstract base class provides common functionality for reading NOAA UFS
+    GEFS-v13 replay observation data from S3.
     """
 
     UFS_BUCKET = "noaa-ufs-gefsv13replay-pds"
-    SOURCE_ID = "earth2studio.data.gsi_conventional"
-    SCHEMA = pa.schema(
-        [
-            pa.field(
-                "time", pa.timestamp("ns"), metadata={"gsi_name": "Time"}
-            ),
-            pa.field(
-                "pres", pa.float32(), nullable=True, metadata={"gsi_name": "Pressure"}
-            ),
-            pa.field(
-                "elev", pa.float32(), nullable=True, metadata={"gsi_name": "Height"}
-            ),
-            pa.field(
-                "type",
-                pa.uint16(),
-                nullable=True,
-                metadata={"gsi_name": "Observation_Type"},
-            ),
-            pa.field(
-                "class",
-                pa.string(),
-                nullable=True,
-                metadata={"gsi_name": "Observation_Class"},
-            ),
-            pa.field("lat", pa.float32(), metadata={"gsi_name": "Latitude"}),
-            pa.field("lon", pa.float32(), metadata={"gsi_name": "Longitude"}),
-            pa.field("station", pa.string(), metadata={"gsi_name": "Station_ID"}),
-            pa.field(
-                "station_elev",
-                pa.float32(),
-                nullable=True,
-                metadata={"gsi_name": "Station_Elevation"},
-            ),
-            pa.field(
-                "observation", pa.float32()
-            ),  # Main observation value (required)
-            pa.field("variable", pa.string()),  # E2S variable name id (required)
-            pa.field("source", pa.string()),  # E2S data source id (required)
-        ]
-    )
+    SOURCE_ID: str  # To be defined by subclasses
+    SCHEMA: pa.Schema  # To be defined by subclasses
+    REQUIRED_FIELDS: list[str] = ["observation", "variable"]
 
     def __init__(
         self,
@@ -203,6 +123,8 @@ class GSI_Conventional:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             DataFrame column names to return.
+        fields : str | list[str] | pa.Schema | None, optional
+            Fields to include in output, by default None (all fields).
         """
         try:
             loop = asyncio.get_event_loop()
@@ -218,7 +140,9 @@ class GSI_Conventional:
             loop.run_until_complete(self._async_init())
 
         df = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable, fields), timeout=self.async_timeout)
+            asyncio.wait_for(
+                self.fetch(time, variable, fields), timeout=self.async_timeout
+            )
         )
 
         if not self._cache:
@@ -257,13 +181,313 @@ class GSI_Conventional:
             await session.close()
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
-        
+
         return df
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[GSIAsyncTask]:
+        """Create async tasks for fetching data. Must be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement _create_tasks.")
 
+    async def _fetch_remote_file(
+        self,
+        path: str,
+        byte_offset: int = 0,
+        byte_length: int | None = None,
+    ) -> None:
+        """Fetches remote file into cache.
+
+        Parameters
+        ----------
+        path : str
+            S3 URI to fetch
+        byte_offset : int, optional
+            Byte offset to start reading from, by default 0
+        byte_length : int | None, optional
+            Number of bytes to read, by default None (read all)
+        """
+        if self.fs is None:
+            raise ValueError("File system is not initialized")
+
+        cache_path = self.cache_path(path, byte_offset, byte_length)
+        if not pathlib.Path(cache_path).is_file():
+            if byte_length:
+                byte_length = int(byte_offset + byte_length)
+            try:
+                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
+                with open(cache_path, "wb") as file:
+                    file.write(data)
+            except FileNotFoundError:
+                self._handle_missing_file(path)
+
+    def _handle_missing_file(self, path: str) -> None:
+        """Handle missing file during fetch. Can be overridden by subclasses."""
+        logger.error(f"File {path} not found")
+        raise FileNotFoundError(f"File {path} not found")
+
+    def _compile_dataframe(
+        self,
+        async_tasks: list[GSIAsyncTask],
+        variables: list[str],
+        schema: pa.Schema,
+    ) -> pd.DataFrame:
+        """Compile fetched data into a DataFrame."""
+        column_map = self._build_column_map(schema)
+
+        frames: list[pd.DataFrame] = []
+        for task in async_tasks:
+            # Overwrite obs column name (needed for uv)
+            column_map[task.gsi_obs_name] = "observation"
+            local_path = self.cache_path(task.gsi_file_uri)
+            if not pathlib.Path(local_path).is_file():
+                logger.warning("Cached file missing for {}", task.gsi_file_uri)
+                continue
+            try:
+                with h5netcdf.File(local_path, "r") as ds:
+                    data: dict[str, np.ndarray] = {}
+                    for name, dset in ds.variables.items():
+                        if name not in column_map:
+                            continue
+                        values = np.asarray(dset[:])
+                        pa_type = self.SCHEMA.field(column_map[name]).type
+                        # Convert char arrays into strings for DF
+                        if values.dtype.kind == "S" and values.ndim == 2:
+                            values = values.view(f"S{values.shape[1]}").ravel()
+                            values = np.char.rstrip(
+                                np.char.decode(values, "utf-8"), "\x00"
+                            )
+                        # Apply subclass-specific transformations
+                        values = self._transform_column(name, values, task, ds)
+                        data[name] = pa.array(values, type=pa_type)
+                df = pd.DataFrame(data)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Failed to read {}: {}", local_path, exc)
+                raise exc
+
+            # Rename columns
+            df.rename(columns=column_map, inplace=True)
+            # Add e2s columns
+            df["variable"] = task.e2s_obs_name
+            self._add_task_columns(df, task)
+
+            mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
+            df = df.loc[mask]
+            frames.append(task.gsi_modifier(df))
+
+        result = pd.concat(frames, ignore_index=True)
+        return result[[name for name in schema.names if name in result.columns]]
+
+    def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+        """Build mapping from GSI column names to schema column names."""
+        column_map = {}
+        for field in schema:
+            if field.metadata is None or b"gsi_name" not in field.metadata:
+                continue
+            column_map[field.metadata[b"gsi_name"].decode("utf-8")] = field.name
+        # Always include time field for filtering
+        time_field = self.SCHEMA.field("time")
+        column_map[time_field.metadata[b"gsi_name"].decode("utf-8")] = time_field.name
+        return column_map
+
+    def _transform_column(
+        self,
+        name: str,
+        values: np.ndarray,
+        task: GSIAsyncTask,
+        ds: h5netcdf.File,
+    ) -> np.ndarray:
+        """Transform column values. Must be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement _transform_column.")
+
+    def _add_task_columns(self, df: pd.DataFrame, task: GSIAsyncTask) -> None:
+        """Add task-specific columns to DataFrame. Override in subclasses."""
+        df.attrs["source"] = self.SOURCE_ID
+
+    @classmethod
+    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+        """Convert fields parameter into a validated PyArrow schema.
+
+        Parameters
+        ----------
+        fields : str | list[str] | pa.Schema | None
+            Field specification. Can be:
+            - None: Returns the full class SCHEMA
+            - str: Single field name to select from SCHEMA
+            - list[str]: List of field names to select from SCHEMA
+            - pa.Schema: Validated against class SCHEMA for compatibility
+
+        Returns
+        -------
+        pa.Schema
+            A PyArrow schema containing only the requested fields
+
+        Raises
+        ------
+        KeyError
+            If a requested field name is not found in the class SCHEMA
+        TypeError
+            If a field type in the provided schema doesn't match the class SCHEMA
+        ValueError
+            If required fields are missing
+        """
+        if fields is None:
+            return cls.SCHEMA
+
+        if isinstance(fields, str):
+            fields = [fields]
+
+        if isinstance(fields, pa.Schema):
+            field_names = fields.names
+        else:
+            field_names = fields
+
+        # Check required fields are present
+        missing = [name for name in cls.REQUIRED_FIELDS if name not in field_names]
+        if missing:
+            raise ValueError(
+                f"Required fields {missing} must be included. "
+                f"Required fields are: {cls.REQUIRED_FIELDS}"
+            )
+
+        if isinstance(fields, pa.Schema):
+            # Validate provided schema against class schema
+            for field in fields:
+                if field.name not in cls.SCHEMA.names:
+                    raise KeyError(
+                        f"Field '{field.name}' not found in class SCHEMA. "
+                        f"Available fields: {cls.SCHEMA.names}"
+                    )
+                expected_type = cls.SCHEMA.field(field.name).type
+                if field.type != expected_type:
+                    raise TypeError(
+                        f"Field '{field.name}' has type {field.type}, "
+                        f"expected {expected_type} from class SCHEMA"
+                    )
+            return fields
+
+        # fields is list[str] - select fields from class schema
+        selected_fields = []
+        for name in fields:
+            if name not in cls.SCHEMA.names:
+                raise KeyError(
+                    f"Field '{name}' not found in class SCHEMA. "
+                    f"Available fields: {cls.SCHEMA.names}"
+                )
+            selected_fields.append(cls.SCHEMA.field(name))
+
+        return pa.schema(selected_fields)
+
+    def cache_path(
+        self, path: str, byte_offset: int = 0, byte_length: int | None = None
+    ) -> str:
+        """Gets local cache path given s3 uri
+
+        Parameters
+        ----------
+        path : str
+            s3 uri
+        byte_offset : int, optional
+            Byte offset of file to read, by default 0
+        byte_length : int | None, optional
+            Byte length of file to read, by default None
+
+        Returns
+        -------
+        str
+            Local path of cached file
+        """
+        if not byte_length:
+            byte_length = -1
+        sha = hashlib.sha256((path + str(byte_offset) + str(byte_offset)).encode())
+        filename = sha.hexdigest()
+        return os.path.join(self.cache, filename)
+
+    @property
+    def cache(self) -> str:
+        """Return appropriate cache location."""
+        cache_location = os.path.join(datasource_cache_root(), "gsi")
+        if not self._cache:
+            if self._tmp_cache_hash is None:
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_gsi_{self._tmp_cache_hash}"
+            )
+        return cache_location
+
+
+@check_optional_dependencies()
+class GSI_Conventional(_GSIBase):
+    """NOAA UFS GEFS-v13 replay observations in-situ data
+
+    Parameters
+    ----------
+    tolerance : timedelta | np.timedelta64, optional
+        Time tolerance; observations within +/- tolerance of any requested time are
+        returned, by default np.timedelta64(0).
+    max_workers : int, optional
+        Max workers in async IO thread pool for concurrent downloads, by default 24.
+    cache : bool, optional
+        Cache data source in local filesystem cache, by default True.
+    async_timeout : int, optional
+        Time in seconds after which the async fetch will be cancelled if not finished,
+        by default 600.
+    verbose : bool, optional
+        Log basic progress information, by default True.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional resources:
+
+    - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
+    - https://psl.noaa.gov/data/ufs_replay/
+    """
+
+    SOURCE_ID = "earth2studio.data.gsi_conventional"
+    SCHEMA = pa.schema(
+        [
+            pa.field("time", pa.timestamp("ns"), metadata={"gsi_name": "Time"}),
+            pa.field(
+                "pres", pa.float32(), nullable=True, metadata={"gsi_name": "Pressure"}
+            ),
+            pa.field(
+                "elev", pa.float32(), nullable=True, metadata={"gsi_name": "Height"}
+            ),
+            pa.field(
+                "type",
+                pa.uint16(),
+                nullable=True,
+                metadata={"gsi_name": "Observation_Type"},
+            ),
+            pa.field(
+                "class",
+                pa.string(),
+                nullable=True,
+                metadata={"gsi_name": "Observation_Class"},
+            ),
+            pa.field("lat", pa.float32(), metadata={"gsi_name": "Latitude"}),
+            pa.field("lon", pa.float32(), metadata={"gsi_name": "Longitude"}),
+            pa.field("station", pa.string(), metadata={"gsi_name": "Station_ID"}),
+            pa.field(
+                "station_elev",
+                pa.float32(),
+                nullable=True,
+                metadata={"gsi_name": "Station_Elevation"},
+            ),
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
+            pa.field("source", pa.string()),
+        ]
+    )
+
+    def _create_tasks(
+        self, time_list: list[datetime], variable: list[str]
+    ) -> list[GSIAsyncTask]:
         tasks: list[GSIAsyncTask] = []
         for v in variable:
             try:
@@ -297,213 +521,44 @@ class GSI_Conventional:
                     day = day + timedelta(hours=6)
         return tasks
 
-    async def _fetch_remote_file(
-        self, path: str, byte_offset: int = 0, byte_length: int | None = None
-    ) -> str:
-        """Fetches remote file into cache"""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
-        cache_path = self.cache_path(path, byte_offset, byte_length)
-        if not pathlib.Path(cache_path).is_file():
-            if byte_length:
-                byte_length = int(byte_offset + byte_length)
-            try:
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-            except FileNotFoundError as e:
-                logger.error(f"File {path} not found")
-                raise e
-            with open(cache_path, "wb") as file:
-                file.write(data)
-
-    def _compile_dataframe(
+    def _transform_column(
         self,
-        async_tasks: list[GSIAsyncTask],
-        variables: list[str],
-        schema: pa.Schema,
-    ) -> pd.DataFrame:
-        
-        column_map = {}
-        for field in schema:
-            if field.metadata is None or b"gsi_name" not in field.metadata:  # type: ignore
-                continue
-            column_map[field.metadata[b"gsi_name"].decode("utf-8")] = field.name
-        # Required for modifier and time filtering
+        name: str,
+        values: np.ndarray,
+        task: GSIAsyncTask,
+        ds: h5netcdf.File,
+    ) -> np.ndarray:
+        """Transform column values for conventional data."""
+        # Convert hours offset to timedelta, and add to datetime of file
+        if name == "Time":
+            values = pd.to_timedelta(values, unit="h") + task.datetime_file
+        return values
+
+    def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+        """Build column map including elev field required for modifiers."""
+        column_map = super()._build_column_map(schema)
+        # Required for modifier filtering
         elev_field = self.SCHEMA.field("elev")
-        time_field = self.SCHEMA.field("time")
         column_map[elev_field.metadata[b"gsi_name"].decode("utf-8")] = elev_field.name
-        column_map[time_field.metadata[b"gsi_name"].decode("utf-8")] = time_field.name
+        return column_map
 
-        frames: list[pd.DataFrame] = []
-        for task in async_tasks:
-            column_map[task.gsi_obs_name] = "observation" # Overwrite obs column name (needed for uv)
-            local_path = self.cache_path(task.gsi_file_uri)
-            if not pathlib.Path(local_path).is_file():
-                logger.warning("Cached file missing for {}", task.gsi_file_uri)
-                continue
-            try:
-                with h5netcdf.File(local_path, "r") as ds:
-   
-                    data: dict[str, np.ndarray] = {}
-                    for name, dset in ds.variables.items():
-                        if name not in column_map:
-                            continue
-                        values = np.asarray(dset[:])
-                        pa_type = self.SCHEMA.field(column_map[name]).type
-                        # Convert char arrays into strings for DF
-                        if values.dtype.kind == "S" and values.ndim == 2:
-                            values = values.view(f"S{values.shape[1]}").ravel()
-                            values = np.char.rstrip(np.char.decode(values, "utf-8"), "\x00")
-                        # Convert hours offset to timedelta, and add to datetime of file
-                        if name == "Time":
-                            values = pd.to_timedelta(values, unit="h") + task.datetime_file
+    def _add_task_columns(self, df: pd.DataFrame, task: GSIAsyncTask) -> None:
+        """Add source column for conventional data."""
+        super()._add_task_columns(df, task)
+        df["source"] = self.SOURCE_ID
 
-                        data[name] = pa.array(values, type=pa_type)
-                df = pd.DataFrame(data)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.error("Failed to read {}: {}", local_path, exc)
-                raise exc
-
-            # Rename column
-            df.rename(columns=column_map, inplace=True)
-            # Add in e2s columns
-            df["variable"] = task.e2s_obs_name
-            df.attr = {"source": self.SOURCE_ID}
-            
-            mask = (df["time"] >= task.datetime_min) & (
-                df["time"] <= task.datetime_max
-            )
-            df = df.loc[mask]
-            frames.append(task.gsi_modifier(df)) # Handle unit conversions and additional filtering
-
-        result = pd.concat(frames, ignore_index=True)
-        return result[[name for name in schema.names if name in result.columns]]
-
-    @classmethod
-    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
-        """Convert fields parameter into a validated PyArrow schema.
-
-        Parameters
-        ----------
-        fields : str | list[str] | pa.Schema | None
-            Field specification. Can be:
-            - None: Returns the full class SCHEMA
-            - str: Single field name to select from SCHEMA
-            - list[str]: List of field names to select from SCHEMA
-            - pa.Schema: Validated against class SCHEMA for compatibility
-
-        Returns
-        -------
-        pa.Schema
-            A PyArrow schema containing only the requested fields
-
-        Raises
-        ------
-        KeyError
-            If a requested field name is not found in the class SCHEMA
-        TypeError
-            If a field type in the provided schema doesn't match the class SCHEMA
-        """
-        REQUIRED_FIELDS = ["observation", "variable", "source"]
-
-        if fields is None:
-            return cls.SCHEMA
-
-        if isinstance(fields, str):
-            fields = [fields]
-
-        if isinstance(fields, pa.Schema):
-            field_names = fields.names
-        else:
-            field_names = fields
-
-        # Check required fields are present
-        missing = [name for name in REQUIRED_FIELDS if name not in field_names]
-        if missing:
-            raise ValueError(
-                f"Required fields {missing} must be included. "
-                f"Required fields are: {REQUIRED_FIELDS}"
-            )
-
-        if isinstance(fields, pa.Schema):
-            # Validate provided schema against class schema
-            for field in fields:
-                if field.name not in cls.SCHEMA.names:
-                    raise KeyError(
-                        f"Field '{field.name}' not found in class SCHEMA. "
-                        f"Available fields: {cls.SCHEMA.names}"
-                    )
-                expected_type = cls.SCHEMA.field(field.name).type
-                if field.type != expected_type:
-                    raise TypeError(
-                        f"Field '{field.name}' has type {field.type}, "
-                        f"expected {expected_type} from class SCHEMA"
-                    )
-            return fields
-
-        # fields is list[str] - select fields from class schema
-        selected_fields = []
-        for name in fields:
-            if name not in cls.SCHEMA.names:
-                raise KeyError(
-                    f"Field '{name}' not found in class SCHEMA. "
-                    f"Available fields: {cls.SCHEMA.names}"
-                )
-            selected_fields.append(cls.SCHEMA.field(name))
-
-        return pa.schema(selected_fields)
-
-    def cache_path(
-        self, path: str, byte_offset: int = 0, byte_length: int | None = None
-    ) -> str:
-        """Gets local cache path given s3 uri
-
-        Parameters
-        ----------
-        path : str
-            s3 uri
-        byte_offset : int, optional
-            Byte offset of file to read, by default 0
-        byte_length : int | None, optional
-            Byte length of file to read, by default None
-
-        Returns
-        -------
-        str
-            Local path of cached file
-        """
-        if not byte_length:
-            byte_length = -1
-        sha = hashlib.sha256((path + str(byte_offset) + str(byte_offset)).encode())
-        filename = sha.hexdigest()
-        return os.path.join(self.cache, filename)
-
-    @property
-    def cache(self) -> str:
-        """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "gsi")
-        if not self._cache:
-            if self._tmp_cache_hash is None:
-                self._tmp_cache_hash = uuid.uuid4().hex[:8]
-            cache_location = os.path.join(
-                cache_location, f"tmp_gsi_{self._tmp_cache_hash}"
-            )
-        return cache_location
 
 @check_optional_dependencies()
-class GSI_Satellite:
-    """NOAA UFS GEFS-v13 replay observations satellitte data
+class GSI_Satellite(_GSIBase):
+    """NOAA UFS GEFS-v13 replay observations satellite data
 
     Parameters
     ----------
-    sensors : str | list[str], optional
-        Sensor names to include. Use "all" for every sensor. Conventional sensors can
-        be specified as "conv" or as "conv_<platform>" (e.g., "conv_uv").
-    obs_type : {"ges", "anl"}, optional
-        Observation type to read ("ges" or "anl"), by default "ges".
     tolerance : timedelta | np.timedelta64, optional
         Time tolerance; observations within +/- tolerance of any requested time are
         returned, by default np.timedelta64(0).
+    satellites : list[str], optional
+        List of satellite platforms to include, by default includes all platforms.
     max_workers : int, optional
         Max workers in async IO thread pool for concurrent downloads, by default 24.
     cache : bool, optional
@@ -527,13 +582,24 @@ class GSI_Satellite:
     - https://psl.noaa.gov/data/ufs_replay/
     """
 
-    UFS_BUCKET = "noaa-ufs-gefsv13replay-pds"
-    SOURCE_ID = "earth2studio.data.gsi_satellitte"
+    SOURCE_ID = "earth2studio.data.gsi_satellite"
+    VALID_SATELLITES = frozenset(
+        [
+            "npp",
+            "metop-a",
+            "metop-b",
+            "metop-c",
+            "n15",
+            "n16",
+            "n17",
+            "n18",
+            "n19",
+            "n20",
+        ]
+    )
     SCHEMA = pa.schema(
         [
-            pa.field(
-                "time", pa.timestamp("ns"), metadata={"gsi_name": "Obs_Time"}
-            ),
+            pa.field("time", pa.timestamp("ns"), metadata={"gsi_name": "Obs_Time"}),
             pa.field(
                 "elev", pa.float32(), nullable=True, metadata={"gsi_name": "Height"}
             ),
@@ -543,7 +609,7 @@ class GSI_Satellite:
                 nullable=True,
                 metadata={"gsi_name": "Observation_Class"},
             ),
-            pa.field("type", pa.string()), # Inconsistent with above
+            pa.field("type", pa.string()),
             pa.field("lat", pa.float32(), metadata={"gsi_name": "Latitude"}),
             pa.field("lon", pa.float32(), metadata={"gsi_name": "Longitude"}),
             pa.field("scan_angle", pa.float32(), metadata={"gsi_name": "Scan_Angle"}),
@@ -554,132 +620,61 @@ class GSI_Satellite:
                 metadata={"gsi_name": "Channel_Index"},
             ),
             pa.field("solza", pa.float32(), metadata={"gsi_name": "Sol_Zenith_Angle"}),
-            pa.field("solaza", pa.float32(), metadata={"gsi_name": "Sol_Azimuth_Angle"}),
-            pa.field("satellite_za", pa.float32(), metadata={"gsi_name": "Sat_Zenith_Angle"}),
-            pa.field("satellite_aza", pa.float32(), metadata={"gsi_name": "Sat_Azimuth_Angle"}),
+            pa.field(
+                "solaza", pa.float32(), metadata={"gsi_name": "Sol_Azimuth_Angle"}
+            ),
+            pa.field(
+                "satellite_za", pa.float32(), metadata={"gsi_name": "Sat_Zenith_Angle"}
+            ),
+            pa.field(
+                "satellite_aza",
+                pa.float32(),
+                metadata={"gsi_name": "Sat_Azimuth_Angle"},
+            ),
             pa.field("satellite", pa.string()),
-            pa.field("observation", pa.float32()), # (required)
-            pa.field("variable", pa.string()),  # E2S variable name id (required)
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
         ]
     )
 
     def __init__(
         self,
         tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
-        satellites: list[str] = ["npp", "metop-a", "metop-b", "metop-c", "n15", "n16", "n17", "n18", "n19", "n20"],
+        satellites: list[str] | None = None,
         max_workers: int = 24,
         cache: bool = True,
         async_timeout: int = 600,
         verbose: bool = True,
     ) -> None:
-        
-        self.obs_type = "ges"
-        self.satellites = satellites
-        self._verbose = verbose
-        self._cache = cache
-        self._max_workers = max_workers
-        self.async_timeout = async_timeout
-        self._tmp_cache_hash: str | None = None
-
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
-
-        if isinstance(tolerance, np.timedelta64):
-            self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
+        if satellites is None:
+            satellites = list(self.VALID_SATELLITES)
         else:
-            self.tolerance = tolerance
-
-    async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+            invalid = set(satellites) - self.VALID_SATELLITES
+            if invalid:
+                raise ValueError(
+                    f"Invalid satellite(s): {invalid}. "
+                    f"Valid satellites are: {sorted(self.VALID_SATELLITES)}"
+                )
+        self.satellites = satellites
+        super().__init__(
+            tolerance=tolerance,
+            max_workers=max_workers,
+            cache=cache,
+            async_timeout=async_timeout,
+            verbose=verbose,
         )
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-        fields: str | list[str] | pa.Schema | None = None,
-    ) -> pd.DataFrame:
-        """Fetch observations for a set of timestamps.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            DataFrame column names to return.
-        """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        df = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable, fields), timeout=self.async_timeout)
-        )
-
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
-
-        return df
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-        fields: str | list[str] | pa.Schema | None = None,
-    ) -> pd.DataFrame:
-        """Async function to get data."""
-        if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this "
-                "function directly make sure the data source is initialized inside the async loop!"
-            )
-
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session(refresh=True)
-
-        time_list, variable_list = prep_data_inputs(time, variable)
-        schema = self.resolve_fields(fields)
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-
-        async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = {task.gsi_file_uri for task in async_tasks}
-        fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
-        await tqdm.gather(
-            *fetch_jobs, desc="Fetching GSI files", disable=(not self._verbose)
-        )
-
-        if session:
-            await session.close()
-
-        df = self._compile_dataframe(async_tasks, variable_list, schema)
-        
-        return df
 
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[GSIAsyncTask]:
-
         tasks: list[GSIAsyncTask] = []
         for v in variable:
             try:
                 gsi_name, modifier = GSISatelliteLexicon[v]  # type: ignore
                 gsi_platforms, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
-                gsi_platforms = [p for p in gsi_platforms.split(",") if p in self.satellites]
+                gsi_platforms = [
+                    p for p in gsi_platforms.split(",") if p in self.satellites
+                ]
             except KeyError as e:
                 logger.error(f"Variable id {v} not found in GSI satellite lexicon")
                 raise e
@@ -710,199 +705,32 @@ class GSI_Satellite:
                         day = day + timedelta(hours=6)
         return tasks
 
-    async def _fetch_remote_file(
-        self, path: str, byte_offset: int = 0, byte_length: int | None = None
-    ) -> str:
-        """Fetches remote file into cache"""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+    def _handle_missing_file(self, path: str) -> None:
+        """Satellite data may have missing platforms, just warn instead of error."""
+        logger.warning(f"File {path} not found")
 
-        cache_path = self.cache_path(path, byte_offset, byte_length)
-        if not pathlib.Path(cache_path).is_file():
-            if byte_length:
-                byte_length = int(byte_offset + byte_length)
-            try:
-                data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
-            except FileNotFoundError as e:
-                logger.error(f"File {path} not found")
-                raise e
-            with open(cache_path, "wb") as file:
-                file.write(data)
-
-    def _compile_dataframe(
+    def _transform_column(
         self,
-        async_tasks: list[GSIAsyncTask],
-        variables: list[str],
-        schema: pa.Schema,
-    ) -> pd.DataFrame:
-        
-        column_map = {}
-        for field in schema:
-            if field.metadata is None or b"gsi_name" not in field.metadata:  # type: ignore
-                continue
-            column_map[field.metadata[b"gsi_name"].decode("utf-8")] = field.name
-        # Required for modifier and time filtering
-        time_field = self.SCHEMA.field("time")
-        column_map[time_field.metadata[b"gsi_name"].decode("utf-8")] = time_field.name
+        name: str,
+        values: np.ndarray,
+        task: GSIAsyncTask,
+        ds: h5netcdf.File,
+    ) -> np.ndarray:
+        """Transform column values for satellite data."""
+        # Convert hours offset to timedelta, and add to datetime of file
+        if name == "Obs_Time":
+            values = pd.to_timedelta(values, unit="h") + task.datetime_file
+        # Channel index actually seems to be a pointer to sensor channels
+        if name == "Channel_Index":
+            sensor_chan = ds["sensor_chan"][:].astype(np.uint16)
+            values = sensor_chan[values.astype(np.uint16) - 1]
+        return values
 
-        frames: list[pd.DataFrame] = []
-        for task in async_tasks:
-            column_map[task.gsi_obs_name] = "observation" # Overwrite obs column name (needed for uv)
-            local_path = self.cache_path(task.gsi_file_uri)
-            if not pathlib.Path(local_path).is_file():
-                logger.warning("Cached file missing for {}", task.gsi_file_uri)
-                continue
-            try:
-                with h5netcdf.File(local_path, "r") as ds:
-                    data: dict[str, np.ndarray] = {}
-                    for name, dset in ds.variables.items():
-                        if name not in column_map:
-                            continue
-                        values = np.asarray(dset[:])
-                        pa_type = self.SCHEMA.field(column_map[name]).type
-                        # Convert char arrays into strings for DF
-                        if values.dtype.kind == "S" and values.ndim == 2:
-                            values = values.view(f"S{values.shape[1]}").ravel()
-                            values = np.char.rstrip(np.char.decode(values, "utf-8"), "\x00")
-                        # Convert hours offset to timedelta, and add to datetime of file
-                        if name == "Obs_Time":
-                            values = pd.to_timedelta(values, unit="h") + task.datetime_file
-                        # Channel index actually seems to be a pointer to sensor channels
-                        if name == "Channel_Index":
-                            sensor_chan = ds["sensor_chan"][:].astype(np.uint16)
-                            values = sensor_chan[values.astype(np.uint16) - 1]
-                        data[name] = pa.array(values, type=pa_type)
-                df = pd.DataFrame(data)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.error("Failed to read {}: {}", local_path, exc)
-                raise exc
+    def _add_task_columns(self, df: pd.DataFrame, task: GSIAsyncTask) -> None:
+        """Add satellite column for satellite data."""
+        super()._add_task_columns(df, task)
+        df["satellite"] = task.satellite
 
-            # Rename column
-            df.rename(columns=column_map, inplace=True)
-            # Add in e2s columns
-            df["variable"] = task.e2s_obs_name
-            df["satellite"] = task.satellite
-            df.attr = {"source": self.SOURCE_ID}
-            
-            mask = (df["time"] >= task.datetime_min) & (
-                df["time"] <= task.datetime_max
-            )
-            df = df.loc[mask]
-            frames.append(task.gsi_modifier(df)) # Handle unit conversions and additional filtering
-
-        result = pd.concat(frames, ignore_index=True)
-        return result[[name for name in schema.names if name in result.columns]]
-
-    @classmethod
-    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
-        """Convert fields parameter into a validated PyArrow schema.
-
-        Parameters
-        ----------
-        fields : str | list[str] | pa.Schema | None
-            Field specification. Can be:
-            - None: Returns the full class SCHEMA
-            - str: Single field name to select from SCHEMA
-            - list[str]: List of field names to select from SCHEMA
-            - pa.Schema: Validated against class SCHEMA for compatibility
-
-        Returns
-        -------
-        pa.Schema
-            A PyArrow schema containing only the requested fields
-
-        Raises
-        ------
-        KeyError
-            If a requested field name is not found in the class SCHEMA
-        TypeError
-            If a field type in the provided schema doesn't match the class SCHEMA
-        """
-        REQUIRED_FIELDS = ["observation", "variable", "source"]
-
-        if fields is None:
-            return cls.SCHEMA
-
-        if isinstance(fields, str):
-            fields = [fields]
-
-        if isinstance(fields, pa.Schema):
-            field_names = fields.names
-        else:
-            field_names = fields
-
-        # Check required fields are present
-        missing = [name for name in REQUIRED_FIELDS if name not in field_names]
-        if missing:
-            raise ValueError(
-                f"Required fields {missing} must be included. "
-                f"Required fields are: {REQUIRED_FIELDS}"
-            )
-
-        if isinstance(fields, pa.Schema):
-            # Validate provided schema against class schema
-            for field in fields:
-                if field.name not in cls.SCHEMA.names:
-                    raise KeyError(
-                        f"Field '{field.name}' not found in class SCHEMA. "
-                        f"Available fields: {cls.SCHEMA.names}"
-                    )
-                expected_type = cls.SCHEMA.field(field.name).type
-                if field.type != expected_type:
-                    raise TypeError(
-                        f"Field '{field.name}' has type {field.type}, "
-                        f"expected {expected_type} from class SCHEMA"
-                    )
-            return fields
-
-        # fields is list[str] - select fields from class schema
-        selected_fields = []
-        for name in fields:
-            if name not in cls.SCHEMA.names:
-                raise KeyError(
-                    f"Field '{name}' not found in class SCHEMA. "
-                    f"Available fields: {cls.SCHEMA.names}"
-                )
-            selected_fields.append(cls.SCHEMA.field(name))
-
-        return pa.schema(selected_fields)
-
-    def cache_path(
-        self, path: str, byte_offset: int = 0, byte_length: int | None = None
-    ) -> str:
-        """Gets local cache path given s3 uri
-
-        Parameters
-        ----------
-        path : str
-            s3 uri
-        byte_offset : int, optional
-            Byte offset of file to read, by default 0
-        byte_length : int | None, optional
-            Byte length of file to read, by default None
-
-        Returns
-        -------
-        str
-            Local path of cached file
-        """
-        if not byte_length:
-            byte_length = -1
-        sha = hashlib.sha256((path + str(byte_offset) + str(byte_offset)).encode())
-        filename = sha.hexdigest()
-        return os.path.join(self.cache, filename)
-
-    @property
-    def cache(self) -> str:
-        """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "gsi")
-        if not self._cache:
-            if self._tmp_cache_hash is None:
-                self._tmp_cache_hash = uuid.uuid4().hex[:8]
-            cache_location = os.path.join(
-                cache_location, f"tmp_gsi_{self._tmp_cache_hash}"
-            )
-        return cache_location
 
 if __name__ == "__main__":
 

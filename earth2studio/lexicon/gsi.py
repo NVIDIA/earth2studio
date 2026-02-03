@@ -17,7 +17,6 @@
 from collections.abc import Callable
 
 import pandas as pd
-import pyarrow as pa
 
 from .base import LexiconType
 
@@ -52,6 +51,10 @@ class GSIConventionalLexicon(metaclass=LexiconType):
         "u100m": "conv::uv:::ges:u_Observation",
         "v100m": "conv::uv::ges::v_Observation",
         "gps": "conv::gps::ges::Observation",
+        # Global Navigation System Radio Occultation is a remote sensing method
+        # Could merge these with t and q but unique measurement method so keeping seperate
+        "gps_t": "conv::gps::ges::Temperature_at_Obs_Location",
+        "gps_q": "conv::gps::ges::Specific_Humidity_at_Obs_Location",
     }
 
     @classmethod
