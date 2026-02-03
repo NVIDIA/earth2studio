@@ -41,6 +41,7 @@ E2STUDIO_VOCAB = {
     "sic": "sea ice concentration / sea ice area fraction (0 - 1)",
     "sp": "surface pressure (Pa)",
     "msl": "mean sea level pressure (Pa)",
+    "pres": "pressure (Pa) at a certain altitude(s)",
     "tcwv": "total column water vapor / precipitable water (kg m-2)",
     "tclw": "total column liquid water / vertically integrated liquid (cloud) water path (kg m-2)",
     "tciw": "total column ice water / vertically integrated ice (cloud) water path (kg m-2)",

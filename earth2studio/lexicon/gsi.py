@@ -35,6 +35,7 @@ class GSIConventionalLexicon(metaclass=LexiconType):
     - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
     - https://psl.noaa.gov/data/ufs_replay/
     - https://ral.ucar.edu/solutions/products/gridpoint-statistical-interpolation-gsi
+    - https://psl.noaa.gov/data/ufs_replay/202409-PSL-UFSReplay-HistoryFileVariableNames.pdf
     """
 
     VOCAB: dict[str, str] = {
@@ -50,47 +51,8 @@ class GSIConventionalLexicon(metaclass=LexiconType):
         "sp": "conv::ps::ges::Observation",
         "u100m": "conv::uv:::ges:u_Observation",
         "v100m": "conv::uv::ges::v_Observation",
+        "gps": "conv::gps::ges::Observation",
     }
-
-    SCHEMA = pa.schema(
-        [
-            pa.field(
-                "observation", pa.float32(), metadata={"gsi_name": "Observation"}
-            ),  # Main observation value (required)
-            pa.field("variable", pa.string()),  # E2S variable name id (required)
-            pa.field("source", pa.string()),  # E2S data source id (required)
-            pa.field(
-                "time", pa.timestamp("ns"), metadata={"gsi_name": "Time"}
-            ),  # Observation time (required)
-            pa.field(
-                "pres", pa.float32(), nullable=True, metadata={"gsi_name": "Pressure"}
-            ),
-            pa.field(
-                "elev", pa.float32(), nullable=True, metadata={"gsi_name": "Height"}
-            ),
-            pa.field(
-                "type",
-                pa.uint16(),
-                nullable=True,
-                metadata={"gsi_name": "Observation_Type"},
-            ),
-            pa.field("lat", pa.float32(), metadata={"gsi_name": "Latitude"}),
-            pa.field("lon", pa.float32(), metadata={"gsi_name": "Longitude"}),
-            pa.field("station", pa.string(), metadata={"gsi_name": "Station_ID"}),
-            pa.field(
-                "station_elev",
-                pa.float32(),
-                nullable=True,
-                metadata={"gsi_name": "Station_Elevation"},
-            ),
-            pa.field(
-                "station_type",
-                pa.string(),
-                nullable=True,
-                metadata={"gsi_name": "Observation_Class"},
-            ),
-        ]
-    )
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
@@ -112,7 +74,7 @@ class GSIConventionalLexicon(metaclass=LexiconType):
         if val in ["u10m", "v10m", "sp"]:
 
             def mod(x: pd.DataFrame) -> pd.DataFrame:
-                return x[(x["elev"] >= 0) & (x["elev"] <= 20)]
+                return x[(x["elev"] >= 0) & (x["elev"] <= 15)]
 
         elif val in ["q2m", "t2m"]:
 
@@ -131,18 +93,49 @@ class GSIConventionalLexicon(metaclass=LexiconType):
 
         return gsi_key, mod
 
+
+class GSISatelliteLexicon(metaclass=LexiconType):
+    """NOAA maintained Gridpoint Statistical Interpolation (GSI) lexicon for
+    satellite observations. GSI is provided as part of the NOAA UFS data
+    repository.
+    GSI vocab specified <platforms>::<sensor/var>::<product>::<gsi column name of obs>
+
+    Note
+    ----
+    Additional resources:
+
+    - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
+    - https://psl.noaa.gov/data/ufs_replay/
+    - https://ral.ucar.edu/solutions/products/gridpoint-statistical-interpolation-gsi
+    """
+
+    VOCAB: dict[str, str] = {
+        "atms": "npp,n20::atms::ges::Observation",
+        "mhs": "metop-a,metop-b,metop-c,n18,n19::mhs::ges::Observation",
+        "amsua": "metop-a,metop-b,metop-c,n15,n16,n17,n18,n19::amsua::ges::Observation",
+        "amsub": "n15,n16,n17::amsub::ges::Observation",
+        "iasi": "metop-a,metop-b,metop-c::iasi::ges::Observation",
+        "crisfsr": "npp,n20::cris-fsr::ges::Observation",
+    }
+
     @classmethod
-    def column_map(cls) -> dict[str, str]:
-        """Data frame translation map from source to e2s column names
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Get item from GSI vocabulary.
+
+        Parameters
+        ----------
+        val : str
+            Earth2Studio variable id.
 
         Returns
         -------
-        dict[str, str]
-            Column map
+        tuple[str, Callable]
+            - GSI vocab string
+            - A modifier function to apply to the loaded values (identity).
         """
-        column_map = {}
-        for field in cls.SCHEMA:
-            if field.metadata is None or "gsi_name" not in field.metadata:  # type: ignore
-                continue
-            column_map[field.metadata["gsi_name"]] = field.name
-        return column_map
+        gsi_key = cls.VOCAB[val]
+
+        def mod(x: pd.DataFrame) -> pd.DataFrame:
+            return x
+
+        return gsi_key, mod
