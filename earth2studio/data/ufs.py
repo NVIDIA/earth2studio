@@ -64,7 +64,7 @@ class _GSIAsyncTask:
     satellite: str | None = None
 
 
-class _GSIBase:
+class _UFSObsBase:
     """Base class for GSI data sources.
 
     This abstract base class provides common functionality for reading NOAA UFS
@@ -163,10 +163,10 @@ class _GSIBase:
                 "function directly make sure the data source is initialized inside the async loop!"
             )
 
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
         session = await self.fs.set_session(refresh=True)
 
         time_list, variable_list = prep_data_inputs(time, variable)
+        self._validate_time(time_list)
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
@@ -233,11 +233,10 @@ class _GSIBase:
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Compile fetched data into a DataFrame."""
-        column_map = self._build_column_map(schema)
-
         frames: list[pd.DataFrame] = []
         for task in async_tasks:
             # Overwrite obs column name (needed for uv)
+            column_map = self._build_column_map(schema)
             column_map[task.gsi_obs_name] = "observation"
             local_path = self.cache_path(task.gsi_file_uri)
             if not pathlib.Path(local_path).is_file():
@@ -378,6 +377,21 @@ class _GSIBase:
 
         return pa.schema(selected_fields)
 
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify if date time is valid for GSI based on offline knowledge
+
+        Parameters
+        ----------
+        times : list[datetime]
+            list of date times to fetch data
+        """
+        for time in times:
+            start_date = datetime(1980, 1, 1)
+            if time < start_date:
+                raise ValueError(
+                    f"Requested date time {time} needs to be after {start_date} for UFS observations"
+                )
+
     def cache_path(
         self, path: str, byte_offset: int = 0, byte_length: int | None = None
     ) -> str:
@@ -399,7 +413,7 @@ class _GSIBase:
         """
         if not byte_length:
             byte_length = -1
-        sha = hashlib.sha256((path + str(byte_offset) + str(byte_offset)).encode())
+        sha = hashlib.sha256((path + str(byte_offset) + str(byte_length)).encode())
         filename = sha.hexdigest()
         return os.path.join(self.cache, filename)
 
@@ -417,7 +431,7 @@ class _GSIBase:
 
 
 @check_optional_dependencies()
-class GSI_Conventional(_GSIBase):
+class UFSObsConv(_UFSObsBase):
     """NOAA UFS GEFS-v13 replay observations in-situ data
 
     Parameters
@@ -448,7 +462,7 @@ class GSI_Conventional(_GSIBase):
     - https://psl.noaa.gov/data/ufs_replay/
     """
 
-    SOURCE_ID = "earth2studio.data.gsi_conventional"
+    SOURCE_ID = "earth2studio.data.UFSObsConv"
     SCHEMA = pa.schema(
         [
             pa.field("time", pa.timestamp("ns"), metadata={"gsi_name": "Time"}),
@@ -548,7 +562,7 @@ class GSI_Conventional(_GSIBase):
 
 
 @check_optional_dependencies()
-class GSI_Satellite(_GSIBase):
+class UFSObsSat(_UFSObsBase):
     """NOAA UFS GEFS-v13 replay observations satellite data
 
     Parameters
@@ -581,7 +595,7 @@ class GSI_Satellite(_GSIBase):
     - https://psl.noaa.gov/data/ufs_replay/
     """
 
-    SOURCE_ID = "earth2studio.data.gsi_satellite"
+    SOURCE_ID = "earth2studio.data.GSISat"
     VALID_SATELLITES = frozenset(
         [
             "npp",
@@ -600,7 +614,7 @@ class GSI_Satellite(_GSIBase):
         [
             pa.field("time", pa.timestamp("ns"), metadata={"gsi_name": "Obs_Time"}),
             pa.field(
-                "elev", pa.float32(), nullable=True, metadata={"gsi_name": "Height"}
+                "elev", pa.float32(), nullable=True, metadata={"gsi_name": "Elevation"}
             ),
             pa.field(
                 "class",
@@ -608,7 +622,6 @@ class GSI_Satellite(_GSIBase):
                 nullable=True,
                 metadata={"gsi_name": "Observation_Class"},
             ),
-            pa.field("type", pa.string()),
             pa.field("lat", pa.float32(), metadata={"gsi_name": "Latitude"}),
             pa.field("lon", pa.float32(), metadata={"gsi_name": "Longitude"}),
             pa.field("scan_angle", pa.float32(), metadata={"gsi_name": "Scan_Angle"}),
@@ -729,11 +742,3 @@ class GSI_Satellite(_GSIBase):
         """Add satellite column for satellite data."""
         super()._add_task_columns(df, task)
         df["satellite"] = task.satellite
-
-
-if __name__ == "__main__":
-
-    ds = GSI_Satellite(tolerance=timedelta(hours=6))
-    da = ds([datetime(2024, 1, 1, 3)], ["atms"])
-
-    print(da)

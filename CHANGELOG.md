@@ -13,8 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added onnxscript to onnx models to add support for newer torch versions
 - Moved lock file / CI system to torch 2.9.1
+- Added NOAA UFS relay observation dataframe sources for satellite and conventional
+  data
+- Added Earth2Studio base schema for dataframe sources
 
 ### Changed
+
+- Changed ISD data frame return to master schema
 
 ### Deprecated
 
@@ -23,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+### Dependencies
+
+- Added pyarrow as a core dependency
 
 ## [0.12.0] - 2026-01-26
 
