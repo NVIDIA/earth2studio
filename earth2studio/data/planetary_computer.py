@@ -499,27 +499,20 @@ class _PlanetaryComputerData:
         search = self._client.search(
             collections=[self._collection_id],
             datetime=datetime_param,
-            limit=1,
+            max_items=2,
             **self._search_kwargs,
         )
 
         # Return the first item
-        items = search.items()
-        try:
-            item = next(items)
-        except StopIteration as error:
+        items = list(search.items())
+        if len(items) == 0:
             raise FileNotFoundError(
                 f"No Planetary Computer item found for {when.isoformat()} "
                 f"within ±{self._search_tolerance}"
-            ) from error
-
-        try:
-            _ = next(items)
+            )
+        elif len(items) > 1:
             logger.warning("Found more than one matching item, returning first match")
-        except StopIteration:
-            pass
-
-        return item
+        return items[0]
 
     def _local_asset_path(self, href: str) -> pathlib.Path:
         """Resolve the cache path for a remote asset href."""
