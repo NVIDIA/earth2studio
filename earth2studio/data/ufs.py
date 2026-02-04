@@ -591,7 +591,7 @@ class UFSObsSat(_UFSObsBase):
         df = ds(datetime(2024, 1, 1, 20), ["atms"])
     """
 
-    SOURCE_ID = "earth2studio.data.GSISat"
+    SOURCE_ID = "earth2studio.data.UFSObsSat"
     VALID_SATELLITES = frozenset(
         [
             "npp",
