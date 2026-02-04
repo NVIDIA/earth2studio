@@ -669,9 +669,9 @@ class UFSObsSat(_UFSObsBase):
         for v in variable:
             try:
                 gsi_name, modifier = GSISatelliteLexicon[v]  # type: ignore
-                gsi_platforms, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
+                gsi_platforms0, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
                 gsi_platforms = [
-                    p for p in gsi_platforms.split(",") if p in self.satellites
+                    p for p in gsi_platforms0.split(",") if p in self.satellites
                 ]
             except KeyError as e:
                 logger.error(f"Variable id {v} not found in GSI satellite lexicon")
