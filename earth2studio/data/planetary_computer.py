@@ -299,7 +299,7 @@ class _PlanetaryComputerData:
             with tqdm(
                 total=len(times) * len(variables),
                 disable=not self._verbose,
-                desc=f"Fetching {self._collection_id}",
+                desc=f"Fetching msft-pc {self._collection_id}",
             ) as progress:
                 tasks = [
                     asyncio.create_task(
