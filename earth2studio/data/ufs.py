@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+import h5netcdf
 import nest_asyncio
 import numpy as np
 import pandas as pd
@@ -37,17 +38,7 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
 from earth2studio.utils.type import TimeArray, VariableArray
-
-try:
-    import h5netcdf
-except ImportError:
-    OptionalDependencyFailure("data")
-    h5netcdf = None  # type: ignore[assignment]
 
 
 @dataclass
@@ -416,7 +407,6 @@ class _UFSObsBase:
         return cache_location
 
 
-@check_optional_dependencies()
 class UFSObsConv(_UFSObsBase):
     """NOAA UFS GEFS-v13 replay observations in-situ data
 
@@ -446,6 +436,14 @@ class UFSObsConv(_UFSObsBase):
 
     - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
     - https://psl.noaa.gov/data/ufs_replay/
+
+    Example
+    -------
+    .. highlight:: python
+    .. code-block:: python
+
+        ds = UFSObsConv(tolerance=timedelta(hours=2))
+        df = ds(datetime(2024, 1, 1, 20), ["u"])
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsConv"
@@ -547,7 +545,6 @@ class UFSObsConv(_UFSObsBase):
         df["source"] = self.SOURCE_ID
 
 
-@check_optional_dependencies()
 class UFSObsSat(_UFSObsBase):
     """NOAA UFS GEFS-v13 replay observations satellite data
 
@@ -579,6 +576,19 @@ class UFSObsSat(_UFSObsBase):
 
     - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
     - https://psl.noaa.gov/data/ufs_replay/
+
+    Example
+    -------
+    .. highlight:: python
+    .. code-block:: python
+
+        # Use all possible satellites
+        ds = UFSObsSat(tolerance=timedelta(hours=2))
+        df = ds(datetime(2024, 1, 1, 20), ["atms"])
+
+        # Use specific satellite
+        ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
+        df = ds(datetime(2024, 1, 1, 20), ["atms"])
     """
 
     SOURCE_ID = "earth2studio.data.GSISat"
