@@ -783,7 +783,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
 :class: note
 
 To add extra dependencies adjust the `uv pip install` command like you would normally
-do with pip e.g.
+do with pip, for example:
 
 ```bash
 uv pip install --system \

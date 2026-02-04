@@ -135,20 +135,20 @@ Brief one-liner of what this will do (used on hover of thumbnail in docs)
 
 Then add a more verbose description on a new line here.
 This can be multiply lines with references if needed
-Include a list of the specific unique items this example includes, e.g.
+Include a list of the specific unique items this example includes, for example:
 
 In this example you will learn:
 
-- How to instantiate a built in prognostic model
+- How to instantiate a build in prognostic model
 - Creating a data source and IO object
-- Running a simple built in workflow
+- Running a basic build in workflow
 - Post-processing results
 """
 # /// script
 # dependencies = [
 #   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
-#   "other depedencies...",
+#   "other dependencies...",
 # ]
 # ///
 
@@ -160,7 +160,7 @@ In this example you will learn:
 # This should include an explicit list of key features like so, this enable cross-referencing
 # in the API docs.
 #
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
+# - Prognostic Model: Use the build in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
