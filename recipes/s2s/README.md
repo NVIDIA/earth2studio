@@ -305,7 +305,7 @@ weekly-averaged forecast outputs, computed against climatological quintiles.
 There are a number of limitations associated with using `AI_WQ_package` for scoring:
 
 - The initialization date of the forecast must be on a Thursday
-- The initialization date must be recent (on or after March 2025) to be able to download
+- The initialization date must be on or after March 2025 to be able to download
   the corresponding verification data. This precludes using some ERA5 data sources.
 - The scoring routines will download data (verification ERA5 data, weekly mean climatology,
   land-sea mask) when run.
