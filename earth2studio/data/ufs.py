@@ -258,6 +258,7 @@ class _UFSObsBase:
             df.rename(columns=column_map, inplace=True)
             # Add e2s columns
             df["variable"] = task.e2s_obs_name
+            df.attrs["source"] = self.SOURCE_ID
             self._add_task_columns(df, task)
 
             mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
@@ -291,7 +292,7 @@ class _UFSObsBase:
 
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add task-specific columns to DataFrame. Override in subclasses."""
-        df.attrs["source"] = self.SOURCE_ID
+        pass
 
     @classmethod
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
@@ -539,11 +540,6 @@ class UFSObsConv(_UFSObsBase):
         column_map[elev_field.metadata[b"gsi_name"].decode("utf-8")] = elev_field.name
         return column_map
 
-    def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
-        """Add source column for conventional data."""
-        super()._add_task_columns(df, task)
-        df["source"] = self.SOURCE_ID
-
 
 class UFSObsSat(_UFSObsBase):
     """NOAA UFS GEFS-v13 replay observations satellite data
@@ -736,7 +732,6 @@ class UFSObsSat(_UFSObsBase):
 
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add satellite column for satellite data."""
-        super()._add_task_columns(df, task)
         df["satellite"] = task.satellite
 
 
