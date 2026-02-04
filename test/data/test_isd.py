@@ -137,12 +137,6 @@ def test_isd_schema_fields():
     df_subset = ds(time, ["t2m"], fields=subset_fields)
     assert list(df_subset.columns) == subset_fields
 
-    # Test that required fields are enforced
-    with pytest.raises(ValueError, match="Required fields"):
-        ds(
-            time, ["t2m"], fields=["time", "lat", "lon"]
-        )  # Missing observation, variable
-
 
 def test_isd_exceptions():
     # Throw key error for invalid variable

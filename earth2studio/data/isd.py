@@ -99,7 +99,6 @@ class ISD:
     """
 
     SOURCE_ID = "earth2studio.data.isd"
-    REQUIRED_FIELDS = ["observation", "variable"]
     SCHEMA = pa.schema(
         [
             pa.field("time", pa.timestamp("ns"), metadata={"isd_name": "DATE"}),
@@ -424,19 +423,6 @@ class ISD:
 
         if isinstance(fields, str):
             fields = [fields]
-
-        if isinstance(fields, pa.Schema):
-            field_names = fields.names
-        else:
-            field_names = fields
-
-        # Check required fields are present
-        missing = [name for name in cls.REQUIRED_FIELDS if name not in field_names]
-        if missing:
-            raise ValueError(
-                f"Required fields {missing} must be included. "
-                f"Required fields are: {cls.REQUIRED_FIELDS}"
-            )
 
         if isinstance(fields, pa.Schema):
             # Validate provided schema against class schema
