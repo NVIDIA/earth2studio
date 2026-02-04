@@ -126,7 +126,7 @@ def test_isd_schema_fields():
     time = np.array(["2025-01-01T12:00:00"], dtype=np.datetime64)
     tol = timedelta(minutes=10)
 
-    ds = ISD(stations=[station], tolerance=tol, cache=False)
+    ds = ISD(stations=[station], tolerance=tol)
 
     # Test with default schema (all fields)
     df_full = ds(time, ["t2m"], fields=None)
@@ -147,7 +147,7 @@ def test_isd_exceptions():
         verbose=False,
     )
     with pytest.raises(KeyError):
-        df = ds(np.datetime64("2025-01-01T12:00:00"), ["invalid"])
+        df = ds(np.array([np.datetime64("2025-01-01T12:00:00")]), ["invalid"])
 
     # For a invalid station / one that it cannot find data for should return empty
     ds = ISD(stations=["invalid"], cache=False, verbose=False)
@@ -160,9 +160,6 @@ def test_isd_exceptions():
     assert df.empty
     assert list(df.columns) == ds.SCHEMA.names
     assert (df["variable"] == "t2m").all()
-
-    with pytest.raises(ValueError):
-        ds(np.datetime64("2025-01-01T12:00:00"), ["t2m"], fields="time")
 
     with pytest.raises(KeyError):
         ds(

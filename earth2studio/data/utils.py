@@ -32,6 +32,7 @@ from shutil import rmtree
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
 import numpy as np
+import pandas as pd
 import torch
 import xarray as xr
 from fsspec import filesystem
@@ -218,14 +219,14 @@ def prep_data_array(
 
 
 def prep_data_inputs(
-    time: datetime | list[datetime] | TimeArray,
+    time: datetime | list[datetime] | np.datetime64 | TimeArray,
     variable: str | list[str] | VariableArray,
 ) -> tuple[list[datetime], list[str]]:
     """Simple method to pre-process data source inputs into a common form
 
     Parameters
     ----------
-    time : datetime | list[datetime] | TimeArray
+    time : datetime | list[datetime] | np.datetime64 | TimeArray
         Datetime, list of datetimes or array of np.datetime64 to fetch
     variable : str | list[str] | VariableArray
         String, list of strings or array of strings that refer to variables
@@ -240,6 +241,9 @@ def prep_data_inputs(
 
     if isinstance(time, datetime):
         time = [time]
+
+    if isinstance(time, np.datetime64):
+        time = [pd.Timestamp(time).to_pydatetime()]
 
     if isinstance(time, np.ndarray):  # np.datetime64 -> datetime
         time = timearray_to_datetime(time)
