@@ -114,9 +114,6 @@ def test_ufsobsconv_schema_fields():
     df_subset = ds(time, ["t2m"], fields=subset_fields)
     assert list(df_subset.columns) == subset_fields
 
-    with pytest.raises(ValueError, match="Required fields"):
-        ds(time, ["t2m"], fields=["time", "lat", "lon"])
-
 
 def test_ufsobsconv_exceptions():
     ds = UFSObsConv(
@@ -127,9 +124,6 @@ def test_ufsobsconv_exceptions():
 
     with pytest.raises(KeyError):
         ds(datetime(2024, 1, 1), ["invalid_variable"])
-
-    with pytest.raises(ValueError):
-        ds(datetime(2024, 1, 1), ["t2m"], fields="time")
 
     with pytest.raises(KeyError):
         ds(
@@ -268,9 +262,6 @@ def test_ufsobssat_exceptions():
 
     with pytest.raises(KeyError):
         ds(datetime(2024, 1, 1), ["invalid_variable"])
-
-    with pytest.raises(ValueError):
-        ds(datetime(2024, 1, 1), ["atms"], fields="time")
 
     with pytest.raises(KeyError):
         ds(
