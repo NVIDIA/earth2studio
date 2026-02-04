@@ -257,9 +257,6 @@ def test_ufsobssat_schema_fields():
     df_subset = ds(time, ["atms"], fields=subset_fields)
     assert list(df_subset.columns) == subset_fields
 
-    with pytest.raises(ValueError, match="Required fields"):
-        ds(time, ["atms"], fields=["time", "lat", "lon"])
-
 
 def test_ufsobssat_exceptions():
     ds = UFSObsSat(

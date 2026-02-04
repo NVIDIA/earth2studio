@@ -81,6 +81,8 @@ Data sources that provide tabular data.
    :template: datasource.rst
 
    data.ISD
+   data.UFSObsConv
+   data.UFSObsSat
 
 AI Sources
 ~~~~~~~~~~

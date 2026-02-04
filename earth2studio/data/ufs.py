@@ -74,7 +74,6 @@ class _UFSObsBase:
     UFS_BUCKET = "noaa-ufs-gefsv13replay-pds"
     SOURCE_ID: str  # To be defined by subclasses
     SCHEMA: pa.Schema  # To be defined by subclasses
-    REQUIRED_FIELDS: list[str] = ["observation", "variable"]
 
     def __init__(
         self,
@@ -335,19 +334,6 @@ class _UFSObsBase:
 
         if isinstance(fields, str):
             fields = [fields]
-
-        if isinstance(fields, pa.Schema):
-            field_names = fields.names
-        else:
-            field_names = fields
-
-        # Check required fields are present
-        missing = [name for name in cls.REQUIRED_FIELDS if name not in field_names]
-        if missing:
-            raise ValueError(
-                f"Required fields {missing} must be included. "
-                f"Required fields are: {cls.REQUIRED_FIELDS}"
-            )
 
         if isinstance(fields, pa.Schema):
             # Validate provided schema against class schema
@@ -742,3 +728,10 @@ class UFSObsSat(_UFSObsBase):
         """Add satellite column for satellite data."""
         super()._add_task_columns(df, task)
         df["satellite"] = task.satellite
+
+
+if __name__ == "__main__":
+
+    ds = UFSObsSat(satellites=["npp"], tolerance=timedelta(hours=6))
+    df = ds(datetime(2024, 2, 1), ["atms"], ["lon", "variable"])
+    print(df)
