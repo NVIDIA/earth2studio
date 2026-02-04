@@ -48,7 +48,7 @@ class GSIConventionalLexicon(metaclass=LexiconType):
         "q2m": "conv::q::ges::Observation",
         "t2m": "conv::t::ges::Observation",
         "sp": "conv::ps::ges::Observation",
-        "u100m": "conv::uv:::ges:u_Observation",
+        "u100m": "conv::uv::ges::u_Observation",
         "v100m": "conv::uv::ges::v_Observation",
         "gps": "conv::gps::ges::Observation",
         # Global Navigation System Radio Occultation is a remote sensing method
