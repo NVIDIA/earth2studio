@@ -245,6 +245,9 @@ class _PlanetaryComputerData:
         """
         times, variables = prep_data_inputs(time, variable)
 
+        # Make sure input time is valid
+        self._validate_time(times)
+
         # Normalize times and resolve variables
         normalized_times = [
             (
@@ -521,6 +524,17 @@ class _PlanetaryComputerData:
         suffix = pathlib.Path(parsed.path).suffix or ""
         filename = hashlib.sha256(parsed.path.encode()).hexdigest() + suffix
         return pathlib.Path(self.cache) / filename
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge.
+        The child class should override this method as needed.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            List of date times to fetch data for.
+        """
+        pass
 
     @property
     def cache(self) -> str:
@@ -917,6 +931,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
             "ecmwf:stream": {"eq": "oper"},
             "ecmwf:type": {"eq": "fc"},
             "ecmwf:step": {"eq": "0h"},
+            "ecmwf:resolution": {"eq": "0.25"},
         },
     }
     LATITUDE = np.linspace(90, -90, 721)
@@ -995,3 +1010,23 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
         finally:
             grbidx.close()
         return values
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            List of date times to fetch data for.
+        """
+        MIN_TIME = datetime(2024, 3, 1)
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
+                raise ValueError(
+                    f"Requested start time {time} needs to be 6-hour interval for IFS"
+                )
+
+            if time < MIN_TIME:
+                raise ValueError(
+                    f"Requested start time {time} needs to be at least {MIN_TIME} for IFS"
+                )
