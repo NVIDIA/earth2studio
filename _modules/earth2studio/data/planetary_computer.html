@@ -449,12 +449,15 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pygrib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">LexiconType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.planetary_computer</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ECMWFOpenDataIFSLexicon</span><span class="p">,</span>
     <span class="n">MODISFireLexicon</span><span class="p">,</span>
     <span class="n">OISSTLexicon</span><span class="p">,</span>
     <span class="n">Sentinel3AODLexicon</span><span class="p">,</span>
@@ -519,12 +522,16 @@
 <span class="sd">    lexicon : LexiconType</span>
 <span class="sd">        Lexicon mapping requested variable names to dataset keys and modifiers.</span>
 <span class="sd">    asset_key : str, optional</span>
-<span class="sd">        Item asset key that contains the requested variables, by default &quot;netcdf&quot;</span>
+<span class="sd">        Item asset key that contains the requested variables, by default &quot;netcdf&quot;.</span>
+<span class="sd">        The available asset keys are listed in the item-level assets table at the</span>
+<span class="sd">        bottom of the Planetary Computer overview page of each respective dataset.</span>
 <span class="sd">    search_kwargs : Mapping[str, Any] | None, optional</span>
 <span class="sd">        Additional keyword arguments forwarded to ``Client.search``, by default None</span>
 <span class="sd">    search_tolerance : datetime.timedelta, optional</span>
 <span class="sd">        Maximum time delta when locating the closest STAC item to the request time,</span>
 <span class="sd">        by default 12 hours.</span>
+<span class="sd">    data_dtype: type, optional</span>
+<span class="sd">        Numpy dtype for the data array, by default np.float32.</span>
 <span class="sd">    spatial_dims : Mapping[str, numpy.ndarray]</span>
 <span class="sd">        Mapping of spatial dimension names to coordinate arrays defining the grid, by</span>
 <span class="sd">        default None</span>
@@ -564,7 +571,8 @@
         <span class="n">lexicon</span><span class="p">:</span> <span class="n">LexiconType</span><span class="p">,</span>
         <span class="n">asset_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;netcdf&quot;</span><span class="p">,</span>
         <span class="n">search_kwargs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">search_tolerance</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">12</span><span class="p">),</span>
+        <span class="n">search_tolerance</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">data_dtype</span><span class="p">:</span> <span class="nb">type</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
         <span class="n">spatial_dims</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">data_attrs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -580,6 +588,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_lexicon</span> <span class="o">=</span> <span class="n">lexicon</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">search_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span> <span class="o">=</span> <span class="n">search_tolerance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_dtype</span> <span class="o">=</span> <span class="n">data_dtype</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">spatial_dims</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one spatial dimension must be provided.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_spatial_dim_names</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spatial_dims</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
@@ -656,6 +665,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">times</span><span class="p">,</span> <span class="n">variables</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
 
+        <span class="c1"># Make sure input time is valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+
         <span class="c1"># Normalize times and resolve variables</span>
         <span class="n">normalized_times</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">(</span>
@@ -689,7 +701,8 @@
             <span class="n">coords</span><span class="p">[</span><span class="n">dim_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spatial_coords</span><span class="p">[</span><span class="n">dim_name</span><span class="p">]</span>
         <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-                <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_spatial_shape</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+                <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_spatial_shape</span><span class="p">),</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_dtype</span><span class="p">,</span>
             <span class="p">),</span>
             <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_spatial_dim_names</span><span class="p">],</span>
             <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span>
@@ -709,7 +722,7 @@
             <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span>
                 <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span>
                 <span class="n">disable</span><span class="o">=</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">,</span>
-                <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Fetching msft-pc </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="p">)</span> <span class="k">as</span> <span class="n">progress</span><span class="p">:</span>
                 <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span>
                     <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span>
@@ -774,16 +787,12 @@
         <span class="k">if</span> <span class="n">download_tasks</span><span class="p">:</span>
             <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">download_tasks</span><span class="p">)</span>
 
-        <span class="c1"># Allocate the [variable, spatial…] stack that will be populated below.</span>
-        <span class="n">data_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_spatial_shape</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-
         <span class="c1"># Extract each variable from its source asset and record completion.</span>
         <span class="k">for</span> <span class="n">plan</span> <span class="ow">in</span> <span class="n">asset_plans</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">variables</span><span class="p">:</span>
                 <span class="n">array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_variable_numpy</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">spec</span><span class="p">,</span> <span class="n">requested_time</span><span class="p">)</span>
-                <span class="n">data_stack</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
+                <span class="n">xr_array</span><span class="p">[</span><span class="n">time_index</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
 
-        <span class="n">xr_array</span><span class="p">[</span><span class="n">time_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_stack</span>
         <span class="n">progress</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">extract_variable_numpy</span><span class="p">(</span>
@@ -902,26 +911,31 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">Client</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">STAC_API_URL</span><span class="p">)</span>
 
         <span class="c1"># Build a closed interval around the requested timestamp to search for items.</span>
-        <span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="n">when</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
-        <span class="n">end</span> <span class="o">=</span> <span class="p">(</span><span class="n">when</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
-        <span class="n">datetime_param</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="n">when</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="p">(</span><span class="n">when</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+            <span class="n">datetime_param</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">datetime_param</span> <span class="o">=</span> <span class="n">when</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
 
         <span class="c1"># Perform the search</span>
         <span class="n">search</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
             <span class="n">collections</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="p">],</span>
             <span class="n">datetime</span><span class="o">=</span><span class="n">datetime_param</span><span class="p">,</span>
-            <span class="n">limit</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">max_items</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_kwargs</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Return the first item</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">search</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
-        <span class="k">except</span> <span class="ne">StopIteration</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;No Planetary Computer item found for </span><span class="si">{</span><span class="n">when</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;within ±</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Found more than one matching item, returning first match&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">items</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_local_asset_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">href</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve the cache path for a remote asset href.&quot;&quot;&quot;</span>
@@ -930,6 +944,17 @@
         <span class="n">suffix</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">parsed</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span> <span class="o">+</span> <span class="n">suffix</span>
         <span class="k">return</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span> <span class="o">/</span> <span class="n">filename</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify all times are valid based on offline knowledge.</span>
+<span class="sd">        The child class should override this method as needed.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            List of date times to fetch data for.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -1299,6 +1324,143 @@
             <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">modifier</span><span class="p">(</span><span class="n">values</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="PlanetaryComputerECMWFOpenDataIFS">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html#earth2studio.data.PlanetaryComputerECMWFOpenDataIFS">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PlanetaryComputerECMWFOpenDataIFS</span><span class="p">(</span><span class="n">_PlanetaryComputerData</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;IFS analysis data from the ECMWF Open Data repository.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Whether to print progress information, by default True</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Upper bound on concurrent download and processing tasks, by default 24</span>
+<span class="sd">    request_timeout : int, optional</span>
+<span class="sd">        Timeout (seconds) applied to individual HTTP requests, by default 60</span>
+<span class="sd">    max_retries : int, optional</span>
+<span class="sd">        Maximum retry attempts for transient network failures, by default 4</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://planetarycomputer.microsoft.com/dataset/ecmwf-forecast</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">COLLECTION_ID</span> <span class="o">=</span> <span class="s2">&quot;ecmwf-forecast&quot;</span>
+    <span class="n">ASSET_KEY</span> <span class="o">=</span> <span class="s2">&quot;data&quot;</span>
+    <span class="n">SEARCH_KWARGS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;ecmwf:stream&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;in&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;oper&quot;</span><span class="p">,</span> <span class="s2">&quot;scda&quot;</span><span class="p">]},</span>
+            <span class="s2">&quot;ecmwf:type&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;eq&quot;</span><span class="p">:</span> <span class="s2">&quot;fc&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;ecmwf:step&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;eq&quot;</span><span class="p">:</span> <span class="s2">&quot;0h&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;ecmwf:resolution&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;eq&quot;</span><span class="p">:</span> <span class="s2">&quot;0.25&quot;</span><span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">LATITUDE</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)</span>
+    <span class="n">LONGITUDE</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">request_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_PlanetaryComputerData</span><span class="o">.</span><span class="n">DEFAULT_TIMEOUT</span><span class="p">,</span>
+        <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_PlanetaryComputerData</span><span class="o">.</span><span class="n">DEFAULT_RETRIES</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_PlanetaryComputerData</span><span class="o">.</span><span class="n">DEFAULT_ASYNC_TIMEOUT</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
+            <span class="n">asset_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ASSET_KEY</span><span class="p">,</span>
+            <span class="n">lexicon</span><span class="o">=</span><span class="n">ECMWFOpenDataIFSLexicon</span><span class="p">,</span>
+            <span class="n">search_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SEARCH_KWARGS</span><span class="p">,</span>
+            <span class="n">data_dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+            <span class="n">spatial_dims</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">LATITUDE</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">LONGITUDE</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">,</span>
+            <span class="n">request_timeout</span><span class="o">=</span><span class="n">request_timeout</span><span class="p">,</span>
+            <span class="n">max_retries</span><span class="o">=</span><span class="n">max_retries</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_variable_numpy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">plan</span><span class="p">:</span> <span class="n">AssetPlan</span><span class="p">,</span>
+        <span class="n">spec</span><span class="p">:</span> <span class="n">VariableSpec</span><span class="p">,</span>
+        <span class="n">target_time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract an ECMWF Open Data field as a float32 numpy array.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        plan : AssetPlan</span>
+<span class="sd">            Plan describing the cached asset to open.</span>
+<span class="sd">        spec : VariableSpec</span>
+<span class="sd">            Variable specification detailing which field and modifier to apply.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray</span>
+<span class="sd">            Array shaped ``(721, 1440)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">var</span><span class="p">,</span> <span class="n">plev</span><span class="p">,</span> <span class="n">lay</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">dataset_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+        <span class="n">gsel</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;shortName&quot;</span><span class="p">:</span> <span class="n">var</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">plev</span><span class="p">:</span>
+            <span class="n">gsel</span><span class="p">[</span><span class="s2">&quot;typeOfLevel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;isobaricInhPa&quot;</span>
+            <span class="n">gsel</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">plev</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">lay</span><span class="p">:</span>
+            <span class="n">gsel</span><span class="p">[</span><span class="s2">&quot;typeOfLevel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;soilLayer&quot;</span>
+            <span class="n">gsel</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lay</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">grbidx</span> <span class="o">=</span> <span class="n">pygrib</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">local_path</span><span class="p">),</span> <span class="o">*</span><span class="nb">list</span><span class="p">(</span><span class="n">gsel</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to open GRIB file </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">local_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">selection</span> <span class="o">=</span> <span class="n">grbidx</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="o">**</span><span class="n">gsel</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">selection</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Selection contains more than one GRIB element&quot;</span><span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">selection</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="c1"># Roll to prime meridian</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LONGITUDE</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">modifier</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to read GRIB file </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">local_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">grbidx</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">values</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify all times are valid based on offline knowledge.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            List of date times to fetch data for.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">MIN_TIME</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="mi">21600</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested start time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be 6-hour interval for IFS&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">MIN_TIME</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested start time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be at least </span><span class="si">{</span><span class="n">MIN_TIME</span><span class="si">}</span><span class="s2"> for IFS&quot;</span>
+                <span class="p">)</span></div>
 
 </pre></div>
 
