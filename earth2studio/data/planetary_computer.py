@@ -928,7 +928,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
     ASSET_KEY = "data"
     SEARCH_KWARGS = {
         "query": {
-            "ecmwf:stream": {"eq": "oper"},
+            "ecmwf:stream": {"in": ["oper", "scda"]},
             "ecmwf:type": {"eq": "fc"},
             "ecmwf:step": {"eq": "0h"},
             "ecmwf:resolution": {"eq": "0.25"},
