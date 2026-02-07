@@ -90,9 +90,9 @@ class CorrelatedSphericalGaussian:
 
 ## Example Documentation
 
-Examples in Earth2Studio are created with the intent to teach / demonstrate a specific
+Examples in Earth2Studio are created with the intent to teach or demonstrate a specific
 feature/workflow/concept/use case to users.
-If you are interested in contributing an example, please reach out to us in a Github
+If you are interested in contributing an example, reach out to us in a Github
 issue to discuss further.
 The example scripts used to populate the documentation are placed in the
 [examples](https://github.com/NVIDIA/earth2studio/tree/main/examples) folder of the repo.
