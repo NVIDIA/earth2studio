@@ -1,10 +1,10 @@
 # Earth2Studio Contribution Guide
 
 Thanks for your interest in contributing to Earth2Studio.
-Your contribution will be a valued addition to the code base; we simply
+Your contribution will be a valued addition to the code base; we
 ask that you read this page and understand our contribution process.
 
-Please see the [developer guide](https://nvidia.github.io/earth2studio/userguide/developer/overview.html)
+Refer to the [developer guide](https://nvidia.github.io/earth2studio/userguide/developer/overview.html)
 for more details.
 
 ## Pull Requests
@@ -29,8 +29,8 @@ template.
 
 We use [GitHub issues](https://github.com/NVIDIA/earth2studio/issues) to track bugs,
 feature requests and questions.
-Please use the provided templates and ensure your description is clear and has
-sufficient to reproduce the issue.
+You can use the provided templates and ensure your description is clear and has
+sufficient information to reproduce the issue.
 
 ## License
 

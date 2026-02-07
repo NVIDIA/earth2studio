@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -140,6 +140,129 @@ class MODISFireLexicon(metaclass=LexiconType):
             lambda array: array,
         ),  # MODIS thermal anomaly quality assurance bits
     }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Modifier]:
+        return cls.VOCAB[val]
+
+
+class ECMWFOpenDataIFSLexicon(metaclass=LexiconType):
+    """Lexicon exposing ECMWF Open Data IFS variables.
+
+    For available variables, inspect one of the index files:
+
+    .. highlight:: python
+    .. code-block:: python
+
+        import planetary_computer
+
+        url = "ttps://ai4edataeuwest.blob.core.windows.net/ecmwf/20251001/00z/ifs/0p25/oper/20251001000000-0h-oper-fc.index"
+        signed_url = planetary_computer.sign(url)  # use this URL to download the index file
+
+    """
+
+    SFC_VARIABLES = {
+        # Surface variables
+        "u100m": "100u",
+        "v100m": "100v",
+        "u10m": "10u",
+        "v10m": "10v",
+        "d2m": "2d",
+        "t2m": "2t",
+        "asn": "asn",
+        "ewss": "ewss",
+        "lsm": "lsm",
+        "msl": "msl",
+        "mucape": "mucape",
+        "nsss": "nsss",
+        "ptype": "ptype",
+        "ro": "ro",
+        "sdor": "sdor",
+        "sithick": "sithick",
+        "skt": "skt",
+        "slor": "slor",
+        "sp": "sp",
+        "ssr": "ssr",
+        "ssrd": "ssrd",
+        "str": "str",
+        "strd": "strd",
+        "sve": "sve",
+        "svn": "svn",
+        "tcw": "tcw",
+        "tcwv": "tcwv",
+        "tp": "tp",
+        "tprate": "tprate",
+        "ttr": "ttr",
+        "z": "z",
+        "zos": "zos",
+        # Time maxima
+        "max_fg10m": "max_i10fg",
+        "max_t2m": "max_2t",
+        "min_t2m": "min_2t",
+    }
+    PRS_VARIABLES = {
+        "d": "d",
+        "q": "q",
+        "r": "r",
+        "t": "t",
+        "u": "u",
+        "v": "v",
+        "vo": "vo",
+        "w": "w",
+        "z": "gh",
+    }
+    PRS_LEVELS = [
+        50,
+        100,
+        150,
+        200,
+        250,
+        300,
+        400,
+        500,
+        600,
+        700,
+        850,
+        925,
+        1000,
+    ]
+    SOIL_VARIABLES = {
+        "stl": "sot",
+        "swvl": "vsw",
+    }
+    SOIL_LAYERS = [1, 2, 3, 4]
+
+    @staticmethod
+    def build_vocab(
+        sfc_variables: dict,
+        prs_variables: dict,
+        prs_levels: list[int],
+        soil_variables: dict,
+        soil_layers: list[int],
+    ) -> dict[str, tuple[str, Modifier]]:
+        def nmod(x: np.ndarray) -> np.ndarray:
+            """Do not modify."""
+            return x
+
+        def zmod(x: np.ndarray) -> np.ndarray:
+            """Modify geopotential."""
+            return x * 9.81
+
+        sfc_map = {k: (v + "::::", nmod) for k, v in sfc_variables.items()}
+        prs_map = {}
+        for k, v in prs_variables.items():
+            mod = zmod if k == "z" else nmod
+            prs_map.update({f"{k}{lvl}": (v + f"::{lvl}::", mod) for lvl in prs_levels})
+        soil_map = {}
+        for k, v in soil_variables.items():
+            soil_map.update(
+                {f"{k}{lay}": (v + f"::::{lay}", nmod) for lay in soil_layers}
+            )
+        return {**sfc_map, **soil_map, **prs_map}
+
+    VOCAB = build_vocab(
+        SFC_VARIABLES, PRS_VARIABLES, PRS_LEVELS, SOIL_VARIABLES, SOIL_LAYERS
+    )
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Modifier]:

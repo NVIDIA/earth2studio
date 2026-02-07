@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -23,8 +23,9 @@ from .base import LexiconType
 class ISDLexicon(metaclass=LexiconType):
     """NOAA's Integrated Surface Database (ISD) product lexicon.
 
-    This lexicon provides a simple reference for some of the unique variables to ISD,
-    vocab translation is manually handled in the data source due to complexity.
+    This lexicon provides variable mappings for ISD observation types.
+    Metadata fields (station, time, lat, lon, elev) are defined in the
+    ISD data source schema.
 
     Note
     ----
@@ -35,12 +36,6 @@ class ISDLexicon(metaclass=LexiconType):
     """
 
     VOCAB: dict[str, str] = {
-        "station": "FIXED-WEATHER-STATION ID (USAF)(WBAN)",
-        "time": "GEOPHYSICAL-POINT-OBSERVATION date time",
-        "source": "GEOPHYSICAL-POINT-OBSERVATION data source flag",
-        "lat": "GEOPHYSICAL-POINT-OBSERVATION latitude coordinate",
-        "lon": "GEOPHYSICAL-POINT-OBSERVATION longitude coordinate",
-        "elev": "GEOPHYSICAL-POINT-OBSERVATION elevation dimension relative to msl (m)",
         "ws10m": "wind speed at 10 m (m s-1)",
         "u10m": "u-component (eastward, zonal) of wind at 10 m (m s-1)",
         "v10m": "v-component (northward, meridional) of wind at 10 m (m s-1)",

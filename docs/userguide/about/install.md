@@ -734,7 +734,7 @@ For the best experience, we recommend creating a fresh environment whether that 
 uv, a Docker container or even a Conda environment.
 Below are some recipes for creating a handful of environments for setting up
 Earth2Studio in an isolated environment.
-For developer environments, please refer to the {ref}`developer_overview`.
+For developer environments, refer to the {ref}`developer_overview`.
 
 ## uv Project
 
@@ -783,7 +783,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
 :class: note
 
 To add extra dependencies adjust the `uv pip install` command like you would normally
-do with pip e.g.
+do with pip, for example:
 
 ```bash
 uv pip install --system \

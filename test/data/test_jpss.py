@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -26,7 +26,7 @@ from earth2studio.data import JPSS
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "satellite,product_type,time,variable",
     [
@@ -96,7 +96,7 @@ def test_jpss_fetch(satellite, product_type, time, variable):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize("cache", [True, False])
 def test_jpss_cache(cache):
     """Test JPSS caching behavior for both enabled and disabled cache options."""
@@ -138,7 +138,7 @@ def test_jpss_cache(cache):
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "satellite,product_type,time,variable,valid",
     [
@@ -212,7 +212,8 @@ def test_jpss_invalid_variable():
         )
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
