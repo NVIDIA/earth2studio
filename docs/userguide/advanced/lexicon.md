@@ -39,7 +39,7 @@ Some examples include:
 Note that there are a variety of ways to represent the vertical coordinates for 3D
 atmospheric variables. The most common method is to slice variables along pressure
 levels (surfaces of constant pressure), and this is considered the "default" in terms
-of variable names within the lexicon (e.g., `z500` is the geo-potential) at the 500 hPa
+of variable names within the lexicon (for example, `z500` is the geo-potential) at the 500 hPa
 pressure level. Variables which are represented based on altitude above the surface
 contain an "m" at the end, to denote height in meters, such as `u10m`.
 
