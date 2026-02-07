@@ -141,7 +141,7 @@ In this example you will learn:
 
 - How to instantiate a built in prognostic model
 - Creating a data source and IO object
-- Running a basic build in workflow
+- Running a basic built in workflow
 - Post-processing results
 """
 # /// script
