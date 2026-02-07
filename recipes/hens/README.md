@@ -243,7 +243,7 @@ Select a project name to uniquely identify your run. This prevents overwriting
 files from previous runs and helps with organization. Note that `nensemble`
 refers to the number of ensemble members per (IC × number of checkpoints).
 When used with the HENS perturbation, `nensemble` and `batch_size` have to be even
-as the perturbation method is symmetric, that is the perturbation is added once and 
+as the perturbation method is symmetric, that is the perturbation is added once and
 subtracted once from the initial condition.
 
 ```yaml
