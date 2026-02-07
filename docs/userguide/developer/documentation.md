@@ -135,20 +135,20 @@ Brief one-liner of what this will do (used on hover of thumbnail in docs)
 
 Then add a more verbose description on a new line here.
 This can be multiply lines with references if needed
-Include a list of the specific unique items this example includes, e.g.
+Include a list of the specific unique items this example includes, for example:
 
 In this example you will learn:
 
 - How to instantiate a built in prognostic model
 - Creating a data source and IO object
-- Running a simple built in workflow
+- Running a basic built in workflow
 - Post-processing results
 """
 # /// script
 # dependencies = [
 #   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
-#   "other depedencies...",
+#   "other dependencies...",
 # ]
 # ///
 
