@@ -160,7 +160,7 @@ In this example you will learn:
 # This should include an explicit list of key features like so, this enable cross-referencing
 # in the API docs.
 #
-# - Prognostic Model: Use the build in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
+# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
 # - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
 # - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 
