@@ -53,7 +53,7 @@ which is equivalent to
 ## Log-linear interpolation
 
 The relative change of temperature by altitude, when expressed as absolute temperature
-(i.e. in Kelvin), is rather slow: for example, a {math}`10~\mathrm{K}` change in
+(that is, in Kelvin), is rather slow: for example, a {math}`10~\mathrm{K}` change in
 temperature is only {math}`\approx 3.6\%` at {math}`273.15 K = 0~°\mathrm{C}`.
 Therefore, a reasonable first-order approximation is to assume that {math}`T` is
 constant over a short interval and thus, by Eq. {eq}`eq:log_p_deriv`, so is
