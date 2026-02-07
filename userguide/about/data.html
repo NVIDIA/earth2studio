@@ -518,7 +518,7 @@ to generate a noise tensor:</p>
 </div>
 <p>In later sections, users will find that most components have APIs that either generate
 or interact with these two data structures.
-The combonation of both the data tensor and respective coordinate system provides
+The combination of both the data tensor and respective coordinate system provides
 complete information one needs to interpret any stage of a workflow.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -550,7 +550,7 @@ required to.</p>
 <section id="standard-coordinate-names">
 <h3>Standard Coordinate Names<a class="headerlink" href="#standard-coordinate-names" title="Link to this heading">#</a></h3>
 <p>Earth2Studio has a dimension naming standard for its built in feature set.
-We encourage users to follow similar naming schemes for compatability between Earth-2
+We encourage users to follow similar naming schemes for compatibility between Earth-2
 Inference Studio when possible and the packages we interface with.</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <colgroup>
@@ -695,11 +695,11 @@ validate the input coordinate dictionary.</p></li>
 model. In the case of FourCastNet, it’s expecting a input tensor of shape <code class="docutils literal notranslate"><span class="pre">[...,1,26,720,1440]</span></code>
 which corresponds to <code class="docutils literal notranslate"><span class="pre">[...,lead,variables,lat,lon]</span></code>.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">output_coords()</span></code> function provides validation and transformation of coordinates
-by the model. I.e. one should be able to deduce the models output data without executing
+by the model. That is, you should be able to deduce the models output data without executing
 the forward pass of the model.
 This function requires an input coordinate system that represent the input data it
 received.
-The first step is validating the <code class="docutils literal notranslate"><span class="pre">input_coords</span></code> using the coordinate handhshake utils
+The first step is validating the <code class="docutils literal notranslate"><span class="pre">input_coords</span></code> using the coordinate handshake utils
 functions.
 Next the output coordinate systems are built.
 This function is a place to store the complexity of a model’s forward process for
@@ -724,7 +724,7 @@ how they operate:</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The batch dimension was not discussed intentially. Think about it like a free dimension.
+<p>The batch dimension was not discussed intentionally. Think about it like a free dimension.
 More information can be found in the <a class="reference internal" href="../advanced/batch.html#batch-function-userguide"><span class="std std-ref">Batch Dimension</span></a> section.</p>
 </div>
 </section>
