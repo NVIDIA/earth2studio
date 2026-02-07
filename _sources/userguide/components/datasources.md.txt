@@ -68,7 +68,7 @@ is commonly used in workflows.
 Each data source has its own methods for serving / calculating each variable.
 Users should be aware that the same variable across multiple data sources will
 potentially not be identical.
-Please refer to each data source's documentation for details.
+Refer to each data source's documentation for details.
 :::
 
 For async use cases some data/forecast sources support an async {func}`fetch` function
