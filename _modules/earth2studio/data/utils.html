@@ -452,6 +452,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec</span><span class="w"> </span><span class="kn">import</span> <span class="n">filesystem</span>
@@ -644,14 +645,14 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">prep_data_inputs</span><span class="p">(</span>
-    <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
     <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple method to pre-process data source inputs into a common form</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">    time : datetime | list[datetime] | np.datetime64 | TimeArray</span>
 <span class="sd">        Datetime, list of datetimes or array of np.datetime64 to fetch</span>
 <span class="sd">    variable : str | list[str] | VariableArray</span>
 <span class="sd">        String, list of strings or array of strings that refer to variables</span>
@@ -666,6 +667,9 @@
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
         <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">time</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">):</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">time</span><span class="p">)</span><span class="o">.</span><span class="n">to_pydatetime</span><span class="p">()]</span>
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>  <span class="c1"># np.datetime64 -&gt; datetime</span>
         <span class="n">time</span> <span class="o">=</span> <span class="n">timearray_to_datetime</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>

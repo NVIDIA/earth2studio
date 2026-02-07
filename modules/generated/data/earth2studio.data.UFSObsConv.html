@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.data.CMIP6 &#8212; Earth2Studio 0.13.0a0 documentation</title>
+    <title>earth2studio.data.UFSObsConv &#8212; Earth2Studio 0.13.0a0 documentation</title>
   
   
   
@@ -54,7 +54,7 @@
     <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.CMIP6';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.UFSObsConv';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -64,8 +64,8 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.data.CMIP6MultiRealm" href="earth2studio.data.CMIP6MultiRealm.html" />
-    <link rel="prev" title="earth2studio.data.CDS" href="earth2studio.data.CDS.html" />
+    <link rel="next" title="earth2studio.data.UFSObsSat" href="earth2studio.data.UFSObsSat.html" />
+    <link rel="prev" title="earth2studio.data.ISD" href="earth2studio.data.ISD.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.13" />
@@ -426,7 +426,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../datasources.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CMIP6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CMIP6MultiRealm.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6MultiRealm</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.GOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GOES</a></li>
@@ -457,7 +457,7 @@
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_FX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS_ENS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_ENS_FX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.ISD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ISD</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.UFSObsConv.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.UFSObsSat.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsSat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CBottle3D.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CBottle3D</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
@@ -563,7 +563,7 @@
     
     <li class="breadcrumb-item"><a href="../../datasources.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</span></li>
   </ul>
 </nav>
 </div>
@@ -580,112 +580,77 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="earth2studio-data-cmip6">
-<h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.CMIP6<a class="headerlink" href="#earth2studio-data-cmip6" title="Link to this heading">#</a></h1>
+  <section id="earth2studio-data-ufsobsconv">
+<h1><a class="reference internal" href="../../datasources.html#module-earth2studio.data" title="earth2studio.data"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code></a>.UFSObsConv<a class="headerlink" href="#earth2studio-data-ufsobsconv" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.data.CMIP6">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">CMIP6</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variant_label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exact_time_match</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pressure_level_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6" title="Link to this definition">#</a></dt>
-<dd><p>CMIP6 data source for Earth2Studio.</p>
-<p>This class provides a thin convenience wrapper around the <cite>intake-esgf</cite> catalog that
-hosts the Coupled Model Inter-comparison Project Phase 6 (CMIP6) archive. This is
-meant to provide a seemless interface to the CMIP6 archive for Earth2Studio however
-the CMIP6 archive is very large there may be data that will break this interface.
-Currently this supports both atmospheric and oceanic datasets.</p>
+<dt class="sig sig-object py" id="earth2studio.data.UFSObsConv">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">UFSObsConv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ufs.html#UFSObsConv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.UFSObsConv" title="Link to this definition">#</a></dt>
+<dd><p>NOAA UFS GEFS-v13 replay observations in-situ data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>experiment_id</strong> (<em>str</em>) – CMIP6 experiment identifier (e.g. “historical”, “ssp585”)</p></li>
-<li><p><strong>source_id</strong> (<em>str</em>) – CMIP6 model identifier (e.g. “MPI-ESM1-2-LR”)</p></li>
-<li><p><strong>table_id</strong> (<em>str</em>) – CMOR table describing variable realm/frequency (“Amon”, “Omon”, “SImon”)</p></li>
-<li><p><strong>variant_label</strong> (<em>str</em>) – Ensemble member / initial-condition label such as “r1i1p1f1”.</p></li>
-<li><p><strong>file_start</strong> (<em>str</em><em>, </em><em>optional</em>) – Optional filename prefix filters forwarded to <code class="docutils literal notranslate"><span class="pre">ESGFCatalog.search</span></code> to
-constrain the final dataset selection. Leave None to accept all, by default None</p></li>
-<li><p><strong>file_end</strong> (<em>str</em><em>, </em><em>optional</em>) – Optional filename suffix filters forwarded to <code class="docutils literal notranslate"><span class="pre">ESGFCatalog.search</span></code> to
-constrain the final dataset selection. Leave None to accept all, by default None</p></li>
-<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source on local memory, by default True. Multiple CMIP6 instances
-can safely share the same cache directory as intake-esgf automatically organizes
-files into detailed subdirectories by project, model, experiment, variant, variable,
-and version, preventing any conflicts.</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True</p></li>
-<li><p><strong>exact_time_match</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, raise an error when requested times don’t match dataset times exactly.
-If False (default), use nearest neighbor time matching and issue a warning, by default False</p></li>
-<li><p><strong>pressure_level_tolerance</strong> (<em>int</em><em>, </em><em>optional</em>) – Tolerance for selecting pressure levels in pascals, by default 0</p></li>
+<li><p><strong>tolerance</strong> (<em>timedelta</em><em> | </em><em>np.timedelta64</em><em>, </em><em>optional</em>) – Time tolerance; observations within +/- tolerance of any requested time are
+returned, by default np.timedelta64(0).</p></li>
+<li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Max workers in async IO thread pool for concurrent downloads, by default 24.</p></li>
+<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source in local filesystem cache, by default True.</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Time in seconds after which the async fetch will be cancelled if not finished,
+by default 600.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Log basic progress information, by default True.</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This is a remote data source and can potentially download a large amount of data
-to your local machine for large requests. The source data used is provided in an
-unoptimized format.</p>
+to your local machine for large requests.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Additional information on the CMIP6 data repository can be referenced here:</p>
+<p>Additional resources:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://esgf-node.llnl.gov/search/cmip6/">https://esgf-node.llnl.gov/search/cmip6/</a></p></li>
-</ul>
-<p>The intake-esgf package is used to search the CMIP6 data repository and load the
-data into an xarray dataset. Additional information on the intake-esgf package can
-be referenced here:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://intake-esgf.readthedocs.io/en/latest/">https://intake-esgf.readthedocs.io/en/latest/</a></p></li>
+<li><p><a class="reference external" href="https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/">https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/</a></p></li>
+<li><p><a class="reference external" href="https://psl.noaa.gov/data/ufs_replay/">https://psl.noaa.gov/data/ufs_replay/</a></p></li>
 </ul>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>By default, this data source will retrieve the closest time available using nearest
-neighbor matching. Depending on the experiment and temporal resolution, this may be
-significantly different than what was requested. Set <cite>exact_time_match=True</cite> to
-enforce exact time matching if precise timestamps are critical.</p>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ds</span> <span class="o">=</span> <span class="n">UFSObsConv</span><span class="p">(</span><span class="n">tolerance</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">])</span>
+</pre></div>
 </div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.CMIP6.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Function to get data.</p>
+<dt class="sig sig-object py" id="earth2studio.data.UFSObsConv.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.UFSObsConv.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Fetch observations for a set of timestamps.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for.</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – Strings or list of strings that refer to variables to return.</p></li>
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – DataFrame column names to return.</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Fields to include in output, by default None (all fields).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Loaded data array</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>xr.DataArray</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataFrame</em></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.CMIP6.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variant_label</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6.available" title="Link to this definition">#</a></dt>
-<dd><p>Check if the requested <em>exact</em> timestamp exists in the ESGF archive.</p>
+<dt class="sig sig-object py" id="earth2studio.data.UFSObsConv.fetch">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.data.UFSObsConv.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Timestamp to test (UTC).</p></li>
-<li><p><strong>experiment_id</strong> (<em>str</em>) – CMIP6 experiment identifier (e.g. “historical”, “ssp585”).</p></li>
-<li><p><strong>source_id</strong> (<em>str</em>) – CMIP6 model identifier (e.g. “MPI-ESM1-2-LR”).</p></li>
-<li><p><strong>table_id</strong> (<em>str</em>) – CMOR table describing variable realm/frequency (“Amon”, “Omon”, “SImon” …).</p></li>
-<li><p><strong>variant_label</strong> (<em>str</em>) – Ensemble member / initial-condition label such as “r1i1p1f1”.</p></li>
+<li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>ndarray</em><em>[</em><em>datetime64</em><em>]</em>)</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>ndarray</em><em>[</em><em>str</em><em>]</em>)</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>Schema</em><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>bool</p>
+<dd class="field-even"><p><em>DataFrame</em></p>
 </dd>
 </dl>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>This method downloads data from ESGF servers to verify the time coordinate
-range. It is not a lightweight metadata-only check.</p>
-</div>
-<p class="rubric">Notes</p>
-<p>The check performs an ESGF search and downloads at least one file to read
-its time coordinate bounds. If the target timestamp lies within the dataset’s
-time span, <cite>True</cite> is returned. Otherwise returns <cite>False</cite>.</p>
 </dd></dl>
 
 </dd></dl>
@@ -703,20 +668,20 @@ time span, <cite>True</cite> is returned. Otherwise returns <cite>False</cite>.<
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.data.CDS.html"
+       href="earth2studio.data.ISD.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ISD</p>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.CMIP6MultiRealm.html"
+       href="earth2studio.data.UFSObsSat.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6MultiRealm</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsSat</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -739,9 +704,9 @@ time span, <cite>True</cite> is returned. Otherwise returns <cite>False</cite>.<
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.CMIP6"><code class="docutils literal notranslate"><span class="pre">CMIP6</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.CMIP6.__call__"><code class="docutils literal notranslate"><span class="pre">CMIP6.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.CMIP6.available"><code class="docutils literal notranslate"><span class="pre">CMIP6.available()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.UFSObsConv"><code class="docutils literal notranslate"><span class="pre">UFSObsConv</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.UFSObsConv.__call__"><code class="docutils literal notranslate"><span class="pre">UFSObsConv.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.UFSObsConv.fetch"><code class="docutils literal notranslate"><span class="pre">UFSObsConv.fetch()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -751,7 +716,7 @@ time span, <cite>True</cite> is returned. Otherwise returns <cite>False</cite>.<
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="../../../_sources/modules/generated/data/earth2studio.data.CMIP6.rst.txt"
+      <li><a href="../../../_sources/modules/generated/data/earth2studio.data.UFSObsConv.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div></div>

@@ -64,7 +64,7 @@
         </script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.data.CBottle3D" href="earth2studio.data.CBottle3D.html" />
+    <link rel="next" title="earth2studio.data.UFSObsConv" href="earth2studio.data.UFSObsConv.html" />
     <link rel="prev" title="earth2studio.data.IFS_ENS_FX" href="earth2studio.data.IFS_ENS_FX.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -457,6 +457,8 @@
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_FX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.IFS_ENS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_ENS_FX</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ISD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.UFSObsConv.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="earth2studio.data.UFSObsSat.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsSat</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.CBottle3D.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CBottle3D</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
 <li class="toctree-l2"><a class="reference internal" href="earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
@@ -625,12 +627,12 @@ consult the <cite>isd-history.csv</cite> which can easily accessed with <code cl
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Bay area, lat lon bounding box (lat min, lon min, lat max, lon max)</span>
 <span class="n">stations</span> <span class="o">=</span> <span class="n">ISD</span><span class="o">.</span><span class="n">get_stations_bbox</span><span class="p">((</span><span class="mi">36</span><span class="p">,</span> <span class="o">-</span><span class="mi">124</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="o">-</span><span class="mi">120</span><span class="p">))</span>
 <span class="n">ds</span> <span class="o">=</span> <span class="n">ISD</span><span class="p">(</span><span class="n">stations</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
-<span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;t2m&quot;</span><span class="p">])</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;ws10m&quot;</span><span class="p">])</span>
 </pre></div>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.ISD.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/isd.html#ISD.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ISD.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/isd.html#ISD.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ISD.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Function to get data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -638,6 +640,7 @@ consult the <cite>isd-history.csv</cite> which can easily accessed with <code cl
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
 return. Must be in the ISD lexicon.</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Fields to include in output, by default None (all fields).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -651,7 +654,7 @@ return. Must be in the ISD lexicon.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.ISD.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/isd.html#ISD.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ISD.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/isd.html#ISD.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.ISD.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -659,6 +662,7 @@ return. Must be in the ISD lexicon.</p></li>
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
 <li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables (column
 ids) to return. Must be in the ISD lexicon.</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Fields to include in output, by default None (all fields).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -694,11 +698,11 @@ ids) to return. Must be in the ISD lexicon.</p></li>
       </div>
     </a>
     <a class="right-next"
-       href="earth2studio.data.CBottle3D.html"
+       href="earth2studio.data.UFSObsConv.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CBottle3D</p>
+        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

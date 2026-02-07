@@ -493,7 +493,8 @@ results from a predictive model.</p>
 <h2>Data Source Interface<a class="headerlink" href="#data-source-interface" title="Link to this heading">#</a></h2>
 <p>The full requirements for a standard diagnostic model are defined explicitly in the
 <code class="docutils literal notranslate"><span class="pre">earth2studio/models/dx/base.py</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+<span class="nd">@runtime_checkable</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">DataSource</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Data source interface.&quot;&quot;&quot;</span>
 
@@ -545,7 +546,6 @@ results from a predictive model.</p>
 <span class="sd">            variable coordinate should be array of strings with Earth2Studio variable</span>
 <span class="sd">            ids.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
 </pre></div>
 </div>
 <div class="admonition note">

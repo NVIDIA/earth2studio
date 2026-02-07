@@ -447,8 +447,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>  <span class="c1"># noqa: F401  # kept in case of future extension; not currently used</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
@@ -517,8 +517,35 @@
 <span class="sd">        # Bay area, lat lon bounding box (lat min, lon min, lat max, lon max)</span>
 <span class="sd">        stations = ISD.get_stations_bbox((36, -124, 40, -120))</span>
 <span class="sd">        ds = ISD(stations, tolerance=timedelta(hours=2))</span>
-<span class="sd">        df = ds(datetime(2024, 1, 1, 20), [&quot;station&quot;, &quot;time&quot;, &quot;lat&quot;, &quot;lon&quot;, &quot;t2m&quot;])</span>
+<span class="sd">        df = ds(datetime(2024, 1, 1, 20), [&quot;t2m&quot;, &quot;ws10m&quot;])</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SOURCE_ID</span> <span class="o">=</span> <span class="s2">&quot;earth2studio.data.isd&quot;</span>
+    <span class="n">SCHEMA</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;DATE&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;LATITUDE&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;LONGITUDE&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;REPORT_TYPE&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;source&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">uint16</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;SOURCE&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;elev&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;ELEVATION&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;isd_name&quot;</span><span class="p">:</span> <span class="s2">&quot;STATION&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;observation&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">()),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">()),</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -563,6 +590,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to get data</span>
 
@@ -573,6 +601,8 @@
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables to</span>
 <span class="sd">            return. Must be in the ISD lexicon.</span>
+<span class="sd">        fields : str | list[str] | pa.Schema | None, optional</span>
+<span class="sd">            Fields to include in output, by default None (all fields).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -589,7 +619,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
 
-        <span class="n">df</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">))</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">fields</span><span class="p">))</span>
 
         <span class="c1"># Delete cache if needed</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
@@ -600,10 +630,11 @@
 
 <div class="viewcode-block" id="ISD.fetch">
 <a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.ISD.html#earth2studio.data.ISD.fetch">[docs]</a>
-    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
 
@@ -614,6 +645,8 @@
 <span class="sd">        variable : str | list[str] | VariableArray</span>
 <span class="sd">            String, list of strings or array of strings that refer to variables (column</span>
 <span class="sd">            ids) to return. Must be in the ISD lexicon.</span>
+<span class="sd">        fields : str | list[str] | pa.Schema | None, optional</span>
+<span class="sd">            Fields to include in output, by default None (all fields).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -622,18 +655,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;File store is not initialized! If you are calling this </span><span class="se">\</span>
-<span class="s2">            function directly make sure the data source is initialized inside the async </span><span class="se">\</span>
-<span class="s2">            loop!&quot;</span>
+                <span class="s2">&quot;File store is not initialized! If you are calling this &quot;</span>
+                <span class="s2">&quot;function directly make sure the data source is initialized inside the &quot;</span>
+                <span class="s2">&quot;async loop!&quot;</span>
             <span class="p">)</span>
 
         <span class="c1"># https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">):</span>
-            <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">time</span><span class="p">,</span> <span class="n">variable</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_fields</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
         <span class="c1"># Create cache dir if doesnt exist</span>
         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -658,7 +689,7 @@
             <span class="o">*</span><span class="n">func_map</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching NOAA ISD data&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
         <span class="p">)</span>
 
-        <span class="c1"># Gather all dataframes by station and by year, keeping only those with DATE within requested time ± tolerance</span>
+        <span class="c1"># Gather all dataframes by station and by year</span>
         <span class="n">filtered_df</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">station</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stations</span><span class="p">:</span>
@@ -677,29 +708,20 @@
                     <span class="n">filtered_df</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_window</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">schema</span><span class="o">.</span><span class="n">names</span><span class="p">)</span>
 
         <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">filtered_df</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="c1"># Standardize common metadata columns to lower case and normalize longitude</span>
+        <span class="c1"># Rename columns using schema metadata</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
-                <span class="n">columns</span><span class="o">=</span><span class="p">{</span>
-                    <span class="s2">&quot;STATION&quot;</span><span class="p">:</span> <span class="s2">&quot;station&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;DATE&quot;</span><span class="p">:</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;SOURCE&quot;</span><span class="p">:</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;LATITUDE&quot;</span><span class="p">:</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;LONGITUDE&quot;</span><span class="p">:</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;ELEVATION&quot;</span><span class="p">:</span> <span class="s2">&quot;elev&quot;</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">column_map</span><span class="p">())</span>
             <span class="n">df</span><span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
             <span class="c1"># Normalize longitude from [-180, 180) to [0, 360)</span>
             <span class="k">if</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
                 <span class="n">df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
                 <span class="n">df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mf">360.0</span><span class="p">)</span> <span class="o">%</span> <span class="mf">360.0</span>
 
-        <span class="c1"># Process columns</span>
+        <span class="c1"># Process observation columns</span>
         <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_ws10m</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
         <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_uv</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
         <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_tp</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
@@ -708,14 +730,46 @@
         <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_d2m</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
         <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_tcc</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
 
-        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">variable</span><span class="p">]</span>
+        <span class="c1"># Transform to long format (one observation per row)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_observation_dataframe</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">schema</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SOURCE_ID</span>
 
         <span class="c1"># Close aiohttp client if s3fs</span>
         <span class="k">if</span> <span class="n">session</span><span class="p">:</span>
             <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="n">df</span></div>
+        <span class="k">return</span> <span class="n">result</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_observation_dataframe</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">schema</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform wide format DataFrame to long format with observation/variable columns.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            Wide format DataFrame with variable columns</span>
+<span class="sd">        variables : list[str]</span>
+<span class="sd">            List of variable names to include</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            Long format DataFrame with observation and variable columns</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Metadata columns to keep (fields with isd_name metadata)</span>
+        <span class="n">id_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">schema</span> <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">value_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variables</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+
+        <span class="n">df_long</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+            <span class="n">id_vars</span><span class="o">=</span><span class="n">id_vars</span><span class="p">,</span>
+            <span class="n">value_vars</span><span class="o">=</span><span class="n">value_vars</span><span class="p">,</span>
+            <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span>
+            <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;observation&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">df_long</span> <span class="o">=</span> <span class="n">df_long</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;observation&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df_long</span><span class="p">[[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">schema</span><span class="o">.</span><span class="n">names</span><span class="p">]]</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_station_year</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">station_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">year</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Async method for fetching csv to given station</span>
@@ -764,6 +818,83 @@
                 <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">df</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert fields parameter into a validated PyArrow schema.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fields : str | list[str] | pa.Schema | None</span>
+<span class="sd">            Field specification. Can be:</span>
+<span class="sd">            - None: Returns the full class SCHEMA</span>
+<span class="sd">            - str: Single field name to select from SCHEMA</span>
+<span class="sd">            - list[str]: List of field names to select from SCHEMA</span>
+<span class="sd">            - pa.Schema: Validated against class SCHEMA for compatibility</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pa.Schema</span>
+<span class="sd">            A PyArrow schema containing only the requested fields</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        KeyError</span>
+<span class="sd">            If a requested field name is not found in the class SCHEMA</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            If a field type in the provided schema doesn&#39;t match the class SCHEMA</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If required fields are missing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">fields</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="n">fields</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">):</span>
+            <span class="c1"># Validate provided schema against class schema</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Field &#39;</span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; not found in class SCHEMA. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Available fields: </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">expected_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">type</span>
+                <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">expected_type</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Field &#39;</span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; has type </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">, &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;expected </span><span class="si">{</span><span class="n">expected_type</span><span class="si">}</span><span class="s2"> from class SCHEMA&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">return</span> <span class="n">fields</span>
+
+        <span class="c1"># fields is list[str] - select fields from class schema</span>
+        <span class="n">selected_fields</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Field &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; not found in class SCHEMA. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Available fields: </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">selected_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span><span class="n">selected_fields</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">column_map</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build column name mapping from ISD source names to schema names.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict[str, str]</span>
+<span class="sd">            Mapping from ISD column names to schema field names</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="sa">b</span><span class="s2">&quot;isd_name&quot;</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">metadata</span><span class="p">:</span>
+                <span class="n">isd_name</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="sa">b</span><span class="s2">&quot;isd_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+                <span class="n">mapping</span><span class="p">[</span><span class="n">isd_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">mapping</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -1076,6 +1207,13 @@
         <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcc&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcc&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcc&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">df</span></div>
 
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">stations</span> <span class="o">=</span> <span class="n">ISD</span><span class="o">.</span><span class="n">get_stations_bbox</span><span class="p">((</span><span class="mi">36</span><span class="p">,</span> <span class="o">-</span><span class="mi">124</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="o">-</span><span class="mi">120</span><span class="p">))</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">ISD</span><span class="p">(</span><span class="n">stations</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;ws10m&quot;</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
 </pre></div>
 
                 </article>

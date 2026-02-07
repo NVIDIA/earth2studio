@@ -1,0 +1,1242 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.data.ufs &#8212; Earth2Studio 0.13.0a0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=e36bfde7"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/data/ufs';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.13" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.data.ufs</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.data.ufs</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">h5netcdf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">s3fs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon</span><span class="w"> </span><span class="kn">import</span> <span class="n">GSIConventionalLexicon</span><span class="p">,</span> <span class="n">GSISatelliteLexicon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_GSIAsyncTask</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Small helper struct for Async tasks&quot;&quot;&quot;</span>
+
+    <span class="n">datetime_file</span><span class="p">:</span> <span class="n">datetime</span>
+    <span class="n">datetime_max</span><span class="p">:</span> <span class="n">datetime</span>
+    <span class="n">datetime_min</span><span class="p">:</span> <span class="n">datetime</span>
+    <span class="n">gsi_file_uri</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">gsi_modifier</span><span class="p">:</span> <span class="n">Callable</span>
+    <span class="n">gsi_obs_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">e2s_obs_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">satellite</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_UFSObsBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for GSI data sources.</span>
+
+<span class="sd">    This abstract base class provides common functionality for reading NOAA UFS</span>
+<span class="sd">    GEFS-v13 replay observation data from S3.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">UFS_BUCKET</span> <span class="o">=</span> <span class="s2">&quot;noaa-ufs-gefsv13replay-pds&quot;</span>
+    <span class="n">SOURCE_ID</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># To be defined by subclasses</span>
+    <span class="n">SCHEMA</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span>  <span class="c1"># To be defined by subclasses</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tolerance</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">obs_type</span> <span class="o">=</span> <span class="s2">&quot;ges&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span> <span class="o">=</span> <span class="n">max_workers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span> <span class="o">=</span> <span class="n">async_timeout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tmp_cache_hash</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nest_asyncio</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_running_loop</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tolerance</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_timedelta</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span><span class="o">.</span><span class="n">to_pytimedelta</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">tolerance</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_async_init</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async initialization of S3 filesystem&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span>
+            <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">asynchronous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">skip_instance_cache</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+        <span class="n">fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetch observations for a set of timestamps.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            DataFrame column names to return.</span>
+<span class="sd">        fields : str | list[str] | pa.Schema | None, optional</span>
+<span class="sd">            Fields to include in output, by default None (all fields).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+            <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+
+        <span class="n">loop</span><span class="o">.</span><span class="n">set_default_executor</span><span class="p">(</span>
+            <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_workers</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_async_init</span><span class="p">())</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span>
+            <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">fields</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">async_timeout</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+        <span class="n">fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;File store is not initialized! If you are calling this &quot;</span>
+                <span class="s2">&quot;function directly make sure the data source is initialized inside the async loop!&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">set_session</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">time_list</span><span class="p">,</span> <span class="n">variable_list</span> <span class="o">=</span> <span class="n">prep_data_inputs</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_time</span><span class="p">(</span><span class="n">time_list</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_fields</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">async_tasks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tasks</span><span class="p">(</span><span class="n">time_list</span><span class="p">,</span> <span class="n">variable_list</span><span class="p">)</span>
+        <span class="n">file_uri_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">task</span><span class="o">.</span><span class="n">gsi_file_uri</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">async_tasks</span><span class="p">}</span>
+        <span class="n">fetch_jobs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_fetch_remote_file</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span> <span class="k">for</span> <span class="n">uri</span> <span class="ow">in</span> <span class="n">file_uri_set</span><span class="p">]</span>
+        <span class="k">await</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">fetch_jobs</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Fetching GSI files&quot;</span><span class="p">,</span> <span class="n">disable</span><span class="o">=</span><span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_dataframe</span><span class="p">(</span><span class="n">async_tasks</span><span class="p">,</span> <span class="n">variable_list</span><span class="p">,</span> <span class="n">schema</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_tasks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_GSIAsyncTask</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create async tasks for fetching data. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Subclasses must implement _create_tasks.&quot;</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_fetch_remote_file</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">byte_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches remote file into cache.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : str</span>
+<span class="sd">            S3 URI to fetch</span>
+<span class="sd">        byte_offset : int, optional</span>
+<span class="sd">            Byte offset to start reading from, by default 0</span>
+<span class="sd">        byte_length : int | None, optional</span>
+<span class="sd">            Number of bytes to read, by default None (read all)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File system is not initialized&quot;</span><span class="p">)</span>
+
+        <span class="n">cache_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_path</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">byte_offset</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cache_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">byte_length</span><span class="p">:</span>
+                <span class="n">byte_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">byte_offset</span> <span class="o">+</span> <span class="n">byte_length</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">_cat_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">byte_offset</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">byte_length</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                    <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_handle_missing_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_missing_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle missing file during fetch. Can be overridden by subclasses.&quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compile_dataframe</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">async_tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_GSIAsyncTask</span><span class="p">],</span>
+        <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">schema</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile fetched data into a DataFrame.&quot;&quot;&quot;</span>
+        <span class="n">frames</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">async_tasks</span><span class="p">:</span>
+            <span class="c1"># Overwrite obs column name (needed for uv)</span>
+            <span class="n">column_map</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_column_map</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
+            <span class="n">column_map</span><span class="p">[</span><span class="n">task</span><span class="o">.</span><span class="n">gsi_obs_name</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;observation&quot;</span>
+            <span class="n">local_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_path</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">gsi_file_uri</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cached file missing for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">gsi_file_uri</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">h5netcdf</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">dset</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">column_map</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dset</span><span class="p">[:])</span>
+                        <span class="n">pa_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">column_map</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="o">.</span><span class="n">type</span>
+                        <span class="c1"># Convert char arrays into strings for DF</span>
+                        <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;S&quot;</span> <span class="ow">and</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                            <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;S</span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+                            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\x00</span><span class="s2">&quot;</span>
+                            <span class="p">)</span>
+                        <span class="c1"># Apply subclass-specific transformations</span>
+                        <span class="n">values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_column</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">ds</span><span class="p">)</span>
+                        <span class="n">data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">pa_type</span><span class="p">)</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - defensive</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to read </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">local_path</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">exc</span>
+
+            <span class="c1"># Rename columns</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">column_map</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Add e2s columns</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">e2s_obs_name</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SOURCE_ID</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_task_columns</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+
+            <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">task</span><span class="o">.</span><span class="n">datetime_min</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">task</span><span class="o">.</span><span class="n">datetime_max</span><span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+            <span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">gsi_modifier</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">[[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">schema</span><span class="o">.</span><span class="n">names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span><span class="p">]]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_column_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schema</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build mapping from GSI column names to schema column names.&quot;&quot;&quot;</span>
+        <span class="n">column_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="sa">b</span><span class="s2">&quot;gsi_name&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">metadata</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">column_map</span><span class="p">[</span><span class="n">field</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="sa">b</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span>
+        <span class="c1"># Always include time field for filtering</span>
+        <span class="n">time_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">)</span>
+        <span class="n">column_map</span><span class="p">[</span><span class="n">time_field</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="sa">b</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="n">time_field</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">column_map</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transform_column</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">_GSIAsyncTask</span><span class="p">,</span>
+        <span class="n">ds</span><span class="p">:</span> <span class="n">h5netcdf</span><span class="o">.</span><span class="n">File</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform column values. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Subclasses must implement _transform_column.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_task_columns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="n">_GSIAsyncTask</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add task-specific columns to DataFrame. Override in subclasses.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">fields</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert fields parameter into a validated PyArrow schema.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fields : str | list[str] | pa.Schema | None</span>
+<span class="sd">            Field specification. Can be:</span>
+<span class="sd">            - None: Returns the full class SCHEMA</span>
+<span class="sd">            - str: Single field name to select from SCHEMA</span>
+<span class="sd">            - list[str]: List of field names to select from SCHEMA</span>
+<span class="sd">            - pa.Schema: Validated against class SCHEMA for compatibility</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pa.Schema</span>
+<span class="sd">            A PyArrow schema containing only the requested fields</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        KeyError</span>
+<span class="sd">            If a requested field name is not found in the class SCHEMA</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            If a field type in the provided schema doesn&#39;t match the class SCHEMA</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If required fields are missing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">fields</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="n">fields</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">):</span>
+            <span class="c1"># Validate provided schema against class schema</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Field &#39;</span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; not found in class SCHEMA. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Available fields: </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">expected_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">type</span>
+                <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">expected_type</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Field &#39;</span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; has type </span><span class="si">{</span><span class="n">field</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">, &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;expected </span><span class="si">{</span><span class="n">expected_type</span><span class="si">}</span><span class="s2"> from class SCHEMA&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">return</span> <span class="n">fields</span>
+
+        <span class="c1"># fields is list[str] - select fields from class schema</span>
+        <span class="n">selected_fields</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Field &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; not found in class SCHEMA. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Available fields: </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">selected_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span><span class="n">selected_fields</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify if date time is valid for GSI based on offline knowledge</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            list of date times to fetch data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="n">start_date</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1980</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">start_date</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be after </span><span class="si">{</span><span class="n">start_date</span><span class="si">}</span><span class="s2"> for UFS observations&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache_path</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">byte_offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">byte_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Gets local cache path given s3 uri</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : str</span>
+<span class="sd">            s3 uri</span>
+<span class="sd">        byte_offset : int, optional</span>
+<span class="sd">            Byte offset of file to read, by default 0</span>
+<span class="sd">        byte_length : int | None, optional</span>
+<span class="sd">            Byte length of file to read, by default None</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Local path of cached file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">byte_length</span><span class="p">:</span>
+            <span class="n">byte_length</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">sha</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">((</span><span class="n">path</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_offset</span><span class="p">)</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">byte_length</span><span class="p">))</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">sha</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return appropriate cache location.&quot;&quot;&quot;</span>
+        <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">datasource_cache_root</span><span class="p">(),</span> <span class="s2">&quot;gsi&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tmp_cache_hash</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_tmp_cache_hash</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span>
+            <span class="n">cache_location</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">cache_location</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tmp_gsi_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_tmp_cache_hash</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cache_location</span>
+
+
+<div class="viewcode-block" id="UFSObsConv">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.UFSObsConv.html#earth2studio.data.UFSObsConv">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UFSObsConv</span><span class="p">(</span><span class="n">_UFSObsBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;NOAA UFS GEFS-v13 replay observations in-situ data</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tolerance : timedelta | np.timedelta64, optional</span>
+<span class="sd">        Time tolerance; observations within +/- tolerance of any requested time are</span>
+<span class="sd">        returned, by default np.timedelta64(0).</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Max workers in async IO thread pool for concurrent downloads, by default 24.</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source in local filesystem cache, by default True.</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in seconds after which the async fetch will be cancelled if not finished,</span>
+<span class="sd">        by default 600.</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Log basic progress information, by default True.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional resources:</span>
+
+<span class="sd">    - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/</span>
+<span class="sd">    - https://psl.noaa.gov/data/ufs_replay/</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. highlight:: python</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        ds = UFSObsConv(tolerance=timedelta(hours=2))</span>
+<span class="sd">        df = ds(datetime(2024, 1, 1, 20), [&quot;u&quot;])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SOURCE_ID</span> <span class="o">=</span> <span class="s2">&quot;earth2studio.data.UFSObsConv&quot;</span>
+    <span class="n">SCHEMA</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Time&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;pres&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Pressure&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;elev&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Height&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">uint16</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Observation_Type&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;class&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Observation_Class&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Latitude&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Longitude&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;station&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Station_ID&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;station_elev&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Station_Elevation&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;observation&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">()),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">()),</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_tasks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_GSIAsyncTask</span><span class="p">]:</span>
+        <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_GSIAsyncTask</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">gsi_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GSIConventionalLexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+                <span class="n">gsi_platform</span><span class="p">,</span> <span class="n">gsi_sensor</span><span class="p">,</span> <span class="n">gsi_product</span><span class="p">,</span> <span class="n">gsi_name</span> <span class="o">=</span> <span class="n">gsi_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in GSI conventional lexicon&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time_list</span><span class="p">:</span>
+                <span class="n">tmin</span> <span class="o">=</span> <span class="n">t</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span>
+                <span class="n">tmax</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span>
+                <span class="n">day</span> <span class="o">=</span> <span class="n">tmin</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">day</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">hour</span> <span class="o">//</span> <span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mi">6</span><span class="p">)</span>
+                <span class="k">while</span> <span class="n">day</span> <span class="o">&lt;=</span> <span class="n">tmax</span><span class="p">:</span>
+                    <span class="n">year_key</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y&quot;</span><span class="p">)</span>
+                    <span class="n">month_key</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m&quot;</span><span class="p">)</span>
+                    <span class="n">datetime_key</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H&quot;</span><span class="p">)</span>
+                    <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">UFS_BUCKET</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">year_key</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">month_key</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">datetime_key</span><span class="si">}</span><span class="s2">/gsi/diag_</span><span class="si">{</span><span class="n">gsi_platform</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">gsi_sensor</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">gsi_product</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">datetime_key</span><span class="si">}</span><span class="s2">_control.nc4&quot;</span>
+                    <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">_GSIAsyncTask</span><span class="p">(</span>
+                            <span class="n">datetime_file</span><span class="o">=</span><span class="n">day</span><span class="p">,</span>
+                            <span class="n">datetime_min</span><span class="o">=</span><span class="n">tmin</span><span class="p">,</span>
+                            <span class="n">datetime_max</span><span class="o">=</span><span class="n">tmax</span><span class="p">,</span>
+                            <span class="n">gsi_file_uri</span><span class="o">=</span><span class="n">s3_uri</span><span class="p">,</span>
+                            <span class="n">gsi_modifier</span><span class="o">=</span><span class="n">modifier</span><span class="p">,</span>
+                            <span class="n">gsi_obs_name</span><span class="o">=</span><span class="n">gsi_name</span><span class="p">,</span>
+                            <span class="n">e2s_obs_name</span><span class="o">=</span><span class="n">v</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="n">day</span> <span class="o">=</span> <span class="n">day</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tasks</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transform_column</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">_GSIAsyncTask</span><span class="p">,</span>
+        <span class="n">ds</span><span class="p">:</span> <span class="n">h5netcdf</span><span class="o">.</span><span class="n">File</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform column values for conventional data.&quot;&quot;&quot;</span>
+        <span class="c1"># Convert hours offset to timedelta, and add to datetime of file</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;Time&quot;</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_timedelta</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;h&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">task</span><span class="o">.</span><span class="n">datetime_file</span>
+        <span class="k">return</span> <span class="n">values</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_column_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schema</span><span class="p">:</span> <span class="n">pa</span><span class="o">.</span><span class="n">Schema</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build column map including elev field required for modifiers.&quot;&quot;&quot;</span>
+        <span class="n">column_map</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_build_column_map</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
+        <span class="c1"># Required for modifier filtering</span>
+        <span class="n">elev_field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCHEMA</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;elev&quot;</span><span class="p">)</span>
+        <span class="n">column_map</span><span class="p">[</span><span class="n">elev_field</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="sa">b</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="n">elev_field</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">column_map</span></div>
+
+
+
+<div class="viewcode-block" id="UFSObsSat">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.UFSObsSat.html#earth2studio.data.UFSObsSat">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UFSObsSat</span><span class="p">(</span><span class="n">_UFSObsBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;NOAA UFS GEFS-v13 replay observations satellite data</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tolerance : timedelta | np.timedelta64, optional</span>
+<span class="sd">        Time tolerance; observations within +/- tolerance of any requested time are</span>
+<span class="sd">        returned, by default np.timedelta64(0).</span>
+<span class="sd">    satellites : list[str], optional</span>
+<span class="sd">        List of satellite platforms to include, by default includes all platforms.</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Max workers in async IO thread pool for concurrent downloads, by default 24.</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source in local filesystem cache, by default True.</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in seconds after which the async fetch will be cancelled if not finished,</span>
+<span class="sd">        by default 600.</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Log basic progress information, by default True.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This is a remote data source and can potentially download a large amount of data</span>
+<span class="sd">    to your local machine for large requests.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional resources:</span>
+
+<span class="sd">    - https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/</span>
+<span class="sd">    - https://psl.noaa.gov/data/ufs_replay/</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. highlight:: python</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        # Use all possible satellites</span>
+<span class="sd">        ds = UFSObsSat(tolerance=timedelta(hours=2))</span>
+<span class="sd">        df = ds(datetime(2024, 1, 1, 20), [&quot;atms&quot;])</span>
+
+<span class="sd">        # Use specific satellite</span>
+<span class="sd">        ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=[&quot;n20&quot;])</span>
+<span class="sd">        df = ds(datetime(2024, 1, 1, 20), [&quot;atms&quot;])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SOURCE_ID</span> <span class="o">=</span> <span class="s2">&quot;earth2studio.data.UFSObsSat&quot;</span>
+    <span class="n">VALID_SATELLITES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;npp&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;metop-a&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;metop-b&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;metop-c&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n15&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n16&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n17&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n18&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n19&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n20&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">SCHEMA</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">timestamp</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Obs_Time&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;elev&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Elevation&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;class&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Observation_Class&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Latitude&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Longitude&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;scan_angle&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Scan_Angle&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;channel_index&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">uint16</span><span class="p">(),</span>
+                <span class="n">nullable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Channel_Index&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;solza&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Sol_Zenith_Angle&quot;</span><span class="p">}),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;solaza&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Sol_Azimuth_Angle&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;satellite_za&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Sat_Zenith_Angle&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
+                <span class="s2">&quot;satellite_aza&quot;</span><span class="p">,</span>
+                <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">(),</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;gsi_name&quot;</span><span class="p">:</span> <span class="s2">&quot;Sat_Azimuth_Angle&quot;</span><span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;satellite&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">()),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;observation&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">float32</span><span class="p">()),</span>
+            <span class="n">pa</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="n">pa</span><span class="o">.</span><span class="n">string</span><span class="p">()),</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tolerance</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">satellites</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">600</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">satellites</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">satellites</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VALID_SATELLITES</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">invalid</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">satellites</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">VALID_SATELLITES</span>
+            <span class="k">if</span> <span class="n">invalid</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Invalid satellite(s): </span><span class="si">{</span><span class="n">invalid</span><span class="si">}</span><span class="s2">. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Valid satellites are: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VALID_SATELLITES</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">satellites</span> <span class="o">=</span> <span class="n">satellites</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">,</span>
+            <span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">,</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_tasks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">time_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">],</span> <span class="n">variable</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_GSIAsyncTask</span><span class="p">]:</span>
+        <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_GSIAsyncTask</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">gsi_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GSISatelliteLexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+                <span class="n">gsi_platforms0</span><span class="p">,</span> <span class="n">gsi_sensor</span><span class="p">,</span> <span class="n">gsi_product</span><span class="p">,</span> <span class="n">gsi_name</span> <span class="o">=</span> <span class="n">gsi_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)</span>
+                <span class="n">gsi_platforms</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">gsi_platforms0</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">satellites</span>
+                <span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in GSI satellite lexicon&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">e</span>
+
+            <span class="k">for</span> <span class="n">gsi_platform</span> <span class="ow">in</span> <span class="n">gsi_platforms</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">time_list</span><span class="p">:</span>
+                    <span class="n">tmin</span> <span class="o">=</span> <span class="n">t</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span>
+                    <span class="n">tmax</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span>
+                    <span class="n">day</span> <span class="o">=</span> <span class="n">tmin</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">day</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">hour</span> <span class="o">//</span> <span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mi">6</span><span class="p">)</span>
+                    <span class="k">while</span> <span class="n">day</span> <span class="o">&lt;=</span> <span class="n">tmax</span><span class="p">:</span>
+                        <span class="n">year_key</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y&quot;</span><span class="p">)</span>
+                        <span class="n">month_key</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m&quot;</span><span class="p">)</span>
+                        <span class="n">datetime_key</span> <span class="o">=</span> <span class="n">day</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H&quot;</span><span class="p">)</span>
+                        <span class="n">s3_uri</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;s3://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">UFS_BUCKET</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">year_key</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">month_key</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">datetime_key</span><span class="si">}</span><span class="s2">/gsi/diag_</span><span class="si">{</span><span class="n">gsi_sensor</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">gsi_platform</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">gsi_product</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">datetime_key</span><span class="si">}</span><span class="s2">_control.nc4&quot;</span>
+                        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_GSIAsyncTask</span><span class="p">(</span>
+                                <span class="n">datetime_file</span><span class="o">=</span><span class="n">day</span><span class="p">,</span>
+                                <span class="n">datetime_min</span><span class="o">=</span><span class="n">tmin</span><span class="p">,</span>
+                                <span class="n">datetime_max</span><span class="o">=</span><span class="n">tmax</span><span class="p">,</span>
+                                <span class="n">gsi_file_uri</span><span class="o">=</span><span class="n">s3_uri</span><span class="p">,</span>
+                                <span class="n">gsi_modifier</span><span class="o">=</span><span class="n">modifier</span><span class="p">,</span>
+                                <span class="n">gsi_obs_name</span><span class="o">=</span><span class="n">gsi_name</span><span class="p">,</span>
+                                <span class="n">e2s_obs_name</span><span class="o">=</span><span class="n">v</span><span class="p">,</span>
+                                <span class="n">satellite</span><span class="o">=</span><span class="n">gsi_platform</span><span class="p">,</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                        <span class="n">day</span> <span class="o">=</span> <span class="n">day</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tasks</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_missing_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Satellite data may have missing platforms, just warn instead of error.&quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transform_column</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">_GSIAsyncTask</span><span class="p">,</span>
+        <span class="n">ds</span><span class="p">:</span> <span class="n">h5netcdf</span><span class="o">.</span><span class="n">File</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform column values for satellite data.&quot;&quot;&quot;</span>
+        <span class="c1"># Convert hours offset to timedelta, and add to datetime of file</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;Obs_Time&quot;</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_timedelta</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;h&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">task</span><span class="o">.</span><span class="n">datetime_file</span>
+        <span class="c1"># Channel index actually seems to be a pointer to sensor channels</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;Channel_Index&quot;</span><span class="p">:</span>
+            <span class="n">sensor_chan</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;sensor_chan&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">sensor_chan</span><span class="p">[</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">values</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_task_columns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="n">_GSIAsyncTask</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add satellite column for satellite data.&quot;&quot;&quot;</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;satellite&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">satellite</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">UFSObsSat</span><span class="p">(</span><span class="n">satellites</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;npp&quot;</span><span class="p">],</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;atms&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
