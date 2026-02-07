@@ -139,7 +139,7 @@ Include a list of the specific unique items this example includes, for example:
 
 In this example you will learn:
 
-- How to instantiate a build in prognostic model
+- How to instantiate a built in prognostic model
 - Creating a data source and IO object
 - Running a basic build in workflow
 - Post-processing results
