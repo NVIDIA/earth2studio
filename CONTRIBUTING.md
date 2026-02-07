@@ -30,7 +30,7 @@ template.
 We use [GitHub issues](https://github.com/NVIDIA/earth2studio/issues) to track bugs,
 feature requests and questions.
 You can use the provided templates and ensure your description is clear and has
-sufficient to reproduce the issue.
+sufficient information to reproduce the issue.
 
 ## License
 
