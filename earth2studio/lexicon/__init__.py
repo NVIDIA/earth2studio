@@ -34,4 +34,5 @@ from .planetary_computer import (
     OISSTLexicon,
     Sentinel3AODLexicon,
 )
+from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

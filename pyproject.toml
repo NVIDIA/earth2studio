@@ -24,12 +24,13 @@ dependencies = [
     "pygrib",
     "python-dotenv",
     "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
+    "pyarrow>=14.0.0",
     "rich",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",
     "tqdm>=4.65.0",
     "xarray[parallel]>=2023.1.0",
-    "zarr>=3.1.0"
+    "zarr>=3.1.0",
 ]
 
 classifiers = [
