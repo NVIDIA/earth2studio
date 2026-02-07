@@ -614,18 +614,18 @@ the cuda extensions:</p>
 additional build tools on the system.
 This error indicates that the system needs <a class="reference external" href="https://cmake.org/download/">cmake</a>
 installed.
-For debian systems this can be done through APT:</p>
+For Debian systems this can be done through APT:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apt<span class="w"> </span>install<span class="w"> </span>cmake
 </pre></div>
 </div>
 </section>
 <section id="runtimeerror-cannot-find-the-eccodes-library">
 <h2>RuntimeError: Cannot find the ecCodes library<a class="headerlink" href="#runtimeerror-cannot-find-the-eccodes-library" title="Link to this heading">#</a></h2>
-<p>This can surface when using a data source (e.g. CDS, GFS, HRRR, etc) that needs to
+<p>This can surface when using a data source (including: CDS, GFS, HRRR) that needs to
 read grib files indicating that ECMWF’s eccodes library needs to be installed.
 Eccodes has several <a class="reference external" href="https://github.com/ecmwf/eccodes">install methods</a>, provided on
 <a class="reference external" href="https://anaconda.org/channels/conda-forge/packages/eccodes/overview">conda forge</a> and
-APT for debian based systems:</p>
+APT for Debian based systems:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>--no-install-recommends<span class="w"> </span>libeccodes-tools<span class="w"> </span>libeccodes-dev
 </pre></div>
 </div>
