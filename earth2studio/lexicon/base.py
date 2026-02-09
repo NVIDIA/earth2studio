@@ -51,6 +51,7 @@ E2STUDIO_VOCAB = {
     "tp": "total precipitation (m)",
     "lsp": "Large-scale precipitation accumulated over given time frame (m)",
     "cp": "Convective precipitation accumulated over given time frame (m)",
+    "smlt": "Snowmelt accumulated over given time frame (m of water equivalent)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
     "tp06": "total precipitation accumulated over past 6 hours (m)",
