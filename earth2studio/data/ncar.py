@@ -202,7 +202,7 @@ class NCAR_ERA5:
                 array_list.append(arrs[0])
 
         # Now concat varaibles
-        res = xr.concat(array_list, dim="variable")
+        res = xr.concat(array_list, dim="variable", coords="minimal")
         res.name = None  # remove name, which is kept from one of the arrays
 
         # Delete cache if needed
@@ -455,8 +455,12 @@ class NCAR_ERA5:
                             out = out.expand_dims(
                                 {"time": [ncar_meta[i]["time"]]}, axis=0
                             )
+                            out = out.drop_vars(
+                                ["forecast_hour", "forecast_initial_time"],
+                                errors="ignore",
+                            )
                             outputs.append(out)
-                        ds = xr.concat(outputs, dim="time")
+                        ds = xr.concat(outputs, dim="time", coords="minimal")
                     else:
                         raise ValueError("Unknown product")
 
