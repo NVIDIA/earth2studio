@@ -180,7 +180,7 @@ uv run python main.py --config-name pnw_sfno_precip.yaml
 
 ### Configuration
 
-This recipe is highly customisable and extensible via the use of [Hydra][hydra-docs]. While
+This recipe is highly customizable and extensible via the use of [Hydra][hydra-docs]. While
 config items are documented with in-line comments in the `yaml` configuration files under
 `cfg`, we describe a few key high-level configuration settings here:
 
@@ -299,13 +299,13 @@ export AIWQ_SUBMIT_PWD=<your_AI-WQ_password>
 ```
 
 This will permit you to use ECMWF's official scoring metrics computed against the official
-competition verification data. The AI Weather Quest focues on RPSS scores of
+competition verification data. The AI Weather Quest focuses on RPSS scores of
 weekly-averaged forecast outputs, computed against climatological quintiles.
 
 There are a number of limitations associated with using `AI_WQ_package` for scoring:
 
 - The initialization date of the forecast must be on a Thursday
-- The initialization date must be recent (on or after March 2025) to be able to download
+- The initialization date must be on or after March 2025 to be able to download
   the corresponding verification data. This precludes using some ERA5 data sources.
 - The scoring routines will download data (verification ERA5 data, weekly mean climatology,
   land-sea mask) when run.
@@ -317,9 +317,9 @@ an ensemble appropriate for the AI Weather Quest surface temperature variable.
 
 This recipe uses the `physicsnemo.distributed.DistributedManager` to handle multi-GPU
 execution. Example commands in this document make use of the `torchrun` launcher provided
-by PyTorch as it is widely available and compatible. To turn a single-GPU run (e.g., one
+by PyTorch as it is widely available and compatible. To turn a single-GPU run (for example, one
 launched by `uv run python main.py --config-name pnw_dlesym.yaml`) into a multi-GPU run,
-simply add `torchrun` and the number of GPUs `$ngpu` you'd like to parallelize over:
+ add `torchrun` and the number of GPUs `$ngpu` you'd like to parallelize over:
 
 ```bash
 uv run torchrun --nproc_per_node=$ngpu --standalone main.py --config-name global_dlesym
@@ -344,11 +344,11 @@ in a coordinated fashion:
 
 To handle these, a utility routine `run_with_rank_ordered_execution` is provided and used
 in this recipe, which can wrap a function call and ensure that one rank (by default rank 0)
-will run the function first, before the rest. This allows e.g. filesystem objects in a
-cache or output directory to be created properly before other ranks acccess them.
+will run the function first, before the rest. This allows, for example, filesystem objects in a
+cache or output directory to be created properly before other ranks access them.
 Developers extending this recipe should use `run_with_rank_ordered_execution` for any
 operations that might lead to race conditions; however it is important that when using it,
-all ranks enter and leave the function the same number of times (i.e., execution must be
+all ranks enter and leave the function the same number of times (that is, execution must be
 load-balanced so all ranks enter and exit the barriers in the routine as expected).
 
 For the parallel I/O capabilities in this recipe, it is important to consider the chunk
