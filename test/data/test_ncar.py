@@ -37,7 +37,7 @@ from earth2studio.data import NCAR_ERA5
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["msl"]])
+@pytest.mark.parametrize("variable", ["t2m", ["smlt"]])
 def test_ncar_fetch(time, variable):
 
     ds = NCAR_ERA5(cache=False)
