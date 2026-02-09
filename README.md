@@ -23,7 +23,7 @@ climate science.
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url]
 
-![Earth2Studio Banner](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio_feature_banner.png?id=0)
+![Earth2Studio Banner](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio_feature_banner.png?id=1)
 
 </div>
 
@@ -118,7 +118,7 @@ architectures, data sources and SciML tooling while providing a unified API.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-1.png?id=0)
+![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-1.png?id=1)
 
 </div>
 
@@ -128,7 +128,7 @@ data sources, AI models and other modules together.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-2.png?id=0)
+![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-2.png?id=1)
 
 </div>
 
@@ -140,7 +140,7 @@ statistical operations and more to accelerate your pipelines.
 
 <div align="center">
 
-![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-3.webp?id=0)
+![Earth2Studio Overview 1](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/readme/earth2studio-readme-overview-3.webp?id=1)
 
 </div>
 
