@@ -399,9 +399,15 @@ class NCAR_ERA5:
         # Here we manually cache the data arrays, this is because fsspec caches the
         # extracted NetCDF file. Not super optimal, can have some repeat storage given
         # different level / time indexes
+        # Not super optimal here... could have repeat data under different hashs but
+        # better than saving the entire file on disk for like 1 date
         sha = hashlib.sha256(
             (
-                str(nc_file_uri) + str(data_variable) + str(time_idx) + str(level_idx)
+                str(nc_file_uri)
+                + str(data_variable)
+                + str(time_idx)
+                + str(level_idx)
+                + str(ncar_meta)
             ).encode()
         )
         filename = sha.hexdigest()
