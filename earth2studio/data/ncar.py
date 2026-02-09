@@ -23,10 +23,11 @@ import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-import pandas as pd
+from typing import Any
 
 import nest_asyncio
 import numpy as np
+import pandas as pd
 import s3fs
 import xarray as xr
 from loguru import logger
@@ -47,14 +48,14 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 class NCARAsyncTask:
     """Small helper struct for Async tasks"""
 
-    ncar_product: str
     ncar_file_uri: str
     ncar_data_variable: str
     # Dictionary mapping time index -> time id
     ncar_time_indices: dict[int, datetime]
     # Dictionary mapping level index -> varaible id
     ncar_level_indices: dict[int, str]
-    ncar_time: datetime
+    # Time index mapping for time, only used for accum files atm
+    ncar_meta: dict[int, dict[str, Any]]
 
 
 class NCAR_ERA5:
@@ -193,13 +194,13 @@ class NCAR_ERA5:
         # Concat times for same variable groups
         array_list = []
         for arrs in data_arrays.values():
-            if len(arrs) > 1 and 'time' in arrs[0].dims:
+            if len(arrs) > 1 and "time" in arrs[0].dims:
                 # Only concat on time if multiple arrays and time dimension exists
                 array_list.append(xr.concat(arrs, dim="time"))
             else:
                 # For single arrays or arrays without time dim, just take the first
                 array_list.append(arrs[0])
-                
+
         # Now concat varaibles
         res = xr.concat(array_list, dim="variable")
         res.name = None  # remove name, which is kept from one of the arrays
@@ -207,12 +208,14 @@ class NCAR_ERA5:
         # Delete cache if needed
         if not self._cache:
             shutil.rmtree(self.cache)
-            
-        if 'time' in res.dims:
+
+        if "time" in res.dims:
             return res.sel(time=time, variable=variable)
         else:
             # For files without time dimension, just select variables
-            logger.warning(f"No time dimension found in dataset, selecting variables only")
+            logger.warning(
+                "No time dimension found in dataset, selecting variables only"
+            )
             return res.sel(variable=variable)
 
     def _create_tasks(
@@ -261,78 +264,53 @@ class NCAR_ERA5:
                         daystart=daystart,
                         dayend=dayend,
                     )
-                    nc_time = t
+                    meta = {}
 
-                # Accum held in bi-monthly
+                # Accumulated products are split into bi-monthly files which are have
+                # the range (start, end], for example file:
+                # e5.oper.fc.sfc.accumu.128_142_lsp.ll025sc.2025020106_2025021606.nc
+                # will include lsp measurements for the times
+                # 20250201T07:00:00, 20250201T08:00:00, ... , 20250216T06:00:00
                 elif product == "e5.oper.fc.sfc.accumu":
-                    if t.day < 16:
-                        if t.month == 1 and t.day == 1 and t.hour <= 6:
-                            daystart = 16
-                            dayend = 1
-                            file_name = s3_pattern_accum.format(
-                                product=product,
-                                variable=variable_name,
-                                grid=grid,
-                                year1=t.year-1,
-                                year2=t.year,
-                                month1=12,
-                                month2=t.month,
-                                daystart=daystart,
-                                dayend=dayend,
+                    # Data is stored in two time dims: forecast_initial_time, forecast_hour
+                    # forecast_initial_time is at hours 06 and 18
+                    # forecast_hour is between [1-12]
+                    initial_time = t.replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    ) + pd.Timedelta(hours=((t.hour - 7) // 12) * 12 + 6)
+                    fc_hour = int((t - initial_time).total_seconds() / 3600)
+                    # Determine the start and end day for s3 file bi-monthly interval
+                    if initial_time.day >= 16:
+                        date1 = initial_time.replace(day=16)
+                        if initial_time.month == 12:
+                            date2 = initial_time.replace(
+                                year=initial_time.year + 1, month=1, day=1
                             )
                         else:
-                            daystart = 1
-                            dayend = 16
-                            file_name = s3_pattern_accum.format(
-                                product=product,
-                                variable=variable_name,
-                                grid=grid,
-                                year1=t.year,
-                                year2=t.year,
-                                month1=t.month,
-                                month2=t.month,
-                                daystart=daystart,
-                                dayend=dayend,
+                            date2 = initial_time.replace(
+                                month=initial_time.month + 1, day=1
                             )
                     else:
-                        daystart = 16
-                        dayend = 1
-                        if t.month != 12:
-                            file_name = s3_pattern_accum.format(
-                                product=product,
-                                variable=variable_name,
-                                grid=grid,
-                                year1=t.year,
-                                year2=t.year,
-                                month1=t.month,
-                                month2=t.month+1,
-                                daystart=daystart,
-                                dayend=dayend,
-                            )
-                        else:
-                            file_name = s3_pattern_accum.format(
-                                product=product,
-                                variable=variable_name,
-                                grid=grid,
-                                year1=t.year,
-                                year2=t.year+1,
-                                month1=t.month,
-                                month2=1,
-                                daystart=daystart,
-                                dayend=dayend,
-                            )
-                    if t.hour <= 6 and t.hour >= 0:
-                        nc_time = t - pd.Timedelta(days=1)
-                        nc_time = nc_time.replace(hour=18)
-                    elif t.hour > 18:
-                        nc_time = t
-                        nc_time = nc_time.replace(hour=18)
-                    else:
-                        nc_time = t
-                        nc_time = nc_time.replace(hour=6)
-                    time_index = int(
-                        (t - nc_time).total_seconds() / 3600
+                        date1 = initial_time.replace(day=1)
+                        date2 = initial_time.replace(day=16)
+
+                    file_name = s3_pattern_accum.format(
+                        product=product,
+                        variable=variable_name,
+                        grid=grid,
+                        year1=date1.year,
+                        year2=date2.year,
+                        month1=date1.month,
+                        month2=date2.month,
+                        daystart=date1.day,
+                        dayend=date2.day,
                     )
+                    time_index = i
+                    meta = {
+                        "forecast_initial_time": initial_time,
+                        "forecast_hour": fc_hour,
+                        "time": np.datetime64(t),
+                    }
 
                 # Surface held in monthly
                 else:
@@ -351,19 +329,21 @@ class NCAR_ERA5:
                         daystart=daystart,
                         dayend=dayend,
                     )
-                    nc_time = t
+                    meta = {}
 
+                # Place into dict, if we already have a request for a certain file
+                # just append the time and variable needed
                 if file_name in tasks:
                     tasks[file_name].ncar_time_indices[time_index] = t
                     tasks[file_name].ncar_level_indices[level_index] = v
+                    tasks[file_name].ncar_meta[time_index] = meta
                 else:
                     tasks[file_name] = NCARAsyncTask(
-                        ncar_product=product,
                         ncar_file_uri=file_name,
                         ncar_data_variable=data_variable,
-                        ncar_time_indices={time_index: t},
+                        ncar_time_indices={time_index: np.datetime64(t)},
                         ncar_level_indices={level_index: v},
-                        ncar_time=nc_time,
+                        ncar_meta={time_index: meta},
                     )
 
         return tasks
@@ -374,29 +354,26 @@ class NCAR_ERA5:
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
         out = await self.fetch_array(
-            task.ncar_product,
             task.ncar_file_uri,
             task.ncar_data_variable,
             list(task.ncar_time_indices.keys()),
             list(task.ncar_level_indices.keys()),
-            task.ncar_time,
+            task.ncar_meta,
         )
-
         # Rename levels coord to variable
         out = out.rename({"level": "variable", "longitude": "lon", "latitude": "lat"})
         out = out.assign_coords(variable=list(task.ncar_level_indices.values()))
-        # Shouldnt be needed but just in case
-        #out = out.assign_coords(time=list(task.ncar_time_indices.values()))
+        # Shouldnt be needed but just in case, to validate
+        out = out.assign_coords(time=np.array(list(task.ncar_time_indices.values())))
         return out
 
     async def fetch_array(
         self,
-        nc_product: str,
         nc_file_uri: str,
         data_variable: str,
         time_idx: list[int],
         level_idx: list[int],
-        nc_time: datetime,
+        ncar_meta: dict,
     ) -> xr.DataArray:
         """Fetches requested array from remote store
 
@@ -413,8 +390,8 @@ class NCAR_ERA5:
 
         Returns
         -------
-        np.ndarray
-            Data
+        xr.DataArray
+            Data array loaded from requested file
         """
         logger.debug(
             f"Fetching NCAR ERA5 variable: {data_variable} in file {nc_file_uri}"
@@ -459,12 +436,30 @@ class NCAR_ERA5:
                     ds = ds.isel(time=list(time_idx), level=list(level_idx))[
                         data_variable
                     ]
-                # Other product
+                # Other product indexing
                 else:
-                    if nc_product == "e5.oper.an.sfc":
+                    if "e5.oper.an.sfc" in nc_file_uri:
                         ds = ds.isel(time=list(time_idx))[data_variable]
-                    elif nc_product == "e5.oper.fc.sfc.accumu":
-                        ds = ds.sel(forecast_initial_time=nc_time, forecast_hour=time_idx)[data_variable]
+                    elif "e5.oper.fc.sfc.accumu" in nc_file_uri:
+                        # This is annoying here because we are dealing with mapping
+                        # two dimensions to a single time coord
+                        outputs = []
+                        ds = ds[data_variable]
+                        for i in time_idx:
+                            out = ds.sel(forecast_hour=ncar_meta[i]["forecast_hour"])
+                            out = out.sel(
+                                forecast_initial_time=ncar_meta[i][
+                                    "forecast_initial_time"
+                                ]
+                            )
+                            out = out.expand_dims(
+                                {"time": [ncar_meta[i]["time"]]}, axis=0
+                            )
+                            outputs.append(out)
+                        ds = xr.concat(outputs, dim="time")
+                    else:
+                        raise ValueError("Unknown product")
+
                     ds = ds.expand_dims({"level": [0]}, axis=1)
                 # Load the data, this is the actual download
                 ds = await asyncio.to_thread(ds.load)

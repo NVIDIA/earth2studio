@@ -49,6 +49,8 @@ E2STUDIO_VOCAB = {
     "tciw": "total column ice water / vertically integrated ice (cloud) water path (kg m-2)",
     "tcw": "total column water (kg m-2)",
     "tp": "total precipitation (m)",
+    "lsp": "Large-scale precipitation accumulated over given time frame (m)",
+    "cp": "Convective precipitation accumulated over given time frame (m)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
     "tp06": "total precipitation accumulated over past 6 hours (m)",
