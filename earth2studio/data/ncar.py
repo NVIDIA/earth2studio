@@ -51,7 +51,7 @@ class NCARAsyncTask:
     ncar_file_uri: str
     ncar_data_variable: str
     # Dictionary mapping time index -> time id
-    ncar_time_indices: dict[int, datetime]
+    ncar_time_indices: dict[int, np.datetime64]
     # Dictionary mapping level index -> varaible id
     ncar_level_indices: dict[int, str]
     # Time index mapping for time, only used for accum files atm
@@ -334,7 +334,7 @@ class NCAR_ERA5:
                 # Place into dict, if we already have a request for a certain file
                 # just append the time and variable needed
                 if file_name in tasks:
-                    tasks[file_name].ncar_time_indices[time_index] = t
+                    tasks[file_name].ncar_time_indices[time_index] = np.datetime64(t)
                     tasks[file_name].ncar_level_indices[level_index] = v
                     tasks[file_name].ncar_meta[time_index] = meta
                 else:
