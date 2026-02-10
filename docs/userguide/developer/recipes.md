@@ -67,7 +67,8 @@ recipes/
     - Must follow all pre-commit standards and code practices
     - Must include end-to-end tests validating functionality
     - **No** images/data files/other file formats allowed in the repo, can link to
-        externally hosted
+        externally hosted. Earth2Studio has a [HuggingFace assets dataset](https://huggingface.co/datasets/nvidia/earth2studio-assets)
+        that can be used.
     - Implementation or re-implementation of components that exist in Earth2Studio
         package is not encouraged. Upstreaming is a priority
 
