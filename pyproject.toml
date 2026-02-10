@@ -336,6 +336,7 @@ exclude = []
 
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
+"**/test/**/*.py" = ["S101", "S108"]
 
 # ==== Pytest configuration ====
 [tool.pytest.ini_options]

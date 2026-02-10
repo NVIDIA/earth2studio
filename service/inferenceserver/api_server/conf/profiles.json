@@ -1,0 +1,94 @@
+{
+  "profiles": [
+    {
+        "workflow": "stormcast_fcn3",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "18.93 %",
+            "utilization.memory": "6.72 %"
+        },
+        "peak": {
+            "utilization.gpu": "100 %",
+            "utilization.memory": "60 %",
+            "memory.used": "72096 MiB",
+            "memory.total": "143771 MiB"
+        }
+    },
+    {
+        "workflow": "deterministic_earth2",
+        "gpus.used": 1,
+         "average": {
+            "utilization.gpu": "0.20 %",
+            "utilization.memory": "0.09 %"
+        },
+        "peak": {
+            "utilization.gpu": "25 %",
+            "utilization.memory": "11 %",
+            "memory.used": "4250 MiB",
+            "memory.total": "143771 MiB"
+        }
+    },
+    {
+        "workflow": "diagnostic",
+        "prognostic_model": "fcn",
+        "diagnostic_model": "precipitation_afno",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "0.76 %",
+            "utilization.memory": "0.33 %"
+        },
+        "peak": {
+            "utilization.gpu": "48 %",
+            "utilization.memory": "21 %",
+            "memory.used": "4882 MiB",
+            "memory.total": "143771 MiB"
+        }
+    },
+    {
+        "workflow": "diagnostic",
+        "prognostic_model": "dlwp",
+        "diagnostic_model": "precipitation_afno",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "3.39 %",
+            "utilization.memory": "1.50 %"
+        },
+        "peak": {
+            "utilization.gpu": "45 %",
+            "utilization.memory": "20 %",
+            "memory.used": "4882 MiB",
+            "memory.total": "143771 MiB"
+        }
+    },
+    {
+        "workflow": "deterministic",
+        "model": "fcn",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "0.39 %",
+            "utilization.memory": "0.16 %"
+        },
+        "peak": {
+            "utilization.gpu": "25 %",
+            "utilization.memory": "11 %",
+            "memory.used": "4250 MiB",
+            "memory.total": "143771 MiB"
+        }
+    },
+    {
+        "workflow": "deterministic",
+        "model": "dlwp",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "0.27 %",
+            "utilization.memory": "0.12 %"
+        },
+        "peak": {
+            "utilization.gpu": "25 %",
+            "utilization.memory": "11 %",
+            "memory.used": "4250 MiB",
+            "memory.total": "143771 MiB"
+        }
+    }
+  ]
+}
