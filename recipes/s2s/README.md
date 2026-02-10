@@ -21,7 +21,7 @@ Key features include:
 
 <!-- markdownlint-disable MD033 MD013 -->
 <div align="center">
-<img src="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/recipes/pnw_demo.png" width="90%" alt="Earth2Studio S2S Banner">
+<img src="https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/recipes/s2s/pnw_demo.png" width="90%" alt="Earth2Studio S2S Banner">
 </div>
 <!-- markdownlint-disable MD033 -->
 
