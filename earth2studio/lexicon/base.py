@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -15,6 +15,8 @@
 # limitations under the License.
 
 from collections.abc import Callable
+
+import pyarrow as pa
 
 
 class LexiconType(type):
@@ -41,11 +43,15 @@ E2STUDIO_VOCAB = {
     "sic": "sea ice concentration / sea ice area fraction (0 - 1)",
     "sp": "surface pressure (Pa)",
     "msl": "mean sea level pressure (Pa)",
+    "pres": "pressure (Pa) at a certain altitude(s)",
     "tcwv": "total column water vapor / precipitable water (kg m-2)",
     "tclw": "total column liquid water / vertically integrated liquid (cloud) water path (kg m-2)",
     "tciw": "total column ice water / vertically integrated ice (cloud) water path (kg m-2)",
     "tcw": "total column water (kg m-2)",
     "tp": "total precipitation (m)",
+    "lsp": "Large-scale precipitation accumulated over given time frame (m)",
+    "cp": "Convective precipitation accumulated over given time frame (m)",
+    "smlt": "Snowmelt accumulated over given time frame (m of water equivalent)",
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
     "tp06": "total precipitation accumulated over past 6 hours (m)",
@@ -270,3 +276,121 @@ E2STUDIO_VOCAB = {
     "sf": "snowfall water equivalent (kg m-2)",
     "ro": "runoff water equivalent (surface plus subsurface) (kg m-2)",
 }
+
+
+E2STUDIO_SCHEMA = pa.schema(
+    [
+        # Core fields (common across data sources)
+        pa.field(
+            "time",
+            pa.timestamp("ns"),
+            metadata={"description": "Datetime of observation"},
+        ),
+        pa.field(
+            "lat",
+            pa.float32(),
+            metadata={"description": "Latitude coordinate of observation, [-90, 90]"},
+        ),
+        pa.field(
+            "lon",
+            pa.float32(),
+            metadata={"description": "Longitude coordinate of observation, [0, 360]"},
+        ),
+        pa.field(
+            "elev",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Elevation of observation from surface (m)"},
+        ),
+        pa.field(
+            "observation",
+            pa.float32(),
+            metadata={"description": "Observation measurement"},
+        ),
+        pa.field(
+            "variable",
+            pa.string(),
+            metadata={"description": "Earth2Studio variable ID"},
+        ),
+        # Conventional observation fields
+        pa.field(
+            "pres",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Pressure level of observation (Pa)"},
+        ),
+        pa.field(
+            "type",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Observation type ID"},
+        ),
+        pa.field(
+            "class",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Observation class"},
+        ),
+        pa.field(
+            "source",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Observation source ID"},
+        ),
+        pa.field(
+            "station",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Station ID"},
+        ),
+        pa.field(
+            "station_elev",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Station elevation (m)"},
+        ),
+        # Satellite observation fields
+        pa.field(
+            "satellite",
+            pa.string(),
+            nullable=True,
+            metadata={"description": "Satellite platform ID"},
+        ),
+        pa.field(
+            "scan_angle",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Satellite scan angle (degrees)"},
+        ),
+        pa.field(
+            "channel_index",
+            pa.uint16(),
+            nullable=True,
+            metadata={"description": "Satellite sensor channel index"},
+        ),
+        pa.field(
+            "solza",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Solar zenith angle (degrees)"},
+        ),
+        pa.field(
+            "solaza",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Solar azimuth angle (degrees)"},
+        ),
+        pa.field(
+            "satellite_za",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Satellite zenith angle (degrees)"},
+        ),
+        pa.field(
+            "satellite_aza",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Satellite azimuth angle (degrees)"},
+        ),
+    ]
+)

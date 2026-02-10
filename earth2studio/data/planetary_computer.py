@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -29,12 +29,15 @@ from urllib.parse import urlparse
 
 import nest_asyncio
 import numpy as np
+import pygrib
 import xarray as xr
+from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.planetary_computer import (
+    ECMWFOpenDataIFSLexicon,
     MODISFireLexicon,
     OISSTLexicon,
     Sentinel3AODLexicon,
@@ -99,12 +102,16 @@ class _PlanetaryComputerData:
     lexicon : LexiconType
         Lexicon mapping requested variable names to dataset keys and modifiers.
     asset_key : str, optional
-        Item asset key that contains the requested variables, by default "netcdf"
+        Item asset key that contains the requested variables, by default "netcdf".
+        The available asset keys are listed in the item-level assets table at the
+        bottom of the Planetary Computer overview page of each respective dataset.
     search_kwargs : Mapping[str, Any] | None, optional
         Additional keyword arguments forwarded to ``Client.search``, by default None
     search_tolerance : datetime.timedelta, optional
         Maximum time delta when locating the closest STAC item to the request time,
         by default 12 hours.
+    data_dtype: type, optional
+        Numpy dtype for the data array, by default np.float32.
     spatial_dims : Mapping[str, numpy.ndarray]
         Mapping of spatial dimension names to coordinate arrays defining the grid, by
         default None
@@ -144,7 +151,8 @@ class _PlanetaryComputerData:
         lexicon: LexiconType,
         asset_key: str = "netcdf",
         search_kwargs: Mapping[str, Any] | None = None,
-        search_tolerance: timedelta = timedelta(hours=12),
+        search_tolerance: timedelta = timedelta(hours=0),
+        data_dtype: type = np.float32,
         spatial_dims: Mapping[str, np.ndarray] | None = None,
         data_attrs: Mapping[str, Any] | None = None,
         cache: bool = True,
@@ -160,6 +168,7 @@ class _PlanetaryComputerData:
         self._lexicon = lexicon
         self._search_kwargs = dict(search_kwargs or {})
         self._search_tolerance = search_tolerance
+        self._data_dtype = data_dtype
         if not spatial_dims:
             raise ValueError("At least one spatial dimension must be provided.")
         self._spatial_dim_names = tuple(spatial_dims.keys())
@@ -236,6 +245,9 @@ class _PlanetaryComputerData:
         """
         times, variables = prep_data_inputs(time, variable)
 
+        # Make sure input time is valid
+        self._validate_time(times)
+
         # Normalize times and resolve variables
         normalized_times = [
             (
@@ -269,7 +281,8 @@ class _PlanetaryComputerData:
             coords[dim_name] = self._spatial_coords[dim_name]
         xr_array = xr.DataArray(
             data=np.zeros(
-                (len(times), len(variables), *self._spatial_shape), dtype=np.float32
+                (len(times), len(variables), *self._spatial_shape),
+                dtype=self._data_dtype,
             ),
             dims=["time", "variable", *self._spatial_dim_names],
             coords=coords,
@@ -289,7 +302,7 @@ class _PlanetaryComputerData:
             with tqdm(
                 total=len(times) * len(variables),
                 disable=not self._verbose,
-                desc=f"Fetching {self._collection_id}",
+                desc=f"Fetching msft-pc {self._collection_id}",
             ) as progress:
                 tasks = [
                     asyncio.create_task(
@@ -354,16 +367,12 @@ class _PlanetaryComputerData:
         if download_tasks:
             await asyncio.gather(*download_tasks)
 
-        # Allocate the [variable, spatial…] stack that will be populated below.
-        data_stack = np.zeros((len(variables), *self._spatial_shape), dtype=np.float32)
-
         # Extract each variable from its source asset and record completion.
         for plan in asset_plans:
             for spec in plan.variables:
                 array = self.extract_variable_numpy(plan, spec, requested_time)
-                data_stack[spec.index] = array
+                xr_array[time_index, spec.index] = array
 
-        xr_array[time_index] = data_stack
         progress.update(len(variables))
 
     def extract_variable_numpy(
@@ -482,26 +491,31 @@ class _PlanetaryComputerData:
             self._client = Client.open(self.STAC_API_URL)
 
         # Build a closed interval around the requested timestamp to search for items.
-        start = (when - self._search_tolerance).isoformat()
-        end = (when + self._search_tolerance).isoformat()
-        datetime_param = f"{start}/{end}"
+        if self._search_tolerance.total_seconds() > 0:
+            start = (when - self._search_tolerance).isoformat()
+            end = (when + self._search_tolerance).isoformat()
+            datetime_param = f"{start}/{end}"
+        else:
+            datetime_param = when.isoformat()
 
         # Perform the search
         search = self._client.search(
             collections=[self._collection_id],
             datetime=datetime_param,
-            limit=1,
+            max_items=2,
             **self._search_kwargs,
         )
 
         # Return the first item
-        try:
-            return next(search.items())
-        except StopIteration as error:
+        items = list(search.items())
+        if len(items) == 0:
             raise FileNotFoundError(
                 f"No Planetary Computer item found for {when.isoformat()} "
                 f"within ±{self._search_tolerance}"
-            ) from error
+            )
+        elif len(items) > 1:
+            logger.warning("Found more than one matching item, returning first match")
+        return items[0]
 
     def _local_asset_path(self, href: str) -> pathlib.Path:
         """Resolve the cache path for a remote asset href."""
@@ -510,6 +524,17 @@ class _PlanetaryComputerData:
         suffix = pathlib.Path(parsed.path).suffix or ""
         filename = hashlib.sha256(parsed.path.encode()).hexdigest() + suffix
         return pathlib.Path(self.cache) / filename
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge.
+        The child class should override this method as needed.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            List of date times to fetch data for.
+        """
+        pass
 
     @property
     def cache(self) -> str:
@@ -871,3 +896,137 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
             values = np.asarray(field.values).astype(np.float32)
             result = np.asarray(spec.modifier(values), dtype=np.float32)
             return result
+
+
+class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
+    """IFS analysis data from the ECMWF Open Data repository.
+
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/ecmwf-forecast
+    """
+
+    COLLECTION_ID = "ecmwf-forecast"
+    ASSET_KEY = "data"
+    SEARCH_KWARGS = {
+        "query": {
+            "ecmwf:stream": {"in": ["oper", "scda"]},
+            "ecmwf:type": {"eq": "fc"},
+            "ecmwf:step": {"eq": "0h"},
+            "ecmwf:resolution": {"eq": "0.25"},
+        },
+    }
+    LATITUDE = np.linspace(90, -90, 721)
+    LONGITUDE = np.linspace(0, 360, 1440, endpoint=False)
+
+    def __init__(
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+    ) -> None:
+        super().__init__(
+            self.COLLECTION_ID,
+            asset_key=self.ASSET_KEY,
+            lexicon=ECMWFOpenDataIFSLexicon,
+            search_kwargs=self.SEARCH_KWARGS,
+            data_dtype=np.float64,
+            spatial_dims={
+                "lat": self.LATITUDE,
+                "lon": self.LONGITUDE,
+            },
+            cache=cache,
+            verbose=verbose,
+            max_workers=max_workers,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+            async_timeout=async_timeout,
+        )
+
+    def extract_variable_numpy(
+        self,
+        plan: AssetPlan,
+        spec: VariableSpec,
+        target_time: datetime,
+    ) -> np.ndarray:
+        """Extract an ECMWF Open Data field as a float32 numpy array.
+
+        Parameters
+        ----------
+        plan : AssetPlan
+            Plan describing the cached asset to open.
+        spec : VariableSpec
+            Variable specification detailing which field and modifier to apply.
+        Returns
+        -------
+        numpy.ndarray
+            Array shaped ``(721, 1440)``.
+        """
+        var, plev, lay = spec.dataset_key.split("::")
+        gsel: dict[str, Any] = {"shortName": var}
+        if plev:
+            gsel["typeOfLevel"] = "isobaricInhPa"
+            gsel["level"] = float(plev)
+        if lay:
+            gsel["typeOfLevel"] = "soilLayer"
+            gsel["level"] = float(lay)
+        try:
+            grbidx = pygrib.index(str(plan.local_path), *list(gsel))
+        except Exception as e:
+            logger.error(f"Failed to open GRIB file {plan.local_path}")
+            raise e
+        try:
+            selection = grbidx.select(**gsel)
+            if len(selection) > 1:
+                raise Exception("Selection contains more than one GRIB element")
+            values = selection[0].values
+            # Roll to prime meridian
+            values = np.roll(values, -len(self.LONGITUDE) // 2, -1)
+            values = spec.modifier(values)
+        except Exception as e:
+            logger.error(f"Failed to read GRIB file {plan.local_path}")
+            raise e
+        finally:
+            grbidx.close()
+        return values
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            List of date times to fetch data for.
+        """
+        MIN_TIME = datetime(2024, 3, 1)
+        for time in times:
+            if not (time - datetime(1900, 1, 1)).total_seconds() % 21600 == 0:
+                raise ValueError(
+                    f"Requested start time {time} needs to be 6-hour interval for IFS"
+                )
+
+            if time < MIN_TIME:
+                raise ValueError(
+                    f"Requested start time {time} needs to be at least {MIN_TIME} for IFS"
+                )

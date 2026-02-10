@@ -28,7 +28,7 @@ to generate a noise tensor:
 
 In later sections, users will find that most components have APIs that either generate
 or interact with these two data structures.
-The combonation of both the data tensor and respective coordinate system provides
+The combination of both the data tensor and respective coordinate system provides
 complete information one needs to interpret any stage of a workflow.
 
 :::{note}
@@ -68,7 +68,7 @@ required to.
 ### Standard Coordinate Names
 
 Earth2Studio has a dimension naming standard for its built in feature set.
-We encourage users to follow similar naming schemes for compatability between Earth-2
+We encourage users to follow similar naming schemes for compatibility between Earth-2
 Inference Studio when possible and the packages we interface with.
 
 ```{list-table}
@@ -146,11 +146,11 @@ model. In the case of FourCastNet, it's expecting a input tensor of shape `[...,
 which corresponds to `[...,lead,variables,lat,lon]`.
 
 The `output_coords()` function provides validation and transformation of coordinates
-by the model. I.e. one should be able to deduce the models output data without executing
+by the model. That is, you should be able to deduce the models output data without executing
 the forward pass of the model.
 This function requires an input coordinate system that represent the input data it
 received.
-The first step is validating the `input_coords` using the coordinate handhshake utils
+The first step is validating the `input_coords` using the coordinate handshake utils
 functions.
 Next the output coordinate systems are built.
 This function is a place to store the complexity of a model's forward process for
@@ -179,7 +179,7 @@ Output lead 2: [12]
 ```
 
 :::{note}
-The batch dimension was not discussed intentially. Think about it like a free dimension.
+The batch dimension was not discussed intentionally. Think about it like a free dimension.
 More information can be found in the {ref}`batch_function_userguide` section.
 :::
 
