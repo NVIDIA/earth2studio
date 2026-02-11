@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from typing import Protocol, runtime_checkable
 
 import pandas as pd
+import pyarrow as pa
 import xarray as xr
 
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
@@ -145,10 +146,13 @@ class ForecastSource(Protocol):
 class DataFrameSource(Protocol):
     """Data frame source interface. Commonly used for sparse sensor data"""
 
+    SCHEMA: pa.Schema
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Function to get data.
 
@@ -159,6 +163,9 @@ class DataFrameSource(Protocol):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return.
+        fields : str | list[str] | pa.Schema | None, optional
+            Fields / columns to return, must be subset of the data sources schema. Will
+            return all possible columns if None, by default None
 
         Returns
         -------
@@ -174,6 +181,7 @@ class DataFrameSource(Protocol):
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Async function to get data. Async data frame sources support this.
 
@@ -184,6 +192,9 @@ class DataFrameSource(Protocol):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return.
+        fields : str | list[str] | pa.Schema | None, optional
+            Fields / columns to return, must be subset of the data sources schema. Will
+            return all possible columns if None, by default None
 
         Returns
         -------
@@ -200,11 +211,14 @@ class DataFrameSource(Protocol):
 class ForecastFrameSource(Protocol):
     """Forecast data frame source interface. Commonly used for sparse sensor data"""
 
+    SCHEMA: pa.Schema
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Function to get data.
 
@@ -218,6 +232,9 @@ class ForecastFrameSource(Protocol):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return.
+        fields : str | list[str] | pa.Schema | None, optional
+            Fields / columns to return, must be subset of the data sources schema. Will
+            return all possible columns if None, by default None
 
         Returns
         -------
@@ -234,6 +251,7 @@ class ForecastFrameSource(Protocol):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Async function to get data. Async data frame sources support this.
 
@@ -247,6 +265,9 @@ class ForecastFrameSource(Protocol):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return.
+        fields : str | list[str] | pa.Schema | None, optional
+            Fields / columns to return, must be subset of the data sources schema. Will
+            return all possible columns if None, by default None
 
         Returns
         -------

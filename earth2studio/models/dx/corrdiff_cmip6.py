@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -387,7 +387,7 @@ class CorrDiffCMIP6(CorrDiff):
     def load_default_package(cls) -> Package:
         """Load diagnostic package"""
         package = Package(
-            "hf://nvidia/corrdiff-cmip6-era5@9440a890c0f2acc058c281a81bd1cc81c6398fe9",
+            "hf://nvidia/corrdiff-cmip6-era5@f756fad5b85efec64df4868aead14dda698b8aea",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cmip6"),
                 "same_names": True,
@@ -422,6 +422,11 @@ class CorrDiffCMIP6(CorrDiff):
         # Load and validate metadata first (we need time_window for input expansion).
         metadata = cls._load_json_from_package(package, "metadata.json")
         stats = cls._load_json_from_package(package, "stats.json")
+
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
 
         # Load the base CorrDiff model from the package.
         residual = (

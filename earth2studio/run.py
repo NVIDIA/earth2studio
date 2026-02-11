@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -148,7 +148,7 @@ def deterministic(
             if step == nsteps:
                 break
 
-    logger.success("Inference complete")
+    logger.success("\nInference complete")
     return io
 
 
@@ -273,7 +273,7 @@ def diagnostic(
             if step == nsteps:
                 break
 
-    logger.success("Inference complete")
+    logger.success("\nInference complete")
     return io
 
 
@@ -435,5 +435,5 @@ def ensemble(
 
         batch_id += 1
 
-    logger.success("Inference complete")
+    logger.success("\nInference complete")
     return io

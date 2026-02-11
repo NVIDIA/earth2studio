@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 from earth2studio.data import (
+    PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
@@ -239,3 +240,33 @@ def test_planetary_computer_modis_fire_cache(cache: bool) -> None:
         shutil.rmtree(cache_path)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.slow
+@pytest.mark.xfail()
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize(
+    "time,variable",
+    [
+        (
+            datetime(2025, 7, 28, tzinfo=timezone.utc),
+            ["u10m", "z500"],
+        ),
+        (
+            [
+                datetime(2025, 7, 27, tzinfo=timezone.utc),
+                datetime(2025, 7, 28, tzinfo=timezone.utc),
+            ],
+            "t2m",
+        ),
+    ],
+)
+def test_planetary_computer_ifs_fetch(time, variable) -> None:
+    ds = PlanetaryComputerECMWFOpenDataIFS(cache=False, verbose=False)
+    data = ds(time=time, variable=variable)
+
+    times = list(time) if isinstance(time, (list, tuple)) else [time]
+    variables = list(variable) if isinstance(variable, (list, tuple)) else [variable]
+
+    assert data.shape == (len(times), len(variables), 721, 1440)
+    assert np.array_equal(data.coords["variable"].values, np.array(variables))

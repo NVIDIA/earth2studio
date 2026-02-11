@@ -1,7 +1,7 @@
 # API Reference
 
-This is the API reference for Earth2Studio. Please refer to the full user
-guide and examples for further details on how to use this package as API documentaiton
+This is the API reference for Earth2Studio. Refer to the full user
+guide and examples for further details on how to use this package as API documentation
 alone may not provide sufficient information.
 
 ```{toctree}

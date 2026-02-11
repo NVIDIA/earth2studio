@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -20,10 +20,10 @@ from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 
 from earth2studio.data import ISD
-from earth2studio.lexicon.isd import ISDLexicon
 
 
 @pytest.mark.slow
@@ -44,12 +44,12 @@ from earth2studio.lexicon.isd import ISDLexicon
     [
         (
             ["72788324220", "72063800224"],
-            ["station", "time", "lat", "lon", "t2m"],
+            ["t2m"],
             timedelta(hours=1),
         ),
         (
             ["72781024243"],
-            ["station", "time", "u10m", "v10m", "t2m", "d2m", "fg10m"],
+            ["u10m", "v10m", "t2m", "d2m", "fg10m"],
             timedelta(hours=4),
         ),
     ],
@@ -58,8 +58,9 @@ def test_isd_fetch(stations, time, variable, tol):
     ds = ISD(stations=stations, tolerance=tol, cache=False)
     df = ds(time, variable)
 
-    assert list(df.columns) == variable
+    assert list(df.columns) == ds.SCHEMA.names
     assert set(df["station"].unique()).issubset(set(stations))
+    assert set(df["variable"].unique()).issubset(set(variable))
 
     if not isinstance(time, (list, np.ndarray)):
         time = [time]
@@ -67,7 +68,7 @@ def test_isd_fetch(stations, time, variable, tol):
     # Check all rows are within requested times / tolerances
     time_union = pd.DataFrame({"time": np.zeros(df.shape[0])}).astype("bool")
     for t in time:
-        df_times = pd.to_datetime(df["time"])
+        df_times = df["time"]
         min_time = t - tol
         max_time = t + tol
         # Get bool df of rows in this time range
@@ -99,14 +100,17 @@ def test_isd_cache(time, variable, cache):
     )
     df = ds(time, variable)
 
-    assert df.shape[1] == len(variable)
-    # Cache should be present
+    # Check columns match schema
+    assert list(df.columns) == ds.SCHEMA.names
+    assert set(df["variable"].unique()).issubset(set(variable))
+    assert "observation" in df.columns
     assert pathlib.Path(ds.cache).is_dir() == cache
 
     # Load from cache or refetch
     df = ds(time, variable)
 
-    assert df.shape[1] == len(variable)
+    assert list(df.columns) == ds.SCHEMA.names
+    assert set(df["variable"].unique()).issubset(set(variable))
 
     try:
         shutil.rmtree(ds.cache)
@@ -117,29 +121,21 @@ def test_isd_cache(time, variable, cache):
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
-def test_isd_variable_order():
+def test_isd_schema_fields():
     station = "72033063853"
     time = np.array(["2025-01-01T12:00:00"], dtype=np.datetime64)
-    # time and station known to contain all values
     tol = timedelta(minutes=10)
 
-    # Build variable list: all lexicon variables plus common metadata
-    meta = ["station", "time", "lat", "lon"]
-    all_vars = list(ISDLexicon.VOCAB.keys())
-    order_a = meta + all_vars
-    order_b = meta + list(reversed(all_vars))
+    ds = ISD(stations=[station], tolerance=tol)
 
-    ds = ISD(stations=[station], tolerance=tol, cache=False)
-    df_a = ds(time, order_a)
-    df_b = ds(time, order_b)
+    # Test with default schema (all fields)
+    df_full = ds(time, ["t2m"], fields=None)
+    assert list(df_full.columns) == ds.SCHEMA.names
 
-    # Column order must match request
-    assert list(df_a.columns) == order_a
-    assert list(df_b.columns) == order_b
-
-    # Ensure there are no NaNs in the requested columns
-    assert not pd.isna(df_a[order_a]).values.any()
-    assert not pd.isna(df_b[order_b]).values.any()
+    # Test with subset of fields (must include required fields)
+    subset_fields = ["time", "lat", "lon", "observation", "variable"]
+    df_subset = ds(time, ["t2m"], fields=subset_fields)
+    assert list(df_subset.columns) == subset_fields
 
 
 def test_isd_exceptions():
@@ -151,20 +147,46 @@ def test_isd_exceptions():
         verbose=False,
     )
     with pytest.raises(KeyError):
-        df = ds(np.datetime64("2025-01-01T12:00:00"), ["invalid"])
+        df = ds(np.array([np.datetime64("2025-01-01T12:00:00")]), ["invalid"])
 
     # For a invalid station / one that it cannot find data for should return empty
     ds = ISD(stations=["invalid"], cache=False, verbose=False)
-    df = ds(
-        np.array(["2025-01-01T12:00:00"], dtype=np.datetime64), ["lat", "lon", "u10m"]
-    )
+    df = ds(np.array(["2025-01-01T12:00:00"], dtype=np.datetime64), ["u10m"])
     assert df.empty
 
     # Time that there is no data for, should return empty
     ds = ISD(stations=["72781024243"], cache=False, verbose=True)
     df = ds(np.array(["2050-01-01T12:00:00"], dtype=np.datetime64), ["t2m"])
     assert df.empty
-    assert list(df.columns) == ["t2m"]
+    assert list(df.columns) == ds.SCHEMA.names
+    assert (df["variable"] == "t2m").all()
+
+    with pytest.raises(KeyError):
+        ds(
+            np.datetime64("2025-01-01T12:00:00"),
+            ["t2m"],
+            fields=["observation", "variable", "invalid_field"],
+        )
+
+    invalid_schema = pa.schema(
+        [
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
+            pa.field("nonexistent", pa.float32()),
+        ]
+    )
+    with pytest.raises(KeyError):
+        ds(np.datetime64("2025-01-01T12:00:00"), ["t2m"], fields=invalid_schema)
+
+    wrong_type_schema = pa.schema(
+        [
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
+            pa.field("time", pa.string()),  # Should be timestamp, not string
+        ]
+    )
+    with pytest.raises(TypeError):
+        ds(np.datetime64("2025-01-01T12:00:00"), ["t2m"], fields=wrong_type_schema)
 
 
 @pytest.mark.xfail

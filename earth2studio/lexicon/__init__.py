@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -29,8 +29,10 @@ from .jpss import JPSSLexicon
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .planetary_computer import (
+    ECMWFOpenDataIFSLexicon,
     MODISFireLexicon,
     OISSTLexicon,
     Sentinel3AODLexicon,
 )
+from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

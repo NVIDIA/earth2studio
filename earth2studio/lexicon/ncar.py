@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -61,6 +61,9 @@ class NCAR_ERA5Lexicon(metaclass=LexiconType):
             "stl2": (170, "stl2", "e5.oper.an.sfc", "ll025sc"),
             "lsp": (142, "lsp", "e5.oper.fc.sfc.accumu", "ll025sc"),
             "cp": (143, "cp", "e5.oper.fc.sfc.accumu", "ll025sc"),
+            "lsp": (142, "lsp", "e5.oper.fc.sfc.accumu", "ll025sc"),  # hourly (m)
+            "cp": (143, "cp", "e5.oper.fc.sfc.accumu", "ll025sc"),  # hourly (m)
+            "smlt": (45, "smlt", "e5.oper.fc.sfc.accumu", "ll025sc"),  # hourly (m)
             "swvl1": (39, "swvl1", "e5.oper.an.sfc", "ll025sc"),
         }
         pressure_levels = [

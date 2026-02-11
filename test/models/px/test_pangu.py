@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -147,7 +147,7 @@ class TestPanguMock:
         x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
         coords.update({"ensemble": np.arange(ensemble)})
         coords.move_to_end("ensemble", last=False)
-        x0 = x
+        x0 = x.clone()
         p_iter = p.create_iterator(x, coords)
 
         if not isinstance(time, Iterable):

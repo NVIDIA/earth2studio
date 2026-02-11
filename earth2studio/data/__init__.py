@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -31,6 +31,7 @@ from .jpss import JPSS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (
+    PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
@@ -38,6 +39,7 @@ from .planetary_computer import (
 from .rand import Random, Random_FX
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .time_window import TimeWindow
+from .ufs import UFSObsConv, UFSObsSat
 from .utils import datasource_to_file, fetch_data, prep_data_array
 from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
 from .xr import (

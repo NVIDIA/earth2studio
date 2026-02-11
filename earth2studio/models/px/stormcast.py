@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -244,7 +244,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://nvidia/stormcast-v1-era5-hrrr@ed5d4eda664e65555aafe1ccbcf19130d1f84bf8",
+            "hf://nvidia/stormcast-v1-era5-hrrr@39afdc7848766011a7e76c65af77f2853e079f45",
             cache_options={
                 "cache_storage": Package.default_cache("stormcast"),
                 "same_names": True,
@@ -273,6 +273,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         PrognosticModel
             Prognostic model
         """
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
+
         try:
             OmegaConf.register_new_resolver("eval", eval)
         except ValueError:

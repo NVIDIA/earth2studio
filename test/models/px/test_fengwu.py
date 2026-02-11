@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -49,13 +49,15 @@ def fengwu_test_package(tmp_path_factory):
     onnx_path = tmp_path / "fengwu_v1.onnx"
     torch.onnx.export(
         PhooFengWuModel(),
-        torch.rand(1, 138, 721, 1440),
+        torch.rand(
+            2, 138, 721, 1440
+        ),  # https://github.com/pytorch/pytorch/issues/165259#issuecomment-3394619898
         str(onnx_path),
         export_params=True,
-        opset_version=10,
+        opset_version=17,
         input_names=["input"],
         output_names=["output"],
-        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        dynamic_shapes=({0: "batch_size"},),
     )
     # Create fake normalization files
     np.save(tmp_path / "global_means.npy", np.zeros(69))

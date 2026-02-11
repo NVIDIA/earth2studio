@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -25,15 +25,19 @@ from earth2studio.utils.imports import (
 )
 
 try:
-    from earth2grid.spatial import ang2vec, haversine_distance
     from scipy.interpolate import LinearNDInterpolator
+except ImportError:
+    OptionalDependencyFailure("utils", "linear")
+    LinearNDInterpolator = None
+
+try:
+    from earth2grid.spatial import ang2vec, haversine_distance
     from scipy.spatial import KDTree
 except ImportError:
     OptionalDependencyFailure("utils")
-    KDTree = None
     ang2vec = None
     haversine_distance = None
-    LinearNDInterpolator = None
+    KDTree = None
 
 
 def latlon_interpolation_regular(
@@ -113,7 +117,7 @@ def latlon_interpolation_regular(
     return result.reshape(*values.shape[:-2], latshape, lonshape)
 
 
-@check_optional_dependencies("utils")
+@check_optional_dependencies("linear")
 class LatLonInterpolation(nn.Module):
     """Bilinear interpolation between arbitrary grids.
 
@@ -210,7 +214,7 @@ class LatLonInterpolation(nn.Module):
         return torch.lerp(f0, f1, i - i0)
 
 
-@check_optional_dependencies("utils")
+@check_optional_dependencies()
 class NearestNeighborInterpolator(nn.Module):
     """Nearest-neighbor interpolation between arbitrary lat/lon grids.
 

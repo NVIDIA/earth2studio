@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -239,7 +239,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load a default local package for StormScope models."""
         package = Package(
-            "hf://nvidia/stormscope-goes-mrms@3408641c72d9bf631e814c185bb129ac53c80785",
+            "hf://nvidia/stormscope-goes-mrms@6ee31e07afe3decb012740f3be17531207c3db5e",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
                 "same_names": True,
@@ -1190,6 +1190,11 @@ class StormScopeGOES(StormScopeBase):
         PrognosticModel
             Instantiated StormScopeGOES model
         """
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
+
         with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
             pkg = registry[model_name]
@@ -1531,6 +1536,10 @@ class StormScopeMRMS(StormScopeBase):
         PrognosticModel
             Instantiated StormScopeMRMS model
         """
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
 
         with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
