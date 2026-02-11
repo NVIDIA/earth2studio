@@ -23,6 +23,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import pandas as pd
 
 import nest_asyncio
 import numpy as np
@@ -55,7 +56,7 @@ class NCARAsyncTask:
     ncar_time_indices: dict[int, datetime]
     # Dictionary mapping level index -> varaible id
     ncar_level_indices: dict[int, str]
-    ncar_time: str
+    ncar_time: datetime
 
 
 class NCAR_ERA5:
@@ -192,7 +193,14 @@ class NCAR_ERA5:
             data_arrays[key].append(result)
 
         # Concat times for same variable groups
-        array_list = [xr.concat(arrs, dim="time") for arrs in data_arrays.values()]
+        array_list = []
+        for arrs in data_arrays.values():
+            if len(arrs) > 1 and 'time' in arrs[0].dims:
+                # Only concat on time if multiple arrays and time dimension exists
+                array_list.append(xr.concat(arrs, dim="time"))
+            else:
+                # For single arrays or arrays without time dim, just take the first
+                array_list.append(arrs[0])
         # Now concat varaibles
         res = xr.concat(array_list, dim="variable")
         res.name = None  # remove name, which is kept from one of the arrays
@@ -201,9 +209,11 @@ class NCAR_ERA5:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        try:
+        if 'time' in res.dims:
             return res.sel(time=time, variable=variable)
-        except Exception as e:
+        else:
+            # For files without time dimension, just select variables
+            logger.warning(f"No time dimension found in dataset, selecting variables only")
             return res.sel(variable=variable)
 
     def _create_tasks(
@@ -257,7 +267,7 @@ class NCAR_ERA5:
                 # Accum held in bi-monthly
                 elif product == "e5.oper.fc.sfc.accumu":
                     if t.day < 16:
-                        if t.month == 1 and t.hour <=6:
+                        if t.month == 1  and t.day == 1 and t.hour <=6:
                             daystart = 16
                             dayend = 1
                             file_name = s3_pattern_accum.format(
@@ -388,7 +398,7 @@ class NCAR_ERA5:
         data_variable: str,
         time_idx: list[int],
         level_idx: list[int],
-        nc_time: str,
+        nc_time: datetime,
     ) -> xr.DataArray:
         """Fetches requested array from remote store
 
