@@ -276,7 +276,7 @@ pandas==2.2.3
     #   xarray
 partd==1.4.2
     # via dask
-pillow==11.2.1
+pillow==12.1.1
     # via bokeh
 polling2==0.5.0
     # via ngcsdk
