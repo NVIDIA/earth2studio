@@ -356,7 +356,6 @@ class NCAR_ERA5:
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
         out = await self.fetch_array(
-            task.ncar_product,
             task.ncar_file_uri,
             task.ncar_data_variable,
             list(task.ncar_time_indices.keys()),
@@ -372,7 +371,6 @@ class NCAR_ERA5:
 
     async def fetch_array(
         self,
-        nc_product: str,
         nc_file_uri: str,
         data_variable: str,
         time_idx: list[int],
