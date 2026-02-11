@@ -352,15 +352,13 @@ class ARCO:
           OSError: If the Zarr store cannot be accessed.
         """
         if cls.ARCO_VALID_STOP is None:
-            ds = xr.open_zarr(
+            with xr.open_zarr(
                 f'gs://{cls.ARCO_PATH}',
                 chunks=None,
                 storage_options=dict(token='anon'),
             )
-            try:
+            as ds:
                 cls.ARCO_VALID_STOP = datetime.strptime(ds.attrs['valid_time_stop'], '%Y-%m-%d')
-            finally:
-                ds.close()
         return cls.ARCO_VALID_STOP
 
     @classmethod
