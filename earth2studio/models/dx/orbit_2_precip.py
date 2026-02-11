@@ -37,8 +37,8 @@ from climate_learn.models.hub.components.pos_embed import interpolate_pos_embed
 from climate_learn.utils.fused_attn import FusedAttn
 
 VARIABLES = [
-    #"t2",
-    "t2m",
+    "t2",
+    #"t2m",
     "t200",
     "t500",
     "t850",
@@ -340,13 +340,17 @@ class OrbitGlobalPrecip9_5M(torch.nn.Module, AutoModelMixin):
         model.load_state_dict(pretrain_model)
 
         #land_sea_mask = np.load(package.resolve("Static_variables/land_sea_mask_0.25deg.npy"))
-        land_sea_mask = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/land_sea_mask_0.25deg.npy")
+        #land_sea_mask = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/land_sea_mask_0.25deg.npy")
+        land_sea_mask = np.load("/lustre/orion/stf006/proj-shared/irl1/E2S_Static/land_sea_mask_0.25deg.npy")
         #orography = np.load(package.resolve("Static_variables/orography_0.25deg.npy"))
-        orography = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/orography_0.25deg.npy")
+        #orography = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/orography_0.25deg.npy")
+        orography = np.load("/lustre/orion/stf006/proj-shared/irl1/E2S_Static/orography_0.25deg.npy")
         #lattitude = np.load(package.resolve("Static_variables/lattitude_0.25deg.npy"))
-        lattitude = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/lattitude_0.25deg.npy")
+        #lattitude = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/lattitude_0.25deg.npy")
+        lattitude = np.load("/lustre/orion/stf006/proj-shared/irl1/E2S_Static/lattitude_0.25deg.npy")
         #landcover = np.load(package.resolve("Static_variables/landcover_0.25deg.npy"))
-        landcover = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/landcover_0.25deg.npy")
+        #landcover = np.load("/ocean/projects/ees250003p/ilyngaas/E2S_Static/landcover_0.25deg.npy")
+        landcover = np.load("/lustre/orion/stf006/proj-shared/irl1/E2S_Static/landcover_0.25deg.npy")
 
         return cls(model, land_sea_mask, orography, lattitude, landcover)
 
