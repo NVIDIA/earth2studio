@@ -83,13 +83,13 @@ Inference Studio when possible and the packages we interface with.
   dimension, consult batching docs for more details.
   - `np.empty(0)`
 * - `time`
-  - Time dimension, represented via numpy arrays of datetime objects.
+  - Time dimension, represented by numpy arrays of datetime objects.
   - `np.ndarray[np.datetime64[ns]]` (`TimeArray`)
 * - `lead_time`
   - Lead time is used to denote a dimension that indexes over forecast steps.
   - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
 * - `variable`
-  - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
+  - Dimension representing physical variable (atmospheric, surface). Earth-2
   Inference Studio has its own naming convention. See {ref}`lexicon_userguide` docs
   for more more details.
   - `np.ndarray[str]` (`VariableArray`)

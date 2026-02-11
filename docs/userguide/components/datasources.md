@@ -5,7 +5,7 @@
 Datasources are objects that offer a simple API to access a "dataset" of weather/climate
 data at a certain index.
 Many implemented in the package provide access to data generated from numerical models,
-data assimulation results or even generative AI models.
+data assimilation results or even generative AI models.
 These are typically as an initial state for inference of an AI model or some other
 downstream task or target data to evaluate the accuracy of a particular model.
 Data sources may be remote cloud based data stores or files on your local machine.
@@ -15,7 +15,7 @@ the API documentation {ref}`earth2studio.data`.
 :::{note}
 Earth2Studio has data and forecast sources. The only difference being the latter
 has a lead time input. Some data stores may have both implemented where the data source
-provides the initial states / data-assimilated data while the forecast source provides
+provides the initial states and data-assimilated data, while the forecast source provides
 results from a predictive model.
 :::
 
@@ -39,8 +39,8 @@ details on how to customize this location.
 
 Earth2Studio attempts to stick with N-D array data structures when possible,
 however this is not always possible or practical.
-As a result, Earth2Studio also supports remote data sources for tabular data which is
-typically used when sparse observations / measurements are involved.
+As a result, Earth2Studio also supports remote data sources for tabular data, which is
+typically used when sparse observations or measurements are involved.
 
 - {py:obj}`earth2studio.data.base.DataFrameSource`
 - {py:obj}`earth2studio.data.base.ForecastFrameSource`
@@ -52,20 +52,19 @@ pandas DataFrame (tabular) instead of an Xarray DataArray.
 
 The {func}`__call__` function is the way data is fetched from the data source and placed
 into a in memory Xarray data array.
-A user needs to provide both the time(s) and variables for the data source to fetch.
+You must provide both the times and variables for the data source to fetch.
 Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
 discussed in more detail in the {ref}`lexicon_userguide` section.
 
-This data array can then be used on the CPU for post process, saving to file, etc.
+This data array can then be used on the CPU for post process and saving to file.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern
 of Earth2Studio detailed in the {ref}`data_userguide` section.
-There are a few utility functions inside Earth2Studio to make this process easy which
-is commonly used in workflows.
+There are a few utility functions inside Earth2Studio to make this process easy. These utility functions are commonly used in workflows.
 
 :::{warning}
-Each data source has its own methods for serving / calculating each variable.
+Each data source has its own methods for serving or calculating each variable.
 Users should be aware that the same variable across multiple data sources will
 potentially not be identical.
 Refer to each data source's documentation for details.
@@ -107,12 +106,12 @@ useful to users implementing custom data sources where greater control is needed
 
 ## Custom Data Sources
 
-Custom data sources are often essential when working with large / on-prem
+Custom data sources are often essential when working with large or on-prem
 datasets.
 So long as the data source can satisfy the API outlined in the interface above, it can
 integrate seamlessly into Earth2Studio.
-We recommend users have a look at the {ref}`extension_examples` examples, which will
-step users through the simple process of implementing your own data source.
+We recommend that you review the {ref}`extension_examples` examples, which will
+step you through the basic process of implementing your own data source.
 
 ## Contributing a Datasource
 

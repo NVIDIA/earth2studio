@@ -23,7 +23,7 @@ rigorous internal evaluation. Private registries are also supported.
 - *Huggingface Model Registry* - Huggingface offers
 [model registries](https://huggingface.co/models) that any user can upload and share
 checkpoint files with.
-This is the method used for model files of several models that are not developed /
+This is the method used for model files of several models that are not developed or
 trained by Nvidia.
 
 - *S3 Object Storage* - Providing model checkpoints with a S3 bucket is also another
@@ -91,7 +91,7 @@ opened_file = package.open("fcn.zip")
 In this example, when calling open, the asset at `ngc://models/nvidia/modulus/modulus_fcn@v0.2\fcn.zip`
 will be fetched and caches on the local machine.
 A file buffer will then be returned pointing to the cached version of the file.
-The cached path is a directory on the local file system which can be configured via
+The cached path is a directory on the local file system, which can be configured using
 environment variables.
 See {ref}`configuration_userguide` section for details.
 

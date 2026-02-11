@@ -2,10 +2,10 @@
 
 # Lexicon
 
-As discussed in detail in the {ref}`data_userguide` section, Earth2Studio tracks the
+As discussed in the {ref}`data_userguide` section, Earth2Studio tracks the
 geo-physical representation of tensor data inside workflows.
-This includes the name of the variable / parameter / property the data represents, which
-is tracked explicitly via Earth2Studios lexicon.
+This includes the name of the variable, parameter, and property the data represents, which
+is tracked explicitly using the Earth2Studios lexicon.
 Similar to ECMWF's [parameter database](https://codes.ecmwf.int/grib/param-db/),
 Earth2Studio's lexicon aims to provide an opinioned and explicit list of short variables
 names that is used across the package found in {py:obj}`earth2studio.lexicon.base.E2STUDIO_VOCAB`.
@@ -30,13 +30,13 @@ across the package.
 
 Some examples include:
 
-- `lat`: Latitude coordinate of data / observation / sensor
-- `lon`: Longitude coordinate of data / observation / sensor
-- `elev`: Elevation (meters) relative to mean sea level of data / observation / sensor
+- `lat`: Latitude coordinate of data, observation, and sensor
+- `lon`: Longitude coordinate of data, observation, and sensor
+- `elev`: Elevation (meters) relative to mean sea level of data, observation, and sensor
 
-## Altitude / Pressure Levels
+## Altitude and Pressure Levels
 
-Note that there are a variety of ways to represent the vertical coordinates for 3D
+There are a variety of ways to represent the vertical coordinates for 3D
 atmospheric variables. The most common method is to slice variables along pressure
 levels (surfaces of constant pressure), and this is considered the "default" in terms
 of variable names within the lexicon (for example, `z500` is the geo-potential) at the 500 hPa
@@ -65,8 +65,8 @@ intermediate step.
 
 ## Datasource Lexicon
 
-A common challenge when working with different sources of weather/climate data is that
-variables used may be named / denoted in different ways.
+A common challenge when working with different sources of weather and climate data is that
+variables used may be named or denoted in different ways.
 The Lexicon is also used to track the translation between Earth2Studios naming scheme
 and the scheme needed to parse the remote data source.
 Each remote data store has its own lexicon, which is a dictionary that has the
@@ -75,7 +75,7 @@ Typically, this value is a string that corresponds to the variable name inside t
 data store.
 
 The following snippet is part of the lexicon for the GFS dataset.
-Note that the class has a `metaclass=LexiconType` which is present in
+The class has a `metaclass=LexiconType`, which is present in
 {py:mod}`earth2studio.lexicon.base.py` used for type checking.
 
 ```{literalinclude} ../../../earth2studio/lexicon/gfs.py
@@ -110,6 +110,6 @@ sources inside Earth2Studio.
 
 :::{warning}
 The lexicon does not necessarily contain every variable inside the remote data store.
-Rather it explicitly lists what is available inside Earth2Studio. See some variable
-missing you would like to add? Open an issue!
+Rather it explicitly lists what is available inside Earth2Studio. Observe a  
+missing variable you would like to add? Open an issue!
 :::
