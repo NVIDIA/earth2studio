@@ -29,7 +29,7 @@ Key features include:
 <!-- markdownlint-disable MD033 -->
 <div align="center">
 
-![Earth2Studio Banner](https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/recipes/hens_cyclone_tracks.gif)
+![Earth2Studio Banner](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/recipes/hens/hens_cyclone_tracks.gif)
 
 </div>
 <!-- markdownlint-enable MD033 -->
