@@ -15,10 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data
 - Added accumulated variable support to NCAR ERA5 data source
+- Added routine to tile tensors to higher-dimensional tensors
+- Added routine to concatenate tensors along specified coordinate dimension
 
 ### Changed
 
 - Changed ISD data frame return to master schema
+- handshake_coords is now accepting list of dimensions whiule remaining backwards-compatible
 
 ### Deprecated
 
