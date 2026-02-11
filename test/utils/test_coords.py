@@ -26,7 +26,12 @@ from earth2studio.utils import (
     handshake_dim,
     handshake_size,
 )
-from earth2studio.utils.coords import map_coords, split_coords, cat_coords, tile_xx_to_yy
+from earth2studio.utils.coords import (
+    cat_coords,
+    map_coords,
+    split_coords,
+    tile_xx_to_yy,
+)
 
 
 @pytest.mark.parametrize(
@@ -467,7 +472,6 @@ def test_tile_xx_to_yy_failure():
         }
     )
 
-    yy = torch.randn(3, 4, 5, 721, 1440)
     # Trailing keys are ["lead_time", "lat", "lon"] but xx_coords has ["variable", "lat", "lon"]
     yy_coords = OrderedDict(
         {
@@ -494,7 +498,6 @@ def test_tile_xx_to_yy_edge_cases():
             "c": np.array([0, 1, 2, 3]),
         }
     )
-    yy = torch.randn(2, 3)
     yy_coords = OrderedDict(
         {
             "a": np.array([0, 1]),
@@ -513,7 +516,6 @@ def test_tile_xx_to_yy_edge_cases():
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    yy = torch.randn(3, 4, 2, 361, 1440)  # Different lat size: 361 vs 721
     yy_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
@@ -720,4 +722,3 @@ def test_cat_coords_errors():
         match="Coordinate systems for required dim lat are not the same",
     ):
         cat_coords(xx, cox, yy_bad, coy_bad, dim="variable")
-

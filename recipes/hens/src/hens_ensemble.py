@@ -33,7 +33,7 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords, cat_coords
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 from .hens_utilities import (
@@ -389,7 +389,9 @@ class EnsembleBase:
                         yy, codib = dx_model(yy, codia)
 
                         # map lat/lon of diagnostic model to forecast model (often there is difference in lat)
-                        _codib = OrderedDict({_dim: coords[_dim] for _dim in ['lat', 'lon']})
+                        _codib = OrderedDict(
+                            {_dim: coords[_dim] for _dim in ["lat", "lon"]}
+                        )
                         yy, codib = map_coords(yy, codib, _codib)
 
                         # concatenate tensors along variable dimension

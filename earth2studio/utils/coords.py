@@ -15,8 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Literal
 from copy import deepcopy
+from typing import Literal
 
 import numpy as np
 import torch
@@ -466,7 +466,7 @@ def tile_xx_to_yy(
     ValueError
         If trailing coordinate keys of yy_coords do not match xx_coords keys
 
-     Examples
+    Examples
     --------
     Concatenating a static variable, orography, to a forecast
 
@@ -585,4 +585,3 @@ def cat_coords(
     zz = torch.cat((xx, yy), dim=dim_index)
 
     return zz, coz
-
