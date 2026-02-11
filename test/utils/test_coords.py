@@ -434,13 +434,12 @@ def test_tile_xx_to_yy():
         }
     )
 
-    yy = torch.randn(3, 4, 5, 2, 721, 1440)
     yy_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
             "lead_time": np.array([0, 1, 2, 3, 4]),
-            "variable": np.array(["u10m", "v10m"]),
+            "variable": np.array(["z", "lsm"]),
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440),
         }
@@ -519,7 +518,7 @@ def test_tile_xx_to_yy_edge_cases():
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
-            "variable": np.array(["a", "b"]),
+            "variable": np.array(["z", "lsm"]),
             "lat": np.linspace(90, -90, 361),  # Different size
             "lon": np.linspace(0, 360, 1440),
         }
@@ -533,7 +532,6 @@ def test_tile_xx_to_yy_edge_cases():
     # Test: single dimension xx
     xx = torch.randn(721)
     xx_coords = OrderedDict({"lat": np.linspace(90, -90, 721)})
-    yy = torch.randn(3, 4, 721)
     yy_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
@@ -554,7 +552,6 @@ def test_tile_xx_to_yy_edge_cases():
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    yy = torch.randn(3, 4, 0, 721, 1440)
     yy_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
@@ -577,7 +574,6 @@ def test_tile_xx_to_yy_edge_cases():
             "b": np.arange(10),
         }
     )
-    yy = torch.randn(3, 2, 10)
     yy_coords = OrderedDict(
         {
             "c": np.array([0, 1, 2]),
@@ -698,14 +694,30 @@ def test_cat_coords_errors():
         }
     )
 
-    # Test missing dimension in first coords
-    with pytest.raises(ValueError, match="dim.*is not in coords"):
+    # Test missing dimension in first coords (handshake_dim on cox)
+    with pytest.raises(KeyError, match="Required dimension nonexistent not found"):
         cat_coords(xx, cox, yy, coy, dim="nonexistent")
 
-    # Test missing dimension in second coords
+    # Test missing dimension in second coords (handshake_dim on coy)
     cox_with_extra = cox.copy()
     cox_with_extra["extra_dim"] = np.array([0])
     xx_extra = torch.randn(1, 2, 1, 721, 1440)
-    with pytest.raises(ValueError, match="dim.*is not in coords"):
+    with pytest.raises(KeyError, match="Required dimension extra_dim not found"):
         cat_coords(xx_extra, cox_with_extra, yy, coy, dim="extra_dim")
+
+    # Test mismatched non-cat coords (handshake_coords catches shape mismatch)
+    yy_bad = torch.randn(1, 1, 361, 1440)
+    coy_bad = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 361),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    with pytest.raises(
+        ValueError,
+        match="Coordinate systems for required dim lat are not the same",
+    ):
+        cat_coords(xx, cox, yy_bad, coy_bad, dim="variable")
 
