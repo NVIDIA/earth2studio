@@ -838,7 +838,7 @@ pandas==2.2.3
     #   xarray
 partd==1.4.2
     # via dask
-pillow==10.4.0
+pillow==12.1.1
     # via
     #   bokeh
     #   imageio
