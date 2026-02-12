@@ -81,22 +81,22 @@ from earth2studio.models.auto import Package
 # Instantiate package by pointing it to a remote folder
 package = Package("ngc://models/nvidia/modulus/modulus_fcn@v0.2")
 
-# Fetch a file from the remote store using the get method
+# Fetch a file from the remote store using the resolve method
 cached_path_to_file = package.resolve("fcn.zip")
 
 # Open a buffered reader of the file
 opened_file = package.open("fcn.zip")
 ```
 
-In this example, when calling open, the asset at `ngc://models/nvidia/modulus/modulus_fcn@v0.2\fcn.zip`
-will be fetched and caches on the local machine.
+In this example, when calling resolve or open, the asset at `ngc://models/nvidia/modulus/modulus_fcn@v0.2/fcn.zip`
+will be fetched and cached on the local machine.
 A file buffer will then be returned pointing to the cached version of the file.
 The cached path is a directory on the local file system, which can be configured using
 environment variables.
 See {ref}`configuration_userguide` section for details.
 
 :::{note}
-Earth2Studio file system borrows uses [Fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
+Earth2Studio file system uses [Fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
 caching for files in packages.
 We encourage users that are interested in this type of utility to learn more about
 Fsspec and the specification it defines for advanced usage.

@@ -9,7 +9,7 @@ data assimilation results or even generative AI models.
 These are typically as an initial state for inference of an AI model or some other
 downstream task or target data to evaluate the accuracy of a particular model.
 Data sources may be remote cloud based data stores or files on your local machine.
-The list of datasources that are already built into Earth2studio can be found in
+The list of data sources that are already built into Earth2Studio can be found in
 the API documentation {ref}`earth2studio.data`.
 
 :::{note}
@@ -51,7 +51,7 @@ pandas DataFrame (tabular) instead of an Xarray DataArray.
 ## Data Source Usage
 
 The {func}`__call__` function is the way data is fetched from the data source and placed
-into a in memory Xarray data array.
+into an in-memory Xarray data array.
 You must provide both the times and variables for the data source to fetch.
 Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
@@ -97,11 +97,11 @@ used to get the initial state for the provided prognostic.
 
 ### {mod}`earth2studio.data.prep_data_array`
 
-The {func}`prep_data_array` is another useful utility when interacting more directly
+The {func}`prep_data_array` function is another useful utility when interacting more directly
 with a data source.
-This method will take a Xarray data array and return a tensor and coordinate system to
+This function takes an Xarray data array and returns a tensor and coordinate system to
 be used with other components.
-Typically, this is used under the hood of various utils in Earth2Studio but may prove
+Typically, it is used as part of various utils in Earth2Studio, but may prove
 useful to users implementing custom data sources where greater control is needed.
 
 ## Custom Data Sources
@@ -117,7 +117,7 @@ step you through the basic process of implementing your own data source.
 
 We are always looking for new remote data stores that our users may be interested in for
 running inference.
-Its essential to make sure data sources can be accessed by all users and allow the
+It's essential to make sure data sources can be accessed by all users and allow the
 partial downloads of the data based on the users requests.
 If you happen to manage a data source or have a data source in mind, open an issue on
 the repo and we can discuss.

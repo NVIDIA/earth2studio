@@ -76,14 +76,14 @@ data store.
 
 The following snippet is part of the lexicon for the GFS dataset.
 The class has a `metaclass=LexiconType`, which is present in
-{py:mod}`earth2studio.lexicon.base.py` used for type checking.
+{py:mod}`earth2studio.lexicon.base` used for type checking.
 
 ```{literalinclude} ../../../earth2studio/lexicon/gfs.py
     :lines: 24-60
     :language: python
 ```
 
-Values of each variable is left up the the data source.
+Values of each variable is left up to the data source.
 The present pattern is to split by the string based on the separator `::`, and then used
 to access the required data.
 For example, the variable `u100`, zonal winds at 100 hPa, the value `UGRD::100 mb` is
@@ -99,7 +99,7 @@ fetch the correct data.
 It is a common pattern for data source lexicons to contain a modifier function that is
 used to apply adjustments to align data more uniformly with the package.
 A good example of this is the GFS dataset which uses the modifier function to transform
-the GFS supplied the geo-potential height to geo-potential to better align with other
+GFS-supplied geo-potential height to geopotential to better align with other
 sources inside Earth2Studio.
 
 ```{literalinclude} ../../../earth2studio/lexicon/gfs.py
@@ -110,6 +110,5 @@ sources inside Earth2Studio.
 
 :::{warning}
 The lexicon does not necessarily contain every variable inside the remote data store.
-Rather it explicitly lists what is available inside Earth2Studio. Observe a  
-missing variable you would like to add? Open an issue!
+Rather it explicitly lists what is available inside Earth2Studio. Observe a missing variable you would like to add? Open an issue!
 :::
