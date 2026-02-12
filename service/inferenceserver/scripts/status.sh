@@ -21,7 +21,7 @@ API_RUNNING=0
 RQ_RUNNING=0
 CLEANUP_RUNNING=0
 
-echo "Earth2Studio Services Status"
+echo "Services Status"
 echo "============================"
 
 # Check Redis status
@@ -52,7 +52,7 @@ echo ""
 
 # Check API workers status
 echo "API Workers:"
-API_WORKERS=$(pgrep -f "uvicorn.*earth2studio_api_server.main:app")
+API_WORKERS=$(pgrep -f "uvicorn.*api_server.main:app")
 if [ -n "$API_WORKERS" ]; then
     WORKER_COUNT=$(echo "$API_WORKERS" | wc -l)
     echo "  Status: Running ($WORKER_COUNT workers)"

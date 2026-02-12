@@ -22,14 +22,12 @@ All configuration values are defined here with sensible defaults and can be
 overridden via YAML files or command-line arguments.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from dataclasses import dataclass, field
 from logging import LogRecord
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
@@ -162,11 +160,11 @@ class ConfigManager:
     - Programmatic access to config values
     """
 
-    _instance: ConfigManager | None = None
+    _instance: Optional["ConfigManager"] = None
     _config: AppConfig = AppConfig()
     _workflow_config: dict[str, Any] = {}
 
-    def __new__(cls) -> ConfigManager:
+    def __new__(cls) -> "ConfigManager":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -449,7 +447,7 @@ def get_config() -> AppConfig:
         AppConfig: The application configuration
 
     Example:
-        >>> from earth2studio_api_server.config import get_config
+        >>> from api_server.config import get_config
         >>> config = get_config()
         >>> print(config.redis.host)
         'localhost'
@@ -465,7 +463,7 @@ def get_config_manager() -> ConfigManager:
         ConfigManager: The configuration manager
 
     Example:
-        >>> from earth2studio_api_server.config import get_config_manager
+        >>> from api_server.config import get_config_manager
         >>> manager = get_config_manager()
         >>> manager.setup_logging()
     """
@@ -491,7 +489,7 @@ def get_workflow_config(name: str) -> dict[str, Any]:
         dict[str, Any]: The workflow configuration
 
     Example:
-        >>> from earth2studio_api_server.config import get_workflow_config
+        >>> from api_server.config import get_workflow_config
         >>> config = get_workflow_config("deterministic_earth2_workflow")
         >>> print(config["model_type"])
         'fcn'

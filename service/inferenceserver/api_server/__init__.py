@@ -1,4 +1,3 @@
-#!/bin/bash
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -15,31 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-echo "Stopping API Server..."
+"""
+Earth2Studio API Server Package
 
-# Stop API workers
-echo "Stopping API workers..."
-pkill -f "uvicorn.*api_server.main:app"
+This package contains the main API server components including:
+- main: FastAPI application and REST endpoints
+- workflow: Workflow framework and registry
+- worker: RQ worker functions for processing jobs
+- cpu_worker: CPU-intensive worker functions
+"""
 
-# Stop RQ inference workers
-echo "Stopping RQ inference workers..."
-pkill -f "rq.*worker.*inference"
-
-# Stop zip workers (result_zip queue)
-echo "Stopping zip workers..."
-pkill -f "rq.*worker.*result_zip"
-
-# Stop object storage workers
-echo "Stopping object storage workers..."
-pkill -f "rq.*worker.*object_storage"
-
-# Stop finalize metadata workers
-echo "Stopping finalize metadata workers..."
-pkill -f "rq.*worker.*finalize_metadata"
-
-# Stop cleanup daemon
-echo "Stopping cleanup daemon..."
-pkill -f "python.*cleanup_daemon"
-
-echo "All services stopped."
-exit 0
+__all__ = ["main", "workflow", "worker", "cpu_worker", "config", "object_storage"]
