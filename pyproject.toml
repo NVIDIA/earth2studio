@@ -348,6 +348,7 @@ markers = [
     "cli: marks tests which run CLIs"
 ]
 asyncio_mode = "auto"
+timeout_method = "thread"
 # Need to persist testmon in different tox env (ngeneva fork)
 testmon_ignore_system_packages = true
 
