@@ -105,8 +105,7 @@ io.add_array(total_coords, array_name)
 Prognostic models, diagnostic models, statistics, and metrics are required to have a
 `output_coords` method which maps from an input coordinate to a corresponding output
 coordinate. This method is meant to simulate the result of `__call__` without having
-to actually compute the forward call of the method. See the API documentation for more
- details.
+to actually compute the forward call of the method. Review the API documentation for more details.
 
 Another common IO use-case is to extract a particular dimension (usually `variable`) as
 the array names.

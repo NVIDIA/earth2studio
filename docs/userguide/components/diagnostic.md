@@ -2,7 +2,7 @@
 
 # Diagnostic Models
 
-Diagnostic models in Earth2Studio provides a set of models that are independent of time,
+Diagnostic models in Earth2Studio provide a set of models that are independent of time,
 focused on predicting new or modified values.
 For example, given an instantaneous set of atmospheric fields, a diagnostic model can
 predict a new field, such as precipitation.
@@ -13,7 +13,7 @@ but we distinguish that diagnostic models are in fact models (numerical, AI) use
 to predict and calculate derived physical processes or quantities.
 They are not standard mathematical calculations or reductions for the purpose of analysis.
 
-The list of diagnostic models that are already built into Earth2studio can be found in
+The list of diagnostic models that are already built into Earth2Studio can be found in
 the API documentation {ref}`earth2studio.models.dx`.
 
 ## Diagnostic Interface
@@ -71,7 +71,7 @@ Integrating your own diagnostic is easy, just satisfy the interface above.
 We recommend that you review the {ref}`extension_examples` examples, which will
 step you through the process of implementing your own diagnostic model.
 
-## Contributing a Diagnostic Models
+## Contributing a Diagnostic Model
 
 Want to add your diagnostic to the package? Great, we will be happy to work with you.
 At the minimum we expect the model to abide by the defined interface and meet
@@ -79,5 +79,5 @@ the requirements set forth in our contribution guide. Typically, you are expecte
 to provide the weights of the model in a downloadable location that can fetched.
 
 Open an issue when you have an initial implementation you would like us to review. If
-you're aware of an existing model and want us to implemented it, open a feature request
+you're aware of an existing model and want us to implement it, open a feature request
 and we will get it triaged.

@@ -49,9 +49,9 @@ Inside the package these are typed as `CoordSystem` which is defined as the foll
 CoordSystem = NewType("CoordSystem", OrderedDict[str, np.ndarray])
 ```
 
-The dictionary is ordered since the keys correspond the the dimensions of the associated
+The dictionary is ordered because the keys correspond to the dimensions of the associated
 data tensor.
-Let's consider a simple example of a 2D lat-lon grid:
+Let's consider a basic example of a 2D lat-lon grid:
 
 ```python
 x = torch.randn(181, 360)
@@ -91,10 +91,10 @@ Inference Studio when possible and the packages we interface with.
 * - `variable`
   - Dimension representing physical variable (atmospheric, surface). Earth-2
   Inference Studio has its own naming convention. See {ref}`lexicon_userguide` docs
-  for more more details.
+  for more details.
   - `np.ndarray[str]` (`VariableArray`)
 * - `lat`
-  - Lattitude coordinate array, [-90, 90] is standard
+  - Latitude coordinate array, [-90, 90] is standard
   - `np.ndarray[float]`
 * - `lon`
   - Longitude coordinate array, [0, 360) is standard

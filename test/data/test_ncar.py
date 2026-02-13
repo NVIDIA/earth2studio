@@ -26,7 +26,7 @@ from earth2studio.data import NCAR_ERA5
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -37,7 +37,7 @@ from earth2studio.data import NCAR_ERA5
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["smlt"]])
+@pytest.mark.parametrize("variable", ["sd", ["smlt"]])
 def test_ncar_fetch(time, variable):
 
     ds = NCAR_ERA5(cache=False)
@@ -69,7 +69,7 @@ def test_ncar_fetch(time, variable):
         np.array([np.datetime64("2024-01-01T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", [["t2m", "msl"]])
+@pytest.mark.parametrize("variable", [["sd", "smlt"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_ncar_cache(time, variable, cache):
 

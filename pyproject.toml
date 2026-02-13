@@ -347,7 +347,7 @@ markers = [
     "slow: marks tests as slow (deselect with: -m 'not slow')",
     "cli: marks tests which run CLIs"
 ]
-asyncio_mode = "auto"
+asyncio_mode = "strict"
 # Need to persist testmon in different tox env (ngeneva fork)
 testmon_ignore_system_packages = true
 

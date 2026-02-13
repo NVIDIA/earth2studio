@@ -9,7 +9,7 @@ data assimilation results or even generative AI models.
 These are typically as an initial state for inference of an AI model or some other
 downstream task or target data to evaluate the accuracy of a particular model.
 Data sources may be remote cloud based data stores or files on your local machine.
-The list of datasources that are already built into Earth2studio can be found in
+The list of data sources that are already built into Earth2Studio can be found in
 the API documentation {ref}`earth2studio.data`.
 
 :::{note}
@@ -61,7 +61,8 @@ This data array can then be used on the CPU for post process and saving to file.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern
 of Earth2Studio detailed in the {ref}`data_userguide` section.
-There are a few utility functions inside Earth2Studio to make this process easy. These utility functions are commonly used in workflows.
+There are a few utility functions inside Earth2Studio to make this process easy.
+These utility functions are commonly used in workflows.
 
 :::{warning}
 Each data source has its own methods for serving or calculating each variable.
@@ -97,11 +98,11 @@ used to get the initial state for the provided prognostic.
 
 ### {mod}`earth2studio.data.prep_data_array`
 
-The {func}`prep_data_array` is another useful utility when interacting more directly
+The {func}`prep_data_array` function is another useful utility when interacting more directly
 with a data source.
-This method will take a Xarray data array and return a tensor and coordinate system to
+This function takes an Xarray data array and returns a tensor and coordinate system to
 be used with other components.
-Typically, this is used under the hood of various utils in Earth2Studio but may prove
+Typically, it is used as part of various utils in Earth2Studio, but may prove
 useful to users implementing custom data sources where greater control is needed.
 
 ## Custom Data Sources
@@ -117,7 +118,7 @@ step you through the basic process of implementing your own data source.
 
 We are always looking for new remote data stores that our users may be interested in for
 running inference.
-Its essential to make sure data sources can be accessed by all users and allow the
+It's essential to make sure data sources can be accessed by all users and allow the
 partial downloads of the data based on the users requests.
 If you happen to manage a data source or have a data source in mind, open an issue on
 the repo and we can discuss.
