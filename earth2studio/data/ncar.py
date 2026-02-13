@@ -20,6 +20,7 @@ import concurrent.futures
 import hashlib
 import os
 import shutil
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -101,6 +102,7 @@ class NCAR_ERA5:
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
+        self._tmp_cache_hash: str | None = None
 
     def __call__(
         self,
@@ -501,9 +503,12 @@ class NCAR_ERA5:
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "ncar_era5")
+        cache_location = os.path.join(datasource_cache_root(), "ncar")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_ncar_era5")
-        if not os.path.exists(cache_location):
-            os.makedirs(cache_location, exist_ok=True)
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_ncar_{self._tmp_cache_hash}"
+            )
         return cache_location
