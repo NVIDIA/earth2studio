@@ -57,7 +57,7 @@ jobs:
            github.actor == 'gertln' ||
            github.actor == 'shrek' ||
            github.actor == 'gh0st-ryder' ||
-           github.actor == 'aayushg55' ||
+           github.actor == 'aayushg55'
          )
     steps:
       - name: Check if comment is issued by authorized person
