@@ -503,7 +503,7 @@ class NCAR_ERA5:
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "ncar")
+        cache_location = os.path.join(datasource_cache_root(), "ncar_era5")
         if not self._cache:
             if self._tmp_cache_hash is None:
                 # First access for temp cache: create a random suffix to avoid collisions
