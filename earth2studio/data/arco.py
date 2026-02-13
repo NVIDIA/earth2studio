@@ -76,7 +76,7 @@ class ARCO:
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
-    ARCO_VALID_STOP = None
+    ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
 
     def __init__(
         self,
@@ -148,6 +148,12 @@ class ARCO:
             path=self.ARCO_PATH,
         )
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
+
+        if hasattr(self.zarr_group, 'attrs') and "valid_time_stop" in self.zarr_group.attrs:
+            self.ARCO_TIME_STOP = datetime.strptime(self.zarr_group.attrs['valid_time_stop'], '%Y-%m-%d')
+        else:
+            self.ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
+        
         self.level_coords = await (await self.zarr_group.get("level")).getitem(
             slice(None)
         )
@@ -234,7 +240,7 @@ class ARCO:
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Make sure input time is valid
-        self._validate_time(time)
+        self._validate_time(time, self.ARCO_TIME_STOP)
 
         xr_array = xr.DataArray(
             data=np.empty(
@@ -334,6 +340,9 @@ class ARCO:
         return cache_location
 
     @classmethod
+<<<<<<< HEAD
+    def _validate_time(cls, times: list[datetime], valid_time_stop) -> None:
+=======
     def _get_valid_time_stop(cls) -> datetime:
         """
         Lazy-loaded valid time stop date.
@@ -363,6 +372,7 @@ class ARCO:
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
+>>>>>>> 83ba37da784f2c08b60525420267e76716b40b9c
         """Verify if date time is valid for ARCO
 
         Parameters
@@ -381,10 +391,9 @@ class ARCO:
                     f"Requested date time {time} needs to be after January 1st, 1940 for ARCO"
                 )
 
-            valid_stop = cls._get_valid_time_stop()
-            if time > valid_stop:
+            if time > valid_time_stop:
                 raise ValueError(
-                    f"Requested date time {time} needs to be on or before {valid_stop.strftime('%B %d, %Y')} for ARCO"
+                    f"Requested date time {time} needs to be on or before {valid_time_stop.strftime('%B %d, %Y')} for ARCO"
                 )
 
             # if not self.available(time):
@@ -447,7 +456,7 @@ class ARCO:
 
         # Offline checks
         try:
-            cls._validate_time([time])
+            cls._validate_time([time], cls.ARCO_TIME_STOP)
         except ValueError:
             return False
 
