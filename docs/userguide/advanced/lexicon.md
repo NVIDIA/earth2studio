@@ -110,5 +110,6 @@ sources inside Earth2Studio.
 
 :::{warning}
 The lexicon does not necessarily contain every variable inside the remote data store.
-Rather it explicitly lists what is available inside Earth2Studio. Observe a missing variable you would like to add? Open an issue!
+Rather it explicitly lists what is available inside Earth2Studio. Observe a missing
+variable you would like to add? Open an issue!
 :::

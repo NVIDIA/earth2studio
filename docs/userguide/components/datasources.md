@@ -61,7 +61,8 @@ This data array can then be used on the CPU for post process and saving to file.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern
 of Earth2Studio detailed in the {ref}`data_userguide` section.
-There are a few utility functions inside Earth2Studio to make this process easy. These utility functions are commonly used in workflows.
+There are a few utility functions inside Earth2Studio to make this process easy.
+These utility functions are commonly used in workflows.
 
 :::{warning}
 Each data source has its own methods for serving or calculating each variable.
