@@ -340,39 +340,7 @@ class ARCO:
         return cache_location
 
     @classmethod
-<<<<<<< HEAD
-    def _validate_time(cls, times: list[datetime], valid_time_stop) -> None:
-=======
-    def _get_valid_time_stop(cls) -> datetime:
-        """
-        Lazy-loaded valid time stop date.
-        Fetches once from GCS and caches at class level.
-
-        This function opens the Zarr store at `gs://{ARCO_PATH}` (anonymous access),
-        reads the `valid_time_stop` attribute, and parses it as a `datetime.datetime`
-        using the format `%Y-%m-%d`.
-
-        Returns:
-          datetime.datetime: The last valid date available in the dataset.
-
-        Raises:
-          KeyError: If the `valid_time_stop` attribute is missing.
-          ValueError: If the attribute cannot be parsed with `%Y-%m-%d`.
-          OSError: If the Zarr store cannot be accessed.
-        """
-        if cls.ARCO_VALID_STOP is None:
-            with xr.open_zarr(
-                f'gs://{cls.ARCO_PATH}',
-                chunks=None,
-                storage_options=dict(token='anon'),
-            )
-            as ds:
-                cls.ARCO_VALID_STOP = datetime.strptime(ds.attrs['valid_time_stop'], '%Y-%m-%d')
-        return cls.ARCO_VALID_STOP
-
-    @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
->>>>>>> 83ba37da784f2c08b60525420267e76716b40b9c
         """Verify if date time is valid for ARCO
 
         Parameters
