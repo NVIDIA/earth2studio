@@ -359,9 +359,9 @@ class ARCO:
                     f"Requested date time {time} needs to be after January 1st, 1940 for ARCO"
                 )
 
-            if time > valid_time_stop:
+            if time > cls.ARCO_TIME_STOP:
                 raise ValueError(
-                    f"Requested date time {time} needs to be on or before {valid_time_stop.strftime('%B %d, %Y')} for ARCO"
+                    f"Requested date time {time} needs to be on or before {cls.ARCO_TIME_STOP.strftime('%B %d, %Y')} for ARCO"
                 )
 
             # if not self.available(time):
