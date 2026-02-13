@@ -240,7 +240,7 @@ class ARCO:
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         # Make sure input time is valid
-        self._validate_time(time, self.ARCO_TIME_STOP)
+        self._validate_time(time)
 
         xr_array = xr.DataArray(
             data=np.empty(
@@ -424,7 +424,7 @@ class ARCO:
 
         # Offline checks
         try:
-            cls._validate_time([time], cls.ARCO_TIME_STOP)
+            cls._validate_time([time])
         except ValueError:
             return False
 
