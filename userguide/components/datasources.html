@@ -476,17 +476,17 @@
 <p>Datasources are objects that offer a simple API to access a “dataset” of weather/climate
 data at a certain index.
 Many implemented in the package provide access to data generated from numerical models,
-data assimulation results or even generative AI models.
+data assimilation results or even generative AI models.
 These are typically as an initial state for inference of an AI model or some other
 downstream task or target data to evaluate the accuracy of a particular model.
 Data sources may be remote cloud based data stores or files on your local machine.
-The list of datasources that are already built into Earth2studio can be found in
+The list of data sources that are already built into Earth2Studio can be found in
 the API documentation <a class="reference internal" href="../../modules/datasources.html#earth2studio-data"><span class="std std-ref">earth2studio.data: Data Sources</span></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Earth2Studio has data and forecast sources. The only difference being the latter
 has a lead time input. Some data stores may have both implemented where the data source
-provides the initial states / data-assimilated data while the forecast source provides
+provides the initial states and data-assimilated data, while the forecast source provides
 results from a predictive model.</p>
 </div>
 <section id="data-source-interface">
@@ -558,8 +558,8 @@ details on how to customize this location.</p>
 <h3>Beyond N-D Array Data<a class="headerlink" href="#beyond-n-d-array-data" title="Link to this heading">#</a></h3>
 <p>Earth2Studio attempts to stick with N-D array data structures when possible,
 however this is not always possible or practical.
-As a result, Earth2Studio also supports remote data sources for tabular data which is
-typically used when sparse observations / measurements are involved.</p>
+As a result, Earth2Studio also supports remote data sources for tabular data, which is
+typically used when sparse observations or measurements are involved.</p>
 <ul class="simple">
 <li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.DataFrameSource</span></code></p></li>
 <li><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.ForecastFrameSource</span></code></p></li>
@@ -571,20 +571,20 @@ pandas DataFrame (tabular) instead of an Xarray DataArray.</p>
 <section id="data-source-usage">
 <h2>Data Source Usage<a class="headerlink" href="#data-source-usage" title="Link to this heading">#</a></h2>
 <p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function is the way data is fetched from the data source and placed
-into a in memory Xarray data array.
-A user needs to provide both the time(s) and variables for the data source to fetch.
+into an in-memory Xarray data array.
+You must provide both the times and variables for the data source to fetch.
 Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
 discussed in more detail in the <a class="reference internal" href="../advanced/lexicon.html#lexicon-userguide"><span class="std std-ref">Lexicon</span></a> section.</p>
-<p>This data array can then be used on the CPU for post process, saving to file, etc.
+<p>This data array can then be used on the CPU for post process and saving to file.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern
 of Earth2Studio detailed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section.
-There are a few utility functions inside Earth2Studio to make this process easy which
-is commonly used in workflows.</p>
+There are a few utility functions inside Earth2Studio to make this process easy.
+These utility functions are commonly used in workflows.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Each data source has its own methods for serving / calculating each variable.
+<p>Each data source has its own methods for serving or calculating each variable.
 Users should be aware that the same variable across multiple data sources will
 potentially not be identical.
 Refer to each data source’s documentation for details.</p>
@@ -633,28 +633,28 @@ used to get the initial state for the provided prognostic.</p>
 </section>
 <section id="earth2studio-data-prep-data-array">
 <h3><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html#earth2studio.data.prep_data_array" title="earth2studio.data.prep_data_array"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data.prep_data_array</span></code></a><a class="headerlink" href="#earth2studio-data-prep-data-array" title="Link to this heading">#</a></h3>
-<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">prep_data_array()</span></code> is another useful utility when interacting more directly
+<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">prep_data_array()</span></code> function is another useful utility when interacting more directly
 with a data source.
-This method will take a Xarray data array and return a tensor and coordinate system to
+This function takes an Xarray data array and returns a tensor and coordinate system to
 be used with other components.
-Typically, this is used under the hood of various utils in Earth2Studio but may prove
+Typically, it is used as part of various utils in Earth2Studio, but may prove
 useful to users implementing custom data sources where greater control is needed.</p>
 </section>
 </section>
 <section id="custom-data-sources">
 <h2>Custom Data Sources<a class="headerlink" href="#custom-data-sources" title="Link to this heading">#</a></h2>
-<p>Custom data sources are often essential when working with large / on-prem
+<p>Custom data sources are often essential when working with large or on-prem
 datasets.
 So long as the data source can satisfy the API outlined in the interface above, it can
 integrate seamlessly into Earth2Studio.
-We recommend users have a look at the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
-step users through the simple process of implementing your own data source.</p>
+We recommend that you review the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
+step you through the basic process of implementing your own data source.</p>
 </section>
 <section id="contributing-a-datasource">
 <h2>Contributing a Datasource<a class="headerlink" href="#contributing-a-datasource" title="Link to this heading">#</a></h2>
 <p>We are always looking for new remote data stores that our users may be interested in for
 running inference.
-Its essential to make sure data sources can be accessed by all users and allow the
+It’s essential to make sure data sources can be accessed by all users and allow the
 partial downloads of the data based on the users requests.
 If you happen to manage a data source or have a data source in mind, open an issue on
 the repo and we can discuss.</p>

@@ -478,7 +478,7 @@ Recipes provide more complex implementations that may require deeper domain know
 and familiarity with the codebase.</p>
 <div class="warning admonition">
 <p class="admonition-title">Warning</p>
-<p>Earth2Studio recipes are in beta, thus may dramatically change/get moved.</p>
+<p>Earth2Studio recipes are in beta, thus may dramatically change or get moved.</p>
 </div>
 <section id="what-is-a-recipe">
 <h2>What is a Recipe?<a class="headerlink" href="#what-is-a-recipe" title="Link to this heading">#</a></h2>
@@ -503,9 +503,9 @@ Here’s how they differ:</p>
 <ul class="simple">
 <li><p>Require multiple support files</p></li>
 <li><p>Focus on providing complete solutions</p></li>
-<li><p>Configuration YAMLs/JSONs</p></li>
-<li><p>Pythonic interaction through main.py</p></li>
-<li><p>Requirements provided in pyproject.toml</p></li>
+<li><p>Configuration YAMLs and JSONs</p></li>
+<li><p>Pythonic interaction through <code class="docutils literal notranslate"><span class="pre">main.py</span></code></p></li>
+<li><p>Requirements provided in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code></p></li>
 <li><p>May require more specific hardware or system dependencies</p></li>
 </ul>
 <p>See <a class="reference internal" href="documentation.html#examples-userguide"><span class="std std-ref">Example Documentation</span></a> for more information on creating an example.</p>
@@ -515,7 +515,7 @@ Here’s how they differ:</p>
 <h2>Recipe Structure<a class="headerlink" href="#recipe-structure" title="Link to this heading">#</a></h2>
 <p>The <a class="reference external" href="https://github.com/NVIDIA/earth2studio/recipes/template/">recipe template</a>,
 defines what a recipe should contain and look like including folders, README sections,
-support files, etc.
+support files.
 Recipes have the following structure:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>recipes/
  |- recipe-name/
@@ -539,7 +539,7 @@ Recipes have the following structure:</p>
 <ul class="simple">
 <li><p>Must follow all pre-commit standards and code practices</p></li>
 <li><p>Must include end-to-end tests validating functionality</p></li>
-<li><p><strong>No</strong> images/data files/other file formats allowed in the repo, can link to
+<li><p><strong>No</strong> images, data files, or other file formats allowed in the repo, can link to
 externally hosted. Earth2Studio has a <a class="reference external" href="https://huggingface.co/datasets/nvidia/earth2studio-assets">HuggingFace assets dataset</a>
 that can be used.</p></li>
 <li><p>Implementation or re-implementation of components that exist in Earth2Studio
@@ -549,7 +549,7 @@ package is not encouraged. Upstreaming is a priority</p></li>
 <li><p><strong>Testing</strong></p>
 <ul class="simple">
 <li><p>Should include end-to-end tests with expected results to verify functionality</p></li>
-<li><p>Not included in the main pytest suite</p></li>
+<li><p>Not included in the main <code class="docutils literal notranslate"><span class="pre">pytest</span></code> suite</p></li>
 <li><p>Tested following major release cycles</p></li>
 </ul>
 </li>
@@ -557,7 +557,7 @@ package is not encouraged. Upstreaming is a priority</p></li>
 <ul class="simple">
 <li><p>Must have designated owners (listed as authors in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>)</p></li>
 <li><p>Owners responsible for fixing bugs and updates</p></li>
-<li><p>Recipes can and may be removed based on their use / relevance</p></li>
+<li><p>Recipes can and may be removed based on their use or relevance</p></li>
 </ul>
 </li>
 <li><p><strong>Dependencies</strong></p>
@@ -586,7 +586,7 @@ provided in the recipes directory:</p>
 <span class="nb">cd</span><span class="w"> </span>recipes/my_new_recipe
 </pre></div>
 </div>
-<p>Update the <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> to reflect the correct meta data:</p>
+<p>Update the <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> to reflect the correct metadata:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project]</span>
 <span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;newrecipe&quot;</span>
 <span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
@@ -598,7 +598,7 @@ provided in the recipes directory:</p>
 <span class="p">]</span>
 </pre></div>
 </div>
-<p>Inside the recipe dependencies can be added / removed using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>.
+<p>Inside the recipe dependencies can be added or removed using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>.
 For example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync
 uv<span class="w"> </span>add<span class="w"> </span>cartopy

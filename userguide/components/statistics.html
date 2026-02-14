@@ -479,7 +479,7 @@ have a coordinate system that is a subset of the input coordinate system. This
 makes statistics less flexible than diagnostic models but have fewer API requirements.</p>
 <section id="statistics-interface">
 <h2>Statistics Interface<a class="headerlink" href="#statistics-interface" title="Link to this heading">#</a></h2>
-<p>Statistics API only specify a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> method that matches similar methods
+<p>Statistics API only specifies a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> method that matches similar methods
 across the package.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Statistic</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
@@ -504,10 +504,12 @@ across the package.</p>
 </pre></div>
 </div>
 <p>The base API hints at, and inspection of the <code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.moments</span></code>
-examples, the use of a few properties to make statistic handling easier:
-<code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code>, which are a list of dimensions that will be reduced over,
-<code class="docutils literal notranslate"><span class="pre">weights</span></code>, which must be broadcastable with <code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code>, and <code class="docutils literal notranslate"><span class="pre">batch_update</span></code>,
-which is useful for applying statistics when data comes in streams/batches.</p>
+examples, the use of a few properties to make statistic handling easier:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code>, which are a list of dimensions that will be reduced over</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weights</span></code>, which must be broadcastable with <code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">batch_update</span></code>, which is useful for applying statistics when data comes in streams and batches</p></li>
+</ul>
 <p>Where applicable, specified <code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code> set a requirement for the
 coordinates passed in the call method.</p>
 </section>

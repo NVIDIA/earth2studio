@@ -476,7 +476,7 @@
 <p>Perturbations are an integral part of ensembling workflows and a variety are built into
 Earth2Studio. These can range from standard noise perturbations to more complex methods
 such as Bred Vector.</p>
-<p>The list of perturbation methods that are already built into Earth2studio can be found
+<p>The list of perturbation methods that are already built into Earth2Studio can be found
 in the API documentation <a class="reference internal" href="../../modules/perturbation.html#earth2studio-perturbation"><span class="std std-ref">earth2studio.perturbation: Perturbations</span></a>.</p>
 <section id="perturbation-interface">
 <h2>Perturbation Interface<a class="headerlink" href="#perturbation-interface" title="Link to this heading">#</a></h2>
@@ -511,7 +511,7 @@ in the API documentation <a class="reference internal" href="../../modules/pertu
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Perturbations methods modify the input tensor directly. They are not functions that just
+<p>Perturbation methods modify the input tensor directly. They are not functions that just
 generate noise.</p>
 </div>
 </section>
@@ -531,13 +531,13 @@ a data tensor with coordinate system and returns the perturbed output.</p>
 <p>As discussed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, data is always moved between
 components with physical units.
 This implies that all perturbation methods will apply noise onto unnormalized data.
-Naturally this is not ideal for many perturbation methods and its recommended users
-extend the perturbation methods to conclude the normalization (and subsequent
+Naturally this is not ideal for many perturbation methods and it’s recommended users
+extend the perturbation methods to include the normalization (and subsequent
 denormalization).</p>
 </section>
 <section id="custom-perturbation-methods">
 <h2>Custom Perturbation Methods<a class="headerlink" href="#custom-perturbation-methods" title="Link to this heading">#</a></h2>
-<p>Integrating your own perturbation only requires inplementing the interface above.
+<p>Integrating your own perturbation only requires implementing the interface above.
 We recommend users have a look at the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
 step users through the simple process of implementing their own perturbation method.</p>
 <div class="admonition warning">

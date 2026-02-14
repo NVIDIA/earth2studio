@@ -483,7 +483,7 @@ workflows.</p>
 the rest of the <code class="docutils literal notranslate"><span class="pre">earth2studio</span></code> code and output store compatibility is the notion of
 an <code class="docutils literal notranslate"><span class="pre">array_name</span></code>. Names distinguish between different arrays within the backend and
 are currently a requirement for storing <code class="docutils literal notranslate"><span class="pre">Datasets</span></code> in <code class="docutils literal notranslate"><span class="pre">xarray</span></code>, <code class="docutils literal notranslate"><span class="pre">zarr</span></code>, and <code class="docutils literal notranslate"><span class="pre">netcdf</span></code>.
-This means that the user must supply a name when adding an array to a store or when
+This means that you must supply a name when adding an array to a store or when
 writing an array. A frequent pattern is to extract one dimension of an array,
 such as <code class="docutils literal notranslate"><span class="pre">&quot;variable&quot;</span></code> to act as individual arrays in the backend, see the examples below.</p>
 <section id="io-backend-interface">
@@ -664,8 +664,7 @@ Here is a robust example of such a use-case:</p>
 <p>Prognostic models, diagnostic models, statistics, and metrics are required to have a
 <code class="docutils literal notranslate"><span class="pre">output_coords</span></code> method which maps from an input coordinate to a corresponding output
 coordinate. This method is meant to simulate the result of <code class="docutils literal notranslate"><span class="pre">__call__</span></code> without having
-to actually compute the forward call of the method. See the API documentation for more
-details.</p>
+to actually compute the forward call of the method. Review the API documentation for more details.</p>
 <p>Another common IO use-case is to extract a particular dimension (usually <code class="docutils literal notranslate"><span class="pre">variable</span></code>) as
 the array names.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># A modification of the previous example:</span>
@@ -676,14 +675,14 @@ the array names.</p>
 </section>
 <section id="writing-to-the-store">
 <h2>Writing to the store<a class="headerlink" href="#writing-to-the-store" title="Link to this heading">#</a></h2>
-<p>Once the data arrays have been initialized in the backend, writing to those arrays
+<p>After the data arrays have been initialized in the backend, writing to those arrays
 is a single line of code.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">array_name</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>If, as above, the user is extracting a dimension of the tensor to use as array names
-then they can make use of <a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords" title="earth2studio.utils.coords.split_coords"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords.split_coords</span></code></a>:</p>
+<p>If, as above, you are extracting a dimension of the tensor to use as array names
+then you can make use of <a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html#earth2studio.utils.coords.split_coords" title="earth2studio.utils.coords.split_coords"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords.split_coords</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="o">*</span><span class="n">split_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="s2">&quot;variable&quot;</span><span class="p">))</span>
 </pre></div>
 </div>

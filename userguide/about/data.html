@@ -534,9 +534,9 @@ Inside the package these are typed as <code class="docutils literal notranslate"
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;CoordSystem&quot;</span><span class="p">,</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span>
 </pre></div>
 </div>
-<p>The dictionary is ordered since the keys correspond the the dimensions of the associated
+<p>The dictionary is ordered because the keys correspond to the dimensions of the associated
 data tensor.
-Let’s consider a simple example of a 2D lat-lon grid:</p>
+Let’s consider a basic example of a 2D lat-lon grid:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">181</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span>
 
 <span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span>
@@ -571,7 +571,7 @@ dimension, consult batching docs for more details.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">np.empty(0)</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
-<td><p>Time dimension, represented via numpy arrays of datetime objects.</p></td>
+<td><p>Time dimension, represented by numpy arrays of datetime objects.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.datetime64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">TimeArray</span></code>)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lead_time</span></code></p></td>
@@ -579,13 +579,13 @@ dimension, consult batching docs for more details.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[np.timedelta64[ns]]</span></code> (<code class="docutils literal notranslate"><span class="pre">LeadTimeArray</span></code>)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">variable</span></code></p></td>
-<td><p>Dimension representing physical variable (atmospheric, surface, etc). Earth-2
+<td><p>Dimension representing physical variable (atmospheric, surface). Earth-2
 Inference Studio has its own naming convention. See <a class="reference internal" href="../advanced/lexicon.html#lexicon-userguide"><span class="std std-ref">Lexicon</span></a> docs
-for more more details.</p></td>
+for more details.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[str]</span></code> (<code class="docutils literal notranslate"><span class="pre">VariableArray</span></code>)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lat</span></code></p></td>
-<td><p>Lattitude coordinate array, [-90, 90] is standard</p></td>
+<td><p>Latitude coordinate array, [-90, 90] is standard</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">np.ndarray[float]</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lon</span></code></p></td>

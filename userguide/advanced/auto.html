@@ -492,7 +492,7 @@ rigorous internal evaluation. Private registries are also supported.</p></li>
 <li><p><em>Huggingface Model Registry</em> - Huggingface offers
 <a class="reference external" href="https://huggingface.co/models">model registries</a> that any user can upload and share
 checkpoint files with.
-This is the method used for model files of several models that are not developed /
+This is the method used for model files of several models that are not developed or
 trained by Nvidia.</p></li>
 <li><p><em>S3 Object Storage</em> - Providing model checkpoints with a S3 bucket is also another
 viable object assuming the egress cost for downloads are covered by the owner.</p></li>
@@ -603,22 +603,22 @@ follows:</p>
 <span class="c1"># Instantiate package by pointing it to a remote folder</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">Package</span><span class="p">(</span><span class="s2">&quot;ngc://models/nvidia/modulus/modulus_fcn@v0.2&quot;</span><span class="p">)</span>
 
-<span class="c1"># Fetch a file from the remote store using the get method</span>
+<span class="c1"># Fetch a file from the remote store using the resolve method</span>
 <span class="n">cached_path_to_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;fcn.zip&quot;</span><span class="p">)</span>
 
 <span class="c1"># Open a buffered reader of the file</span>
 <span class="n">opened_file</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;fcn.zip&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>In this example, when calling open, the asset at <code class="docutils literal notranslate"><span class="pre">ngc://models/nvidia/modulus/modulus_fcn&#64;v0.2\fcn.zip</span></code>
-will be fetched and caches on the local machine.
+<p>In this example, when calling resolve or open, the asset at <code class="docutils literal notranslate"><span class="pre">ngc://models/nvidia/modulus/modulus_fcn&#64;v0.2/fcn.zip</span></code>
+will be fetched and cached on the local machine.
 A file buffer will then be returned pointing to the cached version of the file.
-The cached path is a directory on the local file system which can be configured via
+The cached path is a directory on the local file system, which can be configured using
 environment variables.
 See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">Configuration</span></a> section for details.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Earth2Studio file system borrows uses <a class="reference external" href="https://filesystem-spec.readthedocs.io/en/latest/">Fsspec</a>
+<p>Earth2Studio file system uses <a class="reference external" href="https://filesystem-spec.readthedocs.io/en/latest/">Fsspec</a>
 caching for files in packages.
 We encourage users that are interested in this type of utility to learn more about
 Fsspec and the specification it defines for advanced usage.</p>

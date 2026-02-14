@@ -473,10 +473,10 @@
                   
   <section id="lexicon">
 <span id="lexicon-userguide"></span><h1>Lexicon<a class="headerlink" href="#lexicon" title="Link to this heading">#</a></h1>
-<p>As discussed in detail in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, Earth2Studio tracks the
+<p>As discussed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, Earth2Studio tracks the
 geo-physical representation of tensor data inside workflows.
-This includes the name of the variable / parameter / property the data represents, which
-is tracked explicitly via Earth2Studios lexicon.
+This includes the name of the variable, parameter, and property the data represents, which
+is tracked explicitly using the Earth2Studios lexicon.
 Similar to ECMWF’s <a class="reference external" href="https://codes.ecmwf.int/grib/param-db/">parameter database</a>,
 Earth2Studio’s lexicon aims to provide an opinioned and explicit list of short variables
 names that is used across the package found in <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.E2STUDIO_VOCAB</span></code>.
@@ -499,13 +499,13 @@ Earth2Studio takes a best-effort approach to make these metadata fields standard
 across the package.</p>
 <p>Some examples include:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">lat</span></code>: Latitude coordinate of data / observation / sensor</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">lon</span></code>: Longitude coordinate of data / observation / sensor</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">elev</span></code>: Elevation (meters) relative to mean sea level of data / observation / sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lat</span></code>: Latitude coordinate of data, observation, and sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lon</span></code>: Longitude coordinate of data, observation, and sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">elev</span></code>: Elevation (meters) relative to mean sea level of data, observation, and sensor</p></li>
 </ul>
-<section id="altitude-pressure-levels">
-<h2>Altitude / Pressure Levels<a class="headerlink" href="#altitude-pressure-levels" title="Link to this heading">#</a></h2>
-<p>Note that there are a variety of ways to represent the vertical coordinates for 3D
+<section id="altitude-and-pressure-levels">
+<h2>Altitude and Pressure Levels<a class="headerlink" href="#altitude-and-pressure-levels" title="Link to this heading">#</a></h2>
+<p>There are a variety of ways to represent the vertical coordinates for 3D
 atmospheric variables. The most common method is to slice variables along pressure
 levels (surfaces of constant pressure), and this is considered the “default” in terms
 of variable names within the lexicon (for example, <code class="docutils literal notranslate"><span class="pre">z500</span></code> is the geo-potential) at the 500 hPa
@@ -534,8 +534,8 @@ intermediate step.</p>
 </section>
 <section id="datasource-lexicon">
 <h2>Datasource Lexicon<a class="headerlink" href="#datasource-lexicon" title="Link to this heading">#</a></h2>
-<p>A common challenge when working with different sources of weather/climate data is that
-variables used may be named / denoted in different ways.
+<p>A common challenge when working with different sources of weather and climate data is that
+variables used may be named or denoted in different ways.
 The Lexicon is also used to track the translation between Earth2Studios naming scheme
 and the scheme needed to parse the remote data source.
 Each remote data store has its own lexicon, which is a dictionary that has the
@@ -543,8 +543,8 @@ Earth2Studio variable name as the keys and a string used to parse the remote dat
 Typically, this value is a string that corresponds to the variable name inside the remote
 data store.</p>
 <p>The following snippet is part of the lexicon for the GFS dataset.
-Note that the class has a <code class="docutils literal notranslate"><span class="pre">metaclass=LexiconType</span></code> which is present in
-<code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.py</span></code> used for type checking.</p>
+The class has a <code class="docutils literal notranslate"><span class="pre">metaclass=LexiconType</span></code>, which is present in
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.lexicon.base</span></code> used for type checking.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GFSLexicon</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">LexiconType</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Global Forecast System Lexicon</span>
 <span class="sd">    GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;</span>
@@ -584,7 +584,7 @@ Note that the class has a <code class="docutils literal notranslate"><span class
         <span class="s2">&quot;u10&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 mb&quot;</span><span class="p">,</span>
 </pre></div>
 </div>
-<p>Values of each variable is left up the the data source.
+<p>Values of each variable is left up to the data source.
 The present pattern is to split by the string based on the separator <code class="docutils literal notranslate"><span class="pre">::</span></code>, and then used
 to access the required data.
 For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is
@@ -620,7 +620,7 @@ fetch the correct data.</p>
 <p>It is a common pattern for data source lexicons to contain a modifier function that is
 used to apply adjustments to align data more uniformly with the package.
 A good example of this is the GFS dataset which uses the modifier function to transform
-the GFS supplied the geo-potential height to geo-potential to better align with other
+GFS-supplied geo-potential height to geopotential to better align with other
 sources inside Earth2Studio.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_item</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]:</span>
@@ -653,8 +653,8 @@ sources inside Earth2Studio.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>The lexicon does not necessarily contain every variable inside the remote data store.
-Rather it explicitly lists what is available inside Earth2Studio. See some variable
-missing you would like to add? Open an issue!</p>
+Rather it explicitly lists what is available inside Earth2Studio. Observe a missing
+variable you would like to add? Open an issue!</p>
 </div>
 </section>
 </section>
@@ -706,7 +706,7 @@ missing you would like to add? Open an issue!</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#altitude-pressure-levels">Altitude / Pressure Levels</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#altitude-and-pressure-levels">Altitude and Pressure Levels</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#datasource-lexicon">Datasource Lexicon</a></li>
 </ul>
   </nav></div>

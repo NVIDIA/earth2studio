@@ -500,7 +500,7 @@ utilize compute resources.</p>
 </div>
 <p>Other coordinates can have a value of <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.empty(0)</span></code> to denote an additional
 dynamic axis but imply a required data type.
-In this case, this model supports a batch but must have a <code class="docutils literal notranslate"><span class="pre">time</span></code> axis needs to be a
+In this case, this model supports a batch but the <code class="docutils literal notranslate"><span class="pre">time</span></code> axis must be a
 Numpy array of type <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.datetime64</span></code>. See <a class="reference internal" href="../about/data.html#coordinates-userguide"><span class="std std-ref">data movement</span></a>
 section for expected types.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
@@ -637,7 +637,7 @@ For example, using the model in the example above:</p>
 <h2>Batch Dimension in IO<a class="headerlink" href="#batch-dimension-in-io" title="Link to this heading">#</a></h2>
 <p>The IO backends require users to pre-define the output coordinate system on which the
 data will be exported.
-Typically. a good way to do this is to look at the output coordinate system of the model,
+Typically, a good way to do this is to review the output coordinate system of the model,
 which will typically include a <code class="docutils literal notranslate"><span class="pre">batch</span></code> dimension.
 But the model won’t actually return a batch dimension, thus it’s a common pattern to
 replace this batch dimension with whatever leading coordinate the input will have.</p>

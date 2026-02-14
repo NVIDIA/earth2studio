@@ -9,7 +9,7 @@ makes statistics less flexible than diagnostic models but have fewer API require
 
 ## Statistics Interface
 
-Statistics API only specify a {func}`__call__` method that matches similar methods
+Statistics API only specifies a {func}`__call__` method that matches similar methods
 across the package.
 
 ```{literalinclude} ../../../earth2studio/statistics/base.py
@@ -19,9 +19,10 @@ across the package.
 
 The base API hints at, and inspection of the {mod}`earth2studio.statistics.moments`
 examples, the use of a few properties to make statistic handling easier:
-`reduction_dimensions`, which are a list of dimensions that will be reduced over,
-`weights`, which must be broadcastable with `reduction_dimensions`, and `batch_update`,
-which is useful for applying statistics when data comes in streams/batches.
+
+* `reduction_dimensions`, which are a list of dimensions that will be reduced over
+* `weights`, which must be broadcastable with `reduction_dimensions`
+* `batch_update`, which is useful for applying statistics when data comes in streams and batches
 
 Where applicable, specified `reduction_dimensions` set a requirement for the
 coordinates passed in the call method.

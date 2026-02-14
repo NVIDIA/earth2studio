@@ -473,8 +473,8 @@
                   
   <section id="prognostic-models">
 <span id="prognostic-model-userguide"></span><h1>Prognostic Models<a class="headerlink" href="#prognostic-models" title="Link to this heading">#</a></h1>
-<p>Prognostic models in Earth2Studio provides a set of models designed to perform time
-integration. For example, given a set of atmospheric fields at a particular time and
+<p>Prognostic models in Earth2Studio provide a set of models designed to perform time
+integration. For example, given a set of atmospheric fields at a particular time,
 the model auto-regressively predicts the same fields 6 hours into the future.</p>
 <p>The usage of prognostic models falls into two categories which are commonly achieved
 through two different APIs:</p>
@@ -482,7 +482,7 @@ through two different APIs:</p>
 <li><p>Single time-step predictions</p></li>
 <li><p>Time-series predictions</p></li>
 </ol>
-<p>The list of prognostic models that are already built into Earth2studio can be found in
+<p>The list of prognostic models that are already built into Earth2Studio can be found in
 the API documentation <a class="reference internal" href="../../modules/models.html#earth2studio-models-px"><span class="std std-ref">earth2studio.models.px: Prognostic</span></a>.</p>
 <section id="prognostic-interface">
 <h2>Prognostic Interface<a class="headerlink" href="#prognostic-interface" title="Link to this heading">#</a></h2>
@@ -592,8 +592,8 @@ iterator if necessary.</p>
 </div>
 <p>Prognostic models also tend to extend two classes:</p>
 <ol class="arabic simple">
-<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.utils.PrognosticMixin</span></code>: which is a util class that
-defines iterator hooks used in all the built in models. These provide a finer level
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.utils.PrognosticMixin</span></code>: A utility class that
+defines iterator hooks used in all the built-in models. These provide a finer level
 of control over the time-series prediction of models.</p></li>
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModel</span></code>: Defines APIs for models that have
 checkpoints that can be auto downloaded and cached. See the <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a>
@@ -647,8 +647,8 @@ We recommend users have a look at the custom prognostic example which will step 
 through the simple process of implementing their own prognostic model for their personal
 needs in the <a class="reference internal" href="../../examples/extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples.</p>
 </section>
-<section id="contributing-a-prognostic-models">
-<h2>Contributing a Prognostic Models<a class="headerlink" href="#contributing-a-prognostic-models" title="Link to this heading">#</a></h2>
+<section id="contributing-a-prognostic-model">
+<h2>Contributing a Prognostic Model<a class="headerlink" href="#contributing-a-prognostic-model" title="Link to this heading">#</a></h2>
 <p>Want to add your prognostic to the package? Great, we will be happy to work with you.
 At the minimum we expect the model to abide by the defined interface as well as meet
 the requirements set forth in our contribution guide. Typically, users are expected
@@ -712,7 +712,7 @@ to provide the weights of the model in a downloadable location that can be fetch
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-prognostic-models">Custom Prognostic Models</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-a-prognostic-models">Contributing a Prognostic Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-a-prognostic-model">Contributing a Prognostic Model</a></li>
 </ul>
   </nav></div>
 
