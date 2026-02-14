@@ -151,6 +151,22 @@ def wait_for_file(path: str, timeout_s: int = 1800, poll_s: float = 1.0) -> None
         sleep(poll_s)
 
 
+def wait_for_all_files(
+    paths: list[str], timeout_s: int = 7200, poll_s: float = 1.0
+) -> None:
+    """Wait until all files exist (simple multi-rank completion barrier)."""
+    t0 = time.time()
+    while True:
+        if all(os.path.exists(p) for p in paths):
+            return
+        if time.time() - t0 > timeout_s:
+            missing = [p for p in paths if not os.path.exists(p)]
+            raise TimeoutError(
+                f"Timed out waiting for completion markers. Missing: {missing[:5]}"
+            )
+        sleep(poll_s)
+
+
 def _append_slice_log(
     log_path: str,
     *,
@@ -264,6 +280,7 @@ def run_main(args: argparse.Namespace) -> None:
     out_path = os.path.join(args.output_dir, f"{year}.zarr")
     barrier_file = str(Path(args.output_dir) / f".mrms_{year}.init.done")
     log_path = str(Path(args.output_dir) / f"processed_time_slices_{year}.txt")
+    done_dir = Path(args.output_dir) / f".mrms_{year}.done_ranks"
 
     # Rank 0 initializes the store once, others wait.
     if rank == 0:
@@ -281,6 +298,9 @@ def run_main(args: argparse.Namespace) -> None:
         create_zarr_v3_store(out_path, n_steps, MRMS_VARIABLES, lat_size, lon_size)
         Path(barrier_file).parent.mkdir(parents=True, exist_ok=True)
         Path(barrier_file).write_text("ok")
+        done_dir.mkdir(parents=True, exist_ok=True)
+        for p in done_dir.glob("rank_*.done"):
+            p.unlink()
         with open(log_path, "a", encoding="utf-8") as fout:
             if fout.tell() == 0:
                 fout.write("event_utc,rank,index,target,actual,status\n")
@@ -318,6 +338,22 @@ def run_main(args: argparse.Namespace) -> None:
         f"[rank {rank}] processed={len(local_indices)} wrote={wrote} "
         f"elapsed={t1 - t0:.2f}s"
     )
+
+    # Write completion marker for this rank.
+    done_dir.mkdir(parents=True, exist_ok=True)
+    (done_dir / f"rank_{rank}.done").write_text(
+        f"rank={rank}\nworld={world}\nfinished_utc={datetime.now(timezone.utc).isoformat()}\n"
+    )
+
+    # Rank 0 consolidates metadata after all ranks are done.
+    if rank == 0:
+        done_paths = [str(done_dir / f"rank_{r}.done") for r in range(world)]
+        wait_for_all_files(done_paths, timeout_s=max(7200, world * 120), poll_s=1.0)
+        try:
+            zarr.consolidate_metadata(out_path)
+            print(f"[rank 0] Consolidated zarr metadata for {out_path}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[rank 0] WARNING: failed to consolidate metadata: {e}")
 
 
 if __name__ == "__main__":
