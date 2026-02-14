@@ -242,6 +242,8 @@ class MRMS:
             dims=["time", "variable", "lat", "lon"],
             coords={"time": time, "variable": variable, "lat": lat, "lon": lon},
         )
+        # Track the actual resolved MRMS object times for each requested time index.
+        actual_time = np.array(time, dtype="datetime64[s]")
 
         # Fill output
         for res in results:
@@ -254,8 +256,11 @@ class MRMS:
                 )
             ti = res["time_index"]
             field_values = res["field_values"]
+            actual_time[ti] = np.datetime64(res["actual_time"], "s")
             for var_index, modifier in res["idx_mods"]:
                 out[ti, var_index] = modifier(field_values)
+
+        out = out.assign_coords(actual_time=("time", actual_time))
 
         # Close aiohttp client if s3fs
         if session:
@@ -282,7 +287,7 @@ class MRMS:
                 f"Consider increasing the max_offset_minutes parameter."
             )
             return None
-        _, s3_uri = resolved
+        resolved_time, s3_uri = resolved
 
         if self._verbose:
             logger.info(f"Fetching MRMS file: {s3_uri}")
@@ -313,6 +318,7 @@ class MRMS:
             "lat": lat,
             "lon": lon,
             "field_values": values,
+            "actual_time": resolved_time,
         }
 
     async def _download_and_decompress_async(self, s3_uri: str) -> str:
@@ -416,6 +422,7 @@ class MRMS:
                     hour=int(hms[0:2]),
                     minute=int(hms[2:4]),
                     second=int(hms[4:6]),
+                    tzinfo=timezone.utc,
                 )
                 diff = abs((ts - time).total_seconds())
                 if diff <= max_offset_minutes * 60 and diff < best_diff:
