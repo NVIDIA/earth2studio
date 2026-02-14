@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import os
 import random
 import time
@@ -128,7 +129,7 @@ class WorkManager:
         self.rank = array_rank * slurm_world_size + slurm_rank
         self.world_size = max(1, array_world_size * slurm_world_size)
 
-    def split(self, tasks: list[int], shuffle: bool = True) -> list[int]:
+    def split(self, tasks: list[int], shuffle: bool = False) -> list[int]:
         """Split task ids across global ranks.
 
         When shuffle=True, tasks are shuffled deterministically before splitting
@@ -150,6 +151,30 @@ def wait_for_file(path: str, timeout_s: int = 1800, poll_s: float = 1.0) -> None
         sleep(poll_s)
 
 
+def _append_slice_log(
+    log_path: str,
+    *,
+    rank: int,
+    world: int,
+    time_index: int,
+    target_time: datetime,
+    status: str,
+    actual_time: str,
+) -> None:
+    """Append one per-slice processing record with an inter-process file lock."""
+    os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+    ts_utc = datetime.now(timezone.utc).isoformat()
+    line = (
+        f"{ts_utc},rank={rank}/{world},index={time_index},"
+        f"target={target_time.isoformat()},actual={actual_time},status={status}\n"
+    )
+    with open(log_path, "a", encoding="utf-8") as fout:
+        fcntl.flock(fout.fileno(), fcntl.LOCK_EX)
+        fout.write(line)
+        fout.flush()
+        fcntl.flock(fout.fileno(), fcntl.LOCK_UN)
+
+
 def fetch_to_zarr(
     source: MRMS,
     time_utc: datetime,
@@ -157,6 +182,9 @@ def fetch_to_zarr(
     time_index: int,
     root: zarr.Group,
     skip_if_filled: bool = True,
+    rank: int = 0,
+    world: int = 1,
+    log_path: str | None = None,
 ) -> bool:
     """Fetch one time slice and write it to Zarr.
 
@@ -164,6 +192,16 @@ def fetch_to_zarr(
     """
     epoch = np.datetime64("1970-01-01T00:00:00", "s")
     if skip_if_filled and root["time"][time_index] != epoch:
+        if log_path is not None:
+            _append_slice_log(
+                log_path,
+                rank=rank,
+                world=world,
+                time_index=time_index,
+                target_time=_ensure_utc(time_utc),
+                status="skip_filled",
+                actual_time="",
+            )
         return False
 
     t = _ensure_utc(time_utc)
@@ -178,11 +216,21 @@ def fetch_to_zarr(
         root["time"][time_index] = req_np
 
         if "actual_time" in da.coords:
-            root["actual_time"][time_index] = np.datetime64(
-                da.coords["actual_time"].values[0], "s"
-            )
+            actual_np = np.datetime64(da.coords["actual_time"].values[0], "s")
+            root["actual_time"][time_index] = actual_np
         else:
-            root["actual_time"][time_index] = req_np
+            actual_np = req_np
+            root["actual_time"][time_index] = actual_np
+        if log_path is not None:
+            _append_slice_log(
+                log_path,
+                rank=rank,
+                world=world,
+                time_index=time_index,
+                target_time=t,
+                status="ok",
+                actual_time=str(actual_np),
+            )
         return True
     except Exception as e:  # noqa: BLE001
         print(f"Error index={time_index} time={t.isoformat()} -> {e}")
@@ -190,6 +238,16 @@ def fetch_to_zarr(
             root[var][time_index, :, :] = np.nan
         root["time"][time_index] = epoch
         root["actual_time"][time_index] = epoch
+        if log_path is not None:
+            _append_slice_log(
+                log_path,
+                rank=rank,
+                world=world,
+                time_index=time_index,
+                target_time=t,
+                status=f"error:{type(e).__name__}",
+                actual_time=str(epoch),
+            )
         return True
 
 
@@ -205,6 +263,7 @@ def run_main(args: argparse.Namespace) -> None:
 
     out_path = os.path.join(args.output_dir, f"{year}.zarr")
     barrier_file = str(Path(args.output_dir) / f".mrms_{year}.init.done")
+    log_path = str(Path(args.output_dir) / f"processed_time_slices_{year}.txt")
 
     # Rank 0 initializes the store once, others wait.
     if rank == 0:
@@ -222,6 +281,9 @@ def run_main(args: argparse.Namespace) -> None:
         create_zarr_v3_store(out_path, n_steps, MRMS_VARIABLES, lat_size, lon_size)
         Path(barrier_file).parent.mkdir(parents=True, exist_ok=True)
         Path(barrier_file).write_text("ok")
+        with open(log_path, "a", encoding="utf-8") as fout:
+            if fout.tell() == 0:
+                fout.write("event_utc,rank,index,target,actual,status\n")
     else:
         wait_for_file(barrier_file)
 
@@ -234,7 +296,7 @@ def run_main(args: argparse.Namespace) -> None:
     )
 
     # Global-rank split (optionally shuffled for load balancing).
-    local_indices = wm.split(list(range(n_steps)), shuffle=True)
+    local_indices = wm.split(list(range(n_steps)), shuffle=False)
     t0 = time.time()
     wrote = 0
     for i in tqdm(local_indices, desc=f"Rank {rank}/{world}", disable=(rank != 0)):
@@ -246,6 +308,9 @@ def run_main(args: argparse.Namespace) -> None:
                 i,
                 root,
                 skip_if_filled=True,
+                rank=rank,
+                world=world,
+                log_path=log_path,
             )
         )
     t1 = time.time()
