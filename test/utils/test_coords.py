@@ -711,11 +711,14 @@ def test_cat_coords_errors():
     with pytest.raises(KeyError, match="Required dimension nonexistent not found"):
         cat_coords(xx, cox, yy, coy, dim="nonexistent")
 
-    # Test missing dimension in second coords (handshake_dim on coy)
+    # Test cox has extra dim (key-equality check catches mismatched dimension sets)
     cox_with_extra = cox.copy()
     cox_with_extra["extra_dim"] = np.array([0])
     xx_extra = torch.randn(1, 2, 1, 721, 1440)
-    with pytest.raises(KeyError, match="Required dimension extra_dim not found"):
+    with pytest.raises(
+        ValueError,
+        match="both input tensors have to have the same names in all dimensions",
+    ):
         cat_coords(xx_extra, cox_with_extra, yy, coy, dim="extra_dim")
 
     # Test mismatched non-cat coords (handshake_coords catches shape mismatch)
@@ -731,5 +734,21 @@ def test_cat_coords_errors():
     with pytest.raises(
         ValueError,
         match="Coordinate systems for required dim lat are not the same",
+    ):
+        cat_coords(xx, cox, yy_bad, coy_bad, dim="variable")
+
+    # Test mismatched dimension names
+    yy_bad = torch.randn(1, 1, 361, 1440)
+    coy_bad = OrderedDict(
+        {
+            "lead_time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    with pytest.raises(
+        ValueError,
+        match="both input tensors have to have the same names in all dimensions.",
     ):
         cat_coords(xx, cox, yy_bad, coy_bad, dim="variable")

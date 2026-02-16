@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed ISD data frame return to master schema
-- handshake_coords is now accepting list of dimensions whiule remaining backwards-compatible
+- handshake_coords is now accepting list of dimensions while remaining backwards-compatible
 
 ### Deprecated
 

@@ -569,9 +569,12 @@ def cat_coords(
         Tuple containing output tensor and coordinate OrderedDict from
         concatenated data.
     """
-    # make sure cat dim is present in both tensors
+    # make sure cat dim is present in both tensors and both tensors have same dimensions
     handshake_dim(cox, dim)
-    handshake_dim(coy, dim)
+    if not list(cox.keys()) == list(coy.keys()):
+        raise ValueError(
+            "both input tensors have to have the same names in all dimensions."
+        )
 
     # make sure all the other dimensions are of equal length
     handshake_coords(cox, coy, list(cox.keys() - {dim}))
