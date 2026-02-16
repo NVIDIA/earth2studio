@@ -150,9 +150,9 @@ class ARCO:
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
 
         if hasattr(self.zarr_group, 'attrs') and "valid_time_stop" in self.zarr_group.attrs:
-            self.ARCO_TIME_STOP = datetime.strptime(self.zarr_group.attrs['valid_time_stop'], '%Y-%m-%d')
+            ARCO.ARCO_TIME_STOP = datetime.strptime(self.zarr_group.attrs['valid_time_stop'], '%Y-%m-%d')
         else:
-            self.ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
+            ARCO.ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
         
         self.level_coords = await (await self.zarr_group.get("level")).getitem(
             slice(None)
