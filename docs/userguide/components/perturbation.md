@@ -6,7 +6,7 @@ Perturbations are an integral part of ensembling workflows and a variety are bui
 Earth2Studio. These can range from standard noise perturbations to more complex methods
 such as Bred Vector.
 
-The list of perturbation methods that are already built into Earth2studio can be found
+The list of perturbation methods that are already built into Earth2Studio can be found
 in the API documentation {ref}`earth2studio.perturbation`.
 
 ## Perturbation Interface
@@ -20,7 +20,7 @@ The full requirements for a perturbation method are defined explicitly in the
 ```
 
 :::{note}
-Perturbations methods modify the input tensor directly. They are not functions that just
+Perturbation methods modify the input tensor directly. They are not functions that just
 generate noise.
 :::
 
@@ -41,13 +41,13 @@ x, coords = perturb(x, coords)  # Predict a single time-step
 As discussed in the {ref}`data_userguide` section, data is always moved between
 components with physical units.
 This implies that all perturbation methods will apply noise onto unnormalized data.
-Naturally this is not ideal for many perturbation methods and its recommended users
-extend the perturbation methods to conclude the normalization (and subsequent
+Naturally this is not ideal for many perturbation methods and it's recommended users
+extend the perturbation methods to include the normalization (and subsequent
 denormalization).
 
 ## Custom Perturbation Methods
 
-Integrating your own perturbation only requires inplementing the interface above.
+Integrating your own perturbation only requires implementing the interface above.
 We recommend users have a look at the {ref}`extension_examples` examples, which will
 step users through the simple process of implementing their own perturbation method.
 
