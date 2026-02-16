@@ -305,15 +305,26 @@ def test_convert_multidim_to_singledim_error():
 
 def test_handshake_coords():
     """Test handshake_coords function"""
-    coords1 = OrderedDict([("lat", np.array([1, 2, 3]))])
-    coords2 = OrderedDict([("lat", np.array([1, 2, 3]))])
+    coords1 = OrderedDict(
+        [
+            ("lat", np.array([1, 2, 3])),
+            ("lon", np.array([4, 5, 6])),
+        ]
+    )
+    coords2 = OrderedDict(
+        [
+            ("lat", np.array([1, 2, 3])),
+            ("lon", np.array([4, 5, 6])),
+        ]
+    )
 
     # Should pass
     handshake_coords(coords1, coords2, "lat")
+    handshake_coords(coords1, coords2, ["lat", "lon"])
 
     # Test missing dimension in input coords
     with pytest.raises(KeyError, match="not found in input coordinates"):
-        handshake_coords(coords1, coords2, "lon")
+        handshake_coords(coords1, coords2, "variable")
 
     # Test missing dimension in target coords
     coords2 = OrderedDict([("lon", np.array([1, 2, 3]))])
