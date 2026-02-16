@@ -23,6 +23,7 @@ import pytest
 
 from earth2studio.data import (
     PlanetaryComputerECMWFOpenDataIFS,
+    PlanetaryComputerGOES,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
@@ -249,13 +250,13 @@ def test_planetary_computer_modis_fire_cache(cache: bool) -> None:
     "time,variable",
     [
         (
-            datetime(2025, 7, 28, tzinfo=timezone.utc),
+            datetime(2025, 7, 28),
             ["u10m", "z500"],
         ),
         (
             [
-                datetime(2025, 7, 27, tzinfo=timezone.utc),
-                datetime(2025, 7, 28, tzinfo=timezone.utc),
+                datetime(2025, 7, 27),
+                datetime(2025, 7, 28),
             ],
             "t2m",
         ),
@@ -269,4 +270,62 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
     variables = list(variable) if isinstance(variable, (list, tuple)) else [variable]
 
     assert data.shape == (len(times), len(variables), 721, 1440)
+    assert np.array_equal(data.coords["variable"].values, np.array(variables))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail()
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize(
+    "satellite,scan_mode,time,variable",
+    [
+        (
+            "goes16",
+            "C",
+            datetime(2022, 1, 13),
+            ["abi01c"],
+        ),
+        (
+            "goes16",
+            "F",
+            datetime(2022, 1, 13),
+            ["abi05c"],
+        ),
+        (
+            "goes18",
+            "C",
+            datetime(2024, 5, 9),
+            ["abi07c"],
+        ),
+        (
+            "goes18",
+            "F",
+            datetime(2024, 5, 9),
+            ["abi11c"],
+        ),
+        (
+            "goes19",
+            "C",
+            datetime(2025, 11, 13),
+            ["abi14c"],
+        ),
+        (
+            "goes19",
+            "F",
+            datetime(2025, 11, 13),
+            ["abi15c"],
+        ),
+    ],
+)
+def test_planetary_computer_goes_fetch(satellite, scan_mode, time, variable) -> None:
+    ds = PlanetaryComputerGOES(satellite, scan_mode, cache=False, verbose=False)
+    data = ds(time=time, variable=variable)
+
+    times = list(time) if isinstance(time, (list, tuple)) else [time]
+    variables = list(variable) if isinstance(variable, (list, tuple)) else [variable]
+
+    if scan_mode == "C":
+        assert data.shape == (len(times), len(variables), 1500, 2500)
+    else:
+        assert data.shape == (len(times), len(variables), 5424, 5424)
     assert np.array_equal(data.coords["variable"].values, np.array(variables))

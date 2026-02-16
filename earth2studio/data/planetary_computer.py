@@ -517,14 +517,15 @@ class _PlanetaryComputerData:
                 f"No Planetary Computer item found for {when.isoformat()} "
                 f"within ±{self._search_tolerance}"
             )
-        elif len(items) > 1:
-            logger.warning("Found more than one matching item, returning closest match")
-        else:
-            return items[0]
+        return self._select_item(items, when)
 
-        dts = [datetime.fromisoformat(item.properties["datetime"]) for item in items]
-        idx = min(range(len(dts)), key=lambda i: abs((dts[i] - when).total_seconds()))
-        return items[idx]
+    def _select_item(self, items: list[Item], when: datetime) -> Item:
+        """Simply return the first item."""
+        # Many but not all data sources have item.properties["datetime"], which can be used
+        # for selection. OISST only has 'end_datetime' and 'end_datetime', for example.
+        if len(items) > 1:
+            logger.warning("Found more than one matching item, returning first match")
+        return items[0]
 
     def _local_asset_path(self, href: str) -> pathlib.Path:
         """Resolve the cache path for a remote asset href."""
@@ -1151,6 +1152,14 @@ class PlanetaryComputerGOES(_PlanetaryComputerData):
             {"_lat": (("y", "x"), self._lat), "_lon": (("y", "x"), self._lon)}
         )
         return xr_array
+
+    def _select_item(self, items: list[Item], when: datetime) -> Item:
+        """Return the temporally closest item."""
+        if len(items) > 1:
+            logger.warning("Found more than one matching item, returning closest match")
+        dts = [datetime.fromisoformat(item.properties["datetime"]) for item in items]
+        idx = min(range(len(dts)), key=lambda i: abs((dts[i] - when).total_seconds()))
+        return items[idx]
 
     def _get_search_kwargs(self) -> dict:
         # Remap __init__ args, which are aligned with other GOES data source

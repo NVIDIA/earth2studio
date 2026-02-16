@@ -23,6 +23,7 @@ import pytest
 
 from earth2studio.lexicon import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
+    PlanetaryComputerGOESLexicon,
     PlanetaryComputerMODISFireLexicon,
     PlanetaryComputerOISSTLexicon,
     PlanetaryComputerSentinel3AODLexicon,
@@ -103,3 +104,14 @@ def test_planetary_computer_ifs_lexicon(variable: str) -> None:
         assert np.allclose(out, sample * 9.81)
     else:
         assert np.allclose(out, sample)
+
+
+@pytest.mark.parametrize("variable", ["abi01c", "abi05c", "abi16c"])
+def test_planetary_computer_goes_lexicon(variable: str) -> None:
+    """Check GOES lexicon mappings."""
+    label, modifier = PlanetaryComputerGOESLexicon[variable]
+    assert isinstance(label, str)
+
+    sample = np.random.rand(3, 3).astype(np.float32)
+    out = modifier(sample.copy())
+    assert np.allclose(out, sample)
