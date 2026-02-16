@@ -28,11 +28,11 @@ from earth2studio.data import (
     PlanetaryComputerSentinel3AOD,
 )
 from earth2studio.data.planetary_computer import _PlanetaryComputerData
-from earth2studio.lexicon.planetary_computer import OISSTLexicon
+from earth2studio.lexicon.planetary_computer import PlanetaryComputerOISSTLexicon
 
 
 def test_planetary_computer_base_init() -> None:
-    class DummyLexicon(OISSTLexicon):
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
         pass
 
     ds = _PlanetaryComputerData(
@@ -49,7 +49,7 @@ def test_planetary_computer_base_init() -> None:
 
 
 def test_planetary_computer_base_invalid_spatial_dims() -> None:
-    class DummyLexicon(OISSTLexicon):
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
         pass
 
     with pytest.raises(ValueError):
@@ -61,7 +61,7 @@ def test_planetary_computer_base_invalid_spatial_dims() -> None:
 
 
 def test_planetary_computer_base_extract_not_implemented() -> None:
-    class DummyLexicon(OISSTLexicon):
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
         pass
 
     ds = _PlanetaryComputerData(
