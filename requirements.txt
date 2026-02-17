@@ -227,7 +227,7 @@ partd==1.4.2
     # via dask
 pathspec==1.0.3
     # via hatchling
-pillow==11.3.0
+pillow==12.1.1
     # via bokeh
 pluggy==1.6.0
     # via hatchling
