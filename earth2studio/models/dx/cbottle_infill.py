@@ -91,13 +91,13 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : float, optional
-        Noise amplitude used to generate latent variables, by default 80
+        Noise amplitude used to generate latent variables, by default 200
     batch_size : int, optional
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
     seed : int | None, optional
-        If set, will fix the seed of the random generator for latent variables, by
-        default None
+        If set, will fix the seed of the random generator for latent variables (no
+        effect), by default None
     """
 
     output_variables = VARIABLES
@@ -108,7 +108,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         sst_ds: xr.Dataset,
         input_variables: list[str] | VariableArray,
         sampler_steps: int = 18,
-        sigma_max: float = 80,
+        sigma_max: float = 200,
         seed: int | None = None,
     ):
         super().__init__()
@@ -264,7 +264,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         package: Package,
         input_variables: list[str] | VariableArray = ["u10m", "v10m"],
         sampler_steps: int = 18,
-        sigma_max: float = 80,
+        sigma_max: float = 200,
     ) -> DiagnosticModel:
         """Load AI datasource from package
 
@@ -278,7 +278,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
-            Noise amplitude used to generate latent variables, by default 80
+            Noise amplitude used to generate latent variables, by default 200
 
         Returns
         -------
