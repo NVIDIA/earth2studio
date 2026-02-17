@@ -1761,8 +1761,8 @@ requires-dist = [
     { name = "flash-attn", marker = "extra == 'all'" },
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
-    { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db" },
-    { name = "fme", marker = "extra == 'all'", git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db" },
+    { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" },
+    { name = "fme", marker = "extra == 'all'", git = "https://github.com/ai2cm/ace.git?rev=e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" },
     { name = "fsspec", specifier = ">=2024.2.0" },
     { name = "gcsfs" },
     { name = "globus-sdk", marker = "extra == 'all'", specifier = "<4.0.0" },
@@ -2146,11 +2146,12 @@ wheels = [
 
 [[package]]
 name = "fme"
-version = "2025.10.0"
-source = { git = "https://github.com/ai2cm/ace.git?rev=a40f16bb4d985cdcd3234b1a540b4dd764b933db#a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
+version = "2026.1.1"
+source = { git = "https://github.com/ai2cm/ace.git?rev=e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d#e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
 dependencies = [
     { name = "cartopy" },
     { name = "dacite" },
+    { name = "einops" },
     { name = "gcsfs" },
     { name = "h5netcdf" },
     { name = "h5py" },

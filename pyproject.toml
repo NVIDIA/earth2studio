@@ -88,10 +88,10 @@ utils = [
 ]
 # PX Models
 ace2 = [
-    "pandas>=2.3.2",
     "fme",
-    "scipy>=1.15.2",
     "h5py<=3.14.0",
+    "pandas>=2.3.2",
+    "scipy>=1.15.2",
 ]
 aifs = [
     "anemoi-models==0.5.1",
@@ -251,7 +251,7 @@ earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "fd1a62b9f27aebbc793f0cbafd838a3811de43fd"}
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
-fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
+fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
