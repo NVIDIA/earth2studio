@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added functionality to dynamically fetch ARCO dataset valid time range from metadata
 - Added NOAA UFS observation dataframe sources for satellite and conventional data
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data
@@ -19,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Changed latest available date for ARCO data to be dynamically updated based on actual availability
+- Changed atest available date for ARCO data to be dynamically updated based on current
+  availability
 - Changed ISD data frame return to master schema
 
 ### Deprecated
