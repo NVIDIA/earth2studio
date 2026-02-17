@@ -268,7 +268,7 @@ for known suggestions/fixes related to this install process.
 ```bash
 export FORCE_CUDA_EXTENSION=1
 pip install --no-build-isolation torch-harmonics==0.8.0
-pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@28f38e3e929ed1303476518552c64673bbd6f722"
+pip install "makani @ git+https://github.com/NVIDIA/makani.git@fd1a62b9f27aebbc793f0cbafd838a3811de43fd"
 pip install earth2studio[fcn3]
 ```
 
@@ -368,14 +368,14 @@ uv add earth2studio --extra pangu
 ::::
 :::::
 :::::{tab-item} SFNO
-Notes: Requires [Modulus-Makani](https://github.com/NVIDIA/modulus-makani) to be
+Notes: Requires [Makani](https://github.com/NVIDIA/makani) to be
 installed manually.
 
 ::::{tab-set}
 :::{tab-item} pip
 
 ```bash
-pip install "makani @ git+https://github.com/NVIDIA/modulus-makani.git@28f38e3e929ed1303476518552c64673bbd6f722"
+pip install "makani @ git+https://github.com/NVIDIA/makani.git@fd1a62b9f27aebbc793f0cbafd838a3811de43fd"
 pip install earth2studio[sfno]
 ```
 
@@ -465,7 +465,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NickGeneva/cBottle.git@9250793894f8a9963f6968d62112884869fde3e1"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@1d4435abe730d6b966e983633b466b345d60ac78"
 pip install earth2studio[cbottle]
 ```
 
