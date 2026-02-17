@@ -369,7 +369,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             }
 
             # Use CBottle3d infill method
-            # Returns ((original_data, infilled_data), coords)
             infilled_data, _ = self.core_model.infill(
                 batch_slice,
                 # seed=None if self.seed is None else self.seed + i, # NO SEED SUPPORT!
