@@ -47,7 +47,7 @@ def load_default_package(cls) -> Package:
     """Default pre-trained model package.
 
     Returns
-    ----
+    -------
     Package
         Model package with default checkpoint location
     """
@@ -80,14 +80,14 @@ def load_model(
     """Load diagnostic from package.
 
     Parameters
-    ----
+    ----------
     package : Package
         Model package containing checkpoint files
     **kwargs
         Model-specific initialization parameters
 
     Returns
-    ----
+    -------
     DiagnosticModel
         Instantiated diagnostic model
     """
@@ -128,7 +128,7 @@ def input_coords(self) -> CoordSystem:
     """Input coordinate system of diagnostic model.
 
     Returns
-    ----
+    -------
     CoordSystem
         Coordinate system dictionary with "batch" as first dimension
     """
@@ -160,17 +160,17 @@ def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
     """Output coordinate system of diagnostic model.
 
     Parameters
-    ----
+    ----------
     input_coords : CoordSystem
         Input coordinate system to transform
 
     Returns
-    ----
+    -------
     CoordSystem
         Output coordinate system dictionary
 
     Raises
-    ---
+    ------
     ValueError
         If input_coords are not valid
     """
@@ -216,14 +216,14 @@ def __call__(
     """Forward pass of diagnostic model.
 
     Parameters
-    ----
+    ----------
     x : torch.Tensor
         Input tensor with shape matching input_coords
     coords : CoordSystem
         Input coordinate system
 
     Returns
-    ----
+    -------
     tuple[torch.Tensor, CoordSystem]
         Output tensor and coordinate system
     """
@@ -272,12 +272,12 @@ def to(self, device: torch.device | str) -> DiagnosticModel:
     """Move model to device.
 
     Parameters
-    ----
+    ----------
     device : torch.device | str
         Target device
 
     Returns
-    ----
+    -------
     DiagnosticModel
         Model on target device
     """
