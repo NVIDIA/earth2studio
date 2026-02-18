@@ -1,0 +1,316 @@
+---
+globs: earth2studio/data/*.py
+description: Earth2Studio DataFrame source implementation guidelines for pandas DataFrame sources with PyArrow schemas
+---
+
+# Earth2Studio DataFrame Sources
+
+This rule enforces DataFrame source implementation standards for Earth2Studio. DataFrame sources return pandas DataFrames instead of xarray DataArrays and are used for sparse/tabular observation data. **Most async patterns from [e2s-004-data-sources.mdc](mdc:.cursor/rules/e2s-004-data-sources.mdc) still apply** - this rule highlights the key differences.
+
+## DataFrame Source Protocol
+
+DataFrame sources must implement the `DataFrameSource` Protocol from [base.py](mdc:earth2studio/data/base.py):
+
+- `__call__(time, variable, fields=None) -> pd.DataFrame` - Synchronous interface
+- `async fetch(time, variable, fields=None) -> pd.DataFrame` - Async interface
+
+Both methods have the same API:
+- `time: datetime | list[datetime] | TimeArray`
+- `variable: str | list[str] | VariableArray`
+- `fields: str | list[str] | pa.Schema | None, optional` - Fields/columns to return
+- Returns: `pd.DataFrame` with columns matching the requested fields
+
+## Key Differences from DataArray Sources
+
+### 1. PyArrow Schema Definition
+
+DataFrame sources **MUST** define a `SCHEMA` class attribute with a PyArrow schema:
+
+```python
+class MyDataFrameSource:
+    SOURCE_ID = "earth2studio.data.MyDataFrameSource"
+    SCHEMA = pa.schema(
+        [
+            pa.field("time", pa.timestamp("ns"), metadata={"source_name": "Time"}),
+            pa.field("lat", pa.float32(), metadata={"source_name": "Latitude"}),
+            pa.field("lon", pa.float32(), metadata={"source_name": "Longitude"}),
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
+            # ... other fields
+        ]
+    )
+```
+
+### 2. API Signature Includes `fields` Parameter
+
+The `__call__` and `async fetch` methods include an optional `fields` parameter:
+
+```python
+def __call__(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Fetch observations for a set of timestamps.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    variable : str | list[str] | VariableArray
+        DataFrame column names to return.
+    fields : str | list[str] | pa.Schema | None, optional
+        Fields to include in output, by default None (all fields).
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame with the requested columns
+    """
+```
+
+### 3. Use `prep_data_inputs` for Time and Variable
+
+DataFrame sources use `prep_data_inputs` (same as DataArray sources):
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    time_list, variable_list = prep_data_inputs(time, variable)
+    schema = self.resolve_fields(fields)
+    # ... rest of implementation
+```
+
+### 4. `resolve_fields` Method
+
+Implement a `resolve_fields` classmethod to handle the `fields` parameter:
+
+```python
+@classmethod
+def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+    """Convert fields parameter into a validated PyArrow schema.
+
+    Parameters
+    ----------
+    fields : str | list[str] | pa.Schema | None
+        Field specification. Can be:
+        - None: Returns the full class SCHEMA
+        - str: Single field name to select from SCHEMA
+        - list[str]: List of field names to select from SCHEMA
+        - pa.Schema: Validated against class SCHEMA for compatibility
+
+    Returns
+    -------
+    pa.Schema
+        A PyArrow schema containing only the requested fields
+
+    Raises
+    ------
+    KeyError
+        If a requested field name is not found in the class SCHEMA
+    TypeError
+        If a field type in the provided schema doesn't match the class SCHEMA
+    """
+    if fields is None:
+        return cls.SCHEMA
+
+    if isinstance(fields, str):
+        fields = [fields]
+
+    if isinstance(fields, pa.Schema):
+        # Validate provided schema against class schema
+        for field in fields:
+            if field.name not in cls.SCHEMA.names:
+                raise KeyError(
+                    f"Field '{field.name}' not found in class SCHEMA. "
+                    f"Available fields: {cls.SCHEMA.names}"
+                )
+            expected_type = cls.SCHEMA.field(field.name).type
+            if field.type != expected_type:
+                raise TypeError(
+                    f"Field '{field.name}' has type {field.type}, "
+                    f"expected {expected_type} from class SCHEMA"
+                )
+        return fields
+
+    # fields is list[str] - select fields from class schema
+    selected_fields = []
+    for name in fields:
+        if name not in cls.SCHEMA.names:
+            raise KeyError(
+                f"Field '{name}' not found in class SCHEMA. "
+                f"Available fields: {cls.SCHEMA.names}"
+            )
+        selected_fields.append(cls.SCHEMA.field(name))
+
+    return pa.schema(selected_fields)
+```
+
+### 5. DataFrame Compilation Pattern
+
+DataFrame sources compile data from multiple files/tasks into a single DataFrame:
+
+```python
+def _compile_dataframe(
+    self,
+    async_tasks: list[TaskType],
+    variables: list[str],
+    schema: pa.Schema,
+) -> pd.DataFrame:
+    """Compile fetched data into a DataFrame."""
+    frames: list[pd.DataFrame] = []
+    for task in async_tasks:
+        # Build column mapping from source names to schema names
+        column_map = self._build_column_map(schema)
+
+        # Load data from cached file
+        local_path = self.cache_path(task.file_uri)
+        if not pathlib.Path(local_path).is_file():
+            logger.warning("Cached file missing for {}", task.file_uri)
+            continue
+
+        # Read data (e.g., from HDF5/NetCDF)
+        with h5netcdf.File(local_path, "r") as ds:
+            data: dict[str, np.ndarray] = {}
+            for name, dset in ds.variables.items():
+                if name not in column_map:
+                    continue
+                values = np.asarray(dset[:])
+                pa_type = schema.field(column_map[name]).type
+                # Apply transformations
+                values = self._transform_column(name, values, task, ds)
+                data[name] = pa.array(values, type=pa_type)
+
+        df = pd.DataFrame(data)
+        df.rename(columns=column_map, inplace=True)
+
+        # Add Earth2Studio columns
+        df["variable"] = task.e2s_obs_name
+        df.attrs["source"] = self.SOURCE_ID
+
+        # Filter by time range
+        mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
+        df = df.loc[mask]
+
+        frames.append(task.modifier(df))
+
+    result = pd.concat(frames, ignore_index=True)
+    # Return only requested fields
+    return result[[name for name in schema.names if name in result.columns]]
+```
+
+### 6. Column Mapping Pattern
+
+Use metadata in schema fields to map from source column names to schema names:
+
+```python
+def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+    """Build mapping from source column names to schema column names."""
+    column_map = {}
+    for field in schema:
+        if field.metadata is None or b"source_name" not in field.metadata:
+            continue
+        column_map[field.metadata[b"source_name"].decode("utf-8")] = field.name
+    # Always include time field for filtering
+    time_field = self.SCHEMA.field("time")
+    column_map[time_field.metadata[b"source_name"].decode("utf-8")] = time_field.name
+    return column_map
+```
+
+### 7. Complete Async Fetch Example
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Async function to get data."""
+    if self.fs is None:
+        raise ValueError(
+            "File store is not initialized! If you are calling this "
+            "function directly make sure the data source is initialized inside the async loop!"
+        )
+
+    # Set session for s3fs
+    session = await self.fs.set_session(refresh=True)
+
+    # Normalize inputs
+    time_list, variable_list = prep_data_inputs(time, variable)
+    self._validate_time(time_list)
+    schema = self.resolve_fields(fields)
+    pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+    # Create async tasks
+    async_tasks = self._create_tasks(time_list, variable_list)
+
+    # Fetch unique files
+    file_uri_set = {task.file_uri for task in async_tasks}
+    fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
+    await tqdm.gather(
+        *fetch_jobs, desc="Fetching files", disable=(not self._verbose)
+    )
+
+    # Close session
+    if session:
+        await session.close()
+
+    # Compile DataFrame from fetched files
+    df = self._compile_dataframe(async_tasks, variable_list, schema)
+
+    return df
+```
+
+## Required Abstract Methods
+
+Subclasses must implement:
+
+- `_create_tasks(time_list, variable) -> list[TaskType]` - Create async tasks
+- `_transform_column(name, values, task, ds) -> np.ndarray` - Transform column values
+- `_add_task_columns(df, task) -> None` - Add task-specific columns (optional)
+
+## Schema Field Metadata
+
+Use PyArrow field metadata to map source column names:
+
+```python
+pa.field(
+    "lat",
+    pa.float32(),
+    metadata={"source_name": "Latitude"}  # Maps "Latitude" in source to "lat" in schema
+)
+```
+
+## Shared Patterns with DataArray Sources
+
+All async patterns from [e2s-004-data-sources.mdc](mdc:.cursor/rules/e2s-004-data-sources.mdc) still apply:
+
+- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`)
+- ✅ Cache property implementation
+- ✅ Async initialization pattern with `_async_init`
+- ✅ Synchronous `__call__` method pattern
+- ✅ S3FS configuration (`skip_instance_cache=True`)
+- ✅ Session management for s3fs (set before fetch, close after)
+- ✅ Use of `nest_asyncio.apply()` for notebook compatibility
+- ✅ Progress bars with `tqdm.gather`
+- ✅ Use `prep_data_inputs` for time and variable normalization
+- ✅ Time validation with `_validate_time`
+
+## Reminders
+
+- **Key difference**: Return `pd.DataFrame` instead of `xr.DataArray`
+- **Schema**: Must define `SCHEMA` class attribute with PyArrow schema
+- **Fields parameter**: Implement `resolve_fields` to handle field selection
+- **Column mapping**: Use schema field metadata to map source names to schema names
+- **DataFrame compilation**: Compile data from multiple files into single DataFrame
+- **Required columns**: Always include `variable` column and set `df.attrs["source"]`
+- **Time filtering**: Filter observations by time range after loading
+- All async patterns from data sources rule apply
+
+- **Documentation**: Add the DataFrame source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "DataFrame Sources" section, maintaining alphabetical order
