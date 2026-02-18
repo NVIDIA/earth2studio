@@ -522,7 +522,7 @@ class _PlanetaryComputerData:
     def _select_item(self, items: list[Item], when: datetime) -> Item:
         """Simply return the first item."""
         # Many but not all data sources have item.properties["datetime"], which can be used
-        # for selection. OISST only has 'end_datetime' and 'end_datetime', for example.
+        # for selection. OISST only has 'start_datetime' and 'end_datetime', for example.
         if len(items) > 1:
             logger.warning("Found more than one matching item, returning first match")
         return items[0]
