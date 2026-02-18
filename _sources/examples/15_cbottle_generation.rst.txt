@@ -84,7 +84,7 @@ Thus, we need the following:
 
     # Load the default model package which downloads the check point from NGC
     package = CBottle3D.load_default_package()
-    cbottle_ds = CBottle3D.load_model(package, seed=0)
+    cbottle_ds = CBottle3D.load_model(package, seed=None)
     # This is an AI data source, so also move it to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     cbottle_ds = cbottle_ds.to(device)
@@ -93,7 +93,7 @@ Thus, we need the following:
     era5_ds = WB2ERA5()
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 84-94
+.. GENERATED FROM PYTHON SOURCE LINES 84-93
 
 Generating Synthetic Weather Data
 ---------------------------------
@@ -104,9 +104,8 @@ data source to years between 1970 and 2022.
 
 Note that this diffusion model is stochastic, so querying the same timestamp will
 generate different fields that are reflective of the requested time and SST state.
-One can use `set_seed` for reproducibility.
 
-.. GENERATED FROM PYTHON SOURCE LINES 96-110
+.. GENERATED FROM PYTHON SOURCE LINES 95-109
 
 .. code-block:: Python
 
@@ -125,7 +124,7 @@ One can use `set_seed` for reproducibility.
     print(cbottle_da)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-119
+.. GENERATED FROM PYTHON SOURCE LINES 110-118
 
 Post Processing CBottle Data
 ----------------------------
@@ -136,7 +135,7 @@ In other words the cBottle data source can be used to create climates that
 do not exist but could based on the conditional distribution learned from the training
 data.
 
-.. GENERATED FROM PYTHON SOURCE LINES 121-161
+.. GENERATED FROM PYTHON SOURCE LINES 120-160
 
 .. code-block:: Python
 
@@ -181,7 +180,7 @@ data.
     plt.savefig("outputs/15_tcwv_cbottle_datasource.jpg")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 162-174
+.. GENERATED FROM PYTHON SOURCE LINES 161-173
 
 Variable Infilling with CBottleInfill Diagnostic
 ------------------------------------------------
@@ -196,7 +195,7 @@ different set of inputs and then compare the resulting infilled variables.
 Note that the outputs of both configurations are the same size with the same
 variables.
 
-.. GENERATED FROM PYTHON SOURCE LINES 176-197
+.. GENERATED FROM PYTHON SOURCE LINES 175-195
 
 .. code-block:: Python
 
@@ -212,7 +211,6 @@ variables.
     model = CBottleInfill.load_model(package, input_variables=input_variables)
     model = model.to(device)
 
-    model.set_seed(0)
     torch.manual_seed(0)
     torch.cuda.manual_seed(0)
 
@@ -222,13 +220,13 @@ variables.
     print(output_0.shape)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 198-201
+.. GENERATED FROM PYTHON SOURCE LINES 196-199
 
 Now repeat the process above but with an expanded set of variables.
 In this instance we provide a lot more data to the model to condition it with more
 information.
 
-.. GENERATED FROM PYTHON SOURCE LINES 203-232
+.. GENERATED FROM PYTHON SOURCE LINES 201-229
 
 .. code-block:: Python
 
@@ -253,7 +251,6 @@ information.
     model = CBottleInfill.load_model(package, input_variables=input_variables)
     model = model.to(device)
 
-    model.set_seed(0)
     torch.manual_seed(0)
     torch.cuda.manual_seed(0)
 
@@ -262,7 +259,7 @@ information.
     print(output_1.shape)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 233-241
+.. GENERATED FROM PYTHON SOURCE LINES 230-238
 
 Post Processing CBottleInfill
 -----------------------------
@@ -273,7 +270,7 @@ the ground truth since the infill model is sampling a conditional distribution.
 Additionally, the model provided more variables is better aligned with the ground
 truth due the additional information provided.
 
-.. GENERATED FROM PYTHON SOURCE LINES 243-294
+.. GENERATED FROM PYTHON SOURCE LINES 240-291
 
 .. code-block:: Python
 
@@ -303,7 +300,7 @@ truth due the additional information provided.
             vmin=vrange[0],
             vmax=vrange[1],
             transform=ccrs.PlateCarree(),
-            levels=20,
+            levels=12,
             cmap=cmap,
         )
         ax0.coastlines()
