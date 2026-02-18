@@ -88,10 +88,10 @@ utils = [
 ]
 # PX Models
 ace2 = [
-    "pandas>=2.3.2",
     "fme",
-    "scipy>=1.15.2",
     "h5py<=3.14.0",
+    "pandas>=2.3.2",
+    "scipy>=1.15.2",
 ]
 aifs = [
     "anemoi-models==0.5.1",
@@ -205,6 +205,7 @@ corrdiff = [
 ]
 cyclone = [
     "cucim-cu12>=25.4.0",
+    "cupy-cuda12x<14.0.0", # 14.0.0 has some odd issue, thrust needs c++17, need to revisit
     "scikit-image>=0.25.2",
 ]
 derived = []
@@ -246,12 +247,12 @@ natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
-cbottle = { git = "https://github.com/NickGeneva/cBottle.git", rev = "2efe844e772b5075f06f358eeeab587423628b61" }
+cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "1d4435abe730d6b966e983633b466b345d60ac78" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
-makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed1303476518552c64673bbd6f722"}
+makani = { git = "https://github.com/NVIDIA/makani.git", rev = "fd1a62b9f27aebbc793f0cbafd838a3811de43fd"}
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
-fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
+fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
