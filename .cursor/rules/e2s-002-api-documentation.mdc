@@ -1,0 +1,244 @@
+---
+globs: earth2studio/**/*.py,examples/**/*.py
+description: Earth2Studio API documentation and docstring guidelines using NumPy style
+---
+
+# Earth2Studio API Documentation
+
+This rule enforces API documentation standards for Earth2Studio as defined in [documentation.md](mdc:docs/userguide/developer/documentation.md).
+
+## Requirements
+
+**API documentation (docstrings) are REQUIRED** for all public Earth2Studio classes and functions. [Interrogate](https://github.com/econchick/interrogate) is used to enforce that all public methods are documented.
+
+**Private functions and classes (those starting with `_`) should NOT have docstrings** - they are internal implementation details and do not need documentation.
+
+## Docstring Style
+
+**Use [NumPy style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings** in all Python files.
+
+## Formatting Rules
+
+### 1. Opening Quote
+
+- ✅ **DO**: Start the description on the same line as the first `"""`
+- ❌ **DON'T**: Put description on a new line after `""`
+
+```python
+# ✅ Correct
+def my_function(x: int) -> str:
+    """Convert integer to string representation.
+
+    Parameters
+    ----------
+    ...
+    """
+
+# ❌ Wrong
+def my_function(x: int) -> str:
+    """
+    Convert integer to string representation.
+
+    Parameters
+    ----------
+    ...
+    """
+```
+
+### 2. Class Docstrings
+
+- ✅ **DO**: Place class docstrings under the class definition
+- ❌ **DON'T**: Place class docstrings under the `__init__` function
+
+```python
+# ✅ Correct
+class MyClass:
+    """Brief description of the class.
+
+    Longer description can go here.
+
+    Parameters
+    ----------
+    param1 : str
+        Description of param1
+    """
+
+    def __init__(self, param1: str):
+        ...
+
+# ❌ Wrong
+class MyClass:
+    def __init__(self, param1: str):
+        """Brief description of the class.
+
+        Parameters
+        ----------
+        param1 : str
+            Description of param1
+        """
+        ...
+```
+
+### 3. Type Hints in Docstrings
+
+- ✅ **DO**: Include type hints in docstrings for each input argument and returned object
+- ✅ **DO**: Match the type hints from the function signature
+
+```python
+def fetch_data(
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+) -> xr.DataArray:
+    """Fetch data from a data source.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Time or times to fetch data for
+    variable : str | list[str] | VariableArray
+        Variable or variables to fetch
+
+    Returns
+    -------
+    xr.DataArray
+        Data array containing the requested data
+    """
+```
+
+### 4. Optional Arguments
+
+- ✅ **DO**: Denote optional/keyword arguments with `optional` following the type hint
+- ✅ **DO**: Provide default value with ", by default [default value]"
+- ✅ **DO**: Omit period after "by default [default value]"
+
+```python
+def process_data(
+    data: torch.Tensor,
+    normalize: bool = True,
+    threshold: float = 0.5,
+) -> torch.Tensor:
+    """Process input data tensor.
+
+    Parameters
+    ----------
+    data : torch.Tensor
+        Input data tensor to process
+    normalize : bool, optional
+        Whether to normalize the data, by default True
+    threshold : float, optional
+        Threshold value for processing, by default 0.5
+
+    Returns
+    -------
+    torch.Tensor
+        Processed data tensor
+    """
+```
+
+### 5. Punctuation
+
+- ✅ **DO**: Use periods at the end of complete sentences
+- ✅ **DO**: Omit periods after "by default [default value]" or incomplete sentences
+
+```python
+# ✅ Correct
+def example(
+    param1: str,
+    param2: int = 10,
+) -> bool:
+    """Brief description of the function.
+
+    Longer description with complete sentences. This is a complete sentence.
+    Another complete sentence here.
+
+    Parameters
+    ----------
+    param1 : str
+        Description of param1 is a complete sentence.
+    param2 : int, optional
+        Description of param2, by default 10
+
+    Returns
+    -------
+    bool
+        Return value description is a complete sentence.
+    """
+```
+
+### 6. Sections
+
+Common sections in NumPy style docstrings:
+
+- `Parameters` - Function/class parameters
+- `Returns` - Return value(s)
+- `Raises` - Exceptions that may be raised
+- `Warning` - Important warnings (for classes)
+- `Note` - Additional notes
+- `Examples` - Usage examples (optional)
+
+## Complete Examples
+
+### Function Example
+
+```python
+def timearray_to_datetime(time: TimeArray) -> list[datetime]:
+    """Simple converter from numpy datetime64 array into a list of datetimes.
+
+    Parameters
+    ----------
+    time : TimeArray
+        Numpy datetime64 array
+
+    Returns
+    -------
+    list[datetime]
+        List of datetime object
+    """
+```
+
+### Class Example
+
+```python
+class CorrelatedSphericalGaussian:
+    """Produces Gaussian random field on the sphere with Matern covariance peturbation
+    method output to a lat lon grid.
+
+    Warning
+    -------
+    Presently this method generates noise on equirectangular grid of size [N, 2*N] when
+    N is even or [N+1, 2*N] when N is odd.
+
+    Parameters
+    ----------
+    noise_amplitude : float | torch.Tensor
+        Overall amplitude scaling factor for the noise field. Must be provided.
+    sigma : float, optional
+        Standard deviation of the noise field, by default 1.0
+    length_scale : float, optional
+        Spatial correlation length scale in meters, by default 5.0e5
+    time_scale : float, optional
+        Temporal correlation scale in hours for the AR(1) process, by default 48.0
+
+    Raises
+    ------
+    ValueError
+        If noise_amplitude is not provided
+    """
+```
+
+## Reminders
+
+- All **public** classes and functions MUST have docstrings
+- **Private** functions and classes (starting with `_`) should NOT have docstrings
+- Use NumPy style docstrings consistently
+- Description starts on the same line as `"""`
+- Class docstrings go under the class definition, not `__init__`
+- Include type hints in docstrings matching function signatures
+- Use `optional` for optional parameters with ", by default [value]"
+- Use periods for complete sentences, omit for "by default" phrases
+- Include `Raises` section when exceptions are raised
+- Include `Warning` section for classes with important warnings
+
+## Tools
+
+For VSCode users, the [autoDocstring extension](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring) is highly encouraged to generate docstring templates.
