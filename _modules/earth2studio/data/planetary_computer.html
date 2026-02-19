@@ -444,23 +444,26 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TypeVar</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlparse</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">nest_asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">netCDF4</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pygrib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GOES</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasource_cache_root</span><span class="p">,</span> <span class="n">prep_data_inputs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">LexiconType</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.lexicon.planetary_computer</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ECMWFOpenDataIFSLexicon</span><span class="p">,</span>
-    <span class="n">MODISFireLexicon</span><span class="p">,</span>
-    <span class="n">OISSTLexicon</span><span class="p">,</span>
-    <span class="n">Sentinel3AODLexicon</span><span class="p">,</span>
+    <span class="n">PlanetaryComputerECMWFOpenDataIFSLexicon</span><span class="p">,</span>
+    <span class="n">PlanetaryComputerGOESLexicon</span><span class="p">,</span>
+    <span class="n">PlanetaryComputerMODISFireLexicon</span><span class="p">,</span>
+    <span class="n">PlanetaryComputerOISSTLexicon</span><span class="p">,</span>
+    <span class="n">PlanetaryComputerSentinel3AODLexicon</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
@@ -472,6 +475,7 @@
     <span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">planetary_computer</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pystac</span><span class="w"> </span><span class="kn">import</span> <span class="n">Item</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">pystac_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
@@ -479,6 +483,7 @@
     <span class="n">Client</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">planetary_computer</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">rioxarray</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Item</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;Item&quot;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -825,7 +830,7 @@
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_asset_plans</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">item</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">item</span><span class="p">:</span> <span class="n">Item</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">VariableSpec</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">AssetPlan</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create download plans for the STAC item that fulfil the requested variables.</span>
@@ -904,7 +909,7 @@
                     <span class="sa">f</span><span class="s2">&quot;Failed to download asset </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">signed_href</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_locate_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">when</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_locate_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">when</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Item</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Locate the closest STAC item to ``when`` within the configured tolerance.&quot;&quot;&quot;</span>
         <span class="c1"># Ensure the client is initialized</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -922,18 +927,23 @@
         <span class="n">search</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
             <span class="n">collections</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_collection_id</span><span class="p">],</span>
             <span class="n">datetime</span><span class="o">=</span><span class="n">datetime_param</span><span class="p">,</span>
-            <span class="n">max_items</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_kwargs</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_search_kwargs</span><span class="p">(),</span>
         <span class="p">)</span>
 
         <span class="c1"># Return the first item</span>
-        <span class="n">items</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Item</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">search</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;No Planetary Computer item found for </span><span class="si">{</span><span class="n">when</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2"> &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;within ±</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_search_tolerance</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_item</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="n">when</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Item</span><span class="p">],</span> <span class="n">when</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Item</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Simply return the first item.&quot;&quot;&quot;</span>
+        <span class="c1"># Many but not all data sources have item.properties[&quot;datetime&quot;], which can be used</span>
+        <span class="c1"># for selection. OISST only has &#39;start_datetime&#39; and &#39;end_datetime&#39;, for example.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Found more than one matching item, returning first match&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">items</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
@@ -955,6 +965,10 @@
 <span class="sd">            List of date times to fetch data for.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_search_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the asset search parameters for the PySTAC client.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_kwargs</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -1011,7 +1025,7 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
             <span class="n">asset_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ASSET_KEY</span><span class="p">,</span>
-            <span class="n">lexicon</span><span class="o">=</span><span class="n">OISSTLexicon</span><span class="p">,</span>
+            <span class="n">lexicon</span><span class="o">=</span><span class="n">PlanetaryComputerOISSTLexicon</span><span class="p">,</span>
             <span class="n">search_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">search_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SEARCH_TOLERANCE</span><span class="p">,</span>
             <span class="n">spatial_dims</span><span class="o">=</span><span class="p">{</span>
@@ -1099,7 +1113,7 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
             <span class="n">asset_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ASSET_KEY</span><span class="p">,</span>
-            <span class="n">lexicon</span><span class="o">=</span><span class="n">Sentinel3AODLexicon</span><span class="p">,</span>
+            <span class="n">lexicon</span><span class="o">=</span><span class="n">PlanetaryComputerSentinel3AODLexicon</span><span class="p">,</span>
             <span class="n">search_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">search_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SEARCH_TOLERANCE</span><span class="p">,</span>
             <span class="n">spatial_dims</span><span class="o">=</span><span class="p">{</span>
@@ -1190,6 +1204,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">COLLECTION_ID</span> <span class="o">=</span> <span class="s2">&quot;modis-14A1-061&quot;</span>
+    <span class="n">ASSET_KEY</span> <span class="o">=</span> <span class="s2">&quot;FireMask&quot;</span>
     <span class="n">SEARCH_TOLERANCE</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
     <span class="n">TILE_SIZE</span> <span class="o">=</span> <span class="mi">1200</span>
     <span class="n">PIXEL_SIZE_M</span> <span class="o">=</span> <span class="mf">926.625433138</span>
@@ -1225,8 +1240,8 @@
         <span class="p">}</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
-            <span class="n">asset_key</span><span class="o">=</span><span class="s2">&quot;FireMask&quot;</span><span class="p">,</span>
-            <span class="n">lexicon</span><span class="o">=</span><span class="n">MODISFireLexicon</span><span class="p">,</span>
+            <span class="n">asset_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ASSET_KEY</span><span class="p">,</span>
+            <span class="n">lexicon</span><span class="o">=</span><span class="n">PlanetaryComputerMODISFireLexicon</span><span class="p">,</span>
             <span class="n">search_kwargs</span><span class="o">=</span><span class="n">tile_filter</span><span class="p">,</span>
             <span class="n">search_tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SEARCH_TOLERANCE</span><span class="p">,</span>
             <span class="n">spatial_dims</span><span class="o">=</span><span class="p">{</span>
@@ -1380,7 +1395,7 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
             <span class="n">asset_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ASSET_KEY</span><span class="p">,</span>
-            <span class="n">lexicon</span><span class="o">=</span><span class="n">ECMWFOpenDataIFSLexicon</span><span class="p">,</span>
+            <span class="n">lexicon</span><span class="o">=</span><span class="n">PlanetaryComputerECMWFOpenDataIFSLexicon</span><span class="p">,</span>
             <span class="n">search_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">SEARCH_KWARGS</span><span class="p">,</span>
             <span class="n">data_dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
             <span class="n">spatial_dims</span><span class="o">=</span><span class="p">{</span>
@@ -1460,6 +1475,190 @@
             <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">MIN_TIME</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Requested start time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be at least </span><span class="si">{</span><span class="n">MIN_TIME</span><span class="si">}</span><span class="s2"> for IFS&quot;</span>
+                <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PlanetaryComputerGOES">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html#earth2studio.data.PlanetaryComputerGOES">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PlanetaryComputerGOES</span><span class="p">(</span><span class="n">_PlanetaryComputerData</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    satellite : str, optional</span>
+<span class="sd">        Which GOES satellite to use (&#39;goes16&#39;, &#39;goes17&#39;, &#39;goes18&#39;, or &#39;goes19&#39;), by default &#39;goes16&#39;</span>
+<span class="sd">    scan_mode : str, optional</span>
+<span class="sd">        For ABI: Scan mode (&#39;F&#39; for Full Disk, &#39;C&#39; for Continental US)</span>
+<span class="sd">        Mesoscale data is currently not supported due to the changing scan position.</span>
+<span class="sd">    cache : bool, optional</span>
+<span class="sd">        Cache data source on local memory, by default True</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Whether to print progress information, by default True</span>
+<span class="sd">    max_workers : int, optional</span>
+<span class="sd">        Upper bound on concurrent download and processing tasks, by default 24</span>
+<span class="sd">    request_timeout : int, optional</span>
+<span class="sd">        Timeout (seconds) applied to individual HTTP requests, by default 60</span>
+<span class="sd">    max_retries : int, optional</span>
+<span class="sd">        Maximum retry attempts for transient network failures, by default 4</span>
+<span class="sd">    async_timeout : int, optional</span>
+<span class="sd">        Time in sec after which download will be cancelled if not finished successfully,</span>
+<span class="sd">        by default 600</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Please see ``earth2studio.data.goes.GOES`` for further details.</span>
+<span class="sd">    This data source exposes the MCMIP products but not the full-resolution CMIP products.</span>
+<span class="sd">    Additional information on the data repository can be referenced here:</span>
+
+<span class="sd">    - https://planetarycomputer.microsoft.com/dataset/goes-cmi</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">COLLECTION_ID</span> <span class="o">=</span> <span class="s2">&quot;goes-cmi&quot;</span>
+    <span class="n">ASSET_KEY</span> <span class="o">=</span> <span class="s2">&quot;MCMIP-nc&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">satellite</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;goes16&quot;</span><span class="p">,</span>
+        <span class="n">scan_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span>
+        <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">max_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">24</span><span class="p">,</span>
+        <span class="n">request_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_PlanetaryComputerData</span><span class="o">.</span><span class="n">DEFAULT_TIMEOUT</span><span class="p">,</span>
+        <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_PlanetaryComputerData</span><span class="o">.</span><span class="n">DEFAULT_RETRIES</span><span class="p">,</span>
+        <span class="n">async_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_PlanetaryComputerData</span><span class="o">.</span><span class="n">DEFAULT_ASYNC_TIMEOUT</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">GOES</span><span class="o">.</span><span class="n">_validate_satellite_scan_mode</span><span class="p">(</span><span class="n">satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scan_mode</span> <span class="o">==</span> <span class="s2">&quot;F&quot;</span><span class="p">:</span>
+            <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">FULL_DISK_YX</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">CONTINENTAL_US_YX</span><span class="p">[</span><span class="n">satellite</span><span class="p">]</span>
+        <span class="n">scan_freq</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">SCAN_TIME_FREQUENCY</span><span class="p">[</span><span class="n">scan_mode</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">satellite</span> <span class="o">==</span> <span class="s2">&quot;goes17&quot;</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;GOES-17 data on Planetary Computer is incomplete, &quot;</span>
+                <span class="s2">&quot;consider using &#39;earth2studio.data.goes.GOES&#39; instead&quot;</span>
+            <span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
+            <span class="n">asset_key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ASSET_KEY</span><span class="p">,</span>
+            <span class="n">lexicon</span><span class="o">=</span><span class="n">PlanetaryComputerGOESLexicon</span><span class="p">,</span>
+            <span class="n">search_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">search_tolerance</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">scan_freq</span><span class="p">),</span>
+            <span class="n">data_dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+            <span class="n">spatial_dims</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">,</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">max_workers</span><span class="o">=</span><span class="n">max_workers</span><span class="p">,</span>
+            <span class="n">request_timeout</span><span class="o">=</span><span class="n">request_timeout</span><span class="p">,</span>
+            <span class="n">max_retries</span><span class="o">=</span><span class="n">max_retries</span><span class="p">,</span>
+            <span class="n">async_timeout</span><span class="o">=</span><span class="n">async_timeout</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span> <span class="o">=</span> <span class="n">satellite</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span> <span class="o">=</span> <span class="n">scan_mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">satellite</span><span class="o">=</span><span class="n">satellite</span><span class="p">,</span> <span class="n">scan_mode</span><span class="o">=</span><span class="n">scan_mode</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PlanetaryComputerGOES.fetch">
+<a class="viewcode-back" href="../../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html#earth2studio.data.PlanetaryComputerGOES.fetch">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="n">TimeArray</span><span class="p">,</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Async function to get data</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        time : datetime | list[datetime] | TimeArray</span>
+<span class="sd">            Timestamps to return data for (UTC).</span>
+<span class="sd">        variable : str | list[str] | VariableArray</span>
+<span class="sd">            String, list of strings or array of strings that refer to variables to</span>
+<span class="sd">            return. Must be in the data source&#39;s lexicon.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Plantary computer data array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+        <span class="n">xr_array</span> <span class="o">=</span> <span class="n">xr_array</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;_lat&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">),</span> <span class="s2">&quot;_lon&quot;</span><span class="p">:</span> <span class="p">((</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span><span class="p">)}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">xr_array</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Item</span><span class="p">],</span> <span class="n">when</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Item</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the temporally closest item.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Found more than one matching item, returning closest match&quot;</span><span class="p">)</span>
+        <span class="n">dts</span> <span class="o">=</span> <span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;datetime&quot;</span><span class="p">])</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dts</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="nb">abs</span><span class="p">((</span><span class="n">dts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">when</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="n">items</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_search_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="c1"># Remap __init__ args, which are aligned with other GOES data source</span>
+        <span class="n">image_type</span> <span class="o">=</span> <span class="s2">&quot;FULL DISK&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span> <span class="o">==</span> <span class="s2">&quot;F&quot;</span> <span class="k">else</span> <span class="s2">&quot;CONUS&quot;</span>
+        <span class="n">satellite</span> <span class="o">=</span> <span class="s2">&quot;GOES-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;platform&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;eq&quot;</span><span class="p">:</span> <span class="n">satellite</span><span class="p">},</span>
+                <span class="s2">&quot;goes:image-type&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;eq&quot;</span><span class="p">:</span> <span class="n">image_type</span><span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_variable_numpy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">plan</span><span class="p">:</span> <span class="n">AssetPlan</span><span class="p">,</span>
+        <span class="n">spec</span><span class="p">:</span> <span class="n">VariableSpec</span><span class="p">,</span>
+        <span class="n">target_time</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract a GOES-R MCMIP field as a float32 numpy array.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        plan : AssetPlan</span>
+<span class="sd">            Plan describing the cached asset to open.</span>
+<span class="sd">        spec : VariableSpec</span>
+<span class="sd">            Variable specification detailing which field and modifier to apply.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray</span>
+<span class="sd">            Array shaped ``(1500, 2500)`` for &#39;CONUS&#39; or ``(5424, 5424)`` for &#39;FULL DISK&#39; scan mode.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">with</span> <span class="n">netCDF4</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">local_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="n">spec</span><span class="o">.</span><span class="n">dataset_key</span><span class="p">][:]</span><span class="o">.</span><span class="n">filled</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">modifier</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">values</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">times</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify all times are valid based on offline knowledge.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        times : list[datetime]</span>
+<span class="sd">            List of date times to fetch data for.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scan_freq</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">SCAN_TIME_FREQUENCY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
+            <span class="c1"># Check scan frequency interval</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">%</span> <span class="n">scan_freq</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> needs to be </span><span class="si">{</span><span class="n">scan_freq</span><span class="si">}</span><span class="s2"> second interval for GOES with scan mode </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_mode</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span> <span class="o">=</span> <span class="n">GOES</span><span class="o">.</span><span class="n">GOES_HISTORY_RANGE</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">time</span> <span class="o">&lt;</span> <span class="n">start_date</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> is before </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="si">}</span><span class="s2"> became operational (</span><span class="si">{</span><span class="n">start_date</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">end_date</span> <span class="ow">and</span> <span class="n">time</span> <span class="o">&gt;</span> <span class="n">end_date</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Requested date time </span><span class="si">{</span><span class="n">time</span><span class="si">}</span><span class="s2"> is after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_satellite</span><span class="si">}</span><span class="s2"> was retired (</span><span class="si">{</span><span class="n">end_date</span><span class="si">}</span><span class="s2">)&quot;</span>
                 <span class="p">)</span></div>
 
 </pre></div>
