@@ -1,0 +1,418 @@
+---
+globs: examples/*.py
+description: Earth2Studio example script implementation guidelines using Sphinx Gallery with embedded reST
+---
+
+# Earth2Studio Examples
+
+This rule enforces example script implementation standards for Earth2Studio. Examples are Python scripts that use Sphinx Gallery format (not actual notebooks) to demonstrate Earth2Studio functionality. See [documentation.md](mdc:docs/userguide/developer/documentation.md) for developer documentation.
+
+## Example Requirements
+
+Examples must meet these requirements:
+
+- **Runnable in under 10 minutes** on a typical data-center level GPU
+- **Single 32GB A100 GPU** with minimal extra dependencies
+- **At least one graphic** (first graphic is the thumbnail)
+- **No animations** (not supported)
+- **Filename format**: `NN_example_name.py` where `NN` is a two-digit number
+
+## File Structure
+
+### SPDX License Header
+
+All example files must start with the SPDX license header:
+
+```python
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+```
+
+### First Cell: Overview and Dependencies
+
+The first cell (`# %%`) contains the docstring and uv inline script metadata:
+
+```python
+# %%
+"""
+Example Title
+=============
+
+Brief one-liner description (used as hover text on thumbnail in docs).
+
+More detailed description explaining what this example demonstrates.
+This can span multiple lines with references if needed.
+
+In this example you will learn:
+
+- How to instantiate a built in prognostic model
+- Creating a data source and IO object
+- Running a simple built in workflow
+- Post-processing results
+"""
+# /// script
+# dependencies = [
+#   "earth2studio[optional_group] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+#   "matplotlib",
+#   "other-dependencies",
+# ]
+# ///
+```
+
+**Key Points**:
+- **Title**: Use `=====` underlines (same length as title)
+- **One-liner**: First sentence after title (used for thumbnail hover)
+- **Bullet points**: Use "In this example you will learn:" followed by bullet list
+- **Dependencies**: Use [uv inline script metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies) (PEP 723 format)
+- **Include all dependencies**: Earth2Studio (with optional groups), plotting packages (cartopy, matplotlib), and any other required packages
+
+### Setup Section
+
+Use embedded reST comments to document the setup:
+
+```python
+# %%
+# Set Up
+# ------
+# Brief description of what components are needed for this example.
+# Use embedded reST syntax for cross-referencing API documentation.
+#
+# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
+# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
+# - IO Backend: Save outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+
+# %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
+# Import and initialize components
+from earth2studio.data import GFS
+from earth2studio.io import ZarrBackend
+from earth2studio.models.px import FCN
+
+# Load models, create data sources, etc.
+```
+
+**Key Points**:
+- Use `# Set Up` with `-----` underline for section header
+- Use embedded reST comments (lines starting with `#`)
+- Cross-reference API docs using `:py:class:` or `:py:meth:` syntax
+- Always create `outputs` directory: `os.makedirs("outputs", exist_ok=True)`
+- Always call `load_dotenv()` for environment variable loading
+- Use bullet points with API references for key components
+
+### Execute Section
+
+Document the workflow execution:
+
+```python
+# %%
+# Execute the Workflow
+# --------------------
+# Brief description of what the workflow does.
+# Explain any important parameters or configurations.
+#
+# For the forecast we will predict for two days (these will get executed as a batch) for
+# 20 forecast steps which is 5 days.
+
+# %%
+import earth2studio.run as run
+
+nsteps = 20
+io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
+
+print(io.root.tree())
+```
+
+**Key Points**:
+- Use `# Execute the Workflow` with `-----` underline
+- Explain what the workflow does and any important parameters
+- Show the actual execution code
+
+### Post-Processing Section
+
+Plot results and save to outputs folder:
+
+```python
+# %%
+# Post Processing
+# ---------------
+# Brief description of what will be plotted and why.
+# Explain any visualization choices or important features.
+#
+# Notice that the Zarr IO function has additional APIs to interact with the stored data.
+
+# %%
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+
+forecast = "2024-01-01"
+variable = "t2m"
+step = 4  # lead time = 24 hrs
+
+plt.close("all")  # Always close previous plots
+# Create a projection
+projection = ccrs.Robinson()
+
+# Create a figure and axes with the specified projection
+fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
+
+# Plot the field
+im = ax.pcolormesh(
+    io["lon"][:],
+    io["lat"][:],
+    io[variable][0, step],
+    transform=ccrs.PlateCarree(),
+    cmap="Spectral_r",
+)
+
+# Set title
+ax.set_title(f"{forecast} - Lead time: {6*step}hrs")
+
+# Add coastlines and gridlines
+ax.coastlines()
+ax.gridlines()
+
+# Save to outputs folder with filename starting with example number
+plt.savefig("outputs/01_t2m_prediction.jpg")
+```
+
+**Key Points**:
+- Use `# Post Processing` with `-----` underline
+- **Always call `plt.close("all")`** before creating new plots
+- Use cartopy for map projections when plotting geospatial data
+- **Save filename format**: `"outputs/NN_description.jpg"` where `NN` is the example number
+- Use descriptive filenames that indicate what is being plotted
+- Add titles, labels, colorbars, and other annotations as needed
+
+## Sphinx Gallery Cell Markers
+
+Use `# %%` to mark cell boundaries:
+
+```python
+# %%  # First cell: docstring and dependencies
+
+# %%  # Setup section
+
+# %%  # Execute section
+
+# %%  # Post-processing section
+```
+
+**Key Points**:
+- Each logical section should be in its own cell (`# %%`)
+- Cells are automatically converted to notebook cells by Sphinx Gallery
+- Comments after `# %%` are ignored but can be helpful for organization
+
+## Embedded reST Documentation
+
+Use embedded reST syntax in comments for formatted documentation:
+
+```python
+# %%
+# Set Up
+# ------
+# This section sets up the required components.
+#
+# - Model: Use :py:class:`earth2studio.models.px.FCN`.
+# - Data: Use :py:class:`earth2studio.data.GFS`.
+#
+# .. note::
+#   This is a note that will appear in the rendered documentation.
+#
+# .. warning::
+#   This is a warning that will appear in the rendered documentation.
+```
+
+**Available reST Directives**:
+- `.. note::` - Notes
+- `.. warning::` - Warnings
+- `.. literalinclude::` - Include code from other files
+- Cross-references: `:py:class:`, `:py:meth:`, `:py:func:`, etc.
+
+## Complete Example Template
+
+```python
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# %%
+"""
+Example Title
+=============
+
+Brief one-liner description.
+
+More detailed description explaining what this example demonstrates.
+This can span multiple lines with references if needed.
+
+In this example you will learn:
+
+- How to instantiate a built in prognostic model
+- Creating a data source and IO object
+- Running a simple built in workflow
+- Post-processing results
+"""
+# /// script
+# dependencies = [
+#   "earth2studio[optional_group] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+#   "matplotlib",
+# ]
+# ///
+
+# %%
+# Set Up
+# ------
+# Brief description of what components are needed.
+#
+# - Prognostic Model: Use :py:class:`earth2studio.models.px.FCN`.
+# - Datasource: Use :py:class:`earth2studio.data.GFS`.
+# - IO Backend: Use :py:class:`earth2studio.io.ZarrBackend`.
+
+# %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from earth2studio.data import GFS
+from earth2studio.io import ZarrBackend
+from earth2studio.models.px import FCN
+
+# Initialize components
+package = FCN.load_default_package()
+model = FCN.load_model(package)
+data = GFS()
+io = ZarrBackend()
+
+# %%
+# Execute the Workflow
+# --------------------
+# Brief description of what the workflow does.
+
+# %%
+import earth2studio.run as run
+
+nsteps = 20
+io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
+
+print(io.root.tree())
+
+# %%
+# Post Processing
+# ---------------
+# Brief description of what will be plotted.
+
+# %%
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+
+forecast = "2024-01-01"
+variable = "t2m"
+step = 4
+
+plt.close("all")
+projection = ccrs.Robinson()
+fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
+
+im = ax.pcolormesh(
+    io["lon"][:],
+    io["lat"][:],
+    io[variable][0, step],
+    transform=ccrs.PlateCarree(),
+    cmap="Spectral_r",
+)
+
+ax.set_title(f"{forecast} - Lead time: {6*step}hrs")
+ax.coastlines()
+ax.gridlines()
+
+plt.savefig("outputs/01_example_output.jpg")
+```
+
+## Dependency Management
+
+### uv Inline Script Metadata
+
+Use [uv inline script metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies) (PEP 723 format) to declare dependencies:
+
+```python
+# /// script
+# dependencies = [
+#   "earth2studio[optional_group] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+#   "matplotlib",
+#   "numpy",
+# ]
+# ///
+```
+
+**Key Points**:
+- Use `# /// script` to start metadata block
+- Use `# ///` to end metadata block
+- Include Earth2Studio with appropriate optional dependency groups (e.g., `[dlwp]`, `[fcn]`, `[cbottle]`)
+- Include all plotting dependencies (cartopy, matplotlib)
+- Include any other required packages
+- Use git URL for Earth2Studio: `@ git+https://github.com/NVIDIA/earth2studio.git`
+
+### Running Examples
+
+Examples can be run with:
+
+```bash
+uv run examples/01_example_name.py
+```
+
+uv will automatically install dependencies declared in the inline metadata.
+
+## Reminders
+
+- **Always include SPDX license header** at the top
+- **Use Sphinx Gallery format** with `# %%` cell markers (not actual notebooks)
+- **First cell**: Docstring with title, one-liner, and bullet points
+- **Include uv inline script metadata** for all dependencies
+- **Structure**: Setup -> Execute -> Post-processing
+- **Always create outputs folder**: `os.makedirs("outputs", exist_ok=True)`
+- **Always call `load_dotenv()`** for environment variables
+- **Always call `plt.close("all")`** before creating plots
+- **Save plots**: `"outputs/NN_description.jpg"` where `NN` is example number
+- **Use embedded reST** for documentation and cross-references
+- **Include at least one graphic** (first is thumbnail)
+- **No animations** (not supported)
+- **Runnable in under 10 minutes** on 32GB A100 GPU
+- **Use cartopy** for geospatial plotting with map projections
+- **Cross-reference APIs** using `:py:class:`, `:py:meth:`, etc.

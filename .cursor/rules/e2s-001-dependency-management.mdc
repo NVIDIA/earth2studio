@@ -1,0 +1,152 @@
+---
+globs: *.py,pyproject.toml
+description: Earth2Studio dependency management guidelines using uv
+---
+
+# Earth2Studio Dependency Management
+
+This rule enforces dependency management standards for Earth2Studio as defined in [dependency.md](mdc:docs/userguide/developer/dependency.md).
+
+## Package Manager
+
+**Always use `uv`** to manage dependencies. Never manually edit `pyproject.toml` dependency lists - use `uv` commands instead.
+
+- Add dependencies: `uv add <package>`
+- Add optional dependencies: `uv add --extra <group> <package>`
+- Add dev dependencies: `uv add --group dev <package>`
+- Remove dependencies: `uv remove <package>`
+
+## Base Dependencies
+
+The base installation includes these core packages:
+- `torch`: Deep learning framework
+- `xarray`: N-D labeled arrays and datasets
+- `zarr`: Array storage format
+- `fsspec`: Filesystem interfaces
+
+Most IO methods, data sources, perturbation methods, and utilities work with just these base dependencies.
+
+## Optional Dependencies
+
+Optional dependencies are organized in dependency groups in [pyproject.toml](mdc:pyproject.toml):
+
+```toml
+[project.optional-dependencies]
+data = ["cdsapi>=0.7.5", "eccodes>=2.38.0"]
+aurora = ["microsoft-aurora>=1.5.0"]
+fcn = ["nvidia-physicsnemo>=1.0.1"]
+```
+
+Each model and major feature set has its own optional dependency group.
+
+## Handling Optional Imports
+
+**CRITICAL**: When using optional dependencies, you MUST follow this pattern:
+
+### 1. Import Pattern
+
+```python
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from some_optional_package import SomeClass
+except ImportError:
+    OptionalDependencyFailure("dependency-group-name")
+    SomeClass = None
+```
+
+### 2. Decorator Usage
+
+Apply `@check_optional_dependencies()` to classes and functions that require optional dependencies:
+
+```python
+# On classes
+@check_optional_dependencies()
+class MyModel(torch.nn.Module):
+    def __init__(self):
+        # Uses SomeClass from optional import
+        ...
+
+# On functions/methods
+@classmethod
+@check_optional_dependencies()
+def load_model(cls, package: Package) -> Model:
+    # Uses SomeClass from optional import
+    ...
+```
+
+### 3. Key Rules
+
+- ✅ **DO**: Set imported objects to `None` if import fails
+- ✅ **DO**: Use `OptionalDependencyFailure("group-name")` in the except block
+- ✅ **DO**: Decorate classes and functions with `@check_optional_dependencies()`
+- ✅ **DO**: Allow the module to import without errors (lazy evaluation)
+- ❌ **DON'T**: Let the file error on import if optional dependency is missing
+- ❌ **DON'T**: Use optional imports without the decorator pattern
+
+### 4. Example
+
+```python
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from physicsnemo.models.afno import AFNO
+except ImportError:
+    OptionalDependencyFailure("fcn")
+    AFNO = None
+
+@check_optional_dependencies()
+class FCN(torch.nn.Module):
+    def __init__(self):
+        if AFNO is None:
+            raise RuntimeError("AFNO not available")
+        ...
+```
+
+## Managing Conflicts
+
+Document package conflicts in [pyproject.toml](mdc:pyproject.toml):
+
+```toml
+[tool.uv]
+conflicts = [
+    [
+      { extra = "aurora" },
+      { extra = "dlwp" },
+    ],
+]
+```
+
+All potential conflicts should be explicitly documented to ensure reproducible environments.
+
+## Developer Dependencies
+
+Development dependencies are managed separately in dependency groups:
+
+```toml
+[dependency-groups]
+dev = ["black==24.1.0", "mypy", "pytest>=6.0.0"]
+build = ["hatchling", "setuptools>=70.0.0"]
+```
+
+These are NOT included in the distributed package wheel.
+
+## Verification
+
+After implementing optional dependencies:
+1. Verify the module can be imported without the optional dependency installed
+2. Verify the decorator raises `OptionalDependencyError` when used without the dependency
+3. Build API docs with `make docs` to ensure imports are properly handled
+
+## Reminders
+
+- Always use `uv` commands to modify dependencies, never edit `pyproject.toml` manually
+- Use the three-step pattern: try/except with `OptionalDependencyFailure`, set to `None`, add decorator
+- Files should NOT error on import - optional dependencies are evaluated lazily
+- Document all conflicts in `pyproject.toml`
