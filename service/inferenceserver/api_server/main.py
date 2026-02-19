@@ -295,6 +295,7 @@ async def health_check() -> dict[str, str]:
 # Azure ML uses this to see if the container is alive
 @app.get("/liveness")
 def liveness() -> dict[str, str]:
+    """Liveness probe for Azure ML; returns alive status to indicate container is running."""
     return {"status": "alive"}
 
 
@@ -547,7 +548,7 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
         )
 
 
-@app.get("/v1/infer/{workflow_name}/{execution_id}/results")
+@app.get("/v1/infer/{workflow_name}/{execution_id}/results", response_model=None)
 async def get_workflow_results(
     workflow_name: str, execution_id: str
 ) -> dict[str, Any] | StreamingResponse:

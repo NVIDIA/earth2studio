@@ -17,8 +17,7 @@
 # Earth2Studio API Makefile
 # Provides easy commands for managing Redis and API services
 
-.PHONY: status start-redis stop-redis start-api-server stop-api-server clean install dev prod
-
+.PHONY: container-earth2studio-scicomp
 
 # Show service status
 status:
@@ -37,7 +36,11 @@ stop-redis:
 # Start API workers
 start-api-server:
 	@echo "Starting API workers..."
-	@. ../../.venv/bin/activate && ./scripts/start_api_server.sh
+	@if [ -f "../../.venv/bin/activate" ]; then \
+		. ../../.venv/bin/activate && ./scripts/start_api_server.sh; \
+	else \
+		./scripts/start_api_server.sh; \
+	fi
 
 # Stop API workers
 stop-api-server:
@@ -58,9 +61,4 @@ install:
 # Run tests
 # integration_test:
 #	@echo "Running API tests..."
-#	@python test/integration/test_api.py
-
-# Development mode
-dev: start-redis
-	@echo "Starting development server..."
-	@python main.py
+#	@python inferenceserver/test/integration/test_api.py
