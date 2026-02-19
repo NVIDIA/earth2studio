@@ -165,6 +165,7 @@ def model() -> FCN:
     return p
 
 
+@pytest.mark.xfail(reason="package missing on ngc")
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fcn_package(model, device):

@@ -861,8 +861,13 @@ use case.
 Earth2Studio uses a few environment variables to configure various parts of the package.
 The important ones are:
 
-- `EARTH2STUDIO_CACHE`: The location of the cache used for Earth2Studio. This is a file
-path where things like models and cached data from data sources will be stored.
+- `EARTH2STUDIO_CACHE`: The general cache location used for Earth2Studio. This is a file
+path where things like models and cached data from data sources will be stored. Defaults to
+`~/.cache/earth2studio`.
+- `EARTH2STUDIO_DATA_CACHE`: The cache location specifically for data sources. If set,
+this overrides `EARTH2STUDIO_CACHE` for data source caching operations.
+- `EARTH2STUDIO_MODEL_CACHE`: The cache location specifically for model packages. If
+    set, this overrides `EARTH2STUDIO_CACHE` for model checkpoint caching operations.
 - `EARTH2STUDIO_PACKAGE_TIMEOUT`: The max number of seconds for a download operation of
 a model package file from a remote store such as NGC, Huggingface or S3.
 - `EARTH2STUDIO_DISABLE_MSC`: Can be used to disable use of the [multi-storage client](https://github.com/NVIDIA/multi-storage-client)
