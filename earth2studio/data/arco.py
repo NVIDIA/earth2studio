@@ -75,6 +75,8 @@ class ARCO:
 
     ARCO_LAT = np.linspace(90, -90, 721)
     ARCO_LON = np.linspace(0, 359.75, 1440)
+    ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
+    ARCO_TIME_STOP = datetime(year=2023, month=11, day=11)
 
     def __init__(
         self,
@@ -143,9 +145,15 @@ class ARCO:
         # Pressure/surface store
         zstore = zarr.storage.FsspecStore(
             fs,
-            path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+            path=self.ARCO_PATH,
         )
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
+
+        if "valid_time_stop" in self.zarr_group.attrs:
+            ARCO.ARCO_TIME_STOP = datetime.strptime(
+                self.zarr_group.attrs["valid_time_stop"], "%Y-%m-%d"
+            )
+
         self.level_coords = await (await self.zarr_group.get("level")).getitem(
             slice(None)
         )
@@ -351,9 +359,9 @@ class ARCO:
                     f"Requested date time {time} needs to be after January 1st, 1940 for ARCO"
                 )
 
-            if time >= datetime(year=2023, month=11, day=10):
+            if time > cls.ARCO_TIME_STOP:
                 raise ValueError(
-                    f"Requested date time {time} needs to be before November 10th, 2023 for ARCO"
+                    f"Requested date time {time} needs to be on or before {cls.ARCO_TIME_STOP.strftime('%B %d, %Y')} for ARCO"
                 )
 
             # if not self.available(time):
@@ -430,7 +438,7 @@ class ARCO:
 
         gcstore = zarr.storage.FsspecStore(
             fs,
-            path="/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3",
+            path=cls.ARCO_PATH,
         )
 
         zarr_group = zarr.open(gcstore, mode="r")

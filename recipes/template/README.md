@@ -13,13 +13,7 @@ This could be things such as domain knowledge, data of certain type, model check
 
 ### Software
 
-Pyproject TOML and recipe-requirements.txt handles any Python dependencies.
-
-```bash
-uv export --format requirements-txt --no-hashes > recipe-requirements.txt
-```
-
-This is not called `requirements.txt` due to tooling conflicts.
+Pyproject TOML handles any Python dependencies.
 
 If there are system dependencies needed list them here, for example:
 

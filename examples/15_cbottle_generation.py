@@ -72,7 +72,7 @@ from earth2studio.models.dx import CBottleInfill
 
 # Load the default model package which downloads the check point from NGC
 package = CBottle3D.load_default_package()
-cbottle_ds = CBottle3D.load_model(package, seed=0)
+cbottle_ds = CBottle3D.load_model(package, seed=None)
 # This is an AI data source, so also move it to device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cbottle_ds = cbottle_ds.to(device)
@@ -90,7 +90,6 @@ era5_ds = WB2ERA5()
 #
 # Note that this diffusion model is stochastic, so querying the same timestamp will
 # generate different fields that are reflective of the requested time and SST state.
-# One can use `set_seed` for reproducibility.
 
 # %%
 
@@ -185,7 +184,6 @@ package = CBottleInfill.load_default_package()
 model = CBottleInfill.load_model(package, input_variables=input_variables)
 model = model.to(device)
 
-model.set_seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
@@ -221,7 +219,6 @@ package = CBottleInfill.load_default_package()
 model = CBottleInfill.load_model(package, input_variables=input_variables)
 model = model.to(device)
 
-model.set_seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed(0)
 
@@ -266,7 +263,7 @@ def plot_contour(
         vmin=vrange[0],
         vmax=vrange[1],
         transform=ccrs.PlateCarree(),
-        levels=20,
+        levels=12,
         cmap=cmap,
     )
     ax0.coastlines()
