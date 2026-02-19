@@ -269,10 +269,11 @@ class MRMS:
                 vname = variable[var_index]
                 actual_time_by_var[vname][ti] = resolved_np
 
-
         # Assign per-variable actual times
         for v in variable:
-            out = out.assign_coords({f"actual_time_{v}": ("time", actual_time_by_var[v])})
+            out = out.assign_coords(
+                {f"actual_time_{v}": ("time", actual_time_by_var[v])}
+            )
 
         # Close aiohttp client if s3fs
         if session:
@@ -324,10 +325,9 @@ class MRMS:
                 else:
                     logger.error(f"Failed to read grib file {grib_file}")
                 last_exc = e
-                if (
-                    "End of resource reached when reading message" in str(e)
-                    or "not that many messages in file" in str(e)
-                ):
+                if "End of resource reached when reading message" in str(
+                    e
+                ) or "not that many messages in file" in str(e):
                     logger.warning(
                         f"{s3_uri} may be corrupted/truncated (pygrib: End of resource); "
                         "skipping to next candidate time frame within tolerance."
@@ -347,8 +347,14 @@ class MRMS:
                 "actual_time": resolved_time,
             }
 
-        assert last_exc is not None
-        raise last_exc
+        if last_exc is not None:
+            logger.warning(
+                f"All candidate MRMS files failed for product {product} near requested time "
+                f"{time.isoformat()} (within ±{self.max_offset_minutes} min); "
+                "returning missing data for this (time, product). "
+                f"Last error: {last_exc}"
+            )
+        return None
 
     async def _download_and_decompress_async(self, s3_uri: str) -> str:
         """Async download of gzipped GRIB2 from S3 and decompress into cache; return path."""
@@ -519,7 +525,9 @@ class MRMS:
                 )
                 diff = abs((ts - time).total_seconds())
                 if diff <= max_offset_minutes * 60:
-                    uri = key_path if key_path.startswith("s3://") else f"s3://{key_path}"
+                    uri = (
+                        key_path if key_path.startswith("s3://") else f"s3://{key_path}"
+                    )
                     out.append((diff, ts, uri))
 
         out.sort(key=lambda x: (x[0], x[1]))
