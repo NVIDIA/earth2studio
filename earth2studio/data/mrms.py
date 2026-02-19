@@ -107,11 +107,6 @@ class MRMS:
         self._verbose = verbose
         self._max_workers = max_workers
         self.async_timeout = async_timeout
-        # Guard concurrent downloads/decompressions of the same S3 object into the same cache path.
-        # Note: "End of resource reached when reading message" is often caused by upstream-truncated MRMS objects.
-        # This lock specifically prevents *local* cache corruption when multiple async tasks race to write the same
-        # decompressed GRIB2 file (partial/overlapping writes can also trigger pygrib read errors).
-        self._download_locks: dict[str, asyncio.Lock] = {}
         # Set up S3 filesystem
         try:
             nest_asyncio.apply()
@@ -249,11 +244,10 @@ class MRMS:
         )
         # Track the actual resolved MRMS object times.
         #
-        # Important: different MRMS products (e.g., refc vs refc_base) can resolve to different
+        # Different MRMS products (e.g., refc vs refc_base) can resolve to different
         # nearest-available files within the offset window. So we expose per-variable resolved times
         # as separate coordinates: actual_time_<variable_id>.
         epoch = np.datetime64("1970-01-01T00:00:00", "s")
-        actual_time_legacy = np.full((len(time),), epoch, dtype="datetime64[s]")
         actual_time_by_var: dict[str, np.ndarray] = {
             v: np.full((len(time),), epoch, dtype="datetime64[s]") for v in variable
         }
@@ -270,15 +264,13 @@ class MRMS:
             ti = res["time_index"]
             field_values = res["field_values"]
             resolved_np = np.datetime64(res["actual_time"], "s")
-            actual_time_legacy[ti] = resolved_np
             for var_index, modifier in res["idx_mods"]:
                 out[ti, var_index] = modifier(field_values)
                 vname = variable[var_index]
                 actual_time_by_var[vname][ti] = resolved_np
 
 
-        # Assign legacy and per-variable actual times
-        out = out.assign_coords(actual_time=("time", actual_time_legacy))
+        # Assign per-variable actual times
         for v in variable:
             out = out.assign_coords({f"actual_time_{v}": ("time", actual_time_by_var[v])})
 
@@ -317,37 +309,34 @@ class MRMS:
 
             grib_file = await self._download_and_decompress_async(s3_uri)
 
+            grbs = None
             try:
                 grbs = pygrib.open(grib_file)
-            except Exception as e:
-                logger.error(f"Failed to open grib file {grib_file}")
-                last_exc = e
-                if ("End of resource reached when reading message" in str(e) or "not that many messages in file" in str(e)):
-                    logger.warning(
-                    f"{s3_uri} may be corrupted/truncated (pygrib: End of resource); "
-                    "skipping to next candidate time frame within tolerance."
-                    )
-                    continue
-                raise
 
-            try:
                 grb = grbs[1]
                 values = grb.values  # (ny, nx)
                 lats, lons = grb.latlons()
                 lat = lats[:, 0]
                 lon = lons[0, :]
             except Exception as e:
-                logger.error(f"Failed to read grib file {grib_file}")
+                if grbs is None:
+                    logger.error(f"Failed to open grib file {grib_file}")
+                else:
+                    logger.error(f"Failed to read grib file {grib_file}")
                 last_exc = e
-                if ("End of resource reached when reading message" in str(e) or "not that many messages in file" in str(e)):
+                if (
+                    "End of resource reached when reading message" in str(e)
+                    or "not that many messages in file" in str(e)
+                ):
                     logger.warning(
-                    f"{s3_uri} may be corrupted/truncated (pygrib: End of resource); "
-                    "skipping to next candidate time frame within tolerance."
+                        f"{s3_uri} may be corrupted/truncated (pygrib: End of resource); "
+                        "skipping to next candidate time frame within tolerance."
                     )
                     continue
                 raise
             finally:
-                grbs.close()
+                if grbs is not None:
+                    grbs.close()
 
             return {
                 "time_index": time_index,
@@ -361,57 +350,19 @@ class MRMS:
         assert last_exc is not None
         raise last_exc
 
-        try:
-            grbs = pygrib.open(grib_file)
-        except Exception as e:
-            logger.error(f"Failed to open grib file {grib_file}")
-            raise e
-        try:
-            grb = grbs[1]
-            values = grb.values  # (ny, nx)
-            lats, lons = grb.latlons()
-            lat = lats[:, 0]
-            lon = lons[0, :]
-        except Exception as e:
-            logger.error(f"Failed to read grib file {grib_file}")
-            raise e
-        finally:
-            grbs.close()
-
-        return {
-            "time_index": time_index,
-            "idx_mods": idx_mods,
-            "lat": lat,
-            "lon": lon,
-            "field_values": values,
-            "actual_time": resolved_time,
-        }
-
     async def _download_and_decompress_async(self, s3_uri: str) -> str:
         """Async download of gzipped GRIB2 from S3 and decompress into cache; return path."""
         # Cache filenames derived from key
         key_hash = hashlib.sha256(s3_uri.encode()).hexdigest()
         grib_path = os.path.join(self.cache, f"{key_hash}.grib2")
 
-        # Single-flight per grib_path to avoid corrupt concurrent writes.
-        lock = self._download_locks.get(key_hash)
-        if lock is None:
-            lock = asyncio.Lock()
-            self._download_locks[key_hash] = lock
-
-        async with lock:
-            # Download gz and decompress if not present
-            if not pathlib.Path(grib_path).is_file():
-                data = await self.fs._cat_file(s3_uri)  # type: ignore[attr-defined]
-                decompressed = gzip.decompress(data)
-
-                # Atomic write: write to a temp file then replace into place.
-                tmp_path = f"{grib_path}.tmp.{os.getpid()}.{key_hash[:8]}"
-                with open(tmp_path, "wb") as fout:
-                    fout.write(decompressed)
-                    fout.flush()
-                    os.fsync(fout.fileno())
-                os.replace(tmp_path, grib_path)
+        # Download gz and decompress if not present
+        if not pathlib.Path(grib_path).is_file():
+            # Read gzipped payload into memory and decompress to GRIB
+            data = await self.fs._cat_file(s3_uri)  # type: ignore[attr-defined]
+            decompressed = gzip.decompress(data)
+            with open(grib_path, "wb") as fout:
+                fout.write(decompressed)
 
         return grib_path
 
