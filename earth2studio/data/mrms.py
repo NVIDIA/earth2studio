@@ -107,6 +107,11 @@ class MRMS:
         self._verbose = verbose
         self._max_workers = max_workers
         self.async_timeout = async_timeout
+        # Guard concurrent downloads/decompressions of the same S3 object into the same cache path.
+        # Note: "End of resource reached when reading message" is often caused by upstream-truncated MRMS objects.
+        # This lock specifically prevents *local* cache corruption when multiple async tasks race to write the same
+        # decompressed GRIB2 file (partial/overlapping writes can also trigger pygrib read errors).
+        self._download_locks: dict[str, asyncio.Lock] = {}
         # Set up S3 filesystem
         try:
             nest_asyncio.apply()
@@ -242,8 +247,16 @@ class MRMS:
             dims=["time", "variable", "lat", "lon"],
             coords={"time": time, "variable": variable, "lat": lat, "lon": lon},
         )
-        # Track the actual resolved MRMS object times for each requested time index.
-        actual_time = np.array(time, dtype="datetime64[s]")
+        # Track the actual resolved MRMS object times.
+        #
+        # Important: different MRMS products (e.g., refc vs refc_base) can resolve to different
+        # nearest-available files within the offset window. So we expose per-variable resolved times
+        # as separate coordinates: actual_time_<variable_id>.
+        epoch = np.datetime64("1970-01-01T00:00:00", "s")
+        actual_time_legacy = np.full((len(time),), epoch, dtype="datetime64[s]")
+        actual_time_by_var: dict[str, np.ndarray] = {
+            v: np.full((len(time),), epoch, dtype="datetime64[s]") for v in variable
+        }
 
         # Fill output
         for res in results:
@@ -256,11 +269,18 @@ class MRMS:
                 )
             ti = res["time_index"]
             field_values = res["field_values"]
-            actual_time[ti] = np.datetime64(res["actual_time"], "s")
+            resolved_np = np.datetime64(res["actual_time"], "s")
+            actual_time_legacy[ti] = resolved_np
             for var_index, modifier in res["idx_mods"]:
                 out[ti, var_index] = modifier(field_values)
+                vname = variable[var_index]
+                actual_time_by_var[vname][ti] = resolved_np
 
-        out = out.assign_coords(actual_time=("time", actual_time))
+
+        # Assign legacy and per-variable actual times
+        out = out.assign_coords(actual_time=("time", actual_time_legacy))
+        for v in variable:
+            out = out.assign_coords({f"actual_time_{v}": ("time", actual_time_by_var[v])})
 
         # Close aiohttp client if s3fs
         if session:
@@ -276,24 +296,70 @@ class MRMS:
         idx_mods: list[tuple[int, Callable]],
     ) -> dict | None:
         """Internal coroutine to fetch a single MRMS product field for a time."""
-        # Resolve to an exact available S3 object within tolerance in a thread
-        resolved = await self._resolve_s3_time(
+        # Resolve to nearest-available S3 objects within tolerance.
+        # Some MRMS objects can be malformed/truncated upstream; try the next-nearest candidate
+        # rather than failing the entire time slice.
+        candidates = await self._resolve_s3_time_candidates(
             self.fs, time, product, self.max_offset_minutes
         )
-        if resolved is None:
+        if not candidates:
             logger.warning(
                 f"No MRMS file found near requested time {time.isoformat()} "
                 f"within ±{self.max_offset_minutes} minutes for product {product}."
                 f"Consider increasing the max_offset_minutes parameter."
             )
             return None
-        resolved_time, s3_uri = resolved
+        last_exc: Exception | None = None
 
-        if self._verbose:
-            logger.info(f"Fetching MRMS file: {s3_uri}")
+        for resolved_time, s3_uri in candidates:
+            if self._verbose:
+                logger.info(f"Fetching MRMS file: {s3_uri}")
 
-        # Download and decompress using async APIs
-        grib_file = await self._download_and_decompress_async(s3_uri)
+            grib_file = await self._download_and_decompress_async(s3_uri)
+
+            try:
+                grbs = pygrib.open(grib_file)
+            except Exception as e:
+                logger.error(f"Failed to open grib file {grib_file}")
+                last_exc = e
+                if ("End of resource reached when reading message" in str(e) or "not that many messages in file" in str(e)):
+                    logger.warning(
+                    f"{s3_uri} may be corrupted/truncated (pygrib: End of resource); "
+                    "skipping to next candidate time frame within tolerance."
+                    )
+                    continue
+                raise
+
+            try:
+                grb = grbs[1]
+                values = grb.values  # (ny, nx)
+                lats, lons = grb.latlons()
+                lat = lats[:, 0]
+                lon = lons[0, :]
+            except Exception as e:
+                logger.error(f"Failed to read grib file {grib_file}")
+                last_exc = e
+                if ("End of resource reached when reading message" in str(e) or "not that many messages in file" in str(e)):
+                    logger.warning(
+                    f"{s3_uri} may be corrupted/truncated (pygrib: End of resource); "
+                    "skipping to next candidate time frame within tolerance."
+                    )
+                    continue
+                raise
+            finally:
+                grbs.close()
+
+            return {
+                "time_index": time_index,
+                "idx_mods": idx_mods,
+                "lat": lat,
+                "lon": lon,
+                "field_values": values,
+                "actual_time": resolved_time,
+            }
+
+        assert last_exc is not None
+        raise last_exc
 
         try:
             grbs = pygrib.open(grib_file)
@@ -327,13 +393,25 @@ class MRMS:
         key_hash = hashlib.sha256(s3_uri.encode()).hexdigest()
         grib_path = os.path.join(self.cache, f"{key_hash}.grib2")
 
-        # Download gz and decompress if not present
-        if not pathlib.Path(grib_path).is_file():
-            # Read gzipped payload into memory and decompress to GRIB
-            data = await self.fs._cat_file(s3_uri)  # type: ignore[attr-defined]
-            decompressed = gzip.decompress(data)
-            with open(grib_path, "wb") as fout:
-                fout.write(decompressed)
+        # Single-flight per grib_path to avoid corrupt concurrent writes.
+        lock = self._download_locks.get(key_hash)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._download_locks[key_hash] = lock
+
+        async with lock:
+            # Download gz and decompress if not present
+            if not pathlib.Path(grib_path).is_file():
+                data = await self.fs._cat_file(s3_uri)  # type: ignore[attr-defined]
+                decompressed = gzip.decompress(data)
+
+                # Atomic write: write to a temp file then replace into place.
+                tmp_path = f"{grib_path}.tmp.{os.getpid()}.{key_hash[:8]}"
+                with open(tmp_path, "wb") as fout:
+                    fout.write(decompressed)
+                    fout.flush()
+                    os.fsync(fout.fileno())
+                os.replace(tmp_path, grib_path)
 
         return grib_path
 
@@ -437,6 +515,64 @@ class MRMS:
         if best_dt is None or best_uri is None:
             return None
         return best_dt, best_uri
+
+    @classmethod
+    async def _resolve_s3_time_candidates(
+        cls,
+        fs: s3fs.S3FileSystem,
+        time: datetime,
+        product: str,
+        max_offset_minutes: float = 10,
+    ) -> list[tuple[datetime, str]]:
+        """Return all candidate MRMS objects within tolerance, sorted nearest-first."""
+        # Exact match fast path
+        key = cls._s3_key(time, product)
+        s3_uri = f"s3://{cls.MRMS_BUCKET_NAME}/{key}"
+        if await fs._exists(s3_uri):
+            return [(time, s3_uri)]
+
+        t_min = time - timedelta(minutes=max_offset_minutes)
+        t_max = time + timedelta(minutes=max_offset_minutes)
+        candidate_dates = {
+            t_min.strftime("%Y%m%d"),
+            time.strftime("%Y%m%d"),
+            t_max.strftime("%Y%m%d"),
+        }
+
+        pattern = re.compile(
+            rf"^MRMS_{re.escape(product)}_(\d{{8}})-(\d{{6}})\.grib2\.gz$"
+        )
+        out: list[tuple[float, datetime, str]] = []
+        for date_str in sorted(candidate_dates):
+            dir_uri = (
+                f"s3://{cls.MRMS_BUCKET_NAME}/{cls.MRMS_REGION}/{product}/{date_str}/"
+            )
+            try:
+                keys = await fs._ls(dir_uri)
+            except FileNotFoundError:
+                continue
+            for key_path in keys:
+                fname = os.path.basename(key_path)
+                m = pattern.match(fname)
+                if not m:
+                    continue
+                ds, hms = m.group(1), m.group(2)
+                ts = datetime(
+                    year=int(ds[0:4]),
+                    month=int(ds[4:6]),
+                    day=int(ds[6:8]),
+                    hour=int(hms[0:2]),
+                    minute=int(hms[2:4]),
+                    second=int(hms[4:6]),
+                    tzinfo=timezone.utc,
+                )
+                diff = abs((ts - time).total_seconds())
+                if diff <= max_offset_minutes * 60:
+                    uri = key_path if key_path.startswith("s3://") else f"s3://{key_path}"
+                    out.append((diff, ts, uri))
+
+        out.sort(key=lambda x: (x[0], x[1]))
+        return [(ts, uri) for _, ts, uri in out]
 
     @property
     def cache(self) -> str:
