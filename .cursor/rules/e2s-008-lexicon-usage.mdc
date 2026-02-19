@@ -1,0 +1,323 @@
+---
+globs: earth2studio/lexicon/*.py,earth2studio/data/*.py
+description: Earth2Studio lexicon implementation guidelines for mapping Earth2Studio vocab to data source specific information
+---
+
+# Earth2Studio Lexicon Usage
+
+This rule enforces lexicon implementation standards for Earth2Studio. Lexicons provide translation between Earth2Studio's standardized variable names (based on ECMWF parameter database) and data source-specific naming schemes. See [lexicon.md](mdc:docs/userguide/advanced/lexicon.md) for user-facing documentation.
+
+## Base Lexicon
+
+Earth2Studio defines a base lexicon in [base.py](mdc:earth2studio/lexicon/base.py):
+
+- **`E2STUDIO_VOCAB`**: Dictionary mapping Earth2Studio variable IDs to human-readable descriptions
+- **`E2STUDIO_SCHEMA`**: PyArrow schema defining accepted field names and suggested dtypes for DataFrame sources
+
+### E2STUDIO_VOCAB
+
+The base vocabulary defines standardized variable names used across the package:
+
+```python
+E2STUDIO_VOCAB = {
+    "t2m": "temperature at 2m (K)",
+    "u10m": "u-component (eastward, zonal) of wind at 10 m (m s-1)",
+    "v10m": "v-component (northward, meridional) of wind at 10 m (m s-1)",
+    "u200": "u-component of wind at 200 hPa (m s-1)",
+    "z500": "geopotential at 500 hPa (m2 s-2)",
+    # ... more variables
+}
+```
+
+**Naming Conventions**:
+- **No suffix**: Pressure-level variables (e.g., `z500` = geopotential at 500 hPa)
+- **`m` suffix**: Altitude in meters above surface (e.g., `u10m` = wind at 10 meters)
+- **Custom suffix**: Custom vertical levels (e.g., `u100k` = wind at custom level index 100)
+
+### E2STUDIO_SCHEMA
+
+For DataFrame sources, `E2STUDIO_SCHEMA` defines accepted field names and suggested dtypes:
+
+```python
+E2STUDIO_SCHEMA = pa.schema([
+    pa.field("time", pa.timestamp("ns"), metadata={"description": "Datetime of observation"}),
+    pa.field("lat", pa.float32(), metadata={"description": "Latitude coordinate"}),
+    pa.field("lon", pa.float32(), metadata={"description": "Longitude coordinate"}),
+    pa.field("elev", pa.float32(), nullable=True, metadata={"description": "Elevation (m)"}),
+    pa.field("observation", pa.float32(), metadata={"description": "Observation measurement"}),
+    pa.field("variable", pa.string(), metadata={"description": "Earth2Studio variable ID"}),
+    # ... more fields
+])
+```
+
+**Note**: DataFrame sources should follow these field names and dtypes when possible, but may deviate based on data source constraints.
+
+## Data Source Lexicons
+
+Each data source **MUST** define its own lexicon class that maps Earth2Studio variable names to data source-specific information.
+
+### Lexicon Class Structure
+
+```python
+from collections.abc import Callable
+from .base import LexiconType
+
+class MyDataSourceLexicon(metaclass=LexiconType):
+    """My Data Source Lexicon
+
+    Note
+    ----
+    Additional resources:
+    - Link to data source documentation
+    """
+
+    VOCAB: dict[str, str] = {
+        "t2m": "TEMPERATURE::2 m above ground",
+        "u10m": "UGRD::10 m above ground",
+        "u200": "UGRD::200 mb",
+        # ... more mappings
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable]:
+        """Get item from vocabulary.
+
+        Parameters
+        ----------
+        val : str
+            Earth2Studio variable id.
+
+        Returns
+        -------
+        tuple[str, Callable]
+            - Data source specific string/key
+            - Modifier function to apply to loaded values
+        """
+        source_key = cls.VOCAB[val]
+
+        # Define modifier function based on variable
+        def mod(x: np.ndarray) -> np.ndarray:
+            """Modify data value (if necessary)."""
+            return x  # Identity function by default
+
+        return source_key, mod
+```
+
+### Required Components
+
+1. **`metaclass=LexiconType`**: Enables type checking and `__getitem__` access pattern
+2. **`VOCAB` dictionary**: Maps Earth2Studio variable IDs to data source strings
+3. **`get_item` classmethod**: Returns tuple of `(source_key, modifier_function)`
+
+### LexiconType Metaclass
+
+The `LexiconType` metaclass enables dictionary-like access:
+
+```python
+# In data source implementation
+lexicon = MyDataSourceLexicon
+source_key, modifier = lexicon[variable_name]  # Calls get_item
+```
+
+### String Separator Pattern
+
+The common pattern is to use `::` as a separator in lexicon values:
+
+```python
+VOCAB = {
+    "u200": "UGRD::200 mb",  # Split by :: to get ["UGRD", "200 mb"]
+    "t2m": "TMP::2 m above ground",  # Split by :: to get ["TMP", "2 m above ground"]
+}
+```
+
+In the data source implementation:
+
+```python
+source_key, modifier = lexicon[variable]
+parts = source_key.split("::")  # ["UGRD", "200 mb"]
+parameter_id = parts[0]  # "UGRD"
+level = parts[1]  # "200 mb"
+# Use parts to access remote data store
+```
+
+### Modifier Functions
+
+Modifier functions apply transformations to align data with Earth2Studio standards:
+
+```python
+@classmethod
+def get_item(cls, val: str) -> tuple[str, Callable]:
+    """Get item with modifier function."""
+    source_key = cls.VOCAB[val]
+
+    if val.startswith("z"):  # Geopotential variables
+        def mod(x: np.ndarray) -> np.ndarray:
+            # Convert geopotential height to geopotential
+            return x * 9.81
+    elif val == "tp":  # Total precipitation
+        def mod(x: np.ndarray) -> np.ndarray:
+            # Convert kg m-2 to m
+            return x / 1000.0
+    else:
+        def mod(x: np.ndarray) -> np.ndarray:
+            return x  # Identity
+
+    return source_key, mod
+```
+
+**Modifier Function Types**:
+- **For DataArray sources**: `Callable[[np.ndarray], np.ndarray]` - transforms numpy array
+- **For DataFrame sources**: `Callable[[pd.DataFrame], pd.DataFrame]` - filters/transforms DataFrame
+
+### DataFrame Source Modifiers
+
+For DataFrame sources, modifiers often filter observations:
+
+```python
+@classmethod
+def get_item(cls, val: str) -> tuple[str, Callable]:
+    """Get item with DataFrame modifier."""
+    source_key = cls.VOCAB[val]
+
+    if val in ["u10m", "v10m", "sp"]:
+        def mod(x: pd.DataFrame) -> pd.DataFrame:
+            # Filter to surface observations (0-15m elevation)
+            return x[(x["elev"] >= 0) & (x["elev"] <= 15)]
+    elif val in ["q2m", "t2m"]:
+        def mod(x: pd.DataFrame) -> pd.DataFrame:
+            # Filter to 2m observations (0-4m elevation)
+            return x[(x["elev"] >= 0) & (x["elev"] <= 4)]
+    else:
+        def mod(x: pd.DataFrame) -> pd.DataFrame:
+            return x  # No filtering
+
+    return source_key, mod
+```
+
+## Using Lexicons in Data Sources
+
+### DataArray Sources
+
+```python
+from earth2studio.lexicon import MyDataSourceLexicon
+
+class MyDataSource:
+    def _create_tasks(self, time_list, variable_list):
+        tasks = []
+        for v in variable_list:
+            # Get data source key and modifier
+            source_key, modifier = MyDataSourceLexicon[v]
+
+            # Parse source_key (e.g., split by ::)
+            parts = source_key.split("::")
+            parameter_id = parts[0]
+            level = parts[1]
+
+            # Create task with modifier
+            tasks.append(Task(
+                parameter_id=parameter_id,
+                level=level,
+                modifier=modifier,  # Apply after fetching
+            ))
+        return tasks
+
+    async def fetch_array(self, task):
+        # Fetch raw data
+        raw_data = await self._fetch_from_source(task.parameter_id, task.level)
+
+        # Apply modifier function
+        data = task.modifier(raw_data)
+
+        return data
+```
+
+### DataFrame Sources
+
+```python
+from earth2studio.lexicon import MyDataFrameLexicon
+
+class MyDataFrameSource:
+    SCHEMA = pa.schema([...])  # Should align with E2STUDIO_SCHEMA when possible
+
+    def _create_tasks(self, time_list, variable_list):
+        tasks = []
+        for v in variable_list:
+            # Get data source key and modifier
+            source_key, modifier = MyDataFrameLexicon[v]
+
+            # Parse source_key
+            parts = source_key.split("::")
+            # ... create task
+
+            tasks.append(Task(
+                source_key=source_key,
+                modifier=modifier,  # Apply to DataFrame after loading
+            ))
+        return tasks
+
+    def _compile_dataframe(self, tasks, variables, schema):
+        frames = []
+        for task in tasks:
+            # Load DataFrame from file
+            df = pd.read_hdf(task.file_path)
+
+            # Apply modifier function (filters/transforms DataFrame)
+            df = task.modifier(df)
+
+            # Add Earth2Studio columns
+            df["variable"] = task.e2s_obs_name
+            frames.append(df)
+
+        return pd.concat(frames, ignore_index=True)
+```
+
+## Schema Alignment for DataFrame Sources
+
+DataFrame sources should align their `SCHEMA` with `E2STUDIO_SCHEMA` when possible:
+
+```python
+from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+
+class MyDataFrameSource:
+    # Use E2STUDIO_SCHEMA as base, add data source specific fields
+    SCHEMA = pa.schema([
+        E2STUDIO_SCHEMA.field("time"),
+        E2STUDIO_SCHEMA.field("lat"),
+        E2STUDIO_SCHEMA.field("lon"),
+        E2STUDIO_SCHEMA.field("observation"),
+        E2STUDIO_SCHEMA.field("variable"),
+        # Add data source specific fields
+        pa.field("station", pa.string(), metadata={"source_name": "Station_ID"}),
+    ])
+```
+
+**Field Metadata**: Use metadata to map source column names to schema names:
+
+```python
+pa.field(
+    "lat",
+    pa.float32(),
+    metadata={"source_name": "Latitude"}  # Maps "Latitude" in source to "lat" in schema
+)
+```
+
+## Lexicon Coverage
+
+**Important**: Lexicons do NOT need to contain every variable in the remote data store. They should only list variables that are:
+1. Available in the data source
+2. Useful for Earth2Studio workflows
+3. Properly tested and validated
+
+If a variable is missing, users should open an issue to request it.
+
+## Reminders
+
+- **Always use `metaclass=LexiconType`** for lexicon classes
+- **Implement `get_item` classmethod** that returns `(source_key, modifier)`
+- **Use `::` separator pattern** for structured source keys
+- **Apply modifiers after fetching** data, not before
+- **For DataFrame sources**: Modifiers operate on DataFrames, not arrays
+- **Align schemas with `E2STUDIO_SCHEMA`** when possible
+- **Use field metadata** to map source column names to schema names
+- **Document data source** in lexicon docstring with links to resources
+- **Only include tested variables** in lexicon, not all available variables

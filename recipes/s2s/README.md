@@ -15,13 +15,13 @@ Key features include:
 - Multi-GPU inference
 - Parallel, non-blocking I/O using zarr format
 - Usage of one or more diagnostic models in the forecast pipeline
-- Storage space reduction via regional output or coarsening
+- Storage space reduction using regional output or coarsening
 - Multi-GPU scoring of forecast outputs
 - Capability to score using ECMWF AIWQ S2S metrics
 
 <!-- markdownlint-disable MD033 MD013 -->
 <div align="center">
-<img src="https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/resolve/main/recipes/pnw_demo.png" width="90%" alt="Earth2Studio S2S Banner">
+<img src="https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/recipes/s2s/pnw_demo.png" width="90%" alt="Earth2Studio S2S Banner">
 </div>
 <!-- markdownlint-disable MD033 -->
 
@@ -180,7 +180,7 @@ uv run python main.py --config-name pnw_sfno_precip.yaml
 
 ### Configuration
 
-This recipe is highly customizable and extensible via the use of [Hydra][hydra-docs]. While
+This recipe is highly customizable and extensible using the use of [Hydra][hydra-docs]. While
 config items are documented with in-line comments in the `yaml` configuration files under
 `cfg`, we describe a few key high-level configuration settings here:
 
@@ -279,7 +279,7 @@ scoring:
 The `aiwq` subsection can be omitted if AI Weather Quest scoring is not desired. For the
 more general `metrics` section, each metric can be instantiated using hydra, and they
 will be computed for each variable specified in `scoring.variables` and saved to disk. As
-weekly averaging is common in S2S scoring, we provide a mechanism to do so via the
+weekly averaging is common in S2S scoring, we provide a mechanism to do so using the
 `scoring.temporal_aggregation`. We can also take advantage of multi-GPU execution to speed
 up the scoring process as before:
 
@@ -291,7 +291,7 @@ uv run torchrun --nproc_per_node=8 --standalone score.py --config-name global_dl
 
 To use the [AI Weather Quest](https://aiweatherquest.ecmwf.int/) scoring routines, you must
 have installed the [AI-WQ-package](https://ecmwf-ai-weather-quest.readthedocs.io/en/latest/index.html)
-and have registered with AI Weather Quest. Once you have registered, set your password in the
+and have registered with AI Weather Quest. After you have registered, set your password in the
 following environment variable before running any scoring routines:
 
 ```bash
@@ -329,11 +329,11 @@ The `--standalone` argument indicate to `torchrun` that all GPUs are on the same
 machine/node; if running over multiple nodes refer to the [`torchrun` guide](https://docs.pytorch.org/docs/stable/elastic/run.html)
 for how to properly configure the process group.
 
-Note that `torchrun` is not required, and the `DistributedManager` will also work for
+`torchrun` is not required, and the `DistributedManager` will also work for
 process groups initialized with SLURM (`srun`) or MPI (`mpirun`).
 
 There are a number of considerations with multi-GPU execution worth highlighting here for
-more advanced users and developers. Primarily, certain download/caching operations in
+more advanced users and developers. Primarily, certain download and caching operations in
 Earth2studio utilities are not thread-safe, and can cause uncontrolled behavior if not run
 in a coordinated fashion:
 

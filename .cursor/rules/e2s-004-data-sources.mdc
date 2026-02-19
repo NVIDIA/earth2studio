@@ -1,0 +1,333 @@
+---
+globs: earth2studio/data/*.py
+description: Earth2Studio data source implementation guidelines for xarray DataArray sources
+---
+
+# Earth2Studio Data Sources
+
+This rule enforces data source implementation standards for Earth2Studio as defined in [data.md](mdc:docs/userguide/about/data.md) and following patterns from existing implementations.
+
+## Data Source Protocol
+
+Data sources must implement the `DataSource` Protocol from [base.py](mdc:earth2studio/data/base.py):
+
+- `__call__(time, variable) -> xr.DataArray` - Synchronous interface
+- `async fetch(time, variable) -> xr.DataArray` - Async interface
+
+Both methods have the same API:
+- `time: datetime | list[datetime] | TimeArray`
+- `variable: str | list[str] | VariableArray`
+- Returns: `xr.DataArray` with dimensions `[time, variable, ...]`
+
+## Common Constructor Parameters
+
+All data sources should follow this constructor pattern:
+
+```python
+def __init__(
+    self,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+):
+    self._cache = cache
+    self._verbose = verbose
+    self.async_timeout = async_timeout
+    # ... initialization logic
+```
+
+## Required Components
+
+### 1. Cache Property
+
+All data sources must have a `cache` property that returns the cache location:
+
+```python
+@property
+def cache(self) -> str:
+    """Get the appropriate cache location."""
+    cache_location = os.path.join(datasource_cache_root(), "data_source_name")
+    if not self._cache:
+        cache_location = os.path.join(cache_location, "tmp_data_source_name")
+    return cache_location
+```
+
+### 2. Available Classmethod (if possible)
+
+If the data source can check availability, implement an `available` classmethod:
+
+```python
+@classmethod
+def available(cls, time: datetime | np.datetime64) -> bool:
+    """Checks if given date time is available in the data source.
+
+    Parameters
+    ----------
+    time : datetime | np.datetime64
+        Date time to access
+
+    Returns
+    -------
+    bool
+        If date time is available
+    """
+    # Implementation
+```
+
+### 3. Async Initialization Pattern
+
+For async data sources, use `_async_init` to initialize the filesystem in the correct event loop:
+
+```python
+def __init__(self, cache: bool = True, verbose: bool = True, async_timeout: int = 600):
+    self._cache = cache
+    self._verbose = verbose
+
+    # Check to see if there is a running loop (initialized in async)
+    try:
+        nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
+        loop = asyncio.get_running_loop()
+        loop.run_until_complete(self._async_init())
+    except RuntimeError:
+        # Else we assume that async calls will be used which in that case
+        # we will init the group in the call function when we have the loop
+        self.fs = None  # or self.zarr_group = None, etc.
+
+    self.async_timeout = async_timeout
+
+async def _async_init(self) -> None:
+    """Async initialization of filesystem/store.
+
+    Note
+    ----
+    Async fsspec expects initialization inside of the execution loop
+    """
+    # Initialize filesystem/store here
+    # For s3fs: use skip_instance_cache=True
+    # For zarr: open async store
+```
+
+### 4. Synchronous `__call__` Method
+
+The synchronous interface should handle event loop creation and call the async method:
+
+```python
+def __call__(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+) -> xr.DataArray:
+    """Function to get data.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    variable : str | list[str] | VariableArray
+        String, list of strings or array of strings that refer to variables to
+        return. Must be in the data source lexicon.
+
+    Returns
+    -------
+    xr.DataArray
+        Weather data array
+    """
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # If no event loop exists, create one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    if self.fs is None:  # or self.zarr_group is None, etc.
+        loop.run_until_complete(self._async_init())
+
+    xr_array = loop.run_until_complete(
+        asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+    )
+
+    # Delete cache if needed
+    if not self._cache:
+        shutil.rmtree(self.cache, ignore_errors=True)
+
+    return xr_array
+```
+
+### 5. Async `fetch` Method
+
+The async fetch method should:
+
+1. Validate inputs using `prep_data_inputs`
+2. Create cache directory
+3. Validate time
+4. For s3fs: set and close session
+5. Pre-allocate xarray DataArray
+6. Create async tasks
+7. Gather tasks with progress bar
+8. Return DataArray
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+) -> xr.DataArray:
+    """Async function to get data.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    variable : str | list[str] | VariableArray
+        String, list of strings or array of strings that refer to variables to
+        return. Must be in the data source lexicon.
+
+    Returns
+    -------
+    xr.DataArray
+        Weather data array
+    """
+    if self.fs is None:  # Check initialization
+        raise ValueError(
+            "File store is not initialized! If you are calling this "
+            "function directly make sure the data source is initialized inside the async "
+            "loop!"
+        )
+
+    time, variable = prep_data_inputs(time, variable)
+    # Create cache dir if doesn't exist
+    pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+    # Make sure input time is valid
+    self._validate_time(time)
+
+    # For s3fs sources: set session
+    if isinstance(self.fs, s3fs.S3FileSystem):
+        session = await self.fs.set_session(refresh=True)
+    else:
+        session = None
+
+    # Pre-allocate xarray DataArray
+    xr_array = xr.DataArray(
+        data=np.empty((len(time), len(variable), ...)),
+        dims=["time", "variable", ...],
+        coords={
+            "time": time,
+            "variable": variable,
+            ...
+        },
+    )
+
+    # Create async tasks
+    async_tasks = await self._create_tasks(time, variable)
+
+    # Map tasks to wrapper function
+    func_map = map(
+        functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+    )
+
+    # Launch all fetch requests with progress bar
+    await tqdm.gather(
+        *func_map, desc="Fetching data", disable=(not self._verbose)
+    )
+
+    # Close aiohttp client if s3fs
+    if session:
+        await session.close()
+
+    return xr_array
+```
+
+### 6. S3FS Configuration
+
+For s3fs-based data sources, use these settings:
+
+```python
+fs = s3fs.S3FileSystem(
+    anon=True,
+    client_kwargs={},
+    asynchronous=True,
+    skip_instance_cache=True,  # IMPORTANT: Always use this
+)
+```
+
+### 7. Task Creation Pattern
+
+Create async tasks for parallel fetching:
+
+```python
+async def _create_tasks(
+    self, time: list[datetime], variable: list[str]
+) -> list[TaskType]:
+    """Create download tasks for parallel execution."""
+    tasks: list[TaskType] = []
+
+    # Create tasks for each time/variable combination
+    for i, t in enumerate(time):
+        for j, v in enumerate(variable):
+            tasks.append(
+                TaskType(
+                    data_array_indices=(i, j),
+                    # ... other task metadata
+                )
+            )
+    return tasks
+
+async def fetch_wrapper(
+    self,
+    task: TaskType,
+    xr_array: xr.DataArray,
+) -> None:
+    """Small wrapper to pack arrays into the DataArray."""
+    out = await self.fetch_array(task)
+    i, j = task.data_array_indices
+    xr_array[i, j] = out
+```
+
+## Data Array Requirements
+
+- **Dimensions**: Must start with `["time", "variable", ...]`
+- **Coordinates**: Must include `time` (datetime array) and `variable` (string array)
+- **Units**: Data is **always** in unnormalized physical units
+- **Shape**: `(len(time), len(variable), ...)`
+
+## Validation
+
+Implement `_validate_time` classmethod to validate time inputs:
+
+```python
+@classmethod
+def _validate_time(cls, times: list[datetime]) -> None:
+    """Verify if date time is valid for data source.
+
+    Parameters
+    ----------
+    times : list[datetime]
+        list of date times to fetch data
+    """
+    for time in times:
+        # Check time interval (e.g., hourly, 6-hourly)
+        if not (time - datetime(1900, 1, 1)).total_seconds() % INTERVAL == 0:
+            raise ValueError(f"Requested date time {time} needs to be {INTERVAL} hour interval")
+
+        # Check date range
+        if time < MIN_DATE or time > MAX_DATE:
+            raise ValueError(f"Requested date time {time} out of range")
+```
+
+## Reminders
+
+- Always use `prep_data_inputs(time, variable)` to normalize inputs
+- Use `nest_asyncio.apply()` in `__init__` for notebook compatibility
+- For s3fs: always use `skip_instance_cache=True`
+- For s3fs: set session before fetching, close after
+- Use `tqdm.gather` with `disable=(not self._verbose)` for progress bars
+- Pre-allocate xarray DataArray before parallel fetching
+- Delete temporary cache if `cache=False`
+- Follow existing patterns from ARCO and GFS implementations
+- Use `functools.partial` for task wrapper functions
+- Create cache directory with `pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)`
+- **Documentation**: Add the data source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "Data Sources" section, maintaining alphabetical order
+- AVOID the use of xarray if possible for loading data in favor of working with files more directly
+- AVOID downloading full files, rather try to download only slices
+- AVOID over complicating constructor parameters

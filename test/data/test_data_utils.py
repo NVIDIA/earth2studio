@@ -369,11 +369,24 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
 def test_datasource_cache(tmp_path, monkeypatch):
 
-    # Test with custom path via environment variable
+    # Test with data-specific cache environment variable
+    data_cache_path = str(tmp_path / "data_cache")
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", data_cache_path)
+    monkeypatch.delenv("EARTH2STUDIO_CACHE", raising=False)
+    assert datasource_cache_root() == data_cache_path
+    assert os.path.exists(data_cache_path)
+
+    # Test with general cache environment variable (should override if DATA_CACHE not set)
     custom_path = str(tmp_path / "custom_cache")
+    monkeypatch.delenv("EARTH2STUDIO_DATA_CACHE", raising=False)
     monkeypatch.setenv("EARTH2STUDIO_CACHE", custom_path)
     assert datasource_cache_root() == custom_path
     assert os.path.exists(custom_path)
+
+    # Test that DATA_CACHE takes precedence over CACHE
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", data_cache_path)
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", custom_path)
+    assert datasource_cache_root() == data_cache_path
 
     nonexistent_parent = str(tmp_path / "nonexistent")
     invalid_path = os.path.join(nonexistent_parent, "test")

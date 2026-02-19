@@ -7,7 +7,7 @@ and familiarity with the codebase.
 :::{admonition} Warning
 :class: warning
 
-Earth2Studio recipes are in beta, thus may dramatically change/get moved.
+Earth2Studio recipes are in beta, thus may dramatically change or get moved.
 :::
 
 ## What is a Recipe?
@@ -31,9 +31,9 @@ Here's how they differ:
 
 - Require multiple support files
 - Focus on providing complete solutions
-- Configuration YAMLs/JSONs
-- Pythonic interaction through main.py
-- Requirements provided in pyproject.toml
+- Configuration YAMLs and JSONs
+- Pythonic interaction through `main.py`
+- Requirements provided in `pyproject.toml`
 - May require more specific hardware or system dependencies
 
 See {ref}`examples_userguide` for more information on creating an example.
@@ -42,7 +42,7 @@ See {ref}`examples_userguide` for more information on creating an example.
 
 The [recipe template](https://github.com/NVIDIA/earth2studio/recipes/template/),
 defines what a recipe should contain and look like including folders, README sections,
-support files, etc.
+support files.
 Recipes have the following structure:
 
 ```text
@@ -66,22 +66,23 @@ recipes/
 
     - Must follow all pre-commit standards and code practices
     - Must include end-to-end tests validating functionality
-    - **No** images/data files/other file formats allowed in the repo, can link to
-        externally hosted
+    - **No** images, data files, or other file formats allowed in the repo, can link to
+        externally hosted. Earth2Studio has a [HuggingFace assets dataset](https://huggingface.co/datasets/nvidia/earth2studio-assets)
+        that can be used.
     - Implementation or re-implementation of components that exist in Earth2Studio
         package is not encouraged. Upstreaming is a priority
 
 2. **Testing**
 
     - Should include end-to-end tests with expected results to verify functionality
-    - Not included in the main pytest suite
+    - Not included in the main `pytest` suite
     - Tested following major release cycles
 
 3. **Ownership**
 
     - Must have designated owners (listed as authors in `pyproject.toml`)
     - Owners responsible for fixing bugs and updates
-    - Recipes can and may be removed based on their use / relevance
+    - Recipes can and may be removed based on their use or relevance
 
 4. **Dependencies**
 
@@ -107,7 +108,7 @@ cp -r recipes/template recipes/my_new_recipe
 cd recipes/my_new_recipe
 ```
 
-Update the `pyproject.toml` to reflect the correct meta data:
+Update the `pyproject.toml` to reflect the correct metadata:
 
 ```toml
 [project]
@@ -121,7 +122,7 @@ authors = [
 ]
 ```
 
-Inside the recipe dependencies can be added / removed using [uv](https://docs.astral.sh/uv/).
+Inside the recipe dependencies can be added or removed using [uv](https://docs.astral.sh/uv/).
 For example:
 
 ```bash
