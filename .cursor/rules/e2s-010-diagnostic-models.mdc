@@ -450,3 +450,5 @@ class MyDiagnostic(torch.nn.Module, AutoModelMixin):
 - **Wrappers should be checkpoint-specific** (handle checkpoint format)
 - **Reshape output** to match output coordinate system
 - **Documentation**: Add the diagnostic model to [models.rst](mdc:docs/modules/models.rst) in the `earth2studio.models.dx` section, maintaining alphabetical order
+- DO NOT attempt to make a general base class with intent to reuse the wrapper
+- DO NOT over populate the load_model() api, only expose essential paramters

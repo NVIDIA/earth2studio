@@ -327,5 +327,7 @@ def _validate_time(cls, times: list[datetime]) -> None:
 - Follow existing patterns from ARCO and GFS implementations
 - Use `functools.partial` for task wrapper functions
 - Create cache directory with `pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)`
-
 - **Documentation**: Add the data source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "Data Sources" section, maintaining alphabetical order
+- AVOID the use of xarray if possible for loading data in favor of working with files more directly
+- AVOID downloading full files, rather try to download only slices
+- AVOID over complicating constructor parameters

@@ -477,3 +477,5 @@ class MyPrognostic(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 - **Always yield initial condition first** in `create_iterator` (step 0)
 - **Use hooks** from `PrognosticMixin` (`front_hook`, `rear_hook`)
 - **Documentation**: Add the prognostic model to [models.rst](mdc:docs/modules/models.rst) in the `earth2studio.models.px` section, maintaining alphabetical order
+- DO NOT attempt to make a general base class with intent to reuse the wrapper
+- DO NOT over populate the load_model() api, only expose essential paramters
