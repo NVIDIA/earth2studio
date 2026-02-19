@@ -12,7 +12,7 @@ This rule enforces the coding standards for Earth2Studio as defined in [style.md
 - **Formatter**: Use [black](mdc:pyproject.toml) for all code formatting. Code must be compliant with the black version specified in pyproject.toml.
 - **Naming Conventions**:
   - Files: Always lowercase, use shortened name of component they hold (e.g., `gsi.py`, `isd.py`)
-  - Classes: Capitalized camel-case (e.g., `GSI_Conventional`, `CBottleInfill`)
+  - Classes: Capitalized pascal-case (e.g., `ECMWFOpenDataAsyncTask`, `CBottleInfill`) unless class name is all caps then under score can be used (e.g. `NCAR_ERA5`, `GFS_FX`)
   - Functions: Lowercase snake-case (e.g., `fetch_array`, `_validate_time`)
 
 ## Type Hints
