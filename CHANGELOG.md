@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed available date for ARCO data source to be dynamically updated
 - Changed ISD data frame return to master schema
 - Updated CBottle infill to mixture of model checkpoints
 
