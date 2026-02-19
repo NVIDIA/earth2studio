@@ -29,10 +29,11 @@ from .jpss import JPSSLexicon
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .planetary_computer import (
-    ECMWFOpenDataIFSLexicon,
-    MODISFireLexicon,
-    OISSTLexicon,
-    Sentinel3AODLexicon,
+    PlanetaryComputerECMWFOpenDataIFSLexicon,
+    PlanetaryComputerGOESLexicon,
+    PlanetaryComputerMODISFireLexicon,
+    PlanetaryComputerOISSTLexicon,
+    PlanetaryComputerSentinel3AODLexicon,
 )
 from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
