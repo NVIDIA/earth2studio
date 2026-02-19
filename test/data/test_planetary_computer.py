@@ -282,38 +282,14 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
         (
             "goes16",
             "C",
-            datetime(2022, 1, 13),
-            ["abi01c"],
-        ),
-        (
-            "goes16",
-            "F",
-            datetime(2022, 1, 13),
-            ["abi05c"],
-        ),
-        (
-            "goes18",
-            "C",
-            datetime(2024, 5, 9),
-            ["abi07c"],
-        ),
-        (
-            "goes18",
-            "F",
-            datetime(2024, 5, 9),
-            ["abi11c"],
+            datetime(2022, 1, 13, 5, 10),
+            ["abi01c", "abi05c"],
         ),
         (
             "goes19",
             "C",
-            datetime(2025, 11, 13),
+            [datetime(2025, 11, 13), datetime(2026, 1, 8, 18, 40)],
             ["abi14c"],
-        ),
-        (
-            "goes19",
-            "F",
-            datetime(2025, 11, 13),
-            ["abi15c"],
         ),
     ],
 )
@@ -329,3 +305,64 @@ def test_planetary_computer_goes_fetch(satellite, scan_mode, time, variable) -> 
     else:
         assert data.shape == (len(times), len(variables), 5424, 5424)
     assert np.array_equal(data.coords["variable"].values, np.array(variables))
+
+
+@pytest.mark.parametrize(
+    "satellite,scan_mode,valid_time,invalid_times",
+    [
+        (
+            "goes16",  # 2017-12-18 - 2025-04-07
+            "C",  # scan time every 5 min
+            datetime(2019, 5, 19),
+            [
+                datetime(2017, 12, 17),
+                datetime(2025, 4, 8),
+                datetime(2022, 1, 13, 5, 12),
+                datetime(2022, 1, 13, 5, 10, 10),
+            ],
+        ),
+        (
+            "goes19",  # after 2025-04-07
+            "F",  # scan time every 10 min
+            datetime(2025, 6, 8),
+            [
+                datetime(2025, 4, 6),
+                datetime(2025, 7, 10, 5, 15),
+                datetime(2022, 7, 10, 5, 10, 10),
+            ],
+        ),
+    ],
+)
+def test_planetary_computer_goes_exceptions(
+    satellite, scan_mode, valid_time, invalid_times
+):
+    ds = PlanetaryComputerGOES(
+        satellite=satellite,
+        scan_mode=scan_mode,
+        cache=False,
+        verbose=False,
+    )
+
+    with pytest.raises(KeyError):
+        ds(valid_time, ["invalid_variable"])
+
+    with pytest.raises(KeyError):
+        ds(valid_time, ["abi14c", "invalid_variable"])
+
+    for time in invalid_times:
+        with pytest.raises(ValueError):
+            ds(time, ["abi01c"])
+
+    satellite_mapping = {
+        "goes16": "GOES-16",
+        "goes19": "GOES-19",
+    }
+    scan_mode_mapping = {
+        "F": "FULL DISK",
+        "C": "CONUS",
+    }
+    query = {
+        "platform": {"eq": satellite_mapping[satellite]},
+        "goes:image-type": {"eq": scan_mode_mapping[scan_mode]},
+    }
+    assert ds._get_search_kwargs()["query"] == query
