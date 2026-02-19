@@ -17,11 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added accumulated variable support to NCAR ERA5 data source
 - Added routine to tile tensors to higher-dimensional tensors
 - Added routine to concatenate tensors along specified coordinate dimension
+- Added ability to have seperate data and model cache locations via env variables
 
 ### Changed
 
+- Changed available date for ARCO data source to be dynamically updated
 - Changed ISD data frame return to master schema
 - handshake_coords is now accepting list of dimensions while remaining backwards-compatible
+- Updated CBottle infill to mixture of model checkpoints
 
 ### Deprecated
 
@@ -36,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Added pyarrow explicitly to core dependencies
+- Updated CBottle repo to NVlabs location
+- Updated Makani dependency hash to later version with pyproject toml fix
+- Updated ACE2 dependency hash with setuptools fix
 
 ## [0.12.1] - 2026-01-29
 

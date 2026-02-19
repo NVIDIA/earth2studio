@@ -359,6 +359,7 @@ def datasource_cache_root() -> str:
     """Returns the root directory for data sources"""
     default_cache = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
     default_cache = os.environ.get("EARTH2STUDIO_CACHE", default_cache)
+    default_cache = os.environ.get("EARTH2STUDIO_DATA_CACHE", default_cache)
 
     try:
         os.makedirs(default_cache, exist_ok=True)

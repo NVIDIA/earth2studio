@@ -1,0 +1,454 @@
+---
+globs: earth2studio/models/dx/*.py
+description: Earth2Studio diagnostic model implementation guidelines following the DiagnosticModel protocol
+---
+
+# Earth2Studio Diagnostic Models
+
+This rule enforces diagnostic model implementation standards for Earth2Studio. Diagnostic models transform physical data at a single time point (no time integration). See [diagnostic.md](mdc:docs/userguide/components/diagnostic.md) for user-facing documentation.
+
+## Diagnostic Model Protocol
+
+Diagnostic models must implement the `DiagnosticModel` Protocol from [base.py](mdc:earth2studio/models/dx/base.py):
+
+- `__call__(x, coords) -> tuple[torch.Tensor, CoordSystem]` - Transform input data
+- `input_coords() -> CoordSystem` - Input coordinate system
+- `output_coords(input_coords) -> CoordSystem` - Output coordinate system
+- `to(device) -> DiagnosticModel` - Move model to device
+
+**Note**: Diagnostic models do NOT have `create_iterator` (unlike prognostic models) as they do not perform time integration.
+
+## Required Base Classes
+
+Most diagnostic models should inherit from:
+
+1. **`torch.nn.Module`**: PyTorch module base class
+2. **`AutoModelMixin`**: Provides automatic checkpoint loading (from [mixin.py](mdc:earth2studio/models/auto/mixin.py))
+
+```python
+from earth2studio.models.auto.mixin import AutoModelMixin
+
+class MyDiagnostic(torch.nn.Module, AutoModelMixin):
+    """My diagnostic model."""
+    pass
+```
+
+**Note**: Diagnostic models do NOT inherit from `PrognosticMixin` (unlike prognostic models) as they don't need iterator hooks.
+
+## AutoModelMixin Implementation
+
+### load_default_package
+
+Implement `load_default_package` classmethod to return the default model package:
+
+```python
+@classmethod
+def load_default_package(cls) -> Package:
+    """Default pre-trained model package.
+
+    Returns
+    -------
+    Package
+        Model package with default checkpoint location
+    """
+    return Package(
+        "ngc://models/org/model@version",  # or s3://, hf://, local path
+        cache_options={
+            "cache_storage": Package.default_cache("model_name"),  # Cache under model name
+            "same_names": True,  # Keep file names the same
+        },
+    )
+```
+
+**Key Points**:
+- Use `Package.default_cache("model_name")` to cache under model name in default cache directory
+- Set `"same_names": True` in `cache_options` to preserve original file names
+- Can use NGC (`ngc://`), HuggingFace (`hf://`), S3 (`s3://`), or local paths
+
+### load_model
+
+Implement `load_model` classmethod to instantiate model from package:
+
+```python
+@classmethod
+@check_optional_dependencies()  # If using optional dependencies
+def load_model(
+    cls,
+    package: Package,
+    **kwargs,  # Model-specific parameters
+) -> DiagnosticModel:
+    """Load diagnostic from package.
+
+    Parameters
+    ----------
+    package : Package
+        Model package containing checkpoint files
+    **kwargs
+        Model-specific initialization parameters
+
+    Returns
+    -------
+    DiagnosticModel
+        Instantiated diagnostic model
+    """
+    # Load checkpoint files using package.resolve()
+    checkpoint_path = package.resolve("checkpoint.pt")
+
+    # Load model weights
+    core_model = torch.load(checkpoint_path, map_location="cpu")
+    core_model.eval()
+    core_model.requires_grad_(False)
+
+    # Load any additional data files
+    data_file = package.resolve("data.nc")
+
+    # Instantiate wrapper
+    return cls(
+        core_model,
+        data_file,
+        **kwargs,
+    )
+```
+
+**Key Points**:
+- Use `package.resolve("filename")` to get cached file paths
+- Wrappers should be checkpoint-specific (handle checkpoint format)
+- Load checkpoints with `map_location="cpu"` then move to device with `.to(device)`
+- Set `core_model.eval()` and `core_model.requires_grad_(False)` for inference
+- Use `@check_optional_dependencies()` if model requires optional dependencies
+
+## Coordinate System Definition
+
+### input_coords
+
+Define the input coordinate system as a class property or method:
+
+```python
+def input_coords(self) -> CoordSystem:
+    """Input coordinate system of diagnostic model.
+
+    Returns
+    -------
+    CoordSystem
+        Coordinate system dictionary with "batch" as first dimension
+    """
+    return OrderedDict({
+        "batch": np.empty(0),  # Must be first, must be empty array
+        "time": np.empty(0),  # Dynamic time dimension (optional)
+        "variable": np.array(INPUT_VARIABLES),  # Input variables
+        "lat": np.linspace(90, -90, 721),
+        "lon": np.linspace(0, 360, 1440, endpoint=False),
+    })
+```
+
+**Key Requirements**:
+- **`batch` must be first dimension** with value `np.empty(0)` (dynamic size)
+- Use `np.empty(0)` for dynamic dimensions (e.g., `time`, `batch`)
+- Use specific arrays for fixed dimensions (e.g., `variable`, `lat`, `lon`)
+- Diagnostic models typically don't have `lead_time` (unlike prognostic models)
+
+### output_coords with @batch_coords
+
+Decorate `output_coords` with `@batch_coords()` to handle batch dimensions:
+
+```python
+from earth2studio.models.batch import batch_coords
+from earth2studio.utils import handshake_coords, handshake_dim
+
+@batch_coords()
+def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    """Output coordinate system of diagnostic model.
+
+    Parameters
+    ----------
+    input_coords : CoordSystem
+        Input coordinate system to transform
+
+    Returns
+    -------
+    CoordSystem
+        Output coordinate system dictionary
+
+    Raises
+    ------
+    ValueError
+        If input_coords are not valid
+    """
+    target_input_coords = self.input_coords()
+
+    # Validate input coordinates
+    handshake_dim(input_coords, "variable", -3)  # Check dimension index
+    handshake_dim(input_coords, "lat", -2)
+    handshake_dim(input_coords, "lon", -1)
+    handshake_coords(input_coords, target_input_coords, "variable")  # Check values match
+    handshake_coords(input_coords, target_input_coords, "lat")
+    handshake_coords(input_coords, target_input_coords, "lon")
+
+    # Create output coordinates
+    output_coords = input_coords.copy()
+    output_coords["variable"] = np.array(OUTPUT_VARIABLES)  # Different variables
+
+    return output_coords
+```
+
+**Key Points**:
+- Use `handshake_dim()` to validate dimension indices (use negative indices for trailing dims)
+- Use `handshake_coords()` to validate coordinate values match expected
+- Update output coordinates (typically `variable` changes)
+- Return modified copy of input coordinates
+
+## Forward Pass Implementation
+
+### __call__ with @batch_func
+
+Decorate `__call__` with `@batch_func()` to handle automatic batching:
+
+```python
+from earth2studio.models.batch import batch_func
+
+@torch.inference_mode()  # Optional: for inference-only models
+@batch_func()
+def __call__(
+    self,
+    x: torch.Tensor,
+    coords: CoordSystem,
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Forward pass of diagnostic model.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Input tensor with shape matching input_coords
+    coords : CoordSystem
+        Input coordinate system
+
+    Returns
+    -------
+    tuple[torch.Tensor, CoordSystem]
+        Output tensor and coordinate system
+    """
+    # Validate coordinates
+    target_input_coords = self.input_coords()
+    handshake_coords(coords, target_input_coords, "variable")
+    handshake_dim(coords, "variable", -3)
+
+    # Get output coordinates
+    output_coords = self.output_coords(coords)
+
+    # Ensure tensor is on correct device
+    device = next(self.parameters()).device
+    x = x.to(device)
+
+    # Perform forward pass (on GPU when possible)
+    out = self._forward(x, coords)
+
+    # Reshape output to match output coordinates
+    out = out.reshape(
+        output_coords["batch"].shape[0],
+        output_coords["time"].shape[0] if "time" in output_coords else 1,
+        output_coords["variable"].shape[0],
+        output_coords["lat"].shape[0],
+        output_coords["lon"].shape[0],
+    )
+
+    return out, output_coords
+```
+
+**Key Points**:
+- Use `@batch_func()` decorator to automatically handle batch dimensions
+- Use `@torch.inference_mode()` for inference-only models (optional but recommended)
+- Validate input coordinates using `handshake_coords()` and `handshake_dim()`
+- Move tensors to model device: `x.to(device)` or `x.to(next(self.parameters()).device)`
+- Operations should happen on GPU when possible
+- Call `self._forward()` for actual model computation
+- Reshape output to match output coordinate system
+
+## Device Management
+
+Models should support `.to(device)` for moving to GPU:
+
+```python
+def to(self, device: torch.device | str) -> DiagnosticModel:
+    """Move model to device.
+
+    Parameters
+    ----------
+    device : torch.device | str
+        Target device
+
+    Returns
+    -------
+    DiagnosticModel
+        Model on target device
+    """
+    # Move PyTorch module
+    super().to(device)
+
+    # Move any additional buffers/parameters
+    if hasattr(self, "device_buffer"):
+        self.device_buffer = self.device_buffer.to(device)
+
+    return self
+```
+
+**Key Points**:
+- Call `super().to(device)` for PyTorch module
+- Move any custom buffers/parameters to device
+- Return `self` for chaining
+
+## Data Operations on GPU
+
+**Always perform data operations on GPU when possible**:
+
+```python
+def _forward(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    """Internal forward pass."""
+    device = next(self.parameters()).device
+
+    # Ensure input is on device
+    x = x.to(device)
+
+    # All operations on GPU
+    x = self.some_operation(x)  # On GPU
+    x = self.core_model(x)  # On GPU
+
+    return x
+```
+
+## Complete Example Structure
+
+```python
+from collections import OrderedDict
+
+import numpy as np
+import torch
+
+from earth2studio.models.auto.mixin import AutoModelMixin
+from earth2studio.models.auto.package import Package
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.type import CoordSystem
+
+class MyDiagnostic(torch.nn.Module, AutoModelMixin):
+    """My diagnostic model."""
+
+    INPUT_VARIABLES = np.array(["u10m", "v10m"])
+    OUTPUT_VARIABLES = np.array(["tp", "t2m"])
+
+    def __init__(self, core_model: torch.nn.Module, **kwargs):
+        super().__init__()
+        self.core_model = core_model
+        self.register_buffer("device_buffer", torch.empty(0))
+
+    def input_coords(self) -> CoordSystem:
+        """Input coordinate system."""
+        return OrderedDict({
+            "batch": np.empty(0),
+            "time": np.empty(0),
+            "variable": self.INPUT_VARIABLES,
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        })
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system."""
+        target = self.input_coords()
+        handshake_coords(input_coords, target, "variable")
+        handshake_dim(input_coords, "variable", -3)
+        handshake_dim(input_coords, "lat", -2)
+        handshake_dim(input_coords, "lon", -1)
+
+        output_coords = input_coords.copy()
+        output_coords["variable"] = self.OUTPUT_VARIABLES
+        return output_coords
+
+    @torch.inference_mode()
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Forward pass."""
+        target = self.input_coords()
+        handshake_coords(coords, target, "variable")
+        handshake_dim(coords, "variable", -3)
+
+        output_coords = self.output_coords(coords)
+
+        device = next(self.parameters()).device
+        x = x.to(device)
+
+        out = self._forward(x, coords)
+
+        # Reshape to match output coordinates
+        out = out.reshape(
+            output_coords["batch"].shape[0],
+            output_coords["time"].shape[0],
+            output_coords["variable"].shape[0],
+            output_coords["lat"].shape[0],
+            output_coords["lon"].shape[0],
+        )
+
+        return out, output_coords
+
+    def _forward(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        """Internal forward pass."""
+        return self.core_model(x)
+
+    def to(self, device: torch.device | str) -> DiagnosticModel:
+        """Move to device."""
+        super().to(device)
+        if hasattr(self, "device_buffer"):
+            self.device_buffer = self.device_buffer.to(device)
+        return self
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Default package."""
+        return Package(
+            "ngc://models/org/model@version",
+            cache_options={
+                "cache_storage": Package.default_cache("my_diagnostic"),
+                "same_names": True,
+            },
+        )
+
+    @classmethod
+    def load_model(cls, package: Package, **kwargs) -> DiagnosticModel:
+        """Load from package."""
+        checkpoint = package.resolve("checkpoint.pt")
+        core_model = torch.load(checkpoint, map_location="cpu")
+        core_model.eval()
+        core_model.requires_grad_(False)
+        return cls(core_model, **kwargs)
+```
+
+## Differences from Prognostic Models
+
+- **No `create_iterator`**: Diagnostic models don't perform time integration
+- **No `PrognosticMixin`**: Diagnostic models don't need iterator hooks
+- **No `lead_time`**: Diagnostic models typically don't have lead time dimension
+- **Single forward pass**: Diagnostics transform data at a single time point
+
+## Reminders
+
+- **Always inherit from**: `torch.nn.Module`, `AutoModelMixin`
+- **Always use `@batch_func()`** on `__call__`
+- **Always use `@batch_coords()`** on `output_coords`
+- **`batch` must be first dimension** in coordinate systems with `np.empty(0)`
+- **Validate coordinates** using `handshake_coords()` and `handshake_dim()`
+- **Move tensors to device** before operations: `x.to(device)`
+- **Perform operations on GPU** when possible
+- **Use `@torch.inference_mode()`** for inference-only models
+- **Set `eval()` and `requires_grad_(False)`** on loaded models
+- **Use `package.resolve()`** to get cached file paths
+- **Set `same_names: True`** in cache options to preserve file names
+- **Cache under model name**: `Package.default_cache("model_name")`
+- **Wrappers should be checkpoint-specific** (handle checkpoint format)
+- **Reshape output** to match output coordinate system
+- **Documentation**: Add the diagnostic model to [models.rst](mdc:docs/modules/models.rst) in the `earth2studio.models.dx` section, maintaining alphabetical order
+- DO NOT attempt to make a general base class with intent to reuse the wrapper
+- DO NOT over populate the load_model() api, only expose essential paramters
