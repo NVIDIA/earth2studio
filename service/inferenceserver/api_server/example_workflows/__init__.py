@@ -1,4 +1,3 @@
-#!/bin/bash
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -15,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+"""
+Example workflows for Earth2Studio inference server.
 
-cd /workspace/earth2studio-project/service/inferenceserver
-make start-redis
-make start-api-server
-sleep infinity
+This package contains example workflow implementations that demonstrate
+how to build custom workflows for the inference server.
+"""

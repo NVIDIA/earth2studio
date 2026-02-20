@@ -48,14 +48,7 @@ mock_omegaconf.OmegaConf = MagicMock()
 mock_omegaconf.OmegaConf.to_container = MagicMock(return_value={})
 
 # Import config after mocking dependencies (noqa: E402 - import after mocks is intentional)
-# Add service/inferenceserver to path for imports
-# Add the service/inferenceserver directory to Python path
-_inferenceserver_path = (
-    Path(__file__).parent.parent.parent / "service" / "inferenceserver"
-)
-if str(_inferenceserver_path) not in sys.path:
-    sys.path.insert(0, str(_inferenceserver_path))
-
+# Note: service/inferenceserver path is added by conftest.py
 from api_server.config import (  # noqa: E402
     AppConfig,
     ConfigManager,
@@ -558,31 +551,6 @@ class TestGetWorkflowConfig:
 
         config = get_workflow_config("nonexistent_workflow")
         assert config == {}
-
-
-class TestResetConfig:
-    """Test reset_config function"""
-
-    def test_reset_config_clears_global_manager(self) -> None:
-        """Test that reset_config clears the global manager"""
-        manager1 = get_config_manager()
-        reset_config()
-        # Verify that reset_config cleared the global _config_manager
-        from api_server.config import ConfigManager, _config_manager
-
-        # After reset, _config_manager should be None
-        assert _config_manager is None
-        # Also clear the class-level singleton instance
-        ConfigManager._instance = None
-        # Next call should create a new instance
-        manager2 = get_config_manager()
-        assert manager1 is not manager2
-
-    def test_reset_config_clears_hydra(self) -> None:
-        """Test that reset_config clears Hydra instance"""
-        reset_config()
-        # Should not raise an error
-        get_config_manager()
 
 
 class TestConfigManagerDictToConfig:

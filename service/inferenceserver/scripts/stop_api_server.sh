@@ -15,11 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-echo "Stopping Earth2Studio API Server..."
+echo "Stopping API Server..."
 
 # Stop API workers
 echo "Stopping API workers..."
-pkill -f "uvicorn.*earth2studio_api_server.main:app"
+pkill -f "uvicorn.*api_server.main:app"
 
 # Stop RQ inference workers
 echo "Stopping RQ inference workers..."

@@ -21,7 +21,7 @@
 # Get the directory where this script is located.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # A way to override the config location while starting up the endpoint.
-CONFIG_DIR=${CONFIG_DIR:-"${SCRIPT_DIR}/../earth2studio_api_server/conf"}
+CONFIG_DIR=${CONFIG_DIR:-"${SCRIPT_DIR}/../api_server/conf"}
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 
 # Function to read config values from YAML using Python
@@ -80,9 +80,9 @@ cleanup() {
     fi
 
     # Stop all API workers
-    if pgrep -f "uvicorn.*earth2studio_api_server.main:app" > /dev/null; then
+    if pgrep -f "uvicorn.*api_server.main:app" > /dev/null; then
         echo "Stopping API workers..."
-        pkill -f "uvicorn.*earth2studio_api_server.main:app"
+        pkill -f "uvicorn.*api_server.main:app"
     fi
 
     # Stop all RQ inference workers
@@ -119,7 +119,7 @@ trap cleanup SIGINT SIGTERM
 export EARTH2STUDIO_API_ACTIVE=1
 
 # Start multiple workers using uvicorn with extended timeouts for large file downloads
-uvicorn earth2studio_api_server.main:app --host 0.0.0.0 --port $API_PORT --workers $NUM_WORKERS --loop asyncio --timeout-keep-alive 300 --timeout-graceful-shutdown 30 &
+uvicorn api_server.main:app --host 0.0.0.0 --port $API_PORT --workers $NUM_WORKERS --loop asyncio --timeout-keep-alive 300 --timeout-graceful-shutdown 30 &
 UVICORN_PID=$!
 
 # Start RQ workers
@@ -167,7 +167,7 @@ for i in $(seq 1 $NUM_FINALIZE_WORKERS); do
 done
 
 # Start cleanup daemon
-python -m earth2studio_api_server.cleanup_daemon &
+python -m api_server.cleanup_daemon &
 CLEANUP_DAEMON_PID=$!
 echo "Started cleanup daemon (PID: $CLEANUP_DAEMON_PID)"
 
@@ -175,7 +175,7 @@ echo "Started cleanup daemon (PID: $CLEANUP_DAEMON_PID)"
 sleep 5
 
 # Check if API workers are running
-API_WORKER_COUNT=$(pgrep -f "uvicorn.*earth2studio_api_server.main:app" | wc -l)
+API_WORKER_COUNT=$(pgrep -f "uvicorn.*api_server.main:app" | wc -l)
 if [ "$API_WORKER_COUNT" -eq 0 ]; then
     echo "Failed to start API workers..."
     exit 1

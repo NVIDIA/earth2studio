@@ -1,4 +1,3 @@
-#!/bin/bash
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -15,9 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+"""
+Earth2Studio API Server Package
 
-cd /workspace/earth2studio-project/service/inferenceserver
-make start-redis
-make start-api-server
-sleep infinity
+This package contains the main API server components including:
+- main: FastAPI application and REST endpoints
+- workflow: Workflow framework and registry
+- worker: RQ worker functions for processing jobs
+- cpu_worker: CPU-intensive worker functions
+"""
+
+__all__ = ["main", "workflow", "worker", "cpu_worker", "config", "object_storage"]
