@@ -100,7 +100,7 @@ OUT_HEIGHT = 2880
 OUT_WIDTH = 5760
 
 
-class OrbitGlobalPrecip9_5M(torch.nn.Module, AutoModelMixin):
+class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     """ORBIT-2 precipitation downscaling model, built into Earth2Studio.
 
     Note

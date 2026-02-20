@@ -7,8 +7,9 @@ from earth2studio.io import ZarrBackend
 from earth2studio.lexicon.ncar import NCAR_ERA5Lexicon
 from earth2studio.models.dx import OrbitGlobalPrecip9_5M
 
-package = OrbitGlobalPrecip9_5M.load_default_package()
-orbit = OrbitGlobalPrecip9_5M.load_model(package, "global", "9.5m", "precipitation")
+package = OrbitGlobalPrecip.load_default_package()
+orbit = OrbitGlobalPrecip.load_model(package, "global", "9.5m", "precipitation")
+#orbit = OrbitGlobalPrecip.load_model(package, "global", "126m", "precipitation")
 
 data = NCAR_ERA5()
 file_name = "outputs/aifs_forecast.zarr"
