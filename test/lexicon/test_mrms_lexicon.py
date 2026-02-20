@@ -29,6 +29,15 @@ def test_mrms_lexicon_basic_mapping_and_modifier_identity():
     assert np.array_equal(y, x)
 
 
+def test_mrms_lexicon_refc_base_mapping_and_modifier_identity():
+    key, mod = MRMSLexicon.get_item("refc_base")
+    assert key == "MergedBaseReflectivityQC_00.50"
+
+    x = np.array([0.0, 1.5, -3.2], dtype=np.float32)
+    y = mod(x.copy())
+    assert np.array_equal(y, x)
+
+
 def test_mrms_lexicon_invalid_key():
     with pytest.raises(KeyError):
         MRMSLexicon.get_item("invalid_key")

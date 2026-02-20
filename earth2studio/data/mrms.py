@@ -414,6 +414,12 @@ class MRMS:
 
         Returns the resolved timestamp and full S3 URI if found, else None.
         """
+        # Normalize to timezone-aware UTC for robust datetime arithmetic.
+        if time.tzinfo is None:
+            time = time.replace(tzinfo=timezone.utc)
+        else:
+            time = time.astimezone(timezone.utc)
+
         # Exact match fast path
         key = cls._s3_key(time, product)
         s3_uri = f"s3://{cls.MRMS_BUCKET_NAME}/{key}"
@@ -482,11 +488,11 @@ class MRMS:
         max_offset_minutes: float = 10,
     ) -> list[tuple[datetime, str]]:
         """Return all candidate MRMS objects within tolerance, sorted nearest-first."""
-        # Exact match fast path
-        key = cls._s3_key(time, product)
-        s3_uri = f"s3://{cls.MRMS_BUCKET_NAME}/{key}"
-        if await fs._exists(s3_uri):
-            return [(time, s3_uri)]
+        # Normalize to timezone-aware UTC for robust datetime arithmetic.
+        if time.tzinfo is None:
+            time = time.replace(tzinfo=timezone.utc)
+        else:
+            time = time.astimezone(timezone.utc)
 
         t_min = time - timedelta(minutes=max_offset_minutes)
         t_max = time + timedelta(minutes=max_offset_minutes)
