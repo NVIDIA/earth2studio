@@ -1,0 +1,270 @@
+---
+globs: earth2studio/data/*.py
+description: Earth2Studio forecast source implementation guidelines for xarray DataArray sources with lead_time
+---
+
+# Earth2Studio Forecast Sources
+
+This rule enforces forecast source implementation standards for Earth2Studio. Forecast sources are similar to data sources but include a `lead_time` parameter. **Most patterns from [e2s-004-data-sources.mdc](mdc:.cursor/rules/e2s-004-data-sources.mdc) still apply** - this rule highlights the key differences.
+
+## Forecast Source Protocol
+
+Forecast sources must implement the `ForecastSource` Protocol from [base.py](mdc:earth2studio/data/base.py):
+
+- `__call__(time, lead_time, variable) -> xr.DataArray` - Synchronous interface
+- `async fetch(time, lead_time, variable) -> xr.DataArray` - Async interface
+
+Both methods have the same API:
+- `time: datetime | list[datetime] | TimeArray`
+- `lead_time: timedelta | list[timedelta] | LeadTimeArray`
+- `variable: str | list[str] | VariableArray`
+- Returns: `xr.DataArray` with dimensions `[time, lead_time, variable, ...]`
+
+## Key Differences from Data Sources
+
+### 1. API Signature Includes `lead_time`
+
+The main difference is the addition of the `lead_time` parameter:
+
+```python
+def __call__(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+) -> xr.DataArray:
+    """Retrieve forecast data.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    lead_time: timedelta | list[timedelta] | LeadTimeArray
+        Forecast lead times to fetch.
+    variable : str | list[str] | VariableArray
+        String, list of strings or array of strings that refer to variables to
+        return. Must be in the data source lexicon.
+
+    Returns
+    -------
+    xr.DataArray
+        Forecast weather data array
+    """
+```
+
+### 2. Use `prep_forecast_inputs` Instead of `prep_data_inputs`
+
+Forecast sources must use `prep_forecast_inputs` to normalize all three inputs:
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+) -> xr.DataArray:
+    # Normalize all three inputs
+    time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
+    # ... rest of implementation
+```
+
+### 3. Data Array Dimensions Include `lead_time`
+
+The xarray DataArray must include `lead_time` in dimensions and coordinates:
+
+```python
+xr_array = xr.DataArray(
+    data=np.zeros(
+        (
+            len(time),
+            len(lead_time),  # lead_time dimension
+            len(variable),
+            len(self.LAT),
+            len(self.LON),
+        )
+    ),
+    dims=["time", "lead_time", "variable", "lat", "lon"],  # lead_time in dims
+    coords={
+        "time": time,
+        "lead_time": lead_time,  # lead_time coordinate
+        "variable": variable,
+        "lat": self.LAT,
+        "lon": self.LON,
+    },
+)
+```
+
+### 4. Task Creation Includes `lead_time`
+
+The `_create_tasks` method must iterate over lead times as well:
+
+```python
+async def _create_tasks(
+    self,
+    time: list[datetime],
+    lead_time: list[timedelta],
+    variable: list[str],
+) -> list[TaskType]:
+    """Create download tasks for parallel execution."""
+    tasks: list[TaskType] = []
+
+    # Create tasks for each time/lead_time/variable combination
+    for i, t in enumerate(time):
+        for j, lt in enumerate(lead_time):
+            for k, v in enumerate(variable):
+                tasks.append(
+                    TaskType(
+                        data_array_indices=(i, j, k),  # time, lead_time, variable
+                        # ... other task metadata
+                    )
+                )
+    return tasks
+
+async def fetch_wrapper(
+    self,
+    task: TaskType,
+    xr_array: xr.DataArray,
+) -> None:
+    """Small wrapper to pack arrays into the DataArray."""
+    out = await self.fetch_array(task)
+    i, j, k = task.data_array_indices  # time, lead_time, variable
+    xr_array[i, j, k] = out
+```
+
+### 5. Lead Time Validation
+
+Implement `_validate_leadtime` classmethod to validate lead time inputs:
+
+```python
+@classmethod
+def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
+    """Verify if lead time is valid for forecast source.
+
+    Parameters
+    ----------
+    lead_times : list[timedelta]
+        list of lead times to fetch data
+    """
+    for delta in lead_times:
+        # Check lead time interval (e.g., hourly)
+        if not delta.total_seconds() % INTERVAL == 0:
+            raise ValueError(
+                f"Requested lead time {delta} needs to be {INTERVAL} hour interval"
+            )
+
+        # Check lead time range
+        hours = int(delta.total_seconds() // 3600)
+        if hours > MAX_HOURS or hours < 0:
+            raise ValueError(
+                f"Requested lead time {delta} can only be a max of {MAX_HOURS} hours"
+            )
+```
+
+### 6. Complete Async Fetch Example
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+) -> xr.DataArray:
+    """Async function to get forecast data.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    lead_time: timedelta | list[timedelta] | LeadTimeArray
+        Forecast lead times to fetch.
+    variable : str | list[str] | VariableArray
+        String, list of strings or array of strings that refer to variables to
+        return. Must be in the data source lexicon.
+
+    Returns
+    -------
+    xr.DataArray
+        Forecast weather data array
+    """
+    if self.fs is None:
+        raise ValueError(
+            "File store is not initialized! If you are calling this "
+            "function directly make sure the data source is initialized inside the async "
+            "loop!"
+        )
+
+    # Use prep_forecast_inputs for all three inputs
+    time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
+    pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+    # Validate both time and lead_time
+    self._validate_time(time)
+    self._validate_leadtime(lead_time)
+
+    # For s3fs sources: set session
+    if isinstance(self.fs, s3fs.S3FileSystem):
+        session = await self.fs.set_session(refresh=True)
+    else:
+        session = None
+
+    # Pre-allocate xarray DataArray with lead_time dimension
+    xr_array = xr.DataArray(
+        data=np.zeros(
+            (len(time), len(lead_time), len(variable), ...)
+        ),
+        dims=["time", "lead_time", "variable", ...],
+        coords={
+            "time": time,
+            "lead_time": lead_time,
+            "variable": variable,
+            ...
+        },
+    )
+
+    # Create async tasks including lead_time
+    async_tasks = await self._create_tasks(time, lead_time, variable)
+
+    func_map = map(
+        functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+    )
+
+    await tqdm.gather(
+        *func_map, desc="Fetching forecast data", disable=(not self._verbose)
+    )
+
+    # Close aiohttp client if s3fs
+    if session:
+        await session.close()
+
+    # Delete cache if needed
+    if not self._cache:
+        shutil.rmtree(self.cache, ignore_errors=True)
+
+    return xr_array
+```
+
+## Shared Patterns with Data Sources
+
+All other patterns from [e2s-004-data-sources.mdc](mdc:.cursor/rules/e2s-004-data-sources.mdc) still apply:
+
+- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`)
+- ✅ Cache property implementation
+- ✅ Available classmethod (if possible)
+- ✅ Async initialization pattern with `_async_init`
+- ✅ Synchronous `__call__` method pattern
+- ✅ S3FS configuration (`skip_instance_cache=True`)
+- ✅ Session management for s3fs
+- ✅ Use of `nest_asyncio.apply()` for notebook compatibility
+- ✅ Progress bars with `tqdm.gather`
+
+## Reminders
+
+- **Key difference**: Use `prep_forecast_inputs(time, lead_time, variable)` instead of `prep_data_inputs`
+- **Dimensions**: Must be `["time", "lead_time", "variable", ...]`
+- **Coordinates**: Must include `time`, `lead_time`, and `variable`
+- **Validation**: Implement both `_validate_time` and `_validate_leadtime`
+- **Task creation**: Iterate over time, lead_time, and variable
+- **Data array indices**: Use `(i, j, k)` for `(time, lead_time, variable)`
+- All other patterns from data sources rule apply
+
+- **Documentation**: Add the forecast source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "Forecast Sources" section, maintaining alphabetical order
