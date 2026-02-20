@@ -1,12 +1,18 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
-# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-# property and proprietary rights in and to this material, related
-# documentation and any modifications thereto. Any use, reproduction,
-# disclosure or distribution of this material and related documentation
-# without an express license agreement from NVIDIA CORPORATION or
-# its affiliates is strictly prohibited.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import json
 import os
@@ -36,37 +42,30 @@ from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 
 
-def get_test_config():  # type: ignore[no-untyped-def]
-    """Gets a config with overrides for testing"""
+def get_test_config(base_path: str | None = None):  # type: ignore[no-untyped-def]
+    """Gets a config with overrides for testing."""
     config = get_config()
-    config.paths.default_output_dir = "/tmp/e2s_testing"
-    config.paths.results_zip_dir = "/tmp/e2s_testing"
+    if base_path is None:
+        base_path = tempfile.mkdtemp(prefix="e2s_testing_")
+    config.paths.default_output_dir = base_path
+    config.paths.results_zip_dir = base_path
     return config
 
 
 @pytest.fixture(autouse=True)
 def setup_test_paths():  # type: ignore[no-untyped-def]
-    """Automatically patch config paths for all tests in this module"""
-    # Ensure the test directory exists
-    test_dir = Path("/tmp/e2s_testing")
-    test_dir.mkdir(parents=True, exist_ok=True)
-
-    # Get test config
-    test_config = get_test_config()
-
-    # Patch get_config in all the places it's used
-    # Also patch the module-level config variable in workflow.workflow
-    with (
-        patch(
-            "api_server.workflow.workflow.get_config",
-            return_value=test_config,
-        ),
-        patch("api_server.config.get_config", return_value=test_config),
-        patch("api_server.workflow.workflow.config", test_config),
-    ):
-        yield test_config
-
-    # Cleanup is optional - /tmp is usually cleaned up automatically
+    """Automatically patch config paths for all tests in this module."""
+    with tempfile.TemporaryDirectory(prefix="e2s_testing_") as tmpdir:
+        test_config = get_test_config(tmpdir)
+        with (
+            patch(
+                "api_server.workflow.workflow.get_config",
+                return_value=test_config,
+            ),
+            patch("api_server.config.get_config", return_value=test_config),
+            patch("api_server.workflow.workflow.config", test_config),
+        ):
+            yield test_config
 
 
 # Test WorkflowStatus Constants
@@ -910,12 +909,10 @@ class TestWorkflow:
         mock_redis = Mock(spec=redis.Redis)
         mock_redis.get.return_value = None
 
-        result = testWorkflowImpl._get_execution_data(
-            mock_redis, "test_workflow", "exec_123"
-        )
-
-        assert result.status == WorkflowStatus.FAILED
-        assert "not found" in result.error_message
+        with pytest.raises(ValueError, match="not found"):
+            testWorkflowImpl._get_execution_data(
+                mock_redis, "test_workflow", "exec_123"
+            )
 
     def test_private_get_execution_data_redis_error(self):
         """Test _get_execution_data when Redis raises an error"""

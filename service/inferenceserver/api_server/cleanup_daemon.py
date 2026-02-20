@@ -220,12 +220,18 @@ def cleanup_expired_results(redis_client: redis.Redis) -> None:
                 combined_id = f"{workflow_name}:{execution_id}"
 
                 # Create delete function with computed IDs
-                def delete_func(rc: redis.Redis, k: str) -> None:
+                def delete_func(
+                    rc: redis.Redis,
+                    k: str,
+                    _combined_id: str = combined_id,
+                    _execution_id: str = execution_id,
+                    _workflow_name: str = workflow_name,
+                ) -> None:
                     _delete_result_files(
                         rc,
-                        result_id=combined_id,
-                        search_id=execution_id,
-                        workflow_name=workflow_name,
+                        result_id=_combined_id,
+                        search_id=_execution_id,
+                        workflow_name=_workflow_name,
                     )
 
                 if _process_expired_key(

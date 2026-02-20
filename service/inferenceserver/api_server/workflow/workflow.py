@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Union
 
 import redis  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Import configuration
 from api_server.config import (
@@ -245,7 +245,7 @@ class WorkflowResult(BaseModel):
     end_time: str | None = None
     execution_time_seconds: float | None = None
     error_message: str | None = None
-    metadata: dict = {}
+    metadata: dict = Field(default_factory=dict)
 
     def __init__(
         self, workflow_name: str, execution_id: str, status: str, **kwargs: Any
@@ -453,6 +453,8 @@ class Workflow(ABC):
                 )
             return WorkflowResult.model_validate_json(data)
 
+        except ValueError:
+            raise
         except Exception as e:
             logger.exception(f"Failed to get status for {workflow_name}:{execution_id}")
             return WorkflowResult(

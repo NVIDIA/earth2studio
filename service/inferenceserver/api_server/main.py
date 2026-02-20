@@ -99,6 +99,8 @@ def check_admission_control() -> None:
                     status_code=503, detail="Redis connection not initialized"
                 )
             current_queue_size = redis_sync_client.llen(f"rq:queue:{queue_name}")
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to get queue length for {queue_name}: {e}")
             raise HTTPException(
@@ -287,6 +289,8 @@ async def health_check() -> dict[str, str]:
 
         return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Health check failed")
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
@@ -471,6 +475,8 @@ async def execute_workflow(
             # RQ's llen seems to return position + 1, so we use it directly as 0-indexed position
             # If length is 1, position is 0; if length is 2, position is 1; etc.
             queue_position = queue_length
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to get queue length from Redis: {e}")
             raise HTTPException(
@@ -490,7 +496,8 @@ async def execute_workflow(
             message=f"Workflow '{workflow_name}' queued for execution",
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
-
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(
             f"Failed to enqueue workflow {workflow_name} execution {execution_id}"
@@ -772,8 +779,6 @@ async def get_workflow_result_file(
                 },
             )
 
-        print(f"Output directory: {output_dir}")
-
         # Handle case where filepath includes the directory name (as seen in zip manifest)
         # The manifest includes the execution ID prefix (e.g., "exec_123/summary.txt")
         # but the file is located at output_dir/summary.txt
@@ -782,7 +787,7 @@ async def get_workflow_result_file(
 
         # Security: Normalize the filepath and ensure it's within output_dir
         requested_path = (output_dir / filepath).resolve()
-        print(f"Requested path: {requested_path}")
+        logger.debug(f"Requested path: {requested_path}")
         # Check that the resolved path is actually within the output directory
         try:
             requested_path.relative_to(output_dir.resolve())
