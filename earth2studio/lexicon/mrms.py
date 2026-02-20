@@ -38,6 +38,7 @@ class MRMSLexicon(metaclass=LexiconType):
     # Minimal vocabulary: map Earth2Studio "refc" to MRMS product name used in keys
     VOCAB: dict[str, str] = {
         "refc": "MergedReflectivityQCComposite_00.50",
+        "refc_base": "MergedBaseReflectivityQC_00.50",
     }
 
     @classmethod
