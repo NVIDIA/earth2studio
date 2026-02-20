@@ -34,6 +34,7 @@ mock_global_hydra = MagicMock()
 mock_global_hydra_instance = MagicMock()
 mock_global_hydra.instance.return_value = mock_global_hydra_instance
 
+# TODO: This leaks into other test envs. Danger!
 sys.modules["hydra"] = mock_hydra
 sys.modules["hydra.core"] = MagicMock()
 sys.modules["hydra.core.global_hydra"] = mock_global_hydra
