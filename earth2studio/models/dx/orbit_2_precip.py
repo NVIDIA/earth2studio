@@ -301,7 +301,6 @@ class OrbitGlobalPrecip9_5M(torch.nn.Module, AutoModelMixin):
             drop_rate=drop_rate,
             FusedAttn_option = FusedAttn.DEFAULT, 
         )
-        #TODO: Comment out distributed print in data_config
         model.data_config(
             spatial_resolution['ERA5_2'],
             (in_height, in_width),
@@ -328,7 +327,6 @@ class OrbitGlobalPrecip9_5M(torch.nn.Module, AutoModelMixin):
         normalize_std_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
 
         normalize_mean_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
-
         normalize_std_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
 
         return cls(model, land_sea_mask, orography, lattitude, landcover, normalize_mean_lowres, normalize_std_lowres, normalize_mean_highres, normalize_std_highres, do_tiling, div, overlap)
