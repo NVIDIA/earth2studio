@@ -5,7 +5,7 @@ from earth2studio.data import NCAR_ERA5
 
 from earth2studio.io import ZarrBackend
 from earth2studio.lexicon.ncar import NCAR_ERA5Lexicon
-from earth2studio.models.dx import OrbitGlobalPrecip9_5M
+from earth2studio.models.dx import OrbitGlobalPrecip
 
 package = OrbitGlobalPrecip.load_default_package()
 orbit = OrbitGlobalPrecip.load_model(package, "global", "9.5m", "precipitation")
@@ -17,7 +17,7 @@ io = ZarrBackend(file_name)
 
 time = np.datetime64('2020-01-01T00:00:00')
 
-data_check = True
+data_check = False
 inference_check = True
 inference_check_file = '/lustre/orion/stf006/proj-shared/irl1/earth2studio/ORBIT-2-e2s/examples/0_preds.npy'
 plot_inference = True

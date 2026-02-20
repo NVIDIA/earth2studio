@@ -45,7 +45,7 @@ from earth2studio.models.dx.tc_tracking import (
 )
 from earth2studio.models.dx.wind_gust import WindgustAFNO  # noqa
 
-from earth2studio.models.dx.orbit_2_precip import OrbitGlobalPrecip9_5M
+from earth2studio.models.dx.orbit_2_precip import OrbitGlobalPrecip
 
 __all__ = [
     "ClimateNet",

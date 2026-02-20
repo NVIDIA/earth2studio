@@ -8,7 +8,7 @@ from earth2studio.utils.time import to_time_array
 
 from earth2studio.data import DataSource, prep_data_array
 from earth2studio.io import IOBackend
-from earth2studio.models.dx import OrbitGlobalPrecip9_5M
+from earth2studio.models.dx import OrbitGlobalPrecip
 from collections import OrderedDict
 from earth2studio.utils.coords import map_coords, split_coords
 
@@ -19,7 +19,7 @@ import xesmf as xe
 
 def run(
     time: list[str] | list[datetime] | list[np.datetime64],
-    orbit: OrbitGlobalPrecip9_5M,
+    orbit: OrbitGlobalPrecip,
     data: DataSource,
     io: IOBackend,
     file_name: str,
