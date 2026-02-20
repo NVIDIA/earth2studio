@@ -521,8 +521,8 @@ uv add earth2studio --extra corrdiff
 ::::
 :::::
 :::::{tab-item} Cyclone Trackers
-Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
-below support.
+Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
+Only Python 3.12 and below support.
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -537,6 +537,16 @@ uv pip install earth2studio --extra cyclone
 ```bash
 pip install earth2studio[cyclone]
 ```
+
+`TempestExtremes` is not provided as a Python library and must be installed
+separately by the user. Installation instructions can be found on the
+[TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
+
+By default, `TempestExtremes` binaries are installed to the bin folder of the
+`TempestExtremes` repository. Users can specify paths to executables by passing
+the detect and stitch commands to the initialisation of the `TempestExtremes`
+class in earth2studio. Examples for both commands are provided in the docstring
+of this class.
 
 :::
 ::::
