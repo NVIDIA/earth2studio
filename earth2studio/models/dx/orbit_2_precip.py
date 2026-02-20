@@ -319,27 +319,17 @@ class OrbitGlobalPrecip9_5M(torch.nn.Module, AutoModelMixin):
 
         model.load_state_dict(pretrain_model)
 
-        #land_sea_mask = np.load(package.resolve("Static_Variables/land_sea_mask_0.25deg.npy"))
-        land_sea_mask = np.load("/lustre/orion/stf006/world-shared/irl1/E2S_Static/land_sea_mask_0.25deg.npy")
-        #orography = np.load(package.resolve("Static_Variables/orography_0.25deg.npy"))
-        orography = np.load("/lustre/orion/stf006/world-shared/irl1/E2S_Static/orography_0.25deg.npy")
-        #lattitude = np.load(package.resolve("Static_Variables/lattitude_0.25deg.npy"))
-        lattitude = np.load("/lustre/orion/stf006/world-shared/irl1/E2S_Static/lattitude_0.25deg.npy")
-        #landcover = np.load(package.resolve("Static_Variables/landcover_0.25deg.npy"))
-        landcover = np.load("/lustre/orion/stf006/world-shared/irl1/E2S_Static/landcover_0.25deg.npy")
+        land_sea_mask = np.load(package.resolve("static_variables/land_sea_mask_0.25deg.npy"))
+        orography = np.load(package.resolve("static_variables/orography_0.25deg.npy"))
+        lattitude = np.load(package.resolve("static_variables/lattitude_0.25deg.npy"))
+        landcover = np.load(package.resolve("static_variables/landcover_0.25deg.npy"))
 
-        #normalize_mean_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
-        normalize_mean_lowres = np.load("/lustre/orion/lrn036/world-shared/data/superres/era5/0.25_deg/normalize_mean.npz")
-        #normalize_std_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
-        normalize_std_lowres = np.load("/lustre/orion/lrn036/world-shared/data/superres/era5/0.25_deg/normalize_std.npz")
+        normalize_mean_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
+        normalize_std_lowres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
 
-        #normalize_mean_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
-        normalize_mean_highres = np.load("/lustre/orion/lrn036/world-shared/data/superres/era5/0.25_deg/normalize_mean.npz")
-        #normalize_mean_highres = np.load("/lustre/orion/lrn036/world-shared/data/superres/IMERG/0.0625_deg/normalize_mean.npz")
+        normalize_mean_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_mean.npz"))
 
-        #normalize_std_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
-        normalize_std_highres = np.load("/lustre/orion/lrn036/world-shared/data/superres/era5/0.25_deg/normalize_std.npz")
-        #normalize_std_highres = np.load("/lustre/orion/lrn036/world-shared/data/superres/IMERG/0.0625_deg/normalize_std.npz")
+        normalize_std_highres = np.load(package.resolve("mean_std/era5/0.25_deg/normalize_std.npz"))
 
         return cls(model, land_sea_mask, orography, lattitude, landcover, normalize_mean_lowres, normalize_std_lowres, normalize_mean_highres, normalize_std_highres, do_tiling, div, overlap)
 
