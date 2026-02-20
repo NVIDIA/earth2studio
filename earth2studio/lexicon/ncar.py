@@ -65,6 +65,7 @@ class NCAR_ERA5Lexicon(metaclass=LexiconType):
             "cp": (143, "cp", "e5.oper.fc.sfc.accumu", "ll025sc"),  # hourly (m)
             "smlt": (45, "smlt", "e5.oper.fc.sfc.accumu", "ll025sc"),  # hourly (m)
             "swvl1": (39, "swvl1", "e5.oper.an.sfc", "ll025sc"),
+            "sst": (34, "sstk", "e5.oper.an.sfc", "ll025sc"),
         }
         pressure_levels = [
             1,
