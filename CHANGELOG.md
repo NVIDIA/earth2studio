@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Bug in cbottle datasource resulting identical samples for multiple samples
+- Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
 
 ### Security
 
