@@ -55,8 +55,16 @@ class MRMS:
 
     This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
     public S3 bucket, decompresses them into the Earth2Studio cache, and opens
-    the result with pygrib. Initially, only the composite reflectivity
-    product is supported, exposed via the Earth2Studio variable id ``refc``.
+    the result with pygrib. Initially, only the composite and base reflectivity
+    products are supported, exposed via the Earth2Studio variable id ``refc``
+    and ``refc_base``.
+
+    This data source includes data where the source timestamp can have non-zero
+    minutes/seconds (e.g., 12:59:59), unlike most other data sources. For
+    convenience, it provides the configuration parameter ``max_offset_minutes``
+    to allow for a time tolerance in minutes to search for the nearest available
+    MRMS file to the requested timestamp. The actual timestamp of the source data
+    is available in the returned data array as the coordinate ``actual_time_<variable_id>``.
 
     Parameters
     ----------
@@ -403,83 +411,6 @@ class MRMS:
                 )
 
     @classmethod
-    async def _resolve_s3_time(
-        cls,
-        fs: s3fs.S3FileSystem,
-        time: datetime,
-        product: str,
-        max_offset_minutes: float = 10,
-    ) -> tuple[datetime, str] | None:
-        """Find nearest-available S3 object within the configured minute tolerance.
-
-        Returns the resolved timestamp and full S3 URI if found, else None.
-        """
-        # Normalize to timezone-aware UTC for robust datetime arithmetic.
-        if time.tzinfo is None:
-            time = time.replace(tzinfo=timezone.utc)
-        else:
-            time = time.astimezone(timezone.utc)
-
-        # Exact match fast path
-        key = cls._s3_key(time, product)
-        s3_uri = f"s3://{cls.MRMS_BUCKET_NAME}/{key}"
-        if await fs._exists(s3_uri):
-            return time, s3_uri
-
-        # List candidate days (can cross day boundary within tolerance)
-        t_min = time - timedelta(minutes=max_offset_minutes)
-        t_max = time + timedelta(minutes=max_offset_minutes)
-        candidate_dates = {
-            t_min.strftime("%Y%m%d"),
-            time.strftime("%Y%m%d"),
-            t_max.strftime("%Y%m%d"),
-        }
-
-        pattern = re.compile(
-            rf"^MRMS_{re.escape(product)}_(\d{{8}})-(\d{{6}})\.grib2\.gz$"
-        )
-        best_dt: datetime | None = None
-        best_uri: str | None = None
-        best_diff: float = float("inf")
-
-        for date_str in sorted(candidate_dates):
-            dir_uri = (
-                f"s3://{cls.MRMS_BUCKET_NAME}/{cls.MRMS_REGION}/{product}/{date_str}/"
-            )
-            try:
-                keys = await fs._ls(dir_uri)
-            except FileNotFoundError:
-                continue
-            for key_path in keys:
-                fname = os.path.basename(key_path)
-                m = pattern.match(fname)
-                if not m:
-                    continue
-                ds, hms = m.group(1), m.group(2)
-                ts = datetime(
-                    year=int(ds[0:4]),
-                    month=int(ds[4:6]),
-                    day=int(ds[6:8]),
-                    hour=int(hms[0:2]),
-                    minute=int(hms[2:4]),
-                    second=int(hms[4:6]),
-                    tzinfo=timezone.utc,
-                )
-                diff = abs((ts - time).total_seconds())
-                if diff <= max_offset_minutes * 60 and diff < best_diff:
-                    best_diff = diff
-                    best_dt = ts
-                    # key_path can be either with or without s3:// prefix; construct URI
-                    if key_path.startswith("s3://"):
-                        best_uri = key_path
-                    else:
-                        best_uri = f"s3://{key_path}"
-
-        if best_dt is None or best_uri is None:
-            return None
-        return best_dt, best_uri
-
-    @classmethod
     async def _resolve_s3_time_candidates(
         cls,
         fs: s3fs.S3FileSystem,
@@ -614,9 +545,9 @@ class MRMS:
                 asynchronous=True,
                 skip_instance_cache=False,
             )
-            return (
-                await cls._resolve_s3_time(fs, time, product, max_offset_minutes)
-                is not None
+            resolved = await cls._resolve_s3_time_candidates(
+                fs, time, product, max_offset_minutes
             )
+            return len(resolved) > 0
 
         return loop.run_until_complete(_resolve_helper())
