@@ -81,7 +81,6 @@ lint:
 .test:rule:main-with-changes: &test_rule_main_with_changes
   if: '$CI_COMMIT_BRANCH == "main" && $PIPELINE_REPO_SOURCE != "github"'
   changes:
-    paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
   variables:
     TESTMON_CACHE_POLICY: pull-push
@@ -91,17 +90,19 @@ lint:
 .test:rule:non-github-with-changes: &test_rule_non_github_with_changes
   if: $PIPELINE_REPO_SOURCE != "github"
   changes:
-    paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
   variables:
     EARTH2STUDIO_CACHE_POLICY: pull-push
     UV_CACHE_POLICY: pull-push
 
 .test:rule:changes-only: &test_rule_changes_only
+  if: $PIPELINE_REPO_SOURCE == "github"
   changes:
-    paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
-  when: on_success
+  variables:
+    TESTMON_CACHE_POLICY: pull
+    EARTH2STUDIO_CACHE_POLICY: pull
+    UV_CACHE_POLICY: pull
 
 .test:rule:never: &test_rule_never
   when: never
