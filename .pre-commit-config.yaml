@@ -74,6 +74,7 @@ repos:
         exclude: |
               (?x)^(examples|
                 test |
+                serve/test/.* |
                 docs |
                 earth2studio/models/nn)
         additional_dependencies: ['types-requests']
