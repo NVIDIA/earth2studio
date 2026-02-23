@@ -46,7 +46,7 @@ license:
 
 .PHONY: pytest
 pytest:
-	uvx tox -c tox-min.ini run
+	uvx tox -c tox.ini run
 
 .PHONY: pytest-full
 pytest-full:
