@@ -428,7 +428,7 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 python_version = "3.12"
 packages = ['earth2studio']
 exclude = [
-    '^(examples|test|docs|serve)'
+    'examples', 'test', 'docs', 'serve/test'
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true

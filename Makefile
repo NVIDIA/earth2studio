@@ -102,4 +102,4 @@ E2S_IMAGE_NAME=$(DOCKER_REPO)/earth2studio-scicomp
 E2S_IMAGE_TAG=v$(E2S_RELEASE_TAG).20260220.0
 container-service:
 	@test -n "$(DOCKER_REPO)" || (echo "DOCKER_REPO is not set!" && exit 1)
-	DOCKER_BUILDKIT=1 docker build -t $(E2S_IMAGE_NAME):$(E2S_IMAGE_TAG) -f service/Dockerfile .
+	DOCKER_BUILDKIT=1 docker build -t $(E2S_IMAGE_NAME):$(E2S_IMAGE_TAG) -f serve/Dockerfile .
