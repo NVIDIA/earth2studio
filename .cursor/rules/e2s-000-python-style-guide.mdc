@@ -1,0 +1,84 @@
+---
+globs: *.py
+description: Earth2Studio Python code style guidelines and conventions
+---
+
+# Earth2Studio Python Style Guide
+
+This rule enforces the coding standards for Earth2Studio as defined in [style.md](mdc:docs/userguide/developer/style.md).
+
+## Code Formatting
+
+- **Formatter**: Use [black](mdc:pyproject.toml) for all code formatting. Code must be compliant with the black version specified in pyproject.toml.
+- **Naming Conventions**:
+  - Files: Always lowercase, use shortened name of component they hold (e.g., `gsi.py`, `isd.py`)
+  - Classes: Capitalized pascal-case (e.g., `ECMWFOpenDataAsyncTask`, `CBottleInfill`) unless class name is all caps then under score can be used (e.g. `NCAR_ERA5`, `GFS_FX`)
+  - Functions: Lowercase snake-case (e.g., `fetch_array`, `_validate_time`)
+
+## Type Hints
+
+**All functions MUST have type hints** for parameters and return types. Earth2Studio is MyPy compliant.
+
+### Type Hint Guidelines:
+
+1. **Use common types from [type.py](mdc:earth2studio/utils/type.py)** when applicable:
+   - `CoordSystem` for coordinate dictionaries
+   - `VariableArray` for variable arrays
+   - `LeadTimeArray` for lead time arrays
+   - `TimeArray` for time arrays
+
+2. **Python 3.10+ Type Features**:
+   - Use built-in generic types instead of `typing` package (PEP 585):
+     - `list[str]` not `List[str]`
+     - `dict[str, int]` not `Dict[str, int]`
+     - `tuple[int, str]` not `Tuple[int, str]`
+
+   - Use `|` operator instead of `Union` or `Optional` (PEP 604):
+     - `str | None` not `Optional[str]`
+     - `int | float` not `Union[int, float]`
+     - `str | list[str]` not `Union[str, List[str]]`
+
+3. **Example function signature**:
+   ```python
+   def fetch_data(
+       time: datetime | list[datetime] | TimeArray,
+       variable: str | list[str] | VariableArray,
+   ) -> xr.DataArray:
+       ...
+   ```
+
+## Licensing Header
+
+**All Python source files MUST start with the SPDX license header:**
+
+```python
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+```
+
+## Linting
+
+- Code is linted with [ruff](mdc:pyproject.toml) configured in pyproject.toml
+- Run `make lint` to check linting
+- Pre-commit hooks will automatically format and lint code
+
+## Code Quality Reminders
+
+- Always include type hints for function parameters and return values
+- Use types from `earth2studio/utils/type.py` when applicable
+- Prefer modern Python 3.10+ type syntax (`list[str]`, `str | None`)
+- Ensure all files have the SPDX license header at the top
+- Follow black formatting (run `make format` if unsure)

@@ -13,7 +13,7 @@ The key extension of the typical `(x, coords)` data structure movement throughou
 the rest of the `earth2studio` code and output store compatibility is the notion of
 an `array_name`. Names distinguish between different arrays within the backend and
 are currently a requirement for storing `Datasets` in `xarray`, `zarr`, and `netcdf`.
-This means that the user must supply a name when adding an array to a store or when
+This means that you must supply a name when adding an array to a store or when
 writing an array. A frequent pattern is to extract one dimension of an array,
 such as `"variable"` to act as individual arrays in the backend, see the examples below.
 
@@ -105,8 +105,7 @@ io.add_array(total_coords, array_name)
 Prognostic models, diagnostic models, statistics, and metrics are required to have a
 `output_coords` method which maps from an input coordinate to a corresponding output
 coordinate. This method is meant to simulate the result of `__call__` without having
-to actually compute the forward call of the method. See the API documentation for more
- details.
+to actually compute the forward call of the method. Review the API documentation for more details.
 
 Another common IO use-case is to extract a particular dimension (usually `variable`) as
 the array names.
@@ -119,7 +118,7 @@ io.add_array(total_coords, var_names)
 
 ## Writing to the store
 
-Once the data arrays have been initialized in the backend, writing to those arrays
+After the data arrays have been initialized in the backend, writing to those arrays
 is a single line of code.
 
 ```python
@@ -127,8 +126,8 @@ x, coords = model(x, coords)
 io.write(x, coords, array_name)
 ```
 
-If, as above, the user is extracting a dimension of the tensor to use as array names
-then they can make use of {mod}`earth2studio.utils.coords.split_coords`:
+If, as above, you are extracting a dimension of the tensor to use as array names
+then you can make use of {mod}`earth2studio.utils.coords.split_coords`:
 
 ```python
 io.write(*split_coords(x, coords, dim = "variable"))

@@ -418,7 +418,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.2",
+            "hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -458,14 +458,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         PrognosticModel
             Prognostic Model
         """
-        checkpoints = [
-            package.resolve("cBottle-video.zip"),
-        ]
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
 
         # https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L810
         experts = []
         batch_info = None
-        for path in checkpoints:
+        for path in [package.resolve("cBottle-video.zip")]:
             with Checkpoint(path) as c:
                 model = c.read_model().eval()
                 experts.append(model)

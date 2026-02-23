@@ -8,19 +8,12 @@ Recipe description here, keep it around a single paragraph.
 
 ## Prerequisites
 
-List anything specific a user is expected to have installed / accessible here.
-This could be things such as domain knowledge, data of certain type, model checkpoints
-etc.
+List anything specific a user is expected to have installed or accessible here.
+This could be things such as domain knowledge, data of certain type, model checkpoints.
 
 ### Software
 
-Pyproject TOML / recipe-requirements.txt handles any Python dependencies.
-
-```bash
-uv export --format requirements-txt --no-hashes > recipe-requirements.txt
-```
-
-This is not called `requirements.txt` due to tooling conflicts.
+Pyproject TOML handles any Python dependencies.
 
 If there are system dependencies needed list them here, for example:
 
@@ -69,7 +62,7 @@ uv run python main.py print.hello False
 
 ## Documentation
 
-Any additional documentation needed to explain to the user different options, APIs, etc.
+Any additional documentation needed to explain to the user different options, APIs.
 This can be as extensive or brief as desired.
 It is expected for users to interact or modify the source code.
 For example:

@@ -196,7 +196,7 @@ Helene ensemble.
 generate data to compare against.
 
 1. **Identify the Batch to Reproduce**
-   - Determine the batch ID(s) you want to reproduce
+   - Determine the batch IDs you want to reproduce
    - Set these IDs in the `batch_ids_reproduce` parameter
 
 2. **Configure the Reproduction Run**
@@ -232,15 +232,15 @@ generate data to compare against.
 ### Configuration
 
 The pipeline follows Earth2Studio's modular design approach.
-It is highly customizable via [instantiating through Hydra][hydra-docs].
+It is highly customizable using [instantiating through Hydra][hydra-docs].
 This allows for flexible customization of components. Additional functionality
-can be provided through custom functions and instantiated via Hydra, as
+can be provided through custom functions and instantiated using Hydra, as
 demonstrated in the configuration of the HENS perturbation.
 
 #### Project Basics
 
 Select a project name to uniquely identify your run. This prevents overwriting
-files from previous runs and helps with organization. Note that `nensemble`
+files from previous runs and helps with organization. `nensemble`
 refers to the number of ensemble members per (IC × number of checkpoints).
 When used with the HENS perturbation, `nensemble` and `batch_size` have to be even
 as the perturbation method is symmetric, that is the perturbation is added once and
@@ -336,7 +336,7 @@ data_source:
 
 The pipeline supports various perturbation methods for initial conditions.
 While this example demonstrates the HENS perturbation configuration, any
-perturbation method can be implemented. Note that some perturbation methods
+perturbation method can be implemented. Some perturbation methods
 require runtime information that is only available during pipeline execution.
 
 ```yaml
@@ -367,7 +367,7 @@ cyclone_tracking:
 #### Writing Fields to Disk
 
 The pipeline supports writing forecast fields to disk through the `file_output` section.
-Users can specify the output directory, select variables for export, and optionally
+You can specify the output directory, select variables for export, and optionally
 define regional boundaries using lat/lon cropboxes. The output `format` is determined
 by the chosen IO backend class. Two backends, `KVBackend` and `XarrayBackend`, can be
 instantiated without additional arguments and are automatically written to netCDF files

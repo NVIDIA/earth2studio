@@ -4,7 +4,7 @@
 
 # Overview
 
-This guide assumes you have looked at the repository and are familiar with the majority
+This guide assumes you have reviewed the repository and are familiar with the majority
 information found in the {ref}`userguide`.
 
 ## Environment Setup
@@ -13,7 +13,7 @@ When developing Earth2Studio, using uv virtual environment is suggested and will
 in the documentation.
 To create a local development environment with a git repo and uv, follow the steps
 below.
-Clone the repo and use uv to create a Python 3.12 virtual enviroment and sync it with
+Clone the repo and use uv to create a Python 3.12 virtual environment and sync it with
 the `dev` dependency group:
 
 ```bash
@@ -26,7 +26,7 @@ uv venv --python=3.12
 uv sync # This will install the base and developer dependencies
 ```
 
-This should create a python virtual environment inside of the local Earth2Studio git
+This should create a Python virtual environment inside of the local Earth2Studio git
 repository.
 To install the base, developer, documentation dependencies, use:
 
@@ -58,5 +58,5 @@ uv run pre-commit install
 >>> pre-commit installed at .git/hooks/pre-commit
 ```
 
-Once the above commands are executed, the pre-commit hooks will be activated and all
-the commits will be checked for appropriate formatting, linting, etc.
+After the above commands are executed, the pre-commit hooks are activated and all
+the commits are checked for appropriate formatting, linting.

@@ -2,8 +2,8 @@
 
 # Prognostic Models
 
-Prognostic models in Earth2Studio provides a set of models designed to perform time
-integration. For example, given a set of atmospheric fields at a particular time and
+Prognostic models in Earth2Studio provide a set of models designed to perform time
+integration. For example, given a set of atmospheric fields at a particular time,
 the model auto-regressively predicts the same fields 6 hours into the future.
 
 The usage of prognostic models falls into two categories which are commonly achieved
@@ -12,7 +12,7 @@ through two different APIs:
 1. Single time-step predictions
 2. Time-series predictions
 
-The list of prognostic models that are already built into Earth2studio can be found in
+The list of prognostic models that are already built into Earth2Studio can be found in
 the API documentation {ref}`earth2studio.models.px`.
 
 ## Prognostic Interface
@@ -33,8 +33,8 @@ iterator if necessary.
 
 Prognostic models also tend to extend two classes:
 
-1. {class}`earth2studio.models.px.utils.PrognosticMixin`: which is a util class that
-defines iterator hooks used in all the built in models. These provide a finer level
+1. {class}`earth2studio.models.px.utils.PrognosticMixin`: A utility class that
+defines iterator hooks used in all the built-in models. These provide a finer level
 of control over the time-series prediction of models.
 2. {class}`earth2studio.models.auto.AutoModel`: Defines APIs for models that have
 checkpoints that can be auto downloaded and cached. See the {ref}`automodel_userguide`
@@ -89,7 +89,7 @@ We recommend users have a look at the custom prognostic example which will step 
 through the simple process of implementing their own prognostic model for their personal
 needs in the {ref}`extension_examples` examples.
 
-## Contributing a Prognostic Models
+## Contributing a Prognostic Model
 
 Want to add your prognostic to the package? Great, we will be happy to work with you.
 At the minimum we expect the model to abide by the defined interface as well as meet

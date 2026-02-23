@@ -1,0 +1,207 @@
+---
+globs: test/**/*.py
+description: Earth2Studio unit testing guidelines using pytest
+---
+
+# Earth2Studio Unit Testing
+
+This rule enforces unit testing standards for Earth2Studio as defined in [testing.md](mdc:docs/userguide/developer/testing.md).
+
+## Requirements
+
+- **All new features MUST have unit tests**
+- **Target 90%+ code coverage** (CI pipeline fails if coverage drops below 90%)
+- **Tests are located in the `test/` folder**
+- **Use [PyTest](https://docs.pytest.org/en/8.2.x/) as the testing framework**
+
+## Test Function Guidelines
+
+### No Docstrings
+
+- ✅ **DO**: Write clear, descriptive test function names
+- ❌ **DON'T**: Add docstrings to test functions - they are not needed
+
+```python
+# ✅ Correct
+def test_isd_fetch(stations, time, variable, tol):
+    ds = ISD(stations=stations, tolerance=tol, cache=False)
+    df = ds(time, variable)
+    assert list(df.columns) == ds.SCHEMA.names
+
+# ❌ Wrong
+def test_isd_fetch(stations, time, variable, tol):
+    """Test ISD data fetching functionality."""
+    ds = ISD(stations=stations, tolerance=tol, cache=False)
+    ...
+```
+
+### Parameterization Strategy
+
+**Minimize parameterizations while maximizing coverage** - use strategic combinations rather than exhaustive testing.
+
+- ✅ **DO**: Combine related parameters into single parametrize decorators
+- ✅ **DO**: Use meaningful test cases that cover edge cases and common paths
+- ✅ **DO**: Use `pytest.param()` with `id` for clarity when needed
+- ❌ **DON'T**: Create separate parameterizations for every possible combination
+- ❌ **DON'T**: Over-parameterize - focus on coverage, not exhaustive testing
+
+```python
+# ✅ Good: Combined parameters, strategic coverage
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime(year=2020, month=1, day=1),
+        [datetime(year=2022, month=1, day=1, hour=6)],
+    ],
+)
+@pytest.mark.parametrize(
+    "stations, variable, tol",
+    [
+        (["72788324220"], ["t2m"], timedelta(hours=1)),
+        (["72781024243"], ["u10m", "v10m", "t2m"], timedelta(hours=4)),
+    ],
+)
+def test_isd_fetch(stations, time, variable, tol):
+    ...
+
+# ❌ Avoid: Too many separate parameterizations
+@pytest.mark.parametrize("station", ["72788324220", "72781024243", ...])
+@pytest.mark.parametrize("variable", ["t2m", "u10m", "v10m", ...])
+@pytest.mark.parametrize("time", [datetime(...), datetime(...), ...])
+@pytest.mark.parametrize("tol", [timedelta(...), timedelta(...), ...])
+def test_isd_fetch(station, variable, time, tol):
+    ...
+```
+
+### Test Markers
+
+Use appropriate pytest markers:
+
+- `@pytest.mark.slow` - For tests that take longer to run
+- `@pytest.mark.xfail` - For tests that are expected to fail (e.g., slow internet connections)
+- `@pytest.mark.timeout(seconds)` - Set timeout limits for tests (common for data source tests)
+- `@pytest.mark.skipif(...)` - Skip tests conditionally (e.g., CUDA not available)
+
+```python
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("time", [datetime(year=2020, month=1, day=1)])
+def test_data_source_fetch(time):
+    ...
+```
+
+### Device Testing
+
+When testing GPU functionality, use conditional skipping:
+
+```python
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_model_forward(device):
+    if device == "cuda:0" and not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    ...
+```
+
+## Test Organization
+
+### File Structure
+
+- Tests mirror the source code structure
+- For `earth2studio/data/gsi.py`, create `test/data/test_gsi.py`
+- For `earth2studio/models/px/fcn.py`, create `test/models/px/test_fcn.py`
+
+### Test Class Organization
+
+Use test classes when grouping related tests:
+
+```python
+class TestISD:
+    def test_fetch(self, stations, time, variable):
+        ...
+
+    def test_cache(self, cache):
+        ...
+
+    def test_schema_fields(self, fields):
+        ...
+
+    def test_exceptions(self, invalid_input):
+        ...
+```
+
+## Coverage Strategy
+
+Focus on:
+
+1. **Happy paths** - Normal operation with valid inputs
+2. **Edge cases** - Boundary conditions, empty inputs, single vs multiple items
+3. **Error handling** - Invalid inputs, missing dependencies, exceptions
+4. **Different configurations** - Various parameter combinations that exercise different code paths
+
+```python
+# Example: Comprehensive but efficient test
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime(year=2020, month=1, day=1),  # Single time
+        [datetime(year=2022, month=1, day=1)],  # List of times
+    ],
+)
+@pytest.mark.parametrize(
+    "variable",
+    [
+        ["t2m"],  # Single variable
+        ["u10m", "v10m", "t2m"],  # Multiple variables
+    ],
+)
+def test_data_source(time, variable):
+    # Tests both single and multiple inputs efficiently
+    ...
+```
+
+## Contributing New Tests
+
+When adding tests for a new feature:
+
+1. **Copy similar existing tests** - For a new data source, copy tests from GFS or ARCO
+2. **Modify for your feature** - Adapt the test structure to your specific needs
+3. **Ensure coverage** - Aim for 90%+ coverage of your new code
+4. **Use appropriate markers** - Mark slow/network tests appropriately
+
+## Running Tests
+
+```bash
+# Quick test suite (skips slow tests)
+pytest test/
+
+# Standard test suite (includes slow tests)
+pytest --slow test/
+
+# With coverage
+coverage run -m pytest --slow test/
+coverage combine
+coverage report
+```
+
+## Reminders
+
+- No docstrings needed for test functions
+- Minimize parameterizations while maximizing coverage
+- Use strategic test cases, not exhaustive combinations
+- Mark slow/network tests with appropriate markers
+- Copy and modify similar existing tests when adding new features
+- Aim for 90%+ code coverage
+- Test both happy paths and error cases
+- Use conditional skipping for device-specific tests (CUDA)

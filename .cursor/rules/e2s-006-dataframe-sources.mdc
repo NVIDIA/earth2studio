@@ -1,0 +1,585 @@
+---
+globs: earth2studio/data/*.py
+description: Earth2Studio DataFrame source implementation guidelines for pandas DataFrame sources with PyArrow schemas
+---
+
+# Earth2Studio DataFrame Sources
+
+This rule enforces DataFrame source implementation standards for Earth2Studio. DataFrame sources return pandas DataFrames instead of xarray DataArrays and are used for sparse/tabular observation data. See [ufs.py](mdc:earth2studio/data/ufs.py) for a complete reference implementation.
+
+## DataFrame Source Protocol
+
+DataFrame sources must implement the `DataFrameSource` Protocol from [base.py](mdc:earth2studio/data/base.py):
+
+- `__call__(time, variable, fields=None) -> pd.DataFrame` - Synchronous interface
+- `async fetch(time, variable, fields=None) -> pd.DataFrame` - Async interface
+
+Both methods have the same API:
+- `time: datetime | list[datetime] | TimeArray`
+- `variable: str | list[str] | VariableArray`
+- `fields: str | list[str] | pa.Schema | None, optional` - Fields/columns to return
+- Returns: `pd.DataFrame` with columns matching the requested fields
+
+## Common Constructor Parameters
+
+All DataFrame sources should follow this constructor pattern:
+
+```python
+def __init__(
+    self,
+    tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+    max_workers: int = 24,
+    cache: bool = True,
+    async_timeout: int = 600,
+    verbose: bool = True,
+) -> None:
+    self._verbose = verbose
+    self._cache = cache
+    self._max_workers = max_workers
+    self.async_timeout = async_timeout
+    self._tmp_cache_hash: str | None = None
+
+    # Async initialization pattern
+    try:
+        nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
+        loop = asyncio.get_running_loop()
+        loop.run_until_complete(self._async_init())
+    except RuntimeError:
+        # Else we assume that async calls will be used which in that case
+        # we will init the filesystem in the call function when we have the loop
+        self.fs = None
+
+    if isinstance(tolerance, np.timedelta64):
+        self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
+    else:
+        self.tolerance = tolerance
+```
+
+## Key Differences from DataArray Sources
+
+### 1. PyArrow Schema Definition
+
+DataFrame sources **MUST** define a `SCHEMA` class attribute with a PyArrow schema:
+
+```python
+class MyDataFrameSource:
+    SOURCE_ID = "earth2studio.data.MyDataFrameSource"
+    SCHEMA = pa.schema(
+        [
+            pa.field("time", pa.timestamp("ns"), metadata={"source_name": "Time"}),
+            pa.field("lat", pa.float32(), metadata={"source_name": "Latitude"}),
+            pa.field("lon", pa.float32(), metadata={"source_name": "Longitude"}),
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
+            # ... other fields
+        ]
+    )
+```
+
+### 2. API Signature Includes `fields` Parameter
+
+The `__call__` and `async fetch` methods include an optional `fields` parameter:
+
+```python
+def __call__(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Fetch observations for a set of timestamps.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    variable : str | list[str] | VariableArray
+        DataFrame column names to return.
+    fields : str | list[str] | pa.Schema | None, optional
+        Fields to include in output, by default None (all fields).
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame with the requested columns
+    """
+```
+
+### 3. Async Initialization Pattern
+
+For async DataFrame sources, use `_async_init` to initialize the filesystem in the correct event loop:
+
+```python
+async def _async_init(self) -> None:
+    """Async initialization of S3 filesystem"""
+    self.fs = s3fs.S3FileSystem(
+        anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+    )
+```
+
+**Important**: Always use `skip_instance_cache=True` for s3fs to avoid caching issues.
+
+### 4. Synchronous `__call__` Method
+
+The synchronous interface should handle event loop creation and call the async method:
+
+```python
+def __call__(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Fetch observations for a set of timestamps."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # Set ThreadPoolExecutor for async operations
+    loop.set_default_executor(
+        concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
+    )
+
+    if self.fs is None:
+        loop.run_until_complete(self._async_init())
+
+    df = loop.run_until_complete(
+        asyncio.wait_for(
+            self.fetch(time, variable, fields), timeout=self.async_timeout
+        )
+    )
+
+    # Delete cache if needed
+    if not self._cache:
+        shutil.rmtree(self.cache, ignore_errors=True)
+
+    return df
+```
+
+### 5. Use `prep_data_inputs` for Time and Variable
+
+DataFrame sources use `prep_data_inputs` to normalize inputs:
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    time_list, variable_list = prep_data_inputs(time, variable)
+    schema = self.resolve_fields(fields)
+    # ... rest of implementation
+```
+
+### 6. `resolve_fields` Method
+
+Implement a `resolve_fields` classmethod to handle the `fields` parameter:
+
+```python
+@classmethod
+def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+    """Convert fields parameter into a validated PyArrow schema.
+
+    Parameters
+    ----------
+    fields : str | list[str] | pa.Schema | None
+        Field specification. Can be:
+        - None: Returns the full class SCHEMA
+        - str: Single field name to select from SCHEMA
+        - list[str]: List of field names to select from SCHEMA
+        - pa.Schema: Validated against class SCHEMA for compatibility
+
+    Returns
+    -------
+    pa.Schema
+        A PyArrow schema containing only the requested fields
+
+    Raises
+    ------
+    KeyError
+        If a requested field name is not found in the class SCHEMA
+    TypeError
+        If a field type in the provided schema doesn't match the class SCHEMA
+    """
+    if fields is None:
+        return cls.SCHEMA
+
+    if isinstance(fields, str):
+        fields = [fields]
+
+    if isinstance(fields, pa.Schema):
+        # Validate provided schema against class schema
+        for field in fields:
+            if field.name not in cls.SCHEMA.names:
+                raise KeyError(
+                    f"Field '{field.name}' not found in class SCHEMA. "
+                    f"Available fields: {cls.SCHEMA.names}"
+                )
+            expected_type = cls.SCHEMA.field(field.name).type
+            if field.type != expected_type:
+                raise TypeError(
+                    f"Field '{field.name}' has type {field.type}, "
+                    f"expected {expected_type} from class SCHEMA"
+                )
+        return fields
+
+    # fields is list[str] - select fields from class schema
+    selected_fields = []
+    for name in fields:
+        if name not in cls.SCHEMA.names:
+            raise KeyError(
+                f"Field '{name}' not found in class SCHEMA. "
+                f"Available fields: {cls.SCHEMA.names}"
+            )
+        selected_fields.append(cls.SCHEMA.field(name))
+
+    return pa.schema(selected_fields)
+```
+
+### 7. Async `fetch` Method
+
+The async fetch method should:
+
+1. Check filesystem initialization
+2. Set s3fs session (if using s3fs)
+3. Normalize inputs using `prep_data_inputs`
+4. Validate time
+5. Resolve fields schema
+6. Create cache directory
+7. Create async tasks
+8. Fetch unique files in parallel
+9. Close session
+10. Compile DataFrame from fetched files
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Async function to get data."""
+    if self.fs is None:
+        raise ValueError(
+            "File store is not initialized! If you are calling this "
+            "function directly make sure the data source is initialized inside the async loop!"
+        )
+
+    # Set session for s3fs (important for connection management)
+    session = await self.fs.set_session(refresh=True)
+
+    # Normalize inputs
+    time_list, variable_list = prep_data_inputs(time, variable)
+    self._validate_time(time_list)
+    schema = self.resolve_fields(fields)
+    pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+    # Create async tasks
+    async_tasks = self._create_tasks(time_list, variable_list)
+
+    # Fetch unique files (deduplicate by file URI)
+    file_uri_set = {task.file_uri for task in async_tasks}
+    fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
+    await tqdm.gather(
+        *fetch_jobs, desc="Fetching files", disable=(not self._verbose)
+    )
+
+    # Close session
+    if session:
+        await session.close()
+
+    # Compile DataFrame from fetched files
+    df = self._compile_dataframe(async_tasks, variable_list, schema)
+
+    return df
+```
+
+### 8. Remote File Fetching Pattern
+
+Implement `_fetch_remote_file` to download files to cache:
+
+```python
+async def _fetch_remote_file(
+    self,
+    path: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+) -> None:
+    """Fetches remote file into cache.
+
+    Parameters
+    ----------
+    path : str
+        S3 URI to fetch
+    byte_offset : int, optional
+        Byte offset to start reading from, by default 0
+    byte_length : int | None, optional
+        Number of bytes to read, by default None (read all)
+    """
+    if self.fs is None:
+        raise ValueError("File system is not initialized")
+
+    cache_path = self.cache_path(path, byte_offset, byte_length)
+    if not pathlib.Path(cache_path).is_file():
+        if byte_length:
+            byte_length = int(byte_offset + byte_length)
+        try:
+            data = await self.fs._cat_file(path, start=byte_offset, end=byte_length)
+            with open(cache_path, "wb") as file:
+                file.write(data)
+        except FileNotFoundError:
+            self._handle_missing_file(path)
+```
+
+### 9. Cache Path Generation
+
+Implement `cache_path` to generate deterministic cache file paths:
+
+```python
+def cache_path(
+    self, path: str, byte_offset: int = 0, byte_length: int | None = None
+) -> str:
+    """Gets local cache path given s3 uri
+
+    Parameters
+    ----------
+    path : str
+        s3 uri
+    byte_offset : int, optional
+        Byte offset of file to read, by default 0
+    byte_length : int | None, optional
+        Byte length of file to read, by default None
+
+    Returns
+    -------
+    str
+        Local path of cached file
+    """
+    if not byte_length:
+        byte_length = -1
+    sha = hashlib.sha256((path + str(byte_offset) + str(byte_length)).encode())
+    filename = sha.hexdigest()
+    return os.path.join(self.cache, filename)
+```
+
+### 10. DataFrame Compilation Pattern
+
+DataFrame sources compile data from multiple files/tasks into a single DataFrame:
+
+```python
+def _compile_dataframe(
+    self,
+    async_tasks: list[TaskType],
+    variables: list[str],
+    schema: pa.Schema,
+) -> pd.DataFrame:
+    """Compile fetched data into a DataFrame."""
+    frames: list[pd.DataFrame] = []
+    for task in async_tasks:
+        # Build column mapping from source names to schema names
+        column_map = self._build_column_map(schema)
+
+        # Load data from cached file
+        local_path = self.cache_path(task.file_uri)
+        if not pathlib.Path(local_path).is_file():
+            logger.warning("Cached file missing for {}", task.file_uri)
+            continue
+
+        # Read data (e.g., from HDF5/NetCDF)
+        with h5netcdf.File(local_path, "r") as ds:
+            data: dict[str, np.ndarray] = {}
+            for name, dset in ds.variables.items():
+                if name not in column_map:
+                    continue
+                values = np.asarray(dset[:])
+                pa_type = schema.field(column_map[name]).type
+                # Apply transformations
+                values = self._transform_column(name, values, task, ds)
+                data[name] = pa.array(values, type=pa_type)
+
+        df = pd.DataFrame(data)
+        df.rename(columns=column_map, inplace=True)
+
+        # Add Earth2Studio columns
+        df["variable"] = task.e2s_obs_name
+        df.attrs["source"] = self.SOURCE_ID
+        self._add_task_columns(df, task)
+
+        # Filter by time range
+        mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
+        df = df.loc[mask]
+
+        frames.append(task.modifier(df))
+
+    result = pd.concat(frames, ignore_index=True)
+    # Return only requested fields
+    return result[[name for name in schema.names if name in result.columns]]
+```
+
+### 11. Column Mapping Pattern
+
+Use metadata in schema fields to map from source column names to schema names:
+
+```python
+def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+    """Build mapping from source column names to schema column names."""
+    column_map = {}
+    for field in schema:
+        if field.metadata is None or b"source_name" not in field.metadata:
+            continue
+        column_map[field.metadata[b"source_name"].decode("utf-8")] = field.name
+    # Always include time field for filtering
+    time_field = self.SCHEMA.field("time")
+    column_map[time_field.metadata[b"source_name"].decode("utf-8")] = time_field.name
+    return column_map
+```
+
+### 12. Cache Property
+
+All DataFrame sources must have a `cache` property that returns the cache location:
+
+```python
+@property
+def cache(self) -> str:
+    """Return appropriate cache location."""
+    cache_location = os.path.join(datasource_cache_root(), "data_source_name")
+    if not self._cache:
+        if self._tmp_cache_hash is None:
+            self._tmp_cache_hash = uuid.uuid4().hex[:8]
+        cache_location = os.path.join(
+            cache_location, f"tmp_data_source_name_{self._tmp_cache_hash}"
+        )
+    return cache_location
+```
+
+### 13. Time Validation
+
+Implement `_validate_time` to validate time inputs:
+
+```python
+def _validate_time(self, times: list[datetime]) -> None:
+    """Verify if date time is valid for data source
+
+    Parameters
+    ----------
+    times : list[datetime]
+        list of date times to fetch data
+    """
+    for time in times:
+        start_date = datetime(1980, 1, 1)
+        if time < start_date:
+            raise ValueError(
+                f"Requested date time {time} needs to be after {start_date} for data source"
+            )
+```
+
+## Required Abstract Methods
+
+Subclasses must implement:
+
+- `_create_tasks(time_list, variable) -> list[TaskType]` - Create async tasks for fetching data
+- `_transform_column(name, values, task, ds) -> np.ndarray` - Transform column values during DataFrame compilation
+- `_add_task_columns(df, task) -> None` - Add task-specific columns (optional, override in subclasses)
+- `_handle_missing_file(path) -> None` - Handle missing file errors (can override for custom behavior)
+
+### Task Creation Example
+
+```python
+def _create_tasks(
+    self, time_list: list[datetime], variable: list[str]
+) -> list[_TaskType]:
+    """Create async tasks for fetching data."""
+    tasks: list[_TaskType] = []
+    for v in variable:
+        # Get lexicon mapping
+        source_key, modifier = MyLexicon[v]  # type: ignore
+
+        # Parse source_key (e.g., split by ::)
+        parts = source_key.split("::")
+
+        for t in time_list:
+            tmin = t - self.tolerance
+            tmax = t + self.tolerance
+            # Calculate file paths based on time
+            day = tmin.replace(minute=0, second=0, microsecond=0)
+            day = day.replace(hour=(day.hour // 6) * 6)
+
+            while day <= tmax:
+                # Build S3 URI or file path
+                s3_uri = f"s3://bucket/{day.strftime('%Y/%m/%d')}/file.nc4"
+                tasks.append(
+                    _TaskType(
+                        datetime_file=day,
+                        datetime_min=tmin,
+                        datetime_max=tmax,
+                        file_uri=s3_uri,
+                        modifier=modifier,
+                        e2s_obs_name=v,
+                    )
+                )
+                day = day + timedelta(hours=6)
+    return tasks
+```
+
+### Column Transformation Example
+
+```python
+def _transform_column(
+    self,
+    name: str,
+    values: np.ndarray,
+    task: _TaskType,
+    ds: h5netcdf.File,  # or other file handle
+) -> np.ndarray:
+    """Transform column values for DataFrame compilation."""
+    # Convert hours offset to timedelta, and add to datetime of file
+    if name == "Time":
+        values = pd.to_timedelta(values, unit="h") + task.datetime_file
+    # Handle other transformations as needed
+    return values
+```
+
+## Schema Field Metadata
+
+Use PyArrow field metadata to map source column names:
+
+```python
+pa.field(
+    "lat",
+    pa.float32(),
+    metadata={"source_name": "Latitude"}  # Maps "Latitude" in source to "lat" in schema
+)
+```
+
+## Async Patterns Summary
+
+Key async patterns for DataFrame sources:
+
+- ✅ **Async initialization**: Use `_async_init` with `nest_asyncio.apply()` for notebook compatibility
+- ✅ **S3FS configuration**: Always use `skip_instance_cache=True` when creating s3fs filesystem
+- ✅ **Session management**: Set session before fetching (`await self.fs.set_session(refresh=True)`), close after
+- ✅ **ThreadPoolExecutor**: Set executor in `__call__` for async file operations
+- ✅ **Progress bars**: Use `tqdm.gather` with `disable=(not self._verbose)` for progress tracking
+- ✅ **Input normalization**: Use `prep_data_inputs(time, variable)` to normalize inputs
+- ✅ **Time validation**: Implement `_validate_time` to check time ranges
+- ✅ **File deduplication**: Deduplicate file URIs before fetching to avoid redundant downloads
+- ✅ **Cache management**: Delete temporary cache if `cache=False` after fetch completes
+
+## Reminders
+
+- **Key difference**: Return `pd.DataFrame` instead of `xr.DataArray`
+- **Schema**: Must define `SCHEMA` class attribute with PyArrow schema
+- **Fields parameter**: Implement `resolve_fields` to handle field selection
+- **Column mapping**: Use schema field metadata to map source names to schema names
+- **DataFrame compilation**: Compile data from multiple files into single DataFrame
+- **Required columns**: Always include `variable` column and set `df.attrs["source"]`
+- **Time filtering**: Filter observations by time range after loading
+- **Async patterns**: Follow all async patterns outlined above (initialization, session management, etc.)
+- **S3FS**: Always use `skip_instance_cache=True` and manage sessions properly
+- **ThreadPoolExecutor**: Set executor in `__call__` for async file operations
+- **File deduplication**: Deduplicate file URIs before fetching
+- **Cache cleanup**: Delete temporary cache if `cache=False`
+- **Documentation**: Add the DataFrame source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "DataFrame Sources" section, maintaining alphabetical order

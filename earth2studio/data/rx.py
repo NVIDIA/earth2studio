@@ -23,7 +23,6 @@ import gcsfs
 import numpy as np
 import xarray as xr
 import zarr
-from fsspec.implementations.cached import WholeFileCacheFileSystem
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.utils import handshake_dim
@@ -67,13 +66,6 @@ class ARCORxBase:
             block_size=2**20,
         )
 
-        if self._cache:
-            cache_options = {
-                "cache_storage": self.cache,
-                "expiry_time": 31622400,  # 1 year
-            }
-            fs = WholeFileCacheFileSystem(fs=fs, **cache_options)
-
         zstore = zarr.storage.FsspecStore(
             fs,
             path="/gcp-public-data-arco-era5/ar/1959-2022-full_37-1h-0p25deg-chunk-1.zarr-v2",
@@ -103,6 +95,29 @@ class ARCORxBase:
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
+        # Check if cached numpy file exists
+        cache_file = os.path.join(self.cache, f"{self.id}.npy")
+        if self._cache and os.path.exists(cache_file):
+            # Load from cache (just the numpy array)
+            base_array = np.load(cache_file)
+
+            # Replicate for requested times
+            lsm_array = np.repeat(
+                base_array[np.newaxis, np.newaxis, :, :], len(time), axis=0
+            )
+
+            lsmda = xr.DataArray(
+                data=lsm_array,
+                dims=["time", "variable", "lat", "lon"],
+                coords={
+                    "time": time,
+                    "variable": np.array([self.id]),
+                    "lat": self.ARCO_LAT,
+                    "lon": self.ARCO_LON,
+                },
+            )
+            return lsmda
+
         lsmda = xr.DataArray(
             data=np.empty((len(time), 1, len(self.ARCO_LAT), len(self.ARCO_LON))),
             dims=["time", "variable", "lat", "lon"],
@@ -115,14 +130,18 @@ class ARCORxBase:
         )
 
         lsm_array = self.zarr_group[self.arco_id][:]
-        lsm_array = np.repeat(
+        lsm_array_repeated = np.repeat(
             lsm_array[np.newaxis, np.newaxis, :, :], len(time), axis=0
         )
-        lsmda.values = lsm_array
+        lsmda.values = lsm_array_repeated
+
+        # Save to cache if enabled (save just the numpy array)
+        if self._cache:
+            np.save(cache_file, lsm_array)
 
         # Delete cache if needed
         if not self._cache:
-            shutil.rmtree(self.cache)
+            shutil.rmtree(self.cache, ignore_errors=True)
 
         return lsmda
 

@@ -50,10 +50,13 @@ jobs:
            github.actor == 'Alexey-Kamenev' ||
            github.actor == 'pzharrington' ||
            github.actor == 'jleinonen' ||
-           github.actor == 'saikrishnanc-nv' ||
            github.actor == 'CharlelieLrt' ||
            github.actor == 'mariusaurus' ||
-           github.actor == 'swbg'
+           github.actor == 'swbg' ||
+           github.actor == 'gertln' ||
+           github.actor == 'shrek' ||
+           github.actor == 'gh0st-ryder' ||
+           github.actor == 'aayushg55'
          )
     steps:
       - name: Check if comment is issued by authorized person

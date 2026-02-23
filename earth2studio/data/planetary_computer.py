@@ -24,23 +24,26 @@ import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 import nest_asyncio
+import netCDF4
 import numpy as np
 import pygrib
 import xarray as xr
 from loguru import logger
 from tqdm import tqdm
 
+from earth2studio.data import GOES
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.planetary_computer import (
-    ECMWFOpenDataIFSLexicon,
-    MODISFireLexicon,
-    OISSTLexicon,
-    Sentinel3AODLexicon,
+    PlanetaryComputerECMWFOpenDataIFSLexicon,
+    PlanetaryComputerGOESLexicon,
+    PlanetaryComputerMODISFireLexicon,
+    PlanetaryComputerOISSTLexicon,
+    PlanetaryComputerSentinel3AODLexicon,
 )
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -52,6 +55,7 @@ try:
     import httpx
     import planetary_computer
     import rioxarray
+    from pystac import Item
     from pystac_client import Client
 except ImportError:
     OptionalDependencyFailure("data")
@@ -59,6 +63,7 @@ except ImportError:
     Client = None
     planetary_computer = None
     rioxarray = None
+    Item = TypeVar("Item")  # type: ignore
 
 
 @dataclass(frozen=True, slots=True)
@@ -405,7 +410,7 @@ class _PlanetaryComputerData:
     # ------------------------------------------------------------------
     def _prepare_asset_plans(
         self,
-        item: Any,
+        item: Item,
         variables: Sequence[VariableSpec],
     ) -> list[AssetPlan]:
         """Create download plans for the STAC item that fulfil the requested variables.
@@ -484,7 +489,7 @@ class _PlanetaryComputerData:
                     f"Failed to download asset {plan.signed_href}"
                 ) from error
 
-    def _locate_item(self, when: datetime) -> Any:
+    def _locate_item(self, when: datetime) -> Item:
         """Locate the closest STAC item to ``when`` within the configured tolerance."""
         # Ensure the client is initialized
         if self._client is None:
@@ -502,18 +507,23 @@ class _PlanetaryComputerData:
         search = self._client.search(
             collections=[self._collection_id],
             datetime=datetime_param,
-            max_items=2,
-            **self._search_kwargs,
+            **self._get_search_kwargs(),
         )
 
         # Return the first item
-        items = list(search.items())
+        items: list[Item] = list(search.items())
         if len(items) == 0:
             raise FileNotFoundError(
                 f"No Planetary Computer item found for {when.isoformat()} "
                 f"within ±{self._search_tolerance}"
             )
-        elif len(items) > 1:
+        return self._select_item(items, when)
+
+    def _select_item(self, items: list[Item], when: datetime) -> Item:
+        """Simply return the first item."""
+        # Many but not all data sources have item.properties["datetime"], which can be used
+        # for selection. OISST only has 'start_datetime' and 'end_datetime', for example.
+        if len(items) > 1:
             logger.warning("Found more than one matching item, returning first match")
         return items[0]
 
@@ -535,6 +545,10 @@ class _PlanetaryComputerData:
             List of date times to fetch data for.
         """
         pass
+
+    def _get_search_kwargs(self) -> dict:
+        """Get the asset search parameters for the PySTAC client."""
+        return self._search_kwargs
 
     @property
     def cache(self) -> str:
@@ -589,7 +603,7 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
         super().__init__(
             self.COLLECTION_ID,
             asset_key=self.ASSET_KEY,
-            lexicon=OISSTLexicon,
+            lexicon=PlanetaryComputerOISSTLexicon,
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
             spatial_dims={
@@ -674,7 +688,7 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
         super().__init__(
             self.COLLECTION_ID,
             asset_key=self.ASSET_KEY,
-            lexicon=Sentinel3AODLexicon,
+            lexicon=PlanetaryComputerSentinel3AODLexicon,
             search_kwargs=None,
             search_tolerance=self.SEARCH_TOLERANCE,
             spatial_dims={
@@ -762,6 +776,7 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     """
 
     COLLECTION_ID = "modis-14A1-061"
+    ASSET_KEY = "FireMask"
     SEARCH_TOLERANCE = timedelta(hours=12)
     TILE_SIZE = 1200
     PIXEL_SIZE_M = 926.625433138
@@ -797,8 +812,8 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
         }
         super().__init__(
             self.COLLECTION_ID,
-            asset_key="FireMask",
-            lexicon=MODISFireLexicon,
+            asset_key=self.ASSET_KEY,
+            lexicon=PlanetaryComputerMODISFireLexicon,
             search_kwargs=tile_filter,
             search_tolerance=self.SEARCH_TOLERANCE,
             spatial_dims={
@@ -949,7 +964,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
         super().__init__(
             self.COLLECTION_ID,
             asset_key=self.ASSET_KEY,
-            lexicon=ECMWFOpenDataIFSLexicon,
+            lexicon=PlanetaryComputerECMWFOpenDataIFSLexicon,
             search_kwargs=self.SEARCH_KWARGS,
             data_dtype=np.float64,
             spatial_dims={
@@ -1029,4 +1044,182 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
             if time < MIN_TIME:
                 raise ValueError(
                     f"Requested start time {time} needs to be at least {MIN_TIME} for IFS"
+                )
+
+
+class PlanetaryComputerGOES(_PlanetaryComputerData):
+    """GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.
+
+    Parameters
+    ----------
+    satellite : str, optional
+        Which GOES satellite to use ('goes16', 'goes17', 'goes18', or 'goes19'), by default 'goes16'
+    scan_mode : str, optional
+        For ABI: Scan mode ('F' for Full Disk, 'C' for Continental US)
+        Mesoscale data is currently not supported due to the changing scan position.
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Whether to print progress information, by default True
+    max_workers : int, optional
+        Upper bound on concurrent download and processing tasks, by default 24
+    request_timeout : int, optional
+        Timeout (seconds) applied to individual HTTP requests, by default 60
+    max_retries : int, optional
+        Maximum retry attempts for transient network failures, by default 4
+    async_timeout : int, optional
+        Time in sec after which download will be cancelled if not finished successfully,
+        by default 600
+
+    Note
+    ----
+    Please see ``earth2studio.data.goes.GOES`` for further details.
+    This data source exposes the MCMIP products but not the full-resolution CMIP products.
+    Additional information on the data repository can be referenced here:
+
+    - https://planetarycomputer.microsoft.com/dataset/goes-cmi
+    """
+
+    COLLECTION_ID = "goes-cmi"
+    ASSET_KEY = "MCMIP-nc"
+
+    def __init__(
+        self,
+        satellite: str = "goes16",
+        scan_mode: str = "F",
+        cache: bool = True,
+        verbose: bool = True,
+        max_workers: int = 24,
+        request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT,
+        max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES,
+        async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT,
+    ) -> None:
+        GOES._validate_satellite_scan_mode(satellite, scan_mode)
+        if scan_mode == "F":
+            y, x = GOES.FULL_DISK_YX
+        else:
+            y, x = GOES.CONTINENTAL_US_YX[satellite]
+        scan_freq = GOES.SCAN_TIME_FREQUENCY[scan_mode]
+        if satellite == "goes17":
+            logger.warning(
+                "GOES-17 data on Planetary Computer is incomplete, "
+                "consider using 'earth2studio.data.goes.GOES' instead"
+            )
+        super().__init__(
+            self.COLLECTION_ID,
+            asset_key=self.ASSET_KEY,
+            lexicon=PlanetaryComputerGOESLexicon,
+            search_kwargs=None,
+            search_tolerance=timedelta(seconds=scan_freq),
+            data_dtype=np.float64,
+            spatial_dims={
+                "y": y,
+                "x": x,
+            },
+            cache=cache,
+            verbose=verbose,
+            max_workers=max_workers,
+            request_timeout=request_timeout,
+            max_retries=max_retries,
+            async_timeout=async_timeout,
+        )
+        self._satellite = satellite
+        self._scan_mode = scan_mode
+        self._lat, self._lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data source's lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            Plantary computer data array
+        """
+        xr_array = await super().fetch(time, variable)
+        xr_array = xr_array.assign_coords(
+            {"_lat": (("y", "x"), self._lat), "_lon": (("y", "x"), self._lon)}
+        )
+        return xr_array
+
+    def _select_item(self, items: list[Item], when: datetime) -> Item:
+        """Return the temporally closest item."""
+        if len(items) > 1:
+            logger.warning("Found more than one matching item, returning closest match")
+        dts = [datetime.fromisoformat(item.properties["datetime"]) for item in items]
+        idx = min(range(len(dts)), key=lambda i: abs((dts[i] - when).total_seconds()))
+        return items[idx]
+
+    def _get_search_kwargs(self) -> dict:
+        # Remap __init__ args, which are aligned with other GOES data source
+        image_type = "FULL DISK" if self._scan_mode == "F" else "CONUS"
+        satellite = "GOES-" + self._satellite[-2:]
+        return {
+            "query": {
+                "platform": {"eq": satellite},
+                "goes:image-type": {"eq": image_type},
+            },
+        }
+
+    def extract_variable_numpy(
+        self,
+        plan: AssetPlan,
+        spec: VariableSpec,
+        target_time: datetime,
+    ) -> np.ndarray:
+        """Extract a GOES-R MCMIP field as a float32 numpy array.
+
+        Parameters
+        ----------
+        plan : AssetPlan
+            Plan describing the cached asset to open.
+        spec : VariableSpec
+            Variable specification detailing which field and modifier to apply.
+        Returns
+        -------
+        numpy.ndarray
+            Array shaped ``(1500, 2500)`` for 'CONUS' or ``(5424, 5424)`` for 'FULL DISK' scan mode.
+        """
+
+        with netCDF4.Dataset(plan.local_path, mode="r") as ds:
+            values = ds[spec.dataset_key][:].filled(np.nan)
+            values = spec.modifier(values)
+
+        return values
+
+    def _validate_time(self, times: list[datetime]) -> None:
+        """Verify all times are valid based on offline knowledge.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            List of date times to fetch data for.
+        """
+        scan_freq = GOES.SCAN_TIME_FREQUENCY[self._scan_mode]
+        for time in times:
+            # Check scan frequency interval
+            if not (time - datetime(1900, 1, 1)).total_seconds() % scan_freq == 0:
+                raise ValueError(
+                    f"Requested date time {time} needs to be {scan_freq} second interval for GOES with scan mode {self._scan_mode}"
+                )
+
+            start_date, end_date = GOES.GOES_HISTORY_RANGE[self._satellite]
+            if time < start_date:
+                raise ValueError(
+                    f"Requested date time {time} is before {self._satellite} became operational ({start_date})"
+                )
+            if end_date and time > end_date:
+                raise ValueError(
+                    f"Requested date time {time} is after {self._satellite} was retired ({end_date})"
                 )

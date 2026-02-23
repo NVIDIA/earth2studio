@@ -8,7 +8,7 @@ toolkit for exploring this AI revolution in the weather and climate science doma
 
 ## Package Design
 
-Given that the goal of this package is to enable the use to extrapolate and build
+Given that the goal of this package is to enable the user to extrapolate and build
 beyond what is implemented here, we have focused on providing the building blocks to
 enable this.
 
@@ -44,7 +44,7 @@ We recognize that many users will have their own custom workflow needs, thus enc
 users to use the provided features as a starting point to build their own.
 
 ```{figure} https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/docs/e2studio-wf-samples.png
-:alt: earth2studio-arch
+:alt: earth2studio-wf-samples
 :width: 600px
 :align: center
 ```

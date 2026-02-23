@@ -23,16 +23,17 @@ import pytest
 
 from earth2studio.data import (
     PlanetaryComputerECMWFOpenDataIFS,
+    PlanetaryComputerGOES,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
 )
 from earth2studio.data.planetary_computer import _PlanetaryComputerData
-from earth2studio.lexicon.planetary_computer import OISSTLexicon
+from earth2studio.lexicon.planetary_computer import PlanetaryComputerOISSTLexicon
 
 
 def test_planetary_computer_base_init() -> None:
-    class DummyLexicon(OISSTLexicon):
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
         pass
 
     ds = _PlanetaryComputerData(
@@ -49,7 +50,7 @@ def test_planetary_computer_base_init() -> None:
 
 
 def test_planetary_computer_base_invalid_spatial_dims() -> None:
-    class DummyLexicon(OISSTLexicon):
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
         pass
 
     with pytest.raises(ValueError):
@@ -61,7 +62,7 @@ def test_planetary_computer_base_invalid_spatial_dims() -> None:
 
 
 def test_planetary_computer_base_extract_not_implemented() -> None:
-    class DummyLexicon(OISSTLexicon):
+    class DummyLexicon(PlanetaryComputerOISSTLexicon):
         pass
 
     ds = _PlanetaryComputerData(
@@ -249,13 +250,13 @@ def test_planetary_computer_modis_fire_cache(cache: bool) -> None:
     "time,variable",
     [
         (
-            datetime(2025, 7, 28, tzinfo=timezone.utc),
+            datetime(2025, 7, 28),
             ["u10m", "z500"],
         ),
         (
             [
-                datetime(2025, 7, 27, tzinfo=timezone.utc),
-                datetime(2025, 7, 28, tzinfo=timezone.utc),
+                datetime(2025, 7, 27),
+                datetime(2025, 7, 28),
             ],
             "t2m",
         ),
@@ -270,3 +271,98 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
 
     assert data.shape == (len(times), len(variables), 721, 1440)
     assert np.array_equal(data.coords["variable"].values, np.array(variables))
+
+
+@pytest.mark.slow
+@pytest.mark.xfail()
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize(
+    "satellite,scan_mode,time,variable",
+    [
+        (
+            "goes16",
+            "C",
+            datetime(2022, 1, 13, 5, 10),
+            ["abi01c", "abi05c"],
+        ),
+        (
+            "goes19",
+            "C",
+            [datetime(2025, 11, 13), datetime(2026, 1, 8, 18, 40)],
+            ["abi14c"],
+        ),
+    ],
+)
+def test_planetary_computer_goes_fetch(satellite, scan_mode, time, variable) -> None:
+    ds = PlanetaryComputerGOES(satellite, scan_mode, cache=False, verbose=False)
+    data = ds(time=time, variable=variable)
+
+    times = list(time) if isinstance(time, (list, tuple)) else [time]
+    variables = list(variable) if isinstance(variable, (list, tuple)) else [variable]
+
+    if scan_mode == "C":
+        assert data.shape == (len(times), len(variables), 1500, 2500)
+    else:
+        assert data.shape == (len(times), len(variables), 5424, 5424)
+    assert np.array_equal(data.coords["variable"].values, np.array(variables))
+
+
+@pytest.mark.parametrize(
+    "satellite,scan_mode,valid_time,invalid_times",
+    [
+        (
+            "goes16",  # 2017-12-18 - 2025-04-07
+            "C",  # scan time every 5 min
+            datetime(2019, 5, 19),
+            [
+                datetime(2017, 12, 17),
+                datetime(2025, 4, 8),
+                datetime(2022, 1, 13, 5, 12),
+                datetime(2022, 1, 13, 5, 10, 10),
+            ],
+        ),
+        (
+            "goes19",  # after 2025-04-07
+            "F",  # scan time every 10 min
+            datetime(2025, 6, 8),
+            [
+                datetime(2025, 4, 6),
+                datetime(2025, 7, 10, 5, 15),
+                datetime(2022, 7, 10, 5, 10, 10),
+            ],
+        ),
+    ],
+)
+def test_planetary_computer_goes_exceptions(
+    satellite, scan_mode, valid_time, invalid_times
+):
+    ds = PlanetaryComputerGOES(
+        satellite=satellite,
+        scan_mode=scan_mode,
+        cache=False,
+        verbose=False,
+    )
+
+    with pytest.raises(KeyError):
+        ds(valid_time, ["invalid_variable"])
+
+    with pytest.raises(KeyError):
+        ds(valid_time, ["abi14c", "invalid_variable"])
+
+    for time in invalid_times:
+        with pytest.raises(ValueError):
+            ds(time, ["abi01c"])
+
+    satellite_mapping = {
+        "goes16": "GOES-16",
+        "goes19": "GOES-19",
+    }
+    scan_mode_mapping = {
+        "F": "FULL DISK",
+        "C": "CONUS",
+    }
+    query = {
+        "platform": {"eq": satellite_mapping[satellite]},
+        "goes:image-type": {"eq": scan_mode_mapping[scan_mode]},
+    }
+    assert ds._get_search_kwargs()["query"] == query

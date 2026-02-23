@@ -238,6 +238,7 @@ class Package:
         """
         default_cache = os.path.join(os.path.expanduser("~"), ".cache", "earth2studio")
         default_cache = os.environ.get("EARTH2STUDIO_CACHE", default_cache)
+        default_cache = os.environ.get("EARTH2STUDIO_MODEL_CACHE", default_cache)
         return os.path.join(default_cache, path)
 
     @classmethod

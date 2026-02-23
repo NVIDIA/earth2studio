@@ -778,10 +778,3 @@ class ISD:
         # Ensure output bounded [0,1]
         df["tcc"] = df["tcc"].where((df["tcc"] >= 0.0) & (df["tcc"] <= 1.0), np.nan)
         return df
-
-
-if __name__ == "__main__":
-    stations = ISD.get_stations_bbox((36, -124, 40, -120))
-    ds = ISD(stations, tolerance=timedelta(hours=2))
-    df = ds(datetime(2024, 1, 1, 20), ["t2m", "ws10m"])
-    print(df)

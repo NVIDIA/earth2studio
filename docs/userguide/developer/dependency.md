@@ -17,12 +17,12 @@ ecosystem surrounding the following four packages:
 - `fsspec`: Filesystem interfaces
 
 With these base dependencies, most IO methods, data sources, perturbation methods, and
-utilities should be functional. However, specific features may require additional
+utilities should be functional. However, specific features can require additional
 optional dependencies.
 
 :::{admonition} Adding Packages
 :class: note
-uv commands should always be used to update package lists inside the pyproject.toml.
+uv commands should always be used to update package lists inside the `pyproject.toml`.
 Refer to the [uv documentation](https://docs.astral.sh/uv/concepts/projects/dependencies/)
 for details about this if unfamiliar.
 :::
@@ -68,7 +68,7 @@ updated accordingly.
 When developing features that require optional dependencies, always use graceful error
 handling for the user to communicate that additional dependency group needs to be
 installed.
-A good sanity check if things have properly been caught is by building the API docs
+A good sanity check if things have properly been caught, is by building the API docs
 with `make docs`.
 
 It is important to handle the absence of optional dependencies in a standardize way for
@@ -76,7 +76,7 @@ the user.
 Earth2Studio has some utilities to provide informative errors to users that should be
 used when some optional dependency group is needed to be installed:
 
-1. Use a try / except in the optional import for ImportErrors. Set respective package
+1. Use a try or except in the optional import for ImportErrors. Set respective package
     objects to None if not installed. The file should **not** error on import, rather
     optional imports should be evaluated lazily when needed.
 2. In the catch of the import try catch, instantiate a `OptionalDependencyFailure`. The
@@ -181,7 +181,7 @@ conflicts = [
 ]
 ```
 
-All potential conflicts should be documented in the pyproject.toml file to ensure
+All potential conflicts should be documented in the `pyproject.toml` file to ensure
 reproducible environments.
 
 ## Developer Dependencies
