@@ -87,7 +87,6 @@ lint:
     TESTMON_CACHE_POLICY: pull-push
     EARTH2STUDIO_CACHE_POLICY: pull-push
     UV_CACHE_POLICY: pull-push
-  when: on_success
 
 .test:rule:non-github-with-changes: &test_rule_non_github_with_changes
   if: $PIPELINE_REPO_SOURCE != "github"
@@ -97,13 +96,11 @@ lint:
   variables:
     EARTH2STUDIO_CACHE_POLICY: pull-push
     UV_CACHE_POLICY: pull-push
-  when: on_success
 
 .test:rule:changes-only: &test_rule_changes_only
   changes:
     paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
-  when: on_success
 
 .test:rule:never: &test_rule_never
   when: never
