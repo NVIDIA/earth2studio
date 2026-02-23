@@ -269,22 +269,22 @@ coverage:
       optional: false
     - job: test-data
       artifacts: true
-      optional: false
+      optional: true
     - job: test-perturb
       artifacts: true
-      optional: false
+      optional: true
     - job: test-stats
       artifacts: true
-      optional: false
+      optional: true
     - job: test-px-models
       artifacts: true
-      optional: false
+      optional: true
     - job: test-dx-models
       artifacts: true
-      optional: false
+      optional: true
     - job: test-serve
       artifacts: true
-      optional: false
+      optional: true
   tags:
   - docker
   extends:
