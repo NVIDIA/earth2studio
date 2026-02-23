@@ -101,6 +101,10 @@ lint:
   changes:
     paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
+  variables:
+    TESTMON_CACHE_POLICY: pull
+    EARTH2STUDIO_CACHE_POLICY: pull
+    UV_CACHE_POLICY: pull
 
 .test:rule:never: &test_rule_never
   when: never
