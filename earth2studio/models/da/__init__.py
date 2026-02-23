@@ -14,14 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-
-import numpy as np
-
-CoordSystem = OrderedDict[str, np.ndarray]
-
-# Specific dimension custom types
-VariableArray = np.ndarray[str]
-LeadTimeArray = np.ndarray[np.timedelta64]
-TimeArray = np.ndarray[np.datetime64]
-FieldArray = np.ndarray[str]
+from .interp import Interp
