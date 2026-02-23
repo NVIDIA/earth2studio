@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  password: null
+  socket_connect_timeout: 5
+  socket_timeout: 5
+  decode_responses: true
+  retention_ttl: 604800  # Redis key retention TTL in seconds (7 days)
+
+queue:
+  name: inference
+  max_size: 20
+  default_timeout: 1h
+  job_timeout: 2h
+
+worker:
+  persistent: true  # Set to true to use rq.worker.SimpleWorker as a persistent worker
+  # Until the scheduler is put in place, use the setting below cautiously.
+  num_workers: 1    # The number of RQ inference workers to create by default
+  zip_num_workers: 1  # The number of RQ workers for result_zip queue
+  objstore_num_workers: 1  # The number of RQ workers for object_storage queue
+  finalize_num_workers: 1  # The number of RQ workers for finalize_metadata queue
+
+paths:
+  default_output_dir: /outputs
+  results_zip_dir: /workspace/earth2studio-project/examples/outputs
+  result_zip_enabled: false
+
+logging:
+  level: INFO
+  format: "%(asctime)s - [%(execution_id)s] %(name)s - %(levelname)s - %(message)s"
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  workers: 4
+  title: Earth2Studio REST API
+  description: REST API for running Earth2Studio workflows
+  version: 1.0.0
+  docs_url: /docs
+  redoc_url: /redoc
+  results_ttl_hours: 24  # This is the retention policy, in hours, for results (zip and raw).
+  cleanup_watchdog_sec: 900  # This is how often, in seconds, the cleanup thread runs.
+
+cors:
+  allow_origins:
+    - "*"
+  allow_credentials: true
+  allow_methods:
+    - "*"
+  allow_headers:
+    - "*"
+
+
+object_storage:
+  enabled: false
+  bucket: null
+  region: us-east-1
+  prefix: outputs
+  access_key_id: null
+  secret_access_key: null
+  session_token: null
+  endpoint_url: null
+  use_transfer_acceleration: true
+  max_concurrency: 16
+  multipart_chunksize: 8388608
+  use_rust_client: true
+  # CloudFront signed URL configuration
+  cloudfront_domain: null
+  cloudfront_key_pair_id: null
+  cloudfront_private_key: null  # PEM private key content
+  # Signed URL settings
+  signed_url_expires_in: 86400  # 24 hours

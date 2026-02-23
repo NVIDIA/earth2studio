@@ -94,3 +94,12 @@ docs-dev:
 	# rm -rf examples/outputs
 	uv sync --extra all --group docs
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html
+
+.PHONY: container-service
+# Example DOCKER_REPO?=nvcr.io/dycvht5ows21
+E2S_RELEASE_TAG?=0.11.0
+E2S_IMAGE_NAME=$(DOCKER_REPO)/earth2studio-scicomp
+E2S_IMAGE_TAG=v$(E2S_RELEASE_TAG).20260220.0
+container-service:
+	@test -n "$(DOCKER_REPO)" || (echo "DOCKER_REPO is not set!" && exit 1)
+	DOCKER_BUILDKIT=1 docker build -t $(E2S_IMAGE_NAME):$(E2S_IMAGE_TAG) -f serve/Dockerfile .
