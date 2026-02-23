@@ -81,7 +81,6 @@ lint:
 .test:rule:main-with-changes: &test_rule_main_with_changes
   if: '$CI_COMMIT_BRANCH == "main" && $PIPELINE_REPO_SOURCE != "github"'
   changes:
-    paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
   variables:
     TESTMON_CACHE_POLICY: pull-push
@@ -91,7 +90,6 @@ lint:
 .test:rule:non-github-with-changes: &test_rule_non_github_with_changes
   if: $PIPELINE_REPO_SOURCE != "github"
   changes:
-    paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
   variables:
     EARTH2STUDIO_CACHE_POLICY: pull-push
@@ -100,7 +98,6 @@ lint:
 .test:rule:changes-only: &test_rule_changes_only
   if: $PIPELINE_REPO_SOURCE == "github"
   changes:
-    paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
   variables:
     TESTMON_CACHE_POLICY: pull
@@ -129,6 +126,7 @@ test-data:
   variables:
     TOX_ENV: test-data
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -158,6 +156,7 @@ test-perturb:
   variables:
     TOX_ENV: test-perturb
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -181,6 +180,7 @@ test-stats:
   variables:
     TOX_ENV: test-stats
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -204,6 +204,7 @@ test-px-models:
   variables:
     TOX_ENV: test-px-models
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -227,6 +228,7 @@ test-dx-models:
   variables:
     TOX_ENV: test-dx-models
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -250,6 +252,7 @@ test-serve:
   variables:
     TOX_ENV: test-serve
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
