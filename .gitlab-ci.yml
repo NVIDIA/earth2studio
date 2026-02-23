@@ -107,6 +107,13 @@ lint:
 .test:rule:never: &test_rule_never
   when: never
 
+.test:rule:always-if-pytest-all: &test_rule_always_if_pytest_all
+  if: '$CI_PYTEST_ALL =~ /^(1|true|TRUE|True|yes|YES|on|ON)$/'
+  variables:
+    TESTMON_CACHE_POLICY: pull-push
+    EARTH2STUDIO_CACHE_POLICY: pull-push
+    UV_CACHE_POLICY: pull-push
+
 test:
   extends:
     - .test:base
@@ -119,6 +126,7 @@ test-data:
   variables:
     TOX_ENV: test-data
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -148,6 +156,7 @@ test-perturb:
   variables:
     TOX_ENV: test-perturb
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -171,6 +180,7 @@ test-stats:
   variables:
     TOX_ENV: test-stats
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -194,6 +204,7 @@ test-px-models:
   variables:
     TOX_ENV: test-px-models
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -217,6 +228,7 @@ test-dx-models:
   variables:
     TOX_ENV: test-dx-models
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
@@ -240,6 +252,7 @@ test-serve:
   variables:
     TOX_ENV: test-serve
   rules:
+    - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
       changes:
         paths:
