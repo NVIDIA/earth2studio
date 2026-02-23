@@ -95,7 +95,7 @@ def run(
 
     #CHECK_DIFFERENCE
     if inference_check:
-        gt = np.load('./01012020_00_00_00.npy')
+        gt = np.load(inference_check_file)
         ae = np.absolute(data[output_coords["variable"][0]].values-gt)
         mae = ae.mean()
         print ("MAE: ", mae)
