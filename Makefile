@@ -57,7 +57,7 @@ pytest-full:
 ifneq (,$(filter 1 true TRUE True yes YES on ON,$(CI_PYTEST_ALL)))
 PYTEST_CI_TARGET := pytest-full
 else
-PYTEST_CI_TARGET := pytest
+PYTEST_CI_TARGET := pytest TOX_ENV=$(TOX_ENV)
 endif
 
 .PHONY: pytest-ci
