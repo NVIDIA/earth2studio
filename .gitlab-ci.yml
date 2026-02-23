@@ -98,6 +98,7 @@ lint:
     UV_CACHE_POLICY: pull-push
 
 .test:rule:changes-only: &test_rule_changes_only
+  if: $PIPELINE_REPO_SOURCE == "github"
   changes:
     paths: []  # Override paths in each job
     compare_to: 'refs/heads/main'
