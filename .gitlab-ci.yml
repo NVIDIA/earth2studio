@@ -75,8 +75,7 @@ lint:
         UV_CACHE_POLICY: pull-push
     - when: on_success
   script:
-    - uv run python test/_ci/check_gpu.py || exit $?
-    - uvx tox -c tox-min.ini run -e ${TOX_ENV}
+    - make pytest-ci
 
 # Template for change-based rules (paths must be specified per job)
 .test:rule:main-with-changes: &test_rule_main_with_changes
