@@ -11,53 +11,88 @@ section.
 
 ## PyTest
 
-Earth2Studio has several configurations for testing listed below.
+Earth2Studio uses [tox](https://tox.wiki/) to manage test environments and dependencies.
 Many unit tests, particularly ones for data sources, have [timeout limits](https://github.com/pytest-dev/pytest-timeout)
 and are allowed to fail using the [xfail](https://docs.pytest.org/en/6.2.x/skipping.html#xfail-mark-test-functions-as-expected-to-fail)
 decorator.
 It is normal for some tests to fail, particularly for machines with slower internet
 connections.
-Users should always look at the test summary to under to understand which tests produced
+Users should always look at the test summary to understand which tests produced
 an error but did not fail.
 
-### Quick Unit Test Suite
+### Test Environments
 
-This will run the quickest test suite which skips many tests that are longer running.
+Earth2Studio organizes tests into separate tox environments based on functionality:
+
+- **`test`** - Core tests that need no extra dependencies (IO, utilities, auto-models, batch)
+- **`test-data`** - Data source and lexicon tests (requires `data` and `cbottle` extras)
+- **`test-perturb`** - Perturbation method tests (requires `perturbation` extra)
+- **`test-stats`** - Statistical method tests (requires `statistics` and `utils` extras)
+- **`test-px-models`** - Prognostic model tests (requires `all` extra)
+- **`test-dx-models`** - Diagnostic model tests (requires `all` extra)
+- **`test-serve`** - Serve/API tests (requires `serve` extra)
+
+### Running Tests with Tox
+
+The recommended way to run tests is using the Makefile with a specific `TOX_ENV`:
 
 ```bash
-pytest  test/
+# Run core tests
+make pytest TOX_ENV=test
+
+# Run data source tests
+make pytest TOX_ENV=test-data
+
+# Run model tests
+make pytest TOX_ENV=test-px-models
+make pytest TOX_ENV=test-dx-models
 ```
 
-### Standard Unit Test Suite
-
-To run the full unit test suite, add the `--slow` flag.
-Compared to the quick test suite, this one will run much longer
+You can also run tox directly:
 
 ```bash
+# Run a specific test environment
+uvx tox -c tox.ini run -e test-data
+
+# Run with additional pytest arguments
+uvx tox -c tox.ini run -e test-data -- -v
+```
+
+### Running Tests Directly with Pytest
+
+For quick iteration during development, you can run pytest directly:
+
+```bash
+# Quick test suite (skips slow tests)
+pytest test/
+
+# Standard test suite (includes slow tests)
 pytest --slow test/
+
+# Run specific test module
+pytest test/data/test_gfs.py
 ```
 
-### Complete Unit Test Suite
-
-The complete unit tests ran by the CI pipeline is ran with the `--ci-cache`.
-This option enables tests that load and test full model archiectures with their model
-package which can be quite expensive.
-These tests will look for model files inside a specific folder unique to the CI pipeline
-on Nvidia systems or whatever is set in the `EARTH2STUDIO_CACHE` environment variable.
-See [configuration](#configuration_userguide) section for details on this environment
-variable.
-
-```bash
- pytest --slow --ci-cache test/
-```
-
-:::{warning}
-The full model cache is rather large (order of 10Gb) which will be downloaded running
-this command.
-The CI pipeline will already have all model files downloaded on the runner machine to
-skip this step.
-Additional information on this can be found below.
+:::{note}
+When running pytest directly, ensure you have the appropriate dependencies installed
+for the tests you're running. The tox environments handle dependency management automatically.
 :::
+
+### CI Pipeline Structure
+
+The CI pipeline runs tests in separate jobs for each test environment, which improves
+debugging and allows parallel execution. Each job only runs when relevant files change:
+
+- **`test`** - Always runs (core functionality)
+- **`test-data`** - Runs when `earth2studio/data`, `earth2studio/lexicon`, or their tests change
+- **`test-perturb`** - Runs when perturbation code or tests change
+- **`test-stats`** - Runs when statistics code or tests change
+- **`test-px-models`** - Runs when prognostic model code or tests change
+- **`test-dx-models`** - Runs when diagnostic model code or tests change
+- **`test-serve`** - Runs when serve/API code or tests change
+
+To force all tests to run regardless of changes, set the `CI_PYTEST_ALL` environment variable
+to `1`, `true`, `yes`, or `on`.
 
 #### CI Model Package Cache
 
@@ -82,23 +117,20 @@ ls -l ./cache
 Coverage is calculated using the [coverage.py](https://coverage.readthedocs.io/en/7.5.3/)
 package configured in the [pyproject.toml](https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml).
 Presently the CI pipeline will fail if unit test coverage drops below 90%.
-Running coverage with pytest just requires the following:
+
+The CI pipeline runs tests using tox environments which automatically collect coverage data.
+After all test jobs complete, coverage is combined and reported:
 
 ```bash
-# Run tests
-coverage pytest --slow test/
+# Run tests (coverage is collected automatically by tox)
+make pytest TOX_ENV=test-data
 
-# Compile reports
-coverage combine
-```
-
-The CI pipeline uses the commands defined in the [Makefile](https://github.com/NVIDIA/earth2studio/blob/main/Makefile):
-
-```bash
-make pytest
-
+# Combine coverage from all test runs
 make coverage
 ```
+
+The `make coverage` command combines coverage data from all test environments and generates
+a report. The CI pipeline runs this automatically after all test jobs complete.
 
 ## Contributing Tests
 

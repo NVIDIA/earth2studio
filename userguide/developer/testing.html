@@ -483,49 +483,84 @@ Ensure that developer dependencies are install as outline in the <a class="refer
 section.</p>
 <section id="pytest">
 <h2>PyTest<a class="headerlink" href="#pytest" title="Link to this heading">#</a></h2>
-<p>Earth2Studio has several configurations for testing listed below.
+<p>Earth2Studio uses <a class="reference external" href="https://tox.wiki/">tox</a> to manage test environments and dependencies.
 Many unit tests, particularly ones for data sources, have <a class="reference external" href="https://github.com/pytest-dev/pytest-timeout">timeout limits</a>
 and are allowed to fail using the <a class="reference external" href="https://docs.pytest.org/en/6.2.x/skipping.html#xfail-mark-test-functions-as-expected-to-fail">xfail</a>
 decorator.
 It is normal for some tests to fail, particularly for machines with slower internet
 connections.
-Users should always look at the test summary to under to understand which tests produced
+Users should always look at the test summary to understand which tests produced
 an error but did not fail.</p>
-<section id="quick-unit-test-suite">
-<h3>Quick Unit Test Suite<a class="headerlink" href="#quick-unit-test-suite" title="Link to this heading">#</a></h3>
-<p>This will run the quickest test suite which skips many tests that are longer running.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w">  </span>test/
+<section id="test-environments">
+<h3>Test Environments<a class="headerlink" href="#test-environments" title="Link to this heading">#</a></h3>
+<p>Earth2Studio organizes tests into separate tox environments based on functionality:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test</span></code></strong> - Core tests that need no extra dependencies (IO, utilities, auto-models, batch)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-data</span></code></strong> - Data source and lexicon tests (requires <code class="docutils literal notranslate"><span class="pre">data</span></code> and <code class="docutils literal notranslate"><span class="pre">cbottle</span></code> extras)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-perturb</span></code></strong> - Perturbation method tests (requires <code class="docutils literal notranslate"><span class="pre">perturbation</span></code> extra)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-stats</span></code></strong> - Statistical method tests (requires <code class="docutils literal notranslate"><span class="pre">statistics</span></code> and <code class="docutils literal notranslate"><span class="pre">utils</span></code> extras)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-px-models</span></code></strong> - Prognostic model tests (requires <code class="docutils literal notranslate"><span class="pre">all</span></code> extra)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-dx-models</span></code></strong> - Diagnostic model tests (requires <code class="docutils literal notranslate"><span class="pre">all</span></code> extra)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-serve</span></code></strong> - Serve/API tests (requires <code class="docutils literal notranslate"><span class="pre">serve</span></code> extra)</p></li>
+</ul>
+</section>
+<section id="running-tests-with-tox">
+<h3>Running Tests with Tox<a class="headerlink" href="#running-tests-with-tox" title="Link to this heading">#</a></h3>
+<p>The recommended way to run tests is using the Makefile with a specific <code class="docutils literal notranslate"><span class="pre">TOX_ENV</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run core tests</span>
+make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span><span class="nb">test</span>
+
+<span class="c1"># Run data source tests</span>
+make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span>test-data
+
+<span class="c1"># Run model tests</span>
+make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span>test-px-models
+make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span>test-dx-models
+</pre></div>
+</div>
+<p>You can also run tox directly:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run a specific test environment</span>
+uvx<span class="w"> </span>tox<span class="w"> </span>-c<span class="w"> </span>tox.ini<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>test-data
+
+<span class="c1"># Run with additional pytest arguments</span>
+uvx<span class="w"> </span>tox<span class="w"> </span>-c<span class="w"> </span>tox.ini<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>test-data<span class="w"> </span>--<span class="w"> </span>-v
 </pre></div>
 </div>
 </section>
-<section id="standard-unit-test-suite">
-<h3>Standard Unit Test Suite<a class="headerlink" href="#standard-unit-test-suite" title="Link to this heading">#</a></h3>
-<p>To run the full unit test suite, add the <code class="docutils literal notranslate"><span class="pre">--slow</span></code> flag.
-Compared to the quick test suite, this one will run much longer</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/
+<section id="running-tests-directly-with-pytest">
+<h3>Running Tests Directly with Pytest<a class="headerlink" href="#running-tests-directly-with-pytest" title="Link to this heading">#</a></h3>
+<p>For quick iteration during development, you can run pytest directly:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Quick test suite (skips slow tests)</span>
+pytest<span class="w"> </span>test/
+
+<span class="c1"># Standard test suite (includes slow tests)</span>
+pytest<span class="w"> </span>--slow<span class="w"> </span>test/
+
+<span class="c1"># Run specific test module</span>
+pytest<span class="w"> </span>test/data/test_gfs.py
 </pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When running pytest directly, ensure you have the appropriate dependencies installed
+for the tests you’re running. The tox environments handle dependency management automatically.</p>
 </div>
 </section>
-<section id="complete-unit-test-suite">
-<h3>Complete Unit Test Suite<a class="headerlink" href="#complete-unit-test-suite" title="Link to this heading">#</a></h3>
-<p>The complete unit tests ran by the CI pipeline is ran with the <code class="docutils literal notranslate"><span class="pre">--ci-cache</span></code>.
-This option enables tests that load and test full model archiectures with their model
-package which can be quite expensive.
-These tests will look for model files inside a specific folder unique to the CI pipeline
-on Nvidia systems or whatever is set in the <code class="docutils literal notranslate"><span class="pre">EARTH2STUDIO_CACHE</span></code> environment variable.
-See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">configuration</span></a> section for details on this environment
-variable.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>--ci-cache<span class="w"> </span>test/
-</pre></div>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The full model cache is rather large (order of 10Gb) which will be downloaded running
-this command.
-The CI pipeline will already have all model files downloaded on the runner machine to
-skip this step.
-Additional information on this can be found below.</p>
-</div>
+<section id="ci-pipeline-structure">
+<h3>CI Pipeline Structure<a class="headerlink" href="#ci-pipeline-structure" title="Link to this heading">#</a></h3>
+<p>The CI pipeline runs tests in separate jobs for each test environment, which improves
+debugging and allows parallel execution. Each job only runs when relevant files change:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test</span></code></strong> - Always runs (core functionality)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-data</span></code></strong> - Runs when <code class="docutils literal notranslate"><span class="pre">earth2studio/data</span></code>, <code class="docutils literal notranslate"><span class="pre">earth2studio/lexicon</span></code>, or their tests change</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-perturb</span></code></strong> - Runs when perturbation code or tests change</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-stats</span></code></strong> - Runs when statistics code or tests change</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-px-models</span></code></strong> - Runs when prognostic model code or tests change</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-dx-models</span></code></strong> - Runs when diagnostic model code or tests change</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">test-serve</span></code></strong> - Runs when serve/API code or tests change</p></li>
+</ul>
+<p>To force all tests to run regardless of changes, set the <code class="docutils literal notranslate"><span class="pre">CI_PYTEST_ALL</span></code> environment variable
+to <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">yes</span></code>, or <code class="docutils literal notranslate"><span class="pre">on</span></code>.</p>
 <section id="ci-model-package-cache">
 <h4>CI Model Package Cache<a class="headerlink" href="#ci-model-package-cache" title="Link to this heading">#</a></h4>
 <p>In the CI pipeline a NFS mounted folder is used as a pre-cached store of all
@@ -549,21 +584,18 @@ ls<span class="w"> </span>-l<span class="w"> </span>./cache
 <h2>Coverage<a class="headerlink" href="#coverage" title="Link to this heading">#</a></h2>
 <p>Coverage is calculated using the <a class="reference external" href="https://coverage.readthedocs.io/en/7.5.3/">coverage.py</a>
 package configured in the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
-Presently the CI pipeline will fail if unit test coverage drops below 90%.
-Running coverage with pytest just requires the following:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run tests</span>
-coverage<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/
+Presently the CI pipeline will fail if unit test coverage drops below 90%.</p>
+<p>The CI pipeline runs tests using tox environments which automatically collect coverage data.
+After all test jobs complete, coverage is combined and reported:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run tests (coverage is collected automatically by tox)</span>
+make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span>test-data
 
-<span class="c1"># Compile reports</span>
-coverage<span class="w"> </span>combine
-</pre></div>
-</div>
-<p>The CI pipeline uses the commands defined in the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/Makefile">Makefile</a>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>pytest
-
+<span class="c1"># Combine coverage from all test runs</span>
 make<span class="w"> </span>coverage
 </pre></div>
 </div>
+<p>The <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">coverage</span></code> command combines coverage data from all test environments and generates
+a report. The CI pipeline runs this automatically after all test jobs complete.</p>
 </section>
 <section id="contributing-tests">
 <h2>Contributing Tests<a class="headerlink" href="#contributing-tests" title="Link to this heading">#</a></h2>
@@ -627,9 +659,10 @@ properly integrate it into the CI pipeline.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytest">PyTest</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-unit-test-suite">Quick Unit Test Suite</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standard-unit-test-suite">Standard Unit Test Suite</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-unit-test-suite">Complete Unit Test Suite</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#test-environments">Test Environments</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-with-tox">Running Tests with Tox</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-directly-with-pytest">Running Tests Directly with Pytest</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ci-pipeline-structure">CI Pipeline Structure</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ci-model-package-cache">CI Model Package Cache</a></li>
 </ul>
 </li>
