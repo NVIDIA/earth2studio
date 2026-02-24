@@ -589,8 +589,15 @@
 <dd><p>NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.</p>
 <p>This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
 public S3 bucket, decompresses them into the Earth2Studio cache, and opens
-the result with pygrib. Initially, only the composite reflectivity
-product is supported, exposed via the Earth2Studio variable id <code class="docutils literal notranslate"><span class="pre">refc</span></code>.</p>
+the result with pygrib. Initially, only the composite and base reflectivity
+products are supported, exposed via the Earth2Studio variable id <code class="docutils literal notranslate"><span class="pre">refc</span></code>
+and <code class="docutils literal notranslate"><span class="pre">refc_base</span></code>.</p>
+<p>This data source includes data where the source timestamp can have non-zero
+minutes/seconds (e.g., 12:59:59), unlike most other data sources. For
+convenience, it provides the configuration parameter <code class="docutils literal notranslate"><span class="pre">max_offset_minutes</span></code>
+to allow for a time tolerance in minutes to search for the nearest available
+MRMS file to the requested timestamp. The actual timestamp of the source data
+is available in the returned data array as the coordinate <code class="docutils literal notranslate"><span class="pre">actual_time_&lt;variable_id&gt;</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
