@@ -199,7 +199,7 @@ make pytest TOX_ENV=test-data
 # - test-serve: Serve/API tests
 ```
 
-But of initial debugging and contribution, once can use pytest directly
+But for initial debugging and contribution, once can use pytest directly:
 
 ```bash
 # Quick test suite (skips slow tests)
