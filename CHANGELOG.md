@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Planetary Computer data source for GOES cloud and moisture imagery
 - Added ability to have seperate data and model cache locations via env variables
 - Added random dataframe source
+- Added base reflectivity to MRMS data source
 
 ### Changed
 
