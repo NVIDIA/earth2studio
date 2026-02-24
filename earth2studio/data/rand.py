@@ -138,7 +138,7 @@ class RandomDataFrame:
 
     Parameters
     ----------
-    n_observations_per_time : int, optional
+    n_obs : int, optional
         Number of random observations to generate per time step, by default 10
     tolerance : timedelta | np.timedelta64, optional
         Time tolerance; observations will be randomly sampled within +/- tolerance
@@ -151,8 +151,6 @@ class RandomDataFrame:
         with the default generators. Default generators include: time, lat, lon,
         observation, variable. User-provided generators will override defaults,
         by default None
-    seed : int | None, optional
-        Random seed for reproducibility, by default None
     """
 
     SOURCE_ID = "earth2studio.data.RandomDataFrame"
@@ -168,13 +166,12 @@ class RandomDataFrame:
 
     def __init__(
         self,
-        n_observations_per_time: int = 10,
+        n_obs: int = 10,
         tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
         schema: pa.Schema | None = None,
-        field_generators: dict[str, Callable[[], Any]] = {},
-        seed: int | None = None,
+        field_generators: dict[str, Callable[[], Any]] | None = None,
     ):
-        self.n_observations_per_time = n_observations_per_time
+        self.n_obs = n_obs
         # Normalize tolerance to python timedelta
         if isinstance(tolerance, np.timedelta64):
             self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
@@ -191,10 +188,8 @@ class RandomDataFrame:
             "observation": lambda: np.random.randn(),
             "variable": lambda: None,  # Will be set based on variable v
         }
-        self._field_generators = {**default_generators, **field_generators}
-
-        if seed is not None:
-            np.random.seed(seed)
+        user_generators = field_generators if field_generators is not None else {}
+        self._field_generators = {**default_generators, **user_generators}
 
     def __call__(
         self,
@@ -228,7 +223,7 @@ class RandomDataFrame:
             t_dt = pd.to_datetime(t)
 
             for v in variable:
-                for _ in range(self.n_observations_per_time):
+                for _ in range(self.n_obs):
                     # Sample random time within tolerance range
                     if self.tolerance.total_seconds() > 0:
                         # Generate random time within tolerance window

@@ -135,11 +135,11 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
 def test_random_dataframe(
     time, variable, n_observations, field_generators, tolerance, fields
 ):
+    np.random.seed(0)
     data_source = RandomDataFrame(
         n_observations_per_time=n_observations,
         field_generators=field_generators,
         tolerance=tolerance,
-        seed=42,
     )
 
     df = data_source(time, variable, fields=fields)
