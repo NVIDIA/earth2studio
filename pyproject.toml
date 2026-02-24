@@ -103,6 +103,10 @@ serve = [
     "aiofiles>=23.0.0",
     "httpx>=0.25.0",
     "hydra-core>=1.3.0",
+    # Object storage related
+    "cryptography>=41.0.0",
+    "multi-storage-client[azure-storage-blob]",
+    "azure-storage-blob>=12.19.0",
 ]
 # PX Models
 ace2 = [

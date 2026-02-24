@@ -1,18 +1,25 @@
 # Object Storage Support
 
-This document describes how to configure and use object storage (AWS S3 with CloudFront) for storing
-workflow results in the Earth2Studio Inference Server.
+This document describes how to configure and use object storage (AWS S3 with CloudFront or
+Azure Blob Storage) for storing workflow results in the Earth2Studio Inference Server.
 
 ## Overview
 
 By default, workflow results are stored locally on the inference server. When object storage is
-enabled, results are automatically uploaded to S3 and served via CloudFront signed URLs. This
-provides:
+enabled, results are automatically uploaded to your chosen cloud storage provider (AWS S3 or
+Azure Blob Storage) and served via signed URLs. This provides:
 
 - **Scalability**: Offload storage from the inference server
-- **Performance**: CloudFront CDN for fast global access
+- **Performance**: Fast global access via CDN (CloudFront for S3) or direct Azure Blob Storage access
 - **Security**: Time-limited signed URLs for secure access
-- **Seamless Client Experience**: The Python client SDK automatically handles both storage types
+- **Seamless Client Experience**: The Python client SDK automatically handles all storage types
+
+## Storage Provider Options
+
+The inference server supports two storage providers:
+
+- **AWS S3**: With optional CloudFront CDN for enhanced performance
+- **Azure Blob Storage**: Direct access with SAS (Shared Access Signature) URLs
 
 ## AWS Prerequisites
 
@@ -75,15 +82,69 @@ users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) fo
 detailed instructions. The credentials need `s3:PutObject`, `s3:GetObject`,
 `s3:DeleteObject`, and `s3:ListBucket` permissions on your bucket.
 
+## Azure Prerequisites
+
+Before enabling Azure Blob Storage, you need to set up the following Azure resources:
+
+### 1. Azure Storage Account
+
+Create an Azure Storage Account:
+
+1. Go to Azure Portal → Storage accounts → Create
+2. Choose a unique storage account name
+3. Select your resource group and region
+4. Choose performance tier (Standard recommended)
+5. Note the **Storage account name** (e.g., `mystorageaccount`)
+
+### 2. Storage Container
+
+Create a blob container in your storage account:
+
+1. Go to your Storage Account → Containers
+2. Click "+ Container"
+3. Choose a container name (e.g., `workflow-results`)
+4. Set Public access level to "Private" (recommended for security)
+
+### 3. Connection String or Account Key
+
+You'll need either:
+
+#### Option A: Connection String (Recommended)
+
+1. Go to Storage Account → Access keys
+2. Click "Show" next to a key
+3. Copy the **Connection string** (format:
+   `DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net`)
+
+#### Option B: Account Name and Key
+
+1. Go to Storage Account → Access keys
+2. Note the **Storage account name**
+3. Click "Show" next to a key and copy the **Account key**
+
+The account key is required for generating SAS (Shared Access Signature) signed URLs.
+
+### 4. Permissions
+
+Ensure your Azure credentials have the following permissions:
+
+- `Microsoft.Storage/storageAccounts/blobServices/containers/write` (to create containers if needed)
+- `Microsoft.Storage/storageAccounts/blobServices/containers/read`
+- `Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write`
+- `Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read`
+
 ## Server Configuration
 
 ### Environment Variables
 
-Configure object storage using environment variables:
+Configure object storage using environment variables. Choose either AWS S3 or Azure Blob Storage:
+
+#### AWS S3 Configuration
 
 ```bash
 # Enable object storage
 export OBJECT_STORAGE_ENABLED=true
+export OBJECT_STORAGE_TYPE=s3
 
 # S3 Configuration
 export OBJECT_STORAGE_BUCKET=your-bucket-name
@@ -111,13 +172,46 @@ export CLOUDFRONT_PRIVATE_KEY_PATH=/path/to/cloudfront-private-key.pem
 export OBJECT_STORAGE_SIGNED_URL_EXPIRES_IN=3600  # URL expiration in seconds
 ```
 
+#### Azure Blob Storage Configuration
+
+```bash
+# Enable object storage
+export OBJECT_STORAGE_ENABLED=true
+export OBJECT_STORAGE_TYPE=azure
+
+# Azure Configuration
+export OBJECT_STORAGE_BUCKET=your-container-name  # Container name (used as bucket equivalent)
+export OBJECT_STORAGE_PREFIX=outputs  # Optional: prefix for uploaded files
+
+# Azure Credentials (Connection String - Recommended)
+export AZURE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=mystorageaccount;AccountKey=...;EndpointSuffix=core.windows.net"
+
+# OR Azure Credentials (Account Name and Key - Alternative)
+export AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount
+export AZURE_STORAGE_ACCOUNT_KEY=...  # Required for SAS URL generation
+
+# Optional: Container name (defaults to OBJECT_STORAGE_BUCKET if not set)
+export AZURE_CONTAINER_NAME=workflow-results
+
+# Transfer Configuration
+export OBJECT_STORAGE_MAX_CONCURRENCY=16          # Concurrent upload threads
+export OBJECT_STORAGE_MULTIPART_CHUNKSIZE=8388608 # 8MB chunk size
+export OBJECT_STORAGE_USE_RUST_CLIENT=true        # High-performance Rust client
+
+# Signed URL Configuration
+export OBJECT_STORAGE_SIGNED_URL_EXPIRES_IN=3600  # SAS URL expiration in seconds
+```
+
 ### YAML Configuration
 
 Alternatively, configure via `config.yaml`:
 
+#### AWS S3 YAML Configuration
+
 ```yaml
 object_storage:
   enabled: true
+  storage_type: s3
   bucket: your-bucket-name
   region: us-east-1
   prefix: outputs
@@ -131,32 +225,57 @@ object_storage:
   signed_url_expires_in: 3600
 ```
 
+#### Azure Blob Storage YAML Configuration
+
+```yaml
+object_storage:
+  enabled: true
+  storage_type: azure
+  bucket: your-container-name  # Container name (used as bucket equivalent)
+  prefix: outputs
+  max_concurrency: 16
+  multipart_chunksize: 8388608
+  use_rust_client: true
+  azure_connection_string: "DefaultEndpointsProtocol=https;AccountName=mystorageaccount;AccountKey=...;EndpointSuffix=core.windows.net"
+  azure_account_name: mystorageaccount  # Optional if in connection string
+  azure_account_key: ...  # Required for SAS URL generation
+  azure_container_name: workflow-results  # Optional, defaults to bucket
+  signed_url_expires_in: 3600
+```
+
 ### Configuration Parameters Reference
 
 <!-- markdownlint-disable MD013 -->
 | Parameter | Environment Variable | Default | Description |
 |-----------|---------------------|---------|-------------|
 | `enabled` | `OBJECT_STORAGE_ENABLED` | `false` | Enable object storage |
-| `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name |
-| `region` | `OBJECT_STORAGE_REGION` | `us-east-1` | AWS region |
+| `storage_type` | `OBJECT_STORAGE_TYPE` | `s3` | Storage provider: `s3` or `azure` |
+| `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name or Azure container name |
+| `region` | `OBJECT_STORAGE_REGION` | `us-east-1` | AWS region (S3 only) |
 | `prefix` | `OBJECT_STORAGE_PREFIX` | `outputs` | Remote prefix for files |
-| `access_key_id` | `OBJECT_STORAGE_ACCESS_KEY_ID` | `null` | AWS access key ID |
-| `secret_access_key` | `OBJECT_STORAGE_SECRET_ACCESS_KEY` | `null` | AWS secret access key |
-| `session_token` | `OBJECT_STORAGE_SESSION_TOKEN` | `null` | AWS session token |
+| `access_key_id` | `OBJECT_STORAGE_ACCESS_KEY_ID` | `null` | AWS access key ID (S3 only) |
+| `secret_access_key` | `OBJECT_STORAGE_SECRET_ACCESS_KEY` | `null` | AWS secret access key (S3 only) |
+| `session_token` | `OBJECT_STORAGE_SESSION_TOKEN` | `null` | AWS session token (S3 only) |
 | `endpoint_url` | `OBJECT_STORAGE_ENDPOINT_URL` | `null` | Custom endpoint (S3-compatible) |
-| `use_transfer_acceleration` | `OBJECT_STORAGE_TRANSFER_ACCELERATION` | `true` | Enable S3 Transfer Acceleration |
+| `use_transfer_acceleration` | `OBJECT_STORAGE_TRANSFER_ACCELERATION` | `true` | Enable S3 Transfer Acceleration (S3 only) |
 | `max_concurrency` | `OBJECT_STORAGE_MAX_CONCURRENCY` | `16` | Max concurrent transfers |
 | `multipart_chunksize` | `OBJECT_STORAGE_MULTIPART_CHUNKSIZE` | `8388608` | Multipart chunk size (bytes) |
 | `use_rust_client` | `OBJECT_STORAGE_USE_RUST_CLIENT` | `true` | Use high-performance Rust client |
-| `cloudfront_domain` | `CLOUDFRONT_DOMAIN` | `null` | CloudFront distribution domain |
-| `cloudfront_key_pair_id` | `CLOUDFRONT_KEY_PAIR_ID` | `null` | CloudFront key pair ID |
-| `cloudfront_private_key_path` | `CLOUDFRONT_PRIVATE_KEY_PATH` | `null` | Path to private key PEM file |
+| `cloudfront_domain` | `CLOUDFRONT_DOMAIN` | `null` | CloudFront distribution domain (S3 only) |
+| `cloudfront_key_pair_id` | `CLOUDFRONT_KEY_PAIR_ID` | `null` | CloudFront key pair ID (S3 only) |
+| `cloudfront_private_key_path` | `CLOUDFRONT_PRIVATE_KEY_PATH` | `null` | Path to private key PEM file (S3 only) |
+| `azure_connection_string` | `AZURE_CONNECTION_STRING` | `null` | Azure connection string (Azure only, recommended) |
+| `azure_account_name` | `AZURE_STORAGE_ACCOUNT_NAME` | `null` | Azure storage account name (Azure only) |
+| `azure_account_key` | `AZURE_STORAGE_ACCOUNT_KEY` | `null` | Azure account key for SAS URLs (Azure only) |
+| `azure_container_name` | `AZURE_CONTAINER_NAME` | `null` | Azure container name (Azure only, defaults to bucket) |
 | `signed_url_expires_in` | `OBJECT_STORAGE_SIGNED_URL_EXPIRES_IN` | `3600` | Signed URL expiration (seconds) |
 <!-- markdownlint-enable MD013 -->
 
 ## Result Metadata
 
 When object storage is enabled, the workflow result metadata includes additional fields:
+
+### AWS S3 Example
 
 ```json
 {
@@ -174,12 +293,30 @@ When object storage is enabled, the workflow result metadata includes additional
 }
 ```
 
+### Azure Blob Storage Example
+
+```json
+{
+  "request_id": "exec_1769560728_10ed9d3c",
+  "status": "completed",
+  "storage_type": "azure",
+  "signed_url":
+    "https://mystorageaccount.blob.core.windows.net/workflow-results/outputs/exec_1769560728_10ed9d3c?sv=2021-06-08&ss=b&srt=co&sp=rl&se=2025-01-01T00:00:00Z&st=2024-12-31T00:00:00Z&spr=https&sig=...",
+  "remote_path": "outputs/exec_1769560728_10ed9d3c",
+  "output_files": [
+    {"path": "exec_1769560728_10ed9d3c/results.zarr/.zarray", "size": 123},
+    {"path": "exec_1769560728_10ed9d3c/results.zarr/t2m/0.0.0", "size": 4567890}
+  ]
+}
+```
+
 ### Storage Type Values
 
 | Value | Description |
 |-------|-------------|
 | `server` | Results stored locally on the inference server |
 | `s3` | Results stored in S3, accessible via CloudFront signed URL |
+| `azure` | Results stored in Azure Blob Storage, accessible via SAS signed URL |
 
 ## Client Usage
 
@@ -209,7 +346,7 @@ request_result = client.run_inference_sync(
     InferenceRequest(parameters={"start_time": [datetime(2025, 8, 21, 6)]})
 )
 
-# Automatically downloads from S3 if storage_type is "s3"
+# Automatically downloads from S3 or Azure if storage_type is "s3" or "azure"
 for file in request_result.output_files[:5]:
     content = client.download_result(request_result, file.path)
     print(f"Downloaded {file.path}: {len(content.getvalue())} bytes")
@@ -217,7 +354,10 @@ for file in request_result.output_files[:5]:
 
 ### Using Signed URLs Directly
 
-For advanced use cases, you can use the signed URL directly:
+For advanced use cases, you can use the signed URL directly. The format differs between
+S3/CloudFront and Azure:
+
+#### Using CloudFront Signed URLs
 
 ```python
 import requests
@@ -234,6 +374,22 @@ query_params = signed_url.split("?")[1]
 # Download a specific file
 file_path = "results.zarr/.zarray"
 file_url = f"{base_url}/{file_path}?{query_params}"
+response = requests.get(file_url)
+```
+
+#### Using Azure SAS URLs
+
+```python
+import requests
+
+# Get the signed URL from the result
+signed_url = request_result.signed_url
+# Example:
+# https://mystorageaccount.blob.core.windows.net/workflow-results/outputs/exec_123?sv=...&sig=...
+
+# Azure SAS URLs already include the full path - append the file path
+file_path = "results.zarr/.zarray"
+file_url = f"{signed_url}/{file_path}" if not signed_url.endswith("/") else f"{signed_url}{file_path}"
 response = requests.get(file_url)
 ```
 
@@ -255,6 +411,8 @@ print(ds)
 
 ## Signed URL Format
 
+### AWS S3 / CloudFront Signed URLs
+
 CloudFront signed URLs contain three query parameters:
 
 ```text
@@ -270,9 +428,34 @@ https://d30anq61ot046p.cloudfront.net/outputs/exec_123/*?Policy=eyJTdGF0ZW1lbnQi
 
 The wildcard (`*`) in the URL path allows access to all files under that prefix.
 
+### Azure Blob Storage SAS URLs
+
+Azure SAS (Shared Access Signature) URLs contain multiple query parameters:
+
+```text
+https://mystorageaccount.blob.core.windows.net/workflow-results/outputs/exec_123?\
+sv=2021-06-08&ss=b&srt=co&sp=rl&se=2025-01-01T00:00:00Z&st=2024-12-31T00:00:00Z&spr=https&sig=ABC123...
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `sv` | Service version (API version) |
+| `ss` | Services (b=blob) |
+| `srt` | Resource types (co=container and object) |
+| `sp` | Permissions (rl=read and list) |
+| `se` | Expiry time (UTC) |
+| `st` | Start time (UTC) |
+| `spr` | Protocol (https) |
+| `sig` | Signature (HMAC-SHA256 of the string-to-sign) |
+
+The SAS token provides read and list permissions for all objects in the container under the
+specified prefix.
+
 ## Testing
 
 Run object storage integration tests:
+
+### AWS S3 Testing
 
 ```bash
 # Set required environment variables
@@ -290,25 +473,71 @@ export TEST_CLOUDFRONT_PRIVATE_KEY_PATH=/path/to/private.pem
 pytest test/integration/test_object_storage.py::TestCloudFrontSignedUrl -v
 ```
 
+### Azure Blob Storage Testing
+
+```bash
+# Set required environment variables
+export TEST_AZURE_CONTAINER=my-test-container
+export AZURE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
+export AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount
+export AZURE_STORAGE_ACCOUNT_KEY=...
+
+# Run Azure upload tests
+pytest test/integration/test_object_storage.py -v
+
+# Run Azure SAS URL tests
+pytest test/integration/test_object_storage.py::TestAzureSASUrl -v
+```
+
 ## Troubleshooting
 
 ### Common Issues
+
+#### AWS S3 / CloudFront Issues
 
 1. **403 Forbidden from CloudFront**
    - Verify the S3 bucket policy allows CloudFront OAC access
    - Check that the CloudFront distribution is configured with the correct origin
    - Ensure the key pair is in a Key Group associated with the distribution
 
-2. **Signed URL expired**
-   - Increase `signed_url_expires_in` configuration
-   - Request fresh results from the API (URLs are regenerated)
-
-3. **Upload failures**
+2. **Upload failures**
    - Verify IAM credentials have `s3:PutObject` permission
    - Check bucket name and region are correct
    - If using Transfer Acceleration, ensure it's enabled on the bucket
 
-4. **Slow uploads**
+3. **Slow uploads**
    - Enable `use_rust_client` for better performance
    - Increase `max_concurrency` for more parallel uploads
    - Enable `use_transfer_acceleration` if uploading from distant regions
+
+#### Azure Blob Storage Issues
+
+1. **403 Forbidden from Azure**
+   - Verify the connection string is correct and not expired
+   - Check that the storage account name and container name are correct
+   - Ensure the account key is valid (if using account key authentication)
+
+2. **SAS URL generation failures**
+   - Ensure `azure_account_name` and `azure_account_key` are provided
+   - Verify the account key has not been rotated
+   - Check that the container exists and is accessible
+
+3. **Upload failures**
+   - Verify the connection string has write permissions
+   - Check that the container exists (it will be created automatically if permissions allow)
+   - Ensure the storage account is not in a restricted network configuration
+
+4. **Connection string parsing errors**
+   - Verify the connection string format is correct: `DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=...`
+   - Ensure all required components (AccountName, AccountKey) are present
+   - For custom endpoints, include `BlobEndpoint=` in the connection string
+
+#### General Issues
+
+1. **Signed URL expired**
+   - Increase `signed_url_expires_in` configuration
+   - Request fresh results from the API (URLs are regenerated)
+
+2. **Storage type not recognized**
+   - Ensure `OBJECT_STORAGE_TYPE` is set to either `s3` or `azure` (lowercase)
+   - Check that the storage type matches your configuration (S3 config for `s3`, Azure config for `azure`)

@@ -27,7 +27,7 @@ import os
 from dataclasses import dataclass, field
 from logging import LogRecord
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
@@ -111,9 +111,10 @@ class CORSConfig:
 
 @dataclass
 class ObjectStorageConfig:
-    """Object storage configuration for S3/CloudFront"""
+    """Object storage configuration for S3/CloudFront and Azure Blob Storage"""
 
     enabled: bool = False
+    storage_type: Literal["s3", "azure"] = "s3"  # Storage provider type
     # S3 configuration
     bucket: str | None = None
     region: str = "us-east-1"
@@ -133,6 +134,15 @@ class ObjectStorageConfig:
     cloudfront_private_key: str | None = None  # PEM private key content
     # Signed URL settings
     signed_url_expires_in: int = 86400  # Default 24 hours
+    # Azure Blob Storage configuration
+    azure_connection_string: str | None = None  # Azure connection string
+    azure_account_name: str | None = None  # Azure storage account name
+    azure_account_key: str | None = (
+        None  # Azure storage account key (for SAS token generation)
+    )
+    azure_container_name: str | None = (
+        None  # Azure container name (falls back to bucket if not set)
+    )
 
 
 @dataclass
@@ -310,6 +320,13 @@ class ConfigManager:
             self._config.object_storage.enabled = (
                 os.getenv("OBJECT_STORAGE_ENABLED", "").lower() == "true"
             )
+        if os.getenv("OBJECT_STORAGE_TYPE"):
+            storage_type = os.getenv("OBJECT_STORAGE_TYPE", "").lower()
+            if storage_type in ["s3", "azure"]:
+                self._config.object_storage.storage_type = cast(
+                    Literal["s3", "azure"], storage_type
+                )
+
         if os.getenv("OBJECT_STORAGE_BUCKET"):
             self._config.object_storage.bucket = os.getenv("OBJECT_STORAGE_BUCKET")
         if os.getenv("OBJECT_STORAGE_REGION"):
@@ -376,6 +393,23 @@ class ConfigManager:
                     "SIGNED_URL_EXPIRES_IN",
                     default=self._config.object_storage.signed_url_expires_in,
                 )
+            )
+        # Azure Blob Storage overrides
+        if os.getenv("AZURE_CONNECTION_STRING"):
+            self._config.object_storage.azure_connection_string = os.getenv(
+                "AZURE_CONNECTION_STRING"
+            )
+        if os.getenv("AZURE_STORAGE_ACCOUNT_NAME"):
+            self._config.object_storage.azure_account_name = os.getenv(
+                "AZURE_STORAGE_ACCOUNT_NAME"
+            )
+        if os.getenv("AZURE_STORAGE_ACCOUNT_KEY"):
+            self._config.object_storage.azure_account_key = os.getenv(
+                "AZURE_STORAGE_ACCOUNT_KEY"
+            )
+        if os.getenv("AZURE_CONTAINER_NAME"):
+            self._config.object_storage.azure_container_name = os.getenv(
+                "AZURE_CONTAINER_NAME"
             )
 
         logger.debug("Environment variable overrides applied")

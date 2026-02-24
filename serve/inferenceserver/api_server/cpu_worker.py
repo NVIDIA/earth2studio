@@ -553,8 +553,12 @@ def process_object_storage_upload(
 
         # Upload to object storage if enabled
 
-        if config.object_storage.enabled and config.object_storage.bucket:
-            from api_server.object_storage import (
+        # Check if object storage is enabled and properly configured
+        if config.object_storage.enabled and (
+            config.object_storage.bucket
+            or config.object_storage.storage_type == "azure"
+        ):
+            from earth2studio_api_server.object_storage import (
                 MSCObjectStorage,
                 ObjectStorageError,
             )
@@ -570,40 +574,69 @@ def process_object_storage_upload(
             # Create S3 storage instance
             storage_kwargs = {
                 "bucket": config.object_storage.bucket,
-                "region": config.object_storage.region,
-                "use_transfer_acceleration": config.object_storage.use_transfer_acceleration,
+                "storage_type": config.object_storage.storage_type,
                 "max_concurrency": config.object_storage.max_concurrency,
                 "multipart_chunksize": config.object_storage.multipart_chunksize,
                 "use_rust_client": config.object_storage.use_rust_client,
             }
 
-            # Add optional credentials
-            if (
-                config.object_storage.access_key_id
-                and config.object_storage.secret_access_key
-            ):
-                storage_kwargs["access_key_id"] = config.object_storage.access_key_id
-                storage_kwargs["secret_access_key"] = (
-                    config.object_storage.secret_access_key
+            # Add storage-type-specific configuration
+            if config.object_storage.storage_type == "s3":
+                # S3-specific parameters
+                storage_kwargs["region"] = config.object_storage.region
+                storage_kwargs["use_transfer_acceleration"] = (
+                    config.object_storage.use_transfer_acceleration
                 )
-            if config.object_storage.session_token:
-                storage_kwargs["session_token"] = config.object_storage.session_token
-            if config.object_storage.endpoint_url:
-                storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
 
-            # Add CloudFront configuration for signed URLs
-            if config.object_storage.cloudfront_domain:
-                storage_kwargs["cloudfront_domain"] = (
-                    config.object_storage.cloudfront_domain
-                )
-            if config.object_storage.cloudfront_key_pair_id:
-                storage_kwargs["cloudfront_key_pair_id"] = (
-                    config.object_storage.cloudfront_key_pair_id
-                )
-            if config.object_storage.cloudfront_private_key:
-                storage_kwargs["cloudfront_private_key"] = (
-                    config.object_storage.cloudfront_private_key
-                )
+                # Add optional S3 credentials
+                if (
+                    config.object_storage.access_key_id
+                    and config.object_storage.secret_access_key
+                ):
+                    storage_kwargs["access_key_id"] = (
+                        config.object_storage.access_key_id
+                    )
+                    storage_kwargs["secret_access_key"] = (
+                        config.object_storage.secret_access_key
+                    )
+                if config.object_storage.session_token:
+                    storage_kwargs["session_token"] = (
+                        config.object_storage.session_token
+                    )
+                if config.object_storage.endpoint_url:
+                    storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
+
+                # Add CloudFront configuration for signed URLs
+                if config.object_storage.cloudfront_domain:
+                    storage_kwargs["cloudfront_domain"] = (
+                        config.object_storage.cloudfront_domain
+                    )
+                if config.object_storage.cloudfront_key_pair_id:
+                    storage_kwargs["cloudfront_key_pair_id"] = (
+                        config.object_storage.cloudfront_key_pair_id
+                    )
+                if config.object_storage.cloudfront_private_key:
+                    storage_kwargs["cloudfront_private_key"] = (
+                        config.object_storage.cloudfront_private_key
+                    )
+            elif config.object_storage.storage_type == "azure":
+                # Azure-specific parameters
+                if config.object_storage.azure_connection_string:
+                    storage_kwargs["azure_connection_string"] = (
+                        config.object_storage.azure_connection_string
+                    )
+                if config.object_storage.azure_account_name:
+                    storage_kwargs["azure_account_name"] = (
+                        config.object_storage.azure_account_name
+                    )
+                if config.object_storage.azure_account_key:
+                    storage_kwargs["azure_account_key"] = (
+                        config.object_storage.azure_account_key
+                    )
+                if config.object_storage.azure_container_name:
+                    storage_kwargs["azure_container_name"] = (
+                        config.object_storage.azure_container_name
+                    )
 
             try:
                 storage = MSCObjectStorage(**storage_kwargs)
@@ -620,8 +653,13 @@ def process_object_storage_upload(
             )
 
             # Upload the output directory
+            storage_location = (
+                f"s3://{config.object_storage.bucket}"
+                if config.object_storage.storage_type == "s3"
+                else f"azure://{config.object_storage.azure_container_name or config.object_storage.bucket}"
+            )
             logger.info(
-                f"Uploading {output_path} to s3://{config.object_storage.bucket}/{remote_prefix}"
+                f"Uploading {output_path} to {storage_location}/{remote_prefix}"
             )
 
             try:
@@ -645,23 +683,36 @@ def process_object_storage_upload(
                     f"Failed to upload to object storage: {upload_result.errors}",
                 )
 
-            storage_type = "s3"
+            storage_type = config.object_storage.storage_type
             logger.info(
                 f"Successfully uploaded {upload_result.files_uploaded} files "
                 f"({upload_result.total_bytes} bytes) to {upload_result.destination}"
             )
 
-            # Generate signed URL if CloudFront is configured
-            cloudfront_configured = all(
-                [
-                    config.object_storage.cloudfront_domain,
-                    config.object_storage.cloudfront_key_pair_id,
-                    config.object_storage.cloudfront_private_key,
-                ]
-            )
+            # Generate signed URL if configured
+            # For S3: requires CloudFront configuration
+            # For Azure: requires account_name and account_key
+            can_generate_signed_url = False
+            if storage_type == "s3":
+                can_generate_signed_url = all(
+                    [
+                        config.object_storage.cloudfront_domain,
+                        config.object_storage.cloudfront_key_pair_id,
+                        config.object_storage.cloudfront_private_key,
+                    ]
+                )
+            elif storage_type == "azure":
+                can_generate_signed_url = all(
+                    [
+                        config.object_storage.azure_account_name,
+                        config.object_storage.azure_account_key,
+                    ]
+                )
 
-            if not cloudfront_configured:
-                logger.info("CloudFront not configured, skipping signed URL generation")
+            if not can_generate_signed_url:
+                logger.info(
+                    f"Signed URL generation not configured for {storage_type}, skipping"
+                )
             else:
                 try:
                     signed_url_path = f"{remote_prefix}/*"
@@ -691,10 +742,19 @@ def process_object_storage_upload(
         storage_info = {
             "storage_type": storage_type,
         }
-        if storage_type == "s3" and remote_prefix:
-            storage_info["remote_path"] = (
-                f"s3://{config.object_storage.bucket}/{remote_prefix}"
-            )
+        if remote_prefix:
+            if storage_type == "s3":
+                storage_info["remote_path"] = (
+                    f"s3://{config.object_storage.bucket}/{remote_prefix}"
+                )
+            elif storage_type == "azure":
+                container_name = (
+                    config.object_storage.azure_container_name
+                    or config.object_storage.bucket
+                )
+                storage_info["remote_path"] = (
+                    f"azure://{container_name}/{remote_prefix}"
+                )
         if signed_url:
             storage_info["signed_url"] = signed_url
 
@@ -732,7 +792,7 @@ def process_object_storage_upload(
             "signed_url": signed_url,
         }
 
-        if upload_result and storage_type == "s3":
+        if upload_result:
             result["files_uploaded"] = upload_result.files_uploaded
             result["total_bytes"] = upload_result.total_bytes
             result["destination"] = upload_result.destination
