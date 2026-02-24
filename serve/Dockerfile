@@ -40,5 +40,3 @@ RUN apt-get update && apt-get install -y redis-server && \
     uv pip install --system --break-system-packages -r serve/inferenceserver/requirements.txt
 
 CMD ["/workspace/earth2studio-project/serve/inferenceserver/scripts/startup.sh"]
-
-#RUN python -c "import earth2studio; print(f'Earth2Studio version: {earth2studio.__version__}')"
