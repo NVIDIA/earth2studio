@@ -18,9 +18,10 @@ import datetime
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from earth2studio.data import Random, Random_FX
+from earth2studio.data import Random, Random_FX, RandomDataFrame
 
 
 @pytest.mark.parametrize(
@@ -97,3 +98,111 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
     assert shape[3] == len(coords["lat"])
     assert shape[4] == len(coords["lon"])
     assert not np.isnan(data.values).any()
+
+
+@pytest.mark.parametrize(
+    "time, variable, n_observations",
+    [
+        (datetime.datetime.now(), "t2m", 5),
+        (
+            [
+                datetime.datetime.now(),
+                datetime.datetime.now() - datetime.timedelta(days=1),
+            ],
+            ["u10m"],
+            1,
+        ),
+        (np.array([np.datetime64("2024-01-01T12:00")]), ["t2m", "u10m", "v10m"], 10),
+    ],
+)
+@pytest.mark.parametrize(
+    "lat_range, lon_range",
+    [
+        ((-90.0, 90.0), (0.0, 360.0)),
+        ((25.0, 50.0), (235.0, 295.0)),
+    ],
+)
+@pytest.mark.parametrize(
+    "tolerance,fields",
+    [
+        (datetime.timedelta(0), None),
+        (datetime.timedelta(hours=6), ["time", "observation", "variable"]),
+    ],
+)
+def test_random_dataframe(
+    time, variable, n_observations, lat_range, lon_range, tolerance, fields
+):
+    data_source = RandomDataFrame(
+        n_observations_per_time=n_observations,
+        lat_range=lat_range,
+        lon_range=lon_range,
+        tolerance=tolerance,
+        seed=42,
+    )
+
+    df = data_source(time, variable, fields=fields)
+
+    # Check it's a DataFrame
+    assert isinstance(df, pd.DataFrame)
+
+    # Normalize inputs for checking
+    variable_list = [variable] if isinstance(variable, str) else variable
+    if isinstance(time, (datetime.datetime, np.datetime64)):
+        time_list = [pd.to_datetime(time)]
+    elif isinstance(time, np.ndarray):
+        time_list = [pd.to_datetime(t) for t in time]
+    else:
+        time_list = [pd.to_datetime(t) for t in time]
+
+    # Check number of rows
+    expected_rows = len(time_list) * len(variable_list) * n_observations
+    assert len(df) == expected_rows
+
+    # Check that all requested variables are present
+    assert set(df["variable"].unique()).issubset(set(variable_list))
+
+    # Check times are within tolerance
+    if "time" in df.columns:
+        df_times = pd.to_datetime(df["time"])
+        for requested_time in time_list:
+            # Find observations for this requested time
+            time_mask = (df_times >= requested_time - tolerance) & (
+                df_times <= requested_time + tolerance
+            )
+            # Check that we have observations for this time
+            # (they should be distributed across variables)
+            assert (
+                time_mask.sum() > 0
+            ), f"No observations found for time {requested_time}"
+            # Verify all times are within tolerance
+            obs_times = df_times[time_mask]
+            assert (obs_times >= requested_time - tolerance).all()
+            assert (obs_times <= requested_time + tolerance).all()
+
+    if "lat" in df.columns and "lon" in df.columns:
+        assert df["lat"].min() >= lat_range[0]
+        assert df["lat"].max() <= lat_range[1]
+        assert df["lon"].min() >= lon_range[0]
+        assert df["lon"].max() <= lon_range[1]
+
+    # Check fields parameter
+    if fields is None:
+        # All fields should be present
+        assert "time" in df.columns
+        assert "lat" in df.columns
+        assert "lon" in df.columns
+        assert "observation" in df.columns
+        assert "variable" in df.columns
+    elif isinstance(fields, str):
+        # Single field
+        assert fields in df.columns
+        assert len(df.columns) == 1
+    else:
+        # List of fields
+        for field in fields:
+            assert field in df.columns
+        # Should only have requested fields
+        assert set(df.columns).issubset(set(fields))
+
+    # Check no NaN values
+    assert not df.isnull().any().any()

@@ -37,7 +37,7 @@ from .planetary_computer import (
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
 )
-from .rand import Random, Random_FX
+from .rand import Random, Random_FX, RandomDataFrame
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .time_window import TimeWindow
 from .ufs import UFSObsConv, UFSObsSat
