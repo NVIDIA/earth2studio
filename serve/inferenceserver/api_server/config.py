@@ -171,7 +171,7 @@ class ConfigManager:
     """
 
     _instance: Optional["ConfigManager"] = None
-    _config: AppConfig = AppConfig()
+    _config: AppConfig | None = None
     _workflow_config: dict[str, Any] = {}
 
     def __new__(cls) -> "ConfigManager":
@@ -432,6 +432,9 @@ class ConfigManager:
         """Get the current configuration"""
         if self._config is None:
             self._initialize_config()
+        # After initialization, _config should never be None
+        if self._config is None:
+            raise RuntimeError("Configuration was not initialized")
         return self._config
 
     def get_redis_url(self) -> str:
