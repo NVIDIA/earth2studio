@@ -299,28 +299,6 @@ class MSCObjectStorage(ObjectStorage):
                 f"Unsupported storage_type: {storage_type}. Must be 's3' or 'azure'."
             )
 
-        # Use S3 Transfer Acceleration endpoint if enabled (and no custom endpoint provided)
-        if use_transfer_acceleration and not endpoint_url:
-            self.endpoint_url = f"https://{bucket}.s3-accelerate.amazonaws.com"
-            logger.info(f"S3 Transfer Acceleration enabled: {self.endpoint_url}")
-        else:
-            self.endpoint_url = endpoint_url
-
-        # CloudFront configuration for signed URLs
-        self.cloudfront_domain = cloudfront_domain
-        self.cloudfront_key_pair_id = cloudfront_key_pair_id
-        self.cloudfront_private_key = cloudfront_private_key
-
-        # Set credentials as environment variables - MSC picks these up automatically
-        if access_key_id:
-            os.environ["AWS_ACCESS_KEY_ID"] = access_key_id
-        if secret_access_key:
-            os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
-        if session_token:
-            os.environ["AWS_SESSION_TOKEN"] = session_token
-        if region:
-            os.environ["AWS_DEFAULT_REGION"] = region
-
         # Import multi-storage-client
         try:
             import multistorageclient as msc

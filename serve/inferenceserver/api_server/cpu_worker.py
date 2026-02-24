@@ -558,7 +558,7 @@ def process_object_storage_upload(
             config.object_storage.bucket
             or config.object_storage.storage_type == "azure"
         ):
-            from earth2studio_api_server.object_storage import (
+            from api_server.object_storage import (
                 MSCObjectStorage,
                 ObjectStorageError,
             )
