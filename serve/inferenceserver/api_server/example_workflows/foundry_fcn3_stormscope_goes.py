@@ -173,8 +173,10 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         sample_coords = {"sample": output_coords["sample"]}
         n_stormscope_per_fcn3 = len(seeds_stormscope) // len(seeds_fcn3)
         tiled_seeds_fcn3 = np.repeat(seeds_fcn3, n_stormscope_per_fcn3)
-        io.add_array(sample_coords, "seed_fcn3", torch.tensor(tiled_seeds_fcn3))
-        io.add_array(sample_coords, "seed_stormscope", torch.tensor(seeds_stormscope))
+        io.add_array(sample_coords, "seed_fcn3", data=torch.tensor(tiled_seeds_fcn3))
+        io.add_array(
+            sample_coords, "seed_stormscope", data=torch.tensor(seeds_stormscope)
+        )
 
         # Set attributes for automatic parsing of dimensions
         io.root["lat"].standard_name = "latitude"
@@ -425,4 +427,4 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         # Planetary Computer does not like the original time format
         ref_time = start_time_stormscope.isoformat().replace("T", " ")
         io["time"].units = f"hours since {ref_time}"
-        io["time"][:] = np.arange(len(io["time"]))
+        io["time"][:] = np.arange(io["time"].shape[0])

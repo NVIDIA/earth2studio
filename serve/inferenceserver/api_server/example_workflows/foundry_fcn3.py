@@ -85,7 +85,7 @@ class FoundryFCN3Workflow(Earth2Workflow):
 
         # Storing seeds separately makes it easier to filer with Titiler
         sample_coords = {"sample": output_coords["sample"]}
-        io.add_array(sample_coords, "seed", torch.tensor(seeds))
+        io.add_array(sample_coords, "seed", data=torch.tensor(seeds))
 
         # Set attributes for automatic parsing of dimensions
         io.root["lat"].standard_name = "latitude"
@@ -179,4 +179,4 @@ class FoundryFCN3Workflow(Earth2Workflow):
         # Planetary Computer does not like the original time format
         ref_time = start_time.isoformat().replace("T", " ")
         io["time"].units = f"hours since {ref_time}"
-        io["time"][:] = np.arange(len(io["time"])) * 6
+        io["time"][:] = np.arange(io["time"].shape[0]) * 6

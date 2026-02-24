@@ -26,7 +26,7 @@ if [ -n "${AZUREML_MODEL_DIR:-}" ]; then
     ls -la $EARTH2STUDIO_MODEL_CACHE && echo "--------------------------------"
 fi
 
-cd /workspace/earth2studio-project/service/inferenceserver
+cd /workspace/earth2studio-project/serve/inferenceserver
 make start-redis
 make start-api-server
 sleep infinity
