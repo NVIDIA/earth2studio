@@ -15,7 +15,9 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -138,13 +140,17 @@ class RandomDataFrame:
     ----------
     n_observations_per_time : int, optional
         Number of random observations to generate per time step, by default 10
-    lat_range : tuple[float, float], optional
-        Latitude range (min, max) for random observations, by default (-90.0, 90.0)
-    lon_range : tuple[float, float], optional
-        Longitude range (min, max) for random observations, by default (0.0, 360.0)
     tolerance : timedelta | np.timedelta64, optional
         Time tolerance; observations will be randomly sampled within +/- tolerance
         of each requested time, by default np.timedelta64(0)
+    schema : pa.Schema | None, optional
+        PyArrow schema to use for data generation. If None, uses default SCHEMA.
+        Data will be generated dynamically based on schema field types, by default None
+    field_generators : dict[str, Callable[[], Any]] | None, optional
+        Dictionary mapping field names to generator functions. These will be merged
+        with the default generators. Default generators include: time, lat, lon,
+        observation, variable. User-provided generators will override defaults,
+        by default None
     seed : int | None, optional
         Random seed for reproducibility, by default None
     """
@@ -163,19 +169,30 @@ class RandomDataFrame:
     def __init__(
         self,
         n_observations_per_time: int = 10,
-        lat_range: tuple[float, float] = (-90.0, 90.0),
-        lon_range: tuple[float, float] = (0.0, 360.0),
         tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+        schema: pa.Schema | None = None,
+        field_generators: dict[str, Callable[[], Any]] = {},
         seed: int | None = None,
     ):
         self.n_observations_per_time = n_observations_per_time
-        self.lat_range = lat_range
-        self.lon_range = lon_range
         # Normalize tolerance to python timedelta
         if isinstance(tolerance, np.timedelta64):
             self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
         else:
             self.tolerance = tolerance
+        # Use provided schema or default class schema
+        self.schema = schema if schema is not None else self.SCHEMA
+        # Default field generators
+        default_generators: dict[str, Callable[[], Any]] = {
+            "time": lambda: None,  # Will be set based on obs_time
+            "lat": lambda: np.random.uniform(-90.0, 90.0),
+            "lon": lambda: np.random.uniform(0.0, 360.0),
+            "elev": lambda: np.random.uniform(0.0, 1000.0),
+            "observation": lambda: np.random.randn(),
+            "variable": lambda: None,  # Will be set based on variable v
+        }
+        self._field_generators = {**default_generators, **field_generators}
+
         if seed is not None:
             np.random.seed(seed)
 
@@ -224,19 +241,33 @@ class RandomDataFrame:
                         # No tolerance, use exact time
                         obs_time = t_dt
 
-                    data.append(
-                        {
-                            "time": obs_time,
-                            "lat": np.random.uniform(
-                                self.lat_range[0], self.lat_range[1]
-                            ),
-                            "lon": np.random.uniform(
-                                self.lon_range[0], self.lon_range[1]
-                            ),
-                            "observation": np.random.randn(),
-                            "variable": v,
-                        }
-                    )
+                    # Generate data dynamically based on schema
+                    row = {}
+                    for field in schema:
+                        field_name = field.name
+
+                        # Check if field has a generator function
+                        if field_name in self._field_generators:
+                            # Special handling for time and variable
+                            if field_name == "time":
+                                row[field_name] = obs_time
+                            elif field_name == "variable":
+                                row[field_name] = v
+                            else:
+                                generator = self._field_generators[field_name]
+                                row[field_name] = generator()
+                        else:
+                            # Field not in dictionary
+                            if field.nullable:
+                                row[field_name] = None
+                            else:
+                                raise KeyError(
+                                    f"Field '{field_name}' not found in field generators "
+                                    f"and is not nullable. Available generators: "
+                                    f"{list(self._field_generators.keys())}"
+                                )
+
+                    data.append(row)
 
         df = pd.DataFrame(data)
         df.attrs["source"] = self.SOURCE_ID
@@ -248,9 +279,8 @@ class RandomDataFrame:
 
         return df
 
-    @classmethod
     def _resolve_fields(
-        cls, fields: str | list[str] | pa.Schema | FieldArray | None
+        self, fields: str | list[str] | pa.Schema | FieldArray | None
     ) -> pa.Schema:
         """Convert fields parameter into a validated PyArrow schema.
 
@@ -258,10 +288,10 @@ class RandomDataFrame:
         ----------
         fields : str | list[str] | pa.Schema | FieldArray | None
             Field specification. Can be:
-            - None: Returns the full class SCHEMA
-            - str: Single field name to select from SCHEMA
-            - list[str]: List of field names to select from SCHEMA
-            - pa.Schema: Validated against class SCHEMA for compatibility
+            - None: Returns the full instance schema
+            - str: Single field name to select from schema
+            - list[str]: List of field names to select from schema
+            - pa.Schema: Validated against instance schema for compatibility
 
         Returns
         -------
@@ -269,35 +299,35 @@ class RandomDataFrame:
             A PyArrow schema containing only the requested fields
         """
         if fields is None:
-            return cls.SCHEMA
+            return self.schema
 
         if isinstance(fields, str):
             fields = [fields]
 
         if isinstance(fields, pa.Schema):
-            # Validate provided schema against class schema
+            # Validate provided schema against instance schema
             for field in fields:
-                if field.name not in cls.SCHEMA.names:
+                if field.name not in self.schema.names:
                     raise KeyError(
-                        f"Field '{field.name}' not found in class SCHEMA. "
-                        f"Available fields: {cls.SCHEMA.names}"
+                        f"Field '{field.name}' not found in schema. "
+                        f"Available fields: {self.schema.names}"
                     )
-                expected_type = cls.SCHEMA.field(field.name).type
+                expected_type = self.schema.field(field.name).type
                 if field.type != expected_type:
                     raise TypeError(
                         f"Field '{field.name}' has type {field.type}, "
-                        f"expected {expected_type} from class SCHEMA"
+                        f"expected {expected_type} from schema"
                     )
             return fields
 
-        # fields is list[str] - select fields from class schema
+        # fields is list[str] - select fields from instance schema
         selected_fields = []
         for name in fields:
-            if name not in cls.SCHEMA.names:
+            if name not in self.schema.names:
                 raise KeyError(
-                    f"Field '{name}' not found in class SCHEMA. "
-                    f"Available fields: {cls.SCHEMA.names}"
+                    f"Field '{name}' not found in schema. "
+                    f"Available fields: {self.schema.names}"
                 )
-            selected_fields.append(cls.SCHEMA.field(name))
+            selected_fields.append(self.schema.field(name))
 
         return pa.schema(selected_fields)

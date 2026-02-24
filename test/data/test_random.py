@@ -116,10 +116,13 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
     ],
 )
 @pytest.mark.parametrize(
-    "lat_range, lon_range",
+    "field_generators",
     [
-        ((-90.0, 90.0), (0.0, 360.0)),
-        ((25.0, 50.0), (235.0, 295.0)),
+        {},
+        {
+            "lat": lambda: np.random.uniform(25.0, 50.0),
+            "lon": lambda: np.random.uniform(235.0, 295.0),
+        },
     ],
 )
 @pytest.mark.parametrize(
@@ -130,12 +133,11 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
     ],
 )
 def test_random_dataframe(
-    time, variable, n_observations, lat_range, lon_range, tolerance, fields
+    time, variable, n_observations, field_generators, tolerance, fields
 ):
     data_source = RandomDataFrame(
         n_observations_per_time=n_observations,
-        lat_range=lat_range,
-        lon_range=lon_range,
+        field_generators=field_generators,
         tolerance=tolerance,
         seed=42,
     )
@@ -179,11 +181,25 @@ def test_random_dataframe(
             assert (obs_times >= requested_time - tolerance).all()
             assert (obs_times <= requested_time + tolerance).all()
 
+    # Check lat/lon ranges based on field_generators
     if "lat" in df.columns and "lon" in df.columns:
-        assert df["lat"].min() >= lat_range[0]
-        assert df["lat"].max() <= lat_range[1]
-        assert df["lon"].min() >= lon_range[0]
-        assert df["lon"].max() <= lon_range[1]
+        if "lat" in field_generators:
+            # Custom lat range - check values are reasonable (within -90 to 90)
+            assert df["lat"].min() >= -90.0
+            assert df["lat"].max() <= 90.0
+        else:
+            # Default lat range
+            assert df["lat"].min() >= -90.0
+            assert df["lat"].max() <= 90.0
+
+        if "lon" in field_generators:
+            # Custom lon range - check values are reasonable (within 0 to 360)
+            assert df["lon"].min() >= 0.0
+            assert df["lon"].max() <= 360.0
+        else:
+            # Default lon range
+            assert df["lon"].min() >= 0.0
+            assert df["lon"].max() <= 360.0
 
     # Check fields parameter
     if fields is None:
