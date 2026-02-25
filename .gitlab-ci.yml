@@ -122,13 +122,6 @@ test-data:
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
-      changes:
-        paths:
-          - earth2studio/data/**/*
-          - earth2studio/lexicon/**/*
-          - test/data/**/*
-          - test/lexicon/**/*
-        compare_to: 'refs/heads/main'
     - <<: *test_rule_non_github_with_changes
       changes:
         paths:
@@ -155,11 +148,6 @@ test-perturb:
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
-      changes:
-        paths:
-          - earth2studio/perturbation/**/*
-          - test/perturbation/**/*
-        compare_to: 'refs/heads/main'
     - <<: *test_rule_non_github_with_changes
       changes:
         paths:
@@ -182,11 +170,6 @@ test-stats:
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
-      changes:
-        paths:
-          - earth2studio/statistics/**/*
-          - test/statistics/**/*
-        compare_to: 'refs/heads/main'
     - <<: *test_rule_non_github_with_changes
       changes:
         paths:
@@ -209,11 +192,6 @@ test-px-models:
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
-      changes:
-        paths:
-          - earth2studio/models/px/**/*
-          - test/models/px/**/*
-        compare_to: 'refs/heads/main'
     - <<: *test_rule_non_github_with_changes
       changes:
         paths:
@@ -236,11 +214,6 @@ test-dx-models:
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
-      changes:
-        paths:
-          - earth2studio/models/dx/**/*
-          - test/models/dx/**/*
-        compare_to: 'refs/heads/main'
     - <<: *test_rule_non_github_with_changes
       changes:
         paths:
@@ -263,12 +236,6 @@ test-serve:
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes
-      changes:
-        paths:
-          - earth2studio/serve/**/*
-          - test/serve/**/*
-          - serve/**/*
-        compare_to: 'refs/heads/main'
     - <<: *test_rule_non_github_with_changes
       changes:
         paths:
