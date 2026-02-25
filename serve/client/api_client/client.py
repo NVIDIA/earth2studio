@@ -145,7 +145,7 @@ class Earth2StudioClient:
             )
         except requests.exceptions.Timeout:
             raise RequestTimeoutError(
-                f"Request to {url} timed out after {self.timeout} seconds"
+                f"Request to {url} timed out after {timeout} seconds"
             )
         except requests.exceptions.ConnectionError as e:
             raise ClientConnectionError(f"Failed to connect to {url}: {str(e)}")
