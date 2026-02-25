@@ -101,7 +101,7 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
 
 
 @pytest.mark.parametrize(
-    "time, variable, n_observations",
+    "time, variable, n_obs",
     [
         (datetime.datetime.now(), "t2m", 5),
         (
@@ -132,12 +132,10 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
         (datetime.timedelta(hours=6), ["time", "observation", "variable"]),
     ],
 )
-def test_random_dataframe(
-    time, variable, n_observations, field_generators, tolerance, fields
-):
+def test_random_dataframe(time, variable, n_obs, field_generators, tolerance, fields):
     np.random.seed(0)
     data_source = RandomDataFrame(
-        n_observations_per_time=n_observations,
+        n_obs=n_obs,
         field_generators=field_generators,
         tolerance=tolerance,
     )
@@ -157,7 +155,7 @@ def test_random_dataframe(
         time_list = [pd.to_datetime(t) for t in time]
 
     # Check number of rows
-    expected_rows = len(time_list) * len(variable_list) * n_observations
+    expected_rows = len(time_list) * len(variable_list) * n_obs
     assert len(df) == expected_rows
 
     # Check that all requested variables are present
