@@ -101,7 +101,7 @@ def fetch_data(
     fields : FieldArray | None, optional
         Fields to return (only used for DataFrame sources), by default None
     device : torch.device, optional
-        Torch devive to load data tensor to, by default "cpu"
+        Torch device to load data tensor to, by default "cpu"
     interp_to : CoordSystem, optional
         If provided, the fetched data will be interpolated to the coordinates
         specified by lat/lon arrays in this CoordSystem (only for DataArray sources)
