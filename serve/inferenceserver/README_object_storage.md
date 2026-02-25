@@ -27,60 +27,20 @@ Before enabling object storage, you need to set up the following AWS resources:
 
 ### 1. S3 Bucket
 
-Create an S3 bucket to store workflow results:
-
-```bash
-aws s3 mb s3://your-bucket-name --region us-east-1
-```
-
+Create an S3 bucket to store workflow results.
 **Must for performance**: Enable S3 Transfer Acceleration for faster uploads:
-
-```bash
-aws s3api put-bucket-accelerate-configuration \
-    --bucket your-bucket-name \
-    --accelerate-configuration Status=Enabled
-```
 
 ### 2. CloudFront Distribution
 
-Create a CloudFront distribution to serve content from your S3 bucket:
-
-1. Go to AWS CloudFront Console → Create Distribution
-2. Set Origin Domain to your S3 bucket (`your-bucket-name.s3.amazonaws.com`)
-3. Set Origin Access to "Origin access control settings (recommended)"
-4. Create a new Origin Access Control (OAC)
-5. Update the S3 bucket policy to allow CloudFront access (AWS will provide the policy)
+Create a CloudFront distribution to serve content from your S3 bucket.
 
 ### 3. CloudFront Key Pair for Signed URLs
 
-To generate signed URLs, you need a CloudFront key pair:
-
-1. Go to AWS CloudFront Console → Key Management → Public Keys
-2. Create a new public key by uploading a public key you generated:
-
-```bash
-# Generate a private key
-openssl genrsa -out cloudfront-private-key.pem 2048
-
-# Extract the public key
-openssl rsa -in cloudfront-private-key.pem -pubout -out cloudfront-public-key.pem
-```
-
-Then:
-
-1. Upload `cloudfront-public-key.pem` to CloudFront
-2. Create a Key Group containing your public key
-3. Associate the Key Group with your CloudFront distribution's behavior settings (Restrict Viewer
-Access → Yes, Trusted Key Groups)
-4. Note the **Key Pair ID** (e.g., `KUCQGLNFR6UH1`)
-5. Keep `cloudfront-private-key.pem` secure - this is used by the server to sign URLs
+To generate signed URLs, you need a CloudFront key pair.
 
 ### 4. IAM Credentials
 
-Create IAM credentials with permissions to upload to S3. See [Creating IAM
-users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) for
-detailed instructions. The credentials need `s3:PutObject`, `s3:GetObject`,
-`s3:DeleteObject`, and `s3:ListBucket` permissions on your bucket.
+Create IAM credentials with permissions to upload to S3.
 
 ## Azure Prerequisites
 
@@ -88,50 +48,20 @@ Before enabling Azure Blob Storage, you need to set up the following Azure resou
 
 ### 1. Azure Storage Account
 
-Create an Azure Storage Account:
-
-1. Go to Azure Portal → Storage accounts → Create
-2. Choose a unique storage account name
-3. Select your resource group and region
-4. Choose performance tier (Standard recommended)
-5. Note the **Storage account name** (e.g., `mystorageaccount`)
+Create an Azure Storage Account.
 
 ### 2. Storage Container
 
-Create a blob container in your storage account:
+Create a blob container in your storage account.
 
-1. Go to your Storage Account → Containers
-2. Click "+ Container"
-3. Choose a container name (e.g., `workflow-results`)
-4. Set Public access level to "Private" (recommended for security)
+### 3. Connection String, Account Key
 
-### 3. Connection String or Account Key
-
-You'll need either:
-
-#### Option A: Connection String (Recommended)
-
-1. Go to Storage Account → Access keys
-2. Click "Show" next to a key
-3. Copy the **Connection string** (format:
-   `DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net`)
-
-#### Option B: Account Name and Key
-
-1. Go to Storage Account → Access keys
-2. Note the **Storage account name**
-3. Click "Show" next to a key and copy the **Account key**
-
+You will need a connection string to write into the container.
 The account key is required for generating SAS (Shared Access Signature) signed URLs.
 
 ### 4. Permissions
 
-Ensure your Azure credentials have the following permissions:
-
-- `Microsoft.Storage/storageAccounts/blobServices/containers/write` (to create containers if needed)
-- `Microsoft.Storage/storageAccounts/blobServices/containers/read`
-- `Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write`
-- `Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read`
+Ensure your Azure credentials have the permissions to write/read into the container.
 
 ## Server Configuration
 
@@ -408,136 +338,3 @@ mapper = create_cloudfront_mapper(request_result.signed_url, zarr_path="results.
 ds = xr.open_zarr(mapper, consolidated=True)
 print(ds)
 ```
-
-## Signed URL Format
-
-### AWS S3 / CloudFront Signed URLs
-
-CloudFront signed URLs contain three query parameters:
-
-```text
-https://d30anq61ot046p.cloudfront.net/outputs/exec_123/*?Policy=eyJTdGF0ZW1lbnQiOl...\
-&Signature=ABC123...&Key-Pair-Id=KUCQGLNFR6UH1
-```
-
-| Parameter | Description |
-|-----------|-------------|
-| `Policy` | Base64-encoded JSON policy specifying resource and expiration |
-| `Signature` | RSA signature of the policy using the private key |
-| `Key-Pair-Id` | CloudFront key pair ID used to verify the signature |
-
-The wildcard (`*`) in the URL path allows access to all files under that prefix.
-
-### Azure Blob Storage SAS URLs
-
-Azure SAS (Shared Access Signature) URLs contain multiple query parameters:
-
-```text
-https://mystorageaccount.blob.core.windows.net/workflow-results/outputs/exec_123?\
-sv=2021-06-08&ss=b&srt=co&sp=rl&se=2025-01-01T00:00:00Z&st=2024-12-31T00:00:00Z&spr=https&sig=ABC123...
-```
-
-| Parameter | Description |
-|-----------|-------------|
-| `sv` | Service version (API version) |
-| `ss` | Services (b=blob) |
-| `srt` | Resource types (co=container and object) |
-| `sp` | Permissions (rl=read and list) |
-| `se` | Expiry time (UTC) |
-| `st` | Start time (UTC) |
-| `spr` | Protocol (https) |
-| `sig` | Signature (HMAC-SHA256 of the string-to-sign) |
-
-The SAS token provides read and list permissions for all objects in the container under the
-specified prefix.
-
-## Testing
-
-Run object storage integration tests:
-
-### AWS S3 Testing
-
-```bash
-# Set required environment variables
-export TEST_S3_BUCKET=my-test-bucket
-export AWS_ACCESS_KEY_ID=AKIA...
-export AWS_SECRET_ACCESS_KEY=...
-
-# Run S3 upload tests
-pytest test/integration/test_object_storage.py -v
-
-# Run CloudFront signed URL tests (requires additional config)
-export TEST_CLOUDFRONT_DOMAIN=https://d30anq61ot046p.cloudfront.net
-export TEST_CLOUDFRONT_KEY_PAIR_ID=KUCQGLNFR6UH1
-export TEST_CLOUDFRONT_PRIVATE_KEY_PATH=/path/to/private.pem
-pytest test/integration/test_object_storage.py::TestCloudFrontSignedUrl -v
-```
-
-### Azure Blob Storage Testing
-
-```bash
-# Set required environment variables
-export TEST_AZURE_CONTAINER=my-test-container
-export AZURE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
-export AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount
-export AZURE_STORAGE_ACCOUNT_KEY=...
-
-# Run Azure upload tests
-pytest test/integration/test_object_storage.py -v
-
-# Run Azure SAS URL tests
-pytest test/integration/test_object_storage.py::TestAzureSASUrl -v
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### AWS S3 / CloudFront Issues
-
-1. **403 Forbidden from CloudFront**
-   - Verify the S3 bucket policy allows CloudFront OAC access
-   - Check that the CloudFront distribution is configured with the correct origin
-   - Ensure the key pair is in a Key Group associated with the distribution
-
-2. **Upload failures**
-   - Verify IAM credentials have `s3:PutObject` permission
-   - Check bucket name and region are correct
-   - If using Transfer Acceleration, ensure it's enabled on the bucket
-
-3. **Slow uploads**
-   - Enable `use_rust_client` for better performance
-   - Increase `max_concurrency` for more parallel uploads
-   - Enable `use_transfer_acceleration` if uploading from distant regions
-
-#### Azure Blob Storage Issues
-
-1. **403 Forbidden from Azure**
-   - Verify the connection string is correct and not expired
-   - Check that the storage account name and container name are correct
-   - Ensure the account key is valid (if using account key authentication)
-
-2. **SAS URL generation failures**
-   - Ensure `azure_account_name` and `azure_account_key` are provided
-   - Verify the account key has not been rotated
-   - Check that the container exists and is accessible
-
-3. **Upload failures**
-   - Verify the connection string has write permissions
-   - Check that the container exists (it will be created automatically if permissions allow)
-   - Ensure the storage account is not in a restricted network configuration
-
-4. **Connection string parsing errors**
-   - Verify the connection string format is correct: `DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=...`
-   - Ensure all required components (AccountName, AccountKey) are present
-   - For custom endpoints, include `BlobEndpoint=` in the connection string
-
-#### General Issues
-
-1. **Signed URL expired**
-   - Increase `signed_url_expires_in` configuration
-   - Request fresh results from the API (URLs are regenerated)
-
-2. **Storage type not recognized**
-   - Ensure `OBJECT_STORAGE_TYPE` is set to either `s3` or `azure` (lowercase)
-   - Check that the storage type matches your configuration (S3 config for `s3`, Azure config for `azure`)
