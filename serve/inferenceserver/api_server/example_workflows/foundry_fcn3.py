@@ -8,7 +8,7 @@ import zarr
 
 from api_server.workflow import Earth2Workflow, workflow_registry
 from earth2studio.data import PlanetaryComputerECMWFOpenDataIFS, fetch_data
-from earth2studio.io import IOBackend, ZarrBackend
+from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import FCN3
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
@@ -78,6 +78,13 @@ class FoundryFCN3Workflow(Earth2Workflow):
     def setup_io(
         self, io: IOBackend, output_coords: CoordSystem, seeds: Sequence[int]
     ) -> None:
+        if isinstance(io, ZarrBackend):
+            io.chunks = {
+                "sample": 1,
+                "time": 1,
+                "variable": 1,
+            }
+
         io.add_array(
             {k: v for k, v in output_coords.items() if k != "variable"},
             output_coords["variable"],
@@ -100,6 +107,12 @@ class FoundryFCN3Workflow(Earth2Workflow):
         if isinstance(io, ZarrBackend):
             zarr.consolidate_metadata(io.store)
 
+        if isinstance(io, NetCDF4Backend):
+            # Planetary Computer does not like the original time format
+            ref_time = np.datetime_as_string(output_coords["time"][0], unit="s")
+            io["time"].units = f"hours since {ref_time.replace('T', ' ')}"
+            io["time"][:] = np.arange(len(io["time"])) * 6
+
         return io
 
     def get_fcn3_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
@@ -120,13 +133,6 @@ class FoundryFCN3Workflow(Earth2Workflow):
         seeds: Sequence[int] | None = None,
         variables: Sequence[str] | None = None,
     ) -> None:
-        if isinstance(io, ZarrBackend):
-            io.chunks = {
-                "sample": 1,
-                "time": 1,
-                "variable": 1,
-            }
-
         self.validate_start_time(start_time)
         lead_times = np.array([np.timedelta64(i * 6, "h") for i in range(n_steps + 1)])
         seeds = self.validate_samples(n_samples, seeds)
@@ -175,8 +181,3 @@ class FoundryFCN3Workflow(Earth2Workflow):
 
                 if ii == n_steps:
                     break
-
-        # Planetary Computer does not like the original time format
-        ref_time = start_time.isoformat().replace("T", " ")
-        io["time"].units = f"hours since {ref_time}"
-        io["time"][:] = np.arange(io["time"].shape[0]) * 6
