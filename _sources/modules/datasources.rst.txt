@@ -83,6 +83,7 @@ Data sources that provide tabular data.
    :template: datasource.rst
 
    data.ISD
+   data.RandomDataFrame
    data.UFSObsConv
    data.UFSObsSat
 
