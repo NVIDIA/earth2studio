@@ -146,6 +146,18 @@ class ObjectStorageConfig:
 
 
 @dataclass
+class WorkflowExposureConfig:
+    """Configuration for controlling which workflows are exposed via API endpoints"""
+
+    exposed_workflows: list[str] = field(
+        default_factory=lambda: []
+    )  # Empty list means all workflows are exposed
+    warmup_workflows: list[str] = field(
+        default_factory=lambda: ["example_user_workflow"]
+    )  # Workflows accessible for warmup even if not exposed
+
+
+@dataclass
 class AppConfig:
     """Root configuration for the application"""
 
@@ -156,6 +168,9 @@ class AppConfig:
     server: ServerConfig = field(default_factory=ServerConfig)
     cors: CORSConfig = field(default_factory=CORSConfig)
     object_storage: ObjectStorageConfig = field(default_factory=ObjectStorageConfig)
+    workflow_exposure: WorkflowExposureConfig = field(
+        default_factory=WorkflowExposureConfig
+    )
 
 
 class ConfigManager:
@@ -233,6 +248,9 @@ class ConfigManager:
             server=ServerConfig(**cfg_dict.get("server", {})),
             cors=CORSConfig(**cfg_dict.get("cors", {})),
             object_storage=ObjectStorageConfig(**cfg_dict.get("object_storage", {})),
+            workflow_exposure=WorkflowExposureConfig(
+                **cfg_dict.get("workflow_exposure", {})
+            ),
         )
 
     def _create_default_config_object(self) -> AppConfig:
@@ -245,6 +263,7 @@ class ConfigManager:
             server=ServerConfig(),
             cors=CORSConfig(),
             object_storage=ObjectStorageConfig(),
+            workflow_exposure=WorkflowExposureConfig(),
         )
 
     def _apply_env_overrides(self) -> None:
@@ -289,6 +308,12 @@ class ConfigManager:
             self._config.paths.results_zip_dir = os.getenv(
                 "RESULTS_ZIP_DIR", default=self._config.paths.results_zip_dir
             )
+        if os.getenv("OUTPUT_FORMAT"):
+            output_format = os.getenv("OUTPUT_FORMAT", "").lower()
+            if output_format in ["zarr", "netcdf4"]:
+                self._config.paths.output_format = cast(
+                    Literal["zarr", "netcdf4"], output_format
+                )
 
         # Logging overrides
         if os.getenv("LOG_LEVEL"):
@@ -411,6 +436,14 @@ class ConfigManager:
             self._config.object_storage.azure_container_name = os.getenv(
                 "AZURE_CONTAINER_NAME"
             )
+
+        # Workflow exposure overrides
+        if os.getenv("EXPOSED_WORKFLOWS"):
+            # Parse comma-separated list of workflow names
+            exposed_workflows_str = os.getenv("EXPOSED_WORKFLOWS", "")
+            self._config.workflow_exposure.exposed_workflows = [
+                w.strip() for w in exposed_workflows_str.split(",") if w.strip()
+            ]
 
         logger.debug("Environment variable overrides applied")
 

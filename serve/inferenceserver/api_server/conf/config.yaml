@@ -41,6 +41,7 @@ worker:
 paths:
   default_output_dir: /outputs
   results_zip_dir: /workspace/earth2studio-project/examples/outputs
+  output_format: zarr  # Output format: "zarr" or "netcdf4"
   result_zip_enabled: false
 
 logging:
@@ -88,3 +89,12 @@ object_storage:
   cloudfront_private_key: null  # PEM private key content
   # Signed URL settings
   signed_url_expires_in: 86400  # 24 hours
+
+workflow_exposure:
+  # List of workflow names to expose via API endpoints
+  # Empty list means all workflows are exposed
+  exposed_workflows: []
+  # Workflows accessible for warmup even if not in exposed_workflows
+  # These workflows can be called via API for warmup purposes
+  warmup_workflows:
+    - example_user_workflow
