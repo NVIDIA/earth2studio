@@ -19,13 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ability to have seperate data and model cache locations via env variables
 - Added random dataframe source
 - Added base reflectivity to MRMS data source
+- Added `fetch_dataframe` utility function
 
 ### Changed
 
 - Changed available date for ARCO data source to be dynamically updated
 - Changed ISD data frame return to master schema
 - Updated CBottle infill to mixture of model checkpoints
-- Updated the `fetch_data` util to support DataFrameSources, adding fields as a parameter
 
 ### Deprecated
 

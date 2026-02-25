@@ -32,6 +32,7 @@ from earth2studio.data import (
     RandomDataFrame,
     datasource_to_file,
     fetch_data,
+    fetch_dataframe,
     prep_data_array,
 )
 from earth2studio.data.utils import (
@@ -220,7 +221,7 @@ def test_fetch_data(time, lead_time, device):
         ),
     ],
 )
-def test_fetch_data_dataframe(time, lead_time, device):
+def test_fetch_dataframe(time, lead_time, device):
     variable = np.array(["t2m", "u10m"])
     rdf = RandomDataFrame(n_obs=5)
 
@@ -231,7 +232,7 @@ def test_fetch_data_dataframe(time, lead_time, device):
         except ImportError:
             pytest.skip("cudf not available for CUDA device")
 
-    result = fetch_data(rdf, time, variable, lead_time=lead_time, device=device)
+    result = fetch_dataframe(rdf, time, variable, lead_time=lead_time, device=device)
 
     # Check return type based on device
     if device == "cpu":
