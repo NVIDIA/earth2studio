@@ -37,8 +37,6 @@ RUN cd / && mkdir /workspace/earth2studio-project/examples && ln -s /outputs /wo
 RUN apt-get update && apt-get install -y redis-server && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env && \
     cd /workspace/earth2studio-project && \
-    uv pip install --system --break-system-packages -r serve/inferenceserver/requirements.txt
+    uv pip install --system --break-system-packages -r serve/server/requirements.txt
 
-CMD ["/workspace/earth2studio-project/serve/inferenceserver/scripts/startup.sh"]
-
-#RUN python -c "import earth2studio; print(f'Earth2Studio version: {earth2studio.__version__}')"
+CMD ["/workspace/earth2studio-project/serve/server/scripts/startup.sh"]

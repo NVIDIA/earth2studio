@@ -17,19 +17,17 @@
 """
 Shared pytest configuration for service tests.
 
-This conftest.py ensures that the service/inferenceserver directory is in the
+This conftest.py ensures that the serve/server directory is in the
 Python path so that api_server modules can be imported.
 """
 
 import sys
 from pathlib import Path
 
-# Add service/inferenceserver to Python path for imports
-_inferenceserver_path = (
-    Path(__file__).parent.parent.parent / "service" / "inferenceserver"
-)
-if str(_inferenceserver_path) not in sys.path:
-    sys.path.insert(0, str(_inferenceserver_path))
+# Add serve/server to Python path for imports
+_server_path = Path(__file__).parent.parent.parent.parent / "serve" / "server"
+if str(_server_path) not in sys.path:
+    sys.path.insert(0, str(_server_path))
 
 # Store original api_server.config module to restore it if it gets mocked
 _original_config_module = None

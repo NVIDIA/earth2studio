@@ -40,7 +40,7 @@ For current API usage, please refer to the workflow documentation linked above.
 1. **Clone and navigate to the API directory:**
 
    ```bash
-   cd service/inferenceserver
+   cd serve/server
    ```
 
 2. **Make scripts executable and start services:**

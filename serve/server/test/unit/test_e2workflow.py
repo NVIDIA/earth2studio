@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-import redis
+import redis  # type: ignore[import-untyped]
 import torch
 from api_server.workflow import (
     Earth2Workflow,
@@ -37,10 +38,12 @@ from earth2studio.utils.type import CoordSystem
 class TestFuncToModel:
     """Test func_to_model helper function"""
 
-    def test_function_to_model_conversion(self):
+    def test_function_to_model_conversion(self) -> None:
         """Test converting function signature to Pydantic model"""
 
-        def test_func(required: int, optional: str = "default", exclude_me: int = 0):
+        def test_func(
+            required: int, optional: str = "default", exclude_me: int = 0
+        ) -> None:
             pass
 
         model = func_to_model(test_func, exclude_params={"exclude_me"})
@@ -57,11 +60,11 @@ class TestFuncToModel:
 class TestAutoParameters:
     """Test AutoParameters metaclass"""
 
-    def test_auto_generates_parameters_from_call_signature(self):
+    def test_auto_generates_parameters_from_call_signature(self) -> None:
         """Test that AutoParameters creates Parameters from __call__ signature"""
 
         class TestWorkflow(metaclass=AutoParameters):
-            def __call__(self, io: IOBackend, x: int, y: str = "default"):
+            def __call__(self, io: IOBackend, x: int, y: str = "default") -> None:
                 pass
 
         # Verify Parameters class is created with correct name
@@ -80,7 +83,7 @@ class TestAutoParameters:
 class TestEarth2WorkflowImpl(Earth2Workflow):
     """Simple test implementation of Earth2Workflow"""
 
-    def __call__(self, io: IOBackend, x: int = 10, y: str = "default"):
+    def __call__(self, io: IOBackend, x: int = 10, y: str = "default") -> None:
         """Test implementation with simple parameters"""
         # Store call info for testing
         self.called_with = {"io": io, "x": x, "y": y}
@@ -95,7 +98,7 @@ class ComplexEarth2WorkflowImpl(Earth2Workflow):
         required_param: int,
         optional_param: str = "default",
         num_hours: int = 24,
-    ):
+    ) -> None:
         """Test implementation with required and optional parameters"""
         self.called_with = {
             "io": io,
@@ -109,12 +112,12 @@ class ComplexEarth2WorkflowImpl(Earth2Workflow):
 class TestEarth2Workflow:
     """Test Earth2Workflow-specific functionality (base Workflow tests in test_workflow.py)"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures"""
         self.workflow = TestEarth2WorkflowImpl()
         self.workflow.name = "test_workflow"
 
-    def test_validate_parameters_uses_auto_generated_parameters(self):
+    def test_validate_parameters_uses_auto_generated_parameters(self) -> None:
         """Test that validate_parameters works with auto-generated Parameters class"""
         params = TestEarth2WorkflowImpl.validate_parameters({"x": 30, "y": "test"})
         assert isinstance(params, WorkflowParameters)
@@ -127,8 +130,8 @@ class TestEarth2Workflow:
 
     @patch("api_server.e2workflow.get_config")
     def test_run_method_with_io_backend_and_progress_updates(
-        self, mock_get_config, tmp_path
-    ):
+        self, mock_get_config: MagicMock, tmp_path: Path
+    ) -> None:
         """Test Earth2Workflow.run creates IOBackend and updates progress"""
         mock_config = MagicMock()
         mock_config.paths.output_format = "zarr"
@@ -157,14 +160,16 @@ class TestEarth2Workflow:
             assert mock_update.call_count >= 2
 
     @patch("api_server.e2workflow.get_config")
-    def test_run_method_handles_workflow_exceptions(self, mock_get_config):
+    def test_run_method_handles_workflow_exceptions(
+        self, mock_get_config: MagicMock
+    ) -> None:
         """Test that run method properly handles exceptions from workflow execution"""
         mock_config = MagicMock()
         mock_config.paths.output_format = "zarr"
         mock_get_config.return_value = mock_config
 
         class FailingWorkflow(Earth2Workflow):
-            def __call__(self, io: IOBackend, x: int = 10):
+            def __call__(self, io: IOBackend, x: int = 10) -> None:
                 raise RuntimeError("Workflow execution failed")
 
         failing_workflow = FailingWorkflow()
@@ -192,7 +197,7 @@ class TestEarth2Workflow:
 class TestBackendProgress:
     """Test BackendProgress wrapper for progress tracking"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures"""
         self.mock_io = Mock(spec=IOBackend)
         self.mock_workflow = Mock(spec=Earth2Workflow)
@@ -201,7 +206,7 @@ class TestBackendProgress:
             self.mock_io, self.mock_workflow, self.execution_id
         )
 
-    def test_add_array_initializes_progress_tracking(self):
+    def test_add_array_initializes_progress_tracking(self) -> None:
         """Test that add_array initializes progress tracking when progress_dim present"""
         coords = {"lead_time": [0, 1, 2, 3], "lat": [0, 1]}
 
@@ -218,7 +223,7 @@ class TestBackendProgress:
         self.backend.add_array(coords, "pressure")
         assert self.backend.progress_array == "temperature"
 
-    def test_write_updates_progress(self):
+    def test_write_updates_progress(self) -> None:
         """Test that write updates progress for tracked arrays"""
         # Initialize progress tracking
         init_coords: CoordSystem = {"lead_time": [0, 1, 2], "lat": [0, 1]}
@@ -256,14 +261,16 @@ class TestEarth2WorkflowIntegration:
     """Integration tests for Earth2Workflow with BackendProgress"""
 
     @patch("api_server.e2workflow.get_config")
-    def test_workflow_with_backend_progress_tracking(self, mock_get_config):
+    def test_workflow_with_backend_progress_tracking(
+        self, mock_get_config: MagicMock
+    ) -> None:
         """Test complete workflow execution with automatic progress tracking"""
         mock_config = MagicMock()
         mock_config.paths.output_format = "zarr"
         mock_get_config.return_value = mock_config
 
         class TestWorkflow(Earth2Workflow):
-            def __call__(self, io: IOBackend, num_steps: int = 3):
+            def __call__(self, io: IOBackend, num_steps: int = 3) -> None:
                 coords: CoordSystem = {
                     "lead_time": list(range(num_steps)),
                     "lat": [0, 1],

@@ -61,4 +61,4 @@ install:
 # Run tests
 # integration_test:
 #	@echo "Running API tests..."
-#	@python inferenceserver/test/integration/test_api.py
+#	@python server/test/integration/test_api.py

@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-cd /workspace/earth2studio-project/service/inferenceserver
+cd /workspace/earth2studio-project/service/server
 make start-redis
 make start-api-server
 sleep infinity

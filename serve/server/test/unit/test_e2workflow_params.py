@@ -50,12 +50,12 @@ pytestmark = pytest.mark.skipif(
 class TestAutoParametersValidation:
     """Test validation of auto-generated parameters from Earth2Workflow"""
 
-    def test_auto_parameters_with_num_steps_validation(self):
+    def test_auto_parameters_with_num_steps_validation(self) -> None:
         """Test that num_steps parameter gets automatic range validation"""
 
         # Create a mock Earth2Workflow with num_steps parameter
         class TestWorkflow(Earth2Workflow):
-            def __init__(self, model_type: Literal["fcn", "dlwp"] = "fcn"):
+            def __init__(self, model_type: Literal["fcn", "dlwp"] = "fcn") -> None:
                 pass
 
             def __call__(
@@ -63,7 +63,7 @@ class TestAutoParametersValidation:
                 io: IOBackend,
                 start_time: list[datetime] = [datetime(2024, 1, 1, 0)],
                 num_steps: int = 20,
-            ):
+            ) -> None:
                 pass
 
         # Test valid num_steps
@@ -92,18 +92,18 @@ class TestAutoParametersValidation:
                 }
             )
 
-    def test_auto_parameters_with_start_time_validation(self):
+    def test_auto_parameters_with_start_time_validation(self) -> None:
         """Test that start_time parameter gets ISO 8601 validation"""
 
         class TestWorkflow(Earth2Workflow):
-            def __init__(self):
+            def __init__(self) -> None:
                 pass
 
             def __call__(
                 self,
                 io: IOBackend,
                 start_time: list[datetime] = [datetime(2024, 1, 1, 0)],
-            ):
+            ) -> None:
                 pass
 
         # Test valid ISO 8601 formats
@@ -131,14 +131,14 @@ class TestAutoParametersValidation:
             ):
                 TestWorkflow.validate_parameters({"start_time": times})
 
-    def test_auto_parameters_with_config_validation(self):
+    def test_auto_parameters_with_config_validation(self) -> None:
         """Test that __init__ parameters get proper validation"""
 
         class TestWorkflow(Earth2Workflow):
-            def __init__(self, model_type: Literal["fcn", "dlwp"] = "fcn"):
+            def __init__(self, model_type: Literal["fcn", "dlwp"] = "fcn") -> None:
                 self.model_type = model_type
 
-            def __call__(self, io: IOBackend):
+            def __call__(self, io: IOBackend) -> None:
                 pass
 
         # Valid model_type
@@ -155,14 +155,14 @@ class TestAutoParametersValidation:
         with pytest.raises(ValidationError):
             TestWorkflow.Config.model_validate({"model_type": "invalid"})
 
-    def test_auto_parameters_nsteps_variant(self):
+    def test_auto_parameters_nsteps_variant(self) -> None:
         """Test that nsteps (alternate spelling) also gets range validation"""
 
         class TestWorkflow(Earth2Workflow):
-            def __init__(self):
+            def __init__(self) -> None:
                 pass
 
-            def __call__(self, io: IOBackend, nsteps: int = 10):
+            def __call__(self, io: IOBackend, nsteps: int = 10) -> None:
                 pass
 
         # Valid nsteps
@@ -173,7 +173,7 @@ class TestAutoParametersValidation:
         with pytest.raises(ValidationError, match="greater than or equal to 1"):
             TestWorkflow.validate_parameters({"nsteps": 0})
 
-    def test_func_to_model_with_validation(self):
+    def test_func_to_model_with_validation(self) -> None:
         """Test func_to_model creates models with proper validation"""
 
         def test_func(
@@ -199,11 +199,11 @@ class TestAutoParametersValidation:
         with pytest.raises(ValidationError, match="is not a valid ISO 8601"):
             TestModel.model_validate({"start_time": ["2024-01-01"]})  # Missing time
 
-    def test_auto_parameters_with_defaults(self):
+    def test_auto_parameters_with_defaults(self) -> None:
         """Test that default values work correctly with validation"""
 
         class TestWorkflow(Earth2Workflow):
-            def __init__(self):
+            def __init__(self) -> None:
                 pass
 
             def __call__(
@@ -211,7 +211,7 @@ class TestAutoParametersValidation:
                 io: IOBackend,
                 start_time: list[datetime] = [datetime(2024, 1, 1, 0)],
                 num_steps: int = 20,
-            ):
+            ) -> None:
                 pass
 
         # Use defaults
@@ -229,7 +229,7 @@ class TestAutoParametersValidation:
 class TestEarth2WorkflowIntegration:
     """Integration tests for Earth2Workflow validation"""
 
-    def test_complete_workflow_validation(self):
+    def test_complete_workflow_validation(self) -> None:
         """Test complete validation workflow"""
 
         class CompleteWorkflow(Earth2Workflow):
@@ -237,7 +237,7 @@ class TestEarth2WorkflowIntegration:
                 self,
                 model_type: Literal["fcn", "dlwp"] = "fcn",
                 device: Literal["cpu", "cuda"] = "cpu",
-            ):
+            ) -> None:
                 self.model_type = model_type
                 self.device = device
 
@@ -247,7 +247,7 @@ class TestEarth2WorkflowIntegration:
                 start_time: list[datetime] = [datetime(2024, 1, 1, 0)],
                 num_steps: int = 20,
                 output_frequency: int = 1,
-            ):
+            ) -> None:
                 pass
 
         # Test valid complete parameters
@@ -274,14 +274,14 @@ class TestEarth2WorkflowIntegration:
         with pytest.raises(ValidationError):
             CompleteWorkflow.validate_parameters({"num_steps": -1})
 
-    def test_workflow_with_extra_fields_rejected(self):
+    def test_workflow_with_extra_fields_rejected(self) -> None:
         """Test that extra fields are rejected due to strict validation"""
 
         class TestWorkflow(Earth2Workflow):
-            def __init__(self):
+            def __init__(self) -> None:
                 pass
 
-            def __call__(self, io: IOBackend, num_steps: int = 20):
+            def __call__(self, io: IOBackend, num_steps: int = 20) -> None:
                 pass
 
         # Extra field should be rejected

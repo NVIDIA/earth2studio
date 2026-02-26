@@ -48,7 +48,7 @@ mock_omegaconf.OmegaConf = MagicMock()
 mock_omegaconf.OmegaConf.to_container = MagicMock(return_value={})
 
 # Import config after mocking dependencies (noqa: E402 - import after mocks is intentional)
-# Note: service/inferenceserver path is added by conftest.py
+# Note: serve/server path is added by conftest.py
 from api_server.config import (  # noqa: E402
     AppConfig,
     ConfigManager,
