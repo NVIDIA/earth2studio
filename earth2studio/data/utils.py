@@ -69,8 +69,10 @@ if TYPE_CHECKING:
 
 try:
     import cudf
+    import cupy as cp
 except ImportError:
     cudf = None
+    cp = None
 
 
 def fetch_data(
@@ -179,18 +181,21 @@ def fetch_dataframe(
         all_times = (time[:, None] + lead_time).flatten()
         unique_times = np.unique(all_times)
         df = source(unique_times, variable, fields=fields)  # type: ignore
+    # Add request meta-data
+    df.attrs = {"request_time": time, "request_lead_time": lead_time}
 
     # Convert to appropriate format based on device
-    if torch.device(device).type == "cuda":
+    device = torch.device(device)
+    if device.type == "cuda":
         if cudf is None:
             raise ImportError(
                 "cudf is required for CUDA device. Install with: pip install cudf"
             )
-        # Convert pandas DataFrame to cudf DataFrame
-        return cudf.from_pandas(df)
+        with cp.cuda.Device(device.index):
+            result = cudf.from_pandas(df)
+        return result
     else:
-        # Convert pandas DataFrame to PyArrow Table
-        return pa.Table.from_pandas(df)
+        return pa
 
 
 def prep_data_array(
