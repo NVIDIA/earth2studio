@@ -89,6 +89,11 @@ object_storage:
   cloudfront_private_key: null  # PEM private key content
   # Signed URL settings
   signed_url_expires_in: 86400  # 24 hours
+  # Azure Blob Storage configuration
+  azure_connection_string: null
+  azure_account_name: null
+  azure_account_key: null
+  azure_container_name: null
 
 workflow_exposure:
   # List of workflow names to expose via API endpoints

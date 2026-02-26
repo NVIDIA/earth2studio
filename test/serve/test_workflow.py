@@ -1411,6 +1411,174 @@ class TestWorkflowRegistry:
         assert len(workflows) == 0
         assert isinstance(workflows, dict)
 
+    def test_list_workflows_exposed_only_true_with_empty_exposed_list(self):
+        """Test list_workflows with exposed_only=True when exposed_workflows is empty"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=get_test_config(),
+        ):
+            workflows = self.registry.list_workflows(exposed_only=True)
+            # Empty list means all workflows are exposed
+            assert len(workflows) == 3
+            assert "workflow1" in workflows
+            assert "workflow2" in workflows
+            assert "workflow3" in workflows
+
+    def test_list_workflows_exposed_only_true_with_specific_exposed(self):
+        """Test list_workflows with exposed_only=True when specific workflows are exposed"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1", "workflow2"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            workflows = self.registry.list_workflows(exposed_only=True)
+            # Only exposed workflows should be returned
+            assert len(workflows) == 2
+            assert "workflow1" in workflows
+            assert "workflow2" in workflows
+            assert "workflow3" not in workflows
+
+    def test_list_workflows_exposed_only_true_excludes_warmup_only(self):
+        """Test list_workflows with exposed_only=True excludes warmup-only workflows"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1"]
+        test_config.workflow_exposure.warmup_workflows = ["workflow2"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            workflows = self.registry.list_workflows(exposed_only=True)
+            # Only exposed workflows, not warmup-only
+            assert len(workflows) == 1
+            assert "workflow1" in workflows
+            assert "workflow2" not in workflows
+
+    def test_list_workflows_exposed_only_false(self):
+        """Test list_workflows with exposed_only=False returns all workflows"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            workflows = self.registry.list_workflows(exposed_only=False)
+            # Should return all workflows regardless of exposure
+            assert len(workflows) == 3
+            assert "workflow1" in workflows
+            assert "workflow2" in workflows
+            assert "workflow3" in workflows
+
+    def test_is_workflow_exposed_with_empty_exposed_list(self):
+        """Test is_workflow_exposed when exposed_workflows is empty (all exposed)"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=get_test_config(),
+        ):
+            # Empty list means all workflows are exposed
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            assert self.registry.is_workflow_exposed("workflow2") is True
+            assert self.registry.is_workflow_exposed("nonexistent") is True
+
+    def test_is_workflow_exposed_with_specific_exposed(self):
+        """Test is_workflow_exposed when specific workflows are exposed"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1", "workflow2"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            assert self.registry.is_workflow_exposed("workflow2") is True
+            assert self.registry.is_workflow_exposed("workflow3") is False
+
+    def test_is_workflow_exposed_with_warmup_workflows(self):
+        """Test is_workflow_exposed includes warmup workflows"""
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1"]
+        test_config.workflow_exposure.warmup_workflows = ["workflow2"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            # Exposed workflow should be accessible
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            # Warmup workflow should also be accessible
+            assert self.registry.is_workflow_exposed("workflow2") is True
+            # Neither exposed nor warmup should not be accessible
+            assert self.registry.is_workflow_exposed("workflow3") is False
+
+    def test_is_workflow_exposed_with_overlapping_exposed_and_warmup(self):
+        """Test is_workflow_exposed when workflow is both exposed and warmup"""
+        self.registry.register(Workflow1)
+
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1"]
+        test_config.workflow_exposure.warmup_workflows = ["workflow1"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            # Should be accessible if in either list
+            assert self.registry.is_workflow_exposed("workflow1") is True
+
+    def test_is_workflow_exposed_with_nonexistent_workflow(self):
+        """Test is_workflow_exposed with nonexistent workflow name"""
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            # Nonexistent workflow not in exposed list should return False
+            assert self.registry.is_workflow_exposed("nonexistent") is False
+
+    def test_is_workflow_exposed_with_nonexistent_workflow_in_warmup(self):
+        """Test is_workflow_exposed with nonexistent workflow in warmup list"""
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = ["workflow1"]
+        test_config.workflow_exposure.warmup_workflows = ["nonexistent"]
+
+        with patch(
+            "api_server.workflow.workflow.get_config",
+            return_value=test_config,
+        ):
+            # Should return True if in warmup list even if not registered
+            assert self.registry.is_workflow_exposed("nonexistent") is True
+
     def test_set_redis_client(self):
         """Test setting Redis client for workflow instances"""
         self.registry.register(Workflow1)
