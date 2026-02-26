@@ -46,7 +46,8 @@ license:
 
 .PHONY: pytest
 pytest:
-	uvx tox -c tox-min.ini run
+	@test -n "$(TOX_ENV)" || (echo "TOX_ENV is required! Usage: make pytest TOX_ENV=<env>" && exit 1)
+	uvx tox -c tox.ini run -e $(TOX_ENV)
 
 .PHONY: pytest-full
 pytest-full:
@@ -56,11 +57,12 @@ pytest-full:
 ifneq (,$(filter 1 true TRUE True yes YES on ON,$(CI_PYTEST_ALL)))
 PYTEST_CI_TARGET := pytest-full
 else
-PYTEST_CI_TARGET := pytest
+PYTEST_CI_TARGET := pytest TOX_ENV=$(TOX_ENV)
 endif
 
 .PHONY: pytest-ci
 pytest-ci:
+	uv run python test/_ci/check_gpu.py || exit $?
 	$(MAKE) $(PYTEST_CI_TARGET)
 
 .PHONY: coverage
