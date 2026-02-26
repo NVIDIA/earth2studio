@@ -573,7 +573,9 @@ def process_object_storage_upload(
 
             # Create S3 storage instance
             storage_kwargs = {
-                "bucket": config.object_storage.bucket,
+                "bucket": config.object_storage.bucket
+                or config.object_storage.azure_container_name
+                or "",
                 "storage_type": config.object_storage.storage_type,
                 "max_concurrency": config.object_storage.max_concurrency,
                 "multipart_chunksize": config.object_storage.multipart_chunksize,

@@ -282,6 +282,7 @@ class MSCObjectStorage(ObjectStorage):
 
             # Extract account name from connection string if not provided directly
             if not azure_account_name:
+                self.azure_account_name = None
                 # Connection string format: DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...
                 for part in azure_connection_string.split(";"):
                     if part.startswith("AccountName="):
