@@ -49,6 +49,8 @@ def get_test_config(base_path: str | None = None):  # type: ignore[no-untyped-de
         base_path = tempfile.mkdtemp(prefix="e2s_testing_")
     config.paths.default_output_dir = base_path
     config.paths.results_zip_dir = base_path
+    # Ensure exposed_workflows is empty list for tests (empty means all exposed)
+    config.workflow_exposure.exposed_workflows = []
     return config
 
 
@@ -59,7 +61,7 @@ def setup_test_paths():  # type: ignore[no-untyped-def]
         test_config = get_test_config(tmpdir)
         with (
             patch(
-                "api_server.workflow.workflow.get_config",
+                "api_server.config.get_config",
                 return_value=test_config,
             ),
             patch("api_server.config.get_config", return_value=test_config),
@@ -1418,7 +1420,7 @@ class TestWorkflowRegistry:
         self.registry.register(Workflow3)
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=get_test_config(),
         ):
             workflows = self.registry.list_workflows(exposed_only=True)
@@ -1438,7 +1440,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.exposed_workflows = ["workflow1", "workflow2"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             workflows = self.registry.list_workflows(exposed_only=True)
@@ -1458,7 +1460,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.warmup_workflows = ["workflow2"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             workflows = self.registry.list_workflows(exposed_only=True)
@@ -1477,7 +1479,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.exposed_workflows = ["workflow1"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             workflows = self.registry.list_workflows(exposed_only=False)
@@ -1492,9 +1494,11 @@ class TestWorkflowRegistry:
         self.registry.register(Workflow1)
         self.registry.register(Workflow2)
 
+        test_config = get_test_config()
+        test_config.workflow_exposure.exposed_workflows = []
         with patch(
-            "api_server.workflow.workflow.get_config",
-            return_value=get_test_config(),
+            "api_server.config.get_config",
+            return_value=test_config,
         ):
             # Empty list means all workflows are exposed
             assert self.registry.is_workflow_exposed("workflow1") is True
@@ -1511,7 +1515,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.exposed_workflows = ["workflow1", "workflow2"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             assert self.registry.is_workflow_exposed("workflow1") is True
@@ -1529,7 +1533,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.warmup_workflows = ["workflow2"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             # Exposed workflow should be accessible
@@ -1548,7 +1552,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.warmup_workflows = ["workflow1"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             # Should be accessible if in either list
@@ -1560,7 +1564,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.exposed_workflows = ["workflow1"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             # Nonexistent workflow not in exposed list should return False
@@ -1573,7 +1577,7 @@ class TestWorkflowRegistry:
         test_config.workflow_exposure.warmup_workflows = ["nonexistent"]
 
         with patch(
-            "api_server.workflow.workflow.get_config",
+            "api_server.config.get_config",
             return_value=test_config,
         ):
             # Should return True if in warmup list even if not registered
