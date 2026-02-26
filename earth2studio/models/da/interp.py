@@ -21,7 +21,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
-from earth2studio.models.da.base import AssimilationInput, DataFrame
+from earth2studio.models.da.base import DataFrame
 from earth2studio.models.da.utils import (
     validate_input,
     validate_observation_fields,
@@ -30,7 +30,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import FrameSchema, CoordSystem
 
 try:
     import cupy as cp
@@ -91,7 +91,7 @@ class InterpEquirectangular(torch.nn.Module):
         self.interp_method = interp_method
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
-    def input_coords(self) -> tuple[CoordSystem]:
+    def input_coords(self) -> tuple[FrameSchema|CoordSystem]:
         """Input coordinate system specifying required DataFrame fields.
 
         Returns
@@ -102,7 +102,7 @@ class InterpEquirectangular(torch.nn.Module):
             - time, lat, lon, observation: empty arrays (dynamic dimensions)
         """
         return (
-            CoordSystem(
+            FrameSchema(
                 {
                     "time": np.empty(0, dtype="datetime64[ns]"),
                     "lat": np.empty(0, dtype=np.float32),
@@ -114,7 +114,7 @@ class InterpEquirectangular(torch.nn.Module):
         )
 
     def output_coords(
-        self, input_coords: tuple[CoordSystem], x: AssimilationInput
+        self, input_coords: tuple[CoordSystem], request_time: np.ndarray, **kwargs,
     ) -> CoordSystem:
         """Output coordinate system for assimilated data.
 
@@ -122,8 +122,6 @@ class InterpEquirectangular(torch.nn.Module):
         ----------
         input_coords : tuple[CoordSystem, ...]
             Input coordinate system (CoordSystem for DataFrame input)
-        x : AssimilationInput
-            Input configuration for the assimilation model
 
         Returns
         -------
@@ -143,17 +141,17 @@ class InterpEquirectangular(torch.nn.Module):
 
         return CoordSystem(
             {
-                "time": x.time,
+                "time": request_time,
                 "variable": np.array(variables, dtype=str),
                 "lat": self._lat,
                 "lon": self._lon,
             }
         )
 
-    def __call__(
-        self,
-        x: AssimilationInput,
-    ) -> Generator[
+    def __call__(self, obs: DataFrame) -> xr.DataArray:
+        pass
+
+    def create_generator(self) -> Generator[
         DataFrame,
         xr.DataArray,
         None,

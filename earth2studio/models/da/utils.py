@@ -25,7 +25,6 @@ import torch
 import xarray as xr
 
 from earth2studio.data.base import DataFrameSource, ForecastFrameSource
-from earth2studio.models.da.base import AssimilationInput
 from earth2studio.utils.type import (
     CoordSystem,
     FieldArray,

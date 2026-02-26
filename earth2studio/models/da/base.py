@@ -38,17 +38,6 @@ else:
         cudf = None  # type: ignore[assignment, misc]
 
 
-@dataclass
-class AssimilationInput:
-    """Assimilation model input
-    This is a container input with various paramters that influence a data assimilation
-    models task.
-    """
-
-    time: TimeArray = None
-    lead_time: LeadTimeArray = None
-
-
 # Type alias for DataFrame-like objects (PyArrow Table or cudf DataFrame)
 if cudf is not None:
     DataFrame = pa.Table | cudf.DataFrame
@@ -60,14 +49,39 @@ class AssimilationModel(Protocol):
     """Data assimilation model interface"""
 
     def __call__(
-        self, x: AssimilationInput
+        self, *obs: DataFrame | xr.DataArray,
+    ) -> tuple[DataFrame | xr.DataArray, ...]:
+        """Stateless iteration for the data assimilation model.
+
+        Processes observations and returns assimilated data without maintaining
+        internal state between calls. This method is suitable for independent
+        processing of observation batches.
+
+        Parameters
+        ----------
+        *obs : DataFrame | xr.DataArray
+            Variable number of observation arguments. Each argument can be a
+            DataFrame (PyArrow Table or cudf DataFrame) or xarray DataArray
+            containing observation data.
+
+        Returns
+        -------
+        tuple[DataFrame | xr.DataArray, ...]
+            Assimilated data output. Can return a combination of DataFrames or
+            xarray DataArrays depending on the particular model. Output is expect to be
+            on the same device as the model.
+        """
+
+    def create_generator(
+        self,
     ) -> Generator[
         *DataFrame | xr.DataArray,
         *DataFrame | xr.DataArray,
         None,
     ]:
         """Creates a generator which accepts collection of input observations and
-        outputs a collection of assimilated data.
+        outputs a collection of assimilated data. Used for both stateless and stateful
+        iterations of the data assimilation model
 
         The generator accepts observations (DataFrame or DataArray) via the send()
         method and yields assimilated data (DataFrame or DataArray) as output.

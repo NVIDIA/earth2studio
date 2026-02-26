@@ -18,6 +18,7 @@ from collections import OrderedDict
 
 import numpy as np
 
+FrameSchema = OrderedDict[str, np.ndarray]
 CoordSystem = OrderedDict[str, np.ndarray]
 
 # Specific dimension custom types
