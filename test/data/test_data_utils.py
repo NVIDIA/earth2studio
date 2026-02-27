@@ -20,7 +20,7 @@ import os
 from collections import OrderedDict
 
 import numpy as np
-import pyarrow as pa
+import pandas as pd
 import pytest
 import torch
 import xarray as xr
@@ -236,9 +236,8 @@ def test_fetch_dataframe(time, lead_time, device):
 
     # Check return type based on device
     if device == "cpu":
-        assert isinstance(result, pa.Table)
-        # Convert to pandas for easier inspection
-        df = result.to_pandas()
+        assert isinstance(result, pd.DataFrame)
+        df = result
     else:
         # CUDA device - should return cudf.DataFrame
         import cudf
