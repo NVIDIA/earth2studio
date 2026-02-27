@@ -99,12 +99,12 @@ class InterpEquirectangular(torch.nn.Module):
         self._tolerance = normalize_time_tolerance(tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
-    def input_coords(self) -> tuple[FrameSchema | CoordSystem]:
+    def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system specifying required DataFrame fields.
 
         Returns
         -------
-        tuple[CoordSystem, ...]
+         tuple[FrameSchema]
             Tuple containing coordinate system dictionary with field names as keys:
             - variable: array of acceptable variable values
             - time, lat, lon, observation: empty arrays (dynamic dimensions)
@@ -126,7 +126,7 @@ class InterpEquirectangular(torch.nn.Module):
         input_coords: tuple[CoordSystem],
         request_time: np.ndarray,
         **kwargs: Any,
-    ) -> CoordSystem:
+    ) -> tuple[CoordSystem]:
         """Output coordinate system for assimilated data.
 
         Parameters
@@ -136,7 +136,7 @@ class InterpEquirectangular(torch.nn.Module):
 
         Returns
         -------
-        CoordSystem
+        tuple[CoordSystem]
             Coordinate system dictionary with time, variable, lat, and lon dimensions
 
         Raises
@@ -150,19 +150,21 @@ class InterpEquirectangular(torch.nn.Module):
         else:
             variables = self.VARIABLES
 
-        return CoordSystem(
-            {
-                "time": request_time,
-                "variable": np.array(variables, dtype=str),
-                "lat": self._lat,
-                "lon": self._lon,
-            }
+        return (
+            CoordSystem(
+                {
+                    "time": request_time,
+                    "variable": np.array(variables, dtype=str),
+                    "lat": self._lat,
+                    "lon": self._lon,
+                }
+            ),
         )
 
     def __call__(self, x: pd.DataFrame) -> xr.DataArray:
         """Stateless forward pass"""
         input_coords = self.input_coords()
-        output_coords = self.output_coords(input_coords, **x.attrs)
+        (output_coords,) = self.output_coords(input_coords, **x.attrs)
         # Validate observation types match input_coords
         validate_observation_fields(x, required_fields=list(input_coords[0].keys()))
         return self._interpolate_dataframe(x, output_coords)
@@ -171,7 +173,6 @@ class InterpEquirectangular(torch.nn.Module):
         xr.DataArray,
         pd.DataFrame,
         None,
-    ]:
     ]:
         """Creates a generator which accepts collection of input observations and
         outputs a collection of assimilated data.
