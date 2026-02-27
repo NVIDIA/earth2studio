@@ -75,14 +75,14 @@ class AssimilationModel(Protocol):
 
         Yields
         ------
-        *pd.DataFrame | xr.DataArray
+        tuple[pd.DataFrame | xr.DataArray, ...]
             Generator yields multiple arguments of assimilated data. Each argument
             can be a DataFrame (PyArrow Table or cudf DataFrame) or xarray DataArray.
             Supports any number of arguments.
 
         Receives
         --------
-        *pd.DataFrame | xr.DataArray
+        tuple[pd.DataFrame | xr.DataArray, ...]
             Observations sent via generator.send() as multiple arguments. Each
             argument can be a DataFrame (PyArrow Table or cudf DataFrame) or xarray
             DataArray. None is sent initially to start the generator. Supports any
