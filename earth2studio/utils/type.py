@@ -32,5 +32,5 @@ TimeTolerance = (
     timedelta
     | np.timedelta64
     | tuple[timedelta, timedelta]
-    | tuple[np.timedelta64 | np.timedelta64]
+    | tuple[np.timedelta64, np.timedelta64]
 )
