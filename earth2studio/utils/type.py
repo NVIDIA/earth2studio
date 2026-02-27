@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from datetime import timedelta
 
 import numpy as np
 
@@ -26,3 +27,10 @@ VariableArray = np.ndarray[str]
 LeadTimeArray = np.ndarray[np.timedelta64]
 TimeArray = np.ndarray[np.datetime64]
 FieldArray = np.ndarray[str]
+
+TimeTolerance = (
+    timedelta
+    | np.timedelta64
+    | tuple[timedelta, timedelta]
+    | tuple[np.timedelta64 | np.timedelta64]
+)

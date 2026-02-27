@@ -16,41 +16,27 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import pandas as pd
-import pyarrow as pa
 import xarray as xr
-from typing_extensions import Unpack
 
-from earth2studio.utils.type import CoordSystem, LeadTimeArray, TimeArray
+from earth2studio.utils.type import CoordSystem, FrameSchema
 
-if TYPE_CHECKING:
-    try:
-        import cudf
-    except ImportError:
-        cudf = None  # type: ignore[assignment, misc]
-else:
-    try:
-        import cudf
-    except ImportError:
-        cudf = None  # type: ignore[assignment, misc]
+try:
+    import cudf
+except ImportError:
+    cudf = None  # type: ignore[assignment, misc]
 
-
-# Type alias for DataFrame-like objects (PyArrow Table or cudf DataFrame)
-if cudf is not None:
-    DataFrame = pa.Table | cudf.DataFrame
-else:
-    DataFrame = pa.Table
 
 @runtime_checkable
 class AssimilationModel(Protocol):
     """Data assimilation model interface"""
 
     def __call__(
-        self, *obs: DataFrame | xr.DataArray,
-    ) -> tuple[DataFrame | xr.DataArray, ...]:
+        self,
+        *args: pd.DataFrame | xr.DataArray,
+    ) -> tuple[pd.DataFrame | xr.DataArray, ...]:
         """Stateless iteration for the data assimilation model.
 
         Processes observations and returns assimilated data without maintaining
@@ -59,14 +45,14 @@ class AssimilationModel(Protocol):
 
         Parameters
         ----------
-        *obs : DataFrame | xr.DataArray
+        *args : pd.DataFrame | xr.DataArray
             Variable number of observation arguments. Each argument can be a
-            DataFrame (PyArrow Table or cudf DataFrame) or xarray DataArray
+            DataFrame (pandas or cudf DataFrame) or xarray DataArray
             containing observation data.
 
         Returns
         -------
-        tuple[DataFrame | xr.DataArray, ...]
+        tuple[pd.DataFrame | xr.DataArray, ...]
             Assimilated data output. Can return a combination of DataFrames or
             xarray DataArrays depending on the particular model. Output is expect to be
             on the same device as the model.
@@ -75,8 +61,8 @@ class AssimilationModel(Protocol):
     def create_generator(
         self,
     ) -> Generator[
-        *DataFrame | xr.DataArray,
-        *DataFrame | xr.DataArray,
+        tuple[pd.DataFrame | xr.DataArray, ...],
+        tuple[pd.DataFrame | xr.DataArray, ...],
         None,
     ]:
         """Creates a generator which accepts collection of input observations and
@@ -87,21 +73,16 @@ class AssimilationModel(Protocol):
         method and yields assimilated data (DataFrame or DataArray) as output.
         Supports any number of arguments (variadic).
 
-        Parameters
-        ----------
-        x : AssimilationInput
-            Input configuration for the assimilation model
-
         Yields
         ------
-        *DataFrame | xr.DataArray
+        *pd.DataFrame | xr.DataArray
             Generator yields multiple arguments of assimilated data. Each argument
             can be a DataFrame (PyArrow Table or cudf DataFrame) or xarray DataArray.
             Supports any number of arguments.
 
         Receives
         --------
-        *DataFrame | xr.DataArray
+        *pd.DataFrame | xr.DataArray
             Observations sent via generator.send() as multiple arguments. Each
             argument can be a DataFrame (PyArrow Table or cudf DataFrame) or xarray
             DataArray. None is sent initially to start the generator. Supports any
@@ -109,7 +90,7 @@ class AssimilationModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> tuple[FrameSchema | CoordSystem, ...]:
         """Input coordinate system of assimilation model.
 
         For DataFrame inputs, this should return a PyArrow schema (or a wrapper
@@ -118,36 +99,38 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        CoordSystem
-            PyArrow schema for DataFrame inputs or coordinate system dictionary
-            for tensor inputs
+        tuple[FrameSchema | CoordSystem, ...]
+            Tuple of coordinate systems or frame schemas, one for each input argument
+            that __call__ or create_generator accepts
         """
         pass
 
     def output_coords(
-        self, input_coords: CoordSystem, x: AssimilationInput
-    ) -> pa.Schema | CoordSystem:
+        self,
+        input_coords: tuple[FrameSchema | CoordSystem, ...],
+        *args: Any,
+        **kwargs: Any,
+    ) -> tuple[FrameSchema | CoordSystem, ...]:
         """Output coordinate system of the assimilation model given an input coordinate
         system.
 
         Parameters
         ----------
-        input_coords : pa.Schema | CoordSystem
-            Input coordinate system (PyArrow schema for DataFrame inputs or CoordSystem
-            for tensor inputs) to transform into output_coords
-        x : AssimilationInput
-            Input configuration for the assimilation model
+        input_coords : tuple[FrameSchema | CoordSystem, ...]
+            Input coordinate system tuple. FrameSchema (OrderedDict mapping field names
+            to numpy arrays) for DataFrame inputs, or CoordSystem (OrderedDict mapping
+            dimension names to coordinate arrays) for tensor inputs
+        *args
+            Additional positional arguments
+        **kwargs
+            Additional keyword arguments, typically including request metadata such as
+            request_time and request_lead_time from DataFrame attrs
 
         Returns
         -------
-        pa.Schema | CoordSystem
-            Output coordinate system (PyArrow schema for DataFrame outputs or CoordSystem
-            for tensor outputs)
-
-        Raises
-        ------
-        ValueError
-            If input_coords are not valid
+        tuple[FrameSchema | CoordSystem, ...]
+            Tuple of coordinate systems or frame schemas, one for each output argument
+            that __call__ or create_generator returns
         """
         pass
 

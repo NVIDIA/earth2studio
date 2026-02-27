@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from collections.abc import Generator
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -21,16 +22,15 @@ import torch
 import xarray as xr
 from loguru import logger
 
-from earth2studio.models.da.base import DataFrame
 from earth2studio.models.da.utils import (
-    validate_input,
     validate_observation_fields,
 )
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import FrameSchema, CoordSystem
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
 
 try:
     import cupy as cp
@@ -60,11 +60,15 @@ class InterpEquirectangular(torch.nn.Module):
         grid over CONUS)
     interp_method : str, optional
         Interpolation method to use: 'nearest', 'linear', or 'cubic', by default "linear"
+    tolerance : TimeTolerance, optional
+        Time tolerance for filtering observations. Observations within the tolerance
+        window around each requested time will be used for interpolation, by default
+        np.timedelta64(10, "m")
 
     Raises
     ------
     ValueError
-        If interpolation_type is not one of the supported methods
+        If interp_method is not one of the supported methods
     """
 
     # Acceptable variables for this model
@@ -75,11 +79,12 @@ class InterpEquirectangular(torch.nn.Module):
         lat: np.ndarray | None = None,
         lon: np.ndarray | None = None,
         interp_method: str = "linear",
+        tolerance: TimeTolerance = np.timedelta64(10, "m"),
     ) -> None:
         if interp_method not in ["nearest", "linear", "cubic"]:
             raise ValueError(
-                f"interpolation_type must be one of ['nearest', 'linear', 'cubic'], "
-                f"got {interpolation_type}"
+                f"interp_method must be one of ['nearest', 'linear', 'cubic'], "
+                f"got {interp_method}"
             )
         super().__init__()
         self._lat = (
@@ -89,9 +94,10 @@ class InterpEquirectangular(torch.nn.Module):
             lon if lon is not None else np.linspace(235.0, 295.0, 241, dtype=np.float32)
         )
         self.interp_method = interp_method
+        self._tolerance = normalize_time_tolerance(tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
-    def input_coords(self) -> tuple[FrameSchema|CoordSystem]:
+    def input_coords(self) -> tuple[FrameSchema | CoordSystem]:
         """Input coordinate system specifying required DataFrame fields.
 
         Returns
@@ -114,7 +120,10 @@ class InterpEquirectangular(torch.nn.Module):
         )
 
     def output_coords(
-        self, input_coords: tuple[CoordSystem], request_time: np.ndarray, **kwargs,
+        self,
+        input_coords: tuple[CoordSystem],
+        request_time: np.ndarray,
+        **kwargs: Any,
     ) -> CoordSystem:
         """Output coordinate system for assimilated data.
 
@@ -148,11 +157,16 @@ class InterpEquirectangular(torch.nn.Module):
             }
         )
 
-    def __call__(self, obs: DataFrame) -> xr.DataArray:
-        pass
+    def __call__(self, x: pd.DataFrame) -> xr.DataArray:
+        """Stateless forward pass"""
+        input_coords = self.input_coords()
+        output_coords = self.output_coords(input_coords, **x.attrs)
+        # Validate observation types match input_coords
+        validate_observation_fields(x, required_fields=list(input_coords[0].keys()))
+        return self._interpolate_dataframe(x, output_coords)
 
     def create_generator(self) -> Generator[
-        DataFrame,
+        pd.DataFrame,
         xr.DataArray,
         None,
     ]:
@@ -167,27 +181,20 @@ class InterpEquirectangular(torch.nn.Module):
         Yields
         ------
         xr.DataArray
-            Assimilated data output the generator yields 
-        
+            Assimilated data output the generator yields
+
         Receives
         --------
         *DataFrame
             Observations sent via generator.send()
         """
         # Validate input configuration
-        validate_input(x, required_fields=["time"])
-        input_coords = self.input_coords()
-        output_coords = self.output_coords(input_coords, x)
 
         # Initialize generator - first yield is None to start
         observations = yield None  # type: ignore[misc]
-    
         try:
             while True:
-                # Validate observation types match input_coords
-                validate_observation_fields(observations, required_fields=list(input_coords[0].keys()))
-
-                da = self._interpolate_dataframe(observations, output_coords)
+                da = self.__call__(observations)
                 observations = yield da
         except GeneratorExit:
             logger.debug("InterpEquirectangular clean up complete.")
@@ -239,33 +246,46 @@ class InterpEquirectangular(torch.nn.Module):
             device=device,
         )
 
-        # Group observations by variable and interpolate each
-        for var_idx, variable in enumerate(variables):
-            var_df = df[df["variable"] == variable].copy()
+        # Convert DataFrame time column to datetime64 if needed
+        df_time = pd.to_datetime(df["time"]).values.astype("datetime64[ns]")
 
-            if len(var_df) == 0:
-                # No observations for this variable, leave as NaN
-                continue
+        # Process each time step separately
+        for t_idx, request_time in enumerate(time_coords):
+            # Filter observations within tolerance window for this time step
+            lower_bound, upper_bound = self._tolerance
+            time_min = np.datetime64(request_time) + lower_bound
+            time_max = np.datetime64(request_time) + upper_bound
+            time_mask = (df_time >= time_min) & (df_time <= time_max)
+            time_filtered_df = df[time_mask].copy()
 
-            # Extract observation points and values, convert to torch
-            source_lat = torch.tensor(
-                var_df["lat"].values, dtype=torch.float32, device=device
-            )
-            source_lon = torch.tensor(
-                var_df["lon"].values, dtype=torch.float32, device=device
-            )
-            source_points_t = torch.stack([source_lat, source_lon], dim=1)
-            values_t = torch.tensor(
-                var_df["observation"].values, dtype=torch.float32, device=device
-            )
+            # Group observations by variable and interpolate each
+            for var_idx, variable in enumerate(variables):
+                var_df = time_filtered_df[
+                    time_filtered_df["variable"] == variable
+                ].copy()
 
-            # Interpolate to grid using PyTorch
-            grid_values = self._interpolate_scattered(
-                source_points_t, values_t, target_points_t, n_lat, n_lon
-            )
+                if len(var_df) == 0:
+                    # No observations for this variable at this time, leave as NaN
+                    continue
 
-            # Assign to all time steps
-            for t_idx in range(n_time):
+                # Extract observation points and values, convert to torch
+                source_lat = torch.tensor(
+                    var_df["lat"].values, dtype=torch.float32, device=device
+                )
+                source_lon = torch.tensor(
+                    var_df["lon"].values, dtype=torch.float32, device=device
+                )
+                source_points_t = torch.stack([source_lat, source_lon], dim=1)
+                values_t = torch.tensor(
+                    var_df["observation"].values, dtype=torch.float32, device=device
+                )
+
+                # Interpolate to grid using PyTorch
+                grid_values = self._interpolate_scattered(
+                    source_points_t, values_t, target_points_t, n_lat, n_lon
+                )
+
+                # Assign to this time step
                 interpolated_data[t_idx, var_idx, :, :] = grid_values
 
         # Create DataArray (convert tensor to numpy or cupy based on device)
@@ -359,9 +379,7 @@ class InterpEquirectangular(torch.nn.Module):
             weights = weights / weights.sum(dim=1, keepdim=True)
             interpolated = (weights @ values.unsqueeze(1)).squeeze(1)
         else:
-            raise ValueError(
-                f"Unsupported interpolation type: {self.interp_method}"
-            )
+            raise ValueError(f"Unsupported interpolation type: {self.interp_method}")
 
         # Reshape to grid
         return interpolated.reshape(n_lat, n_lon)
