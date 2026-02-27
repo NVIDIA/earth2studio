@@ -287,7 +287,7 @@ class InterpEquirectangular(torch.nn.Module):
 
         # Create DataArray (convert tensor to numpy or cupy based on device)
         if device.type == "cuda" and cp is not None:
-            data_array = cp.asarray(interpolated_data)
+            data_array = cp.asarray(interpolated_data)  # Zero-copy
         else:
             data_array = interpolated_data.cpu().numpy()
 
