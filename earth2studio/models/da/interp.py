@@ -168,9 +168,10 @@ class InterpEquirectangular(torch.nn.Module):
         return self._interpolate_dataframe(x, output_coords)
 
     def create_generator(self) -> Generator[
-        pd.DataFrame,
         xr.DataArray,
+        pd.DataFrame,
         None,
+    ]:
     ]:
         """Creates a generator which accepts collection of input observations and
         outputs a collection of assimilated data.
