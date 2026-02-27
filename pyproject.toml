@@ -235,6 +235,11 @@ windgust-afno = [
 physicsnemo-models = [
   "earth2studio[atlas,dlesym,dlwp,fcn,interp-modafno,stormcast,stormscope,corrdiff,precip-afno,precip-afno-v2,solarradiation-afno,windgust-afno]"
 ]
+# DA Models
+da-interp = [
+    "cupy-cuda12x<14.0.0",
+    "cudf-cu12==26.2.*",
+]
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils]",
