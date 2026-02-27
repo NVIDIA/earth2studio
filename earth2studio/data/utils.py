@@ -195,7 +195,7 @@ def fetch_dataframe(
             result = cudf.from_pandas(df)
         return result
     else:
-        return pa
+        return df
 
 
 def prep_data_array(
