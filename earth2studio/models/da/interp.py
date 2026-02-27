@@ -23,6 +23,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.models.da.utils import (
+    dfseries_to_torch,
     filter_time_range,
     validate_observation_fields,
 )
@@ -265,15 +266,15 @@ class InterpEquirectangular(torch.nn.Module):
                     continue
 
                 # Extract observation points and values, convert to torch
-                source_lat = torch.tensor(
-                    var_df["lat"].values, dtype=torch.float32, device=device
+                source_lat = dfseries_to_torch(
+                    var_df["lat"], dtype=torch.float32, device=device
                 )
-                source_lon = torch.tensor(
-                    var_df["lon"].values, dtype=torch.float32, device=device
+                source_lon = dfseries_to_torch(
+                    var_df["lon"], dtype=torch.float32, device=device
                 )
                 source_points_t = torch.stack([source_lat, source_lon], dim=1)
-                values_t = torch.tensor(
-                    var_df["observation"].values, dtype=torch.float32, device=device
+                values_t = dfseries_to_torch(
+                    var_df["observation"], dtype=torch.float32, device=device
                 )
 
                 # Interpolate to grid using PyTorch

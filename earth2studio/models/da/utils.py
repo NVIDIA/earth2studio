@@ -19,6 +19,8 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import torch
+from loguru import logger
 
 try:
     import cudf
@@ -113,3 +115,53 @@ def filter_time_range(
 
     time_mask = (df[time_column] >= time_min) & (df[time_column] <= time_max)
     return df[time_mask]
+
+
+def dfseries_to_torch(
+    series: pd.Series | cudf.Series,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str = "cpu",
+) -> torch.Tensor:
+    """Convert a DataFrame series to a torch tensor with zero-copy for cudf.
+
+    If the series is from a cudf DataFrame, uses dlpack for zero-copy transfer.
+    If the series is from pandas but target device is GPU, transfers the data
+    and warns that cudf is not being used.
+
+    Parameters
+    ----------
+    series : pd.Series | cudf.Series
+        Series to convert to torch tensor. Can be pandas or cudf Series.
+    dtype : torch.dtype, optional
+        Desired dtype for the tensor, by default torch.float32
+    device : torch.device | str, optional
+        Target device for the tensor, by default "cpu"
+
+    Returns
+    -------
+    torch.Tensor
+        Torch tensor with the series data on the specified device
+
+    Raises
+    ------
+    ImportError
+        If cudf is required but not available
+    """
+    device = torch.device(device)
+
+    # Check if series is from cudf
+    if cudf is not None and isinstance(series, cudf.Series):
+        # Use dlpack for zero-copy transfer from cudf to torch
+        return torch.from_dlpack(series.values).to(dtype=dtype, device=device)
+
+    # Handle pandas Series
+    if device.type == "cuda":
+        # Warn that cudf is not being used for GPU transfer
+        logger.warning(
+            "Converting pandas Series to GPU tensor. Consider install cudf"
+            "for zero-copy transfer and better performance."
+        )
+        return torch.tensor(series.values, dtype=dtype, device=device)
+
+    # CPU case - standard conversion
+    return torch.tensor(series.values, dtype=dtype, device=device)
