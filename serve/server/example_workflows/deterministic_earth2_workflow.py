@@ -25,11 +25,11 @@ as a custom pipeline that can be invoked via the REST API.
 from datetime import datetime
 from typing import Literal
 
-from api_server.workflow import Earth2Workflow, workflow_registry
 from earth2studio import run
 from earth2studio.data import GFS
 from earth2studio.io import IOBackend
 from earth2studio.models.px import DLWP, FCN
+from earth2studio.serve.server import Earth2Workflow, workflow_registry
 
 
 @workflow_registry.register

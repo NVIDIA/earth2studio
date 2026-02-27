@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Unit tests for api_server.main module.
+Unit tests for earth2studio.serve.server.main module.
 
 Tests the FastAPI endpoints including the workflow schema endpoint.
 """
@@ -69,7 +69,7 @@ def _patched_route_init(self, *args, **kwargs):
         raise
 
 
-# Apply the patch before any imports of api_server.main
+# Apply the patch before any imports of earth2studio.serve.server.main
 fastapi.routing.APIRoute.__init__ = _patched_route_init
 
 
@@ -79,7 +79,7 @@ class TestWorkflowSchemaEndpoint:
     @pytest.fixture
     def mock_workflow_class(self):
         """Create a mock workflow class with Parameters"""
-        from api_server.workflow import Workflow, WorkflowParameters
+        from earth2studio.serve.server.workflow import Workflow, WorkflowParameters
 
         class TestWorkflowParameters(WorkflowParameters):
             """Test parameters for unit testing"""
@@ -123,7 +123,7 @@ class TestWorkflowSchemaEndpoint:
             patch("redis.asyncio.Redis") as mock_async_redis,
             patch("redis.Redis") as mock_sync_redis,
             patch("rq.Queue"),
-            patch("api_server.workflow.register_all_workflows"),
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
         ):
             # Setup mock async Redis
             mock_async_instance = MagicMock()
@@ -138,8 +138,8 @@ class TestWorkflowSchemaEndpoint:
             mock_sync_instance.close = MagicMock()
             mock_sync_redis.return_value = mock_sync_instance
 
-            from api_server.main import app
-            from api_server.workflow import workflow_registry
+            from earth2studio.serve.server.main import app
+            from earth2studio.serve.server.workflow import workflow_registry
 
             # Register the test workflow
             workflow_registry._workflows["test_workflow"] = mock_workflow_class
@@ -248,13 +248,14 @@ class TestWorkflowParameterValidation:
         from typing import Any, Literal
         from unittest.mock import MagicMock, patch
 
-        from api_server.main import app
-        from api_server.workflow import (
+        from pydantic import Field
+
+        from earth2studio.serve.server.main import app
+        from earth2studio.serve.server.workflow import (
             Workflow,
             WorkflowParameters,
             workflow_registry,
         )
-        from pydantic import Field
 
         # Create test workflow parameter classes with Literal validation
         class TestDeterministicParams(WorkflowParameters):
@@ -326,8 +327,8 @@ class TestWorkflowParameterValidation:
         mock_queue.__len__ = MagicMock(return_value=0)
         mock_queue.max_size = 100
 
-        with patch("api_server.main.redis_sync_client", mock_redis):
-            with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.redis_sync_client", mock_redis):
+            with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
                 test_client = TestClient(app)
                 yield test_client, mock_queue, mock_redis
 
@@ -694,7 +695,7 @@ class TestWorkflowExecutionRequest:
 
     def test_valid_request_with_parameters(self):
         """Test that valid request with parameters field is accepted"""
-        from api_server.main import WorkflowExecutionRequest
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Valid request
         request = WorkflowExecutionRequest(
@@ -704,7 +705,7 @@ class TestWorkflowExecutionRequest:
 
     def test_valid_request_with_empty_parameters(self):
         """Test that request with empty parameters dict is accepted"""
-        from api_server.main import WorkflowExecutionRequest
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Empty parameters is valid
         request = WorkflowExecutionRequest(parameters={})
@@ -712,7 +713,7 @@ class TestWorkflowExecutionRequest:
 
     def test_valid_request_without_parameters_uses_default(self):
         """Test that request without parameters field uses default empty dict"""
-        from api_server.main import WorkflowExecutionRequest
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # No parameters provided - should use default
         request = WorkflowExecutionRequest()
@@ -720,8 +721,9 @@ class TestWorkflowExecutionRequest:
 
     def test_invalid_request_with_extra_fields(self):
         """Test that request with unknown fields is rejected"""
-        from api_server.main import WorkflowExecutionRequest
         from pydantic import ValidationError
+
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Request with unknown field should be rejected
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
@@ -731,8 +733,9 @@ class TestWorkflowExecutionRequest:
 
     def test_invalid_request_with_multiple_extra_fields(self):
         """Test that request with multiple unknown fields is rejected"""
-        from api_server.main import WorkflowExecutionRequest
         from pydantic import ValidationError
+
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Multiple unknown fields
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
@@ -745,8 +748,9 @@ class TestWorkflowExecutionRequest:
 
     def test_invalid_request_flat_structure(self):
         """Test that flat request structure (without parameters wrapper) is rejected"""
-        from api_server.main import WorkflowExecutionRequest
         from pydantic import ValidationError
+
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Flat structure - fields that should be inside 'parameters'
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
@@ -758,8 +762,9 @@ class TestWorkflowExecutionRequest:
 
     def test_invalid_request_mixed_structure(self):
         """Test that mixed structure (parameters + extra fields) is rejected"""
-        from api_server.main import WorkflowExecutionRequest
         from pydantic import ValidationError
+
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Mixed: valid parameters field + invalid extra fields
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
@@ -771,8 +776,9 @@ class TestWorkflowExecutionRequest:
 
     def test_parameters_field_type_validation(self):
         """Test that parameters field must be a dict"""
-        from api_server.main import WorkflowExecutionRequest
         from pydantic import ValidationError
+
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # parameters must be a dict, not a string
         with pytest.raises(ValidationError):
@@ -788,7 +794,7 @@ class TestWorkflowExecutionRequest:
 
     def test_valid_request_serialization(self):
         """Test that valid request can be serialized to dict"""
-        from api_server.main import WorkflowExecutionRequest
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         request = WorkflowExecutionRequest(
             parameters={"forecast_times": ["2024-01-01"], "nsteps": 10}
@@ -801,7 +807,7 @@ class TestWorkflowExecutionRequest:
 
     def test_valid_request_with_nested_parameters(self):
         """Test that request with nested parameter structures is accepted"""
-        from api_server.main import WorkflowExecutionRequest
+        from earth2studio.serve.server.main import WorkflowExecutionRequest
 
         # Complex nested parameters
         request = WorkflowExecutionRequest(
@@ -842,9 +848,9 @@ class TestQueuePosition:
         """Test getting position for first job in queue"""
         from unittest.mock import patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             position = get_queue_position("workflow1_exec_001")
             assert position == 0  # 0-indexed: first job is at position 0
 
@@ -852,9 +858,9 @@ class TestQueuePosition:
         """Test getting position for job in middle of queue"""
         from unittest.mock import patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             position = get_queue_position("workflow1_exec_003")
             assert position == 2  # 0-indexed: third job is at position 2
 
@@ -862,9 +868,9 @@ class TestQueuePosition:
         """Test getting position for last job in queue"""
         from unittest.mock import patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             position = get_queue_position("workflow3_exec_004")
             assert position == 3  # 0-indexed: fourth job is at position 3
 
@@ -872,9 +878,9 @@ class TestQueuePosition:
         """Test getting position for job not in queue returns None"""
         from unittest.mock import patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             position = get_queue_position("nonexistent_job")
             assert position is None
 
@@ -882,9 +888,9 @@ class TestQueuePosition:
         """Test getting position when queue is not initialized returns None"""
         from unittest.mock import patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
-        with patch("api_server.main.inference_queue", None):
+        with patch("earth2studio.serve.server.main.inference_queue", None):
             position = get_queue_position("any_job")
             assert position is None
 
@@ -892,12 +898,12 @@ class TestQueuePosition:
         """Test getting position when queue is empty"""
         from unittest.mock import MagicMock, patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
         empty_queue = MagicMock()
         empty_queue.job_ids = []
 
-        with patch("api_server.main.inference_queue", empty_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", empty_queue):
             position = get_queue_position("any_job")
             assert position is None
 
@@ -905,14 +911,14 @@ class TestQueuePosition:
         """Test that exceptions in get_queue_position are handled gracefully"""
         from unittest.mock import MagicMock, PropertyMock, patch
 
-        from api_server.main import get_queue_position
+        from earth2studio.serve.server.main import get_queue_position
 
         queue_with_error = MagicMock()
         type(queue_with_error).job_ids = PropertyMock(
             side_effect=Exception("Queue connection error")
         )
 
-        with patch("api_server.main.inference_queue", queue_with_error):
+        with patch("earth2studio.serve.server.main.inference_queue", queue_with_error):
             position = get_queue_position("any_job")
             assert position is None
 
@@ -923,7 +929,7 @@ class TestWorkflowExecutionWithQueuePosition:
     @pytest.fixture
     def mock_workflow_class(self):
         """Create a mock workflow class"""
-        from api_server.workflow import Workflow, WorkflowParameters
+        from earth2studio.serve.server.workflow import Workflow, WorkflowParameters
 
         class TestWorkflowParameters(WorkflowParameters):
             """Test parameters"""
@@ -951,7 +957,7 @@ class TestWorkflowExecutionWithQueuePosition:
             patch("redis.asyncio.Redis") as mock_async_redis,
             patch("redis.Redis") as mock_sync_redis,
             patch("rq.Queue") as mock_queue_class,
-            patch("api_server.workflow.register_all_workflows"),
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
         ):
             # Setup mock async Redis
             mock_async_instance = MagicMock()
@@ -973,8 +979,8 @@ class TestWorkflowExecutionWithQueuePosition:
             mock_queue.job_ids = []
             mock_queue_class.return_value = mock_queue
 
-            from api_server.main import app
-            from api_server.workflow import workflow_registry
+            from earth2studio.serve.server.main import app
+            from earth2studio.serve.server.workflow import workflow_registry
 
             # Register the test workflow
             workflow_registry._workflows["test_workflow"] = mock_workflow_class
@@ -1004,7 +1010,7 @@ class TestWorkflowExecutionWithQueuePosition:
         mock_redis.llen = MagicMock(return_value=0)
 
         # Patch the inference_queue at module level
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             response = test_client.post(
                 "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
             )
@@ -1035,7 +1041,7 @@ class TestWorkflowExecutionWithQueuePosition:
         mock_redis.llen = MagicMock(return_value=2)
 
         # Patch the inference_queue at module level
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             response = test_client.post(
                 "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
             )
@@ -1066,7 +1072,7 @@ class TestWorkflowExecutionWithQueuePosition:
         mock_redis.llen = MagicMock(return_value=5)
 
         # Patch the inference_queue at module level
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             response = test_client.post(
                 "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
             )
@@ -1105,7 +1111,7 @@ class TestWorkflowExecutionWithQueuePosition:
         mock_redis.get = MagicMock(return_value=json.dumps(execution_data).encode())
 
         # Patch the inference_queue for get_queue_position to use
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             response = test_client.get(f"/v1/infer/test_workflow/{execution_id}/status")
 
         assert response.status_code == 200
@@ -1140,7 +1146,7 @@ class TestWorkflowExecutionWithQueuePosition:
         mock_redis.get = MagicMock(return_value=json.dumps(execution_data).encode())
 
         # Patch the inference_queue for get_queue_position to use
-        with patch("api_server.main.inference_queue", mock_queue):
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             response = test_client.get(f"/v1/infer/test_workflow/{execution_id}/status")
 
         assert response.status_code == 200

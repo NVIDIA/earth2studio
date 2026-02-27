@@ -25,13 +25,14 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-from api_server.cleanup_daemon import (
+
+from earth2studio.serve.server.cleanup_daemon import (
     _delete_result_files,
     _process_expired_key,
     cleanup_expired_results,
 )
-from api_server.config import get_config
-from api_server.workflow import WorkflowStatus
+from earth2studio.serve.server.config import get_config
+from earth2studio.serve.server.workflow import WorkflowStatus
 
 
 class TestDeleteResultFiles:
@@ -84,12 +85,16 @@ class TestDeleteResultFiles:
         mock_zip_dir.iterdir.return_value = [mock_metadata_file]
 
         with (
-            patch("api_server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir),
             patch(
-                "api_server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
+                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
+            ),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
                 mock_output_dir,
             ),
-            patch("api_server.cleanup_daemon.shutil.rmtree") as mock_rmtree,
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.shutil.rmtree"
+            ) as mock_rmtree,
         ):
             # Execute
             _delete_result_files(
@@ -118,9 +123,11 @@ class TestDeleteResultFiles:
         mock_zip_dir.iterdir.return_value = []
 
         with (
-            patch("api_server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir),
             patch(
-                "api_server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
+                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
+            ),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
                 mock_output_dir,
             ),
         ):
@@ -228,7 +235,7 @@ class TestCleanupExpiredResults:
     @pytest.fixture
     def mock_config(self):
         """Mock the config"""
-        with patch("api_server.cleanup_daemon.config") as mock_cfg:
+        with patch("earth2studio.serve.server.cleanup_daemon.config") as mock_cfg:
             mock_cfg.server.results_ttl_hours = 24
             mock_cfg.redis.retention_ttl = 604800
             yield mock_cfg
@@ -270,12 +277,14 @@ class TestCleanupExpiredResults:
         mock_zip_dir.iterdir.return_value = []
 
         with (
-            patch("api_server.cleanup_daemon._delete_result_files"),
+            patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),
             patch(
-                "api_server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
+                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
                 mock_output_dir,
             ),
-            patch("api_server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
+            ),
         ):
             # Execute
             cleanup_expired_results(mock_redis)
@@ -353,12 +362,14 @@ class TestCleanupExpiredResults:
         mock_zip_dir.iterdir.return_value = []
 
         with (
-            patch("api_server.cleanup_daemon._delete_result_files"),
+            patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),
             patch(
-                "api_server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
+                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
                 mock_output_dir,
             ),
-            patch("api_server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
+            ),
         ):
             # Execute - should not raise exception
             cleanup_expired_results(mock_redis)
@@ -381,7 +392,9 @@ class TestCleanupExpiredResults:
             {"status": WorkflowStatus.COMPLETED, "end_time": old_time}
         )
 
-        with patch("api_server.cleanup_daemon._delete_result_files") as mock_delete:
+        with patch(
+            "earth2studio.serve.server.cleanup_daemon._delete_result_files"
+        ) as mock_delete:
             mock_delete.side_effect = Exception("File deletion error")
 
             # Execute - should handle exception and continue
@@ -416,12 +429,16 @@ class TestCleanupExpiredResults:
         mock_zip_dir.iterdir.return_value = []
 
         with (
-            patch("api_server.cleanup_daemon._delete_result_files") as mock_delete,
             patch(
-                "api_server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
+                "earth2studio.serve.server.cleanup_daemon._delete_result_files"
+            ) as mock_delete,
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
                 mock_output_dir,
             ),
-            patch("api_server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
+            ),
         ):
             # Execute
             cleanup_expired_results(mock_redis)
@@ -443,7 +460,7 @@ class TestCleanupExpiredResults:
     def test_cleanup_expired_results_custom_ttl_config(self, mock_redis):
         """Test cleanup with custom TTL configuration"""
         # Setup custom config
-        with patch("api_server.cleanup_daemon.config") as mock_cfg:
+        with patch("earth2studio.serve.server.cleanup_daemon.config") as mock_cfg:
             mock_cfg.server.results_ttl_hours = 48  # Custom 48 hour TTL
             mock_cfg.redis.retention_ttl = 604800
 
@@ -481,13 +498,13 @@ class TestCleanupExpiredResults:
             mock_zip_dir.iterdir.return_value = []
 
             with (
-                patch("api_server.cleanup_daemon._delete_result_files"),
+                patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),
                 patch(
-                    "api_server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
+                    "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
                     mock_output_dir,
                 ),
                 patch(
-                    "api_server.cleanup_daemon.RESULTS_ZIP_DIR",
+                    "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR",
                     mock_zip_dir,
                 ),
             ):

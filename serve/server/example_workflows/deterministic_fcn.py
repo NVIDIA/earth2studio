@@ -16,9 +16,12 @@
 # limitations under the License.
 
 """
-Diagnostic Custom Workflow
+Deterministic FCN Workflow Custom Pipeline
 
-This workflow implements the recipe examples/02_diagnostic_workflow.py
+This pipeline implements the deterministic workflow from examples/01_deterministic_workflow.py
+as a custom pipeline that can be invoked via the REST API.
+
+It loads the FCN model once and stores it in the instance.
 """
 
 import json
@@ -28,7 +31,7 @@ from typing import Any, Literal
 import zarr
 from pydantic import Field
 
-from api_server.workflow import (
+from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
@@ -40,8 +43,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class DiagnosticWorkflowParameters(WorkflowParameters):
-    """Parameters for the diagnostic workflow"""
+class DeterministicFCNWorkflowParameters(WorkflowParameters):
+    """Parameters for the deterministic workflow"""
 
     # Forecast configuration
     forecast_times: list[str] = Field(
@@ -52,18 +55,7 @@ class DiagnosticWorkflowParameters(WorkflowParameters):
         default=6,
         ge=1,
         le=100,
-        description="Number of forecast steps",
-    )
-
-    # Prognostic Model configuration
-    prognostic_model_type: Literal["dlwp", "fcn"] = Field(
-        default="fcn", description="Prognostic model type (dlwp, fcn)"
-    )
-
-    # Diagnostic Model configuration
-    diagnostic_model_type: Literal["precipitation_afno"] = Field(
-        default="precipitation_afno",
-        description="Diagnostic model type (currently precipitation_afno)",
+        description="Number of forecast steps (each step is 6 hours for FCN)",
     )
 
     # Data source configuration
@@ -80,53 +72,58 @@ class DiagnosticWorkflowParameters(WorkflowParameters):
     create_plots: bool = Field(
         default=True, description="Whether to create visualization plots"
     )
-    plot_variable: Literal["tp", "t2m", "msl", "u10m", "v10m", "tcwv", "z500"] = Field(
-        default="tp",
-        description="Variable to plot (tp=precipitation, t2m=temperature, msl=pressure, u10m/v10m=wind, tcwv=water vapor, z500=geopotential)",
+    plot_variable: Literal["t2m", "msl", "u10m", "v10m", "tcwv", "z500"] = Field(
+        default="t2m",
+        description="Variable to plot (t2m=temperature, msl=pressure, u10m/v10m=wind, tcwv=water vapor, z500=geopotential)",
     )
     plot_step: int = Field(
         default=4,
         ge=0,
-        description="Forecast step to plot (step 4 = 24 hours for DLWP)",
+        description="Forecast step to plot (step 4 = 24 hours for FCN)",
     )
 
 
 @workflow_registry.register
-class DiagnosticWorkflow(Workflow):
+class DeterministicFCNWorkflow(Workflow):
     """
-    Diagnostic workflow that runs Earth2Studio diagnostic forecasts.
+    Deterministic workflow that runs Earth2Studio deterministic forecasts.
 
     This workflow:
-    1. Loads a prognostic model (DLWP, FCN, etc.)
-    2. Loads a diagnostic model (e.g. precipitation_afno)
-    3. Sets up a data source (GFS, ERA5)
-    4. Runs diagnostic forecast
-    5. Saves results in specified format
-    6. Optionally creates visualization plots
+    1. Loads a prognostic model (FCN)
+    2. Sets up a data source (GFS, ERA5)
+    3. Runs deterministic forecast
+    4. Saves results in specified format
+    5. Optionally creates visualization plots
     """
 
-    name = "diagnostic_workflow"
-    description = "Earth2Studio diagnostic forecast workflow with visualization"
-    Parameters = DiagnosticWorkflowParameters
+    name = "deterministic_fcn_workflow"
+    description = "Earth2Studio deterministic forecast workflow with FCN model"
+    Parameters = DeterministicFCNWorkflowParameters
 
-    # No __init__ needed - name and description are set by the registry during registration
+    def __init__(self) -> None:
+        super().__init__()
+        from earth2studio.models.px import FCN
+
+        # load the model once and store it in the instance
+        self.package = FCN.load_default_package()
+        self.model = FCN.load_model(self.package)
 
     @classmethod
     def validate_parameters(
-        cls, parameters: dict[str, Any] | DiagnosticWorkflowParameters
-    ) -> DiagnosticWorkflowParameters:
+        cls, parameters: dict[str, Any] | DeterministicFCNWorkflowParameters
+    ) -> DeterministicFCNWorkflowParameters:
         """Validate and convert input parameters"""
         try:
-            return DiagnosticWorkflowParameters.validate(parameters)
+            return DeterministicFCNWorkflowParameters.validate(parameters)
         except Exception as e:
             raise ValueError(f"Invalid parameters: {e}") from e
 
     def run(
         self,
-        parameters: dict[str, Any] | DiagnosticWorkflowParameters,
+        parameters: dict[str, Any] | DeterministicFCNWorkflowParameters,
         execution_id: str,
     ) -> dict[str, Any]:
-        """Run the diagnostic workflow pipeline"""
+        """Run the deterministic workflow pipeline"""
 
         # Validate and convert parameters to the correct type
         parameters = self.validate_parameters(parameters)
@@ -140,56 +137,19 @@ class DiagnosticWorkflow(Workflow):
             progress = WorkflowProgress(
                 progress="Importing Earth2Studio components...",
                 current_step=1,
-                total_steps=7,
+                total_steps=4,
             )
             self.update_execution_data(execution_id, progress)
 
             from earth2studio import run
             from earth2studio.data import GFS
             from earth2studio.io import ZarrBackend
-            from earth2studio.models.dx import PrecipitationAFNO
-            from earth2studio.models.px import DLWP, FCN
-
-            # Load prognostic model
-            progress = WorkflowProgress(
-                progress=f"Loading {parameters.prognostic_model_type} prognostic model...",
-                current_step=2,
-                total_steps=7,
-            )
-            self.update_execution_data(execution_id, progress)
-
-            if parameters.prognostic_model_type.lower() == "dlwp":
-                package = DLWP.load_default_package()
-                prognostic_model = DLWP.load_model(package)
-            elif parameters.prognostic_model_type.lower() == "fcn":
-                package = FCN.load_default_package()
-                prognostic_model = FCN.load_model(package)
-            else:
-                raise ValueError(
-                    f"Unsupported prognostic model type: {parameters.prognostic_model_type}"
-                )
-
-            # Load diagnostic model
-            progress = WorkflowProgress(
-                progress=f"Loading {parameters.diagnostic_model_type} diagnostic model...",
-                current_step=3,
-                total_steps=7,
-            )
-            self.update_execution_data(execution_id, progress)
-
-            if parameters.diagnostic_model_type.lower() == "precipitation_afno":
-                package = PrecipitationAFNO.load_default_package()
-                diagnostic_model = PrecipitationAFNO.load_model(package)
-            else:
-                raise ValueError(
-                    f"Unsupported diagnostic model type: {parameters.diagnostic_model_type}"
-                )
 
             # Set up data source
             progress = WorkflowProgress(
                 progress=f"Setting up {parameters.data_source} data source...",
-                current_step=4,
-                total_steps=7,
+                current_step=2,
+                total_steps=4,
             )
             self.update_execution_data(execution_id, progress)
 
@@ -207,23 +167,19 @@ class DiagnosticWorkflow(Workflow):
                     f"Unsupported output format: {parameters.output_format}"
                 )
 
-            # Run diagnostic workflow
+            # Run deterministic workflow
             progress = WorkflowProgress(
-                progress=f"Running diagnostic forecast ({parameters.nsteps} steps)...",
-                current_step=5,
-                total_steps=7,
+                progress=f"Running deterministic forecast ({parameters.nsteps} steps)...",
+                current_step=3,
+                total_steps=4,
             )
             self.update_execution_data(execution_id, progress)
 
             # Execute the workflow
-            io = run.diagnostic(  # type: ignore[assignment]
-                parameters.forecast_times,
-                parameters.nsteps,
-                prognostic_model,
-                diagnostic_model,
-                data,
-                io,
+            io_result = run.deterministic(  # type: ignore[assignment]
+                parameters.forecast_times, parameters.nsteps, self.model, data, io
             )
+            io = io_result  # type: ignore[assignment]
 
             # Consolidate zarr metadata for faster remote access
             if parameters.output_format.lower() == "zarr":
@@ -233,8 +189,7 @@ class DiagnosticWorkflow(Workflow):
             forecast_info = {
                 "forecast_times": parameters.forecast_times,
                 "nsteps": parameters.nsteps,
-                "prognostic_model_type": parameters.prognostic_model_type,
-                "diagnostic_model_type": parameters.diagnostic_model_type,
+                "model_type": "FCN",
                 "data_source": parameters.data_source,
                 "output_format": parameters.output_format,
             }
@@ -249,15 +204,15 @@ class DiagnosticWorkflow(Workflow):
             if parameters.create_plots:
                 progress = WorkflowProgress(
                     progress="Creating visualization plots...",
-                    current_step=6,
-                    total_steps=7,
+                    current_step=4,
+                    total_steps=4,
                 )
                 self.update_execution_data(execution_id, progress)
                 self.create_forecast_plot(io, parameters, execution_id)
 
             # Update completion status
             progress = WorkflowProgress(
-                progress="Complete!", current_step=7, total_steps=7
+                progress="Complete!", current_step=4, total_steps=4
             )
             self.update_execution_data(execution_id, progress)
 
@@ -283,16 +238,15 @@ class DiagnosticWorkflow(Workflow):
             # Mark workflow as failed
             progress = WorkflowProgress(progress="Failed!", error_message=str(e))
             self.update_execution_data(execution_id, progress)
-            raise
+            raise e
 
     def create_forecast_plot(
-        self, io: Any, parameters: DiagnosticWorkflowParameters, execution_id: str
+        self, io: Any, parameters: DeterministicFCNWorkflowParameters, execution_id: str
     ) -> None:
         """Create a forecast visualization plot"""
         try:
             import cartopy.crs as ccrs
             import matplotlib.pyplot as plt
-            import numpy as np
 
             # Create plot
             forecast_time = parameters.forecast_times[0]
@@ -302,10 +256,10 @@ class DiagnosticWorkflow(Workflow):
             plt.close("all")
 
             # Create a Robinson projection
-            projection = ccrs.Orthographic(-100, 40)
+            projection = ccrs.Robinson()
 
             # Create a figure and axes with the specified projection
-            _, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
+            _, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(12, 8))
 
             # Get data from the IO object
             lon = io["lon"][:]
@@ -325,31 +279,22 @@ class DiagnosticWorkflow(Workflow):
                 else:
                     raise ValueError("No data variables found in forecast output")
 
-            # Plot the field using contourf
-            levels = np.arange(0.0, 0.01, 0.001)
-
-            im = ax.contourf(
+            # Plot the field using pcolormesh
+            im = ax.pcolormesh(
                 lon,
                 lat,
                 data,
-                levels,
                 transform=ccrs.PlateCarree(),
-                vmax=0.01,
-                vmin=0.00,
-                cmap="terrain",
+                cmap="Spectral_r",
             )
 
             # Add colorbar
-            plt.colorbar(
-                im,
-                ax=ax,
-                ticks=levels,
-                shrink=0.75,
-                pad=0.04,
-                label="Total precipitation (m)",
+            cbar = plt.colorbar(
+                im, ax=ax, orientation="horizontal", pad=0.1, shrink=0.8
             )
+            cbar.set_label(f"{variable}")
 
-            # Calculate lead time in hours (assuming 6-hour steps for DLWP)
+            # Calculate lead time in hours (assuming 6-hour steps for FCN)
             lead_time_hours = step * 6
 
             # Set title
@@ -358,9 +303,8 @@ class DiagnosticWorkflow(Workflow):
             )
 
             # Add coastlines and gridlines
-            ax.set_extent([220, 340, 20, 70])  # [lat min, lat max, lon min, lon max]
             ax.coastlines()
-            ax.gridlines()
+            ax.gridlines(alpha=0.5)
 
             # Save plot
             output_dir = self.get_output_path(execution_id)
@@ -369,5 +313,6 @@ class DiagnosticWorkflow(Workflow):
             plt.close()
 
         except Exception:
+            # Log the error but don't fail the entire pipeline
             logger.exception("Could not create forecast plot")
             raise

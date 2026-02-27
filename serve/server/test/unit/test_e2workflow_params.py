@@ -39,7 +39,7 @@ except ImportError:
     IOBackend = Mock  # Mock for type hints
 
 # ruff: noqa: E402
-from api_server.workflow.e2workflow import Earth2Workflow, func_to_model
+from earth2studio.serve.server.e2workflow import Earth2Workflow, func_to_model
 
 # Skip all tests in this module if earth2studio is not available
 pytestmark = pytest.mark.skipif(

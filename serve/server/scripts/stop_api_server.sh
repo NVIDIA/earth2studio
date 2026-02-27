@@ -19,7 +19,7 @@ echo "Stopping API Server..."
 
 # Stop API workers
 echo "Stopping API workers..."
-pkill -f "uvicorn.*api_server.main:app"
+pkill -f "uvicorn.*earth2studio.serve.server.main:app"
 
 # Stop RQ inference workers
 echo "Stopping RQ inference workers..."

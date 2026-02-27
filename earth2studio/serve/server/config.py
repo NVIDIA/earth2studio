@@ -176,8 +176,9 @@ class ConfigManager:
     def _initialize_config(self) -> None:
         """Initialize configuration from Hydra"""
         try:
-            # Get config directory
-            config_dir = Path(__file__).parent / "conf"
+            # Config lives in serve/server/conf (unchanged location in repo)
+            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+            config_dir = _repo_root / "serve" / "server" / "conf"
 
             # Clear any existing Hydra instance
             GlobalHydra.instance().clear()
@@ -447,7 +448,7 @@ def get_config() -> AppConfig:
         AppConfig: The application configuration
 
     Example:
-        >>> from api_server.config import get_config
+        >>> from earth2studio.serve.server.config import get_config
         >>> config = get_config()
         >>> print(config.redis.host)
         'localhost'
@@ -463,7 +464,7 @@ def get_config_manager() -> ConfigManager:
         ConfigManager: The configuration manager
 
     Example:
-        >>> from api_server.config import get_config_manager
+        >>> from earth2studio.serve.server.config import get_config_manager
         >>> manager = get_config_manager()
         >>> manager.setup_logging()
     """
@@ -489,7 +490,7 @@ def get_workflow_config(name: str) -> dict[str, Any]:
         dict[str, Any]: The workflow configuration
 
     Example:
-        >>> from api_server.config import get_workflow_config
+        >>> from earth2studio.serve.server.config import get_workflow_config
         >>> config = get_workflow_config("deterministic_earth2_workflow")
         >>> print(config["model_type"])
         'fcn'

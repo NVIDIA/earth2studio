@@ -38,7 +38,7 @@ from typing import Any
 
 from pydantic import Field
 
-from api_server.workflow import (
+from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,

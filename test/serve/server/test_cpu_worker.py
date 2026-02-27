@@ -146,10 +146,10 @@ mock_config_module.get_config = Mock(return_value=MockAppConfig())
 mock_config_module.get_config_manager = Mock()
 
 # Inject the mock before importing cpu_worker
-sys.modules["api_server.config"] = mock_config_module
+sys.modules["earth2studio.serve.server.config"] = mock_config_module
 
 # Now import the module under test
-from api_server.cpu_worker import create_results_zip  # noqa: E402
+from earth2studio.serve.server.cpu_worker import create_results_zip  # noqa: E402
 
 
 class TestCreateResultsZip:

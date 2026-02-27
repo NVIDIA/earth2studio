@@ -34,8 +34,8 @@ from typing import Any
 
 import redis  # type: ignore[import-untyped]
 
-from api_server.config import get_config, get_config_manager
-from api_server.workflow import WorkflowStatus
+from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.workflow import WorkflowStatus
 
 # Get configuration
 config = get_config()

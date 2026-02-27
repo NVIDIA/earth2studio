@@ -39,8 +39,8 @@ from typing import Any
 import redis  # type: ignore[import-untyped]
 
 # Import configuration
-from api_server.config import get_config, get_config_manager
-from api_server.utils import (
+from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
@@ -48,7 +48,7 @@ from api_server.utils import (
     get_signed_url_key,
     queue_next_stage,
 )
-from api_server.workflow import (
+from earth2studio.serve.server.workflow import (
     WorkflowResult,
     WorkflowStatus,
     workflow_registry,
@@ -75,7 +75,7 @@ redis_client = redis.Redis(
 
 # Register custom workflows in the CPU worker process
 try:
-    from api_server.workflow import register_all_workflows
+    from earth2studio.serve.server.workflow import register_all_workflows
 
     register_all_workflows(redis_client)
     logger.info("Custom workflows registered successfully in CPU worker process")
@@ -554,7 +554,7 @@ def process_object_storage_upload(
         # Upload to object storage if enabled
 
         if config.object_storage.enabled and config.object_storage.bucket:
-            from api_server.object_storage import (
+            from earth2studio.serve.server.object_storage import (
                 MSCObjectStorage,
                 ObjectStorageError,
             )
@@ -568,7 +568,7 @@ def process_object_storage_upload(
                 )
 
             # Create S3 storage instance
-            storage_kwargs = {
+            storage_kwargs: dict[str, Any] = {
                 "bucket": config.object_storage.bucket,
                 "region": config.object_storage.region,
                 "use_transfer_acceleration": config.object_storage.use_transfer_acceleration,
@@ -768,7 +768,7 @@ def process_finalize_metadata(
     Returns:
         Dict containing result info, None on critical failure
     """
-    from api_server.workflow import WorkflowStatus, workflow_registry
+    from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
 
     request_id = f"{workflow_name}:{execution_id}"
     logger.info(f"Processing finalize metadata for {request_id}")

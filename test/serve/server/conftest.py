@@ -17,94 +17,85 @@
 """
 Shared pytest configuration for service tests.
 
-This conftest.py ensures that the serve/server directory is in the
-Python path so that api_server modules can be imported.
+This conftest.py ensures the Python path allows earth2studio.serve.server
+modules to be imported (earth2studio is the project package).
 """
 
 import sys
 from pathlib import Path
 
-# Add serve/server to Python path for imports
-_server_path = Path(__file__).parent.parent.parent.parent / "serve" / "server"
-if str(_server_path) not in sys.path:
-    sys.path.insert(0, str(_server_path))
+# Repo root is parent of test/serve/server; ensure project is importable
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
 
-# Store original api_server.config module to restore it if it gets mocked
+# Store original earth2studio.serve.server.config module to restore if mocked
 _original_config_module = None
+
+_CONFIG_MODULE = "earth2studio.serve.server.config"
 
 
 def pytest_configure(config):
-    """Store the original api_server.config module before any tests run"""
+    """Store the original config module before any tests run"""
     global _original_config_module
-    if "api_server.config" in sys.modules:
-        _original_config_module = sys.modules["api_server.config"]
+    if _CONFIG_MODULE in sys.modules:
+        _original_config_module = sys.modules[_CONFIG_MODULE]
 
 
 def pytest_runtest_setup(item):
-    """Restore the real api_server.config module before test_config.py tests"""
-    # Only restore for test_config.py tests to avoid interfering with other tests
-    if "test_config" in str(item.fspath):
-        import importlib
+    """Restore the real config module before test_config.py tests"""
+    if "test_config" not in str(item.fspath):
+        return
+    import importlib
 
-        # Remove any mock that might have been set by other test files
-        if "api_server.config" in sys.modules:
-            # Check if it's a mock (Mock objects have _mock_name attribute or are Mock instances)
-            config_module = sys.modules["api_server.config"]
-            is_mock = (
-                hasattr(config_module, "_mock_name")
-                or str(type(config_module)) == "<class 'unittest.mock.Mock'>"
-                or (
-                    hasattr(config_module, "__class__")
-                    and "Mock" in str(config_module.__class__)
-                )
+    if _CONFIG_MODULE in sys.modules:
+        config_module = sys.modules[_CONFIG_MODULE]
+        is_mock = (
+            hasattr(config_module, "_mock_name")
+            or str(type(config_module)) == "<class 'unittest.mock.Mock'>"
+            or (
+                hasattr(config_module, "__class__")
+                and "Mock" in str(config_module.__class__)
             )
-            if is_mock:
-                # It's a mock, restore the real module
-                # First, clear any references in parent modules
-                if "api_server" in sys.modules:
-                    api_server_module = sys.modules["api_server"]
-                    if (
-                        hasattr(api_server_module, "config")
-                        and api_server_module.config is config_module
-                    ):
-                        delattr(api_server_module, "config")
-                # Remove the mock from sys.modules
-                del sys.modules["api_server.config"]
-                # Also clear any submodules that might reference the mock
-                modules_to_remove = [
-                    key
-                    for key in sys.modules.keys()
-                    if key.startswith("api_server.config.")
-                ]
-                for key in modules_to_remove:
-                    del sys.modules[key]
-        # Force reload the real module to ensure fresh state
-        if "api_server.config" not in sys.modules:
-            importlib.import_module("api_server.config")
-        else:
-            # Only reload if it was a mock, otherwise just ensure state is correct
-            config_module = sys.modules["api_server.config"]
-            is_mock = (
-                hasattr(config_module, "_mock_name")
-                or str(type(config_module)) == "<class 'unittest.mock.Mock'>"
-            )
-            if is_mock:
-                importlib.reload(sys.modules["api_server.config"])
-        # Ensure _config_manager and ConfigManager._instance are properly initialized
-        real_config = sys.modules["api_server.config"]
-        # Check if _config_manager is a mock and reset if needed
-        cm = getattr(real_config, "_config_manager", None)
-        if cm is not None and (
-            hasattr(cm, "_mock_name") or str(type(cm)) == "<class 'unittest.mock.Mock'>"
+        )
+        if is_mock:
+            if "earth2studio.serve.server" in sys.modules:
+                server_module = sys.modules["earth2studio.serve.server"]
+                if (
+                    hasattr(server_module, "config")
+                    and server_module.config is config_module
+                ):
+                    delattr(server_module, "config")
+            del sys.modules[_CONFIG_MODULE]
+            modules_to_remove = [
+                k for k in sys.modules if k.startswith(_CONFIG_MODULE + ".")
+            ]
+            for k in modules_to_remove:
+                del sys.modules[k]
+    if _CONFIG_MODULE not in sys.modules:
+        importlib.import_module(_CONFIG_MODULE)
+    else:
+        config_module = sys.modules[_CONFIG_MODULE]
+        is_mock = (
+            hasattr(config_module, "_mock_name")
+            or str(type(config_module)) == "<class 'unittest.mock.Mock'>"
+        )
+        if is_mock:
+            importlib.reload(sys.modules[_CONFIG_MODULE])
+    real_config = sys.modules[_CONFIG_MODULE]
+    # Check if _config_manager is a mock and reset if needed
+    cm = getattr(real_config, "_config_manager", None)
+    if cm is not None and (
+        hasattr(cm, "_mock_name") or str(type(cm)) == "<class 'unittest.mock.Mock'>"
+    ):
+        real_config._config_manager = None
+    # Check if ConfigManager._instance is a mock and reset if needed
+    if hasattr(real_config, "ConfigManager") and hasattr(
+        real_config.ConfigManager, "_instance"
+    ):
+        inst = getattr(real_config.ConfigManager, "_instance", None)
+        if inst is not None and (
+            hasattr(inst, "_mock_name")
+            or str(type(inst)) == "<class 'unittest.mock.Mock'>"
         ):
-            real_config._config_manager = None
-        # Check if ConfigManager._instance is a mock and reset if needed
-        if hasattr(real_config, "ConfigManager") and hasattr(
-            real_config.ConfigManager, "_instance"
-        ):
-            inst = getattr(real_config.ConfigManager, "_instance", None)
-            if inst is not None and (
-                hasattr(inst, "_mock_name")
-                or str(type(inst)) == "<class 'unittest.mock.Mock'>"
-            ):
-                real_config.ConfigManager._instance = None
+            real_config.ConfigManager._instance = None

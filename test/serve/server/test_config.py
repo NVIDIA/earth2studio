@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Unit tests for api_server.config module.
+Unit tests for earth2studio.serve.server.config module.
 
 Tests configuration management, environment variable overrides, and singleton behavior.
 """
@@ -49,7 +49,7 @@ mock_omegaconf.OmegaConf.to_container = MagicMock(return_value={})
 
 # Import config after mocking dependencies (noqa: E402 - import after mocks is intentional)
 # Note: serve/server path is added by conftest.py
-from api_server.config import (  # noqa: E402
+from earth2studio.serve.server.config import (  # noqa: E402
     AppConfig,
     ConfigManager,
     CORSConfig,
@@ -183,7 +183,7 @@ class TestConfigManagerSingleton:
         # Reset clears the global
         reset_config()
         # Manually clear the instance to verify reset worked
-        from api_server.config import ConfigManager
+        from earth2studio.serve.server.config import ConfigManager
 
         old_instance = ConfigManager._instance
         ConfigManager._instance = None
@@ -195,9 +195,9 @@ class TestConfigManagerSingleton:
 class TestConfigManagerInitialization:
     """Test ConfigManager initialization and fallback behavior"""
 
-    @patch("api_server.config.initialize_config_dir")
-    @patch("api_server.config.compose")
-    @patch("api_server.config.GlobalHydra")
+    @patch("earth2studio.serve.server.config.initialize_config_dir")
+    @patch("earth2studio.serve.server.config.compose")
+    @patch("earth2studio.serve.server.config.GlobalHydra")
     def test_initialize_config_success(
         self,
         mock_global_hydra: MagicMock,
@@ -213,7 +213,7 @@ class TestConfigManagerInitialization:
         mock_compose.side_effect = [mock_cfg, mock_workflow_cfg]
 
         # Mock OmegaConf.to_container
-        with patch("api_server.config.OmegaConf") as mock_omega:
+        with patch("earth2studio.serve.server.config.OmegaConf") as mock_omega:
             mock_omega.to_container.side_effect = [
                 {"redis": {"host": "test_host"}},
                 {"workflow1": {}},
@@ -225,8 +225,8 @@ class TestConfigManagerInitialization:
             assert config is not None
             assert isinstance(config, AppConfig)
 
-    @patch("api_server.config.initialize_config_dir")
-    @patch("api_server.config.compose")
+    @patch("earth2studio.serve.server.config.initialize_config_dir")
+    @patch("earth2studio.serve.server.config.compose")
     def test_initialize_config_fallback_to_defaults(
         self, mock_compose: MagicMock, mock_init: MagicMock
     ) -> None:
@@ -521,8 +521,8 @@ class TestSetupLogging:
 class TestGetWorkflowConfig:
     """Test get_workflow_config function"""
 
-    @patch("api_server.config.initialize_config_dir")
-    @patch("api_server.config.compose")
+    @patch("earth2studio.serve.server.config.initialize_config_dir")
+    @patch("earth2studio.serve.server.config.compose")
     def test_get_workflow_config_returns_dict(
         self, mock_compose: MagicMock, mock_init: MagicMock
     ) -> None:
@@ -532,7 +532,7 @@ class TestGetWorkflowConfig:
         mock_workflow_cfg = MagicMock()
         mock_compose.side_effect = [MagicMock(), mock_workflow_cfg]
 
-        with patch("api_server.config.OmegaConf") as mock_omega:
+        with patch("earth2studio.serve.server.config.OmegaConf") as mock_omega:
             mock_omega.to_container.side_effect = [
                 {},  # config
                 {"test_workflow": {"param": "value"}},  # workflow_config

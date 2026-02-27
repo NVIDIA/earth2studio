@@ -31,13 +31,13 @@ from typing import Any
 import redis  # type: ignore[import-untyped]
 
 # Import configuration
-from api_server.config import get_config, get_config_manager
+from earth2studio.serve.server.config import get_config, get_config_manager
 
 # Import queue_next_stage utility
-from api_server.utils import queue_next_stage
+from earth2studio.serve.server.utils import queue_next_stage
 
 # Import workflow registry
-from api_server.workflow import WorkflowStatus, workflow_registry
+from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
 
 # Get configuration
 config = get_config()
@@ -67,7 +67,7 @@ redis_client = redis.Redis(
 
 # Register custom workflows in the worker process
 try:
-    from api_server.workflow import register_all_workflows
+    from earth2studio.serve.server.workflow import register_all_workflows
 
     register_all_workflows(redis_client)
     logger.info("Custom workflows registered successfully in worker process")
@@ -112,11 +112,13 @@ def run_custom_workflow(
 
     # Create workflow instance for execution
     custom_workflow = workflow_registry.get(workflow_name, redis_client=redis_client)
+    if custom_workflow is None:
+        raise ValueError(f"Custom workflow '{workflow_name}' could not be instantiated")
 
     try:
         start_timestamp = time.time()
         start_time = datetime.now(timezone.utc).isoformat()
-        updates = {
+        updates: dict[str, Any] = {
             "status": WorkflowStatus.RUNNING,
             "start_time": start_time,
         }

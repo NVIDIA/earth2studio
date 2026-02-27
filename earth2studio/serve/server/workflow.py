@@ -34,7 +34,7 @@ import redis  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Import configuration
-from api_server.config import (
+from earth2studio.serve.server.config import (
     get_config,
     get_config_manager,
     get_workflow_config,
@@ -682,9 +682,12 @@ class WorkflowRegistry:
         Returns:
             tuple: (successful_imports, failed_imports) counts
         """
-        # Always include built-in workflows if requested
+        # Always include built-in workflows if requested (serve/server/example_workflows)
         if include_builtin:
-            builtin_workflows_dir = Path(__file__).parent.parent / "example_workflows"
+            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+            builtin_workflows_dir = (
+                _repo_root / "serve" / "server" / "example_workflows"
+            )
             already_included = builtin_workflows_dir in {Path(d) for d in workflow_dirs}
             if builtin_workflows_dir.exists() and not already_included:
                 # Add to the beginning so built-in workflows are discovered first
@@ -864,7 +867,7 @@ def register_all_workflows(redis_client: redis.Redis) -> None:
 
     Example:
         >>> import redis
-        >>> from api_server.workflow import register_all_workflows
+        >>> from earth2studio.serve.server.workflow import register_all_workflows
         >>> redis_client = redis.Redis(host='localhost', port=6379)
         >>> register_all_workflows(redis_client)
     """

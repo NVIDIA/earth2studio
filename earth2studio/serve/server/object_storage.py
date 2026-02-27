@@ -21,7 +21,7 @@ This module provides object storage functionality using NVIDIA Multi-Storage Cli
 with Rust backend for high-performance parallel file transfers.
 
 Example:
-    >>> from api_server.object_storage import MSCObjectStorage
+    >>> from earth2studio.serve.server.object_storage import MSCObjectStorage
     >>> storage = MSCObjectStorage(bucket="my-bucket", region="us-east-1")
     >>> storage.upload_directory("/path/to/local/dir", "remote/prefix")
 """

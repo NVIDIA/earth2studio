@@ -24,11 +24,15 @@ import torch
 import zarr
 from pydantic import Field, create_model
 
-from api_server.config import get_config
 from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
+from earth2studio.serve.server.config import get_config
+from earth2studio.serve.server.workflow import (
+    Workflow,
+    WorkflowConfig,
+    WorkflowParameters,
+    WorkflowProgress,
+)
 from earth2studio.utils.type import CoordSystem
-
-from .workflow import Workflow, WorkflowConfig, WorkflowParameters, WorkflowProgress
 
 
 def _convert_param(param: inspect.Parameter, typeinfo: type) -> tuple[type, Field]:

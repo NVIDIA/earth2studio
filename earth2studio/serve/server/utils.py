@@ -28,7 +28,7 @@ from typing import Any, Literal
 import redis  # type: ignore[import-untyped]
 from rq import Queue
 
-from api_server.config import get_config
+from earth2studio.serve.server.config import get_config
 
 logger = logging.getLogger(__name__)
 

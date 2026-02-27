@@ -23,12 +23,12 @@ from typing import Literal
 import torch
 import xarray as xr
 
-from api_server.workflow import Earth2Workflow, workflow_registry
 from earth2studio import run
 from earth2studio.data import GFS, HRRR, InferenceOutputSource
 from earth2studio.io import IOBackend, NetCDF4Backend, XarrayBackend
 from earth2studio.models.dx import DerivedSurfacePressure
 from earth2studio.models.px import FCN3, DiagnosticWrapper, InterpModAFNO, StormCast
+from earth2studio.serve.server import Earth2Workflow, workflow_registry
 
 
 @workflow_registry.register

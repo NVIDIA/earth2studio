@@ -20,17 +20,14 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import redis  # type: ignore[import-untyped]
 import torch
-from api_server.workflow import (
-    Earth2Workflow,
-    WorkflowParameters,
-)
-from api_server.workflow.e2workflow import (
+
+from earth2studio.io import IOBackend
+from earth2studio.serve.server import Earth2Workflow, WorkflowParameters
+from earth2studio.serve.server.e2workflow import (
     AutoParameters,
     BackendProgress,
     func_to_model,
 )
-
-from earth2studio.io import IOBackend
 from earth2studio.utils.type import CoordSystem
 
 
@@ -128,7 +125,7 @@ class TestEarth2Workflow:
         with pytest.raises(ValueError):
             ComplexEarth2WorkflowImpl.validate_parameters({"optional_param": "test"})
 
-    @patch("api_server.e2workflow.get_config")
+    @patch("earth2studio.serve.server.e2workflow.get_config")
     def test_run_method_with_io_backend_and_progress_updates(
         self, mock_get_config: MagicMock, tmp_path: Path
     ) -> None:
@@ -143,7 +140,7 @@ class TestEarth2Workflow:
         with (
             patch.object(self.workflow, "update_execution_data") as mock_update,
             patch.object(self.workflow, "get_output_path") as mock_get_path,
-            patch("api_server.e2workflow.ZarrBackend") as mock_zarr,
+            patch("earth2studio.serve.server.e2workflow.ZarrBackend") as mock_zarr,
         ):
             mock_get_path.return_value = tmp_path / "test_output"
             mock_io = Mock(spec=IOBackend)
@@ -159,7 +156,7 @@ class TestEarth2Workflow:
             # Verify progress updates were made
             assert mock_update.call_count >= 2
 
-    @patch("api_server.e2workflow.get_config")
+    @patch("earth2studio.serve.server.e2workflow.get_config")
     def test_run_method_handles_workflow_exceptions(
         self, mock_get_config: MagicMock
     ) -> None:
@@ -179,7 +176,7 @@ class TestEarth2Workflow:
         with (
             patch.object(failing_workflow, "update_execution_data") as mock_update,
             patch.object(failing_workflow, "get_output_path"),
-            patch("api_server.e2workflow.ZarrBackend"),
+            patch("earth2studio.serve.server.e2workflow.ZarrBackend"),
         ):
             with pytest.raises(RuntimeError, match="Workflow execution failed"):
                 failing_workflow.run({}, "exec_fail")
@@ -260,7 +257,7 @@ class TestBackendProgress:
 class TestEarth2WorkflowIntegration:
     """Integration tests for Earth2Workflow with BackendProgress"""
 
-    @patch("api_server.e2workflow.get_config")
+    @patch("earth2studio.serve.server.e2workflow.get_config")
     def test_workflow_with_backend_progress_tracking(
         self, mock_get_config: MagicMock
     ) -> None:
@@ -288,7 +285,7 @@ class TestEarth2WorkflowIntegration:
         with (
             patch.object(workflow, "update_execution_data") as mock_update,
             patch.object(workflow, "get_output_path"),
-            patch("api_server.e2workflow.ZarrBackend"),
+            patch("earth2studio.serve.server.e2workflow.ZarrBackend"),
         ):
             result = workflow.run({"num_steps": 3}, "exec_test")
 

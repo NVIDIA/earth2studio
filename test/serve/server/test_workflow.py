@@ -24,8 +24,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import redis  # type: ignore[import-untyped]
-from api_server.config import get_config  # type: ignore[import-untyped]
-from api_server.workflow import (  # type: ignore[import-untyped]
+from pydantic import Field, ValidationError  # type: ignore[import-untyped]
+
+from earth2studio.serve.server.config import get_config  # type: ignore[import-untyped]
+from earth2studio.serve.server.workflow import (  # type: ignore[import-untyped]
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
@@ -36,7 +38,6 @@ from api_server.workflow import (  # type: ignore[import-untyped]
     register_all_workflows,
     workflow_registry,
 )
-from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 
 # imitate API server environment
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
@@ -59,11 +60,13 @@ def setup_test_paths():  # type: ignore[no-untyped-def]
         test_config = get_test_config(tmpdir)
         with (
             patch(
-                "api_server.workflow.workflow.get_config",
+                "earth2studio.serve.server.workflow.get_config",
                 return_value=test_config,
             ),
-            patch("api_server.config.get_config", return_value=test_config),
-            patch("api_server.workflow.workflow.config", test_config),
+            patch(
+                "earth2studio.serve.server.config.get_config", return_value=test_config
+            ),
+            patch("earth2studio.serve.server.workflow.config", test_config),
         ):
             yield test_config
 
@@ -1458,7 +1461,7 @@ class TestWorkflowRegistry:
             workflow_file = Path(tmpdir) / "test_workflow_module.py"
             workflow_file.write_text(
                 """
-from api_server.workflow import Workflow, WorkflowParameters, workflow_registry
+from earth2studio.serve.server.workflow import Workflow, WorkflowParameters, workflow_registry
 
 class SimpleWorkflow(Workflow):
     # No __init__ needed - name and description set by registry
@@ -1480,7 +1483,7 @@ workflow_registry.register(SimpleWorkflow)
             successful, failed = self.registry.discover_and_register_from_directories(
                 [tmpdir], include_builtin=False
             )
-            from api_server.workflow import workflow_registry
+            from earth2studio.serve.server.workflow import workflow_registry
 
             assert successful == 1
             assert failed == 0
@@ -1514,7 +1517,7 @@ workflow_registry.register(SimpleWorkflow)
             assert successful == 0
             assert failed == 0
 
-    @patch("api_server.workflow.workflow.Path")
+    @patch("earth2studio.serve.server.workflow.Path")
     def test_discover_and_register_with_builtin(self, mock_path):
         """Test discovering workflows with built-in workflows"""
         # Mock the builtin workflows directory to not exist
@@ -1537,7 +1540,7 @@ workflow_registry.register(SimpleWorkflow)
 
         with (
             patch(
-                "api_server.workflow.workflow.parse_workflow_directories_from_env",
+                "earth2studio.serve.server.workflow.parse_workflow_directories_from_env",
                 return_value=[],
             ),
             patch.object(
@@ -1557,7 +1560,7 @@ workflow_registry.register(SimpleWorkflow)
         mock_redis = Mock(spec=redis.Redis)
 
         with patch(
-            "api_server.workflow.workflow.parse_workflow_directories_from_env",
+            "earth2studio.serve.server.workflow.parse_workflow_directories_from_env",
             side_effect=Exception("Test error"),
         ):
             with pytest.raises(Exception, match="Test error"):

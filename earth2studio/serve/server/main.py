@@ -43,14 +43,14 @@ from pydantic import BaseModel, Field
 from rq import Queue
 
 # Import configuration
-from api_server.config import get_config, get_config_manager
-from api_server.utils import (
+from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.utils import (
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
 )
 
 # Import workflow registry
-from api_server.workflow import (
+from earth2studio.serve.server.workflow import (
     WorkflowResult,
     WorkflowStatus,
     workflow_registry,
@@ -208,7 +208,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Register custom workflows
         try:
-            from api_server.workflow import register_all_workflows
+            from earth2studio.serve.server.workflow import register_all_workflows
 
             register_all_workflows(redis_sync_client)
             logger.info("Custom workflows registered successfully")
