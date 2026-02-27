@@ -33,7 +33,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 import torch
 import xarray as xr
 from fsspec import filesystem
@@ -146,7 +145,7 @@ def fetch_dataframe(
     fields: FieldArray | None = None,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device = "cpu",
-) -> pa.Table | cudf.DataFrame:
+) -> pd.DataFrame | cudf.DataFrame:
     """Utility function to fetch data frames from particular sources
 
     Parameters
@@ -168,8 +167,8 @@ def fetch_dataframe(
 
     Returns
     -------
-    pa.Table | cudf.DataFrame
-        PyArrow Table if device is CPU, cudf DataFrame if device is CUDA
+    pd.DataFrame | cudf.DataFrame
+        Pandas dataframe if device is CPU, cudf DataFrame if device is CUDA
     """
     sig = signature(source.__call__)
 
