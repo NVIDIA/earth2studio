@@ -49,7 +49,7 @@ lint:
     - make lint
     - make license
 
-test:
+.test:base:
   stage: test
   needs:
     - job: format
@@ -75,8 +75,215 @@ test:
         UV_CACHE_POLICY: pull-push
     - when: on_success
   script:
-    - uv run python test/_ci/check_gpu.py || exit $?
     - make pytest-ci
+
+# Template for change-based rules (paths must be specified per job)
+.test:rule:main-with-changes: &test_rule_main_with_changes
+  if: '$CI_COMMIT_BRANCH == "main" && $PIPELINE_REPO_SOURCE != "github"'
+  variables:
+    TESTMON_CACHE_POLICY: pull-push
+    EARTH2STUDIO_CACHE_POLICY: pull-push
+    UV_CACHE_POLICY: pull-push
+
+.test:rule:non-github-with-changes: &test_rule_non_github_with_changes
+  if: $PIPELINE_REPO_SOURCE != "github"
+  variables:
+    EARTH2STUDIO_CACHE_POLICY: pull-push
+    UV_CACHE_POLICY: pull-push
+
+.test:rule:changes-only: &test_rule_changes_only
+  if: $PIPELINE_REPO_SOURCE == "github"
+  variables:
+    TESTMON_CACHE_POLICY: pull
+    EARTH2STUDIO_CACHE_POLICY: pull
+    UV_CACHE_POLICY: pull
+
+.test:rule:never: &test_rule_never
+  when: never
+
+.test:rule:always-if-pytest-all: &test_rule_always_if_pytest_all
+  if: '$CI_PYTEST_ALL =~ /^(1|true|TRUE|True|yes|YES|on|ON)$/'
+  variables:
+    TESTMON_CACHE_POLICY: pull-push
+    EARTH2STUDIO_CACHE_POLICY: pull-push
+    UV_CACHE_POLICY: pull-push
+
+test:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test
+
+test-data:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-data
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+      changes:
+        paths:
+          - earth2studio/data/**/*
+          - earth2studio/lexicon/**/*
+          - test/data/**/*
+          - test/lexicon/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/data/**/*
+          - earth2studio/lexicon/**/*
+          - test/data/**/*
+          - test/lexicon/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/data/**/*
+          - earth2studio/lexicon/**/*
+          - test/data/**/*
+          - test/lexicon/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
+
+test-perturb:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-perturb
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+      changes:
+        paths:
+          - earth2studio/perturbation/**/*
+          - test/perturbation/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/perturbation/**/*
+          - test/perturbation/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/perturbation/**/*
+          - test/perturbation/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
+
+test-stats:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-stats
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+      changes:
+        paths:
+          - earth2studio/statistics/**/*
+          - test/statistics/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/statistics/**/*
+          - test/statistics/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/statistics/**/*
+          - test/statistics/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
+
+test-px-models:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-px-models
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+      changes:
+        paths:
+          - earth2studio/models/px/**/*
+          - test/models/px/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/models/px/**/*
+          - test/models/px/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/models/px/**/*
+          - test/models/px/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
+
+test-dx-models:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-dx-models
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+      changes:
+        paths:
+          - earth2studio/models/dx/**/*
+          - test/models/dx/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/models/dx/**/*
+          - test/models/dx/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/models/dx/**/*
+          - test/models/dx/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
+
+test-serve:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-serve
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+      changes:
+        paths:
+          - earth2studio/serve/**/*
+          - test/serve/**/*
+          - serve/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/serve/**/*
+          - test/serve/**/*
+          - serve/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/serve/**/*
+          - test/serve/**/*
+          - serve/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
 
 coverage:
   stage: report
@@ -85,6 +292,24 @@ coverage:
     - job: test
       artifacts: true
       optional: false
+    - job: test-data
+      artifacts: true
+      optional: true
+    - job: test-perturb
+      artifacts: true
+      optional: true
+    - job: test-stats
+      artifacts: true
+      optional: true
+    - job: test-px-models
+      artifacts: true
+      optional: true
+    - job: test-dx-models
+      artifacts: true
+      optional: true
+    - job: test-serve
+      artifacts: true
+      optional: true
   tags:
   - docker
   extends:

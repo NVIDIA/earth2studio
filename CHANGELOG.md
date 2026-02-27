@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added accumulated variable support to NCAR ERA5 data source
 - Added routine to tile tensors to higher-dimensional tensors
 - Added routine to concatenate tensors along specified coordinate dimension
+- Added Planetary Computer data source for GOES cloud and moisture imagery
 - Added ability to have seperate data and model cache locations via env variables
+- Added random dataframe source
+- Added base reflectivity to MRMS data source
 
 ### Changed
 
@@ -33,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Bug in cbottle datasource resulting identical samples for multiple samples
+- Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
 
 ### Security
 

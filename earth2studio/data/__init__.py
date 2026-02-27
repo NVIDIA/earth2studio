@@ -32,11 +32,12 @@ from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,
+    PlanetaryComputerGOES,
     PlanetaryComputerMODISFire,
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
 )
-from .rand import Random, Random_FX
+from .rand import Random, Random_FX, RandomDataFrame
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .time_window import TimeWindow
 from .ufs import UFSObsConv, UFSObsSat
