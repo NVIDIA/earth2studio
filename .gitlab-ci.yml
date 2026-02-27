@@ -228,6 +228,28 @@ test-dx-models:
         compare_to: 'refs/heads/main'
     - <<: *test_rule_never
 
+test-da-models:
+  extends:
+    - .test:base
+  variables:
+    TOX_ENV: test-da-models
+  rules:
+    - <<: *test_rule_always_if_pytest_all
+    - <<: *test_rule_main_with_changes
+    - <<: *test_rule_non_github_with_changes
+      changes:
+        paths:
+          - earth2studio/models/da/**/*
+          - test/models/da/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_changes_only
+      changes:
+        paths:
+          - earth2studio/models/da/**/*
+          - test/models/da/**/*
+        compare_to: 'refs/heads/main'
+    - <<: *test_rule_never
+
 test-serve:
   extends:
     - .test:base
