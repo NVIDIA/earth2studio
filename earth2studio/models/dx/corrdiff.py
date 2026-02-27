@@ -45,21 +45,28 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from physicsnemo.models import Module as PhysicsNemoModule
-    from physicsnemo.utils.corrdiff import (
+    from physicsnemo import Module as PhysicsNemoModule
+    from physicsnemo.diffusion.generate.legacy_generate import (
         diffusion_step,
         regression_step,
     )
-    from physicsnemo.utils.generative import (
-        StackedRandomGenerator,
+    from physicsnemo.diffusion.preconditioners.legacy import EDMPrecondSR
+    from physicsnemo.diffusion.samplers.legacy_deterministic_sampler import (
         deterministic_sampler,
+    )
+    from physicsnemo.diffusion.samplers.legacy_stochastic_sampler import (
         stochastic_sampler,
     )
+    from physicsnemo.diffusion.utils import StackedRandomGenerator
+    from physicsnemo.models.diffusion_unets import UNet
 except ImportError:
     OptionalDependencyFailure("corrdiff")
     PhysicsNemoModule = None
     StackedRandomGenerator = None
     deterministic_sampler = None
+    stochastic_sampler = None
+    EDMPrecondSR = None
+    UNet = None
 
 
 @check_optional_dependencies()
@@ -1394,7 +1401,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         with zipfile.ZipFile(checkpoint_zip, "r") as zip_ref:
             zip_ref.extractall(checkpoint_zip.parent)
 
-        residual = PhysicsNemoModule.from_checkpoint(
+        residual = EDMPrecondSR.from_checkpoint(
             str(
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/diffusion.mdlus")
@@ -1407,7 +1414,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             residual = residual.to(device)
         residual = residual.to(memory_format=torch.channels_last)
 
-        regression = PhysicsNemoModule.from_checkpoint(
+        regression = UNet.from_checkpoint(
             str(
                 checkpoint_zip.parent
                 / Path("corrdiff_inference_package/checkpoints/regression.mdlus")

@@ -25,7 +25,7 @@ from earth2studio.utils.imports import (
 )
 
 try:
-    from physicsnemo.experimental.models.dit.dit import DiT as PNM_DiT
+    from physicsnemo.models import DiT as PNM_DiT
 except ImportError:
     OptionalDependencyFailure("stormscope")
     PNM_DiT = None  # type: ignore[assignment]
