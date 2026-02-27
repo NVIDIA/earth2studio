@@ -25,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed available date for ARCO data source to be dynamically updated
 - Changed ISD data frame return to master schema
 - Updated CBottle infill to mixture of model checkpoints
-- Updated models using PhysicsNeMo to compliance with `nvidia-physicsnemo>=2.0`
 
 ### Deprecated
 
@@ -44,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle repo to NVlabs location
 - Updated Makani dependency hash to later version with pyproject toml fix
 - Updated ACE2 dependency hash with setuptools fix
+- Updated models using PhysicsNeMo to compliance with `nvidia-physicsnemo>=2.0`
 
 ## [0.12.1] - 2026-01-29
 
