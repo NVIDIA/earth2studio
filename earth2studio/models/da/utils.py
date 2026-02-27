@@ -158,7 +158,7 @@ def dfseries_to_torch(
     if device.type == "cuda":
         # Warn that cudf is not being used for GPU transfer
         logger.warning(
-            "Converting pandas Series to GPU tensor. Consider install cudf"
+            "Converting pandas Series to GPU tensor. Consider installing cudf "
             "for zero-copy transfer and better performance."
         )
         return torch.tensor(series.values, dtype=dtype, device=device)
