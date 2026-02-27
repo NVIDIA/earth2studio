@@ -23,6 +23,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.models.da.utils import (
+    filter_time_range,
     validate_observation_fields,
 )
 from earth2studio.utils.imports import (
@@ -246,17 +247,12 @@ class InterpEquirectangular(torch.nn.Module):
             device=device,
         )
 
-        # Convert DataFrame time column to datetime64 if needed
-        df_time = pd.to_datetime(df["time"]).values.astype("datetime64[ns]")
-
         # Process each time step separately
         for t_idx, request_time in enumerate(time_coords):
             # Filter observations within tolerance window for this time step
-            lower_bound, upper_bound = self._tolerance
-            time_min = np.datetime64(request_time) + lower_bound
-            time_max = np.datetime64(request_time) + upper_bound
-            time_mask = (df_time >= time_min) & (df_time <= time_max)
-            time_filtered_df = df[time_mask].copy()
+            time_filtered_df = filter_time_range(
+                df, request_time, self._tolerance, time_column="time"
+            )
 
             # Group observations by variable and interpolate each
             for var_idx, variable in enumerate(variables):
