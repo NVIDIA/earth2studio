@@ -96,13 +96,15 @@ etc.
    WindgustAFNO
    Identity
 
-:mod:`earth2studio.models.dx`: Data Assimilation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:mod:`earth2studio.models.da`: Data Assimilation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Diagnostic models are a class of models that do not perform time-integration.
-These may be used to map between weather/climate variables to other quantities of
-interest, used to enbable additional analysis, improve prediction accuracy, downscale,
-etc.
+Data assimilation models are a class of models that incorporate observational data
+into model states or grids. These models process sparse, irregularly-distributed
+observations (typically from DataFrames) and map them to regular grids or model
+coordinate systems (typically as DataArrays). Data assimilation models support both
+stateless and stateful operation, allowing them to process observations independently
+or maintain internal state across time steps.
 
 .. warning ::
 
