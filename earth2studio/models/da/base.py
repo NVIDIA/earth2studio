@@ -87,6 +87,16 @@ class AssimilationModel(Protocol):
             argument can be a DataFrame (PyArrow Table or cudf DataFrame) or xarray
             DataArray. None is sent initially to start the generator. Supports any
             number of arguments.
+
+        Examples
+        --------
+        >>> generator = model.create_generator()
+        >>> generator.send(None)  # Prime the generator
+        >>> # Process observations over time
+        >>> for obs in observations:
+        ...     result = generator.send(obs)  # Send observations, receive assimilated data
+        ...     # result is a tuple of DataFrames or DataArrays
+        >>> generator.close()  # Clean up
         """
         pass
 
