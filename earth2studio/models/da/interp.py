@@ -50,7 +50,7 @@ class InterpEquirectangular(torch.nn.Module):
     - Accepts DataFrames with observations (time, lat, lon, observation, variable)
     - Interpolates observations to a regular lat-lon grid using specified method
     - Validates input observations against schema constraints
-    - Supports multiple interpolation methods: 'nearest', 'linear', 'cubic'
+    - Supports interpolation methods: 'nearest' or 'smolyak' (Smolyak sparse grid algorithm)
 
     Parameters
     ----------
@@ -61,7 +61,7 @@ class InterpEquirectangular(torch.nn.Module):
         Longitude coordinates for output grid, by default None (uses default
         grid over CONUS)
     interp_method : str, optional
-        Interpolation method to use: 'nearest', 'linear', or 'cubic', by default "linear"
+        Interpolation method to use: 'nearest' or 'smolyak', by default "smolyak"
     tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for interpolation, by default
@@ -80,12 +80,12 @@ class InterpEquirectangular(torch.nn.Module):
         self,
         lat: np.ndarray | None = None,
         lon: np.ndarray | None = None,
-        interp_method: str = "linear",
+        interp_method: str = "smolyak",
         tolerance: TimeTolerance = np.timedelta64(10, "m"),
     ) -> None:
-        if interp_method not in ["nearest", "linear", "cubic"]:
+        if interp_method not in ["nearest", "smolyak"]:
             raise ValueError(
-                f"interp_method must be one of ['nearest', 'linear', 'cubic'], "
+                f"interp_method must be one of ['nearest', 'smolyak'], "
                 f"got {interp_method}"
             )
         super().__init__()
@@ -365,20 +365,221 @@ class InterpEquirectangular(torch.nn.Module):
             # Nearest neighbor interpolation using distance
             nearest_indices = torch.argmin(distances, dim=1)
             interpolated = values[nearest_indices]
-        elif self.interp_method == "linear":
-            # Inverse distance weighting for linear-like interpolation
-            epsilon = 1e-10
-            weights = 1.0 / (distances + epsilon)
-            weights = weights / weights.sum(dim=1, keepdim=True)
-            interpolated = (weights @ values.unsqueeze(1)).squeeze(1)
-        elif self.interp_method == "cubic":
-            # Inverse distance weighting with cubic power for smoother interpolation
-            epsilon = 1e-10
-            weights = 1.0 / (distances**3 + epsilon)
-            weights = weights / weights.sum(dim=1, keepdim=True)
-            interpolated = (weights @ values.unsqueeze(1)).squeeze(1)
+        elif self.interp_method == "smolyak":
+            interpolated = self._smolyak_interpolate(
+                source_points, values, target_points
+            )
         else:
             raise ValueError(f"Unsupported interpolation type: {self.interp_method}")
 
         # Reshape to grid
         return interpolated.reshape(n_lat, n_lon)
+
+    def _chebyshev_polynomials(self, x: torch.Tensor, degree: int) -> torch.Tensor:
+        """Evaluate Chebyshev polynomials T_0(x) through T_degree(x) using recurrence.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input values [..., N]
+        degree : int
+            Maximum polynomial degree
+
+        Returns
+        -------
+        torch.Tensor
+            Chebyshev polynomial values [..., N, degree+1]
+        """
+        shape = x.shape
+        out = torch.zeros(*shape, degree + 1, dtype=x.dtype, device=x.device)
+
+        # T_0(x) = 1
+        out[..., 0] = 1.0
+
+        if degree >= 1:
+            # T_1(x) = x
+            out[..., 1] = x
+
+            # Recurrence: T_n(x) = 2*x*T_{n-1}(x) - T_{n-2}(x)
+            for n in range(2, degree + 1):
+                out[..., n] = 2.0 * x * out[..., n - 1] - out[..., n - 2]
+
+        return out
+
+    def _smolyak_interpolate(
+        self,
+        source_points: torch.Tensor,
+        values: torch.Tensor,
+        target_points: torch.Tensor,
+    ) -> torch.Tensor:
+        """Interpolate using Smolyak's algorithm with Chebyshev polynomial basis.
+
+        Vectorized implementation using Smolyak sparse grid structure for efficient
+        polynomial interpolation. Uses tensor products of Chebyshev polynomials.
+
+        Parameters
+        ----------
+        source_points : torch.Tensor
+            Source points [N, 2] with (lat, lon) coordinates
+        values : torch.Tensor
+            Values at source points [N]
+        target_points : torch.Tensor
+            Target points [M, 2] with (lat, lon) coordinates
+
+        Returns
+        -------
+        torch.Tensor
+            Interpolated values [M]
+        """
+        device = source_points.device
+        N = source_points.shape[0]
+        M = target_points.shape[0]
+        d = 2  # 2D: lat and lon
+
+        # Normalize coordinates to [-1, 1]^2 for Chebyshev polynomials
+        source_lat = source_points[:, 0]
+        source_lon = source_points[:, 1]
+        target_lat = target_points[:, 0]
+        target_lon = target_points[:, 1]
+
+        # Normalize longitude to 0-360 range first
+        source_lon = torch.where(source_lon < 0, source_lon + 360.0, source_lon)
+        target_lon = torch.where(target_lon < 0, target_lon + 360.0, target_lon)
+
+        # Get bounds with padding
+        lat_min, lat_max = source_lat.min().item(), source_lat.max().item()
+        lon_min, lon_max = source_lon.min().item(), source_lon.max().item()
+
+        lat_range = lat_max - lat_min
+        lon_range = lon_max - lon_min
+        lat_min -= lat_range * 0.1
+        lat_max += lat_range * 0.1
+        lon_min -= lon_range * 0.1
+        lon_max += lon_range * 0.1
+
+        # Clamp to valid ranges
+        lat_min = max(lat_min, -90.0)
+        lat_max = min(lat_max, 90.0)
+        lon_min = max(lon_min, 0.0)
+        lon_max = min(lon_max, 360.0)
+
+        # Normalize to [-1, 1]
+        source_lat_norm = 2.0 * (source_lat - lat_min) / (lat_max - lat_min) - 1.0
+        source_lon_norm = 2.0 * (source_lon - lon_min) / (lon_max - lon_min) - 1.0
+        target_lat_norm = 2.0 * (target_lat - lat_min) / (lat_max - lat_min) - 1.0
+        target_lon_norm = 2.0 * (target_lon - lon_min) / (lon_max - lon_min) - 1.0
+
+        # Determine Smolyak level mu adaptively based on number of points
+        # For 2D: mu=1->5, mu=2->13, mu=3->29, mu=4->65, mu=5->145, mu=6->321, mu=7->705 points
+        mu_thresholds = [(500, 7), (200, 6), (100, 5), (50, 4), (25, 3), (9, 2)]
+        mu = 1
+        max_degree = 1
+        for threshold, level in mu_thresholds:
+            if N >= threshold:
+                mu = level
+                max_degree = level
+                break
+
+        # Generate Smolyak indices: combinations where d < sum(i) <= d + mu
+        # Vectorized generation
+        i1_range = torch.arange(1, mu + 2, device=device)
+        i2_range = torch.arange(1, mu + 2, device=device)
+        i1_grid, i2_grid = torch.meshgrid(i1_range, i2_range, indexing="ij")
+        mask = (d < (i1_grid + i2_grid)) & ((i1_grid + i2_grid) <= (d + mu))
+        smol_i1 = i1_grid[mask]
+        smol_i2 = i2_grid[mask]
+
+        # Compute m_i(i) = 2^(i-1) + 1 for i > 1, else special cases
+        def m_i(i: torch.Tensor) -> torch.Tensor:
+            result = torch.where(
+                i == 1,
+                torch.tensor(1, device=device),
+                torch.where(i == 0, torch.tensor(0, device=device), (2 ** (i - 1) + 1)),
+            )
+            return result
+
+        # Get degrees for each dimension
+        deg1_all = torch.clamp(m_i(smol_i1) - 1, max=max_degree)
+        deg2_all = torch.clamp(m_i(smol_i2) - 1, max=max_degree)
+
+        # Build unique basis terms (deg_lat, deg_lon) pairs
+        basis_terms = set()
+        for idx in range(len(smol_i1)):
+            d1 = int(deg1_all[idx].item())
+            d2 = int(deg2_all[idx].item())
+            for d1_val in range(d1 + 1):
+                for d2_val in range(d2 + 1):
+                    if d1_val + d2_val <= max_degree:
+                        basis_terms.add((d1_val, d2_val))
+
+        # Fallback if no terms
+        if len(basis_terms) == 0:
+            for deg_lat in range(max_degree + 1):
+                for deg_lon in range(max_degree + 1):
+                    if deg_lat + deg_lon <= max_degree:
+                        basis_terms.add((deg_lat, deg_lon))
+
+        # Evaluate Chebyshev polynomials for source points
+        cheb_lat = self._chebyshev_polynomials(
+            source_lat_norm, max_degree
+        )  # [N, max_degree+1]
+        cheb_lon = self._chebyshev_polynomials(
+            source_lon_norm, max_degree
+        )  # [N, max_degree+1]
+
+        # Build basis matrix vectorized
+        basis_list = []
+        for deg_lat, deg_lon in sorted(basis_terms):
+            basis_list.append(cheb_lat[:, deg_lat] * cheb_lon[:, deg_lon])
+
+        if len(basis_list) == 0:
+            basis_matrix = torch.ones(N, 1, device=device)
+        else:
+            basis_matrix = torch.stack(basis_list, dim=1)  # [N, n_basis]
+
+        # Limit basis size to avoid overfitting
+        if basis_matrix.shape[1] > N:
+            basis_matrix = basis_matrix[:, :N]
+
+        # Solve for coefficients using regularized least squares (vectorized)
+        reg = 1e-6 * torch.eye(basis_matrix.shape[1], device=device)
+        ATA = basis_matrix.T @ basis_matrix + reg
+        ATb = basis_matrix.T @ values.unsqueeze(1)
+        try:
+            coeffs = torch.linalg.solve(ATA, ATb).squeeze(1)  # [n_basis]
+        except Exception:
+            # Fallback to SVD
+            U, S, Vt = torch.linalg.svd(basis_matrix, full_matrices=False)
+            threshold_svd = 1e-6 * S[0] if S[0] > 0 else 1e-6
+            S_inv = torch.where(S > threshold_svd, 1.0 / S, torch.zeros_like(S))
+            coeffs = (Vt.T @ (S_inv[:, None] * (U.T @ values.unsqueeze(1)))).squeeze(1)
+
+        # Evaluate polynomial at target points (vectorized)
+        cheb_lat_target = self._chebyshev_polynomials(
+            target_lat_norm, max_degree
+        )  # [M, max_degree+1]
+        cheb_lon_target = self._chebyshev_polynomials(
+            target_lon_norm, max_degree
+        )  # [M, max_degree+1]
+
+        # Build target basis matrix with same structure
+        target_basis_list = []
+        for deg_lat, deg_lon in sorted(basis_terms):
+            target_basis_list.append(
+                cheb_lat_target[:, deg_lat] * cheb_lon_target[:, deg_lon]
+            )
+
+        if len(target_basis_list) == 0:
+            target_basis = torch.ones(M, 1, device=device)
+        else:
+            target_basis = torch.stack(target_basis_list, dim=1)  # [M, n_basis]
+            # Match coefficient size
+            if target_basis.shape[1] > len(coeffs):
+                target_basis = target_basis[:, : len(coeffs)]
+            elif target_basis.shape[1] < len(coeffs):
+                coeffs = coeffs[: target_basis.shape[1]]
+
+        # Evaluate: target_basis @ coeffs (fully vectorized)
+        interpolated = target_basis @ coeffs  # [M]
+
+        return interpolated

@@ -94,7 +94,7 @@ def small_grid():
 
 @pytest.mark.parametrize(
     "interp_method",
-    ["nearest", "linear", "cubic"],
+    ["nearest", "smolyak"],
 )
 def test_interp_init(interp_method, small_grid):
     lat, lon = small_grid
@@ -121,7 +121,7 @@ def test_interp_init(interp_method, small_grid):
 )
 @pytest.mark.parametrize(
     "interp_method",
-    ["nearest", "linear", "cubic"],
+    ["nearest", "smolyak"],
 )
 def test_interp_call_pandas(
     sample_observations_pandas, small_grid, device, interp_method
@@ -176,7 +176,7 @@ def test_interp_call_pandas(
 )
 @pytest.mark.parametrize(
     "interp_method",
-    ["nearest", "linear", "cubic"],
+    ["nearest", "smolyak"],
 )
 def test_interp_call_cudf(sample_observations_cudf, small_grid, device, interp_method):
     if cudf is None:
@@ -227,7 +227,7 @@ def test_interp_call_cudf(sample_observations_cudf, small_grid, device, interp_m
 
 def test_interp_multiple_times(sample_observations_pandas, small_grid):
     lat, lon = small_grid
-    model = InterpEquirectangular(lat=lat, lon=lon)
+    model = InterpEquirectangular(lat=lat, lon=lon, interp_method="nearest")
     model.VARIABLES = ["t2m"]
 
     time1 = np.datetime64("2024-01-01T12:00:00")
