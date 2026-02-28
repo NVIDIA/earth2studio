@@ -463,17 +463,35 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">isfilelike</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSource</span><span class="p">,</span> <span class="n">ForecastSource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.base</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DataFrameSource</span><span class="p">,</span>
+    <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">ForecastFrameSource</span><span class="p">,</span>
+    <span class="n">ForecastSource</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.interp</span><span class="w"> </span><span class="kn">import</span> <span class="n">LatLonInterpolation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">leadtimearray_to_timedelta</span><span class="p">,</span>
     <span class="n">timearray_to_datetime</span><span class="p">,</span>
     <span class="n">to_time_array</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CoordSystem</span><span class="p">,</span>
+    <span class="n">FieldArray</span><span class="p">,</span>
+    <span class="n">LeadTimeArray</span><span class="p">,</span>
+    <span class="n">TimeArray</span><span class="p">,</span>
+    <span class="n">VariableArray</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">fsspec.implementations.cache_mapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractCacheMapper</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">cudf</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">cudf</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <div class="viewcode-block" id="fetch_data">
@@ -484,16 +502,17 @@
     <span class="n">variable</span><span class="p">:</span> <span class="n">VariableArray</span><span class="p">,</span>
     <span class="n">lead_time</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-    <span class="n">interp_to</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interp_to</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">interp_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility function to fetch data for models and load data on the target device.</span>
-<span class="sd">    If desired, xarray interpolation/regridding in the spatial domain can be used</span>
-<span class="sd">    by passing a target coordinate system via the optional `interp_to` argument.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility function to fetch data arrays from particular sources and load data on</span>
+<span class="sd">    the target device. If desired, xarray interpolation/regridding in the spatial</span>
+<span class="sd">    domain can be used by passing a target coordinate system via the optional</span>
+<span class="sd">    `interp_to` argument.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    source : DataSource</span>
+<span class="sd">    source : DataSource | ForecastSource</span>
 <span class="sd">        The data source to fetch from</span>
 <span class="sd">    time : TimeArray</span>
 <span class="sd">        Timestamps to return data for (UTC).</span>
@@ -503,7 +522,7 @@
 <span class="sd">        Lead times to fetch for each provided time, by default</span>
 <span class="sd">        np.array(np.timedelta64(0, &quot;h&quot;))</span>
 <span class="sd">    device : torch.device, optional</span>
-<span class="sd">        Torch devive to load data tensor to, by default &quot;cpu&quot;</span>
+<span class="sd">        Torch device to load data tensor to, by default &quot;cpu&quot;</span>
 <span class="sd">    interp_to : CoordSystem, optional</span>
 <span class="sd">        If provided, the fetched data will be interpolated to the coordinates</span>
 <span class="sd">        specified by lat/lon arrays in this CoordSystem</span>
@@ -515,7 +534,6 @@
 <span class="sd">    tuple[torch.Tensor, CoordSystem]</span>
 <span class="sd">        Tuple containing output tensor and coordinate OrderedDict</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
     <span class="n">sig</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="fm">__call__</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="s2">&quot;lead_time&quot;</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
@@ -541,6 +559,65 @@
         <span class="n">interp_method</span><span class="o">=</span><span class="n">interp_method</span><span class="p">,</span>
     <span class="p">)</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">fetch_dataframe</span><span class="p">(</span>
+    <span class="n">source</span><span class="p">:</span> <span class="n">DataFrameSource</span> <span class="o">|</span> <span class="n">ForecastFrameSource</span><span class="p">,</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">TimeArray</span><span class="p">,</span>
+    <span class="n">variable</span><span class="p">:</span> <span class="n">VariableArray</span><span class="p">,</span>
+    <span class="n">fields</span><span class="p">:</span> <span class="n">FieldArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">lead_time</span><span class="p">:</span> <span class="n">LeadTimeArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="n">cudf</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility function to fetch data frames from particular sources</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    source : DataFrameSource | ForecastFrameSource</span>
+<span class="sd">        The data source to fetch from</span>
+<span class="sd">    time : TimeArray</span>
+<span class="sd">        Timestamps to return data for (UTC).</span>
+<span class="sd">    variable : VariableArray</span>
+<span class="sd">        Strings or list of strings that refer to variables to return</span>
+<span class="sd">    fields : FieldArray | None</span>
+<span class="sd">        Array of strings indicating which fields to return in data frame, if None all</span>
+<span class="sd">        possible fields will be returned, by default None</span>
+<span class="sd">    lead_time : LeadTimeArray, optional</span>
+<span class="sd">        Lead times to fetch for each provided time, by default</span>
+<span class="sd">        np.array(np.timedelta64(0, &quot;h&quot;))</span>
+<span class="sd">    device : torch.device, optional</span>
+<span class="sd">        Torch device to load data tensor to, by default &quot;cpu&quot;</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pd.DataFrame | cudf.DataFrame</span>
+<span class="sd">        Pandas dataframe if device is CPU, cudf DataFrame if device is CUDA</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sig</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="fm">__call__</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;lead_time&quot;</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+        <span class="c1"># Working with a ForecastFrameSource</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">lead_time</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="n">fields</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Combine all adjusted times and get unique values using broadcasting</span>
+        <span class="n">all_times</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="n">lead_time</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">unique_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">all_times</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">source</span><span class="p">(</span><span class="n">unique_times</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="n">fields</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="c1"># Add request meta-data</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;request_time&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span> <span class="s2">&quot;request_lead_time&quot;</span><span class="p">:</span> <span class="n">lead_time</span><span class="p">}</span>
+
+    <span class="c1"># Convert to appropriate format based on device</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cudf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;cudf is required for CUDA device. Install with: pip install cudf&quot;</span>
+            <span class="p">)</span>
+        <span class="k">with</span> <span class="n">cp</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Device</span><span class="p">(</span><span class="n">device</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cudf</span><span class="o">.</span><span class="n">from_pandas</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">df</span>
 
 
 <div class="viewcode-block" id="prep_data_array">
