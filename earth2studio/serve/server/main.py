@@ -265,7 +265,9 @@ async def health_check() -> dict[str, str]:
     """Health check endpoint using status script"""
     try:
         # Run the status script and check exit code
-        script_path = Path(__file__).parent.parent / "scripts" / "status.sh"
+        # Scripts live at repo serve/server/scripts, not inside the package
+        _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
         process = await asyncio.create_subprocess_exec(
             str(script_path),
             stdout=asyncio.subprocess.PIPE,
@@ -456,7 +458,7 @@ async def execute_workflow(
                 status_code=503, detail="Inference queue not initialized"
             )
         job = inference_queue.enqueue(
-            "api_server.worker.run_custom_workflow",  # New worker function
+            "earth2studio.serve.server.worker.run_custom_workflow",
             workflow_name,
             execution_id,
             validated_params_dict,

@@ -103,7 +103,7 @@ def queue_next_stage(
     if current_stage == "inference":
         # Always go to result_zip stage (for manifest building), but control zip creation via config
         next_queue = "result_zip"
-        next_func = "api_server.cpu_worker.process_result_zip"
+        next_func = "earth2studio.serve.server.cpu_worker.process_result_zip"
         # Pass create_zip parameter based on config
         # Disable zip creation when object storage is enabled (files uploaded directly)
         create_zip = (
@@ -120,16 +120,18 @@ def queue_next_stage(
     elif current_stage == "result_zip":
         if config.object_storage.enabled:
             next_queue = "object_storage"
-            next_func = "api_server.cpu_worker.process_object_storage_upload"
+            next_func = (
+                "earth2studio.serve.server.cpu_worker.process_object_storage_upload"
+            )
             args = (workflow_name, execution_id, output_path_str)
         else:
             next_queue = "finalize_metadata"
-            next_func = "api_server.cpu_worker.process_finalize_metadata"
+            next_func = "earth2studio.serve.server.cpu_worker.process_finalize_metadata"
             args = (workflow_name, execution_id)
 
     elif current_stage == "object_storage":
         next_queue = "finalize_metadata"
-        next_func = "api_server.cpu_worker.process_finalize_metadata"
+        next_func = "earth2studio.serve.server.cpu_worker.process_finalize_metadata"
         args = (workflow_name, execution_id)
 
     else:

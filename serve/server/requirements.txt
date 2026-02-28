@@ -1,3 +1,7 @@
+# For local runs from serve/server: install the project first so earth2studio.serve.server
+# is importable:  pip install -e ../..
+# (Dockerfile installs the project from repo root with -e . instead.)
+
 # Core FastAPI dependencies
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0

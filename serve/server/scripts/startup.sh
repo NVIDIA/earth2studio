@@ -17,7 +17,15 @@
 
 set -euo pipefail
 
-cd /workspace/earth2studio-project/service/server
+# Resolve paths so this works from any clone (not just /workspace/...)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVE_SERVER_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SERVE_SERVER_DIR/../.." && pwd)"
+
+# Ensure Python can find earth2studio (including earth2studio.serve.server)
+export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
+
+cd "$SERVE_SERVER_DIR"
 make start-redis
 make start-api-server
 sleep infinity
