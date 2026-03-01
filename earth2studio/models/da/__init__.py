@@ -14,23 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from datetime import timedelta
-
-import numpy as np
-
-FrameSchema = OrderedDict[str, np.ndarray]
-CoordSystem = OrderedDict[str, np.ndarray]
-
-# Specific dimension custom types
-VariableArray = np.ndarray[str]
-LeadTimeArray = np.ndarray[np.timedelta64]
-TimeArray = np.ndarray[np.datetime64]
-FieldArray = np.ndarray[str]
-
-TimeTolerance = (
-    timedelta
-    | np.timedelta64
-    | tuple[timedelta, timedelta]
-    | tuple[np.timedelta64, np.timedelta64]
-)
+from .interp import InterpEquirectangular
