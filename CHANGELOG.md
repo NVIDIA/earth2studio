@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added random dataframe source
 - Added base reflectivity to MRMS data source
 - Added `fetch_dataframe` utility function
+- Added data assimilation model class
+- Added equirectangular interpolation data assimilation model
 
 ### Changed
 
