@@ -437,7 +437,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">LeadTimeArray</span><span class="p">,</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">TimeTolerance</span>
 
 
 <div class="viewcode-block" id="timearray_to_datetime">
@@ -521,6 +521,67 @@
 
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">output</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_time_tolerance</span><span class="p">(</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="n">TimeTolerance</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a TimeTolerance to a tuple of (lower_bound, upper_bound) as np.timedelta64.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tolerance : TimeTolerance</span>
+<span class="sd">        Time tolerance value. Can be:</span>
+<span class="sd">        - A single timedelta or np.timedelta64 (interpreted as symmetric +/- bounds)</span>
+<span class="sd">        - A tuple of (timedelta, timedelta) or (np.timedelta64, np.timedelta64)</span>
+<span class="sd">          (interpreted as (lower_bound, upper_bound))</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple[np.timedelta64, np.timedelta64]</span>
+<span class="sd">        Tuple of (lower_bound, upper_bound) as np.timedelta64 values.</span>
+<span class="sd">        For a single tolerance value, returns (-tolerance, +tolerance).</span>
+<span class="sd">        For a tuple, returns the normalized bounds.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; normalize_time_tolerance(np.timedelta64(1, &quot;h&quot;))</span>
+<span class="sd">    (numpy.timedelta64(-3600,&#39;s&#39;), numpy.timedelta64(3600,&#39;s&#39;))</span>
+
+<span class="sd">    &gt;&gt;&gt; normalize_time_tolerance((np.timedelta64(-2, &quot;h&quot;), np.timedelta64(3, &quot;h&quot;)))</span>
+<span class="sd">    (numpy.timedelta64(-7200,&#39;s&#39;), numpy.timedelta64(10800,&#39;s&#39;))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Handle single value (symmetric tolerance)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tolerance</span><span class="p">,</span> <span class="p">(</span><span class="n">timedelta</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">)):</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="n">tol</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+
+    <span class="c1"># Handle tuple</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tolerance</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;TimeTolerance tuple must have 2 elements, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="o">=</span> <span class="n">tolerance</span>
+
+        <span class="c1"># Convert both to np.timedelta64</span>
+        <span class="n">lower_td</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span>
+        <span class="n">upper_td</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span>
+
+        <span class="c1"># Ensure lower &lt;= upper</span>
+        <span class="k">if</span> <span class="n">lower_td</span> <span class="o">&gt;</span> <span class="n">upper_td</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;TimeTolerance tuple must have lower_bound &lt;= upper_bound, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got (</span><span class="si">{</span><span class="n">lower_td</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">upper_td</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">lower_td</span><span class="p">,</span> <span class="n">upper_td</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;TimeTolerance must be timedelta, np.timedelta64, or tuple of 2, &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
 </pre></div>
 
                 </article>

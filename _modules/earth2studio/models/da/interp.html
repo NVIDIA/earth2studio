@@ -1,0 +1,1088 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>earth2studio.models.da.interp &#8212; Earth2Studio 0.13.0a0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../_static/documentation_options.js?v=e36bfde7"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/earth2studio/models/da/interp';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.13" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">earth2studio.models.da.interp</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for earth2studio.models.da.interp</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION &amp; AFFILIATES.</span>
+<span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.da.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">dfseries_to_torch</span><span class="p">,</span>
+    <span class="n">filter_time_range</span><span class="p">,</span>
+    <span class="n">validate_observation_fields</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">,</span>
+    <span class="n">check_optional_dependencies</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.time</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_time_tolerance</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">FrameSchema</span><span class="p">,</span> <span class="n">TimeTolerance</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cp</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;gpu&quot;</span><span class="p">)</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
+
+
+<div class="viewcode-block" id="InterpEquirectangular">
+<a class="viewcode-back" href="../../../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html#earth2studio.models.da.InterpEquirectangular">[docs]</a>
+<span class="nd">@check_optional_dependencies</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InterpEquirectangular</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Interpolation assimilation model that interpolates sparse observations to a</span>
+<span class="sd">    lat-lon grid.</span>
+
+<span class="sd">    This is a sample implementation of an AssimilationModel that:</span>
+<span class="sd">    - Accepts DataFrames with observations (time, lat, lon, observation, variable)</span>
+<span class="sd">    - Interpolates observations to a regular lat-lon grid using specified method</span>
+<span class="sd">    - Validates input observations against schema constraints</span>
+<span class="sd">    - Supports interpolation methods: &#39;nearest&#39; or &#39;smolyak&#39; (Smolyak sparse grid algorithm)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    lat : np.ndarray | None, optional</span>
+<span class="sd">        Latitude coordinates for output grid, by default None (uses default grid over</span>
+<span class="sd">        CONUS)</span>
+<span class="sd">    lon : np.ndarray | None, optional</span>
+<span class="sd">        Longitude coordinates for output grid, by default None (uses default</span>
+<span class="sd">        grid over CONUS)</span>
+<span class="sd">    interp_method : str, optional</span>
+<span class="sd">        Interpolation method to use: &#39;nearest&#39; or &#39;smolyak&#39;, by default &quot;smolyak&quot;</span>
+<span class="sd">    tolerance : TimeTolerance, optional</span>
+<span class="sd">        Time tolerance for filtering observations. Observations within the tolerance</span>
+<span class="sd">        window around each requested time will be used for interpolation, by default</span>
+<span class="sd">        np.timedelta64(10, &quot;m&quot;)</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If interp_method is not one of the supported methods</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Acceptable variables for this model</span>
+    <span class="n">VARIABLES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">,</span> <span class="s2">&quot;sp&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">lat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">lon</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">interp_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;smolyak&quot;</span><span class="p">,</span>
+        <span class="n">tolerance</span><span class="p">:</span> <span class="n">TimeTolerance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">interp_method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span> <span class="s2">&quot;smolyak&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;interp_method must be one of [&#39;nearest&#39;, &#39;smolyak&#39;], &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">interp_method</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">lat</span> <span class="k">if</span> <span class="n">lat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">25.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="mi">101</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">lon</span> <span class="k">if</span> <span class="n">lon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">235.0</span><span class="p">,</span> <span class="mf">295.0</span><span class="p">,</span> <span class="mi">241</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span> <span class="o">=</span> <span class="n">interp_method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tolerance</span> <span class="o">=</span> <span class="n">normalize_time_tolerance</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;device_buffer&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">FrameSchema</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system specifying required DataFrame fields.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">         tuple[FrameSchema]</span>
+<span class="sd">            Tuple containing coordinate system dictionary with field names as keys:</span>
+<span class="sd">            - variable: array of acceptable variable values</span>
+<span class="sd">            - time, lat, lon, observation: empty arrays (dynamic dimensions)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">FrameSchema</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">),</span>
+                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                    <span class="s2">&quot;observation&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_coords</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">],</span>
+        <span class="n">request_time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system for assimilated data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_coords : tuple[CoordSystem, ...]</span>
+<span class="sd">            Input coordinate system (CoordSystem for DataFrame input)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple[CoordSystem]</span>
+<span class="sd">            Coordinate system dictionary with time, variable, lat, and lon dimensions</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If input_coords are not valid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Extract variables from first input coord system</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_coords</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="s2">&quot;variable&quot;</span> <span class="ow">in</span> <span class="n">input_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="n">input_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">VARIABLES</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">CoordSystem</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">request_time</span><span class="p">,</span>
+                    <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">variables</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">),</span>
+                    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lat</span><span class="p">,</span>
+                    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lon</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="InterpEquirectangular.__call__">
+<a class="viewcode-back" href="../../../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html#earth2studio.models.da.InterpEquirectangular.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stateless forward pass&quot;&quot;&quot;</span>
+        <span class="n">input_coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+        <span class="p">(</span><span class="n">output_coords</span><span class="p">,)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">input_coords</span><span class="p">,</span> <span class="o">**</span><span class="n">x</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+        <span class="c1"># Validate observation types match input_coords</span>
+        <span class="n">validate_observation_fields</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">required_fields</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interpolate_dataframe</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="InterpEquirectangular.create_generator">
+<a class="viewcode-back" href="../../../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html#earth2studio.models.da.InterpEquirectangular.create_generator">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span>
+        <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="kc">None</span><span class="p">,</span>
+    <span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a generator which accepts collection of input observations and</span>
+<span class="sd">        outputs a collection of assimilated data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : AssimilationInput</span>
+<span class="sd">            Input configuration for the assimilation model</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Assimilated data output the generator yields</span>
+
+<span class="sd">        Receives</span>
+<span class="sd">        --------</span>
+<span class="sd">        *DataFrame</span>
+<span class="sd">            Observations sent via generator.send()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Validate input configuration</span>
+
+        <span class="c1"># Initialize generator - first yield is None to start</span>
+        <span class="n">observations</span> <span class="o">=</span> <span class="k">yield</span> <span class="kc">None</span>  <span class="c1"># type: ignore[misc]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">da</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="n">observations</span><span class="p">)</span>
+                <span class="n">observations</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">da</span>
+        <span class="k">except</span> <span class="ne">GeneratorExit</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;InterpEquirectangular clean up complete.&quot;</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_interpolate_dataframe</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate DataFrame observations to a regular lat-lon grid.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            Input observations DataFrame with columns: time, lat, lon, observation, variable</span>
+<span class="sd">        output_coords : CoordSystem</span>
+<span class="sd">            Output coordinate system with time, variable, lat, lon dimensions</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xr.DataArray</span>
+<span class="sd">            Interpolated data array on the output grid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+        <span class="n">lat_grid</span> <span class="o">=</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="n">lon_grid</span> <span class="o">=</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+        <span class="n">time_coords</span> <span class="o">=</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Initialize output array: (time, variable, lat, lon)</span>
+        <span class="n">n_time</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_coords</span><span class="p">)</span>
+        <span class="n">n_var</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+        <span class="n">n_lat</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lat_grid</span><span class="p">)</span>
+        <span class="n">n_lon</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lon_grid</span><span class="p">)</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_buffer</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">lat_grid_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">lat_grid</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">lon_grid_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">lon_grid</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Create meshgrid using torch</span>
+        <span class="n">lon_mesh_t</span><span class="p">,</span> <span class="n">lat_mesh_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">lon_grid_t</span><span class="p">,</span> <span class="n">lat_grid_t</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+        <span class="c1"># Stack and reshape to [n_lat * n_lon, 2] with (lat, lon) pairs</span>
+        <span class="n">target_points_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">lat_mesh_t</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">lon_mesh_t</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">ravel</span><span class="p">()],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Initialize output tensor</span>
+        <span class="n">interpolated_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">n_time</span><span class="p">,</span> <span class="n">n_var</span><span class="p">,</span> <span class="n">n_lat</span><span class="p">,</span> <span class="n">n_lon</span><span class="p">),</span>
+            <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Process each time step separately</span>
+        <span class="k">for</span> <span class="n">t_idx</span><span class="p">,</span> <span class="n">request_time</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time_coords</span><span class="p">):</span>
+            <span class="c1"># Filter observations within tolerance window for this time step</span>
+            <span class="n">time_filtered_df</span> <span class="o">=</span> <span class="n">filter_time_range</span><span class="p">(</span>
+                <span class="n">df</span><span class="p">,</span> <span class="n">request_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tolerance</span><span class="p">,</span> <span class="n">time_column</span><span class="o">=</span><span class="s2">&quot;time&quot;</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Group observations by variable and interpolate each</span>
+            <span class="k">for</span> <span class="n">var_idx</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variables</span><span class="p">):</span>
+                <span class="n">var_df</span> <span class="o">=</span> <span class="n">time_filtered_df</span><span class="p">[</span>
+                    <span class="n">time_filtered_df</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">variable</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">var_df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># No observations for this variable at this time, leave as NaN</span>
+                    <span class="k">continue</span>
+
+                <span class="c1"># Extract observation points and values, convert to torch</span>
+                <span class="n">source_lat</span> <span class="o">=</span> <span class="n">dfseries_to_torch</span><span class="p">(</span>
+                    <span class="n">var_df</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="p">)</span>
+                <span class="n">source_lon</span> <span class="o">=</span> <span class="n">dfseries_to_torch</span><span class="p">(</span>
+                    <span class="n">var_df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="p">)</span>
+                <span class="n">source_points_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">source_lat</span><span class="p">,</span> <span class="n">source_lon</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">values_t</span> <span class="o">=</span> <span class="n">dfseries_to_torch</span><span class="p">(</span>
+                    <span class="n">var_df</span><span class="p">[</span><span class="s2">&quot;observation&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Interpolate to grid using PyTorch</span>
+                <span class="n">grid_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interpolate_scattered</span><span class="p">(</span>
+                    <span class="n">source_points_t</span><span class="p">,</span> <span class="n">values_t</span><span class="p">,</span> <span class="n">target_points_t</span><span class="p">,</span> <span class="n">n_lat</span><span class="p">,</span> <span class="n">n_lon</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Assign to this time step</span>
+                <span class="n">interpolated_data</span><span class="p">[</span><span class="n">t_idx</span><span class="p">,</span> <span class="n">var_idx</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">grid_values</span>
+
+        <span class="c1"># Create DataArray (convert tensor to numpy or cupy based on device)</span>
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="n">cp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data_array</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">interpolated_data</span><span class="p">)</span>  <span class="c1"># Zero-copy</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data_array</span> <span class="o">=</span> <span class="n">interpolated_data</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="n">da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data_array</span><span class="p">,</span>
+            <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="n">time_coords</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variables</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="n">lat_grid</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="n">lon_grid</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">da</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_interpolate_scattered</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">source_points</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">target_points</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">n_lat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">n_lon</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate scattered points to target grid using PyTorch.</span>
+
+<span class="sd">        Accounts for periodic boundary condition in longitude.</span>
+<span class="sd">        Automatically converts longitude from -180,180 range to 0,360 range if needed.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        source_points : torch.Tensor</span>
+<span class="sd">            Source points [N, 2] with (lat, lon) coordinates. Longitude can be in</span>
+<span class="sd">            -180,180 or 0,360 range.</span>
+<span class="sd">        values : torch.Tensor</span>
+<span class="sd">            Values at source points [N]</span>
+<span class="sd">        target_points : torch.Tensor</span>
+<span class="sd">            Target grid points [M, 2] with (lat, lon) coordinates. Longitude can be in</span>
+<span class="sd">            -180,180 or 0,360 range.</span>
+<span class="sd">        n_lat : int</span>
+<span class="sd">            Number of latitude points in output grid</span>
+<span class="sd">        n_lon : int</span>
+<span class="sd">            Number of longitude points in output grid</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Interpolated values [n_lat, n_lon]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target_lat</span> <span class="o">=</span> <span class="n">target_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># [M, 1]</span>
+        <span class="n">target_lon</span> <span class="o">=</span> <span class="n">target_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>  <span class="c1"># [M, 1]</span>
+        <span class="n">source_lat</span> <span class="o">=</span> <span class="n">source_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [1, N]</span>
+        <span class="n">source_lon</span> <span class="o">=</span> <span class="n">source_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [1, N]</span>
+
+        <span class="c1"># Normalize longitude from -180,180 to 0,360 range</span>
+        <span class="c1"># Convert negative longitudes to positive: -180 -&gt; 180, -90 -&gt; 270, etc.</span>
+        <span class="n">target_lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">target_lon</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">target_lon</span> <span class="o">+</span> <span class="mf">360.0</span><span class="p">,</span> <span class="n">target_lon</span><span class="p">)</span>
+        <span class="n">source_lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">source_lon</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">source_lon</span> <span class="o">+</span> <span class="mf">360.0</span><span class="p">,</span> <span class="n">source_lon</span><span class="p">)</span>
+
+        <span class="c1"># Latitude distance (not periodic)</span>
+        <span class="n">lat_diff</span> <span class="o">=</span> <span class="n">target_lat</span> <span class="o">-</span> <span class="n">source_lat</span>  <span class="c1"># [M, N]</span>
+        <span class="n">lat_dist_sq</span> <span class="o">=</span> <span class="n">lat_diff</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="c1"># Longitude distance with periodic boundary (0-360)</span>
+        <span class="n">lon_diff</span> <span class="o">=</span> <span class="n">target_lon</span> <span class="o">-</span> <span class="n">source_lon</span>  <span class="c1"># [M, N]</span>
+        <span class="c1"># Compute periodic distance: min(|diff|, 360 - |diff|)</span>
+        <span class="n">lon_diff_abs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">lon_diff</span><span class="p">)</span>
+        <span class="n">lon_dist</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">lon_diff_abs</span><span class="p">,</span> <span class="mf">360.0</span> <span class="o">-</span> <span class="n">lon_diff_abs</span><span class="p">)</span>
+        <span class="n">lon_dist_sq</span> <span class="o">=</span> <span class="n">lon_dist</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">distances</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">lat_dist_sq</span> <span class="o">+</span> <span class="n">lon_dist_sq</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span> <span class="o">==</span> <span class="s2">&quot;nearest&quot;</span><span class="p">:</span>
+            <span class="c1"># Nearest neighbor interpolation using distance</span>
+            <span class="n">nearest_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">interpolated</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">nearest_indices</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span> <span class="o">==</span> <span class="s2">&quot;smolyak&quot;</span><span class="p">:</span>
+            <span class="n">interpolated</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_smolyak_interpolate</span><span class="p">(</span>
+                <span class="n">source_points</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">target_points</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported interpolation type: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">interp_method</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Reshape to grid</span>
+        <span class="k">return</span> <span class="n">interpolated</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n_lat</span><span class="p">,</span> <span class="n">n_lon</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_chebyshev_polynomials</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">degree</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate Chebyshev polynomials T_0(x) through T_degree(x) using recurrence.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x : torch.Tensor</span>
+<span class="sd">            Input values [..., N]</span>
+<span class="sd">        degree : int</span>
+<span class="sd">            Maximum polynomial degree</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Chebyshev polynomial values [..., N, degree+1]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="o">*</span><span class="n">shape</span><span class="p">,</span> <span class="n">degree</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># T_0(x) = 1</span>
+        <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="k">if</span> <span class="n">degree</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># T_1(x) = x</span>
+            <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+
+            <span class="c1"># Recurrence: T_n(x) = 2*x*T_{n-1}(x) - T_{n-2}(x)</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">degree</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_smolyak_interpolate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">source_points</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">target_points</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate using Smolyak&#39;s algorithm with Chebyshev polynomial basis.</span>
+
+<span class="sd">        Vectorized implementation using Smolyak sparse grid structure for efficient</span>
+<span class="sd">        polynomial interpolation. Uses tensor products of Chebyshev polynomials.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        source_points : torch.Tensor</span>
+<span class="sd">            Source points [N, 2] with (lat, lon) coordinates</span>
+<span class="sd">        values : torch.Tensor</span>
+<span class="sd">            Values at source points [N]</span>
+<span class="sd">        target_points : torch.Tensor</span>
+<span class="sd">            Target points [M, 2] with (lat, lon) coordinates</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        torch.Tensor</span>
+<span class="sd">            Interpolated values [M]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">source_points</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="n">source_points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">target_points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># 2D: lat and lon</span>
+
+        <span class="c1"># Normalize coordinates to [-1, 1]^2 for Chebyshev polynomials</span>
+        <span class="n">source_lat</span> <span class="o">=</span> <span class="n">source_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">source_lon</span> <span class="o">=</span> <span class="n">source_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">target_lat</span> <span class="o">=</span> <span class="n">target_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">target_lon</span> <span class="o">=</span> <span class="n">target_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Normalize longitude to 0-360 range first</span>
+        <span class="n">source_lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">source_lon</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">source_lon</span> <span class="o">+</span> <span class="mf">360.0</span><span class="p">,</span> <span class="n">source_lon</span><span class="p">)</span>
+        <span class="n">target_lon</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">target_lon</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">target_lon</span> <span class="o">+</span> <span class="mf">360.0</span><span class="p">,</span> <span class="n">target_lon</span><span class="p">)</span>
+
+        <span class="c1"># Get bounds with padding</span>
+        <span class="n">lat_min</span><span class="p">,</span> <span class="n">lat_max</span> <span class="o">=</span> <span class="n">source_lat</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">source_lat</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">lon_min</span><span class="p">,</span> <span class="n">lon_max</span> <span class="o">=</span> <span class="n">source_lon</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">source_lon</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+        <span class="n">lat_range</span> <span class="o">=</span> <span class="n">lat_max</span> <span class="o">-</span> <span class="n">lat_min</span>
+        <span class="n">lon_range</span> <span class="o">=</span> <span class="n">lon_max</span> <span class="o">-</span> <span class="n">lon_min</span>
+        <span class="n">lat_min</span> <span class="o">-=</span> <span class="n">lat_range</span> <span class="o">*</span> <span class="mf">0.1</span>
+        <span class="n">lat_max</span> <span class="o">+=</span> <span class="n">lat_range</span> <span class="o">*</span> <span class="mf">0.1</span>
+        <span class="n">lon_min</span> <span class="o">-=</span> <span class="n">lon_range</span> <span class="o">*</span> <span class="mf">0.1</span>
+        <span class="n">lon_max</span> <span class="o">+=</span> <span class="n">lon_range</span> <span class="o">*</span> <span class="mf">0.1</span>
+
+        <span class="c1"># Clamp to valid ranges</span>
+        <span class="n">lat_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">lat_min</span><span class="p">,</span> <span class="o">-</span><span class="mf">90.0</span><span class="p">)</span>
+        <span class="n">lat_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">lat_max</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">)</span>
+        <span class="n">lon_min</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">lon_min</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">lon_max</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">lon_max</span><span class="p">,</span> <span class="mf">360.0</span><span class="p">)</span>
+
+        <span class="c1"># Normalize to [-1, 1]</span>
+        <span class="n">source_lat_norm</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">source_lat</span> <span class="o">-</span> <span class="n">lat_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">lat_max</span> <span class="o">-</span> <span class="n">lat_min</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span>
+        <span class="n">source_lon_norm</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">source_lon</span> <span class="o">-</span> <span class="n">lon_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">lon_max</span> <span class="o">-</span> <span class="n">lon_min</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span>
+        <span class="n">target_lat_norm</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">target_lat</span> <span class="o">-</span> <span class="n">lat_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">lat_max</span> <span class="o">-</span> <span class="n">lat_min</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span>
+        <span class="n">target_lon_norm</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">target_lon</span> <span class="o">-</span> <span class="n">lon_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">lon_max</span> <span class="o">-</span> <span class="n">lon_min</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span>
+
+        <span class="c1"># Determine Smolyak level mu adaptively based on number of points</span>
+        <span class="c1"># For 2D: mu=1-&gt;5, mu=2-&gt;13, mu=3-&gt;29, mu=4-&gt;65, mu=5-&gt;145, mu=6-&gt;321, mu=7-&gt;705 points</span>
+        <span class="n">mu_thresholds</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">max_degree</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">mu_thresholds</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">N</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">:</span>
+                <span class="n">mu</span> <span class="o">=</span> <span class="n">level</span>
+                <span class="n">max_degree</span> <span class="o">=</span> <span class="n">level</span>
+                <span class="k">break</span>
+
+        <span class="c1"># Generate Smolyak indices: combinations where d &lt; sum(i) &lt;= d + mu</span>
+        <span class="c1"># Vectorized generation</span>
+        <span class="n">i1_range</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mu</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">i2_range</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mu</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">i1_grid</span><span class="p">,</span> <span class="n">i2_grid</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">i1_range</span><span class="p">,</span> <span class="n">i2_range</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">d</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">i1_grid</span> <span class="o">+</span> <span class="n">i2_grid</span><span class="p">))</span> <span class="o">&amp;</span> <span class="p">((</span><span class="n">i1_grid</span> <span class="o">+</span> <span class="n">i2_grid</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="n">mu</span><span class="p">))</span>
+        <span class="n">smol_i1</span> <span class="o">=</span> <span class="n">i1_grid</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="n">smol_i2</span> <span class="o">=</span> <span class="n">i2_grid</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+        <span class="c1"># Compute m_i(i) = 2^(i-1) + 1 for i &gt; 1, else special cases</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">m_i</span><span class="p">(</span><span class="n">i</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">i</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+
+        <span class="c1"># Get degrees for each dimension</span>
+        <span class="n">deg1_all</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">m_i</span><span class="p">(</span><span class="n">smol_i1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="n">max_degree</span><span class="p">)</span>
+        <span class="n">deg2_all</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">m_i</span><span class="p">(</span><span class="n">smol_i2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="n">max_degree</span><span class="p">)</span>
+
+        <span class="c1"># Build unique basis terms (deg_lat, deg_lon) pairs</span>
+        <span class="n">basis_terms</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">smol_i1</span><span class="p">)):</span>
+            <span class="n">d1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">deg1_all</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            <span class="n">d2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">deg2_all</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+            <span class="k">for</span> <span class="n">d1_val</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">d2_val</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">d1_val</span> <span class="o">+</span> <span class="n">d2_val</span> <span class="o">&lt;=</span> <span class="n">max_degree</span><span class="p">:</span>
+                        <span class="n">basis_terms</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">d1_val</span><span class="p">,</span> <span class="n">d2_val</span><span class="p">))</span>
+
+        <span class="c1"># Fallback if no terms</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">basis_terms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">deg_lat</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_degree</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">deg_lon</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_degree</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">deg_lat</span> <span class="o">+</span> <span class="n">deg_lon</span> <span class="o">&lt;=</span> <span class="n">max_degree</span><span class="p">:</span>
+                        <span class="n">basis_terms</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">deg_lat</span><span class="p">,</span> <span class="n">deg_lon</span><span class="p">))</span>
+
+        <span class="c1"># Evaluate Chebyshev polynomials for source points</span>
+        <span class="n">cheb_lat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chebyshev_polynomials</span><span class="p">(</span>
+            <span class="n">source_lat_norm</span><span class="p">,</span> <span class="n">max_degree</span>
+        <span class="p">)</span>  <span class="c1"># [N, max_degree+1]</span>
+        <span class="n">cheb_lon</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chebyshev_polynomials</span><span class="p">(</span>
+            <span class="n">source_lon_norm</span><span class="p">,</span> <span class="n">max_degree</span>
+        <span class="p">)</span>  <span class="c1"># [N, max_degree+1]</span>
+
+        <span class="c1"># Build basis matrix vectorized</span>
+        <span class="n">basis_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">deg_lat</span><span class="p">,</span> <span class="n">deg_lon</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">basis_terms</span><span class="p">):</span>
+            <span class="n">basis_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cheb_lat</span><span class="p">[:,</span> <span class="n">deg_lat</span><span class="p">]</span> <span class="o">*</span> <span class="n">cheb_lon</span><span class="p">[:,</span> <span class="n">deg_lon</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">basis_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">basis_matrix</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">basis_matrix</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">basis_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># [N, n_basis]</span>
+
+        <span class="c1"># Limit basis size to avoid overfitting</span>
+        <span class="k">if</span> <span class="n">basis_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">N</span><span class="p">:</span>
+            <span class="n">basis_matrix</span> <span class="o">=</span> <span class="n">basis_matrix</span><span class="p">[:,</span> <span class="p">:</span><span class="n">N</span><span class="p">]</span>
+
+        <span class="c1"># Solve for coefficients using regularized least squares (vectorized)</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="mf">1e-6</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">basis_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">ATA</span> <span class="o">=</span> <span class="n">basis_matrix</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">basis_matrix</span> <span class="o">+</span> <span class="n">reg</span>
+        <span class="n">ATb</span> <span class="o">=</span> <span class="n">basis_matrix</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">values</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">coeffs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">ATA</span><span class="p">,</span> <span class="n">ATb</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># [n_basis]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># Fallback to SVD</span>
+            <span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">Vt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">basis_matrix</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">threshold_svd</span> <span class="o">=</span> <span class="mf">1e-6</span> <span class="o">*</span> <span class="n">S</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">S</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e-6</span>
+            <span class="n">S_inv</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">S</span> <span class="o">&gt;</span> <span class="n">threshold_svd</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">S</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">S</span><span class="p">))</span>
+            <span class="n">coeffs</span> <span class="o">=</span> <span class="p">(</span><span class="n">Vt</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">S_inv</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">values</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">))))</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Evaluate polynomial at target points (vectorized)</span>
+        <span class="n">cheb_lat_target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chebyshev_polynomials</span><span class="p">(</span>
+            <span class="n">target_lat_norm</span><span class="p">,</span> <span class="n">max_degree</span>
+        <span class="p">)</span>  <span class="c1"># [M, max_degree+1]</span>
+        <span class="n">cheb_lon_target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chebyshev_polynomials</span><span class="p">(</span>
+            <span class="n">target_lon_norm</span><span class="p">,</span> <span class="n">max_degree</span>
+        <span class="p">)</span>  <span class="c1"># [M, max_degree+1]</span>
+
+        <span class="c1"># Build target basis matrix with same structure</span>
+        <span class="n">target_basis_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">deg_lat</span><span class="p">,</span> <span class="n">deg_lon</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">basis_terms</span><span class="p">):</span>
+            <span class="n">target_basis_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">cheb_lat_target</span><span class="p">[:,</span> <span class="n">deg_lat</span><span class="p">]</span> <span class="o">*</span> <span class="n">cheb_lon_target</span><span class="p">[:,</span> <span class="n">deg_lon</span><span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_basis_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">target_basis</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">target_basis</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">target_basis_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># [M, n_basis]</span>
+            <span class="c1"># Match coefficient size</span>
+            <span class="k">if</span> <span class="n">target_basis</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">):</span>
+                <span class="n">target_basis</span> <span class="o">=</span> <span class="n">target_basis</span><span class="p">[:,</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)]</span>
+            <span class="k">elif</span> <span class="n">target_basis</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">):</span>
+                <span class="n">coeffs</span> <span class="o">=</span> <span class="n">coeffs</span><span class="p">[:</span> <span class="n">target_basis</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+        <span class="c1"># Evaluate: target_basis @ coeffs (fully vectorized)</span>
+        <span class="n">interpolated</span> <span class="o">=</span> <span class="n">target_basis</span> <span class="o">@</span> <span class="n">coeffs</span>  <span class="c1"># [M]</span>
+
+        <span class="k">return</span> <span class="n">interpolated</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
