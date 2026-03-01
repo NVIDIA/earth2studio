@@ -150,6 +150,7 @@ fcn = [
 ]
 fcn3 = [
     "makani",
+    "nvidia-physicsnemo<2.0", # Until makani updates
     "ruamel.yaml>=0.18.14",
     "scipy>=1.10.0",
     "torch-harmonics>=0.8.0",
@@ -182,6 +183,7 @@ pangu = [
 ]
 sfno = [
     "makani",
+    "nvidia-physicsnemo<2.0", # Until makani updates
     "pynvml>=12.0.0",
     "ruamel-yaml>=0.18.10",
     "scipy>=1.10.0",
@@ -231,6 +233,13 @@ solarradiation-afno = [
 ]
 windgust-afno = [
     "nvidia-physicsnemo>=1.0.1",
+<<<<<<< HEAD
+=======
+]
+# Helpers/Convenience containers
+physicsnemo-models = [
+  "earth2studio[atlas,dlesym,dlwp,fcn,interp-modafno,stormcast,stormscope,corrdiff,precip-afno,precip-afno-v2,solarradiation-afno,windgust-afno]"
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 # DA Models
 da-interp = [
@@ -245,7 +254,11 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils]",
+<<<<<<< HEAD
     "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
+=======
+    "earth2studio[ace2,aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fengwu,interp-modafno,pangu,stormcast,stormscope,graphcast]",
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast]",
 ]
@@ -254,6 +267,7 @@ all = [
 [tool.uv]
 conflicts = [
   [
+<<<<<<< HEAD
     { extra = "ace2" },
     { extra = "atlas" },
   ],
@@ -267,6 +281,13 @@ conflicts = [
   ],
   [
     { extra = "ace2" },
+=======
+    { extra = "physicsnemo-models" },
+    { extra = "fcn3" },
+  ],
+  [
+    { extra = "physicsnemo-models" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { extra = "sfno" },
   ]
 ]
@@ -288,6 +309,7 @@ makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc1
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
+<<<<<<< HEAD
 # Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics
 torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "perturbation"},
@@ -295,6 +317,9 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
+=======
+nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git"} # TODO temporary, will remove when pip wheel is out
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

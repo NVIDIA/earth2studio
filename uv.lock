@@ -28,6 +28,7 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 conflicts = [[
+<<<<<<< HEAD
     { package = "earth2studio", extra = "ace2" },
     { package = "earth2studio", extra = "atlas" },
 ], [
@@ -38,6 +39,12 @@ conflicts = [[
     { package = "earth2studio", extra = "perturbation" },
 ], [
     { package = "earth2studio", extra = "ace2" },
+=======
+    { package = "earth2studio", extra = "fcn3" },
+    { package = "earth2studio", extra = "physicsnemo-models" },
+], [
+    { package = "earth2studio", extra = "physicsnemo-models" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { package = "earth2studio", extra = "sfno" },
 ]]
 
@@ -224,7 +231,11 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
+<<<<<<< HEAD
     { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -317,7 +328,11 @@ version = "4.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
+<<<<<<< HEAD
     { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/f0/5eb65b2bb0d09ac6776f2eb54adee6abe8228ea05b20a5ad0e4945de8aac/anyio-4.12.1.tar.gz", hash = "sha256:41cfcc3a4c85d3f05c932da7c26d0201ac36f72abd4435ba90d0464a3ffed703", size = 228685, upload-time = "2026-01-06T11:45:21.246Z" }
 wheels = [
@@ -520,7 +535,11 @@ dependencies = [
     { name = "pandas" },
     { name = "pillow" },
     { name = "pyyaml" },
+<<<<<<< HEAD
     { name = "tornado", marker = "sys_platform != 'emscripten' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "tornado", marker = "sys_platform != 'emscripten' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "xyzservices" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e4/31/7ee0c4dfd0255631b0624ce01be178704f91f763f02a1879368eb109befd/bokeh-3.8.2.tar.gz", hash = "sha256:8e7dcacc21d53905581b54328ad2705954f72f2997f99fc332c1de8da53aa3cc", size = 6529251, upload-time = "2026-01-06T00:20:06.568Z" }
@@ -620,6 +639,7 @@ name = "cbottle"
 version = "2025.5.1"
 source = { git = "https://github.com/NVlabs/cBottle.git?rev=8b8b358466e6b2f50d1779009790002ceb596e72#8b8b358466e6b2f50d1779009790002ceb596e72" }
 dependencies = [
+<<<<<<< HEAD
     { name = "cartopy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "cftime", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "earth2grid", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -640,6 +660,28 @@ dependencies = [
     { name = "xarray", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "zarr", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "zict", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "cartopy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "cftime", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "earth2grid", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "h5netcdf", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "matplotlib", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "netcdf4", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-physicsnemo", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pandas", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "psutil", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "python-dotenv", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "s3fs", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "scipy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "tensorboard", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "torch", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "torchmetrics", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "tqdm", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "xarray", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "zarr", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "zict", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 
 [[package]]
@@ -670,7 +712,11 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -895,7 +941,11 @@ name = "click"
 version = "8.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5dfa22e22ed02566950fbfbcdc20311993483657a5c0/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a", size = 295065, upload-time = "2025-11-15T20:45:42.706Z" }
 wheels = [
@@ -907,7 +957,11 @@ name = "click-plugins"
 version = "1.1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "click", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "click", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c3/a4/34847b59150da33690a36da3681d6bbc2ec14ee9a846bc30a6746e5984e4/click_plugins-1.1.1.2.tar.gz", hash = "sha256:d7af3984a99d243c131aa1a828331e7630f4a88a9741fd05c927b204bcf92261", size = 8343, upload-time = "2025-06-25T00:47:37.555Z" }
 wheels = [
@@ -1136,7 +1190,11 @@ wheels = [
 
 [package.optional-dependencies]
 toml = [
+<<<<<<< HEAD
     { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 
 [[package]]
@@ -1157,7 +1215,11 @@ name = "cryptography"
 version = "46.0.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/60/04/ee2a9e8542e4fa2773b81771ff8349ff19cdd56b7258a0cc442639052edb/cryptography-46.0.5.tar.gz", hash = "sha256:abace499247268e3757271b2f1e244b36b06f8515cf27c4d49468fc9eb16e93d", size = 750064, upload-time = "2026-02-10T19:18:38.255Z" }
 wheels = [
@@ -1308,10 +1370,17 @@ wheels = [
 
 [package.optional-dependencies]
 nvcc = [
+<<<<<<< HEAD
     { name = "nvidia-cuda-nvcc-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
 ]
 nvrtc = [
     { name = "nvidia-cuda-nvrtc-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "nvidia-cuda-nvcc-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+]
+nvrtc = [
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 
 [[package]]
@@ -1331,7 +1400,11 @@ dependencies = [
     { name = "nvtx" },
     { name = "packaging" },
     { name = "pandas" },
+<<<<<<< HEAD
     { name = "pyarrow", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "pyarrow", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "pylibcudf-cu12" },
     { name = "rich" },
     { name = "rmm-cu12" },
@@ -1392,7 +1465,11 @@ dependencies = [
     { name = "click" },
     { name = "cloudpickle" },
     { name = "fsspec" },
+<<<<<<< HEAD
     { name = "importlib-metadata", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "importlib-metadata", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "packaging" },
     { name = "partd" },
     { name = "pyyaml" },
@@ -1627,7 +1704,11 @@ aifsens = [
 ]
 all = [
     { name = "anemoi-models" },
+<<<<<<< HEAD
     { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "cdsapi" },
     { name = "cfgrib" },
     { name = "cucim-cu12" },
@@ -1648,12 +1729,15 @@ all = [
     { name = "httpx" },
     { name = "hydra-core" },
     { name = "importlib-metadata" },
+<<<<<<< HEAD
     { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "intake-esgf", version = "2026.1.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "intake-esgf", version = "2026.1.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "jax", extra = ["cuda12"] },
-    { name = "makani" },
     { name = "microsoft-aurora" },
-    { name = "moviepy" },
     { name = "multi-storage-client", extra = ["boto3", "fsspec", "google-cloud-storage"] },
     { name = "natten" },
     { name = "nvidia-physicsnemo" },
@@ -1664,14 +1748,20 @@ all = [
     { name = "onnxscript" },
     { name = "pandas" },
     { name = "planetary-computer" },
-    { name = "pynvml" },
     { name = "pyproj" },
     { name = "pystac-client" },
+<<<<<<< HEAD
     { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rioxarray", version = "0.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rioxarray", version = "0.20.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "ruamel-yaml" },
+=======
+    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rioxarray", version = "0.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rioxarray", version = "0.20.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "scikit-image" },
     { name = "scipy" },
     { name = "timm" },
@@ -1689,7 +1779,11 @@ aurora = [
     { name = "microsoft-aurora" },
 ]
 cbottle = [
+<<<<<<< HEAD
     { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "earth2grid" },
 ]
 corrdiff = [
@@ -1725,17 +1819,29 @@ data = [
     { name = "ecmwf-opendata" },
     { name = "globus-sdk" },
     { name = "httpx" },
+<<<<<<< HEAD
     { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "intake-esgf", version = "2026.1.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "intake-esgf", version = "2026.1.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "multi-storage-client", extra = ["boto3", "fsspec", "google-cloud-storage"] },
     { name = "pandas" },
     { name = "planetary-computer" },
     { name = "pyproj" },
     { name = "pystac-client" },
+<<<<<<< HEAD
     { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rioxarray", version = "0.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rioxarray", version = "0.20.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rioxarray", version = "0.19.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rioxarray", version = "0.20.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "scipy" },
 ]
 dlesym = [
@@ -1754,6 +1860,10 @@ fcn = [
 fcn3 = [
     { name = "makani" },
     { name = "moviepy" },
+<<<<<<< HEAD
+=======
+    { name = "nvidia-physicsnemo" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "ruamel-yaml" },
     { name = "scipy" },
     { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
@@ -1787,6 +1897,20 @@ perturbation = [
     { name = "scipy" },
     { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
 ]
+physicsnemo-models = [
+    { name = "earth2grid" },
+    { name = "einops" },
+    { name = "hydra-core" },
+    { name = "importlib-metadata" },
+    { name = "natten" },
+    { name = "nvidia-physicsnemo" },
+    { name = "nvtx" },
+    { name = "omegaconf" },
+    { name = "pyproj" },
+    { name = "scipy" },
+    { name = "timm" },
+    { name = "torch-harmonics" },
+]
 precip-afno = [
     { name = "nvidia-physicsnemo" },
 ]
@@ -1813,6 +1937,7 @@ serve = [
 sfno = [
     { name = "makani" },
     { name = "moviepy" },
+    { name = "nvidia-physicsnemo" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
@@ -1880,10 +2005,17 @@ docs = [
     { name = "myst-parser" },
     { name = "nvidia-sphinx-theme" },
     { name = "scipy" },
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx-autodoc-typehints", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx-autodoc-typehints", version = "3.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx-autodoc-typehints", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx-autodoc-typehints", version = "3.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "sphinx-design" },
     { name = "sphinx-favicon" },
     { name = "sphinx-gallery" },
@@ -1919,6 +2051,7 @@ requires-dist = [
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'dlesym'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
+    { name = "earth2grid", marker = "extra == 'physicsnemo-models'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'stormscope'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'utils'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earthkit-regrid", marker = "extra == 'aifs'", specifier = "==0.4.0" },
@@ -1936,7 +2069,12 @@ requires-dist = [
     { name = "einops", marker = "extra == 'all'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'atlas'" },
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
+<<<<<<< HEAD
     { name = "einops", marker = "extra == 'da-stormcast'", specifier = ">=0.8.1" },
+=======
+    { name = "einops", marker = "extra == 'physicsnemo-models'" },
+    { name = "einops", marker = "extra == 'physicsnemo-models'", specifier = ">=0.8.1" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
     { name = "fastapi", marker = "extra == 'serve'", specifier = ">=0.104.0" },
     { name = "flash-attn", marker = "extra == 'aifs'" },
@@ -1960,29 +2098,37 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.27.0" },
     { name = "hydra-core", marker = "extra == 'all'", specifier = ">=1.3.2" },
     { name = "hydra-core", marker = "extra == 'dlesym'", specifier = ">=1.3.2" },
+    { name = "hydra-core", marker = "extra == 'physicsnemo-models'", specifier = ">=1.3.2" },
     { name = "hydra-core", marker = "extra == 'serve'", specifier = ">=1.3.0" },
     { name = "importlib-metadata", marker = "extra == 'all'" },
     { name = "importlib-metadata", marker = "extra == 'dlwp'" },
+    { name = "importlib-metadata", marker = "extra == 'physicsnemo-models'" },
     { name = "intake-esgf", marker = "extra == 'all'", specifier = ">=2025.9.26" },
     { name = "intake-esgf", marker = "extra == 'data'", specifier = ">=2025.9.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'all'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'graphcast'", specifier = ">=0.4.26" },
     { name = "loguru" },
+<<<<<<< HEAD
     { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
     { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
     { name = "makani", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
+=======
+    { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=fd1a62b9f27aebbc793f0cbafd838a3811de43fd" },
+    { name = "makani", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/makani.git?rev=fd1a62b9f27aebbc793f0cbafd838a3811de43fd" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "microsoft-aurora", marker = "extra == 'all'", specifier = ">=1.6.0" },
     { name = "microsoft-aurora", marker = "extra == 'aurora'", specifier = ">=1.6.0" },
-    { name = "moviepy", marker = "extra == 'all'" },
     { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "moviepy", marker = "extra == 'sfno'" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'all'", specifier = ">=0.33.0" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'data'", specifier = ">=0.33.0" },
     { name = "natten", marker = "extra == 'all'" },
     { name = "natten", marker = "extra == 'atlas'" },
+    { name = "natten", marker = "extra == 'physicsnemo-models'" },
     { name = "natten", marker = "extra == 'stormscope'" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
+<<<<<<< HEAD
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
@@ -2003,11 +2149,34 @@ requires-dist = [
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
+=======
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'physicsnemo-models'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'physicsnemo-models'", specifier = ">=0.2.11" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormscope'", specifier = ">=0.2.11" },
     { name = "omegaconf", marker = "extra == 'all'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'da-stormcast'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'dlesym'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'physicsnemo-models'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
     { name = "onnx", marker = "extra == 'all'" },
     { name = "onnx", marker = "extra == 'fengwu'" },
@@ -2031,11 +2200,11 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=14.0.0" },
     { name = "pydantic", marker = "extra == 'serve'", specifier = ">=2.0.0" },
     { name = "pygrib" },
-    { name = "pynvml", marker = "extra == 'all'", specifier = ">=12.0.0" },
     { name = "pynvml", marker = "extra == 'sfno'", specifier = ">=12.0.0" },
     { name = "pyproj", marker = "extra == 'all'", specifier = ">=3.7.1" },
     { name = "pyproj", marker = "extra == 'da-stormcast'", specifier = ">=3.7.1" },
     { name = "pyproj", marker = "extra == 'data'", specifier = ">=3.7.1" },
+    { name = "pyproj", marker = "extra == 'physicsnemo-models'", specifier = ">=3.7.1" },
     { name = "pyproj", marker = "extra == 'stormcast'", specifier = ">=3.7.1" },
     { name = "pystac-client", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "pystac-client", marker = "extra == 'data'", specifier = ">=0.9.0" },
@@ -2050,35 +2219,42 @@ requires-dist = [
     { name = "rioxarray", marker = "extra == 'all'", specifier = ">=0.15.5" },
     { name = "rioxarray", marker = "extra == 'data'", specifier = ">=0.15.5" },
     { name = "rq", marker = "extra == 'serve'", specifier = ">=1.15.0" },
-    { name = "ruamel-yaml", marker = "extra == 'all'", specifier = ">=0.18.10" },
-    { name = "ruamel-yaml", marker = "extra == 'all'", specifier = ">=0.18.14" },
     { name = "ruamel-yaml", marker = "extra == 'fcn3'", specifier = ">=0.18.14" },
     { name = "ruamel-yaml", marker = "extra == 'sfno'", specifier = ">=0.18.10" },
     { name = "s3fs", specifier = ">=2023.5.0" },
     { name = "scikit-image", marker = "extra == 'all'", specifier = ">=0.25.2" },
     { name = "scikit-image", marker = "extra == 'cyclone'", specifier = ">=0.25.2" },
     { name = "scipy", marker = "extra == 'ace2'", specifier = ">=1.15.2" },
-    { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'corrdiff'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'da-stormcast'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'data'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'fcn3'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'perturbation'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'physicsnemo-models'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'sfno'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'stormcast'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'stormscope'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'utils'", specifier = ">=1.15.2" },
     { name = "timm", marker = "extra == 'all'" },
     { name = "timm", marker = "extra == 'atlas'" },
+    { name = "timm", marker = "extra == 'physicsnemo-models'" },
     { name = "torch", specifier = ">=2.5.0" },
     { name = "torch-harmonics", marker = "extra == 'all'" },
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.7.4" },
+<<<<<<< HEAD
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.8.0" },
     { name = "torch-harmonics", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
     { name = "torch-harmonics", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
     { name = "torch-harmonics", marker = "extra == 'perturbation'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
     { name = "torch-harmonics", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
+=======
+    { name = "torch-harmonics", marker = "extra == 'atlas'" },
+    { name = "torch-harmonics", marker = "extra == 'fcn3'", specifier = ">=0.8.0" },
+    { name = "torch-harmonics", marker = "extra == 'perturbation'", specifier = ">=0.7.4" },
+    { name = "torch-harmonics", marker = "extra == 'physicsnemo-models'" },
+    { name = "torch-harmonics", marker = "extra == 'sfno'", specifier = ">=0.8.0" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "tqdm", specifier = ">=4.65.0" },
     { name = "types-redis", marker = "extra == 'serve'" },
     { name = "urllib3", marker = "extra == 'serve'", specifier = ">=1.26.0" },
@@ -2086,7 +2262,11 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.0" },
 ]
+<<<<<<< HEAD
 provides-extras = ["ace2", "aifs", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "utils", "windgust-afno"]
+=======
+provides-extras = ["ace2", "aifs", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-interp", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "physicsnemo-models", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "utils", "windgust-afno"]
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 
 [package.metadata.requires-dev]
 build = [
@@ -2332,6 +2512,35 @@ wheels = [
 [[package]]
 name = "fckitlib"
 version = "0.14.2.13"
+<<<<<<< HEAD
+=======
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "eckitlib" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/24/56c323a09f314013abead047fa7dda2530f95b8c3c366c88be0eb87f9a9e/fckitlib-0.14.2.13-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:c08aa4f961b29df0c7a6ba642c20e60e8eee97a3fec15a97331e1fa94b07c384", size = 382221, upload-time = "2026-02-26T14:09:18.972Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/26/858c0d905ce29625fbec33aa03b97af79a5189e8b26aa9a54303238ec2bf/fckitlib-0.14.2.13-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:8e83d8f5f17432d1de73d28525305c678e0f8c4ec3a1c08e56b5c66f57b7d4d9", size = 379556, upload-time = "2026-02-26T14:32:19.343Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/33/3ebc28c6618d9b74283765fdc800c7fd02cb8338f88c4e355db9cce9eafb/fckitlib-0.14.2.13-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:20a5ba07825ea16813bd015e011568f07eda8a30a19f88d7607087e22612271e", size = 405794, upload-time = "2026-02-26T14:08:43.467Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/41/497791aa4b1c5a2df5f3286fd262fa282c8b8e11c4e8beeaca2af2485c88/fckitlib-0.14.2.13-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:20aced885d861c9e6b8cfe519ad8f6968fed7a8c2667233d79a6d9b92b1ea4f3", size = 11490049, upload-time = "2026-02-26T14:32:56.783Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/88/32c7794eaa2ab1f8ec714e8373eb6b973a65025c317e842b842b9663a635/fckitlib-0.14.2.13-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:17dbb57411eb577d486ee1c7db7c685095097b11f777321d090beccec0c02640", size = 379558, upload-time = "2026-02-26T14:20:00.855Z" },
+    { url = "https://files.pythonhosted.org/packages/00/80/e19f23da50098fa92768a032f4a6d96a96a9d50060d2d28089cc7d5ef773/fckitlib-0.14.2.13-cp312-cp312-macosx_26_0_arm64.whl", hash = "sha256:263ec688bc8ac0befe04956561c5a08209a60da0a5fc322ab00724c29ffc46f3", size = 383834, upload-time = "2026-02-26T14:10:59.512Z" },
+    { url = "https://files.pythonhosted.org/packages/90/37/9815a01adb617f2a6b3abdaddaa5bfdcca04a300bc49d2ad50804d8330a6/fckitlib-0.14.2.13-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:3a28c32a5905bcbf6fcedbff32b8f3450289544f769c8387da69e6b564798140", size = 405793, upload-time = "2026-02-26T14:08:35.38Z" },
+    { url = "https://files.pythonhosted.org/packages/33/eb/8824c38446bf0ce2dbea414854d7d088756f16ced8aa8d4f8334d2329972/fckitlib-0.14.2.13-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:5de1c121f51da8758d9fc73690c3a03c6226591e6056428ab638144822753128", size = 11490036, upload-time = "2026-02-26T14:25:55.893Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/75/77ad467d330d2a0d7a897de7418d39e4704490cebf1110fdd7885e288656/fckitlib-0.14.2.13-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:e081a6e49725af92a90541aea2b82bf9e5dd5df5d03c44a3f3c95f623c4f740d", size = 382226, upload-time = "2026-02-26T14:15:48.201Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/b4/3da55060b02589024dd90756b6d7d7531311014bc71e65ecbdd5a1847e4f/fckitlib-0.14.2.13-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:3e897d76a3c5f9500b5e4bf83932c2a3113a12d136fdcbd7b661853d7d0b80e8", size = 379557, upload-time = "2026-02-26T14:08:32.016Z" },
+    { url = "https://files.pythonhosted.org/packages/39/b1/c3c92ba6ba630f1196a7a74ffd9d2708b1d72b36013eea06cc8c13274ab0/fckitlib-0.14.2.13-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:0dab26f62c8c24c308e80bd936d8877eac18067b4fb36c8ca1a2b6004087953d", size = 405797, upload-time = "2026-02-26T14:07:52.012Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/69/f736ae66d75e67db5f1264c8d4b9c07817f3d6273baae85e5531313f468a/fckitlib-0.14.2.13-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:d68c9f7adebf321dcf16d29355d19b9a0d0b48c0aa0497db73e44e55156a13ec", size = 11490043, upload-time = "2026-02-26T14:24:38.682Z" },
+    { url = "https://files.pythonhosted.org/packages/72/bc/96778e8fda7ebb82daa0c6cffc5cd63447a6b56e2d599ca2aa6bb3e86314/fckitlib-0.14.2.13-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:2261da5f92e51d391a80122aa5c5e1e656256548dd2ebc500802e6bef8decbc0", size = 379557, upload-time = "2026-02-26T14:20:32.048Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/3c/6717a19fba9c478577af626c7993502252dff0f88edbbe51214666763623/fckitlib-0.14.2.13-cp314-cp314-macosx_26_0_arm64.whl", hash = "sha256:4225bef30b266594e87af54157134749717788620d25e4c2c2a882e39574e9f3", size = 383836, upload-time = "2026-02-26T14:03:06.296Z" },
+    { url = "https://files.pythonhosted.org/packages/12/86/38fa48f55beb377406435b21031d1554e7295a75388015ba99cea7ff572a/fckitlib-0.14.2.13-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:0fd379de1af82b41edb2cba667143789044a627c19fc0ce5d5a5cf9c7b1e3547", size = 405796, upload-time = "2026-02-26T14:07:29.759Z" },
+    { url = "https://files.pythonhosted.org/packages/48/75/8a8b0a6e8b8683c4d909e702e78312f03bd686023139f5ac95566f728621/fckitlib-0.14.2.13-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:6860eaf7d16d14f68c2c52729c00920a897aa19a545aefedee2f9ef817716b95", size = 11490056, upload-time = "2026-02-26T14:26:41.516Z" },
+]
+
+[[package]]
+name = "filelock"
+version = "3.24.3"
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "eckitlib" },
@@ -3015,7 +3224,11 @@ name = "hatch"
 version = "1.16.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "backports-zstd", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "backports-zstd", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "click" },
     { name = "hatchling" },
     { name = "httpx" },
@@ -3226,7 +3439,11 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
+<<<<<<< HEAD
     { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -3372,6 +3589,7 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "dask", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "globus-sdk", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "netcdf4", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -3382,6 +3600,18 @@ dependencies = [
     { name = "requests-cache", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "tqdm", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "xarray", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "dask", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "globus-sdk", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "netcdf4", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pandas", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pystac-client", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pyyaml", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "requests", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "requests-cache", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "tqdm", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "xarray", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5d/31/22fdaecbac3e8830d3ecf47fb3516ff940ccb160447e6376e42c49d91a82/intake_esgf-2025.10.22.tar.gz", hash = "sha256:dcbb091612b1cd9168ae93b6ce6ab585cf3e1b9eefd47fe9d36954ced856311d", size = 97011, upload-time = "2025-10-22T17:58:04.992Z" }
 wheels = [
@@ -3413,6 +3643,7 @@ resolution-markers = [
     "python_full_version == '3.12.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "dask", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "globus-sdk", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "netcdf4", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -3423,6 +3654,18 @@ dependencies = [
     { name = "requests-cache", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "tqdm", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "xarray", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "dask", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "globus-sdk", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "netcdf4", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pandas", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pystac-client", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pyyaml", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "requests", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "requests-cache", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "tqdm", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "xarray", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/be/13/6f99d94d2522a55646edb8e3e0c9bf14474bd04403fc15465ab0d7137ec5/intake_esgf-2026.1.26.tar.gz", hash = "sha256:0ae6257104e4f307bb28f675d1ad703b7cdaa10e74b5b3a77e6949aee72c9890", size = 98904, upload-time = "2026-01-26T17:13:23.789Z" }
 wheels = [
@@ -3471,7 +3714,11 @@ name = "jaraco-context"
 version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "backports-tarfile", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "backports-tarfile", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/9c/a788f5bb29c61e456b8ee52ce76dbdd32fd72cd73dd67bc95f42c7a8d13c/jaraco_context-6.1.0.tar.gz", hash = "sha256:129a341b0a85a7db7879e22acd66902fda67882db771754574338898b2d5d86f", size = 15850, upload-time = "2026-01-13T02:53:53.847Z" }
 wheels = [
@@ -3545,6 +3792,7 @@ wheels = [
 
 [package.optional-dependencies]
 with-cuda = [
+<<<<<<< HEAD
     { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "nvidia-cuda-cupti-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "nvidia-cuda-nvcc-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -3557,6 +3805,20 @@ with-cuda = [
     { name = "nvidia-nccl-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "nvidia-nvshmem-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-nvcc-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cudnn-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cufft-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cusolver-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nccl-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nvshmem-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 
 [[package]]
@@ -3731,6 +3993,7 @@ name = "keyring"
 version = "25.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "importlib-metadata", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "jaraco-classes" },
     { name = "jaraco-context" },
@@ -3738,6 +4001,15 @@ dependencies = [
     { name = "jeepney", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "pywin32-ctypes", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "secretstorage", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "importlib-metadata", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "jaraco-classes" },
+    { name = "jaraco-context" },
+    { name = "jaraco-functools" },
+    { name = "jeepney", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pywin32-ctypes", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "secretstorage", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", hash = "sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b", size = 63516, upload-time = "2025-11-16T16:26:09.482Z" }
 wheels = [
@@ -3968,8 +4240,13 @@ name = "lightning-utilities"
 version = "0.15.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "typing-extensions", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/45/7fa8f56b17dc0f0a41ec70dd307ecd6787254483549843bef4c30ab5adce/lightning_utilities-0.15.3.tar.gz", hash = "sha256:792ae0204c79f6859721ac7f386c237a33b0ed06ba775009cb894e010a842033", size = 33553, upload-time = "2026-02-22T14:48:53.348Z" }
 wheels = [
@@ -4013,8 +4290,13 @@ name = "loguru"
 version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "win32-setctime", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
 wheels = [
@@ -4610,7 +4892,11 @@ name = "mypy"
 version = "1.19.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "librt", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "mypy-extensions" },
     { name = "pathspec" },
     { name = "typing-extensions" },
@@ -4663,8 +4949,13 @@ dependencies = [
     { name = "markdown-it-py" },
     { name = "mdit-py-plugins" },
     { name = "pyyaml" },
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/33/fa/7b45eef11b7971f0beb29d27b7bfe0d747d063aa29e170d9edd004733c8a/myst_parser-5.0.0.tar.gz", hash = "sha256:f6f231452c56e8baa662cc352c548158f6a16fcbd6e3800fc594978002b94f3a", size = 98535, upload-time = "2026-01-15T09:08:18.036Z" }
 wheels = [
@@ -5141,8 +5432,13 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
+<<<<<<< HEAD
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
+=======
+version = "2.1.0a0"
+source = { git = "https://github.com/NVIDIA/physicsnemo.git#79c2484ebc1a962fec1bc5bc6b1a441b21d02786" }
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 dependencies = [
     { name = "cftime" },
     { name = "einops" },
@@ -5167,6 +5463,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "treelib" },
     { name = "warp-lang" },
+<<<<<<< HEAD
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/bd/72eb242134e355810821d2c42e8ca9f15c6757c309e02389fc6f2bd40f02/nvidia_physicsnemo-2.0.0-py3-none-any.whl", hash = "sha256:fcea6ac198a2925ab81c3f62011225f53b73e1212e5364aac939ab599c0dfd9d", size = 1637877, upload-time = "2026-03-09T16:14:55.312Z" },
@@ -5183,6 +5480,8 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8c/79/017fab2f7167a9a9795665f894d04f77aafceca80821b51589bb4b23ff5c/nvidia_sphinx_theme-0.0.9.post1-py3-none-any.whl", hash = "sha256:21ca60206dff2f380d7783d64bbaf71a5b9cacae53c7d0686f089c16b5a3d45a", size = 143816, upload-time = "2025-11-09T23:16:55.719Z" },
+=======
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 
 [[package]]
@@ -6140,8 +6439,13 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "docutils" },
     { name = "pygments" },
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/00/20/bb50f9de3a6de69e6abd6b087b52fa2418a0418b19597601605f855ad044/pydata_sphinx_theme-0.16.1.tar.gz", hash = "sha256:a08b7f0b7f70387219dc659bff0893a7554d5eb39b59d3b8ef37b8401b7642d7", size = 2412693, upload-time = "2024-12-17T10:53:39.537Z" }
@@ -6374,7 +6678,11 @@ name = "pytest"
 version = "8.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -6391,7 +6699,11 @@ version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pytest" },
+<<<<<<< HEAD
     { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/90/2c/8af215c0f776415f3590cac4f9086ccefd6fd463befeae41cd4d3f193e5a/pytest_asyncio-1.3.0.tar.gz", hash = "sha256:d7f52f36d231b80ee124cd216ffb19369aa168fc10095013c6b014a34d3ee9e5", size = 50087, upload-time = "2025-11-10T16:07:47.256Z" }
 wheels = [
@@ -6592,6 +6904,7 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "affine", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "attrs", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "certifi", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -6600,6 +6913,16 @@ dependencies = [
     { name = "cligj", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "numpy", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "pyparsing", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "affine", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "attrs", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "certifi", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "click", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "click-plugins", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "cligj", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "numpy", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pyparsing", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ec/fa/fce8dc9f09e5bc6520b6fc1b4ecfa510af9ca06eb42ad7bdff9c9b8989d0/rasterio-1.4.4.tar.gz", hash = "sha256:c95424e2c7f009b8f7df1095d645c52895cd332c0c2e1b4c2e073ea28b930320", size = 445004, upload-time = "2025-12-12T18:01:08.971Z" }
 wheels = [
@@ -6666,6 +6989,7 @@ resolution-markers = [
     "python_full_version == '3.12.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "affine", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "attrs", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "certifi", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -6673,6 +6997,15 @@ dependencies = [
     { name = "cligj", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "pyparsing", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "affine", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "attrs", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "certifi", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "click", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "cligj", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pyparsing", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f6/88/edb4b66b6cb2c13f123af5a3896bf70c0cbe73ab3cd4243cb4eb0212a0f6/rasterio-1.5.0.tar.gz", hash = "sha256:1e0ea56b02eea4989b36edf8e58a5a3ef40e1b7edcb04def2603accd5ab3ee7b", size = 452184, upload-time = "2026-01-05T16:06:47.169Z" }
 wheels = [
@@ -6740,7 +7073,11 @@ name = "redis"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "async-timeout", marker = "python_full_version < '3.11.3' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "async-timeout", marker = "python_full_version < '3.11.3' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9f/32/6fac13a11e73e1bc67a2ae821a72bfe4c2d8c4c48f0267e4a952be0f1bae/redis-7.2.0.tar.gz", hash = "sha256:4dd5bf4bd4ae80510267f14185a15cba2a38666b941aff68cccf0256b51c1f26", size = 4901247, upload-time = "2026-02-16T17:16:22.797Z" }
 wheels = [
@@ -6754,7 +7091,11 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
+<<<<<<< HEAD
     { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
 wheels = [
@@ -6832,11 +7173,19 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "numpy", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "packaging", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "pyproj", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "xarray", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "numpy", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "packaging", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pyproj", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "xarray", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/8e/fe4e87460f8c62d8d5c683e09f19fbde5d9cfcfd0342d02df1f452999b5d/rioxarray-0.19.0.tar.gz", hash = "sha256:7819a0036fd874c8c8e280447cbbe43d8dc72fc4a14ac7852a665b1bdb7d4b04", size = 54600, upload-time = "2025-04-21T17:46:54.183Z" }
 wheels = [
@@ -6868,11 +7217,19 @@ resolution-markers = [
     "python_full_version == '3.12.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "pyproj", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "xarray", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pyproj", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "xarray", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5c/ad/d9f7a6d197a44a2c8f53174bdea919b7df3c70ef5c14a13702888516609a/rioxarray-0.20.0.tar.gz", hash = "sha256:8bfc7e979edc7e30b4671d638a9be0e5a7d673dab2ea88e2445d3c7745599c02", size = 55038, upload-time = "2025-10-24T18:14:41.924Z" }
 wheels = [
@@ -7298,8 +7655,13 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "cryptography", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "jeepney", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "cryptography", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "jeepney", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -7521,6 +7883,7 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "alabaster", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "babel", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "colorama", marker = "(python_full_version < '3.12' and sys_platform == 'win32') or (python_full_version >= '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (python_full_version >= '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (python_full_version >= '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (python_full_version >= '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -7538,6 +7901,25 @@ dependencies = [
     { name = "sphinxcontrib-jsmath", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinxcontrib-qthelp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinxcontrib-serializinghtml", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "alabaster", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "babel", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "colorama", marker = "(python_full_version < '3.12' and sys_platform == 'win32') or (python_full_version >= '3.12' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (python_full_version >= '3.12' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "docutils", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "imagesize", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "jinja2", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "packaging", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pygments", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "requests", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "roman-numerals", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "snowballstemmer", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-applehelp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-devhelp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-jsmath", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-qthelp", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/50/a8c6ccc36d5eacdfd7913ddccd15a9cee03ecafc5ee2bc40e1f168d85022/sphinx-9.0.4.tar.gz", hash = "sha256:594ef59d042972abbc581d8baa577404abe4e6c3b04ef61bd7fc2acbd51f3fa3", size = 8710502, upload-time = "2025-12-04T07:45:27.343Z" }
 wheels = [
@@ -7569,6 +7951,7 @@ resolution-markers = [
     "python_full_version == '3.12.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "alabaster", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "babel", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "colorama", marker = "(python_full_version >= '3.12' and sys_platform == 'win32') or (python_full_version < '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (python_full_version < '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (python_full_version < '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (python_full_version < '3.12' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -7586,6 +7969,25 @@ dependencies = [
     { name = "sphinxcontrib-jsmath", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinxcontrib-qthelp", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinxcontrib-serializinghtml", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "alabaster", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "babel", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "colorama", marker = "(python_full_version >= '3.12' and sys_platform == 'win32') or (python_full_version < '3.12' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (python_full_version < '3.12' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'win32' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "docutils", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "imagesize", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "jinja2", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pygments", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "requests", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "roman-numerals", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "snowballstemmer", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-applehelp", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-devhelp", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-jsmath", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-qthelp", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cd/bd/f08eb0f4eed5c83f1ba2a3bd18f7745a2b1525fad70660a1c00224ec468a/sphinx-9.1.0.tar.gz", hash = "sha256:7741722357dd75f8190766926071fed3bdc211c74dd2d7d4df5404da95930ddb", size = 8718324, upload-time = "2025-12-31T15:09:27.646Z" }
 wheels = [
@@ -7605,7 +8007,11 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1d/f6/bdd93582b2aaad2cfe9eb5695a44883c8bc44572dd3c351a947acbb13789/sphinx_autodoc_typehints-3.6.1.tar.gz", hash = "sha256:fa0b686ae1b85965116c88260e5e4b82faec3687c2e94d6a10f9b36c3743e2fe", size = 37563, upload-time = "2026-01-02T15:23:46.543Z" }
 wheels = [
@@ -7637,7 +8043,11 @@ resolution-markers = [
     "python_full_version == '3.12.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform != 'linux'",
 ]
 dependencies = [
+<<<<<<< HEAD
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/54/319628e24e98102e6f73cf6e5f345324a94d9adc18d456193b84f2ac1608/sphinx_autodoc_typehints-3.7.0.tar.gz", hash = "sha256:f7c536f4c0a729324cfebfaa3787c80ca14d08817952153e6da4e971c5306c20", size = 41344, upload-time = "2026-02-23T20:54:58.529Z" }
 wheels = [
@@ -7649,8 +8059,13 @@ name = "sphinx-design"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/7b/804f311da4663a4aecc6cf7abd83443f3d4ded970826d0c958edc77d4527/sphinx_design-0.7.0.tar.gz", hash = "sha256:d2a3f5b19c24b916adb52f97c5f00efab4009ca337812001109084a740ec9b7a", size = 2203582, upload-time = "2026-01-19T13:12:53.297Z" }
 wheels = [
@@ -7664,8 +8079,13 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "imagesize" },
     { name = "requests" },
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2c/26/e7ca2321e6286d6ed6a2e824a0ee35ae660ec9a45a4719e33a627ce9e4d2/sphinx_favicon-1.1.0.tar.gz", hash = "sha256:6f65939fc2a6ac4259c88b09169f0b72681cd4c03dd1d0cf91c57a1fa314e50b", size = 8744, upload-time = "2026-02-12T20:55:41.294Z" }
 wheels = [
@@ -7678,8 +8098,13 @@ version = "0.20.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pillow" },
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5f/14/9238ac61932299b38c20c7c37dbfe60348c0348ea4d400f9ef25875b3bf7/sphinx_gallery-0.20.0.tar.gz", hash = "sha256:70281510c6183d812d3595957005ccf555c5a793f207410f6cd16a25bf08d735", size = 473502, upload-time = "2025-12-02T15:51:37.277Z" }
 wheels = [
@@ -7693,8 +8118,13 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docutils" },
     { name = "setuptools" },
+<<<<<<< HEAD
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "wheel" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/89/6b/19def5241b45a7ae90fd91052bb91fa7b8fbcc0606a0cf65ac4ea70fb93b/sphinx_togglebutton-0.4.4.tar.gz", hash = "sha256:04c332692fd5f5363ad02a001e693369767d6c1f0e58279770a2aeb571b472a1", size = 17883, upload-time = "2026-01-14T14:33:11.599Z" }
@@ -7762,7 +8192,11 @@ version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
+<<<<<<< HEAD
     { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c4/68/79977123bb7be889ad680d79a40f339082c1978b5cfcf62c2d8d196873ac/starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933", size = 2653702, upload-time = "2026-01-18T13:34:11.062Z" }
 wheels = [
@@ -7804,6 +8238,7 @@ name = "tensorboard"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "absl-py", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "grpcio", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "markdown", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -7814,6 +8249,18 @@ dependencies = [
     { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "tensorboard-data-server", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "werkzeug", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "absl-py", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "grpcio", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "markdown", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "pillow", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "protobuf", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "tensorboard-data-server", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "werkzeug", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9c/d9/a5db55f88f258ac669a92858b70a714bbbd5acd993820b41ec4a96a4d77f/tensorboard-2.20.0-py3-none-any.whl", hash = "sha256:9dc9f978cb84c0723acf9a345d96c184f0293d18f166bb8d59ee098e6cfaaba6", size = 5525680, upload-time = "2025-07-17T19:20:49.638Z" },
@@ -7837,7 +8284,11 @@ dependencies = [
     { name = "cloudpickle" },
     { name = "importlib-metadata" },
     { name = "numpy" },
+<<<<<<< HEAD
     { name = "orjson", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "orjson", marker = "python_full_version < '3.13' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "packaging" },
     { name = "pyvers" },
     { name = "torch" },
@@ -8067,6 +8518,7 @@ dependencies = [
     { name = "fsspec" },
     { name = "jinja2" },
     { name = "networkx" },
+<<<<<<< HEAD
     { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -8085,6 +8537,26 @@ dependencies = [
     { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sympy" },
     { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cusparselt-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nvshmem-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "setuptools", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sympy" },
+    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_machine != 'x86_64' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform != 'linux' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "typing-extensions" },
 ]
 wheels = [
@@ -8209,10 +8681,17 @@ name = "torchmetrics"
 version = "1.8.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "lightning-utilities", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "torch", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "lightning-utilities", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "packaging", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "torch", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/2e/48a887a59ecc4a10ce9e8b35b3e3c5cef29d902c4eac143378526e7485cb/torchmetrics-1.8.2.tar.gz", hash = "sha256:cf64a901036bf107f17a524009eea7781c9c5315d130713aeca5747a686fe7a5", size = 580679, upload-time = "2025-09-03T14:00:54.077Z" }
 wheels = [
@@ -8313,7 +8792,11 @@ name = "tqdm"
 version = "4.67.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598, upload-time = "2026-02-03T17:35:53.048Z" }
 wheels = [
@@ -8607,11 +9090,19 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
+<<<<<<< HEAD
     { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (platform_python_implementation == 'PyPy' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (platform_python_implementation == 'PyPy' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (platform_python_implementation == 'PyPy' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'cygwin' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform == 'cygwin' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform == 'cygwin' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform == 'cygwin' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (sys_platform == 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (sys_platform == 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (sys_platform == 'win32' and extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "httptools" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (platform_python_implementation == 'PyPy' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'cygwin' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform == 'cygwin' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno') or (sys_platform == 'win32' and extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (sys_platform == 'win32' and extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
     { name = "watchfiles" },
     { name = "websockets" },
 ]
@@ -8905,7 +9396,11 @@ name = "werkzeug"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+<<<<<<< HEAD
     { name = "markupsafe", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+=======
+    { name = "markupsafe", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-physicsnemo-models') or (extra == 'extra-12-earth2studio-physicsnemo-models' and extra == 'extra-12-earth2studio-sfno')" },
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718))
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/f1/ee81806690a87dab5f5653c1f146c92bc066d7f4cebc603ef88eb9e13957/werkzeug-3.1.6.tar.gz", hash = "sha256:210c6bede5a420a913956b4791a7f4d6843a43b6fcee4dfa08a65e93007d0d25", size = 864736, upload-time = "2026-02-19T15:17:18.884Z" }
 wheels = [

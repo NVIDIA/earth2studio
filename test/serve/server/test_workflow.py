@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import redis  # type: ignore[import-untyped]
+<<<<<<< HEAD:test/serve/server/test_workflow.py
 from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 
 from earth2studio.serve.server.config import get_config  # type: ignore[import-untyped]
@@ -57,6 +58,30 @@ def api_active_env():  # type: ignore[no-untyped-def]
             os.environ["EARTH2STUDIO_API_ACTIVE"] = old
         else:
             os.environ.pop("EARTH2STUDIO_API_ACTIVE", None)
+=======
+
+try:
+    from api_server.config import get_config  # type: ignore[import-untyped]
+    from api_server.workflow import (  # type: ignore[import-untyped]
+        Workflow,
+        WorkflowParameters,
+        WorkflowProgress,
+        WorkflowRegistry,
+        WorkflowResult,
+        WorkflowStatus,
+        parse_workflow_directories_from_env,
+        register_all_workflows,
+        workflow_registry,
+    )
+except ImportError:
+    pass
+from pydantic import Field, ValidationError  # type: ignore[import-untyped]
+
+pytest.importorskip("api_server")
+
+# imitate API server environment (DANGER!!! REMOVE THIS)
+os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
+>>>>>>> 17f1972 (XXOOOUpdate to PhysicsNeMo v2 (#718)):test/serve/test_workflow.py
 
 
 def get_test_config(base_path: str | None = None):  # type: ignore[no-untyped-def]
