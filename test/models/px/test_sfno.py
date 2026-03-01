@@ -35,7 +35,7 @@ except Exception:
 
 pytestmark = pytest.mark.skipif(
     _pn_ver >= Version("2.0"),
-    reason="requires physicsnemo<2.0",
+    reason=f"requires physicsnemo<2.0, found {_pn_ver}",
 )
 
 
