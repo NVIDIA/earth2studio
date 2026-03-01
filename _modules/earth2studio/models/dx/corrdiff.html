@@ -465,21 +465,28 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span> <span class="k">as</span> <span class="n">PhysicsNemoModule</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.corrdiff</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span> <span class="k">as</span> <span class="n">PhysicsNemoModule</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.generate.legacy_generate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">diffusion_step</span><span class="p">,</span>
         <span class="n">regression_step</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.generative</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-        <span class="n">StackedRandomGenerator</span><span class="p">,</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.preconditioners.legacy</span><span class="w"> </span><span class="kn">import</span> <span class="n">EDMPrecondSR</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.samplers.legacy_deterministic_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">deterministic_sampler</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.samplers.legacy_stochastic_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">stochastic_sampler</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">StackedRandomGenerator</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models.diffusion_unets</span><span class="w"> </span><span class="kn">import</span> <span class="n">UNet</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;corrdiff&quot;</span><span class="p">)</span>
     <span class="n">PhysicsNemoModule</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">StackedRandomGenerator</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">deterministic_sampler</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">stochastic_sampler</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">EDMPrecondSR</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">UNet</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="nd">@check_optional_dependencies</span><span class="p">()</span>
@@ -1821,7 +1828,7 @@
         <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
             <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
 
-        <span class="n">residual</span> <span class="o">=</span> <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">EDMPrecondSR</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
             <span class="nb">str</span><span class="p">(</span>
                 <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
                 <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package/checkpoints/diffusion.mdlus&quot;</span><span class="p">)</span>
@@ -1834,7 +1841,7 @@
             <span class="n">residual</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="n">residual</span> <span class="o">=</span> <span class="n">residual</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">memory_format</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">channels_last</span><span class="p">)</span>
 
-        <span class="n">regression</span> <span class="o">=</span> <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+        <span class="n">regression</span> <span class="o">=</span> <span class="n">UNet</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
             <span class="nb">str</span><span class="p">(</span>
                 <span class="n">checkpoint_zip</span><span class="o">.</span><span class="n">parent</span>
                 <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;corrdiff_inference_package/checkpoints/regression.mdlus&quot;</span><span class="p">)</span>

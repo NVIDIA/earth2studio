@@ -457,14 +457,20 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">LeadTimeArray</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span> <span class="k">as</span> <span class="n">PhysicsNemoModule</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.corrdiff</span><span class="w"> </span><span class="kn">import</span> <span class="n">diffusion_step</span><span class="p">,</span> <span class="n">regression_step</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.generate.legacy_generate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">diffusion_step</span><span class="p">,</span>
+        <span class="n">regression_step</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.preconditioners.legacy</span><span class="w"> </span><span class="kn">import</span> <span class="n">EDMPrecondSuperResolution</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models.diffusion_unets</span><span class="w"> </span><span class="kn">import</span> <span class="n">UNet</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.zenith_angle</span><span class="w"> </span><span class="kn">import</span> <span class="n">cos_zenith_angle</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;corrdiff&quot;</span><span class="p">)</span>
     <span class="n">diffusion_step</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
     <span class="n">regression_step</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
     <span class="n">cos_zenith_angle</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
+    <span class="n">UNet</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
+    <span class="n">EDMPrecondSuperResolution</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># type: ignore[assignment]</span>
 
 
 <div class="viewcode-block" id="CorrDiffCMIP6">
@@ -857,16 +863,14 @@
 
         <span class="c1"># Load the base CorrDiff model from the package.</span>
         <span class="n">residual</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+            <span class="n">EDMPrecondSuperResolution</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
                 <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;diffusion.mdlus&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
             <span class="p">)</span>
             <span class="o">.</span><span class="n">eval</span><span class="p">()</span>
             <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">regression</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-                <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;regression.mdlus&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span>
+            <span class="n">UNet</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;regression.mdlus&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="o">.</span><span class="n">eval</span><span class="p">()</span>
             <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="p">)</span>

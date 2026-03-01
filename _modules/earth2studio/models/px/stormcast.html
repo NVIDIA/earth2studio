@@ -463,11 +463,15 @@
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span> <span class="k">as</span> <span class="n">PhysicsNemoModule</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.utils.generative</span><span class="w"> </span><span class="kn">import</span> <span class="n">deterministic_sampler</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.preconditioners.legacy</span><span class="w"> </span><span class="kn">import</span> <span class="n">EDMPrecond</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.diffusion.samplers.legacy_deterministic_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">deterministic_sampler</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">physicsnemo.models.diffusion_unets</span><span class="w"> </span><span class="kn">import</span> <span class="n">StormCastUNet</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">OptionalDependencyFailure</span><span class="p">(</span><span class="s2">&quot;stormcast&quot;</span><span class="p">)</span>
-    <span class="n">PhysicsNemoModule</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">StormCastUNet</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">EDMPrecond</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">OmegaConf</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">deterministic_sampler</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -714,11 +718,14 @@
         <span class="c1"># load model registry:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">OmegaConf</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;model.yaml&quot;</span><span class="p">))</span>
 
-        <span class="n">regression</span> <span class="o">=</span> <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;StormCastUNet.0.0.mdlus&quot;</span><span class="p">)</span>
+        <span class="c1"># TODO: remove strict=False once checkpoints/imports updated to new diffusion API</span>
+        <span class="n">regression</span> <span class="o">=</span> <span class="n">StormCastUNet</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;StormCastUNet.0.0.mdlus&quot;</span><span class="p">),</span>
+            <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">diffusion</span> <span class="o">=</span> <span class="n">PhysicsNemoModule</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
-            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;EDMPrecond.0.0.mdlus&quot;</span><span class="p">)</span>
+        <span class="n">diffusion</span> <span class="o">=</span> <span class="n">EDMPrecond</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span>
+            <span class="n">package</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="s2">&quot;EDMPrecond.0.0.mdlus&quot;</span><span class="p">),</span>
+            <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># Load metadata: means, stds, grid</span>
