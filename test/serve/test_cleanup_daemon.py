@@ -25,13 +25,19 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-from api_server.cleanup_daemon import (
-    _delete_result_files,
-    _process_expired_key,
-    cleanup_expired_results,
-)
-from api_server.config import get_config
-from api_server.workflow import WorkflowStatus
+
+try:
+    from api_server.cleanup_daemon import (
+        _delete_result_files,
+        _process_expired_key,
+        cleanup_expired_results,
+    )
+    from api_server.config import get_config
+    from api_server.workflow import WorkflowStatus
+except ImportError:
+    pass
+
+pytest.importorskip("api_server")
 
 
 class TestDeleteResultFiles:
