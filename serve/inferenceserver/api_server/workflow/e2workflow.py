@@ -247,3 +247,7 @@ class BackendProgress:
     def __getattr__(self, name: str) -> Any:
         """Allow passthrough of unwrapped attributes."""
         return getattr(self.io, name)
+
+    def __getitem__(self, key: str) -> Any:
+        """Allow subscripting to access underlying io object."""
+        return self.io[key]

@@ -13,7 +13,7 @@ ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 ARG MAKANI_HASH=28f38e3e929ed1303476518552c64673bbd6f722
 ARG E2G_HASH=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3
-ARG E2S_HASH=b1f856388f7665e2cd1942e90d6460dcebffb7ba
+ARG E2S_HASH=8ca8771c6be6ca051e082d41b99378fa14b58d9f
 
 WORKDIR /workspace
 
@@ -35,7 +35,6 @@ RUN pip uninstall -y torch-harmonics && \
 COPY serve /workspace/earth2studio-project/serve
 RUN cd / && mkdir /workspace/earth2studio-project/examples && ln -s /outputs /workspace/earth2studio-project/examples/outputs
 RUN apt-get update && apt-get install -y redis-server && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env && \
     cd /workspace/earth2studio-project && \
     uv pip install --system --break-system-packages -r serve/inferenceserver/requirements.txt
 

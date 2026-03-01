@@ -324,8 +324,8 @@ async def get_metrics() -> Response:
 @app.get("/v1/workflows")
 @app.get("/v1/infer/workflows")
 async def list_workflows() -> dict[str, dict[str, str]]:
-    """List all available workflows"""
-    workflows = workflow_registry.list_workflows()
+    """List all available workflows (only exposed workflows)"""
+    workflows = workflow_registry.list_workflows(exposed_only=True)
     return {"workflows": workflows}
 
 
@@ -345,11 +345,15 @@ async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
     Returns:
         JSON schema for the workflow parameters
     """
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     try:
@@ -406,11 +410,15 @@ async def execute_workflow(
     workflow_name: str, request: WorkflowExecutionRequest
 ) -> WorkflowExecutionResponse:
     """Execute a custom workflow"""
-    # Check if workflow exists and get the workflow class for validation
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Validate parameters early to provide immediate feedback using classmethod
@@ -515,11 +523,15 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
     # Create logger adapter with execution_id
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     try:
@@ -563,11 +575,15 @@ async def get_workflow_results(
     # Create logger adapter with execution_id
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Check workflow status first
@@ -673,11 +689,15 @@ async def get_workflow_result_file(
     Returns:
         Streaming response with the file contents
     """
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Check workflow status first

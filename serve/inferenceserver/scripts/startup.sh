@@ -17,7 +17,16 @@
 
 set -euo pipefail
 
-cd /workspace/earth2studio-project/service/inferenceserver
+# Set EARTH2STUDIO_MODEL_CACHE to use AZUREML_MODEL_DIR if available
+if [ -n "${AZUREML_MODEL_DIR:-}" ]; then
+    echo "AZUREML_MODEL_DIR: $AZUREML_MODEL_DIR"
+    export EARTH2STUDIO_MODEL_CACHE="$AZUREML_MODEL_DIR/${EARTH2STUDIO_MODEL_SUBPATH:-e2s_fcn3_stormscope}"
+    echo "--------------------------------"
+    echo "EARTH2STUDIO_MODEL_CACHE: $EARTH2STUDIO_MODEL_CACHE"
+    ls -la $EARTH2STUDIO_MODEL_CACHE && echo "--------------------------------"
+fi
+
+cd /workspace/earth2studio-project/serve/inferenceserver
 make start-redis
 make start-api-server
 sleep infinity

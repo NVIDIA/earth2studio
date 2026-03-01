@@ -160,18 +160,22 @@ class ObjectStorageError(Exception):
 
 class MSCObjectStorage(ObjectStorage):
     """
-    Object storage implementation using NVIDIA Multi-Storage Client with Rust backend.
+    Object storage implementation using NVIDIA Multi-Storage Client with Rust backend for AWS S3 and Azure Blob Storage.
 
     MSC provides optimized parallel transfers and the Rust client bypasses Python's
     GIL for significantly improved I/O performance (up to 12x faster).
 
     Uses sync_from for efficient directory uploads with parallel transfers.
 
-    Credentials are picked up from environment variables:
+    Supports both AWS S3 and Azure Blob Storage.
+
+    For S3, credentials are picked up from environment variables:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
     - AWS_SESSION_TOKEN (optional)
     - AWS_DEFAULT_REGION
+
+    For Azure, credentials can be provided via connection string or account name/key.
 
     See: https://nvidia.github.io/multi-storage-client/user_guide/rust.html
     """
@@ -179,6 +183,7 @@ class MSCObjectStorage(ObjectStorage):
     def __init__(
         self,
         bucket: str,
+        storage_type: Literal["s3", "azure"] = "s3",
         region: str | None = None,
         access_key_id: str | None = None,
         secret_access_key: str | None = None,
@@ -188,16 +193,22 @@ class MSCObjectStorage(ObjectStorage):
         max_concurrency: int = 16,
         multipart_chunksize: int = 8 * 1024 * 1024,  # 8 MB
         use_rust_client: bool = False,
-        profile_name: str = "e2studio-s3",
+        profile_name: str | None = None,
         cloudfront_domain: str | None = None,
         cloudfront_key_pair_id: str | None = None,
         cloudfront_private_key: str | None = None,
+        # Azure-specific parameters
+        azure_connection_string: str | None = None,
+        azure_account_name: str | None = None,
+        azure_account_key: str | None = None,
+        azure_container_name: str | None = None,
     ):
         """
         Initialize MSCObjectStorage with AWS credentials and configuration.
 
         Args:
             bucket: The S3 bucket name.
+            storage_type: Storage provider type, either "s3" or "azure".
             region: AWS region (e.g., 'us-east-1').
             access_key_id: AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
             secret_access_key: AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
@@ -211,36 +222,83 @@ class MSCObjectStorage(ObjectStorage):
             cloudfront_domain: CloudFront distribution domain for signed URLs.
             cloudfront_key_pair_id: CloudFront key pair ID for signed URLs.
             cloudfront_private_key: PEM private key content as string.
+            azure_connection_string: Azure connection string.
+            azure_account_name: Azure storage account name.
+            azure_account_key: Azure storage account key (optional for SAS token generation).
+            azure_container_name: Azure container name.
         """
+        self.storage_type = storage_type
         self.bucket = bucket
-        self.region = region or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
         self.max_concurrency = max_concurrency
         self.multipart_chunksize = multipart_chunksize
         self.use_rust_client = use_rust_client
-        self.profile_name = profile_name
-        self.use_transfer_acceleration = use_transfer_acceleration
+        self.profile_name = profile_name or (
+            "e2studio-s3" if storage_type == "s3" else "e2studio-azure"
+        )
+        # Initialize endpoint_url as None to allow str | None type
+        self.endpoint_url: str | None = None
 
-        # Use S3 Transfer Acceleration endpoint if enabled (and no custom endpoint provided)
-        if use_transfer_acceleration and not endpoint_url:
-            self.endpoint_url = f"https://{bucket}.s3-accelerate.amazonaws.com"
-            logger.info(f"S3 Transfer Acceleration enabled: {self.endpoint_url}")
+        # S3-specific configuration
+        if storage_type == "s3":
+            self.region = region or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            self.use_transfer_acceleration = use_transfer_acceleration
+
+            # Use S3 Transfer Acceleration endpoint if enabled (and no custom endpoint provided)
+            if use_transfer_acceleration and not endpoint_url:
+                self.endpoint_url = f"https://{bucket}.s3-accelerate.amazonaws.com"
+                logger.info(f"S3 Transfer Acceleration enabled: {self.endpoint_url}")
+            else:
+                self.endpoint_url = endpoint_url
+
+            # CloudFront configuration for signed URLs
+            self.cloudfront_domain = cloudfront_domain
+            self.cloudfront_key_pair_id = cloudfront_key_pair_id
+            self.cloudfront_private_key = cloudfront_private_key
+
+            # Set credentials as environment variables - MSC picks these up automatically
+            if access_key_id:
+                os.environ["AWS_ACCESS_KEY_ID"] = access_key_id
+            if secret_access_key:
+                os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
+            if session_token:
+                os.environ["AWS_SESSION_TOKEN"] = session_token
+            if region:
+                os.environ["AWS_DEFAULT_REGION"] = region
+
+        # Azure-specific configuration
+        elif storage_type == "azure":
+            # Connection string is mandatory for Azure
+            if not azure_connection_string:
+                raise ObjectStorageError(
+                    "Azure connection string is required. "
+                    "Please provide azure_connection_string."
+                )
+
+            self.azure_container_name = azure_container_name or bucket
+            self.azure_account_key = azure_account_key
+
+            # Set Azure connection string
+            os.environ["AZURE_CONNECTION_STRING"] = azure_connection_string
+
+            # Extract account name from connection string if not provided directly
+            if not azure_account_name:
+                self.azure_account_name = None
+                # Connection string format: DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...
+                for part in azure_connection_string.split(";"):
+                    if part.startswith("AccountName="):
+                        self.azure_account_name = part.split("=", 1)[1]
+                        break
+                if not self.azure_account_name:
+                    raise ObjectStorageError(
+                        "Could not extract account name from connection string. "
+                        "Please provide azure_account_name directly or ensure connection string contains AccountName."
+                    )
+            else:
+                self.azure_account_name = azure_account_name
         else:
-            self.endpoint_url = endpoint_url or ""
-
-        # CloudFront configuration for signed URLs
-        self.cloudfront_domain = cloudfront_domain
-        self.cloudfront_key_pair_id = cloudfront_key_pair_id
-        self.cloudfront_private_key = cloudfront_private_key
-
-        # Set credentials as environment variables - MSC picks these up automatically
-        if access_key_id:
-            os.environ["AWS_ACCESS_KEY_ID"] = access_key_id
-        if secret_access_key:
-            os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
-        if session_token:
-            os.environ["AWS_SESSION_TOKEN"] = session_token
-        if region:
-            os.environ["AWS_DEFAULT_REGION"] = region
+            raise ValueError(
+                f"Unsupported storage_type: {storage_type}. Must be 's3' or 'azure'."
+            )
 
         # Import multi-storage-client
         try:
@@ -253,44 +311,109 @@ class MSCObjectStorage(ObjectStorage):
 
         self._msc = msc
 
-        # Build the S3 storage provider options
-        s3_storage_provider_options: dict[str, Any] = {
-            "base_path": bucket,
-            "region_name": self.region,
-            "multipart_threshold": multipart_chunksize,
-            "multipart_chunksize": multipart_chunksize,
-            "max_concurrency": max_concurrency,
-        }
-
-        # Add endpoint URL if provided (for S3-compatible services)
-        if endpoint_url:
-            s3_storage_provider_options["endpoint_url"] = endpoint_url
-
-        # Enable Rust client for high-performance I/O
-        if use_rust_client:
-            s3_storage_provider_options["rust_client"] = {
+        # Build storage provider profile config based on storage_type
+        if storage_type == "s3":
+            # Build the S3 storage provider options
+            s3_storage_provider_options: dict[str, Any] = {
+                "base_path": bucket,
+                "region_name": self.region,
+                "multipart_threshold": multipart_chunksize,
                 "multipart_chunksize": multipart_chunksize,
                 "max_concurrency": max_concurrency,
             }
 
-        # Build the S3 profile config
-        s3_profile_config = {
-            "profiles": {
-                profile_name: {
-                    "storage_provider": {
-                        "type": "s3",
-                        "options": s3_storage_provider_options,
+            # Add endpoint URL if provided (for S3-compatible services)
+            if self.endpoint_url:
+                s3_storage_provider_options["endpoint_url"] = self.endpoint_url
+
+            # Enable Rust client for high-performance I/O
+            if use_rust_client:
+                s3_storage_provider_options["rust_client"] = {
+                    "multipart_chunksize": multipart_chunksize,
+                    "max_concurrency": max_concurrency,
+                }
+
+            # Build the S3 profile config
+            profile_config = {
+                "profiles": {
+                    self.profile_name: {
+                        "storage_provider": {
+                            "type": "s3",
+                            "options": s3_storage_provider_options,
+                        }
                     }
                 }
             }
-        }
+        elif storage_type == "azure":
+            # Build the Azure storage provider options
+            # Derive endpoint URL from connection string or account name
+            azure_endpoint_url = None
 
-        # Initialize the S3 StorageClient (target for uploads)
-        s3_client_config = msc.StorageClientConfig.from_dict(
-            config_dict=s3_profile_config,
-            profile=profile_name,
+            # First, try to extract BlobEndpoint directly from connection string
+            if azure_connection_string:
+                for part in azure_connection_string.split(";"):
+                    if part.startswith("BlobEndpoint="):
+                        azure_endpoint_url = part.split("=", 1)[1].rstrip("/")
+                        break
+
+            # If not found, construct from AccountName and EndpointSuffix
+            if not azure_endpoint_url:
+                account_name = None
+                endpoint_suffix = "core.windows.net"  # Default suffix
+
+                # Extract from connection string
+                if azure_connection_string:
+                    for part in azure_connection_string.split(";"):
+                        if part.startswith("AccountName="):
+                            account_name = part.split("=", 1)[1]
+                        elif part.startswith("EndpointSuffix="):
+                            endpoint_suffix = part.split("=", 1)[1]
+
+                # Fall back to provided account_name if not in connection string
+                if not account_name:
+                    account_name = self.azure_account_name
+
+                if not account_name:
+                    raise ObjectStorageError(
+                        "Azure endpoint_url cannot be determined. "
+                        "Please provide azure_connection_string (with AccountName or BlobEndpoint) "
+                        "or azure_account_name."
+                    )
+
+                azure_endpoint_url = f"https://{account_name}.blob.{endpoint_suffix}"
+
+            azure_storage_provider_options = {
+                "base_path": self.azure_container_name,
+                "endpoint_url": azure_endpoint_url,
+            }
+
+            # Build the Azure profile config with credentials provider
+            profile_config = {
+                "profiles": {
+                    self.profile_name: {
+                        "storage_provider": {
+                            "type": "azure",
+                            "options": azure_storage_provider_options,
+                        }
+                    }
+                }
+            }
+
+            # Add Azure credentials provider if connection string is provided
+            if azure_connection_string:
+                profile_config["profiles"][self.profile_name][
+                    "credentials_provider"
+                ] = {
+                    "type": "AzureCredentials",
+                    "options": {"connection": "${AZURE_CONNECTION_STRING}"},
+                }
+
+        # Initialize the StorageClient (target for uploads)
+        storage_client_config = msc.StorageClientConfig.from_dict(
+            config_dict=profile_config,
+            profile=self.profile_name,
         )
-        self._s3_client = msc.StorageClient(config=s3_client_config)
+        self._storage_client = msc.StorageClient(config=storage_client_config)
 
         # Initialize the local filesystem StorageClient (source for uploads)
         local_profile_config = {
@@ -312,12 +435,18 @@ class MSCObjectStorage(ObjectStorage):
         self._local_client = msc.StorageClient(config=local_client_config)
 
         rust_status = "enabled" if use_rust_client else "disabled"
-        accel_status = "enabled" if use_transfer_acceleration else "disabled"
-        logger.info(
-            f"MSCObjectStorage initialized: bucket={bucket}, region={self.region}, "
-            f"max_concurrency={max_concurrency}, rust_client={rust_status}, "
-            f"transfer_acceleration={accel_status}"
-        )
+        if storage_type == "s3":
+            accel_status = "enabled" if use_transfer_acceleration else "disabled"
+            logger.info(
+                f"MSCObjectStorage initialized (S3): bucket={bucket}, region={self.region}, "
+                f"max_concurrency={max_concurrency}, rust_client={rust_status}, "
+                f"transfer_acceleration={accel_status}"
+            )
+        else:
+            logger.info(
+                f"MSCObjectStorage initialized (Azure): container={self.azure_container_name}, "
+                f"max_concurrency={max_concurrency}, rust_client={rust_status}"
+            )
 
     def upload_directory(
         self,
@@ -327,13 +456,14 @@ class MSCObjectStorage(ObjectStorage):
         overwrite: bool = True,
     ) -> UploadResult:
         """
-        Upload a local directory to S3 using Multi-Storage Client sync_from.
+        Upload a local directory to object storage using Multi-Storage Client sync_from.
 
         Uses MSC's sync_from for efficient parallel directory uploads.
+        Works with both S3 and Azure Blob Storage.
 
         Args:
             local_directory: Path to the local directory to upload.
-            remote_prefix: The S3 prefix where files will be uploaded.
+            remote_prefix: The storage prefix where files will be uploaded.
             recursive: If True, recursively upload all subdirectories.
             overwrite: If True, overwrite existing files.
 
@@ -359,9 +489,14 @@ class MSCObjectStorage(ObjectStorage):
 
         total_bytes = sum(f.stat().st_size for f in files)
 
+        storage_prefix = (
+            f"s3://{self.bucket}"
+            if self.storage_type == "s3"
+            else f"azure://{self.azure_container_name if self.storage_type == 'azure' else self.bucket}"
+        )
         logger.info(
             f"[MSC] Syncing {len(files)} files ({total_bytes / (1024 * 1024):.2f} MB) "
-            f"from {local_directory} to s3://{self.bucket}/{remote_prefix}"
+            f"from {local_directory} to {storage_prefix}/{remote_prefix}"
         )
 
         errors: list[str] = []
@@ -369,7 +504,7 @@ class MSCObjectStorage(ObjectStorage):
 
         try:
             # Use sync_from for efficient parallel directory upload
-            result = self._s3_client.sync_from(
+            result = self._storage_client.sync_from(
                 source_client=self._local_client,
                 source_path=source_path,
                 target_path=f"/{remote_prefix}" if remote_prefix else "/",
@@ -386,7 +521,15 @@ class MSCObjectStorage(ObjectStorage):
 
         elapsed_time = time.time() - start_time
         success = len(errors) == 0
-        destination = f"s3://{self.bucket}/{remote_prefix}"
+        if self.storage_type == "s3":
+            destination = f"s3://{self.bucket}/{remote_prefix}"
+        else:
+            container = (
+                self.azure_container_name
+                if self.storage_type == "azure"
+                else self.bucket
+            )
+            destination = f"azure://{container}/{remote_prefix}"
 
         result = UploadResult(
             success=success,
@@ -416,11 +559,11 @@ class MSCObjectStorage(ObjectStorage):
         overwrite: bool = True,
     ) -> bool:
         """
-        Upload a single file to S3 using Multi-Storage Client with Rust backend.
+        Upload a single file to object storage using Multi-Storage Client.
 
         Args:
             local_file: Path to the local file.
-            remote_key: The S3 key for the file.
+            remote_key: The storage key for the file.
             overwrite: If True, overwrite if exists.
 
         Returns:
@@ -437,7 +580,7 @@ class MSCObjectStorage(ObjectStorage):
 
         try:
             remote_key = f"/{remote_key.lstrip('/')}"
-            self._s3_client.upload_file(remote_key, str(local_path))
+            self._storage_client.upload_file(remote_key, str(local_path))
             return True
 
         except Exception as e:
@@ -446,34 +589,37 @@ class MSCObjectStorage(ObjectStorage):
 
     def file_exists(self, remote_key: str) -> bool:
         """
-        Check if a file exists in S3 using MSC info() method.
+        Check if a file exists in object storage using MSC info() method.
+        Works with both S3 and Azure Blob Storage.
 
         Args:
-            remote_key: The S3 key to check.
+            remote_key: The storage key to check.
 
         Returns:
             True if the file exists, False otherwise.
         """
         try:
             remote_path = f"/{remote_key.lstrip('/')}"
-            self._s3_client.info(remote_path)
+            self._storage_client.info(remote_path)
             return True
         except FileNotFoundError:
             return False
 
     def delete_file(self, remote_key: str) -> bool:
         """
-        Delete a file from S3 using MSC delete() method.
+        Delete a file from object storage using MSC delete() method.
+
+        Works with both S3 and Azure Blob Storage.
 
         Args:
-            remote_key: The S3 key to delete.
+            remote_key: The storage key to delete.
 
         Returns:
             True if successful, False otherwise.
         """
         try:
             remote_path = f"/{remote_key.lstrip('/')}"
-            self._s3_client.delete(remote_path)
+            self._storage_client.delete(remote_path)
             return True
         except FileNotFoundError:
             logger.warning(f"File not found for deletion: {remote_key}")
@@ -515,18 +661,30 @@ class MSCObjectStorage(ObjectStorage):
 
     def generate_signed_url(self, remote_key: str, expires_in: int = 86400) -> str:
         """
-        Generate a CloudFront signed URL for accessing a file.
+        Generate a signed URL for accessing a file.
+
+        For S3, generates a CloudFront signed URL.
+        For Azure, generates a SAS (Shared Access Signature) token URL.
 
         Args:
-            remote_key: The S3 key/path to the file. Can include wildcards.
+            remote_key: The storage key/path to the file. Can include wildcards for S3.
             expires_in: Number of seconds until the URL expires (default: 86400).
 
         Returns:
-            A signed CloudFront URL string.
+            A signed URL string.
 
         Raises:
-            ObjectStorageError: If CloudFront configuration is missing.
+            ObjectStorageError: If required configuration is missing.
         """
+        if self.storage_type == "s3":
+            return self._generate_cloudfront_signed_url(remote_key, expires_in)
+        elif self.storage_type == "azure":
+            return self._generate_azure_sas_url(remote_key, expires_in)
+        else:
+            raise ObjectStorageError(f"Unsupported storage_type: {self.storage_type}")
+
+    def _generate_cloudfront_signed_url(self, remote_key: str, expires_in: int) -> str:
+        """Generate a CloudFront signed URL for S3."""
         if not all(
             [
                 self.cloudfront_domain,
@@ -576,7 +734,60 @@ class MSCObjectStorage(ObjectStorage):
             f"&Key-Pair-Id={self.cloudfront_key_pair_id}"
         )
 
-        logger.debug(f"Generated signed URL for {remote_key}, expires in {expires_in}s")
+        logger.debug(
+            f"Generated CloudFront signed URL for {remote_key}, expires in {expires_in}s"
+        )
+        return signed_url
+
+    def _generate_azure_sas_url(self, remote_key: str, expires_in: int) -> str:
+        """Generate an Azure SAS (Shared Access Signature) URL."""
+        if not self.azure_account_name or not self.azure_account_key:
+            raise ObjectStorageError(
+                "Azure account name and account key are required for signed URLs. "
+                "Please provide azure_account_name and azure_account_key."
+            )
+
+        try:
+            from azure.storage.blob import (
+                ContainerSasPermissions,
+                generate_container_sas,
+            )
+        except ImportError as e:
+            raise ImportError(
+                "azure-storage-blob is required for Azure signed URLs. "
+                "Install with: pip install azure-storage-blob"
+            ) from e
+
+        container_name = (
+            self.azure_container_name if self.storage_type == "azure" else self.bucket
+        )
+
+        # Define permissions (Read + List)
+        permissions = ContainerSasPermissions(read=True, list=True)
+
+        # Set the duration
+        start_time = datetime.datetime.now(datetime.timezone.utc)
+        expiry_time = start_time + datetime.timedelta(seconds=expires_in)
+
+        # Generate the SAS token
+        sas_token = generate_container_sas(
+            account_name=self.azure_account_name,
+            account_key=self.azure_account_key,
+            container_name=container_name,
+            permission=permissions,
+            expiry=expiry_time,
+            start=start_time,
+        )
+
+        # Construct the full URL with the prefix
+        # Remove leading slash from remote_key if present
+        prefix = remote_key.lstrip("/")
+        base_url = f"https://{self.azure_account_name}.blob.core.windows.net/{container_name}/{prefix}"
+        signed_url = f"{base_url}?{sas_token}"
+
+        logger.debug(
+            f"Generated Azure SAS URL for {remote_key}, expires in {expires_in}s"
+        )
         return signed_url
 
 

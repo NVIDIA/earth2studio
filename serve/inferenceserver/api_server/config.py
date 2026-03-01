@@ -27,7 +27,7 @@ import os
 from dataclasses import dataclass, field
 from logging import LogRecord
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
@@ -111,9 +111,10 @@ class CORSConfig:
 
 @dataclass
 class ObjectStorageConfig:
-    """Object storage configuration for S3/CloudFront"""
+    """Object storage configuration for S3/CloudFront and Azure Blob Storage"""
 
     enabled: bool = False
+    storage_type: Literal["s3", "azure"] = "s3"  # Storage provider type
     # S3 configuration
     bucket: str | None = None
     region: str = "us-east-1"
@@ -133,6 +134,27 @@ class ObjectStorageConfig:
     cloudfront_private_key: str | None = None  # PEM private key content
     # Signed URL settings
     signed_url_expires_in: int = 86400  # Default 24 hours
+    # Azure Blob Storage configuration
+    azure_connection_string: str | None = None  # Azure connection string
+    azure_account_name: str | None = None  # Azure storage account name
+    azure_account_key: str | None = (
+        None  # Azure storage account key (for SAS token generation)
+    )
+    azure_container_name: str | None = (
+        None  # Azure container name (falls back to bucket if not set)
+    )
+
+
+@dataclass
+class WorkflowExposureConfig:
+    """Configuration for controlling which workflows are exposed via API endpoints"""
+
+    exposed_workflows: list[str] = field(
+        default_factory=lambda: []
+    )  # Empty list means all workflows are exposed
+    warmup_workflows: list[str] = field(
+        default_factory=lambda: ["example_user_workflow"]
+    )  # Workflows accessible for warmup even if not exposed
 
 
 @dataclass
@@ -146,6 +168,9 @@ class AppConfig:
     server: ServerConfig = field(default_factory=ServerConfig)
     cors: CORSConfig = field(default_factory=CORSConfig)
     object_storage: ObjectStorageConfig = field(default_factory=ObjectStorageConfig)
+    workflow_exposure: WorkflowExposureConfig = field(
+        default_factory=WorkflowExposureConfig
+    )
 
 
 class ConfigManager:
@@ -161,7 +186,7 @@ class ConfigManager:
     """
 
     _instance: Optional["ConfigManager"] = None
-    _config: AppConfig = AppConfig()
+    _config: AppConfig | None = None
     _workflow_config: dict[str, Any] = {}
 
     def __new__(cls) -> "ConfigManager":
@@ -223,6 +248,9 @@ class ConfigManager:
             server=ServerConfig(**cfg_dict.get("server", {})),
             cors=CORSConfig(**cfg_dict.get("cors", {})),
             object_storage=ObjectStorageConfig(**cfg_dict.get("object_storage", {})),
+            workflow_exposure=WorkflowExposureConfig(
+                **cfg_dict.get("workflow_exposure", {})
+            ),
         )
 
     def _create_default_config_object(self) -> AppConfig:
@@ -235,6 +263,7 @@ class ConfigManager:
             server=ServerConfig(),
             cors=CORSConfig(),
             object_storage=ObjectStorageConfig(),
+            workflow_exposure=WorkflowExposureConfig(),
         )
 
     def _apply_env_overrides(self) -> None:
@@ -279,6 +308,12 @@ class ConfigManager:
             self._config.paths.results_zip_dir = os.getenv(
                 "RESULTS_ZIP_DIR", default=self._config.paths.results_zip_dir
             )
+        if os.getenv("OUTPUT_FORMAT"):
+            output_format = os.getenv("OUTPUT_FORMAT", "").lower()
+            if output_format in ["zarr", "netcdf4"]:
+                self._config.paths.output_format = cast(
+                    Literal["zarr", "netcdf4"], output_format
+                )
 
         # Logging overrides
         if os.getenv("LOG_LEVEL"):
@@ -310,6 +345,13 @@ class ConfigManager:
             self._config.object_storage.enabled = (
                 os.getenv("OBJECT_STORAGE_ENABLED", "").lower() == "true"
             )
+        if os.getenv("OBJECT_STORAGE_TYPE"):
+            storage_type = os.getenv("OBJECT_STORAGE_TYPE", "").lower()
+            if storage_type in ["s3", "azure"]:
+                self._config.object_storage.storage_type = cast(
+                    Literal["s3", "azure"], storage_type
+                )
+
         if os.getenv("OBJECT_STORAGE_BUCKET"):
             self._config.object_storage.bucket = os.getenv("OBJECT_STORAGE_BUCKET")
         if os.getenv("OBJECT_STORAGE_REGION"):
@@ -377,6 +419,31 @@ class ConfigManager:
                     default=self._config.object_storage.signed_url_expires_in,
                 )
             )
+        # Azure Blob Storage overrides
+        if os.getenv("AZURE_CONNECTION_STRING"):
+            self._config.object_storage.azure_connection_string = os.getenv(
+                "AZURE_CONNECTION_STRING"
+            )
+        if os.getenv("AZURE_STORAGE_ACCOUNT_NAME"):
+            self._config.object_storage.azure_account_name = os.getenv(
+                "AZURE_STORAGE_ACCOUNT_NAME"
+            )
+        if os.getenv("AZURE_STORAGE_ACCOUNT_KEY"):
+            self._config.object_storage.azure_account_key = os.getenv(
+                "AZURE_STORAGE_ACCOUNT_KEY"
+            )
+        if os.getenv("AZURE_CONTAINER_NAME"):
+            self._config.object_storage.azure_container_name = os.getenv(
+                "AZURE_CONTAINER_NAME"
+            )
+
+        # Workflow exposure overrides
+        if os.getenv("EXPOSED_WORKFLOWS"):
+            # Parse comma-separated list of workflow names
+            exposed_workflows_str = os.getenv("EXPOSED_WORKFLOWS", "")
+            self._config.workflow_exposure.exposed_workflows = [
+                w.strip() for w in exposed_workflows_str.split(",") if w.strip()
+            ]
 
         logger.debug("Environment variable overrides applied")
 
@@ -398,6 +465,9 @@ class ConfigManager:
         """Get the current configuration"""
         if self._config is None:
             self._initialize_config()
+        # After initialization, _config should never be None
+        if self._config is None:
+            raise RuntimeError("Configuration was not initialized")
         return self._config
 
     def get_redis_url(self) -> str:

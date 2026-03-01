@@ -235,7 +235,7 @@ echo "API docs at http://localhost:$API_PORT/docs"
 # Wait for health check to pass before invoking warmup workflow
 echo ""
 echo "Waiting for health check to pass..."
-MAX_HEALTH_RETRIES=30
+MAX_HEALTH_RETRIES=60
 HEALTH_RETRY_INTERVAL=2
 for i in $(seq 1 $MAX_HEALTH_RETRIES); do
     if curl -s "http://localhost:$API_PORT/health" | grep -q '"status":"healthy"'; then
