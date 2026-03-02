@@ -435,6 +435,7 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -500,7 +501,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">handshake_coords</span><span class="p">(</span>
     <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
     <span class="n">target_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-    <span class="n">required_dim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">required_dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple check to see if the required dimensions have the same coordinate system</span>
 
@@ -510,8 +511,8 @@
 <span class="sd">        Input coordinate system to validate</span>
 <span class="sd">    target_coords : CoordSystem</span>
 <span class="sd">        Target coordinate system</span>
-<span class="sd">    required_dim : str</span>
-<span class="sd">        Required dimension (name of coordinate)</span>
+<span class="sd">    required_dim : str | list[str]</span>
+<span class="sd">        Required dimension(s) (name of coordinate)</span>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    KeyError</span>
@@ -519,27 +520,31 @@
 <span class="sd">    ValueError</span>
 <span class="sd">        If coordinates of required dimensions don&#39;t match</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">required_dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">input_coords</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Required dimension </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> not found in input coordinates&quot;</span>
-        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">required_dim</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">required_dim</span> <span class="o">=</span> <span class="p">[</span><span class="n">required_dim</span><span class="p">]</span>
 
-    <span class="k">if</span> <span class="n">required_dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target_coords</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Required dimension </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> not found in target coordinates&quot;</span>
-        <span class="p">)</span>
+    <span class="k">for</span> <span class="n">_required_dim</span> <span class="ow">in</span> <span class="n">required_dim</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_required_dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">input_coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Required dimension </span><span class="si">{</span><span class="n">_required_dim</span><span class="si">}</span><span class="s2"> not found in input coordinates&quot;</span>
+            <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">input_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">_required_dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target_coords</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Required dimension </span><span class="si">{</span><span class="n">_required_dim</span><span class="si">}</span><span class="s2"> not found in target coordinates&quot;</span>
+            <span class="p">)</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">required_dim</span><span class="p">])</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-    <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
-        <span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">input_coords</span><span class="p">[</span><span class="n">_required_dim</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">_required_dim</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">_required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">input_coords</span><span class="p">[</span><span class="n">_required_dim</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_coords</span><span class="p">[</span><span class="n">_required_dim</span><span class="p">])</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Coordinate systems for required dim </span><span class="si">{</span><span class="n">_required_dim</span><span class="si">}</span><span class="s2"> are not the same&quot;</span>
+            <span class="p">)</span></div>
 
 
 
@@ -864,6 +869,169 @@
             <span class="n">i</span> <span class="o">+=</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span>
 
     <span class="k">return</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="n">adjusted_coords</span><span class="p">),</span> <span class="n">mapping</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">tile_coords</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span> <span class="n">target_coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tile tensor x to match dimensions in target_coords that don&#39;t exist in coords.</span>
+
+<span class="sd">    This function tiles the input tensor to match leading dimensions from target_coords</span>
+<span class="sd">    that are not present in coords. Dimensions that exist in both coords and target_coords</span>
+<span class="sd">    are ignored in target_coords and use the values from coords instead.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x : torch.Tensor</span>
+<span class="sd">        Source tensor to be tiled</span>
+<span class="sd">    coords : CoordSystem</span>
+<span class="sd">        Coordinate system for x tensor</span>
+<span class="sd">    target_coords : CoordSystem</span>
+<span class="sd">        Target coordinate system. Dimensions that exist in coords are ignored.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">        Tuple containing the tiled tensor and updated coordinate system</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    Tiling a tensor to match additional dimensions from target_coords</span>
+
+<span class="sd">    &gt;&gt;&gt; from earth2studio.utils.coords import tile_coords</span>
+<span class="sd">    &gt;&gt;&gt; from collections import OrderedDict</span>
+<span class="sd">    &gt;&gt;&gt; import torch</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; x = torch.randn(3, 4)</span>
+<span class="sd">    &gt;&gt;&gt; coords = OrderedDict({</span>
+<span class="sd">    ...     &quot;variable&quot;: np.array([&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]),</span>
+<span class="sd">    ...     &quot;time&quot;: np.array([0, 1, 2, 3])</span>
+<span class="sd">    ... })</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; target_coords = OrderedDict({</span>
+<span class="sd">    ...     &quot;batch&quot;: np.array([0, 1]),</span>
+<span class="sd">    ...     &quot;ensemble&quot;: np.array([0, 1, 2]),</span>
+<span class="sd">    ...     &quot;variable&quot;: np.array([&quot;x&quot;, &quot;y&quot;]),  # Ignored, uses coords value</span>
+<span class="sd">    ...     &quot;time&quot;: np.array([10, 20, 30, 40])  # Ignored, uses coords value</span>
+<span class="sd">    ... })</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Tile x to match batch and ensemble dimensions</span>
+<span class="sd">    &gt;&gt;&gt; x_tiled, out_coords = tile_coords(x, coords, target_coords)</span>
+<span class="sd">    &gt;&gt;&gt; x_tiled.shape</span>
+<span class="sd">    torch.Size([2, 3, 3, 4])</span>
+<span class="sd">    &gt;&gt;&gt; list(out_coords.keys())</span>
+<span class="sd">    [&#39;batch&#39;, &#39;ensemble&#39;, &#39;variable&#39;, &#39;time&#39;]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">coords_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">leading_dims</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="n">common_dims</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">target_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">coords_keys</span><span class="p">:</span>
+            <span class="n">leading_dims</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">common_dims</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="c1"># Validate that all common dims are at the end of target_coords</span>
+    <span class="k">if</span> <span class="n">common_dims</span><span class="p">:</span>
+        <span class="n">target_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">target_coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">coords_keys_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">target_keys</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">common_dims</span><span class="p">)</span> <span class="p">:]</span> <span class="o">!=</span> <span class="n">coords_keys_list</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;All common dimensions must appear at the end of target_coords. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Common dimensions: </span><span class="si">{</span><span class="n">coords_keys_list</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;target_coords trailing keys: </span><span class="si">{</span><span class="n">target_keys</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">common_dims</span><span class="p">):]</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;target_coords order: </span><span class="si">{</span><span class="n">target_keys</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">n_lead</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">leading_dims</span><span class="p">)</span>
+
+    <span class="n">out_coords</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">leading_dims</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">out_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="c1"># add leading size-1 dims so tile has one rep per dimension, then tile to match target</span>
+    <span class="n">reps</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">leading_dims</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">x_tiled</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_lead</span><span class="p">),</span> <span class="o">*</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">reps</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">x_tiled</span><span class="p">,</span> <span class="n">out_coords</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">cat_coords</span><span class="p">(</span>
+    <span class="n">tensors</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">coords</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordSystem</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;variable&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    concatenate data along coordinate dimension.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tensors : tuple[torch.Tensor, ...]</span>
+<span class="sd">        Tuple of input tensors to concatenate</span>
+<span class="sd">    coords : tuple[CoordSystem, ...]</span>
+<span class="sd">        Tuple of OrderedDicts representing coordinate systems for each tensor</span>
+<span class="sd">    dim : str</span>
+<span class="sd">        name of dimension along which to concatenate</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple[torch.Tensor, CoordSystem]</span>
+<span class="sd">        Tuple containing output tensor and coordinate OrderedDict from</span>
+<span class="sd">        concatenated data.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If tensors and coords have different lengths</span>
+<span class="sd">        If input tensors have different dimension names</span>
+<span class="sd">        If non-concatenation dimensions don&#39;t match across inputs</span>
+<span class="sd">    KeyError</span>
+<span class="sd">        If concatenation dimension is not found in all coordinate systems</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensors</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;tensors and coords must have the same length, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tensors</span><span class="p">)</span><span class="si">}</span><span class="s2"> tensors and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="si">}</span><span class="s2"> coords&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;at least one tensor and coord must be provided&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tensors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tensors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Use first coord as reference</span>
+    <span class="n">ref_coord</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># make sure cat dim is present in all tensors</span>
+    <span class="n">handshake_dim</span><span class="p">(</span><span class="n">ref_coord</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+
+    <span class="c1"># make sure all tensors have the same dimension names</span>
+    <span class="n">ref_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ref_coord</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">handshake_dim</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="n">ref_keys</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;all input tensors must have the same dimension names. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Tensor 0 has </span><span class="si">{</span><span class="n">ref_keys</span><span class="si">}</span><span class="s2">, tensor </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> has </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+    <span class="c1"># make sure all the other dimensions are of equal length</span>
+    <span class="n">other_dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ref_keys</span><span class="p">)</span>
+    <span class="n">other_dims</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">handshake_coords</span><span class="p">(</span><span class="n">ref_coord</span><span class="p">,</span> <span class="n">coord</span><span class="p">,</span> <span class="n">other_dims</span><span class="p">)</span>
+
+    <span class="c1"># assemble output coords</span>
+    <span class="n">coz</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">ref_coord</span><span class="p">)</span>
+    <span class="n">coz</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">coord</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">])</span>
+
+    <span class="c1"># concatenate tensors</span>
+    <span class="n">dim_index</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coz</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">zz</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">tensors</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim_index</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">zz</span><span class="p">,</span> <span class="n">coz</span>
 </pre></div>
 
                 </article>
