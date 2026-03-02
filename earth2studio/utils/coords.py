@@ -436,108 +436,91 @@ def convert_multidim_to_singledim(
     return CoordSystem(adjusted_coords), mapping
 
 
-def tile_xx_to_yy(
-    xx: torch.Tensor, xx_coords: CoordSystem, yy_coords: CoordSystem
+def tile_coords(
+    x: torch.Tensor, coords: CoordSystem, target_coords: CoordSystem
 ) -> tuple[torch.Tensor, CoordSystem]:
-    """Tile tensor xx to match the leading dimensions of tensor yy and update coords accordingly.
-       eg if xx has shape (4, 721, 1440) and yy has shape (8, 2, 35, 721, 1440),
-       xx will be tiled to shape (8, 2, 4, 721, 1440), which is useful for concatenation (see example below)
+    """Tile tensor x to match dimensions in target_coords that don't exist in coords.
+
+    This function tiles the input tensor to match leading dimensions from target_coords
+    that are not present in coords. Dimensions that exist in both coords and target_coords
+    are ignored in target_coords and use the values from coords instead.
 
     Parameters
     ----------
-    xx : torch.Tensor
+    x : torch.Tensor
         Source tensor to be tiled
-    xx_coords : CoordSystem
-        Coordinate system for xx tensor
-    yy : torch.Tensor
-        Target tensor whose shape determines tiling
-    yy_coords : CoordSystem
-        Coordinate system for yy tensor
+    coords : CoordSystem
+        Coordinate system for x tensor
+    target_coords : CoordSystem
+        Target coordinate system. Dimensions that exist in coords are ignored.
 
     Returns
     -------
-    Tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, CoordSystem]
         Tuple containing the tiled tensor and updated coordinate system
-
-    Raises
-    ------
-    ValueError
-        If xx has more dimensions than yy
-    ValueError
-        If trailing coordinate keys of yy_coords do not match xx_coords keys
 
     Examples
     --------
-    Concatenating a static variable, orography, to a forecast
+    Tiling a tensor to match additional dimensions from target_coords
 
-    >>> from earth2studio.data import IFS_FX, fetch_data
-    >>> from earth2studio.utils.coords import cat_coords, tile_xx_to_yy
+    >>> from earth2studio.utils.coords import tile_coords
+    >>> from collections import OrderedDict
+    >>> import torch
     >>> import numpy as np
     >>>
-    >>> oro, oro_coords =  fetch_data(
-    ...     source=IFS_FX(),
-    ...     time=np.array([np.datetime64("2026-01-01 00:00:00")]),
-    ...     variable=['z'])
-    >>> oro = oro.squeeze(0,1)
-    >>> oro_coords.pop('time')
-    array(['2026-01-01T00:00:00.000000000'], dtype='datetime64[ns]')
-    >>> oro_coords.pop('lead_time')
-    array([0], dtype='timedelta64[ns]')
+    >>> x = torch.randn(3, 4)
+    >>> coords = OrderedDict({
+    ...     "variable": np.array(["a", "b", "c"]),
+    ...     "time": np.array([0, 1, 2, 3])
+    ... })
     >>>
-    >>> xx, xx_coords = fetch_data(
-    ...     source=IFS_FX(),
-    ...     time=np.array([np.datetime64("2024-09-24 12:00:00")]),
-    ...     lead_time=np.arange(np.timedelta64(0, 'h'), np.timedelta64(25, 'h'), np.timedelta64(6, 'h')),
-    ...     variable=['t2m', 'msl'])
+    >>> target_coords = OrderedDict({
+    ...     "batch": np.array([0, 1]),
+    ...     "ensemble": np.array([0, 1, 2]),
+    ...     "variable": np.array(["x", "y"]),  # Ignored, uses coords value
+    ...     "time": np.array([10, 20, 30, 40])  # Ignored, uses coords value
+    ... })
     >>>
-    >>> xx_coords.keys()
-    odict_keys(['time', 'lead_time', 'variable', 'lat', 'lon'])
-    >>> xx.shape
-    torch.Size([1, 5, 2, 721, 1440])
-    >>> oro_coords.keys()
-    odict_keys(['variable', 'lat', 'lon'])
-    >>> oro.shape
-    torch.Size([1, 721, 1440])
-    >>>
-    >>> oro, oro_coords = tile_xx_to_yy(oro, oro_coords, xx_coords)
-    >>> oro_coords.keys()
-    odict_keys(['time', 'lead_time', 'variable', 'lat', 'lon'])
-    >>> oro.shape
-    torch.Size([1, 5, 1, 721, 1440])
-    >>>
-    >>> xx, xx_coords = cat_coords((xx, oro), (xx_coords, oro_coords), dim='variable')
-    >>> xx.shape
-    torch.Size([1, 5, 3, 721, 1440])
-    >>> xx_coords['variable']
-    array(['t2m', 'msl', 'z'], dtype='<U3')
-
-
-
+    >>> # Tile x to match batch and ensemble dimensions
+    >>> x_tiled, out_coords = tile_coords(x, coords, target_coords)
+    >>> x_tiled.shape
+    torch.Size([2, 3, 3, 4])
+    >>> list(out_coords.keys())
+    ['batch', 'ensemble', 'variable', 'time']
     """
-    # get number of leading dimension
-    n_lead = len(yy_coords) - len(xx_coords)
+    coords_keys = set(coords.keys())
+    leading_dims = OrderedDict()
+    common_dims = []
 
-    # verify that tensors are passed in correct order
-    if n_lead < 0:
-        raise ValueError("xx must have fewer dimensions than yy.")
+    for key, val in target_coords.items():
+        if key not in coords_keys:
+            leading_dims[key] = val
+        else:
+            common_dims.append(key)
 
-    # verify that common dimensions are of identical length
-    if list(xx_coords.keys()) != list(yy_coords.keys())[-len(xx_coords) :]:
-        raise ValueError(
-            f"Trailing coordinate keys must match: xx_coords keys {list(xx_coords.keys())} "
-            f"!= yy_coords trailing keys {list(yy_coords.keys())[-len(xx_coords):]}"
-        )
+    # Validate that all common dims are at the end of target_coords
+    if common_dims:
+        target_keys = list(target_coords.keys())
+        coords_keys_list = list(coords.keys())
+        if target_keys[-len(common_dims) :] != coords_keys_list:
+            raise ValueError(
+                f"All common dimensions must appear at the end of target_coords. "
+                f"Common dimensions: {coords_keys_list}, "
+                f"target_coords trailing keys: {target_keys[-len(common_dims):]}, "
+                f"target_coords order: {target_keys}"
+            )
 
-    # assemble output coords
-    out_coords = deepcopy(yy_coords)
-    for key, val in xx_coords.items():
+    n_lead = len(leading_dims)
+
+    out_coords = deepcopy(leading_dims)
+    for key, val in coords.items():
         out_coords[key] = val
 
-    # add leading size-1 dims so tile has one rep per dimension, then tile to match yy
-    reps = [len(dim) for dim in yy_coords.values()][:n_lead] + [1] * len(xx.shape)
-    xx_tiled = xx.view(*([1] * n_lead), *xx.shape).tile(reps)
+    # add leading size-1 dims so tile has one rep per dimension, then tile to match target
+    reps = [len(dim) for dim in leading_dims.values()] + [1] * len(x.shape)
+    x_tiled = x.view(*([1] * n_lead), *x.shape).tile(reps)
 
-    return xx_tiled, out_coords
+    return x_tiled, out_coords
 
 
 def cat_coords(

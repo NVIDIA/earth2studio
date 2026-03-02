@@ -30,7 +30,7 @@ from earth2studio.utils.coords import (
     cat_coords,
     map_coords,
     split_coords,
-    tile_xx_to_yy,
+    tile_coords,
 )
 
 
@@ -438,11 +438,11 @@ def test_convert_multidim_to_singledim_additional():
         convert_multidim_to_singledim(coords)
 
 
-def test_tile_xx_to_yy():
+def test_tile_coords():
     """Test tiling function for expanding dimensions"""
 
-    xx = torch.randn(2, 721, 1440)
-    xx_coords = OrderedDict(
+    x = torch.randn(2, 721, 1440)
+    coords = OrderedDict(
         {
             "variable": np.array(["z", "lsm"]),
             "lat": np.linspace(90, -90, 721),
@@ -450,7 +450,7 @@ def test_tile_xx_to_yy():
         }
     )
 
-    yy_coords = OrderedDict(
+    target_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
@@ -461,21 +461,15 @@ def test_tile_xx_to_yy():
         }
     )
 
-    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy_coords)
-
-    # Result should have yy's leading dims + all of xx's dims
-    # yy.shape = (3, 4, 5, 2, 721, 1440), xx.shape = (2, 721, 1440)
-    # n_lead = 6 - 3 = 3, so we prepend yy's first 3 dims to xx
-    # Result shape should be (3, 4, 5, 2, 721, 1440)
+    result, result_coords = tile_coords(x, coords, target_coords)
     assert result.shape == (3, 4, 5, 2, 721, 1440)
     assert "variable" in result_coords
     assert "time" in result_coords
 
 
-def test_tile_xx_to_yy_failure():
-    """Test that tile_xx_to_yy fails when trailing coordinate keys don't match"""
-    xx = torch.randn(2, 721, 1440)
-    xx_coords = OrderedDict(
+def test_tile_coords_ignores_common_dims():
+    x = torch.randn(2, 721, 1440)
+    coords = OrderedDict(
         {
             "variable": np.array(["z", "lsm"]),
             "lat": np.linspace(90, -90, 721),
@@ -483,126 +477,166 @@ def test_tile_xx_to_yy_failure():
         }
     )
 
-    # Trailing keys are ["lead_time", "lat", "lon"] but xx_coords has ["variable", "lat", "lon"]
-    yy_coords = OrderedDict(
+    # target_coords has "variable", "lat", "lon" which should be ignored
+    # Only "ensemble", "time", "lead_time" should be used for tiling
+    target_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
             "lead_time": np.array([0, 1, 2, 3, 4]),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440),
+            "variable": np.array(["different", "values"]),  # Should be ignored
+            "lat": np.linspace(0, 90, 100),  # Should be ignored
+            "lon": np.linspace(0, 180, 200),  # Should be ignored
         }
     )
 
-    with pytest.raises(ValueError, match="Trailing coordinate keys must match"):
-        tile_xx_to_yy(xx, xx_coords, yy_coords)
+    result, result_coords = tile_coords(x, coords, target_coords)
+    # Should tile to (3, 4, 5, 2, 721, 1440) - leading dims from target_coords (not in coords)
+    assert result.shape == (3, 4, 5, 2, 721, 1440)
+    # Should use coords values, not target_coords values for common dims
+    assert np.array_equal(result_coords["variable"], coords["variable"])
+    assert np.array_equal(result_coords["lat"], coords["lat"])
+    assert np.array_equal(result_coords["lon"], coords["lon"])
 
 
-def test_tile_xx_to_yy_edge_cases():
-    """Test edge cases for tile_xx_to_yy"""
-    # Test: xx has more dimensions than yy (should fail)
-    xx = torch.randn(2, 3, 4)
-    xx_coords = OrderedDict(
+def test_tile_coords_edge_cases():
+    # Test: no leading dimensions (all target_coords dims exist in coords)
+    x = torch.randn(2, 3, 4)
+    coords = OrderedDict(
         {
             "a": np.array([0, 1]),
             "b": np.array([0, 1, 2]),
             "c": np.array([0, 1, 2, 3]),
         }
     )
-    yy_coords = OrderedDict(
+    target_coords = OrderedDict(
         {
             "a": np.array([0, 1]),
             "b": np.array([0, 1, 2]),
+            "c": np.array([0, 1, 2, 3]),
         }
     )
-    with pytest.raises(ValueError, match="xx must have fewer dimensions than yy"):
-        tile_xx_to_yy(xx, xx_coords, yy_coords)
+    result, result_coords = tile_coords(x, coords, target_coords)
+    assert result.shape == x.shape
+    assert result_coords == coords
 
-    # Test: dimension size mismatch for trailing dimensions (same names, different sizes)
-    xx = torch.randn(2, 721, 1440)
-    xx_coords = OrderedDict(
+    # Test: common dimensions in target_coords are ignored (uses coords values)
+    x = torch.randn(2, 721, 1440)
+    coords = OrderedDict(
         {
             "variable": np.array(["z", "lsm"]),
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    yy_coords = OrderedDict(
+    target_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
-            "variable": np.array(["z", "lsm"]),
-            "lat": np.linspace(90, -90, 361),  # Different size
-            "lon": np.linspace(0, 360, 1440),
+            "variable": np.array(["different"]),  # Should be ignored
+            "lat": np.linspace(0, 90, 100),  # Should be ignored
+            "lon": np.linspace(0, 180, 200),  # Should be ignored
         }
     )
-    # This should work because trailing keys match, but coordinate values might differ
-    # The function overwrites yy_coords values with xx_coords values
-    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy_coords)
+    # Only "ensemble" and "time" from target_coords should be used for tiling
+    result, result_coords = tile_coords(x, coords, target_coords)
     assert result.shape == (3, 4, 2, 721, 1440)
-    assert np.array_equal(result_coords["lat"], xx_coords["lat"])
+    assert np.array_equal(result_coords["variable"], coords["variable"])
+    assert np.array_equal(result_coords["lat"], coords["lat"])
+    assert np.array_equal(result_coords["lon"], coords["lon"])
 
-    # Test: single dimension xx
-    xx = torch.randn(721)
-    xx_coords = OrderedDict({"lat": np.linspace(90, -90, 721)})
-    yy_coords = OrderedDict(
+    # Test: single dimension x
+    x = torch.randn(721)
+    coords = OrderedDict({"lat": np.linspace(90, -90, 721)})
+    target_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
-            "lat": np.linspace(90, -90, 721),
+            "lat": np.linspace(0, 90, 100),  # Should be ignored
         }
     )
-    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy_coords)
+    result, result_coords = tile_coords(x, coords, target_coords)
     assert result.shape == (3, 4, 721)
     assert "lat" in result_coords
+    assert np.array_equal(result_coords["lat"], coords["lat"])
 
     # Test: empty tensors (0-sized dimensions)
-    xx = torch.randn(0, 721, 1440)
-    xx_coords = OrderedDict(
+    x = torch.randn(0, 721, 1440)
+    coords = OrderedDict(
         {
             "variable": np.array([]),  # Empty array
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    yy_coords = OrderedDict(
+    target_coords = OrderedDict(
         {
             "ensemble": np.array([0, 1, 2]),
             "time": np.array([1, 2, 3, 4]),
-            "variable": np.array([]),  # Empty array
+            "variable": np.array([1, 2, 3]),  # Should be ignored
             "lat": np.linspace(90, -90, 721),
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy_coords)
+    result, result_coords = tile_coords(x, coords, target_coords)
     assert result.shape == (3, 4, 0, 721, 1440)
     assert len(result_coords["variable"]) == 0
 
-    # Test: mismatched coordinate values (same names and sizes, different values)
-    # This should work - it just overwrites with xx_coords values
-    xx = torch.randn(2, 10)
-    xx_coords = OrderedDict(
+    # Test: mismatched coordinate values (common dims use coords values)
+    x = torch.randn(2, 10)
+    coords = OrderedDict(
         {
             "a": np.array([0, 1]),
             "b": np.arange(10),
         }
     )
-    yy_coords = OrderedDict(
+    target_coords = OrderedDict(
         {
             "c": np.array([0, 1, 2]),
-            "a": np.array([10, 20]),  # Different values
-            "b": np.arange(10, 20),  # Different values
+            "a": np.array([10, 20]),  # Should be ignored
+            "b": np.arange(10, 20),  # Should be ignored
         }
     )
-    result, result_coords = tile_xx_to_yy(xx, xx_coords, yy_coords)
+    result, result_coords = tile_coords(x, coords, target_coords)
     assert result.shape == (3, 2, 10)
-    assert np.array_equal(result_coords["a"], xx_coords["a"])
-    assert np.array_equal(result_coords["b"], xx_coords["b"])
+    assert np.array_equal(result_coords["a"], coords["a"])
+    assert np.array_equal(result_coords["b"], coords["b"])
+
+
+def test_tile_coords_validation():
+    """Test that tile_coords validates new dims lead common dims"""
+    x = torch.randn(2, 10)
+    coords = OrderedDict(
+        {
+            "a": np.array([0, 1]),
+            "b": np.arange(10),
+        }
+    )
+
+    # Valid: new dims before common dims
+    target_coords = OrderedDict(
+        {
+            "c": np.array([0, 1, 2]),
+            "a": np.array([10, 20]),
+            "b": np.arange(10, 20),
+        }
+    )
+    result, _ = tile_coords(x, coords, target_coords)
+    assert result.shape == (3, 2, 10)
+
+    # Invalid: new dim after common dim
+    target_coords_bad = OrderedDict(
+        {
+            "a": np.array([10, 20]),
+            "c": np.array([0, 1, 2]),  # New dim after common dim
+            "b": np.arange(10, 20),
+        }
+    )
+    with pytest.raises(ValueError):
+        tile_coords(x, coords, target_coords_bad)
 
 
 def test_cat_coords():
-    """Test coordinate concatenation"""
-
     xx = torch.randn(1, 2, 721, 1440)
     cox = OrderedDict(
         {
