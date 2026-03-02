@@ -189,6 +189,11 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
+
         model = AFNO.from_checkpoint(package.resolve("fcn.mdlus"))
         model.eval()
 
