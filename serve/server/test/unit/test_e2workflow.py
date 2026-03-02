@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -205,7 +206,7 @@ class TestBackendProgress:
 
     def test_add_array_initializes_progress_tracking(self) -> None:
         """Test that add_array initializes progress tracking when progress_dim present"""
-        coords = {"lead_time": [0, 1, 2, 3], "lat": [0, 1]}
+        coords = OrderedDict({"lead_time": [0, 1, 2, 3], "lat": [0, 1]})
 
         self.backend.add_array(coords, "temperature")
 
@@ -223,20 +224,20 @@ class TestBackendProgress:
     def test_write_updates_progress(self) -> None:
         """Test that write updates progress for tracked arrays"""
         # Initialize progress tracking
-        init_coords: CoordSystem = {"lead_time": [0, 1, 2], "lat": [0, 1]}
+        init_coords: CoordSystem = OrderedDict({"lead_time": [0, 1, 2], "lat": [0, 1]})
         self.backend.add_array(init_coords, "temperature")
         self.mock_workflow.update_execution_data.reset_mock()
 
         # Write data at different time steps
         data = torch.randn(1, 2)
 
-        write_coords1: CoordSystem = {"lead_time": [0], "lat": [0, 1]}
+        write_coords1: CoordSystem = OrderedDict({"lead_time": [0], "lat": [0, 1]})
         self.backend.write(data, write_coords1, "temperature")
         self.mock_workflow.update_execution_data.assert_called_with(
             self.execution_id, updates={"current_step": 1}
         )
 
-        write_coords2: CoordSystem = {"lead_time": [2], "lat": [0, 1]}
+        write_coords2: CoordSystem = OrderedDict({"lead_time": [2], "lat": [0, 1]})
         self.backend.write(data, write_coords2, "temperature")
         self.mock_workflow.update_execution_data.assert_called_with(
             self.execution_id, updates={"current_step": 3}
@@ -268,14 +269,18 @@ class TestEarth2WorkflowIntegration:
 
         class TestWorkflow(Earth2Workflow):
             def __call__(self, io: IOBackend, num_steps: int = 3) -> None:
-                coords: CoordSystem = {
-                    "lead_time": list(range(num_steps)),
-                    "lat": [0, 1],
-                }
+                coords: CoordSystem = OrderedDict(
+                    {
+                        "lead_time": list(range(num_steps)),
+                        "lat": [0, 1],
+                    }
+                )
                 io.add_array(coords, "forecast")
                 for i in range(num_steps):
                     data = torch.randn(1, 2)
-                    write_coords: CoordSystem = {"lead_time": [i], "lat": [0, 1]}
+                    write_coords: CoordSystem = OrderedDict(
+                        {"lead_time": [i], "lat": [0, 1]}
+                    )
                     io.write(data, write_coords, "forecast")
 
         workflow = TestWorkflow()

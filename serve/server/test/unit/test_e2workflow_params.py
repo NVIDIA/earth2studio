@@ -21,30 +21,15 @@ Tests for Earth2Workflow and AutoParameters functionality
 import os
 from datetime import datetime
 from typing import Literal
-from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
 
-# Set environment variable before importing workflows
-os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
-
-# Try to import earth2studio, skip tests if not available
-try:
-    from earth2studio.io import IOBackend
-
-    EARTH2STUDIO_AVAILABLE = True
-except ImportError:
-    EARTH2STUDIO_AVAILABLE = False
-    IOBackend = Mock  # Mock for type hints
-
-# ruff: noqa: E402
+from earth2studio.io import IOBackend
 from earth2studio.serve.server.e2workflow import Earth2Workflow, func_to_model
 
-# Skip all tests in this module if earth2studio is not available
-pytestmark = pytest.mark.skipif(
-    not EARTH2STUDIO_AVAILABLE, reason="earth2studio not available in test environment"
-)
+# Set environment variable before importing workflows
+os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 
 
 class TestAutoParametersValidation:
