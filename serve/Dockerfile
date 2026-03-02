@@ -27,10 +27,6 @@ RUN uv pip install --system --break-system-packages "earth2studio[cbottle,corrdi
 RUN uv pip install --system --break-system-packages "earth2studio[data,perturbation,statistics] @ git+https://github.com/NVIDIA/earth2studio.git@${E2S_HASH}"
 RUN uv pip install --system --break-system-packages cartopy xskillscore matplotlib
 
-# Install the requirements for stormcast.
-RUN pip uninstall -y torch-harmonics && \
-    FORCE_CUDA_EXTENSION=1 uv pip install --system --break-system-packages --no-build-isolation torch-harmonics==0.8.0
-
 # Install the requirements for the inference server.
 COPY serve /workspace/earth2studio-project/serve
 RUN cd / && mkdir /workspace/earth2studio-project/examples && ln -s /outputs /workspace/earth2studio-project/examples/outputs
