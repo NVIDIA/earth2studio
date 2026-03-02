@@ -818,8 +818,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         batch, time, lead, _, height, width = x.shape
 
-        # Prepare empty output tensor with VARIABLE dimension
-        out = torch.empty(
+        # Prepare output tensor with VARIABLE dimension (zeros to avoid uninitialised memory)
+        out = torch.zeros(
             (batch, time, lead, len(VARIABLES), height, width),
             device=x.device,
         )
@@ -848,6 +848,16 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         keep = torch.isin(
             all_indices, self.model.data_indices.data.output.forcing, invert=True
         )
+
+        written_set = set(indices[valid_mask].tolist())
+        kept_set = set(all_indices[keep].tolist())
+        uninit = kept_set - written_set
+        if uninit:
+            uninit_names = [VARIABLES[i] for i in sorted(uninit)]
+            print(f"[DIAG] _fill_input: {len(uninit)} variable slot(s) NOT written but kept in output: {uninit_names}")
+        else:
+            print("[DIAG] _fill_input: all kept variable slots were properly written")
+
         out = out[:, :, :, keep, ...]
 
         # Update coordinates with remaining variable names
@@ -868,6 +878,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         first_out, coords_out = self._fill_input(x, coords)
         coords_out["lead_time"] = coords["lead_time"][1:]
         yield first_out[:, :, 1:], coords_out
+
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> YYYoooooooooo!!!!!! ')
 
         # Prepare input tensor
         x = self._prepare_input(x, coords)
