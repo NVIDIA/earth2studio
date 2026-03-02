@@ -14,12 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Workflow module
-
-This module provides the base classes and functionality for custom workflows.
-"""
-
 import importlib.util
 import json
 import logging

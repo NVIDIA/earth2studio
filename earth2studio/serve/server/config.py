@@ -14,14 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Configuration Management for Earth2Studio API Server
-
-This module provides centralized configuration management using Hydra.
-All configuration values are defined here with sensible defaults and can be
-overridden via YAML files or command-line arguments.
-"""
-
 import logging
 import os
 from dataclasses import dataclass, field

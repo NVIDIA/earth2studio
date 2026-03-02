@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Cleanup Daemon for API Server
-
-This daemon runs as a separate process and periodically cleans up expired
-inference results based on the configured TTL (time-to-live).
-"""
-
 import json
 import logging
 import shutil

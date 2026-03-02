@@ -14,18 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Object Storage Module
-
-This module provides object storage functionality using NVIDIA Multi-Storage Client (MSC)
-with Rust backend for high-performance parallel file transfers.
-
-Example:
-    >>> from earth2studio.serve.server.object_storage import MSCObjectStorage
-    >>> storage = MSCObjectStorage(bucket="my-bucket", region="us-east-1")
-    >>> storage.upload_directory("/path/to/local/dir", "remote/prefix")
-"""
-
 import base64
 import datetime
 import logging

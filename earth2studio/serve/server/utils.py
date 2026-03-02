@@ -14,14 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Common utilities for the API Server.
-
-This module contains:
-- Redis key generation functions
-- Pipeline stage queuing utilities
-"""
-
 import logging
 from typing import Any, Literal
 

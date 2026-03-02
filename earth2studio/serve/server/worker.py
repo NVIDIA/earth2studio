@@ -14,14 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Earth2Studio RQ Worker
-
-This module contains the worker functions for processing inference requests
-using Redis Queue (RQ). Workers run the actual inference computations.
-
-"""
-
 import logging
 import time
 from datetime import datetime, timezone

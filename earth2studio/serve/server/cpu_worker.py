@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-CPU Worker Functions
-
-This module contains CPU-intensive functions that can be offloaded from the main worker process.
-
-"""
-
 __all__ = [
     "create_results_zip",
     "process_result_zip",

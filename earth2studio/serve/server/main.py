@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Earth2Studio REST API Server
-
-This module provides a REST API interface for running Earth2Studio workflows
-including deterministic, diagnostic, ensemble, and custom inference workflows.
-"""
-
 import asyncio
 import json
 import logging
