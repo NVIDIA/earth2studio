@@ -76,7 +76,7 @@ def handshake_dim(
 def handshake_coords(
     input_coords: CoordSystem,
     target_coords: CoordSystem,
-    required_dim: list[str] | str,
+    required_dim: str | list[str],
 ) -> None:
     """Simple check to see if the required dimensions have the same coordinate system
 
@@ -86,8 +86,8 @@ def handshake_coords(
         Input coordinate system to validate
     target_coords : CoordSystem
         Target coordinate system
-    required_dim : str
-        Required dimension (name of coordinate)
+    required_dim : list[str] | str
+        Required dimension(s) (name of coordinate)
     Raises
     ------
     KeyError
@@ -505,7 +505,7 @@ def tile_xx_to_yy(
     >>> oro.shape
     torch.Size([1, 5, 1, 721, 1440])
     >>>
-    >>> xx, xx_coords = cat_coords(xx, xx_coords, oro, oro_coords, dim='variable')
+    >>> xx, xx_coords = cat_coords((xx, oro), (xx_coords, oro_coords), dim='variable')
     >>> xx.shape
     torch.Size([1, 5, 3, 721, 1440])
     >>> xx_coords['variable']
@@ -541,10 +541,8 @@ def tile_xx_to_yy(
 
 
 def cat_coords(
-    xx: torch.Tensor,
-    cox: CoordSystem,
-    yy: torch.Tensor,
-    coy: CoordSystem,
+    tensors: tuple[torch.Tensor, ...],
+    coords: tuple[CoordSystem, ...],
     dim: str = "variable",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """
@@ -552,14 +550,10 @@ def cat_coords(
 
     Parameters
     ----------
-    xx : torch.Tensor
-        First input tensor which to concatenate
-    cox : CoordSystem
-        Ordered dict representing coordinate system that describes xx
-    yy : torch.Tensor
-        Second input tensor which to concatenate
-    coy : CoordSystem
-        Ordered dict representing coordinate system that describes yy
+    tensors : tuple[torch.Tensor, ...]
+        Tuple of input tensors to concatenate
+    coords : tuple[CoordSystem, ...]
+        Tuple of OrderedDicts representing coordinate systems for each tensor
     dim : str
         name of dimension along which to concatenate
 
@@ -568,23 +562,55 @@ def cat_coords(
     tuple[torch.Tensor, CoordSystem]
         Tuple containing output tensor and coordinate OrderedDict from
         concatenated data.
+
+    Raises
+    ------
+    ValueError
+        If tensors and coords have different lengths
+        If input tensors have different dimension names
+        If non-concatenation dimensions don't match across inputs
+    KeyError
+        If concatenation dimension is not found in all coordinate systems
     """
-    # make sure cat dim is present in both tensors and both tensors have same dimensions
-    handshake_dim(cox, dim)
-    if not list(cox.keys()) == list(coy.keys()):
+    if len(tensors) != len(coords):
         raise ValueError(
-            "both input tensors have to have the same names in all dimensions."
+            f"tensors and coords must have the same length, got {len(tensors)} tensors and {len(coords)} coords"
         )
 
+    if len(tensors) == 0:
+        raise ValueError("at least one tensor and coord must be provided")
+
+    if len(tensors) == 1:
+        return tensors[0], deepcopy(coords[0])
+
+    # Use first coord as reference
+    ref_coord = coords[0]
+
+    # make sure cat dim is present in all tensors
+    handshake_dim(ref_coord, dim)
+
+    # make sure all tensors have the same dimension names
+    ref_keys = list(ref_coord.keys())
+    for i, coord in enumerate(coords[1:], start=1):
+        handshake_dim(coord, dim)
+        if not list(coord.keys()) == ref_keys:
+            raise ValueError(
+                f"all input tensors must have the same dimension names. "
+                f"Tensor 0 has {ref_keys}, tensor {i} has {list(coord.keys())}"
+            )
+
     # make sure all the other dimensions are of equal length
-    handshake_coords(cox, coy, list(cox.keys() - {dim}))
+    other_dims = list(ref_keys)
+    other_dims.remove(dim)
+    for i, coord in enumerate(coords[1:], start=1):
+        handshake_coords(ref_coord, coord, other_dims)
 
     # assemble output coords
-    coz = deepcopy(cox)
-    coz[dim] = np.append(cox[dim], coy[dim])
+    coz = deepcopy(ref_coord)
+    coz[dim] = np.concatenate([coord[dim] for coord in coords])
 
     # concatenate tensors
     dim_index = list(coz).index(dim)
-    zz = torch.cat((xx, yy), dim=dim_index)
+    zz = torch.cat(tensors, dim=dim_index)
 
     return zz, coz

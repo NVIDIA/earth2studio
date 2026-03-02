@@ -371,7 +371,7 @@ class S2SEnsembleRunner:
                         yy, codib = dx_model(yy, codia)
 
                         # concatenate diagnostic variable to forecast vars
-                        xx, coords = cat_coords(xx, coords, yy, codib, "variable")
+                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
 
                     # pass output variables to io backend
                     for k in self.io_dict.keys():

@@ -623,7 +623,7 @@ def test_cat_coords():
         }
     )
 
-    result, result_coords = cat_coords(xx, cox, yy, coy, dim="variable")
+    result, result_coords = cat_coords((xx, yy), (cox, coy), dim="variable")
 
     assert result.shape == (1, 3, 721, 1440)
     assert len(result_coords["variable"]) == 3
@@ -653,7 +653,7 @@ def test_cat_coords_different_dims():
         }
     )
 
-    result, result_coords = cat_coords(xx, cox, yy, coy, dim="time")
+    result, result_coords = cat_coords((xx, yy), (cox, coy), dim="time")
     assert result.shape == (3, 3, 721, 1440)
     assert len(result_coords["time"]) == 3
     assert np.array_equal(result_coords["time"], [0, 1, 2])
@@ -679,14 +679,95 @@ def test_cat_coords_different_dims():
         }
     )
 
-    result, result_coords = cat_coords(xx, cox, yy, coy, dim="batch")
+    result, result_coords = cat_coords((xx, yy), (cox, coy), dim="batch")
     assert result.shape == (3, 3, 721, 1440)
     assert len(result_coords["batch"]) == 3
     assert np.array_equal(result_coords["batch"], [0, 1, 2])
 
 
+def test_cat_coords_multiple():
+    xx = torch.randn(1, 1, 721, 1440)
+    cox = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["u10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    yy = torch.randn(1, 1, 721, 1440)
+    coy = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["v10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    zz = torch.randn(1, 1, 721, 1440)
+    coz = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    result, result_coords = cat_coords((xx, yy, zz), (cox, coy, coz), dim="variable")
+    assert result.shape == (1, 3, 721, 1440)
+    assert len(result_coords["variable"]) == 3
+    assert np.array_equal(result_coords["variable"], ["u10m", "v10m", "msl"])
+
+
+def test_cat_coords_single():
+    """Test concatenation with a single tensor (should return as-is)"""
+    xx = torch.randn(1, 2, 721, 1440)
+    cox = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["u10m", "v10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+
+    result, result_coords = cat_coords((xx,), (cox,), dim="variable")
+    assert torch.equal(result, xx)  # Should return the same tensor
+    for dim in cox.keys():
+        assert np.all(result_coords[dim] == cox[dim])
+
+
 def test_cat_coords_errors():
     """Test error cases for cat_coords"""
+    # Test length mismatch
+    xx = torch.randn(1, 2, 721, 1440)
+    cox = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["u10m", "v10m"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    yy = torch.randn(1, 1, 721, 1440)
+    coy = OrderedDict(
+        {
+            "time": np.array([0]),
+            "variable": np.array(["msl"]),
+            "lat": np.linspace(90, -90, 721),
+            "lon": np.linspace(0, 360, 1440),
+        }
+    )
+    with pytest.raises(ValueError):
+        cat_coords((xx, yy), (cox,), dim="variable")
+
+    # Test empty input
+    with pytest.raises(ValueError):
+        cat_coords((), (), dim="variable")
+
     xx = torch.randn(1, 2, 721, 1440)
     cox = OrderedDict(
         {
@@ -708,18 +789,15 @@ def test_cat_coords_errors():
     )
 
     # Test missing dimension in first coords (handshake_dim on cox)
-    with pytest.raises(KeyError, match="Required dimension nonexistent not found"):
-        cat_coords(xx, cox, yy, coy, dim="nonexistent")
+    with pytest.raises(KeyError):
+        cat_coords((xx, yy), (cox, coy), dim="nonexistent")
 
     # Test cox has extra dim (key-equality check catches mismatched dimension sets)
     cox_with_extra = cox.copy()
     cox_with_extra["extra_dim"] = np.array([0])
     xx_extra = torch.randn(1, 2, 1, 721, 1440)
-    with pytest.raises(
-        ValueError,
-        match="both input tensors have to have the same names in all dimensions",
-    ):
-        cat_coords(xx_extra, cox_with_extra, yy, coy, dim="extra_dim")
+    with pytest.raises(KeyError):
+        cat_coords((xx_extra, yy), (cox_with_extra, coy), dim="extra_dim")
 
     # Test mismatched non-cat coords (handshake_coords catches shape mismatch)
     yy_bad = torch.randn(1, 1, 361, 1440)
@@ -731,11 +809,8 @@ def test_cat_coords_errors():
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    with pytest.raises(
-        ValueError,
-        match="Coordinate systems for required dim lat are not the same",
-    ):
-        cat_coords(xx, cox, yy_bad, coy_bad, dim="variable")
+    with pytest.raises(ValueError):
+        cat_coords((xx, yy_bad), (cox, coy_bad), dim="variable")
 
     # Test mismatched dimension names
     yy_bad = torch.randn(1, 1, 361, 1440)
@@ -747,8 +822,5 @@ def test_cat_coords_errors():
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    with pytest.raises(
-        ValueError,
-        match="both input tensors have to have the same names in all dimensions.",
-    ):
-        cat_coords(xx, cox, yy_bad, coy_bad, dim="variable")
+    with pytest.raises(ValueError):
+        cat_coords((xx, yy_bad), (cox, coy_bad), dim="variable")

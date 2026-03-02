@@ -395,7 +395,7 @@ class EnsembleBase:
                         yy, codib = map_coords(yy, codib, _codib)
 
                         # concatenate tensors along variable dimension
-                        xx, coords = cat_coords(xx, coords, yy, codib, "variable")
+                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
 
                     # --- CorrDiff models (run after each step, separately) ---
                     # For each CorrDiff model, run the downscaling, collect outputs and coordinates,
