@@ -182,6 +182,25 @@ When adding tests for a new feature:
 
 ## Running Tests
 
+Earth2Studio uses [tox](https://tox.wiki/) to manage test environments. The recommended
+way to run tests is using the Makefile with a specific `TOX_ENV`:
+
+```bash
+# Run a specific test environment (TOX_ENV is required)
+make pytest TOX_ENV=test-data
+
+# Available environments:
+# - test: Core tests (IO, utilities, auto-models, batch)
+# - test-data: Data source and lexicon tests
+# - test-perturb: Perturbation method tests
+# - test-stats: Statistical method tests
+# - test-px-models: Prognostic model tests
+# - test-dx-models: Diagnostic model tests
+# - test-serve: Serve/API tests
+```
+
+But for initial debugging and contribution, once can use pytest directly:
+
 ```bash
 # Quick test suite (skips slow tests)
 pytest test/
@@ -205,3 +224,4 @@ coverage report
 - Aim for 90%+ code coverage
 - Test both happy paths and error cases
 - Use conditional skipping for device-specific tests (CUDA)
+- Use `make pytest TOX_ENV=<env>` to run tests via tox (required for CI compatibility)

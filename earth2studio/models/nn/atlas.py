@@ -1305,12 +1305,9 @@ class SInterpolantLatentDiT(PhysicsNeMoModule):
         # Conditioning
         t = self.t_embedder(t)
 
-        # print(t.shape)
-
         if self.embedding_table is not None and label is not None:
             t = t + self.embedding_table(label)
 
-        # print(t.shape)
         # Apply DiT blocks
         for j, block in enumerate(self.blocks):
             if j >= self.checkpoint:
