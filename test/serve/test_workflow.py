@@ -24,21 +24,27 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import redis  # type: ignore[import-untyped]
-from api_server.config import get_config  # type: ignore[import-untyped]
-from api_server.workflow import (  # type: ignore[import-untyped]
-    Workflow,
-    WorkflowParameters,
-    WorkflowProgress,
-    WorkflowRegistry,
-    WorkflowResult,
-    WorkflowStatus,
-    parse_workflow_directories_from_env,
-    register_all_workflows,
-    workflow_registry,
-)
+
+try:
+    from api_server.config import get_config  # type: ignore[import-untyped]
+    from api_server.workflow import (  # type: ignore[import-untyped]
+        Workflow,
+        WorkflowParameters,
+        WorkflowProgress,
+        WorkflowRegistry,
+        WorkflowResult,
+        WorkflowStatus,
+        parse_workflow_directories_from_env,
+        register_all_workflows,
+        workflow_registry,
+    )
+except ImportError:
+    pass
 from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 
-# imitate API server environment
+pytest.importorskip("api_server")
+
+# imitate API server environment (DANGER!!! REMOVE THIS)
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 
 

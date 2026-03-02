@@ -47,6 +47,10 @@ sys.modules["omegaconf"] = mock_omegaconf
 mock_omegaconf.OmegaConf = MagicMock()
 mock_omegaconf.OmegaConf.to_container = MagicMock(return_value={})
 
+import pytest  # noqa: E402
+
+pytest.importorskip("api_server")
+
 # Import config after mocking dependencies (noqa: E402 - import after mocks is intentional)
 # Note: service/inferenceserver path is added by conftest.py
 from api_server.config import (  # noqa: E402
