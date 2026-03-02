@@ -14,12 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Unit tests for earth2studio.serve.server.config module.
-
-Tests configuration management, environment variable overrides, and singleton behavior.
-"""
-
 import logging
 import os
 import sys
@@ -46,10 +40,6 @@ mock_omegaconf = MagicMock()
 sys.modules["omegaconf"] = mock_omegaconf
 mock_omegaconf.OmegaConf = MagicMock()
 mock_omegaconf.OmegaConf.to_container = MagicMock(return_value={})
-
-import pytest  # noqa: E402
-
-pytest.importorskip("api_server")
 
 # Import config after mocking dependencies (noqa: E402 - import after mocks is intentional)
 # Note: serve/server path is added by conftest.py

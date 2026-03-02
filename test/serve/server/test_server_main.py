@@ -14,12 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Unit tests for earth2studio.serve.server.main module.
-
-Tests the FastAPI endpoints including the workflow schema endpoint.
-"""
-
 import os
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -39,8 +33,6 @@ import fastapi.routing  # type: ignore[import-untyped]
 from fastapi.exceptions import FastAPIError  # type: ignore[import-untyped]
 
 _original_route_init = fastapi.routing.APIRoute.__init__
-
-pytest.importorskip("api_server")
 
 
 def _patched_route_init(self, *args, **kwargs):

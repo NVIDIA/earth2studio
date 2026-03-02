@@ -39,8 +39,6 @@ from earth2studio.serve.server.workflow import (  # type: ignore[import-untyped]
     workflow_registry,
 )
 
-pytest.importorskip("api_server")
-
 # imitate API server environment (DANGER!!! REMOVE THIS)
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 
