@@ -29,7 +29,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class UploadResult:
-    """Result of an upload operation"""
+    """
+    Result of an upload operation.
+
+    Attributes
+    ----------
+    success : bool
+        Whether the upload completed without errors.
+    files_uploaded : int
+        Number of files uploaded.
+    total_bytes : int
+        Total bytes uploaded.
+    destination : str
+        Destination path or URI.
+    errors : list of str
+        List of error messages, if any.
+    """
 
     success: bool
     files_uploaded: int
@@ -49,9 +64,9 @@ class ObjectStorage(ABC):
     """
     Abstract base class for object storage operations.
 
-    This class defines the interface that all object storage implementations must follow.
-    Subclasses should implement the abstract methods to provide functionality for
-    specific cloud providers (AWS S3, GCS, Azure Blob Storage, etc.).
+    Defines the interface that all object storage implementations must follow.
+    Subclasses implement the abstract methods for specific cloud providers
+    (AWS S3, GCS, Azure Blob Storage, etc.).
     """
 
     @abstractmethod
@@ -65,20 +80,31 @@ class ObjectStorage(ABC):
         """
         Upload a local directory to the object store at the specified path.
 
-        Args:
-            local_directory: Path to the local directory to upload.
-            remote_prefix: The prefix/path in the bucket where files will be uploaded.
-                          Files will maintain their relative paths under this prefix.
-            recursive: If True, recursively upload all subdirectories.
-            overwrite: If True, overwrite existing files in the destination.
+        Parameters
+        ----------
+        local_directory : str or Path
+            Path to the local directory to upload.
+        remote_prefix : str
+            Prefix/path in the bucket where files will be uploaded.
+            Files maintain their relative paths under this prefix.
+        recursive : bool, optional
+            If True, recursively upload all subdirectories. Default is True.
+        overwrite : bool, optional
+            If True, overwrite existing files in the destination. Default is True.
 
-        Returns:
-            UploadResult containing details about the upload operation.
+        Returns
+        -------
+        UploadResult
+            Details about the upload operation.
 
-        Raises:
-            FileNotFoundError: If the local directory does not exist.
-            PermissionError: If there are permission issues with the bucket.
-            ObjectStorageError: For other storage-related errors.
+        Raises
+        ------
+        FileNotFoundError
+            If the local directory does not exist.
+        PermissionError
+            If there are permission issues with the bucket.
+        ObjectStorageError
+            For other storage-related errors.
         """
         pass
 
@@ -92,12 +118,18 @@ class ObjectStorage(ABC):
         """
         Upload a single file to the object store.
 
-        Args:
-            local_file: Path to the local file to upload.
-            remote_key: The full key/path in the bucket for the file.
-            overwrite: If True, overwrite if the file already exists.
+        Parameters
+        ----------
+        local_file : str or Path
+            Path to the local file to upload.
+        remote_key : str
+            Full key/path in the bucket for the file.
+        overwrite : bool, optional
+            If True, overwrite if the file already exists. Default is True.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if upload was successful, False otherwise.
         """
         pass
@@ -107,10 +139,14 @@ class ObjectStorage(ABC):
         """
         Check if a file exists in the object store.
 
-        Args:
-            remote_key: The full key/path in the bucket.
+        Parameters
+        ----------
+        remote_key : str
+            Full key/path in the bucket.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if the file exists, False otherwise.
         """
         pass
@@ -120,10 +156,14 @@ class ObjectStorage(ABC):
         """
         Delete a file from the object store.
 
-        Args:
-            remote_key: The full key/path in the bucket.
+        Parameters
+        ----------
+        remote_key : str
+            Full key/path in the bucket.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if deletion was successful, False otherwise.
         """
         pass
@@ -133,35 +173,43 @@ class ObjectStorage(ABC):
         """
         Generate a signed URL for a file in the object store.
 
-        Args:
-            remote_key: The full key/path in the bucket.
-            expires_in: The number of seconds the URL will be valid for.
+        Parameters
+        ----------
+        remote_key : str
+            Full key/path in the bucket.
+        expires_in : int, optional
+            Number of seconds the URL will be valid for. Default is 86400.
+
+        Returns
+        -------
+        str
+            Signed URL string.
         """
         pass
 
 
 class ObjectStorageError(Exception):
-    """Base exception for object storage errors"""
+    """
+    Base exception for object storage errors.
+    """
 
     pass
 
 
 class MSCObjectStorage(ObjectStorage):
     """
-    Object storage implementation using NVIDIA Multi-Storage Client with Rust backend.
+    Object storage using NVIDIA Multi-Storage Client (MSC) with Rust backend.
 
-    MSC provides optimized parallel transfers and the Rust client bypasses Python's
-    GIL for significantly improved I/O performance (up to 12x faster).
+    MSC provides optimized parallel transfers; the Rust client bypasses Python's
+    GIL for improved I/O performance (up to 12x faster). Uses sync_from for
+    efficient directory uploads with parallel transfers.
 
-    Uses sync_from for efficient directory uploads with parallel transfers.
+    Credentials are read from environment variables: AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN (optional), AWS_DEFAULT_REGION.
 
-    Credentials are picked up from environment variables:
-    - AWS_ACCESS_KEY_ID
-    - AWS_SECRET_ACCESS_KEY
-    - AWS_SESSION_TOKEN (optional)
-    - AWS_DEFAULT_REGION
-
-    See: https://nvidia.github.io/multi-storage-client/user_guide/rust.html
+    References
+    ----------
+    https://nvidia.github.io/multi-storage-client/user_guide/rust.html
     """
 
     def __init__(
@@ -184,21 +232,36 @@ class MSCObjectStorage(ObjectStorage):
         """
         Initialize MSCObjectStorage with AWS credentials and configuration.
 
-        Args:
-            bucket: The S3 bucket name.
-            region: AWS region (e.g., 'us-east-1').
-            access_key_id: AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
-            secret_access_key: AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
-            session_token: AWS session token for temporary credentials.
-            endpoint_url: Custom endpoint URL (for S3-compatible services).
-            use_transfer_acceleration: Enable S3 Transfer Acceleration (bucket must have it enabled).
-            max_concurrency: Maximum number of concurrent transfers (default: 16).
-            multipart_chunksize: Chunk size for multipart uploads in bytes (default: 8MB).
-            use_rust_client: Enable the high-performance Rust client (default: True).
-            profile_name: Name for the MSC profile (default: 'e2studio-s3').
-            cloudfront_domain: CloudFront distribution domain for signed URLs.
-            cloudfront_key_pair_id: CloudFront key pair ID for signed URLs.
-            cloudfront_private_key: PEM private key content as string.
+        Parameters
+        ----------
+        bucket : str
+            S3 bucket name.
+        region : str, optional
+            AWS region (e.g. 'us-east-1').
+        access_key_id : str, optional
+            AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
+        secret_access_key : str, optional
+            AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
+        session_token : str, optional
+            AWS session token for temporary credentials.
+        endpoint_url : str, optional
+            Custom endpoint URL for S3-compatible services.
+        use_transfer_acceleration : bool, optional
+            Enable S3 Transfer Acceleration (bucket must support it). Default is False.
+        max_concurrency : int, optional
+            Maximum number of concurrent transfers. Default is 16.
+        multipart_chunksize : int, optional
+            Chunk size for multipart uploads in bytes. Default is 8 MB.
+        use_rust_client : bool, optional
+            Use the high-performance Rust client. Default is False.
+        profile_name : str, optional
+            Name for the MSC profile. Default is 'e2studio-s3'.
+        cloudfront_domain : str, optional
+            CloudFront distribution domain for signed URLs.
+        cloudfront_key_pair_id : str, optional
+            CloudFront key pair ID for signed URLs.
+        cloudfront_private_key : str, optional
+            PEM private key content as string for signed URLs.
         """
         self.bucket = bucket
         self.region = region or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
@@ -319,14 +382,21 @@ class MSCObjectStorage(ObjectStorage):
 
         Uses MSC's sync_from for efficient parallel directory uploads.
 
-        Args:
-            local_directory: Path to the local directory to upload.
-            remote_prefix: The S3 prefix where files will be uploaded.
-            recursive: If True, recursively upload all subdirectories.
-            overwrite: If True, overwrite existing files.
+        Parameters
+        ----------
+        local_directory : str or Path
+            Path to the local directory to upload.
+        remote_prefix : str
+            S3 prefix where files will be uploaded.
+        recursive : bool, optional
+            If True, recursively upload all subdirectories. Default is True.
+        overwrite : bool, optional
+            If True, overwrite existing files. Default is True.
 
-        Returns:
-            UploadResult with details about the upload.
+        Returns
+        -------
+        UploadResult
+            Details about the upload operation.
         """
         local_path = Path(local_directory)
 
@@ -406,12 +476,18 @@ class MSCObjectStorage(ObjectStorage):
         """
         Upload a single file to S3 using Multi-Storage Client with Rust backend.
 
-        Args:
-            local_file: Path to the local file.
-            remote_key: The S3 key for the file.
-            overwrite: If True, overwrite if exists.
+        Parameters
+        ----------
+        local_file : str or Path
+            Path to the local file.
+        remote_key : str
+            S3 key for the file.
+        overwrite : bool, optional
+            If True, overwrite if exists. Default is True.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if successful, False otherwise.
         """
         local_path = Path(local_file)
@@ -436,10 +512,14 @@ class MSCObjectStorage(ObjectStorage):
         """
         Check if a file exists in S3 using MSC info() method.
 
-        Args:
-            remote_key: The S3 key to check.
+        Parameters
+        ----------
+        remote_key : str
+            S3 key to check.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if the file exists, False otherwise.
         """
         try:
@@ -453,10 +533,14 @@ class MSCObjectStorage(ObjectStorage):
         """
         Delete a file from S3 using MSC delete() method.
 
-        Args:
-            remote_key: The S3 key to delete.
+        Parameters
+        ----------
+        remote_key : str
+            S3 key to delete.
 
-        Returns:
+        Returns
+        -------
+        bool
             True if successful, False otherwise.
         """
         try:
@@ -471,7 +555,19 @@ class MSCObjectStorage(ObjectStorage):
             return False
 
     def _rsa_signer(self, message: bytes) -> bytes:
-        """Sign a message using the CloudFront private key."""
+        """
+        Sign a message using the CloudFront private key.
+
+        Parameters
+        ----------
+        message : bytes
+            Message to sign.
+
+        Returns
+        -------
+        bytes
+            RSA signature.
+        """
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import padding
         from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -492,7 +588,19 @@ class MSCObjectStorage(ObjectStorage):
 
     @staticmethod
     def _url_safe_b64(data: bytes) -> str:
-        """Convert bytes to URL-safe base64."""
+        """
+        Convert bytes to URL-safe base64.
+
+        Parameters
+        ----------
+        data : bytes
+            Data to encode.
+
+        Returns
+        -------
+        str
+            URL-safe base64 string.
+        """
         return (
             base64.b64encode(data)
             .decode("utf-8")
@@ -505,15 +613,22 @@ class MSCObjectStorage(ObjectStorage):
         """
         Generate a CloudFront signed URL for accessing a file.
 
-        Args:
-            remote_key: The S3 key/path to the file. Can include wildcards.
-            expires_in: Number of seconds until the URL expires (default: 86400).
+        Parameters
+        ----------
+        remote_key : str
+            S3 key/path to the file. Can include wildcards.
+        expires_in : int, optional
+            Number of seconds until the URL expires. Default is 86400.
 
-        Returns:
-            A signed CloudFront URL string.
+        Returns
+        -------
+        str
+            Signed CloudFront URL string.
 
-        Raises:
-            ObjectStorageError: If CloudFront configuration is missing.
+        Raises
+        ------
+        ObjectStorageError
+            If CloudFront configuration is missing.
         """
         if not all(
             [
@@ -573,28 +688,36 @@ def get_object_storage(
     **kwargs: Any,
 ) -> ObjectStorage:
     """
-    Factory function to get an object storage instance.
+    Create an object storage instance.
 
-    This function provides a convenient way to instantiate the MSCObjectStorage
-    implementation which uses NVIDIA Multi-Storage Client with Rust backend.
+    Convenience factory to instantiate MSCObjectStorage (NVIDIA Multi-Storage
+    Client with Rust backend).
 
-    Args:
-        provider: The storage provider to use. Currently only "msc" is supported.
-        **kwargs: Provider-specific configuration arguments.
+    Parameters
+    ----------
+    provider : {"msc"}, optional
+        Storage provider to use. Currently only "msc" is supported. Default is "msc".
+    **kwargs : any
+        Provider-specific configuration passed to the storage constructor.
 
-    Returns:
-        An ObjectStorage instance.
+    Returns
+    -------
+    ObjectStorage
+        Configured object storage instance.
 
-    Raises:
-        ValueError: If an unsupported provider is specified.
+    Raises
+    ------
+    ValueError
+        If an unsupported provider is specified.
 
-    Example:
-        >>> storage = get_object_storage(
-        ...     "msc",
-        ...     bucket="my-bucket",
-        ...     region="us-east-1",
-        ...     use_rust_client=True
-        ... )
+    Examples
+    --------
+    >>> storage = get_object_storage(
+    ...     "msc",
+    ...     bucket="my-bucket",
+    ...     region="us-east-1",
+    ...     use_rust_client=True
+    ... )
     """
     providers = {
         "msc": MSCObjectStorage,

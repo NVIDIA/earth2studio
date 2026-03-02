@@ -39,8 +39,24 @@ from earth2studio.serve.server.workflow import (  # type: ignore[import-untyped]
     workflow_registry,
 )
 
-# imitate API server environment (DANGER!!! REMOVE THIS)
-os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
+
+@pytest.fixture(scope="module", autouse=True)
+def api_active_env():  # type: ignore[no-untyped-def]
+    """
+    Set EARTH2STUDIO_API_ACTIVE=1 for tests in this module only; restore afterward.
+
+    Ensures workflow registration is enabled during these tests without
+    affecting other test modules.
+    """
+    old = os.environ.pop("EARTH2STUDIO_API_ACTIVE", None)
+    os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
+    try:
+        yield
+    finally:
+        if old is not None:
+            os.environ["EARTH2STUDIO_API_ACTIVE"] = old
+        else:
+            os.environ.pop("EARTH2STUDIO_API_ACTIVE", None)
 
 
 def get_test_config(base_path: str | None = None):  # type: ignore[no-untyped-def]

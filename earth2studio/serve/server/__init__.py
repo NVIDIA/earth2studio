@@ -36,24 +36,3 @@ def __getattr__(name: str) -> Any:
 
         return e2workflow.Earth2Workflow
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-__all__ = [
-    "main",
-    "workflow",
-    "worker",
-    "cpu_worker",
-    "config",
-    "object_storage",
-    "Workflow",
-    "WorkflowParameters",
-    "WorkflowProgress",
-    "WorkflowResult",
-    "WorkflowStatus",
-    "WorkflowRegistry",
-    "workflow_registry",
-    "get_workflow_config",
-    "register_all_workflows",
-    "parse_workflow_directories_from_env",
-    "Earth2Workflow",
-]

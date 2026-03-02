@@ -83,12 +83,6 @@ def pytest_runtest_setup(item):
         if is_mock:
             importlib.reload(sys.modules[_CONFIG_MODULE])
     real_config = sys.modules[_CONFIG_MODULE]
-    # Check if _config_manager is a mock and reset if needed
-    cm = getattr(real_config, "_config_manager", None)
-    if cm is not None and (
-        hasattr(cm, "_mock_name") or str(type(cm)) == "<class 'unittest.mock.Mock'>"
-    ):
-        real_config._config_manager = None
     # Check if ConfigManager._instance is a mock and reset if needed
     if hasattr(real_config, "ConfigManager") and hasattr(
         real_config.ConfigManager, "_instance"

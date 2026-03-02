@@ -28,6 +28,7 @@ from typing import Any
 import aiofiles  # type: ignore[import-untyped]
 import redis as redis_sync  # type: ignore[import-untyped]  # For RQ (synchronous)
 import redis.asyncio as redis  # type: ignore[import-untyped]
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
@@ -870,8 +871,6 @@ async def get_workflow_result_file(
 
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(
         app,
         host=config.server.host,  # noqa: S104

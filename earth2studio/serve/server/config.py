@@ -428,10 +428,6 @@ class ConfigManager:
         return self._workflow_config
 
 
-# Global configuration instance
-_config_manager: ConfigManager | None = None
-
-
 def get_config() -> AppConfig:
     """
     Get the global configuration instance.
@@ -450,7 +446,7 @@ def get_config() -> AppConfig:
 
 def get_config_manager() -> ConfigManager:
     """
-    Get the global configuration manager instance.
+    Get the configuration manager instance (singleton).
 
     Returns:
         ConfigManager: The configuration manager
@@ -460,17 +456,13 @@ def get_config_manager() -> ConfigManager:
         >>> manager = get_config_manager()
         >>> manager.setup_logging()
     """
-    global _config_manager
-    if _config_manager is None:
-        _config_manager = ConfigManager()
-    return _config_manager
+    return ConfigManager()
 
 
 # Convenience function to reset config (mainly for testing)
 def reset_config() -> None:
-    """Reset the global configuration instance (mainly for testing)"""
-    global _config_manager
-    _config_manager = None
+    """Reset the configuration manager singleton (mainly for testing)."""
+    ConfigManager._instance = None
     GlobalHydra.instance().clear()
 
 

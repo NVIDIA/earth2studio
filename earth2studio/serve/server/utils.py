@@ -59,12 +59,10 @@ def get_signed_url_key(request_id: str) -> str:
 # Pipeline Stage Utilities
 # =============================================================================
 
-Stage = Literal["inference", "result_zip", "object_storage"]
-
 
 def queue_next_stage(
     redis_client: redis.Redis,
-    current_stage: Stage,
+    current_stage: Literal["inference", "result_zip", "object_storage"],
     workflow_name: str,
     execution_id: str,
     output_path_str: str,

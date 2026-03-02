@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__all__ = [
-    "create_results_zip",
-    "process_result_zip",
-    "process_object_storage_upload",
-    "process_finalize_metadata",
-]
-
 import json
 import logging
 import zipfile
@@ -319,14 +312,14 @@ def create_results_zip(
         file_manifest = build_file_manifest(output_path)
 
         if not output_path.exists():
-            logger.warning(f"Output path {output_path} does not exist")
+            log.warning(f"Output path {output_path} does not exist")
 
         # Create zip file only if requested
         if create_zip:
             if zip_filename is None:
                 zip_filename = f"{request_id}"
             zip_path = results_zip_dir / zip_filename
-            logger.info(f"Creating results zip file: {zip_path}")
+            log.info(f"Creating results zip file: {zip_path}")
 
             with zipfile.ZipFile(
                 zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6
@@ -360,9 +353,9 @@ def create_results_zip(
                     FileManifestEntry(path=zip_filename, size=zip_size)
                 )
 
-                logger.info(f"Created zip file {zip_filename} ({zip_size} bytes)")
+                log.info(f"Created zip file {zip_filename} ({zip_size} bytes)")
         else:
-            logger.info(
+            log.info(
                 f"Skipping zip creation for {request_id}, manifest has {len(file_manifest)} files"
             )
             zip_filename = None  # No zip file created
@@ -405,7 +398,7 @@ def create_results_zip(
             config.redis.retention_ttl,
             str(results_zip_dir),
         )
-        logger.info(f"Stored pending metadata in Redis for {request_id}")
+        log.info(f"Stored pending metadata in Redis for {request_id}")
 
         # Store zip filename association in Redis (only if zip was created)
         if zip_filename:
@@ -761,7 +754,6 @@ def process_finalize_metadata(
     Returns:
         Dict containing result info, None on critical failure
     """
-    from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
 
     request_id = f"{workflow_name}:{execution_id}"
     logger.info(f"Processing finalize metadata for {request_id}")
@@ -776,7 +768,6 @@ def process_finalize_metadata(
     storage_info_json = redis_client.get(storage_info_key)
 
     if not pending_metadata_json or not results_zip_dir_str:
-        logger.error(f"Pending metadata not found in Redis for {request_id}")
         return fail_workflow(
             workflow_name,
             execution_id,

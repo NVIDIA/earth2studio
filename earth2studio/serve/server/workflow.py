@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowStatus:
-    """Workflow execution status constants"""
+    """Workflow execution status constants."""
 
     QUEUED = "queued"
     RUNNING = "running"
@@ -56,7 +56,7 @@ class WorkflowStatus:
 
 
 class WorkflowArgsBase(BaseModel):
-    """Base parameters for workflow execution"""
+    """Base parameters for workflow execution."""
 
     # Add strict validation - reject unknown fields
     model_config = ConfigDict(extra="forbid")
@@ -72,14 +72,20 @@ class WorkflowArgsBase(BaseModel):
         It ensures that all required fields are present, types are correct, and any
         custom validators defined in the parameter class are executed.
 
-        Args:
-            data: Input data as dict or WorkflowArgsBase instance
+        Parameters
+        ----------
+        data : dict or WorkflowArgsBase
+            Input data as dict or WorkflowArgsBase instance.
 
-        Returns:
-            Validated WorkflowArgsBase instance
+        Returns
+        -------
+        WorkflowArgsBase
+            Validated WorkflowArgsBase instance.
 
-        Raises:
-            ValueError: If validation fails
+        Raises
+        ------
+        ValueError
+            If validation fails.
         """
         if isinstance(data, cls):
             # Already the correct type, re-validate to ensure all constraints are met
@@ -109,18 +115,24 @@ class WorkflowParameters(WorkflowArgsBase):
 
         This validator handles both string lists (forecast_times) and can validate
         datetime objects or ISO 8601 strings (start_time).
-
         Requires full datetime format with 'T' separator (not just date) for strings.
 
-        Args:
-            v: The value (can be list of strings/datetime objects, single value, or None)
-            info: Validation context info
+        Parameters
+        ----------
+        v : list of str or datetime, or single value, or None
+            The value (can be list of strings/datetime objects, single value, or None).
+        info : Any
+            Validation context info.
 
-        Returns:
-            The validated value
+        Returns
+        -------
+        Any
+            The validated value.
 
-        Raises:
-            ValueError: If any value is not in valid ISO 8601 datetime format
+        Raises
+        ------
+        ValueError
+            If any value is not in valid ISO 8601 datetime format.
         """
         from datetime import datetime
 
@@ -172,7 +184,7 @@ class WorkflowParameters(WorkflowArgsBase):
 
 class WorkflowConfig(WorkflowArgsBase):
     """
-    Specialize in case we want to differentiate parameters and config handling  later.
+    Specialize in case we want to differentiate parameters and config handling later.
     """
 
     pass
@@ -185,38 +197,46 @@ class WorkflowProgress(BaseModel):
     This class provides standard progress tracking fields that can be extended
     by custom workflows to include additional tracking information.
 
-    Attributes:
-        progress: Human-readable progress message
-        current_step: Current step number in the workflow
-        total_steps: Total number of steps in the workflow
-        error_message: Error message to report specific errors when workflow fails
+    Attributes
+    ----------
+    progress : str or None
+        Human-readable progress message.
+    current_step : int or None
+        Current step number in the workflow.
+    total_steps : int or None
+        Total number of steps in the workflow.
+    error_message : str or None
+        Error message to report specific errors when workflow fails.
 
-    Example:
-        Basic usage:
-            progress = WorkflowProgress(
-                progress="Processing data...",
-                current_step=3,
-                total_steps=10
-            )
+    Examples
+    --------
+    Basic usage:
 
-        Error reporting:
-            progress = WorkflowProgress(
-                progress="Failed!",
-                error_message="Connection timeout: Could not reach data source"
-            )
+    >>> progress = WorkflowProgress(
+    ...     progress="Processing data...",
+    ...     current_step=3,
+    ...     total_steps=10
+    ... )
 
-        Extended for custom workflow:
-            class MyCustomProgress(WorkflowProgress):
-                data_processed_gb: float = 0.0
-                error_count: int = 0
+    Error reporting:
 
-            progress = MyCustomProgress(
-                progress="Processing batch 5",
-                current_step=5,
-                total_steps=20,
-                data_processed_gb=150.5,
-                error_count=2
-            )
+    >>> progress = WorkflowProgress(
+    ...     progress="Failed!",
+    ...     error_message="Connection timeout: Could not reach data source"
+    ... )
+
+    Extended for custom workflow:
+
+    >>> class MyCustomProgress(WorkflowProgress):
+    ...     data_processed_gb: float = 0.0
+    ...     error_count: int = 0
+    >>> progress = MyCustomProgress(
+    ...     progress="Processing batch 5",
+    ...     current_step=5,
+    ...     total_steps=20,
+    ...     data_processed_gb=150.5,
+    ...     error_count=2
+    ... )
     """
 
     progress: str | None = None
@@ -226,7 +246,7 @@ class WorkflowProgress(BaseModel):
 
 
 class WorkflowResult(BaseModel):
-    """Base result structure for workflow execution"""
+    """Base result structure for workflow execution."""
 
     workflow_name: str
     execution_id: str
@@ -270,14 +290,16 @@ class Workflow(ABC):
         """
         Initialize workflow.
 
-        Note: name and description are set by the registry during workflow instantiation.
+        Notes
+        -----
+        name and description are set by the registry during workflow instantiation.
         """
         self.redis_client: redis.Redis | None = None
         self.output_dir = Path(config.paths.default_output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def set_redis_client(self, redis_client: redis.Redis) -> None:
-        """Set Redis client for state management"""
+        """Set Redis client for state management."""
         self.redis_client = redis_client
 
     @classmethod
@@ -292,19 +314,26 @@ class Workflow(ABC):
         Pydantic field validation and model validation. Subclasses should implement
         this method to specify their parameter type.
 
-        Args:
-            parameters: Input parameters as dict or WorkflowParameters instance
+        Parameters
+        ----------
+        parameters : dict or WorkflowParameters
+            Input parameters as dict or WorkflowParameters instance.
 
-        Returns:
-            Validated WorkflowParameters instance of the workflow-specific type
+        Returns
+        -------
+        WorkflowParameters
+            Validated WorkflowParameters instance of the workflow-specific type.
 
-        Raises:
-            ValueError: If validation fails
+        Raises
+        ------
+        ValueError
+            If validation fails.
 
-        Example:
-            @classmethod
-            def validate_parameters(cls, parameters):
-                return MyWorkflowParameters.validate(parameters)
+        Examples
+        --------
+        >>> @classmethod
+        ... def validate_parameters(cls, parameters):
+        ...     return MyWorkflowParameters.validate(parameters)
         """
         raise NotImplementedError(
             "Subclasses must implement validate_parameters() method"
@@ -320,12 +349,17 @@ class Workflow(ABC):
         This method should implement the actual workflow logic.
         It will be called when a POST request is made to /v1/infer/{workflow_name}.
 
-        Args:
-            parameters: Input parameters for the workflow (dict or WorkflowParameters)
-            execution_id: Unique execution identifier
+        Parameters
+        ----------
+        parameters : dict or WorkflowParameters
+            Input parameters for the workflow.
+        execution_id : str
+            Unique execution identifier.
 
-        Returns:
-            Dictionary containing workflow results
+        Returns
+        -------
+        dict
+            Dictionary containing workflow results.
         """
         raise NotImplementedError("Subclasses must implement run() method")
 
@@ -338,41 +372,49 @@ class Workflow(ABC):
         This method can be called by workflow implementations to update specific
         fields in the execution data without replacing the entire record.
 
-        Args:
-            execution_id: Unique execution identifier
-            updates: Dictionary of fields to update, or WorkflowProgress instance.
-                    If a WorkflowProgress object is provided, it will update the
-                    'progress' field of WorkflowResult. Dict updates can include
-                    any WorkflowResult fields including 'progress', 'metadata', etc.
+        Parameters
+        ----------
+        execution_id : str
+            Unique execution identifier.
+        updates : dict or WorkflowProgress
+            Dictionary of fields to update, or WorkflowProgress instance.
+            If a WorkflowProgress object is provided, it will update the
+            'progress' field of WorkflowResult. Dict updates can include
+            any WorkflowResult fields including 'progress', 'metadata', etc.
 
-        Raises:
-            RuntimeError: If Redis client is not set
+        Raises
+        ------
+        RuntimeError
+            If Redis client is not set.
 
-        Example:
-            # Using dict for general updates
-            self.update_execution_data(execution_id, {
-                "metadata": {"custom_field": "value"}
-            })
+        Examples
+        --------
+        Using dict for general updates:
 
-            # Using WorkflowProgress for progress updates
-            progress = WorkflowProgress(
-                progress="Processing data...",
-                current_step=3,
-                total_steps=10
-            )
-            self.update_execution_data(execution_id, progress)
+        >>> self.update_execution_data(execution_id, {
+        ...     "metadata": {"custom_field": "value"}
+        ... })
 
-            # Using custom WorkflowProgress subclass
-            class MyProgress(WorkflowProgress):
-                data_processed_gb: float = 0.0
+        Using WorkflowProgress for progress updates:
 
-            progress = MyProgress(
-                progress="Batch processing",
-                current_step=5,
-                total_steps=20,
-                data_processed_gb=150.5
-            )
-            self.update_execution_data(execution_id, progress)
+        >>> progress = WorkflowProgress(
+        ...     progress="Processing data...",
+        ...     current_step=3,
+        ...     total_steps=10
+        ... )
+        >>> self.update_execution_data(execution_id, progress)
+
+        Using custom WorkflowProgress subclass:
+
+        >>> class MyProgress(WorkflowProgress):
+        ...     data_processed_gb: float = 0.0
+        >>> progress = MyProgress(
+        ...     progress="Batch processing",
+        ...     current_step=5,
+        ...     total_steps=20,
+        ...     data_processed_gb=150.5
+        ... )
+        >>> self.update_execution_data(execution_id, progress)
         """
         if not self.redis_client:
             raise RuntimeError("Redis client not set. Call set_redis_client() first.")
@@ -408,11 +450,15 @@ class Workflow(ABC):
         output directory path for a specific execution. The directory is automatically
         created if it doesn't exist.
 
-        Args:
-            execution_id: Unique execution identifier
+        Parameters
+        ----------
+        execution_id : str
+            Unique execution identifier.
 
-        Returns:
-            Path object pointing to the output directory
+        Returns
+        -------
+        Path
+            Path object pointing to the output directory.
         """
         workflow_dir = self.output_dir / self.name / execution_id
         workflow_dir.mkdir(parents=True, exist_ok=True)
@@ -428,13 +474,19 @@ class Workflow(ABC):
 
         This method can only be called by the system, and should not be called by workflow implementations.
 
-        Args:
-            redis_client: Redis client instance
-            workflow_name: Name of the workflow
-            execution_id: Unique execution identifier
+        Parameters
+        ----------
+        redis_client : redis.Redis
+            Redis client instance.
+        workflow_name : str
+            Name of the workflow.
+        execution_id : str
+            Unique execution identifier.
 
-        Returns:
-            WorkflowResult with execution data
+        Returns
+        -------
+        WorkflowResult
+            Execution data.
         """
         try:
             # Get execution data from Redis
@@ -471,11 +523,16 @@ class Workflow(ABC):
 
         This method can only be called by the system, and should not be called by workflow implementations.
 
-        Args:
-            redis_client: Redis client instance
-            workflow_name: Name of the workflow
-            execution_id: Unique execution identifier
-            data: WorkflowResult to save
+        Parameters
+        ----------
+        redis_client : redis.Redis
+            Redis client instance.
+        workflow_name : str
+            Name of the workflow.
+        execution_id : str
+            Unique execution identifier.
+        data : WorkflowResult
+            WorkflowResult to save.
         """
         try:
             redis_client.setex(
@@ -502,11 +559,16 @@ class Workflow(ABC):
 
         This method can only be called by the system, and should not be called by workflow implementations.
 
-        Args:
-            redis_client: Redis client instance
-            workflow_name: Name of the workflow
-            execution_id: Unique execution identifier
-            updates: Dictionary of fields to update
+        Parameters
+        ----------
+        redis_client : redis.Redis
+            Redis client instance.
+        workflow_name : str
+            Name of the workflow.
+        execution_id : str
+            Unique execution identifier.
+        updates : dict
+            Dictionary of fields to update.
         """
         try:
             # Get current data
@@ -529,7 +591,7 @@ class Workflow(ABC):
 
 
 def json_serial(obj: Any) -> Any:
-    """JSON serializer for objects not serializable by default json code"""
+    """JSON serializer for objects not serializable by default json code."""
 
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
@@ -539,7 +601,7 @@ def json_serial(obj: Any) -> Any:
 
 
 class WorkflowRegistry:
-    """Registry for managing custom workflows"""
+    """Registry for managing custom workflows."""
 
     def __init__(self, **config: Any) -> None:
         self._workflows: dict[str, type[Workflow]] = {}
@@ -549,15 +611,22 @@ class WorkflowRegistry:
         """
         Register a workflow class.
 
-        Args:
-            workflow_class: Workflow class (not instance) to register
+        Parameters
+        ----------
+        workflow_class : type[Workflow]
+            Workflow class (not instance) to register.
 
-        Returns:
-            workflow_class (enabling the use of ``register`` as a decorator)
+        Returns
+        -------
+        type[Workflow]
+            workflow_class (enabling the use of ``register`` as a decorator).
 
-        Raises:
-            TypeError: If workflow_class is not a class or not a Workflow subclass
-            ValueError: If workflow name is already registered
+        Raises
+        ------
+        TypeError
+            If workflow_class is not a class or not a Workflow subclass.
+        ValueError
+            If workflow name is already registered.
         """
         # Skip registration in a non-API environment
         api_server_running = os.environ.get("EARTH2STUDIO_API_ACTIVE", "0") == "1"
@@ -592,7 +661,7 @@ class WorkflowRegistry:
         return workflow_class
 
     def unregister(self, name: str) -> None:
-        """Unregister a workflow"""
+        """Unregister a workflow."""
         if name not in self._workflows:
             raise ValueError(f"Workflow '{name}' is not registered")
 
@@ -606,11 +675,15 @@ class WorkflowRegistry:
         """
         Get a workflow class by name.
 
-        Args:
-            name: Name of the workflow
+        Parameters
+        ----------
+        name : str
+            Name of the workflow.
 
-        Returns:
-            Workflow class or None if not found
+        Returns
+        -------
+        type[Workflow] or None
+            Workflow class or None if not found.
         """
         return self._workflows.get(name)
 
@@ -623,12 +696,17 @@ class WorkflowRegistry:
         Creates a new instance on first call and caches it for subsequent calls.
         The instance is automatically initialized with the registered name and description.
 
-        Args:
-            name: Name of the workflow
-            redis_client: Optional Redis client to set on the instance
+        Parameters
+        ----------
+        name : str
+            Name of the workflow.
+        redis_client : redis.Redis or None, optional
+            Optional Redis client to set on the instance.
 
-        Returns:
-            Cached workflow instance or None if not found
+        Returns
+        -------
+        Workflow or None
+            Cached workflow instance or None if not found.
         """
         workflow_class = self.get_workflow_class(name)
         if workflow_class is None:
@@ -657,7 +735,7 @@ class WorkflowRegistry:
         return instance
 
     def list_workflows(self) -> dict[str, str]:
-        """List all registered workflows"""
+        """List all registered workflows."""
         return {
             name: workflow_class.description
             for name, workflow_class in self._workflows.items()
@@ -669,12 +747,17 @@ class WorkflowRegistry:
         """
         Discover and register workflows from specified directories.
 
-        Args:
-            workflow_dirs: List of directory paths to search for workflow modules
-            include_builtin: Whether to automatically include built-in example_workflows
+        Parameters
+        ----------
+        workflow_dirs : list
+            List of directory paths to search for workflow modules.
+        include_builtin : bool, optional
+            Whether to automatically include built-in example_workflows. Default is True.
 
-        Returns:
-            tuple: (successful_imports, failed_imports) counts
+        Returns
+        -------
+        tuple
+            (successful_imports, failed_imports) counts.
         """
         # Always include built-in workflows if requested (serve/server/example_workflows)
         if include_builtin:
@@ -767,8 +850,10 @@ class WorkflowRegistry:
 
         This is the main entry point for workflow registration during server startup.
 
-        Args:
-            redis_client: Redis client instance to set on registered workflows
+        Parameters
+        ----------
+        redis_client : redis.Redis
+            Redis client instance to set on registered workflows.
         """
         try:
             logger.info("=" * 60)
@@ -816,8 +901,10 @@ def parse_workflow_directories_from_env() -> list[str]:
     - Comma-separated list of directories
     - Colon-separated list of directories
 
-    Returns:
-        list: List of directory paths to search for workflows
+    Returns
+    -------
+    list of str
+        List of directory paths to search for workflows.
     """
     workflow_dirs = []
 
@@ -856,13 +943,16 @@ def register_all_workflows(redis_client: redis.Redis) -> None:
     1. Built-in example_workflows directory (always included)
     2. User directories specified via WORKFLOW_DIR environment variable
 
-    Args:
-        redis_client: Redis client instance to set on registered workflows
+    Parameters
+    ----------
+    redis_client : redis.Redis
+        Redis client instance to set on registered workflows.
 
-    Example:
-        >>> import redis
-        >>> from earth2studio.serve.server.workflow import register_all_workflows
-        >>> redis_client = redis.Redis(host='localhost', port=6379)
-        >>> register_all_workflows(redis_client)
+    Examples
+    --------
+    >>> import redis
+    >>> from earth2studio.serve.server.workflow import register_all_workflows
+    >>> redis_client = redis.Redis(host='localhost', port=6379)
+    >>> register_all_workflows(redis_client)
     """
     workflow_registry.auto_register_workflows(redis_client)

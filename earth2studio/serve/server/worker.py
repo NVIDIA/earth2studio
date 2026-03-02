@@ -78,7 +78,25 @@ def get_output_path(
     workflow_type: str,
     request_id: str,
 ) -> Path:
-    """Generate output path for workflow results"""
+    """
+    Generate output path for workflow results.
+
+    Parameters
+    ----------
+    io_config : dict or None
+        I/O configuration (used for backend_type); if None, backend_type defaults to "zarr".
+    timestamp : str
+        Timestamp string used in the output directory name.
+    workflow_type : str
+        Type of workflow (e.g. workflow name).
+    request_id : str
+        Request identifier.
+
+    Returns
+    -------
+    Path
+        Path to the forecast output file (e.g. forecast.zarr).
+    """
     # Create timestamp-based subdirectory
     timestamp_str = timestamp.replace(":", "").replace("Z", "").replace("+", "")
     output_dir = DEFAULT_OUTPUT_DIR / f"{workflow_type}_{timestamp_str}_{request_id}"
@@ -91,7 +109,33 @@ def get_output_path(
 def run_custom_workflow(
     workflow_name: str, execution_id: str, parameters: dict[str, Any]
 ) -> Any:
-    """RQ Worker function to run custom workflow"""
+    """
+    RQ worker function to run a custom workflow.
+
+    Executes the workflow, updates execution status in Redis, and queues the
+    next pipeline stage (e.g. result_zip or object_storage) as configured.
+
+    Parameters
+    ----------
+    workflow_name : str
+        Name of the registered workflow to run.
+    execution_id : str
+        Unique execution identifier.
+    parameters : dict
+        Workflow input parameters (validated by the workflow's parameter type).
+
+    Returns
+    -------
+    Any
+        Result returned by the workflow's run() method.
+
+    Raises
+    ------
+    ValueError
+        If the workflow is not found or cannot be instantiated.
+    RuntimeError
+        If queuing the next pipeline stage fails.
+    """
     # Create logger adapter with execution_id for automatic log prefixing
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 

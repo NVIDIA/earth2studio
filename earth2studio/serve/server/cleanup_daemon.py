@@ -30,33 +30,18 @@ import redis  # type: ignore[import-untyped]
 from earth2studio.serve.server.config import get_config, get_config_manager
 from earth2studio.serve.server.workflow import WorkflowStatus
 
-# Get configuration
-config = get_config()
+# Configure logging (config is obtained in main())
 config_manager = get_config_manager()
-
-# Configure logging
 config_manager.setup_logging()
 logger = logging.getLogger(__name__)
-
-# Path configuration from config
-DEFAULT_OUTPUT_DIR = Path(config.paths.default_output_dir)
-RESULTS_ZIP_DIR = Path(config.paths.results_zip_dir)
-
-# Global flag for graceful shutdown
-shutdown_flag = False
-
-
-def signal_handler(signum: int, frame: Any) -> None:
-    """Handle shutdown signals gracefully"""
-    global shutdown_flag
-    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-    shutdown_flag = True
 
 
 def _delete_result_files(
     redis_client: redis.Redis,
     result_id: str,
     search_id: str,
+    default_output_dir: Path,
+    results_zip_dir: Path,
     workflow_name: str | None = None,
 ) -> None:
     """
@@ -66,19 +51,21 @@ def _delete_result_files(
         redis_client: Redis client
         result_id: ID to use for zip file lookup (request_id or combined_id)
         search_id: ID to search for in directory names
+        default_output_dir: Base directory for raw result outputs
+        results_zip_dir: Directory for result zip files and metadata
         workflow_name: Optional workflow name for workflow-specific subdirectory checking
     """
     # Delete zip file
     zip_key = f"inference_request_zips:{result_id}:zip_file"
     zip_filename = redis_client.get(zip_key)
     if zip_filename:
-        zip_path = RESULTS_ZIP_DIR / zip_filename
+        zip_path = results_zip_dir / zip_filename
         if zip_path.exists():
             zip_path.unlink()
             logger.info(f"Deleted zip file: {zip_path}")
 
     # Delete metadata file (metadata_{request_id}.json)
-    for item in RESULTS_ZIP_DIR.iterdir():
+    for item in results_zip_dir.iterdir():
         if (
             item.is_file()
             and item.name.startswith("metadata")
@@ -88,20 +75,20 @@ def _delete_result_files(
             logger.info(f"Deleted metadata file: {item}")
 
     # Delete raw results directory (search for directories containing search_id)
-    for item in DEFAULT_OUTPUT_DIR.iterdir():
+    for item in default_output_dir.iterdir():
         if item.is_dir() and search_id in item.name:
             shutil.rmtree(item)
             logger.info(f"Deleted raw results directory: {item}")
 
     # Also check subdirectories recursively for results
-    for item in RESULTS_ZIP_DIR.iterdir():
+    for item in results_zip_dir.iterdir():
         if item.is_dir() and search_id in item.name:
             shutil.rmtree(item)
             logger.info(f"Deleted results from zip dir: {item}")
 
     # Check in workflow-specific subdirectories if workflow_name is provided
     if workflow_name:
-        workflow_dir = DEFAULT_OUTPUT_DIR / workflow_name
+        workflow_dir = default_output_dir / workflow_name
         if workflow_dir.exists():
             for item in workflow_dir.iterdir():
                 if item.is_dir() and search_id in item.name:
@@ -114,6 +101,7 @@ def _process_expired_key(
     key: str,
     current_time: datetime,
     results_ttl_hours: float,
+    retention_ttl: int,
     expected_status: str,
     get_end_time_field: str,
     delete_files_func: Callable[[redis.Redis, str], None],
@@ -127,6 +115,7 @@ def _process_expired_key(
         key: Redis key to process
         current_time: Current timestamp for age calculation
         results_ttl_hours: TTL threshold in hours
+        retention_ttl: Redis TTL in seconds for the key after marking expired
         expected_status: Expected status value for completed items
         get_end_time_field: Primary field name for end time
         delete_files_func: Function to call for deleting files
@@ -173,7 +162,7 @@ def _process_expired_key(
         data["status"] = WorkflowStatus.EXPIRED
         redis_client.setex(
             key,
-            config.redis.retention_ttl,
+            retention_ttl,
             json.dumps(data),
         )
 
@@ -182,7 +171,13 @@ def _process_expired_key(
     return False
 
 
-def cleanup_expired_results(redis_client: redis.Redis) -> None:
+def cleanup_expired_results(
+    redis_client: redis.Redis,
+    results_ttl_hours: float,
+    retention_ttl: int,
+    default_output_dir: Path,
+    results_zip_dir: Path,
+) -> None:
     """
     Check Redis for expired results and clean them up.
 
@@ -191,8 +186,6 @@ def cleanup_expired_results(redis_client: redis.Redis) -> None:
     2. Deletes both raw result files and zip files
     3. Updates the status to "expired"
     """
-    results_ttl_hours = config.server.results_ttl_hours
-
     logger.info("Running cleanup watchdog check...")
     current_time = datetime.now(timezone.utc)
 
@@ -224,6 +217,8 @@ def cleanup_expired_results(redis_client: redis.Redis) -> None:
                         rc,
                         result_id=_combined_id,
                         search_id=_execution_id,
+                        default_output_dir=default_output_dir,
+                        results_zip_dir=results_zip_dir,
                         workflow_name=_workflow_name,
                     )
 
@@ -232,6 +227,7 @@ def cleanup_expired_results(redis_client: redis.Redis) -> None:
                     key=key,
                     current_time=current_time,
                     results_ttl_hours=results_ttl_hours,
+                    retention_ttl=retention_ttl,
                     expected_status=WorkflowStatus.COMPLETED,
                     get_end_time_field="end_time",
                     delete_files_func=delete_func,
@@ -250,7 +246,16 @@ def cleanup_expired_results(redis_client: redis.Redis) -> None:
 
 def main() -> None:
     """Main daemon loop"""
-    global shutdown_flag
+    config = get_config()
+    default_output_dir = Path(config.paths.default_output_dir)
+    results_zip_dir = Path(config.paths.results_zip_dir)
+
+    state: dict[str, bool] = {"shutdown": False}
+
+    def signal_handler(signum: int, frame: Any) -> None:
+        """Handle shutdown signals gracefully."""
+        logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+        state["shutdown"] = True
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, signal_handler)
@@ -280,15 +285,21 @@ def main() -> None:
 
     # Main daemon loop
     try:
-        while not shutdown_flag:
+        while not state["shutdown"]:
             try:
-                cleanup_expired_results(redis_client)
+                cleanup_expired_results(
+                    redis_client,
+                    results_ttl_hours=config.server.results_ttl_hours,
+                    retention_ttl=config.redis.retention_ttl,
+                    default_output_dir=default_output_dir,
+                    results_zip_dir=results_zip_dir,
+                )
             except Exception as e:
                 logger.exception(f"Error in cleanup cycle: {e}")
 
             # Sleep for the configured interval, checking shutdown flag periodically
             sleep_remaining = config.server.cleanup_watchdog_sec
-            while sleep_remaining > 0 and not shutdown_flag:
+            while sleep_remaining > 0 and not state["shutdown"]:
                 sleep_time = min(5, sleep_remaining)  # Check every 5 seconds
                 time.sleep(sleep_time)
                 sleep_remaining -= sleep_time
@@ -299,7 +310,3 @@ def main() -> None:
         logger.info("Cleanup daemon shutting down...")
         redis_client.close()
         logger.info("Cleanup daemon stopped")
-
-
-if __name__ == "__main__":
-    main()

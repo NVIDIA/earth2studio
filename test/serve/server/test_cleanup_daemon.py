@@ -78,21 +78,17 @@ class TestDeleteResultFiles:
         mock_zip_dir.__truediv__ = lambda self, other: mock_zip_file
         mock_zip_dir.iterdir.return_value = [mock_metadata_file]
 
-        with (
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
-            ),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
-                mock_output_dir,
-            ),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.shutil.rmtree"
-            ) as mock_rmtree,
-        ):
+        with patch(
+            "earth2studio.serve.server.cleanup_daemon.shutil.rmtree"
+        ) as mock_rmtree:
             # Execute
             _delete_result_files(
-                mock_redis, combined_id, execution_id, workflow_name=workflow_name
+                mock_redis,
+                combined_id,
+                execution_id,
+                mock_output_dir,
+                mock_zip_dir,
+                workflow_name=workflow_name,
             )
 
             # Verify zip file deleted
@@ -116,20 +112,13 @@ class TestDeleteResultFiles:
         mock_zip_dir = MagicMock()
         mock_zip_dir.iterdir.return_value = []
 
-        with (
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
-            ),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
-                mock_output_dir,
-            ),
-        ):
-            # Execute - should not raise exception
-            _delete_result_files(mock_redis, result_id, result_id)
+        # Execute - should not raise exception
+        _delete_result_files(
+            mock_redis, result_id, result_id, mock_output_dir, mock_zip_dir
+        )
 
-            # Verify Redis was queried
-            mock_redis.get.assert_called_once()
+        # Verify Redis was queried
+        mock_redis.get.assert_called_once()
 
 
 class TestProcessExpiredKey:
@@ -168,6 +157,7 @@ class TestProcessExpiredKey:
             key=key,
             current_time=current_time,
             results_ttl_hours=results_ttl_hours,
+            retention_ttl=config.redis.retention_ttl,
             expected_status=WorkflowStatus.COMPLETED,
             get_end_time_field="end_time",
             delete_files_func=mock_delete_func,
@@ -206,6 +196,7 @@ class TestProcessExpiredKey:
             key=key,
             current_time=current_time,
             results_ttl_hours=results_ttl_hours,
+            retention_ttl=604800,
             expected_status=WorkflowStatus.COMPLETED,
             get_end_time_field="end_time",
             delete_files_func=mock_delete_func,
@@ -227,14 +218,24 @@ class TestCleanupExpiredResults:
         return MagicMock()
 
     @pytest.fixture
-    def mock_config(self):
-        """Mock the config"""
-        with patch("earth2studio.serve.server.cleanup_daemon.config") as mock_cfg:
-            mock_cfg.server.results_ttl_hours = 24
-            mock_cfg.redis.retention_ttl = 604800
-            yield mock_cfg
+    def cleanup_args(self):
+        """Default args for cleanup_expired_results (no module-level config)."""
+        config = get_config()
+        mock_output_dir = MagicMock()
+        mock_output_dir.iterdir.return_value = []
+        mock_output_dir.__truediv__ = lambda self, other: MagicMock(
+            exists=lambda: False
+        )
+        mock_zip_dir = MagicMock()
+        mock_zip_dir.iterdir.return_value = []
+        return {
+            "results_ttl_hours": config.server.results_ttl_hours,
+            "retention_ttl": config.redis.retention_ttl,
+            "default_output_dir": mock_output_dir,
+            "results_zip_dir": mock_zip_dir,
+        }
 
-    def test_cleanup_expired_results_workflow_only(self, mock_redis, mock_config):
+    def test_cleanup_expired_results_workflow_only(self, mock_redis, cleanup_args):
         """Test cleanup with workflow executions only"""
         # Setup
         current_time = datetime.now(timezone.utc)
@@ -261,27 +262,9 @@ class TestCleanupExpiredResults:
 
         mock_redis.get.side_effect = get_side_effect
 
-        mock_output_dir = MagicMock()
-        mock_output_dir.iterdir.return_value = []
-        mock_output_dir.__truediv__ = lambda self, other: MagicMock(
-            exists=lambda: False
-        )
-
-        mock_zip_dir = MagicMock()
-        mock_zip_dir.iterdir.return_value = []
-
-        with (
-            patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
-                mock_output_dir,
-            ),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
-            ),
-        ):
+        with patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"):
             # Execute
-            cleanup_expired_results(mock_redis)
+            cleanup_expired_results(mock_redis, **cleanup_args)
 
             # Verify - should process 1 workflow (exec_old), skip exec_recent
             assert mock_redis.setex.call_count == 1
@@ -291,18 +274,18 @@ class TestCleanupExpiredResults:
             expired_keys = [call[0][0] for call in setex_calls]
             assert "workflow_execution:wf1:exec_old" in expired_keys
 
-    def test_cleanup_expired_results_no_keys(self, mock_redis, mock_config):
+    def test_cleanup_expired_results_no_keys(self, mock_redis, cleanup_args):
         """Test cleanup when there are no keys in Redis"""
         # Setup
         mock_redis.keys.return_value = []
 
         # Execute
-        cleanup_expired_results(mock_redis)
+        cleanup_expired_results(mock_redis, **cleanup_args)
 
         # Verify - no cleanup operations
         mock_redis.setex.assert_not_called()
 
-    def test_cleanup_expired_results_all_recent(self, mock_redis, mock_config):
+    def test_cleanup_expired_results_all_recent(self, mock_redis, cleanup_args):
         """Test cleanup when all workflow keys are recent (not expired)"""
         # Setup
         current_time = datetime.now(timezone.utc)
@@ -318,12 +301,12 @@ class TestCleanupExpiredResults:
         )
 
         # Execute
-        cleanup_expired_results(mock_redis)
+        cleanup_expired_results(mock_redis, **cleanup_args)
 
         # Verify - no cleanup operations (not expired)
         mock_redis.setex.assert_not_called()
 
-    def test_cleanup_expired_results_redis_get_failure(self, mock_redis, mock_config):
+    def test_cleanup_expired_results_redis_get_failure(self, mock_redis, cleanup_args):
         """Test cleanup handles Redis get failures gracefully"""
         # Setup
         mock_redis.keys.return_value = [
@@ -346,34 +329,16 @@ class TestCleanupExpiredResults:
 
         mock_redis.get.side_effect = get_side_effect
 
-        mock_output_dir = MagicMock()
-        mock_output_dir.iterdir.return_value = []
-        mock_output_dir.__truediv__ = lambda self, other: MagicMock(
-            exists=lambda: False
-        )
-
-        mock_zip_dir = MagicMock()
-        mock_zip_dir.iterdir.return_value = []
-
-        with (
-            patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
-                mock_output_dir,
-            ),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
-            ),
-        ):
+        with (patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),):
             # Execute - should not raise exception
-            cleanup_expired_results(mock_redis)
+            cleanup_expired_results(mock_redis, **cleanup_args)
 
             # Verify - exec_2 should still be processed despite exec_1 error
             assert mock_redis.setex.call_count == 1
             assert mock_redis.setex.call_args[0][0] == "workflow_execution:wf_ok:exec_2"
 
     def test_cleanup_expired_results_delete_files_failure(
-        self, mock_redis, mock_config
+        self, mock_redis, cleanup_args
     ):
         """Test cleanup handles file deletion failures gracefully and does not mark as expired"""
         # Setup
@@ -392,7 +357,7 @@ class TestCleanupExpiredResults:
             mock_delete.side_effect = Exception("File deletion error")
 
             # Execute - should handle exception and continue
-            cleanup_expired_results(mock_redis)
+            cleanup_expired_results(mock_redis, **cleanup_args)
 
             # Verify delete was attempted
             mock_delete.assert_called_once()
@@ -401,7 +366,7 @@ class TestCleanupExpiredResults:
             # (we want to retry cleanup on next run)
             assert mock_redis.setex.call_count == 0
 
-    def test_cleanup_expired_results_workflow_execution(self, mock_redis, mock_config):
+    def test_cleanup_expired_results_workflow_execution(self, mock_redis, cleanup_args):
         """Test cleanup of workflow execution keys"""
         # Setup
         current_time = datetime.now(timezone.utc)
@@ -413,29 +378,11 @@ class TestCleanupExpiredResults:
             {"status": WorkflowStatus.COMPLETED, "end_time": old_time}
         )
 
-        mock_output_dir = MagicMock()
-        mock_output_dir.iterdir.return_value = []
-        mock_output_dir.__truediv__ = lambda self, other: MagicMock(
-            exists=lambda: False
-        )
-
-        mock_zip_dir = MagicMock()
-        mock_zip_dir.iterdir.return_value = []
-
-        with (
-            patch(
-                "earth2studio.serve.server.cleanup_daemon._delete_result_files"
-            ) as mock_delete,
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
-                mock_output_dir,
-            ),
-            patch(
-                "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR", mock_zip_dir
-            ),
-        ):
+        with patch(
+            "earth2studio.serve.server.cleanup_daemon._delete_result_files"
+        ) as mock_delete:
             # Execute
-            cleanup_expired_results(mock_redis)
+            cleanup_expired_results(mock_redis, **cleanup_args)
 
             # Verify workflow was cleaned up
             assert mock_redis.setex.call_count == 1
@@ -453,61 +400,52 @@ class TestCleanupExpiredResults:
 
     def test_cleanup_expired_results_custom_ttl_config(self, mock_redis):
         """Test cleanup with custom TTL configuration"""
-        # Setup custom config
-        with patch("earth2studio.serve.server.cleanup_daemon.config") as mock_cfg:
-            mock_cfg.server.results_ttl_hours = 48  # Custom 48 hour TTL
-            mock_cfg.redis.retention_ttl = 604800
+        # Custom 48 hour TTL (pass as args; no module-level config)
+        config = get_config()
+        mock_output_dir = MagicMock()
+        mock_output_dir.iterdir.return_value = []
+        mock_output_dir.__truediv__ = lambda self, other: MagicMock(
+            exists=lambda: False
+        )
+        mock_zip_dir = MagicMock()
+        mock_zip_dir.iterdir.return_value = []
 
-            current_time = datetime.now(timezone.utc)
-            # 30 hours ago - should NOT be expired with 48 hour TTL
-            time_30h_ago = (current_time - timedelta(hours=30)).isoformat()
-            # 50 hours ago - should be expired with 48 hour TTL
-            time_50h_ago = (current_time - timedelta(hours=50)).isoformat()
+        current_time = datetime.now(timezone.utc)
+        # 30 hours ago - should NOT be expired with 48 hour TTL
+        time_30h_ago = (current_time - timedelta(hours=30)).isoformat()
+        # 50 hours ago - should be expired with 48 hour TTL
+        time_50h_ago = (current_time - timedelta(hours=50)).isoformat()
 
-            mock_redis.keys.return_value = [
-                "workflow_execution:wf_30h:exec_30h",
-                "workflow_execution:wf_50h:exec_50h",
-            ]
+        mock_redis.keys.return_value = [
+            "workflow_execution:wf_30h:exec_30h",
+            "workflow_execution:wf_50h:exec_50h",
+        ]
 
-            def get_side_effect(key):
-                if key == "workflow_execution:wf_30h:exec_30h":
-                    return json.dumps(
-                        {"status": WorkflowStatus.COMPLETED, "end_time": time_30h_ago}
-                    )
-                elif key == "workflow_execution:wf_50h:exec_50h":
-                    return json.dumps(
-                        {"status": WorkflowStatus.COMPLETED, "end_time": time_50h_ago}
-                    )
-                return None
+        def get_side_effect(key):
+            if key == "workflow_execution:wf_30h:exec_30h":
+                return json.dumps(
+                    {"status": WorkflowStatus.COMPLETED, "end_time": time_30h_ago}
+                )
+            elif key == "workflow_execution:wf_50h:exec_50h":
+                return json.dumps(
+                    {"status": WorkflowStatus.COMPLETED, "end_time": time_50h_ago}
+                )
+            return None
 
-            mock_redis.get.side_effect = get_side_effect
+        mock_redis.get.side_effect = get_side_effect
 
-            mock_output_dir = MagicMock()
-            mock_output_dir.iterdir.return_value = []
-            mock_output_dir.__truediv__ = lambda self, other: MagicMock(
-                exists=lambda: False
+        with patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"):
+            # Execute with 48 hour TTL
+            cleanup_expired_results(
+                mock_redis,
+                results_ttl_hours=48,
+                retention_ttl=config.redis.retention_ttl,
+                default_output_dir=mock_output_dir,
+                results_zip_dir=mock_zip_dir,
             )
 
-            mock_zip_dir = MagicMock()
-            mock_zip_dir.iterdir.return_value = []
-
-            with (
-                patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"),
-                patch(
-                    "earth2studio.serve.server.cleanup_daemon.DEFAULT_OUTPUT_DIR",
-                    mock_output_dir,
-                ),
-                patch(
-                    "earth2studio.serve.server.cleanup_daemon.RESULTS_ZIP_DIR",
-                    mock_zip_dir,
-                ),
-            ):
-                # Execute
-                cleanup_expired_results(mock_redis)
-
-                # Verify - only exec_50h should be cleaned up
-                assert mock_redis.setex.call_count == 1
-                assert (
-                    mock_redis.setex.call_args[0][0]
-                    == "workflow_execution:wf_50h:exec_50h"
-                )
+            # Verify - only exec_50h should be cleaned up
+            assert mock_redis.setex.call_count == 1
+            assert (
+                mock_redis.setex.call_args[0][0] == "workflow_execution:wf_50h:exec_50h"
+            )
