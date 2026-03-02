@@ -29,12 +29,11 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 from .s2s_utilities import (
     calculate_torch_seed,
-    cat_coords,
     get_batchid_from_ensid,
     run_with_rank_ordered_execution,
 )
