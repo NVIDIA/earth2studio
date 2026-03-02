@@ -75,7 +75,7 @@ updates.
 Create a **Pydantic model** that defines your workflow's input parameters:
 
 ```python
-from api_server.workflow import WorkflowParameters
+from earth2studio.serve.server.workflow import WorkflowParameters
 from pydantic import Field
 from typing import List
 
@@ -101,7 +101,7 @@ Implement the **`Workflow`** base class and assign the parameter class to its `P
 attribute:
 
 ```python
-from api_server.workflow import Workflow, WorkflowProgress, workflow_registry
+from earth2studio.serve.server.workflow import Workflow, WorkflowProgress, workflow_registry
 from typing import Any, Dict, Union
 import json
 
@@ -314,7 +314,7 @@ class DeterministicWorkflowParameters(WorkflowParameters):
 ### Workflow Implementation
 
 ```python
-from api_server.workflow import WorkflowProgress
+from earth2studio.serve.server.workflow import WorkflowProgress
 
 @workflow_registry.register()
 class DeterministicWorkflow(Workflow):
@@ -763,7 +763,7 @@ The `WorkflowProgress` class provides four standard fields:
 ### Basic Usage
 
 ```python
-from api_server.workflow import WorkflowProgress
+from earth2studio.serve.server.workflow import WorkflowProgress
 
 # Simple progress update
 progress = WorkflowProgress(
@@ -790,7 +790,7 @@ except Exception as e:
 You can extend `WorkflowProgress` with workflow-specific fields:
 
 ```python
-from api_server.workflow import WorkflowProgress
+from earth2studio.serve.server.workflow import WorkflowProgress
 from pydantic import Field
 from typing import Optional
 

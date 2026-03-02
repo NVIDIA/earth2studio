@@ -522,7 +522,7 @@ InferenceRequest:
 ### Server Configuration (config.yaml)
 
 The API server can be configured via the `config.yaml` file located at
-`api_server/conf/config.yaml`:
+`serve/server/conf/config.yaml`:
 
 #### Results Management
 

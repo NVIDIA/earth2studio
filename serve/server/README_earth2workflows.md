@@ -17,7 +17,7 @@ This is a simplified example demonstrating the key concepts. For complete workin
 `example_workflows` directory.
 
 ```python
-from api_server.workflow import workflow_registry, Earth2Workflow
+from earth2studio.serve.server.workflow import workflow_registry, Earth2Workflow
 from earth2studio.io import IOBackend
 from datetime import datetime
 from earth2studio.data import GFS
