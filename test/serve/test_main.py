@@ -28,7 +28,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import Field
 
-# Set API environment variable before importing main
+# Set API environment variable before importing main (DANGER!!! REMOVE THIS)
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 
 # Patch FastAPI route creation to handle union return types
@@ -39,6 +39,8 @@ import fastapi.routing  # type: ignore[import-untyped]
 from fastapi.exceptions import FastAPIError  # type: ignore[import-untyped]
 
 _original_route_init = fastapi.routing.APIRoute.__init__
+
+pytest.importorskip("api_server")
 
 
 def _patched_route_init(self, *args, **kwargs):

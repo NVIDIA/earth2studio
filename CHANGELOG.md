@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ability to have seperate data and model cache locations via env variables
 - Added random dataframe source
 - Added base reflectivity to MRMS data source
+- Added `fetch_dataframe` utility function
+- Added data assimilation model class
+- Added equirectangular interpolation data assimilation model
 
 ### Changed
 
@@ -46,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle repo to NVlabs location
 - Updated Makani dependency hash to later version with pyproject toml fix
 - Updated ACE2 dependency hash with setuptools fix
+- Updated models using PhysicsNeMo to compliance with `nvidia-physicsnemo>=2.0`
 
 ## [0.12.1] - 2026-01-29
 
