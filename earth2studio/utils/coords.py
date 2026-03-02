@@ -86,7 +86,7 @@ def handshake_coords(
         Input coordinate system to validate
     target_coords : CoordSystem
         Target coordinate system
-    required_dim : list[str] | str
+    required_dim : str | list[str]
         Required dimension(s) (name of coordinate)
     Raises
     ------
