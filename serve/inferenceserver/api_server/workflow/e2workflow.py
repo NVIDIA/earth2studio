@@ -98,6 +98,7 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
 
     def __init__(self) -> None:
         super().__init__()
+        self.execution_id: str | None = None
 
     @abstractmethod
     def __call__(self, io: IOBackend) -> None:
@@ -121,6 +122,9 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
         self, parameters: dict[str, Any] | WorkflowParameters, execution_id: str
     ) -> dict[str, Any]:
         """Run custom workflow"""
+
+        # Store execution_id for use in update_progress
+        self.execution_id = execution_id
 
         # Validate and convert parameters
         parameters = self.validate_parameters(parameters)
@@ -184,6 +188,36 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             self.update_execution_data(execution_id, progress)
             raise
 
+    def update_progress(self, progress: WorkflowProgress) -> None:
+        """
+        Update workflow execution progress.
+
+        This method is intended for child workflows to update progress
+        information during execution. It uses the execution_id stored
+        during the run() method.
+
+        If execution_id is not set (e.g., when running outside the API server),
+        this method is a no-op and silently returns without updating progress.
+
+        Parameters
+        ----------
+        progress : WorkflowProgress
+            WorkflowProgress object containing progress information to update.
+
+        Examples
+        --------
+        >>> progress = WorkflowProgress(
+        ...     progress="Processing data...",
+        ...     current_step=5,
+        ...     total_steps=10
+        ... )
+        >>> self.update_progress(progress)
+        """
+        if self.execution_id is None:
+            # No-op when running outside API server context
+            return
+        self.update_execution_data(self.execution_id, progress)
+
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +259,7 @@ class BackendProgress:
                 progress = WorkflowProgress(
                     current_step=0, total_steps=len(self.progress_coords)
                 )
-                self.workflow.update_execution_data(self.execution_id, progress)
+                self.workflow.update_progress(progress)
 
     def write(
         self,
@@ -242,7 +276,7 @@ class BackendProgress:
             step_index = self.progress_coords.index(current_coord)
             # Update progress using WorkflowProgress
             progress = WorkflowProgress(current_step=step_index + 1)
-            self.workflow.update_execution_data(self.execution_id, progress)
+            self.workflow.update_progress(progress)
 
     def __getattr__(self, name: str) -> Any:
         """Allow passthrough of unwrapped attributes."""

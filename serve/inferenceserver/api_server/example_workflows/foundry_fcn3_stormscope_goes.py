@@ -8,7 +8,7 @@ import torch
 import xarray as xr
 import zarr
 
-from api_server.workflow import Earth2Workflow, workflow_registry
+from api_server.workflow import Earth2Workflow, WorkflowProgress, workflow_registry
 from earth2studio.data import (
     GOES,
     InferenceOutputSource,
@@ -248,6 +248,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         seed_fcn3: int,
         start_time_stormscope: datetime,
         lead_times: np.ndarray,
+        current_sample: int | None = None,
+        total_samples: int | None = None,
     ) -> None:
         # Create z500 conditioning with FCN3
         coords_in = self.stormscope.input_coords()
@@ -293,6 +295,15 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             )
             io.write(*split_coords(x, coords_x))
 
+            # Update progress for FCN3 step
+            if current_sample is not None and total_samples is not None:
+                progress = WorkflowProgress(
+                    progress=f"Processing FCN3 conditioning (seed_fcn3={seed_fcn3}) for sample {current_sample}/{total_samples}, step {i + 1}/{total_steps}",
+                    current_step=i + 1,
+                    total_steps=total_steps,
+                )
+                self.update_progress(progress)
+
             if (i + 1) == total_steps:
                 break
 
@@ -306,6 +317,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         seed_stormscope: int,
         lead_times: np.ndarray,
         variables: np.ndarray,
+        total_samples: int | None = None,
     ) -> None:
         def prep_output(
             y_pred: torch.Tensor, coords_pred: CoordSystem
@@ -355,6 +367,15 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             y_out, coords_out = prep_output(y_pred, coords_pred)
             io.write(*split_coords(y_out, coords_out))
 
+            # Update progress for step within sample
+            if total_samples is not None:
+                progress = WorkflowProgress(
+                    progress=f"Processing sample {sample + 1}/{total_samples} (seed_fcn3={seed_fcn3}, seed_stormscope={seed_stormscope}), step {ii + 1}/{len(lead_times)}",
+                    current_step=ii + 1,
+                    total_steps=len(lead_times),
+                )
+                self.update_progress(progress)
+
             if ii == (len(lead_times) - 1):
                 break
 
@@ -398,6 +419,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         }
         self.setup_io(io, output_coords, seeds_fcn3, seeds_stormscope)
 
+        total_samples = len(seeds_stormscope)
         sample = 0
         for seed_fcn3 in seeds_fcn3:
             # Generate FCN3 conditioning (z500)
@@ -410,6 +432,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 seed_fcn3=seed_fcn3,
                 start_time_stormscope=start_time_stormscope,
                 lead_times=lead_times,
+                current_sample=sample + 1,
+                total_samples=total_samples,
             )
             self.stormscope.conditioning_data_source = InferenceOutputSource(
                 io_fcn3.root
@@ -427,5 +451,6 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                     seed_stormscope=seeds_stormscope[sample],
                     lead_times=lead_times,
                     variables=variables,
+                    total_samples=total_samples,
                 )
                 sample += 1

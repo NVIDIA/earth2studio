@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import zarr
 
-from api_server.workflow import Earth2Workflow, workflow_registry
+from api_server.workflow import Earth2Workflow, WorkflowProgress, workflow_registry
 from earth2studio.data import PlanetaryComputerECMWFOpenDataIFS, fetch_data
 from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import FCN3
@@ -153,7 +153,9 @@ class FoundryFCN3Workflow(Earth2Workflow):
         self.setup_io(io, output_coords, seeds)
 
         logger.info("Starting inference")
+        total_samples = len(seeds)
         for si, seed in enumerate(seeds):
+
             self.fcn3.set_rng(seed=seed)
             iterator = self.fcn3.create_iterator(x_ori.clone(), coords_ori.copy())
             for ii, (x, coords) in enumerate(iterator):
@@ -178,6 +180,14 @@ class FoundryFCN3Workflow(Earth2Workflow):
                 del coords_out["lead_time"]
                 # Write to disk
                 io.write(*split_coords(x_out, coords_out))
+
+                # Update progress for step within sample
+                progress = WorkflowProgress(
+                    progress=f"Processing sample {si + 1}/{total_samples} (seed={seed}), step {ii + 1}/{n_steps + 1}",
+                    current_step=ii + 1,
+                    total_steps=n_steps + 1,
+                )
+                self.update_progress(progress)
 
                 if ii == n_steps:
                     break
