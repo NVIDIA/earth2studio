@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed device from cbottle SR load_model api
+
 ### Fixed
 
 - Bug in cbottle datasource resulting identical samples for multiple samples
