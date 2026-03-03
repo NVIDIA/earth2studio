@@ -20,12 +20,18 @@ Common utilities for the API Server.
 This module contains:
 - Redis key generation functions
 - Pipeline stage queuing utilities
+- File streaming utilities with range support
 """
 
+import asyncio
 import logging
+from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any, Literal
 
+import aiofiles  # type: ignore[import-untyped]
 import redis  # type: ignore[import-untyped]
+from fastapi import HTTPException
 from rq import Queue
 
 from api_server.config import get_config
@@ -61,6 +67,129 @@ def get_results_zip_dir_key(request_id: str) -> str:
 def get_signed_url_key(request_id: str) -> str:
     """Get Redis key for storing signed URL."""
     return f"inference_request:{request_id}:signed_url"
+
+
+# =============================================================================
+# File Streaming Utilities
+# =============================================================================
+
+
+def parse_range_header(
+    range_header: str | None, file_size: int
+) -> tuple[int, int, int, int]:
+    """
+    Parse Range header and return start, end, content_length, and status_code.
+
+    Args:
+        range_header: The Range header value from the request, or None
+        file_size: Total size of the file in bytes
+
+    Returns:
+        Tuple of (start, end, content_length, status_code)
+
+    Raises:
+        HTTPException: If the range is invalid (416 status)
+    """
+    start = 0
+    end = file_size - 1
+    status_code = 200
+
+    if not range_header:
+        return (start, end, file_size, status_code)
+
+    # Parse Range header: "bytes=start-end" or "bytes=start-" or "bytes=-suffix"
+    if not range_header.startswith("bytes="):
+        raise HTTPException(
+            status_code=416,
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": "Only byte ranges are supported",
+            },
+        )
+
+    range_spec = range_header[6:]  # Remove "bytes=" prefix
+    ranges = range_spec.split(",")
+
+    # For now, only handle single range (first range)
+    if len(ranges) > 1:
+        logger.warning(f"Multiple ranges requested, using first: {range_header}")
+
+    range_part = ranges[0].strip()
+    if "-" not in range_part:
+        raise HTTPException(
+            status_code=416,
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": "Invalid range format",
+            },
+        )
+
+    start_str, end_str = range_part.split("-", 1)
+
+    if start_str:
+        start = int(start_str)
+        if end_str:
+            end = int(end_str)
+        else:
+            end = file_size - 1
+    else:
+        # Suffix range: "-suffix" means last N bytes
+        suffix = int(end_str)
+        start = max(0, file_size - suffix)
+        end = file_size - 1
+
+    # Validate range
+    if start < 0 or start >= file_size or end < start or end >= file_size:
+        raise HTTPException(
+            status_code=416,
+            headers={
+                "Content-Range": f"bytes */{file_size}",
+            },
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": f"Requested range {start}-{end} is invalid for file size {file_size}",
+            },
+        )
+
+    status_code = 206  # Partial Content
+    content_length = end - start + 1
+    return (start, end, content_length, status_code)
+
+
+async def create_file_stream(
+    file_path: Path, start: int, content_length: int, file_description: str = "file"
+) -> AsyncGenerator[bytes, None]:
+    """
+    Create an async generator that streams a file with optional range support.
+
+    Args:
+        file_path: Path to the file to stream
+        start: Starting byte position (0 for full file, or range start)
+        content_length: Number of bytes to stream
+        file_description: Description for error logging
+
+    Yields:
+        Bytes chunks from the file
+    """
+    try:
+        chunk_size = 1048576  # 1MB chunks for better performance
+        async with aiofiles.open(file_path, "rb") as f:
+            # Seek to start position if range request
+            if start > 0:
+                await f.seek(start)
+
+            remaining = content_length
+            while remaining > 0:
+                read_size = min(chunk_size, remaining)
+                chunk = await f.read(read_size)
+                if not chunk:
+                    break
+                yield chunk
+                remaining -= len(chunk)
+                await asyncio.sleep(0)
+    except Exception:
+        logger.exception(f"Error streaming {file_description} {file_path}")
+        raise
 
 
 # =============================================================================

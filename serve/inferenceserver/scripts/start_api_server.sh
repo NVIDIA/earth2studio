@@ -119,7 +119,7 @@ trap cleanup SIGINT SIGTERM
 export EARTH2STUDIO_API_ACTIVE=1
 
 # Start multiple workers using uvicorn with extended timeouts for large file downloads
-uvicorn api_server.main:app --host 0.0.0.0 --port $API_PORT --workers $NUM_WORKERS --loop asyncio --timeout-keep-alive 300 --timeout-graceful-shutdown 30 &
+CUDA_VISIBLE_DEVICES="" uvicorn api_server.main:app --host 0.0.0.0 --port $API_PORT --workers $NUM_WORKERS --loop asyncio --timeout-keep-alive 300 --timeout-graceful-shutdown 30 &
 UVICORN_PID=$!
 
 # Start RQ workers
@@ -143,7 +143,7 @@ done
 echo "Starting $NUM_ZIP_WORKERS zip workers for result_zip queue..."
 ZIP_WORKER_PIDS=()
 for i in $(seq 1 $NUM_ZIP_WORKERS); do
-    rq worker -w rq.worker.SimpleWorker result_zip &
+    CUDA_VISIBLE_DEVICES="" rq worker -w rq.worker.SimpleWorker result_zip &
     ZIP_WORKER_PIDS+=($!)
     echo "Started zip worker $i for result_zip queue (PID: $!)"
 done
@@ -152,7 +152,7 @@ done
 echo "Starting $NUM_OBJSTORE_WORKERS object storage workers..."
 OBJSTORE_WORKER_PIDS=()
 for i in $(seq 1 $NUM_OBJSTORE_WORKERS); do
-    rq worker -w rq.worker.SimpleWorker object_storage &
+    CUDA_VISIBLE_DEVICES="" rq worker -w rq.worker.SimpleWorker object_storage &
     OBJSTORE_WORKER_PIDS+=($!)
     echo "Started object storage worker $i (PID: $!)"
 done
@@ -161,13 +161,13 @@ done
 echo "Starting $NUM_FINALIZE_WORKERS finalize metadata workers..."
 FINALIZE_WORKER_PIDS=()
 for i in $(seq 1 $NUM_FINALIZE_WORKERS); do
-    rq worker -w rq.worker.SimpleWorker finalize_metadata &
+    CUDA_VISIBLE_DEVICES="" rq worker -w rq.worker.SimpleWorker finalize_metadata &
     FINALIZE_WORKER_PIDS+=($!)
     echo "Started finalize metadata worker $i (PID: $!)"
 done
 
 # Start cleanup daemon
-python -m api_server.cleanup_daemon &
+CUDA_VISIBLE_DEVICES="" python -m api_server.cleanup_daemon &
 CLEANUP_DAEMON_PID=$!
 echo "Started cleanup daemon (PID: $CLEANUP_DAEMON_PID)"
 
