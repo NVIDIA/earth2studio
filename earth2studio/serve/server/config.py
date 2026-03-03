@@ -19,7 +19,7 @@ import os
 from dataclasses import dataclass, field
 from logging import LogRecord
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
@@ -153,7 +153,7 @@ class ConfigManager:
     """
 
     _instance: Optional["ConfigManager"] = None
-    _config: AppConfig = AppConfig()
+    _config: AppConfig | None = None
     _workflow_config: dict[str, Any] = {}
 
     def __new__(cls) -> "ConfigManager":
@@ -391,7 +391,7 @@ class ConfigManager:
         """Get the current configuration"""
         if self._config is None:
             self._initialize_config()
-        return self._config
+        return cast(AppConfig, self._config)
 
     def get_redis_url(self) -> str:
         """Get Redis connection URL"""
