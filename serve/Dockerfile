@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y redis-server && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env && \
     cd /workspace/earth2studio-project && \
     uv pip install --system --break-system-packages -e . && \
+    uv pip install --system --break-system-packages -e ".[stormcast]" && \
     uv pip install --system --break-system-packages -r serve/server/requirements.txt
 
 CMD ["/workspace/earth2studio-project/serve/server/scripts/startup.sh"]

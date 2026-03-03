@@ -310,3 +310,7 @@ def main() -> None:
         logger.info("Cleanup daemon shutting down...")
         redis_client.close()
         logger.info("Cleanup daemon stopped")
+
+
+if __name__ == "__main__":
+    main()
