@@ -50,14 +50,12 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         self.stormscope = self.load_stormscope()
         self.rng = np.random.default_rng(init_seed)
 
-        # TODO: Do not use data cache
-        self.data_fcn3 = PlanetaryComputerECMWFOpenDataIFS(verbose=False)
+        self.data_fcn3 = PlanetaryComputerECMWFOpenDataIFS(verbose=False, cache=False)
 
         scan_mode = "C"
-        # TODO: Do not use data cache
         self.data_stormscope = {
             satellite: PlanetaryComputerGOES(
-                satellite=satellite, scan_mode=scan_mode, verbose=False
+                satellite=satellite, scan_mode=scan_mode, verbose=False, cache=False
             )
             for satellite in ["goes16", "goes19"]
         }
@@ -72,7 +70,6 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
 
     def load_fcn3_interp(self) -> InterpModAFNO:
         logger.info("Loading FCN3")
-        # Assuming AZUREML_MODEL_DIR == EARTH2STUDIO_CACHE
         package = FCN3.load_default_package()
         fcn3 = FCN3.load_model(package)
 
@@ -164,36 +161,40 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         seeds_fcn3: Sequence[int],
         seeds_stormscope: Sequence[int],
     ) -> None:
-        if isinstance(io, ZarrBackend):
-            io.chunks = {
-                "sample": 1,
-                "time": 1,
-                "variable": 1,
-            }
-
         io.add_array(
             {k: v for k, v in output_coords.items() if k != "variable"},
             output_coords["variable"],
         )
 
-        # Storing seeds separately makes it easier to filer with Titiler
-        sample_coords = {"sample": output_coords["sample"]}
+        # Storing seeds separately makes it easier to filter with Titiler
+        e_coords = {"ensemble": output_coords["ensemble"]}
         n_stormscope_per_fcn3 = len(seeds_stormscope) // len(seeds_fcn3)
         tiled_seeds_fcn3 = np.repeat(seeds_fcn3, n_stormscope_per_fcn3)
-        io.add_array(sample_coords, "seed_fcn3", data=torch.tensor(tiled_seeds_fcn3))
-        io.add_array(
-            sample_coords, "seed_stormscope", data=torch.tensor(seeds_stormscope)
-        )
+        io.add_array(e_coords, "seed_fcn3", data=torch.tensor(tiled_seeds_fcn3))
+        io.add_array(e_coords, "seed_stormscope", data=torch.tensor(seeds_stormscope))
+
+        # Add CRS definition
+        io.add_array({}, "crs")
+        io.root["crs"].grid_mapping_name = "lambert_conformal_conic"
+        io.root["crs"].standard_parallel = 38.5
+        io.root["crs"].longitude_of_central_meridian = 262.5
+        io.root["crs"].latitude_of_projection_origin = 38.5
+        io.root["crs"].semi_major_axis = 6371229
+        io.root["crs"].semi_minor_axis = 6371229
+
+        for var in output_coords["variable"]:
+            io.root[var].grid_mapping = "crs"
 
         # Set attributes for automatic parsing of dimensions
-        io.root["lat"].standard_name = "latitude"
-        io.root["lat"].axis = "Y"
-        io.root["lon"].standard_name = "longitude"
-        io.root["lon"].axis = "X"
-        # io.root["time"].standard_name = "time"
-        # io.root["time"].axis = "T"
-
-        # Planetary Computer does not like grid_mapping, so we skip adding it
+        io.root["ensemble"].standard_name = "realization"
+        io.root["time"].standard_name = "time"
+        io.root["time"].axis = "T"
+        io.root["y"].standard_name = "projection_y_coordinate"
+        io.root["y"].units = "m"
+        io.root["y"].axis = "Y"
+        io.root["x"].standard_name = "projection_x_coordinate"
+        io.root["x"].units = "m"
+        io.root["x"].axis = "X"
 
         if isinstance(io, ZarrBackend):
             zarr.consolidate_metadata(io.store)
@@ -248,8 +249,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         seed_fcn3: int,
         start_time_stormscope: datetime,
         lead_times: np.ndarray,
-        current_sample: int | None = None,
-        total_samples: int | None = None,
+        sample: int,
+        total_samples: int,
     ) -> None:
         # Create z500 conditioning with FCN3
         coords_in = self.stormscope.input_coords()
@@ -274,16 +275,23 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         self.fcn3_interp.px_model.px_model.set_rng(seed=seed_fcn3)
         iterator = self.fcn3_interp.create_iterator(x.clone(), coords_x.copy())
 
-        total_steps = model_gap + len(lead_times)
-        for i, (x, coords_x) in enumerate(iterator):
-            logger.info(
-                "Processing FCN3 (seed_fcn3=%d) step %d/%d",
-                seed_fcn3,
-                i + 1,
-                total_steps,
+        n_steps = model_gap + len(lead_times)
+        for step, (x, coords_x) in enumerate(iterator):
+            # Update progress for FCN3 step
+            msg = (
+                f"Processing FCN3 for sample {sample + 1}/{total_samples} "
+                f"(seed_fcn3={seed_fcn3}) "
+                f"step {step + 1}/{n_steps}"
             )
+            progress = WorkflowProgress(
+                progress=msg,
+                current_step=step + 1,
+                total_steps=n_steps,
+            )
+            self.update_progress(progress)
+            logger.info(msg)
 
-            if i < model_gap:
+            if step < model_gap:
                 # Skip initial steps leading up to StormScope start time
                 continue
 
@@ -295,16 +303,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             )
             io.write(*split_coords(x, coords_x))
 
-            # Update progress for FCN3 step
-            if current_sample is not None and total_samples is not None:
-                progress = WorkflowProgress(
-                    progress=f"Processing FCN3 conditioning (seed_fcn3={seed_fcn3}) for sample {current_sample}/{total_samples}, step {i + 1}/{total_steps}",
-                    current_step=i + 1,
-                    total_steps=total_steps,
-                )
-                self.update_progress(progress)
-
-            if (i + 1) == total_steps:
+            if step == (n_steps - 1):
                 break
 
     def run_stormscope(
@@ -312,13 +311,29 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         io: IOBackend,
         y: torch.Tensor,
         coords_y: CoordSystem,
-        sample: int,
         seed_fcn3: int,
         seed_stormscope: int,
         lead_times: np.ndarray,
         variables: np.ndarray,
-        total_samples: int | None = None,
+        sample: int,
+        total_samples: int,
     ) -> None:
+        n_steps = len(lead_times)
+
+        def log_progress(step: int) -> None:
+            msg = (
+                f"Processing sample {sample + 1}/{total_samples} "
+                f"(seed_fcn3={seed_fcn3}, seed_stormscope={seed_stormscope}), "
+                f"step {step + 1}/{n_steps}"
+            )
+            progress = WorkflowProgress(
+                progress=msg,
+                current_step=step + 1,
+                total_steps=n_steps,
+            )
+            self.update_progress(progress)
+            logger.info(msg)
+
         def prep_output(
             y_pred: torch.Tensor, coords_pred: CoordSystem
         ) -> tuple[torch.Tensor, CoordSystem]:
@@ -326,25 +341,18 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 y_pred, coords_pred, CoordSystem({"variable": variables})
             )
             del coords_out["batch"]
-            # Reuse batch dimension as sample dimension (squeeze/unsqueeze)
-            coords_out["sample"] = np.array([sample])
-            coords_out.move_to_end("sample", last=False)
+            # Reuse batch dimension as ensemble dimension (squeeze/unsqueeze)
+            coords_out["ensemble"] = np.array([sample])
+            coords_out.move_to_end("ensemble", last=False)
             # Combine time and lead_time
             lead_time_dim = list(coords_out).index("lead_time")
             y_out = y_out.squeeze(lead_time_dim)
             coords_out["time"] = coords_out["time"] + coords_out["lead_time"]
             del coords_out["lead_time"]
-            # Rename x, y to lon, lat
-            mp = {"x": "lon", "y": "lat"}
-            coords_out = CoordSystem({mp.get(k, k): v for k, v in coords_out.items()})
             return y_out, coords_out
 
-        logger.info(
-            "Processing StormScope (seed_fcn3=%d, seed_stormscope=%d) step 1/%d",
-            seed_fcn3,
-            seed_stormscope,
-            len(lead_times),
-        )
+        # Update progress for step within sample
+        log_progress(0)
 
         # Store initial GOES data (identical across seeds)
         y_out, coords_out = prep_output(y, coords_y)
@@ -354,29 +362,16 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         # Use self.stormscope.sampler_args["randn_like"] once updated
         torch.manual_seed(seed_stormscope)
 
-        for ii in range(1, len(lead_times)):
+        for step in range(1, n_steps):
             y_pred, coords_pred = self.stormscope(y, coords_y)
-            logger.info(
-                "Processing StormScope (seed_fcn3=%d, seed_stormscope=%d) step %d/%d",
-                seed_fcn3,
-                seed_stormscope,
-                ii + 1,
-                len(lead_times),
-            )
+
+            # Update progress for step within sample
+            log_progress(step)
 
             y_out, coords_out = prep_output(y_pred, coords_pred)
             io.write(*split_coords(y_out, coords_out))
 
-            # Update progress for step within sample
-            if total_samples is not None:
-                progress = WorkflowProgress(
-                    progress=f"Processing sample {sample + 1}/{total_samples} (seed_fcn3={seed_fcn3}, seed_stormscope={seed_stormscope}), step {ii + 1}/{len(lead_times)}",
-                    current_step=ii + 1,
-                    total_steps=len(lead_times),
-                )
-                self.update_progress(progress)
-
-            if ii == (len(lead_times) - 1):
+            if step == (n_steps - 1):
                 break
 
             y, coords_y = self.stormscope.next_input(y_pred, coords_pred, y, coords_y)
@@ -410,12 +405,12 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
 
         coords_out = self.stormscope.output_coords(self.stormscope.input_coords())
         output_coords = {
-            "sample": np.arange(len(seeds_stormscope)),
+            "ensemble": np.arange(len(seeds_stormscope)),
             # Planetary Computer does not like separate 'lead_time'
             "time": to_time_array([start_time_stormscope]) + lead_times,
             "variable": variables,
-            "lat": coords_out["y"],
-            "lon": coords_out["x"],
+            "y": coords_out["y"],
+            "x": coords_out["x"],
         }
         self.setup_io(io, output_coords, seeds_fcn3, seeds_stormscope)
 
@@ -432,7 +427,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 seed_fcn3=seed_fcn3,
                 start_time_stormscope=start_time_stormscope,
                 lead_times=lead_times,
-                current_sample=sample + 1,
+                sample=sample,
                 total_samples=total_samples,
             )
             self.stormscope.conditioning_data_source = InferenceOutputSource(
@@ -446,11 +441,11 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                     io=io,
                     y=y_ori.clone(),
                     coords_y=coords_y_ori.copy(),
-                    sample=sample,
                     seed_fcn3=seed_fcn3,
                     seed_stormscope=seeds_stormscope[sample],
                     lead_times=lead_times,
                     variables=variables,
+                    sample=sample,
                     total_samples=total_samples,
                 )
                 sample += 1

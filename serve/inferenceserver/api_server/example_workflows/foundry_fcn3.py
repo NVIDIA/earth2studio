@@ -34,12 +34,10 @@ class FoundryFCN3Workflow(Earth2Workflow):
         self.fcn3 = self.load_fcn3()
         self.rng = np.random.default_rng(init_seed)
 
-        # TODO: Do not use data cache
-        self.data = PlanetaryComputerECMWFOpenDataIFS(verbose=False)
+        self.data = PlanetaryComputerECMWFOpenDataIFS(verbose=False, cache=False)
 
     def load_fcn3(self) -> FCN3:
         logger.info("Loading FCN3")
-        # Assuming AZUREML_MODEL_DIR == EARTH2STUDIO_CACHE
         package = FCN3.load_default_package()
         fcn3 = FCN3.load_model(package)
         fcn3.to(self.device)
@@ -78,31 +76,35 @@ class FoundryFCN3Workflow(Earth2Workflow):
     def setup_io(
         self, io: IOBackend, output_coords: CoordSystem, seeds: Sequence[int]
     ) -> None:
-        if isinstance(io, ZarrBackend):
-            io.chunks = {
-                "sample": 1,
-                "time": 1,
-                "variable": 1,
-            }
-
         io.add_array(
             {k: v for k, v in output_coords.items() if k != "variable"},
             output_coords["variable"],
         )
 
-        # Storing seeds separately makes it easier to filer with Titiler
-        sample_coords = {"sample": output_coords["sample"]}
-        io.add_array(sample_coords, "seed", data=torch.tensor(seeds))
+        # Storing seeds separately makes it easier to filter with Titiler
+        e_coords = {"ensemble": output_coords["ensemble"]}
+        io.add_array(e_coords, "seed", data=torch.tensor(seeds))
+
+        # Add CRS definition
+        io.add_array({}, "crs")
+        io.root["crs"].grid_mapping_name = "latitude_longitude"
+        io.root["crs"].longitude_of_prime_meridian = 0.0
+        io.root["crs"].semi_major_axis = 6378137.0
+        io.root["crs"].inverse_flattening = 298.257223563
+
+        for var in output_coords["variable"]:
+            io.root[var].grid_mapping = "crs"
 
         # Set attributes for automatic parsing of dimensions
+        io.root["ensemble"].standard_name = "realization"
+        io.root["time"].standard_name = "time"
+        io.root["time"].axis = "T"
         io.root["lat"].standard_name = "latitude"
+        io.root["lat"].units = "degrees_north"
         io.root["lat"].axis = "Y"
         io.root["lon"].standard_name = "longitude"
+        io.root["lon"].units = "degrees_east"
         io.root["lon"].axis = "X"
-        # io.root["time"].standard_name = "time"
-        # io.root["time"].axis = "T"
-
-        # Planetary Computer does not like grid_mapping, so we skip adding it
 
         if isinstance(io, ZarrBackend):
             zarr.consolidate_metadata(io.store)
@@ -142,37 +144,48 @@ class FoundryFCN3Workflow(Earth2Workflow):
 
         output_coords = CoordSystem(
             {
-                "sample": np.arange(len(seeds)),
-                # Planetary Computer does not like separate 'lead_time'
+                "ensemble": np.arange(len(seeds)),
+                # Combine 'time' and 'lead_time' into single dimension
                 "time": to_time_array([start_time]) + lead_times,
                 "variable": variables,
                 "lat": np.linspace(90.0, -90.0, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
+                "lon": np.linspace(-180, 180, 1440, endpoint=False),
             }
         )
         self.setup_io(io, output_coords, seeds)
 
         logger.info("Starting inference")
         total_samples = len(seeds)
-        for si, seed in enumerate(seeds):
+        n_steps += 1  # add 1 for step 0 (initial conditions)
+        for sample, seed in enumerate(seeds):
 
             self.fcn3.set_rng(seed=seed)
             iterator = self.fcn3.create_iterator(x_ori.clone(), coords_ori.copy())
-            for ii, (x, coords) in enumerate(iterator):
-                logger.info(
-                    "Processing FCN3 (seed=%d) step %d/%d",
-                    seed,
-                    ii + 1,
-                    len(lead_times),
+            for step, (x, coords) in enumerate(iterator):
+                # Update progress for step within sample
+                msg = (
+                    f"Processing sample {sample + 1}/{total_samples} "
+                    f"(seed={seed}), step {step + 1}/{len(lead_times)}"
                 )
+                progress = WorkflowProgress(
+                    progress=msg,
+                    current_step=step + 1,
+                    total_steps=n_steps,
+                )
+                self.update_progress(progress)
+                logger.info(msg)
 
+                # Select variables
                 x_out, coords_out = map_coords(
                     x, coords, CoordSystem({"variable": output_coords["variable"]})
                 )
-                # Add sample dimension
+                # Roll longitudes (for raster visualization)
+                x_out = torch.roll(x_out, 720, dims=-1)
+                coords_out["lon"] = np.linspace(-180, 180, 1440, endpoint=False)
+                # Add ensemble dimension
                 x_out = x_out.unsqueeze(0)
-                coords_out["sample"] = np.array([si])
-                coords_out.move_to_end("sample", last=False)
+                coords_out["ensemble"] = np.array([sample])
+                coords_out.move_to_end("ensemble", last=False)
                 # Combine time and lead_time
                 lead_time_dim = list(coords_out).index("lead_time")
                 x_out = x_out.squeeze(lead_time_dim)
@@ -181,13 +194,5 @@ class FoundryFCN3Workflow(Earth2Workflow):
                 # Write to disk
                 io.write(*split_coords(x_out, coords_out))
 
-                # Update progress for step within sample
-                progress = WorkflowProgress(
-                    progress=f"Processing sample {si + 1}/{total_samples} (seed={seed}), step {ii + 1}/{n_steps + 1}",
-                    current_step=ii + 1,
-                    total_steps=n_steps + 1,
-                )
-                self.update_progress(progress)
-
-                if ii == n_steps:
+                if step == (n_steps - 1):
                     break
