@@ -388,7 +388,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sigma_max: int = 800,
         seed: int | None = None,
         distilled_model: bool = False,
-        device: str = "cpu",
     ) -> DiagnosticModel:
         """Load diagnostic model from package
 
@@ -413,8 +412,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         distilled_model : bool, optional
             Whether to use the distilled model, If True, the distilled helper is used,
             enabling generation with fewer sampler steps, by default False
-        device : str
-            Device to load model onto, by default cpu
 
         Returns
         -------
@@ -437,10 +434,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         if distilled_model:
             sr_model = model_cls.from_pretrained(
-                state_path, window_function="KBD", window_alpha=1.0, device=device
+                state_path, window_function="KBD", window_alpha=1.0
             )
         else:
-            sr_model = model_cls.from_pretrained(state_path, device=device)
+            sr_model = model_cls.from_pretrained(state_path)
 
         return cls(
             sr_model,
