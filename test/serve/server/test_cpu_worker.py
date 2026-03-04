@@ -138,7 +138,7 @@ mock_config_module.AppConfig = MockAppConfig
 mock_config_module.get_config = Mock(return_value=MockAppConfig())
 mock_config_module.get_config_manager = Mock()
 
-pytest.importorskip("api_server")
+pytest.importorskip("earth2studio.serve.server")
 
 # Inject the mock before importing cpu_worker
 sys.modules["earth2studio.serve.server.config"] = mock_config_module
