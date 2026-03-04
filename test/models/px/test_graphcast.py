@@ -22,7 +22,11 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
-from graphcast import graphcast
+
+try:
+    from graphcast import graphcast
+except ImportError:
+    pytest.importorskip("graphcast")
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px.graphcast_operational import GraphCastOperational

@@ -25,20 +25,24 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-from pydantic import Field
 
-# Set API environment variable before importing main (DANGER!!! REMOVE THIS)
-os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
+try:
+    from fastapi.testclient import TestClient
+    from pydantic import Field
 
-# Patch FastAPI route creation to handle union return types
-# This fixes the issue where FastAPI can't handle dict[str, Any] | StreamingResponse
-# ruff: noqa: E402
-import fastapi  # type: ignore[import-untyped]
-import fastapi.routing  # type: ignore[import-untyped]
-from fastapi.exceptions import FastAPIError  # type: ignore[import-untyped]
+    # Set API environment variable before importing main (DANGER!!! REMOVE THIS)
+    os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 
-_original_route_init = fastapi.routing.APIRoute.__init__
+    # Patch FastAPI route creation to handle union return types
+    # This fixes the issue where FastAPI can't handle dict[str, Any] | StreamingResponse
+    # ruff: noqa: E402
+    import fastapi  # type: ignore[import-untyped]
+    import fastapi.routing  # type: ignore[import-untyped]
+    from fastapi.exceptions import FastAPIError  # type: ignore[import-untyped]
+
+    _original_route_init = fastapi.routing.APIRoute.__init__
+except ImportError:
+    pass
 
 pytest.importorskip("api_server")
 

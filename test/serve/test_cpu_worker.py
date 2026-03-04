@@ -30,7 +30,11 @@ from typing import Literal
 from unittest.mock import Mock
 
 import pytest
-import redis
+
+try:
+    import redis
+except ImportError:
+    pass
 
 
 # Create mock config classes before importing cpu_worker

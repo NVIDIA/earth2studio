@@ -23,9 +23,9 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-import redis  # type: ignore[import-untyped]
 
 try:
+    import redis  # type: ignore[import-untyped]
     from api_server.config import get_config  # type: ignore[import-untyped]
     from api_server.workflow import (  # type: ignore[import-untyped]
         Workflow,
@@ -38,9 +38,10 @@ try:
         register_all_workflows,
         workflow_registry,
     )
+    from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 except ImportError:
     pass
-from pydantic import Field, ValidationError  # type: ignore[import-untyped]
+
 
 pytest.importorskip("api_server")
 
