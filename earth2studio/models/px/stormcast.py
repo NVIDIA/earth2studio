@@ -43,17 +43,17 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from omegaconf import OmegaConf
+    from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
-    from physicsnemo.diffusion.samplers.legacy_deterministic_sampler import (
-        deterministic_sampler,
-    )
+    from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.diffusion_unets import StormCastUNet
 except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
     EDMPrecond = None
     OmegaConf = None
-    deterministic_sampler = None
+    EDMNoiseScheduler = None
+    sample = None
 
 
 # Variables used in StormCastV1 paper
@@ -362,19 +362,42 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
         latents = torch.randn_like(x)
+        latents = self.sampler_args["sigma_max"] * latents.to(dtype=torch.float64)
 
-        # Run diffusion model
-        edm_out = deterministic_sampler(
-            self.diffusion_model,
-            latents=latents,
-            img_lr=condition,
-            **self.sampler_args,
+        class _CondtionalDiffusionWrapper(torch.nn.Module):
+            def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
+                super().__init__()
+                self.model = model
+                self.img_lr = img_lr
+
+            def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+                return self.model(x, t, condition=self.img_lr)
+
+        scheduler = EDMNoiseScheduler(
+            sigma_min=self.sampler_args["sigma_min"],
+            sigma_max=self.sampler_args["sigma_max"],
+            rho=self.sampler_args["rho"],
+        )
+        denoiser = scheduler.get_denoiser(
+            x0_predictor=_CondtionalDiffusionWrapper(self.diffusion_model, condition)
+        )
+
+        edm_out = sample(
+            denoiser,
+            latents.to(dtype=torch.float64),
+            noise_scheduler=scheduler,
+            num_steps=self.sampler_args["num_steps"],
+            solver="edm_stochastic_heun",
+            solver_options={
+                "S_churn": self.sampler_args["S_churn"],
+                "S_min": self.sampler_args["S_min"],
+                "S_max": self.sampler_args["S_max"],
+                "S_noise": self.sampler_args["S_noise"],
+            },
         )
 
         out += edm_out
-
         out = out * self.stds + self.means
-
         return out
 
     @torch.inference_mode()
