@@ -22,7 +22,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +210,39 @@ class MSCObjectStorage(ObjectStorage):
     References
     ----------
     https://nvidia.github.io/multi-storage-client/user_guide/rust.html
+
+    Initialize MSCObjectStorage with AWS credentials and configuration.
+
+    Parameters
+    ----------
+    bucket : str
+        S3 bucket name.
+    region : str, optional
+        AWS region (e.g. 'us-east-1').
+    access_key_id : str, optional
+        AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
+    secret_access_key : str, optional
+        AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
+    session_token : str, optional
+        AWS session token for temporary credentials.
+    endpoint_url : str, optional
+        Custom endpoint URL for S3-compatible services.
+    use_transfer_acceleration : bool, optional
+        Enable S3 Transfer Acceleration (bucket must support it). Default is False.
+    max_concurrency : int, optional
+        Maximum number of concurrent transfers. Default is 16.
+    multipart_chunksize : int, optional
+        Chunk size for multipart uploads in bytes. Default is 8 MB.
+    use_rust_client : bool, optional
+        Use the high-performance Rust client. Default is False.
+    profile_name : str, optional
+        Name for the MSC profile. Default is 'e2studio-s3'.
+    cloudfront_domain : str, optional
+        CloudFront distribution domain for signed URLs.
+    cloudfront_key_pair_id : str, optional
+        CloudFront key pair ID for signed URLs.
+    cloudfront_private_key : str, optional
+        PEM private key content as string for signed URLs.
     """
 
     def __init__(
@@ -229,40 +262,6 @@ class MSCObjectStorage(ObjectStorage):
         cloudfront_key_pair_id: str | None = None,
         cloudfront_private_key: str | None = None,
     ):
-        """
-        Initialize MSCObjectStorage with AWS credentials and configuration.
-
-        Parameters
-        ----------
-        bucket : str
-            S3 bucket name.
-        region : str, optional
-            AWS region (e.g. 'us-east-1').
-        access_key_id : str, optional
-            AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
-        secret_access_key : str, optional
-            AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
-        session_token : str, optional
-            AWS session token for temporary credentials.
-        endpoint_url : str, optional
-            Custom endpoint URL for S3-compatible services.
-        use_transfer_acceleration : bool, optional
-            Enable S3 Transfer Acceleration (bucket must support it). Default is False.
-        max_concurrency : int, optional
-            Maximum number of concurrent transfers. Default is 16.
-        multipart_chunksize : int, optional
-            Chunk size for multipart uploads in bytes. Default is 8 MB.
-        use_rust_client : bool, optional
-            Use the high-performance Rust client. Default is False.
-        profile_name : str, optional
-            Name for the MSC profile. Default is 'e2studio-s3'.
-        cloudfront_domain : str, optional
-            CloudFront distribution domain for signed URLs.
-        cloudfront_key_pair_id : str, optional
-            CloudFront key pair ID for signed URLs.
-        cloudfront_private_key : str, optional
-            PEM private key content as string for signed URLs.
-        """
         self.bucket = bucket
         self.region = region or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
         self.max_concurrency = max_concurrency
@@ -681,52 +680,3 @@ class MSCObjectStorage(ObjectStorage):
 
         logger.debug(f"Generated signed URL for {remote_key}, expires in {expires_in}s")
         return signed_url
-
-
-def get_object_storage(
-    provider: Literal["msc"] = "msc",
-    **kwargs: Any,
-) -> ObjectStorage:
-    """
-    Create an object storage instance.
-
-    Convenience factory to instantiate MSCObjectStorage (NVIDIA Multi-Storage
-    Client with Rust backend).
-
-    Parameters
-    ----------
-    provider : {"msc"}, optional
-        Storage provider to use. Currently only "msc" is supported. Default is "msc".
-    **kwargs : any
-        Provider-specific configuration passed to the storage constructor.
-
-    Returns
-    -------
-    ObjectStorage
-        Configured object storage instance.
-
-    Raises
-    ------
-    ValueError
-        If an unsupported provider is specified.
-
-    Examples
-    --------
-    >>> storage = get_object_storage(
-    ...     "msc",
-    ...     bucket="my-bucket",
-    ...     region="us-east-1",
-    ...     use_rust_client=True
-    ... )
-    """
-    providers = {
-        "msc": MSCObjectStorage,
-    }
-
-    if provider not in providers:
-        raise ValueError(
-            f"Unsupported storage provider: {provider}. "
-            f"Supported providers: {list(providers.keys())}"
-        )
-
-    return providers[provider](**kwargs)

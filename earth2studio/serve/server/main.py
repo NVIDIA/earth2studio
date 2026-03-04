@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Earth2Studio REST API server.
+
+Provides FastAPI endpoints for workflow execution, status, and result retrieval,
+with Redis and RQ for job queuing and Prometheus metrics.
+"""
+
 import asyncio
 import json
 import logging
@@ -72,13 +79,16 @@ def check_admission_control() -> None:
     """
     Check if the inference request can be admitted based on queue sizes.
 
-    This function checks all relevant queues (inference, result zip, object storage,
-    and finalize metadata) to ensure none of them are at capacity before allowing
+    Checks all relevant queues (inference, result zip, object storage,
+    and finalize metadata) to ensure none are at capacity before allowing
     a new request to be enqueued.
 
-    Raises:
-        HTTPException: 429 status if any queue is full, indicating the service
-            is temporarily unavailable and the client should retry later.
+    Raises
+    ------
+    HTTPException
+        429 if any queue is full (service temporarily unavailable; retry later).
+        503 if Redis is not initialized.
+        500 if queue status cannot be determined.
     """
     queue_names = [
         config.queue.name,
@@ -115,14 +125,18 @@ def get_queue_position(job_id: str) -> int | None:
     """
     Get the position of a job in the queue.
 
-    Uses RQ's Queue.job_ids property which correctly returns the job IDs
+    Uses RQ's Queue.job_ids property, which correctly returns job IDs
     including custom job_id values set during enqueue.
 
-    Args:
-        job_id: The ID of the job to find
+    Parameters
+    ----------
+    job_id : str
+        The ID of the job to find.
 
-    Returns:
-        Position in queue (0-indexed), or None if not found in queue
+    Returns
+    -------
+    int or None
+        Position in queue (0-indexed), or None if not found (e.g. picked up by worker).
     """
     if not inference_queue:
         logger.warning("Inference queue not available for position lookup")
@@ -158,7 +172,12 @@ model_registry: dict[str, Any] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan event handler for application startup and shutdown"""
+    """
+    Lifespan context manager for FastAPI application startup and shutdown.
+
+    On startup: connects to Redis (async and sync), initializes the RQ inference
+    queue, and registers custom workflows. On shutdown: closes Redis connections.
+    """
     # Startup
     global redis_client, redis_sync_client, inference_queue
     try:
@@ -256,7 +275,21 @@ app.add_middleware(
 @app.get("/health")
 @app.get("/readiness")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint using status script"""
+    """
+    Health and readiness check endpoint.
+
+    Runs the status script and returns overall health based on its exit code.
+
+    Returns
+    -------
+    dict
+        Keys ``status`` (e.g. "healthy"/"unhealthy") and ``timestamp`` (ISO format).
+
+    Raises
+    ------
+    HTTPException
+        503 if status is unhealthy; 500 if the check fails.
+    """
     try:
         # Run the status script and check exit code
         # Scripts live at repo serve/server/scripts, not inside the package
@@ -295,13 +328,32 @@ async def health_check() -> dict[str, str]:
 # Azure ML uses this to see if the container is alive
 @app.get("/liveness")
 def liveness() -> dict[str, str]:
-    """Liveness probe for Azure ML; returns alive status to indicate container is running."""
+    """
+    Liveness probe for Azure ML.
+
+    Returns
+    -------
+    dict
+        ``status`` key set to "alive" to indicate the container is running.
+    """
     return {"status": "alive"}
 
 
 @app.get("/metrics")
 async def get_metrics() -> Response:
-    """Get Prometheus metrics"""
+    """
+    Expose Prometheus metrics.
+
+    Returns
+    -------
+    Response
+        Response with Prometheus text format and appropriate content type.
+
+    Raises
+    ------
+    HTTPException
+        500 if metrics generation fails.
+    """
     try:
         metrics_data = generate_latest()
         return Response(content=metrics_data, media_type=CONTENT_TYPE_LATEST)
@@ -320,7 +372,14 @@ async def get_metrics() -> Response:
 @app.get("/v1/workflows")
 @app.get("/v1/infer/workflows")
 async def list_workflows() -> dict[str, dict[str, str]]:
-    """List all available workflows"""
+    """
+    List all available workflows.
+
+    Returns
+    -------
+    dict
+        Single key ``workflows`` mapping workflow name to description.
+    """
     workflows = workflow_registry.list_workflows()
     return {"workflows": workflows}
 
@@ -331,15 +390,24 @@ async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
     """
     Get the OpenAPI JSON schema for a workflow's parameters.
 
-    For workflows derived from Workflow class, the schema is generated from
-    the WorkflowParameters class. For workflows derived from Earth2Workflow class,
-    the schema is auto-generated from the __call__ signature via AutoParameters.
+    For Workflow subclasses the schema comes from WorkflowParameters; for
+    Earth2Workflow subclasses it is generated from the __call__ signature via
+    AutoParameters.
 
-    Args:
-        workflow_name: Name of the workflow
+    Parameters
+    ----------
+    workflow_name : str
+        Name of the workflow.
 
-    Returns:
-        JSON schema for the workflow parameters
+    Returns
+    -------
+    dict
+        JSON schema for the workflow parameters (OpenAPI-compatible).
+
+    Raises
+    ------
+    HTTPException
+        404 if workflow not found; 500 if schema generation fails.
     """
     # Check if workflow exists
     workflow_class = workflow_registry.get_workflow_class(workflow_name)
@@ -375,7 +443,14 @@ async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
 
 
 class WorkflowExecutionRequest(BaseModel):
-    """Request model for workflow execution"""
+    """
+    Request body for workflow execution.
+
+    Attributes
+    ----------
+    parameters : dict
+        Workflow-specific parameters (validated by the workflow's parameter class).
+    """
 
     model_config = {"extra": "forbid"}
 
@@ -385,7 +460,24 @@ class WorkflowExecutionRequest(BaseModel):
 
 
 class WorkflowExecutionResponse(BaseModel):
-    """Response model for workflow execution"""
+    """
+    Response after submitting a workflow execution.
+
+    Attributes
+    ----------
+    workflow_name : str
+        Name of the workflow.
+    execution_id : str
+        Unique execution identifier.
+    status : str
+        Current status (e.g. QUEUED).
+    position : int or None
+        Queue position (0-indexed); set when status is QUEUED.
+    message : str
+        Human-readable message.
+    timestamp : str
+        ISO format timestamp.
+    """
 
     workflow_name: str
     execution_id: str
@@ -401,7 +493,30 @@ class WorkflowExecutionResponse(BaseModel):
 async def execute_workflow(
     workflow_name: str, request: WorkflowExecutionRequest
 ) -> WorkflowExecutionResponse:
-    """Execute a custom workflow"""
+    """
+    Enqueue a custom workflow for execution.
+
+    Validates parameters, performs admission control, persists execution data
+    in Redis, and enqueues the job to the RQ inference queue.
+
+    Parameters
+    ----------
+    workflow_name : str
+        Name of the registered workflow.
+    request : WorkflowExecutionRequest
+        Request body containing workflow parameters.
+
+    Returns
+    -------
+    WorkflowExecutionResponse
+        Execution ID, status (QUEUED), queue position, and message.
+
+    Raises
+    ------
+    HTTPException
+        404 if workflow not found; 422 if parameters invalid; 429 if queues full;
+        503 if Redis/queue not initialized; 500 on enqueue failure.
+    """
     # Check if workflow exists and get the workflow class for validation
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
@@ -507,7 +622,26 @@ async def execute_workflow(
     "/v1/infer/{workflow_name}/{execution_id}/status", response_model=WorkflowResult
 )
 async def get_workflow_status(workflow_name: str, execution_id: str) -> WorkflowResult:
-    """Get status of a workflow execution"""
+    """
+    Get the status of a workflow execution.
+
+    Parameters
+    ----------
+    workflow_name : str
+        Name of the workflow.
+    execution_id : str
+        Unique execution identifier.
+
+    Returns
+    -------
+    WorkflowResult
+        Current status, progress, timestamps, and optional queue position.
+
+    Raises
+    ------
+    HTTPException
+        404 if workflow or execution not found; 500 on server error.
+    """
     # Create logger adapter with execution_id
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
@@ -555,7 +689,27 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
 async def get_workflow_results(
     workflow_name: str, execution_id: str
 ) -> dict[str, Any] | StreamingResponse:
-    """Get metadata.json for a workflow execution"""
+    """
+    Get result metadata (e.g. metadata.json) for a completed workflow execution.
+
+    Parameters
+    ----------
+    workflow_name : str
+        Name of the workflow.
+    execution_id : str
+        Unique execution identifier.
+
+    Returns
+    -------
+    dict
+        JSON metadata (e.g. from metadata_{workflow_name}:{execution_id}.json).
+
+    Raises
+    ------
+    HTTPException
+        202 if still queued/running/pending; 400 if expired or bad request;
+        404 if workflow, execution, or metadata file not found, or if execution failed/cancelled.
+    """
     # Create logger adapter with execution_id
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
@@ -661,13 +815,29 @@ async def get_workflow_result_file(
     """
     Stream a specific file from the workflow execution results.
 
-    Args:
-        workflow_name: Name of the workflow
-        execution_id: Execution ID
-        filepath: Relative path to the file within the output directory
+    If filepath equals the request ID (workflow_name:execution_id), streams the
+    results zip file. Otherwise serves a file from the output directory (path
+    normalized and checked to prevent directory traversal).
 
-    Returns:
-        Streaming response with the file contents
+    Parameters
+    ----------
+    workflow_name : str
+        Name of the workflow.
+    execution_id : str
+        Execution identifier.
+    filepath : str
+        Relative path within the output directory, or the request ID for the zip.
+
+    Returns
+    -------
+    StreamingResponse
+        File or zip contents with appropriate headers.
+
+    Raises
+    ------
+    HTTPException
+        403 on path traversal attempt; 404 if workflow, execution, file, or zip
+        not found or results not completed; 503 if Redis not initialized; 500 on error.
     """
     # Check if workflow exists
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)

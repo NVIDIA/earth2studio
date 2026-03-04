@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Union
 
 import redis  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 # Import configuration
 from earth2studio.serve.server.config import (
@@ -109,7 +109,11 @@ class WorkflowParameters(WorkflowArgsBase):
 
     @field_validator("forecast_times", "start_time", mode="before", check_fields=False)
     @classmethod
-    def validate_datetime_list(cls, v: Any, info: Any) -> Any:
+    def validate_datetime_list(
+        cls: type["WorkflowParameters"],
+        v: list[str] | list[datetime] | str | datetime | None,
+        info: ValidationInfo,
+    ) -> list[str] | list[datetime] | str | datetime | None:
         """
         Validate that forecast_times and start_time are in valid ISO 8601 datetime format.
 
@@ -121,13 +125,13 @@ class WorkflowParameters(WorkflowArgsBase):
         ----------
         v : list of str or datetime, or single value, or None
             The value (can be list of strings/datetime objects, single value, or None).
-        info : Any
-            Validation context info.
+        info : ValidationInfo
+            Pydantic validation context (e.g. field name).
 
         Returns
         -------
-        Any
-            The validated value.
+        list of str or list of datetime or str or datetime or None
+            The validated value (same shape as input).
 
         Raises
         ------
