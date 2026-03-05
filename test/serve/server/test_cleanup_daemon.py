@@ -24,6 +24,7 @@ from earth2studio.serve.server.cleanup_daemon import (
     _delete_result_files,
     _process_expired_key,
     cleanup_expired_results,
+    main,
 )
 from earth2studio.serve.server.config import get_config
 from earth2studio.serve.server.workflow import WorkflowStatus
@@ -120,6 +121,102 @@ class TestDeleteResultFiles:
         # Verify Redis was queried
         mock_redis.get.assert_called_once()
 
+    def test_delete_result_files_zip_file_missing(self, mock_redis):
+        """When zip filename is in Redis but file does not exist, no unlink is called."""
+        result_id = "req_123"
+        mock_redis.get.return_value = "missing.zip"
+
+        mock_zip_path = MagicMock()
+        mock_zip_path.exists.return_value = False
+
+        mock_output_dir = MagicMock()
+        mock_output_dir.iterdir.return_value = []
+        mock_zip_dir = MagicMock()
+        mock_zip_dir.iterdir.return_value = []
+        mock_zip_dir.__truediv__ = lambda self, other: mock_zip_path
+
+        _delete_result_files(
+            mock_redis, result_id, result_id, mock_output_dir, mock_zip_dir
+        )
+
+        mock_zip_path.unlink.assert_not_called()
+
+    def test_delete_result_files_legacy_path_deletes_metadata_and_dirs(
+        self, mock_redis
+    ):
+        """Without workflow_name, still deletes metadata files and raw/zip dirs matching search_id."""
+        search_id = "exec_789"
+        result_id = search_id
+        mock_redis.get.return_value = None
+
+        mock_metadata_file = MagicMock()
+        mock_metadata_file.is_file.return_value = True
+        mock_metadata_file.is_dir.return_value = False
+        mock_metadata_file.name = f"metadata_{search_id}.json"
+        mock_metadata_file.unlink = MagicMock()
+
+        mock_raw_dir = MagicMock()
+        mock_raw_dir.is_dir.return_value = True
+        mock_raw_dir.name = f"output_{search_id}"
+        mock_raw_dir.__str__ = lambda self: f"output_{search_id}"
+
+        mock_zip_subdir = MagicMock()
+        mock_zip_subdir.is_dir.return_value = True
+        mock_zip_subdir.name = f"results_{search_id}"
+        mock_zip_subdir.__str__ = lambda self: f"results_{search_id}"
+
+        mock_output_dir = MagicMock()
+        mock_output_dir.iterdir.return_value = [mock_raw_dir]
+        mock_zip_dir = MagicMock()
+        mock_zip_dir.iterdir.return_value = [mock_metadata_file, mock_zip_subdir]
+
+        with patch(
+            "earth2studio.serve.server.cleanup_daemon.shutil.rmtree"
+        ) as mock_rmtree:
+            _delete_result_files(
+                mock_redis,
+                result_id,
+                search_id,
+                mock_output_dir,
+                mock_zip_dir,
+            )
+
+        mock_metadata_file.unlink.assert_called_once()
+        assert mock_rmtree.call_count == 2  # raw dir + zip_dir subdir
+        rmtree_calls = {str(c[0][0]) for c in mock_rmtree.call_args_list}
+        assert f"output_{search_id}" in rmtree_calls or mock_rmtree.call_count == 2
+
+    def test_delete_result_files_workflow_dir_not_exists(self, mock_redis):
+        """When workflow_name is set but workflow subdirectory does not exist, no rmtree on it."""
+        workflow_name = "my_wf"
+        execution_id = "exec_1"
+        combined_id = f"{workflow_name}:{execution_id}"
+        mock_redis.get.return_value = None
+
+        mock_output_dir = MagicMock()
+        mock_output_dir.iterdir.return_value = []
+        mock_workflow_dir = MagicMock()
+        mock_workflow_dir.exists.return_value = False  # workflow dir not present
+        mock_output_dir.__truediv__ = lambda self, other: mock_workflow_dir
+
+        mock_zip_dir = MagicMock()
+        mock_zip_dir.iterdir.return_value = []
+
+        with patch(
+            "earth2studio.serve.server.cleanup_daemon.shutil.rmtree"
+        ) as mock_rmtree:
+            _delete_result_files(
+                mock_redis,
+                combined_id,
+                execution_id,
+                mock_output_dir,
+                mock_zip_dir,
+                workflow_name=workflow_name,
+            )
+
+        mock_workflow_dir.iterdir.assert_not_called()
+        mock_rmtree.assert_not_called()
+
 
 class TestProcessExpiredKey:
     """Test suite for _process_expired_key function"""
@@ -204,6 +301,127 @@ class TestProcessExpiredKey:
         )
 
         # Verify - should not clean up
+        assert result is False
+        mock_delete_func.assert_not_called()
+        mock_redis.setex.assert_not_called()
+
+    def test_process_expired_key_key_missing(self, mock_redis, mock_delete_func):
+        """When Redis returns None for the key, return False without calling delete."""
+        mock_redis.get.return_value = None
+
+        result = _process_expired_key(
+            redis_client=mock_redis,
+            key="workflow_execution:wf1:exec_123",
+            current_time=datetime.now(timezone.utc),
+            results_ttl_hours=24,
+            retention_ttl=604800,
+            expected_status=WorkflowStatus.COMPLETED,
+            get_end_time_field="end_time",
+            delete_files_func=mock_delete_func,
+            log_prefix="workflow",
+        )
+
+        assert result is False
+        mock_delete_func.assert_not_called()
+        mock_redis.setex.assert_not_called()
+
+    def test_process_expired_key_wrong_status(self, mock_redis, mock_delete_func):
+        """When status is not expected (e.g. RUNNING), return False."""
+        current_time = datetime.now(timezone.utc)
+        old_time = (current_time - timedelta(hours=25)).isoformat()
+        mock_redis.get.return_value = json.dumps(
+            {"status": WorkflowStatus.RUNNING, "end_time": old_time}
+        )
+
+        result = _process_expired_key(
+            redis_client=mock_redis,
+            key="workflow_execution:wf1:exec_123",
+            current_time=current_time,
+            results_ttl_hours=24,
+            retention_ttl=604800,
+            expected_status=WorkflowStatus.COMPLETED,
+            get_end_time_field="end_time",
+            delete_files_func=mock_delete_func,
+            log_prefix="workflow",
+        )
+
+        assert result is False
+        mock_delete_func.assert_not_called()
+        mock_redis.setex.assert_not_called()
+
+    def test_process_expired_key_no_end_time(self, mock_redis, mock_delete_func):
+        """When end_time and completion_time are missing, return False."""
+        mock_redis.get.return_value = json.dumps({"status": WorkflowStatus.COMPLETED})
+
+        result = _process_expired_key(
+            redis_client=mock_redis,
+            key="workflow_execution:wf1:exec_123",
+            current_time=datetime.now(timezone.utc),
+            results_ttl_hours=24,
+            retention_ttl=604800,
+            expected_status=WorkflowStatus.COMPLETED,
+            get_end_time_field="end_time",
+            delete_files_func=mock_delete_func,
+            log_prefix="workflow",
+        )
+
+        assert result is False
+        mock_delete_func.assert_not_called()
+        mock_redis.setex.assert_not_called()
+
+    def test_process_expired_key_uses_completion_time_fallback(
+        self, mock_redis, mock_delete_func
+    ):
+        """When end_time is missing but completion_time is present, use it and expire."""
+        config = get_config()
+        current_time = datetime.now(timezone.utc)
+        old_time = (current_time - timedelta(hours=30)).isoformat()
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": WorkflowStatus.COMPLETED,
+                "completion_time": old_time,
+            }
+        )
+
+        result = _process_expired_key(
+            redis_client=mock_redis,
+            key="workflow_execution:wf1:exec_old",
+            current_time=current_time,
+            results_ttl_hours=24,
+            retention_ttl=config.redis.retention_ttl,
+            expected_status=WorkflowStatus.COMPLETED,
+            get_end_time_field="end_time",
+            delete_files_func=mock_delete_func,
+            log_prefix="workflow",
+        )
+
+        assert result is True
+        mock_delete_func.assert_called_once()
+        mock_redis.setex.assert_called_once()
+        updated = json.loads(mock_redis.setex.call_args[0][2])
+        assert updated["status"] == WorkflowStatus.EXPIRED
+
+    def test_process_expired_key_invalid_timestamp(self, mock_redis, mock_delete_func):
+        """When timestamp is invalid, log warning and return False."""
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": WorkflowStatus.COMPLETED,
+                "end_time": "not-a-valid-timestamp",
+            }
+        )
+
+        result = _process_expired_key(
+            redis_client=mock_redis,
+            key="workflow_execution:wf1:exec_123",
+            current_time=datetime.now(timezone.utc),
+            results_ttl_hours=24,
+            retention_ttl=604800,
+            expected_status=WorkflowStatus.COMPLETED,
+            get_end_time_field="end_time",
+            delete_files_func=mock_delete_func,
+            log_prefix="workflow",
+        )
+
         assert result is False
         mock_delete_func.assert_not_called()
         mock_redis.setex.assert_not_called()
@@ -449,3 +667,109 @@ class TestCleanupExpiredResults:
             assert (
                 mock_redis.setex.call_args[0][0] == "workflow_execution:wf_50h:exec_50h"
             )
+
+    def test_cleanup_expired_results_malformed_key_skipped(
+        self, mock_redis, cleanup_args
+    ):
+        """Keys with fewer than 3 parts (e.g. 'workflow_execution:incomplete') are skipped."""
+        current_time = datetime.now(timezone.utc)
+        old_time = (current_time - timedelta(hours=30)).isoformat()
+
+        mock_redis.keys.return_value = [
+            "workflow_execution:incomplete",  # only 2 parts
+            "workflow_execution:wf1:exec_old",
+        ]
+
+        def get_side_effect(key):
+            if key == "workflow_execution:wf1:exec_old":
+                return json.dumps(
+                    {"status": WorkflowStatus.COMPLETED, "end_time": old_time}
+                )
+            return None
+
+        mock_redis.get.side_effect = get_side_effect
+
+        with patch("earth2studio.serve.server.cleanup_daemon._delete_result_files"):
+            cleanup_expired_results(mock_redis, **cleanup_args)
+
+            # Only the valid key (exec_old) should be processed; malformed key is skipped
+        assert mock_redis.setex.call_count == 1
+        assert mock_redis.setex.call_args[0][0] == "workflow_execution:wf1:exec_old"
+
+
+class TestCleanupDaemonMain:
+    """Tests for main() daemon entrypoint."""
+
+    def test_main_redis_connection_failure_exits_with_one(self, tmp_path):
+        """When Redis connection or ping fails, main() calls sys.exit(1)."""
+        mock_config = MagicMock()
+        mock_config.paths.default_output_dir = str(tmp_path / "out")
+        mock_config.paths.results_zip_dir = str(tmp_path / "zip")
+        mock_config.server.results_ttl_hours = 24
+        mock_config.server.cleanup_watchdog_sec = 60
+        mock_config.redis.retention_ttl = 604800
+        mock_config.redis.host = "localhost"
+        mock_config.redis.port = 6379
+        mock_config.redis.db = 0
+        mock_config.redis.password = None
+        mock_config.redis.decode_responses = True
+        mock_config.redis.socket_connect_timeout = 5
+        mock_config.redis.socket_timeout = 5
+
+        mock_redis_instance = MagicMock()
+        mock_redis_instance.ping.side_effect = Exception("Connection refused")
+
+        with (
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.get_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.redis.Redis",
+                return_value=mock_redis_instance,
+            ),
+            patch("earth2studio.serve.server.cleanup_daemon.sys.exit") as mock_exit,
+        ):
+            mock_exit.side_effect = SystemExit(1)
+            with pytest.raises(SystemExit):
+                main()
+            mock_exit.assert_called_once_with(1)
+
+    def test_main_runs_one_cycle_then_handles_keyboard_interrupt(self, tmp_path):
+        """When time.sleep raises KeyboardInterrupt (e.g. SIGINT), main() exits gracefully and closes Redis."""
+        mock_config = MagicMock()
+        mock_config.paths.default_output_dir = str(tmp_path / "out")
+        mock_config.paths.results_zip_dir = str(tmp_path / "zip")
+        mock_config.server.results_ttl_hours = 24
+        mock_config.server.cleanup_watchdog_sec = 60
+        mock_config.redis.retention_ttl = 604800
+        mock_config.redis.host = "localhost"
+        mock_config.redis.port = 6379
+        mock_config.redis.db = 0
+        mock_config.redis.password = None
+        mock_config.redis.decode_responses = True
+        mock_config.redis.socket_connect_timeout = 5
+        mock_config.redis.socket_timeout = 5
+
+        mock_redis_instance = MagicMock()
+        mock_redis_instance.ping.return_value = True
+        mock_redis_instance.close = MagicMock()
+
+        with (
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.get_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.redis.Redis",
+                return_value=mock_redis_instance,
+            ),
+            patch("earth2studio.serve.server.cleanup_daemon.cleanup_expired_results"),
+            patch("earth2studio.serve.server.cleanup_daemon.signal.signal"),
+            patch(
+                "earth2studio.serve.server.cleanup_daemon.time.sleep",
+                side_effect=KeyboardInterrupt,
+            ),
+        ):
+            main()
+            mock_redis_instance.close.assert_called_once()
