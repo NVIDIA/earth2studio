@@ -16,6 +16,7 @@
 
 import warnings
 from collections import OrderedDict
+from collections.abc import Generator
 from itertools import product
 
 import numpy as np
@@ -23,6 +24,7 @@ import pandas as pd
 import torch
 import xarray as xr
 import zarr
+from loguru import logger
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -427,7 +429,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
         latents = torch.randn_like(x, dtype=torch.float64)
-        latents = self.sampler_args["sigma_max"] * latents
+        self.sampler_args["sigma_max"] = 100
+        latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
         class _CondtionalDiffusionWrapper(torch.nn.Module):
             def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
@@ -447,8 +450,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         guidance = DataConsistencyDPSGuidance(
             mask=mask,
             y=y_obs,
-            std_y=0.001,
-            norm=1,  # L1 norm
+            std_y=0.2,
+            norm=2,  # L2 norm
             gamma=0.1,  # Enable SDA scaling
             sigma_fn=scheduler.sigma,
             alpha_fn=scheduler.alpha,
@@ -460,6 +463,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         denoiser = scheduler.get_denoiser(score_predictor=score_predictor)
 
+        # Original
         # denoiser = scheduler.get_denoiser(
         #     x0_predictor=_CondtionalDiffusionWrapper(self.diffusion_model, condition)
         # )
@@ -468,15 +472,14 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             denoiser,
             latents,
             noise_scheduler=scheduler,
-            # num_steps=self.sampler_args["num_steps"],
-            num_steps=2 * self.sampler_args["num_steps"],
+            num_steps=self.sampler_args["num_steps"],
             solver="edm_stochastic_heun",
-            # solver_options={
-            #     "S_churn": self.sampler_args["S_churn"],
-            #     "S_min": self.sampler_args["S_min"],
-            #     "S_max": self.sampler_args["S_max"],
-            #     "S_noise": self.sampler_args["S_noise"],
-            # },
+            solver_options={
+                "S_churn": self.sampler_args["S_churn"],
+                "S_min": self.sampler_args["S_min"],
+                "S_max": self.sampler_args["S_max"],
+                "S_noise": self.sampler_args["S_noise"],
+            },
         )
 
         out += edm_out
@@ -594,45 +597,27 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return y_obs, mask
 
-    def __call__(
-        self,
-        x: xr.DataArray,
-        obs: pd.DataFrame | None,
-    ) -> xr.DataArray:
-        """Runs prognostic model 1 step
+    def _fetch_and_interp_conditioning(self, x: xr.DataArray) -> xr.DataArray:
+        """Fetch global conditioning data and interpolate to HRRR curvilinear grid.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input state DataArray with time and lead_time coordinates
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
-
-        Raises
-        ------
-        RuntimeError
-            If conditioning data source is not initialized
+        xr.DataArray
+            Conditioning data interpolated onto the HRRR grid
         """
-
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCast has been called without initializing the model's conditioning_data_source"
-            )
-
-        # Use registered buffer to track model's current device
-        device = self.device_buffer.device
+        device = self.device
 
         c = fetch_data(
             self.conditioning_data_source,
             time=x.coords["time"].data,
             variable=self.conditioning_variables,
             lead_time=x.coords["lead_time"].data,
-            device=self.device_buffer.device,
+            device=self.device,
             legacy=False,
         )
 
@@ -640,11 +625,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if cp is not None and isinstance(c.data, cp.ndarray):
             # GPU path: bilinear interpolation using cupy, data stays on GPU
             with cp.cuda.Device(device.index or 0):
-                data = c.data  # cupy [time, lead_time, variable, lat, lon]
-                src_lat = c.coords["lat"].values  # numpy 1D
-                src_lon = c.coords["lon"].values  # numpy 1D
+                data = c.data
+                src_lat = c.coords["lat"].values
+                src_lon = c.coords["lon"].values
 
-                # Compute fractional indices into the regular source grid
                 target_lat_cp = cp.asarray(self.lat, dtype=cp.float64)
                 target_lon_cp = cp.asarray(self.lon, dtype=cp.float64)
                 lat_step = float(src_lat[1] - src_lat[0])
@@ -652,7 +636,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 lat_frac = (target_lat_cp - float(src_lat[0])) / lat_step
                 lon_frac = (target_lon_cp - float(src_lon[0])) / lon_step
 
-                # Floor indices and interpolation weights
                 lat0 = cp.clip(
                     cp.floor(lat_frac).astype(cp.int64), 0, data.shape[-2] - 2
                 )
@@ -664,7 +647,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 wlat = cp.clip(lat_frac - lat0.astype(cp.float64), 0.0, 1.0)
                 wlon = cp.clip(lon_frac - lon0.astype(cp.float64), 0.0, 1.0)
 
-                # Bilinear interpolation (fully vectorized over leading dims)
                 interp_data = (
                     data[..., lat0, lon0] * (1 - wlat) * (1 - wlon)
                     + data[..., lat0, lon1] * (1 - wlat) * wlon
@@ -697,25 +679,28 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 lon=(["hrrr_y", "hrrr_x"], self.lon),
             )
 
-        # Build input CoordSystem from the xarray DataArray for handshake
-        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-        output_coords = self.output_coords((x_coords,))
+        return c
 
-        # Zero copy from cupy / numpy
-        x_tensor = torch.as_tensor(x.data)
-        c_tensor = torch.as_tensor(c.data)
+    def _to_output_dataarray(
+        self,
+        x_tensor: torch.Tensor,
+        output_coords: tuple[CoordSystem],
+    ) -> xr.DataArray:
+        """Convert output tensor to xr.DataArray with HRRR grid coordinates.
 
-        # Build y_obs and mask from observations, then run forward
-        # No batch dims at the moment
-        for j, t in enumerate(x.coords["time"].data):
-            # Build observation tensors for this time step
-            y_obs, mask = self._build_obs_tensors(obs, t, device)
-            for k, _ in enumerate(x.coords["lead_time"].data):
-                x_tensor[j, k : k + 1] = self._forward(
-                    x_tensor[j, k : k + 1], c_tensor[j, k : k + 1], y_obs, mask
-                )
+        Parameters
+        ----------
+        x_tensor : torch.Tensor
+            Output tensor from _forward
+        output_coords : tuple[CoordSystem]
+            Output coordinate system from output_coords()
 
-        # Convert output tensor to xarray DataArray
+        Returns
+        -------
+        xr.DataArray
+            Output DataArray with cupy backend on GPU or numpy on CPU
+        """
+        device = self.device
         (oc,) = output_coords
         if device.type == "cuda" and cp is not None:
             with cp.cuda.Device(device.index or 0):
@@ -735,6 +720,131 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lon": (["hrrr_y", "hrrr_x"], self.lon),
             },
         )
+
+    def __call__(
+        self,
+        x: xr.DataArray,
+        obs: pd.DataFrame | None,
+    ) -> xr.DataArray:
+        """Runs prognostic model 1 step.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Input state on the HRRR curvilinear grid
+        obs : pd.DataFrame | None
+            Sparse observations DataFrame, or None for no assimilation
+
+        Returns
+        -------
+        xr.DataArray
+            Output state one time-step into the future
+
+        Raises
+        ------
+        RuntimeError
+            If conditioning data source is not initialized
+        """
+        if self.conditioning_data_source is None:
+            raise RuntimeError(
+                "StormCast has been called without initializing the model's conditioning_data_source"
+            )
+
+        device = self.device
+        c = self._fetch_and_interp_conditioning(x)
+
+        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
+        output_coords = self.output_coords((x_coords,))
+
+        x_tensor = torch.as_tensor(x.data)
+        c_tensor = torch.as_tensor(c.data)
+
+        for j, t in enumerate(x.coords["time"].data):
+            y_obs, mask = self._build_obs_tensors(obs, t, device)
+            for k, _ in enumerate(x.coords["lead_time"].data):
+                x_tensor[j, k : k + 1] = self._forward(
+                    x_tensor[j, k : k + 1], c_tensor[j, k : k + 1], y_obs, mask
+                )
+
+        return self._to_output_dataarray(x_tensor, output_coords)
+
+    def create_generator(
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
+        """Creates a generator for iterative forecast with data assimilation.
+
+        The generator yields forecast states and receives observation DataFrames
+        via ``send()``. At each step, conditioning data is fetched, observations
+        are mapped to the HRRR grid, and the diffusion model produces the next
+        forecast step.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial state on the HRRR curvilinear grid
+
+        Yields
+        ------
+        xr.DataArray
+            Forecast state at each time step
+
+        Receives
+        --------
+        pd.DataFrame | None
+            Observations sent via ``generator.send()``. Pass ``None`` for
+            steps without assimilation.
+
+        Example
+        -------
+        >>> gen = model.create_generator(x0)
+        >>> state = next(gen)           # prime, yields None
+        >>> state = gen.send(obs_df)    # step 1 with observations
+        >>> state = gen.send(None)      # step 2 without observations
+        """
+        if self.conditioning_data_source is None:
+            raise RuntimeError(
+                "StormCast has been called without initializing the model's "
+                "conditioning_data_source"
+            )
+
+        device = self.device
+
+        # Prime the generator — yield None, receive first observations
+        obs = yield None  # type: ignore[misc]
+
+        try:
+            while True:
+                # Fetch and interpolate conditioning onto HRRR grid
+                c = self._fetch_and_interp_conditioning(x)
+
+                # Compute output coords (advances lead_time by 1h)
+                x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
+                output_coords = self.output_coords((x_coords,))
+
+                # Zero-copy conversion to torch tensors
+                x_tensor = torch.as_tensor(x.data)
+                c_tensor = torch.as_tensor(c.data)
+
+                # Run forward with observations
+                for j, t in enumerate(x.coords["time"].data):
+                    y_obs, mask = self._build_obs_tensors(obs, t, device)
+                    for k, _ in enumerate(x.coords["lead_time"].data):
+                        x_tensor[j, k : k + 1] = self._forward(
+                            x_tensor[j, k : k + 1],
+                            c_tensor[j, k : k + 1],
+                            y_obs,
+                            mask,
+                        )
+
+                # Build output DataArray and use as next input
+                x = self._to_output_dataarray(x_tensor, output_coords)
+
+                # Yield result and wait for next observations
+                obs = yield x
+
+        except GeneratorExit:
+            logger.info("StormCast SDA clean up")
+            pass
 
 
 if __name__ == "__main__":
@@ -761,7 +871,7 @@ if __name__ == "__main__":
     # Create synthetic observation DataFrame with random points inside the HRRR grid
     # Sample a few lat/lon points from the grid interior
     rng = np.random.default_rng(42)
-    n_obs = 10
+    n_obs = 20
     grid_lat, grid_lon = model.lat, model.lon
     yi = rng.integers(50, grid_lat.shape[0] - 50, size=n_obs)
     xi = rng.integers(50, grid_lat.shape[1] - 50, size=n_obs)
@@ -770,7 +880,7 @@ if __name__ == "__main__":
 
     obs_vars = rng.choice(["u10m", "v10m", "t2m"], size=n_obs)
     obs_vals = rng.normal(
-        loc=[280.0 if v == "t2m" else 5.0 for v in obs_vars], scale=2.0
+        loc=[280.0 if v == "t2m" else 0.0 for v in obs_vars], scale=5.0
     )
 
     obs_df = pd.DataFrame(
@@ -788,13 +898,12 @@ if __name__ == "__main__":
 
     print(out)
 
-    # Load stormcast_original.pt
-    # torch.save(out, "stormcast.pt")
-    original = torch.load("stormcast_original.pt", map_location=model.device)
+    # Load stormcast_original.pt into a cupy xarray DataArray with same coords as out
+    original_tensor = torch.load("stormcast_original.pt", map_location=model.device)
+    original = out.copy(data=cp.asarray(original_tensor))
 
-    # Assume the dimensionality/order is the same as out
-    diff = torch.as_tensor(out.data) - original
-
+    # Compute difference
+    diff = torch.as_tensor(out.data) - torch.as_tensor(original.data)
     print("Difference between out and stormcast_original.pt:")
     print("Max absolute difference:", diff.abs().max().item())
     print("Mean absolute difference:", diff.abs().mean().item())
@@ -802,18 +911,40 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
 
-    # Plot the first variable, first batch, first lead_time, first time
-    # Infer axes: usually channels, y, x
-    # out shape: (batch, time, lead_time, variable, y, x)
-    var_axis = 3
-    y_axis = 4
-    x_axis = 5
+    # Plot u10m prediction with observation locations overlaid
+    plot_var = "u10m"
+    pred = out.sel(
+        time=out.coords["time"][0],
+        lead_time=out.coords["lead_time"][0],
+        variable=plot_var,
+    )
+    pred_np = pred.data.get() if hasattr(pred.data, "get") else pred.values
+    lat_2d = model.lat
+    lon_2d = model.lon
 
-    plt.figure(figsize=(8, 6))
-    img = out.data[0, 0, 0].get()  # Shape: (y, x)
-    plt.imshow(img, cmap="viridis", aspect="auto", vmin=-10, vmax=12.5)
-    plt.title(f"Forecast: variable idx 0 (shape {img.shape})")
-    plt.colorbar(label="Value")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.savefig("stormcast.jpg")
+    fig, ax = plt.subplots(figsize=(10, 7))
+    im = ax.pcolormesh(lon_2d, lat_2d, pred_np, cmap="RdBu_r", shading="auto")
+    plt.colorbar(im, ax=ax, label=f"{plot_var}")
+
+    # Overlay observation locations as open circles
+    u10m_obs = obs_df[obs_df["variable"] == plot_var]
+    scatter = ax.scatter(
+        u10m_obs["lon"].values,
+        u10m_obs["lat"].values,
+        c=u10m_obs["observation"].values,
+        cmap="RdBu_r",
+        vmin=im.get_clim()[0],
+        vmax=im.get_clim()[1],
+        edgecolors="black",
+        linewidths=1.5,
+        s=80,
+        marker="o",
+        zorder=5,
+    )
+
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title(f"StormCast SDA: {plot_var} prediction with observations")
+    plt.tight_layout()
+    plt.savefig("stormcast.jpg", dpi=150)
+    print("Saved stormcast.jpg")
