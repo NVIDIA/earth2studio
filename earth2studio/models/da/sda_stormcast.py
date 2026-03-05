@@ -26,6 +26,7 @@ import zarr
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.da.utils import filter_time_range
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
@@ -38,7 +39,8 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, FrameSchema
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
 
 try:
     import cupy as cp
@@ -144,6 +146,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
+    tolerance : TimeTolerance, optional
+        Time tolerance for filtering observations. Observations within the tolerance
+        window around each requested time will be used for data assimilation,
+        by default np.timedelta64(30, "m")
     """
 
     def __init__(
@@ -161,6 +167,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] = {},
+        tolerance: TimeTolerance = np.timedelta64(30, "m"),
     ):
         super().__init__()
         self.regression_model = regression_model
@@ -170,6 +177,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("invariants", invariants)
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_args = sampler_args
+        self._tolerance = normalize_time_tolerance(tolerance)
 
         hrrr_lat, hrrr_lon = HRRR.grid()
         self.lat = hrrr_lat[
@@ -181,6 +189,29 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
         self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
+
+        # Build ordered boundary polygon from 2D grid perimeter for
+        # point-in-grid testing (top row -> right col -> bottom row -> left col)
+        self._grid_boundary = np.column_stack(
+            [
+                np.concatenate(
+                    [
+                        self.lat[0, :],
+                        self.lat[1:, -1],
+                        self.lat[-1, -2::-1],
+                        self.lat[-2:0:-1, 0],
+                    ]
+                ),
+                np.concatenate(
+                    [
+                        self.lon[0, :],
+                        self.lon[1:, -1],
+                        self.lon[-1, -2::-1],
+                        self.lon[-2:0:-1, 0],
+                    ]
+                ),
+            ]
+        )  # [n_boundary, 2] ordered (lat, lon)
 
         self.variables = variables
 
@@ -198,6 +229,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         if conditioning_stds is not None:
             self.register_buffer("conditioning_stds", conditioning_stds)
+
+    @property
+    def device(self) -> torch.device:
+        return self.device_buffer.device
 
     def init_coords(self) -> tuple[CoordSystem]:
         """Initialization coordinate system"""
@@ -367,7 +402,13 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     # @torch.inference_mode()
-    def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
+    def _forward(
+        self,
+        x: torch.Tensor,
+        conditioning: torch.Tensor,
+        y_obs: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
 
         # Scale data
         if "conditioning_means" in self._buffers:
@@ -402,15 +443,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sigma_max=self.sampler_args["sigma_max"],
             rho=self.sampler_args["rho"],
         )
-
-        mask = torch.zeros_like(out)
-        # torch.Size([1, 99, 512, 640])
-        mask[0, 0, 100, 100] = 1
-
-        y_obs = torch.zeros_like(out)
-        y_obs[0, 0, 100:, 100] = 20
-
-        # import pdb; pdb.set_trace()
 
         guidance = DataConsistencyDPSGuidance(
             mask=mask,
@@ -452,10 +484,120 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out.detach()
 
+    @staticmethod
+    def _points_in_polygon(points: np.ndarray, polygon: np.ndarray) -> np.ndarray:
+        """Vectorized ray casting point-in-polygon test.
+
+        Parameters
+        ----------
+        points : np.ndarray
+            Points to test, shape [n, 2]
+        polygon : np.ndarray
+            Ordered polygon vertices, shape [m, 2]
+
+        Returns
+        -------
+        np.ndarray
+            Boolean array of shape [n], True if point is inside polygon
+        """
+        px, py = points[:, 0], points[:, 1]  # [n]
+        vx, vy = polygon[:, 0], polygon[:, 1]  # [m]
+        vx_next = np.roll(vx, -1)
+        vy_next = np.roll(vy, -1)
+
+        # For each edge (m) and each point (n), check if horizontal ray crosses
+        # Broadcasting: [m, 1] vs [1, n] -> [m, n]
+        crosses = (vy[:, None] > py[None, :]) != (vy_next[:, None] > py[None, :])
+        x_intersect = (vx_next[:, None] - vx[:, None]) * (py[None, :] - vy[:, None]) / (
+            vy_next[:, None] - vy[:, None]
+        ) + vx[:, None]
+        hits = crosses & (px[None, :] < x_intersect)
+
+        # Odd number of crossings = inside
+        return (np.sum(hits, axis=0) % 2) == 1
+
+    def _build_obs_tensors(
+        self,
+        obs: pd.DataFrame | None,
+        request_time: np.datetime64,
+        device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        n_var = len(self.variables)
+        n_hrrr_y, n_hrrr_x = self.lat.shape
+
+        y_obs = torch.zeros(
+            1, n_var, n_hrrr_y, n_hrrr_x, device=device, dtype=torch.float32
+        )
+        mask = torch.zeros(
+            1, n_var, n_hrrr_y, n_hrrr_x, device=device, dtype=torch.float32
+        )
+
+        if obs is None or len(obs) == 0:
+            return y_obs, mask
+
+        # Filter observations within tolerance window
+        time_filtered = filter_time_range(
+            obs, request_time, self._tolerance, time_column="time"
+        )
+
+        if len(time_filtered) == 0:
+            return y_obs, mask
+
+        # TODO, make native cudf support
+        # Convert to pandas if cudf for reliable string/value access
+        if hasattr(time_filtered, "to_pandas"):
+            time_filtered = time_filtered.to_pandas()
+
+        obs_lat = time_filtered["lat"].values.astype(np.float64)
+        obs_lon = time_filtered["lon"].values.astype(np.float64)
+        obs_var = time_filtered["variable"].values
+        obs_val = time_filtered["observation"].values.astype(np.float32)
+
+        # Normalize lon to 0-360 to match HRRR grid
+        obs_lon = np.where(obs_lon < 0, obs_lon + 360.0, obs_lon)
+
+        # Filter observations to those inside the curvilinear grid boundary
+        # using ray casting point-in-polygon on the precomputed perimeter
+        obs_points = np.column_stack([obs_lat, obs_lon])
+        in_grid = self._points_in_polygon(obs_points, self._grid_boundary)
+
+        if not in_grid.any():
+            return y_obs, mask
+
+        obs_lat = obs_lat[in_grid]
+        obs_lon = obs_lon[in_grid]
+        obs_var = obs_var[in_grid]
+        obs_val = obs_val[in_grid]
+
+        # Find nearest HRRR grid point for each observation (vectorized)
+        grid_lat_flat = self.lat.ravel()  # [n_grid]
+        grid_lon_flat = self.lon.ravel()  # [n_grid]
+        lat_diff = obs_lat[:, None] - grid_lat_flat[None, :]  # [n_obs, n_grid]
+        lon_diff = obs_lon[:, None] - grid_lon_flat[None, :]  # [n_obs, n_grid]
+        dist_sq = lat_diff**2 + lon_diff**2
+        nearest_flat = np.argmin(dist_sq, axis=1)  # [n_obs]
+        nearest_y = nearest_flat // n_hrrr_x
+        nearest_x = nearest_flat % n_hrrr_x
+
+        # Map variable names to indices
+        var_to_idx = {str(v): i for i, v in enumerate(self.variables)}
+        var_indices = np.array([var_to_idx.get(str(v), -1) for v in obs_var])
+        valid = var_indices >= 0
+
+        if valid.any():
+            vi = torch.tensor(var_indices[valid], device=device, dtype=torch.long)
+            yi = torch.tensor(nearest_y[valid], device=device, dtype=torch.long)
+            xi = torch.tensor(nearest_x[valid], device=device, dtype=torch.long)
+            vals = torch.tensor(obs_val[valid], device=device, dtype=torch.float32)
+            y_obs[0, vi, yi, xi] = vals
+            mask[0, vi, yi, xi] = 1.0
+
+        return y_obs, mask
+
     def __call__(
         self,
         x: xr.DataArray,
-        obs: pd.DataFrame,
+        obs: pd.DataFrame | None,
     ) -> xr.DataArray:
         """Runs prognostic model 1 step
 
@@ -555,22 +697,44 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 lon=(["hrrr_y", "hrrr_x"], self.lon),
             )
 
-        # Handshake conditioning coords, need to write some methods
-        # Should use the coords of the data array x, eventually
-        output_coords = self.output_coords(self.init_coords())
+        # Build input CoordSystem from the xarray DataArray for handshake
+        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
+        output_coords = self.output_coords((x_coords,))
 
         # Zero copy from cupy / numpy
         x_tensor = torch.as_tensor(x.data)
         c_tensor = torch.as_tensor(c.data)
 
+        # Build y_obs and mask from observations, then run forward
         # No batch dims at the moment
-        for j, _ in enumerate(x.coords["time"].data):
+        for j, t in enumerate(x.coords["time"].data):
+            # Build observation tensors for this time step
+            y_obs, mask = self._build_obs_tensors(obs, t, device)
             for k, _ in enumerate(x.coords["lead_time"].data):
                 x_tensor[j, k : k + 1] = self._forward(
-                    x_tensor[j, k : k + 1].data, c_tensor[j, k : k + 1].data
+                    x_tensor[j, k : k + 1], c_tensor[j, k : k + 1], y_obs, mask
                 )
 
-        return x_tensor, output_coords
+        # Convert output tensor to xarray DataArray
+        (oc,) = output_coords
+        if device.type == "cuda" and cp is not None:
+            with cp.cuda.Device(device.index or 0):
+                out_data = cp.asarray(x_tensor.detach())
+        else:
+            out_data = x_tensor.detach().cpu().numpy()
+
+        return xr.DataArray(
+            data=out_data,
+            dims=list(oc.keys()),
+            coords={
+                k: ((["hrrr_y", "hrrr_x"], v) if k in ("lat", "lon") else v)
+                for k, v in oc.items()
+            }
+            | {
+                "lat": (["hrrr_y", "hrrr_x"], self.lat),
+                "lon": (["hrrr_y", "hrrr_x"], self.lon),
+            },
+        )
 
 
 if __name__ == "__main__":
@@ -594,14 +758,42 @@ if __name__ == "__main__":
 
     x = map_coords_xr(x, model.init_coords()[0])
 
-    out, _ = model(x, None)
+    # Create synthetic observation DataFrame with random points inside the HRRR grid
+    # Sample a few lat/lon points from the grid interior
+    rng = np.random.default_rng(42)
+    n_obs = 10
+    grid_lat, grid_lon = model.lat, model.lon
+    yi = rng.integers(50, grid_lat.shape[0] - 50, size=n_obs)
+    xi = rng.integers(50, grid_lat.shape[1] - 50, size=n_obs)
+    obs_lats = grid_lat[yi, xi]
+    obs_lons = grid_lon[yi, xi]
+
+    obs_vars = rng.choice(["u10m", "v10m", "t2m"], size=n_obs)
+    obs_vals = rng.normal(
+        loc=[280.0 if v == "t2m" else 5.0 for v in obs_vars], scale=2.0
+    )
+
+    obs_df = pd.DataFrame(
+        {
+            "time": np.datetime64("2024-01-01", "ns"),
+            "lat": obs_lats.astype(np.float32),
+            "lon": obs_lons.astype(np.float32),
+            "variable": obs_vars,
+            "observation": obs_vals.astype(np.float32),
+        }
+    )
+    obs_df.attrs = {"request_time": np.array(["2024-01-01"], dtype="datetime64[ns]")}
+
+    out = model(x, obs_df)
+
+    print(out)
 
     # Load stormcast_original.pt
-    torch.save(out, "stormcast.pt")
-    original = torch.load("stormcast_original.pt", map_location=out.device)
+    # torch.save(out, "stormcast.pt")
+    original = torch.load("stormcast_original.pt", map_location=model.device)
 
     # Assume the dimensionality/order is the same as out
-    diff = out - original
+    diff = torch.as_tensor(out.data) - original
 
     print("Difference between out and stormcast_original.pt:")
     print("Max absolute difference:", diff.abs().max().item())
@@ -618,7 +810,7 @@ if __name__ == "__main__":
     x_axis = 5
 
     plt.figure(figsize=(8, 6))
-    img = out[0, 0, 0].cpu().numpy()  # Shape: (y, x)
+    img = out.data[0, 0, 0].get()  # Shape: (y, x)
     plt.imshow(img, cmap="viridis", aspect="auto", vmin=-10, vmax=12.5)
     plt.title(f"Forecast: variable idx 0 (shape {img.shape})")
     plt.colorbar(label="Value")
