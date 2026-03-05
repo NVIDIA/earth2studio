@@ -99,6 +99,10 @@ class InterpEquirectangular(torch.nn.Module):
         self._tolerance = normalize_time_tolerance(tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
+    def init_coords(self) -> None:
+        """Initialzation coords (not required)"""
+        return None
+
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system specifying required DataFrame fields.
 
@@ -161,13 +165,13 @@ class InterpEquirectangular(torch.nn.Module):
             ),
         )
 
-    def __call__(self, x: pd.DataFrame) -> xr.DataArray:
+    def __call__(self, obs: pd.DataFrame) -> xr.DataArray:
         """Stateless forward pass"""
         input_coords = self.input_coords()
-        (output_coords,) = self.output_coords(input_coords, **x.attrs)
+        (output_coords,) = self.output_coords(input_coords, **obs.attrs)
         # Validate observation types match input_coords
-        validate_observation_fields(x, required_fields=list(input_coords[0].keys()))
-        return self._interpolate_dataframe(x, output_coords)
+        validate_observation_fields(obs, required_fields=list(input_coords[0].keys()))
+        return self._interpolate_dataframe(obs, output_coords)
 
     def create_generator(self) -> Generator[
         xr.DataArray,

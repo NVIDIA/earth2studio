@@ -19,13 +19,13 @@ from collections import OrderedDict
 from itertools import product
 
 import numpy as np
+import pandas as pd
 import torch
 import xarray as xr
 import zarr
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
@@ -33,12 +33,17 @@ from earth2studio.utils import (
     handshake_dim,
     handshake_size,
 )
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import map_coords_xr
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordSystem, FrameSchema
+
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
 
 try:
     from omegaconf import OmegaConf
@@ -163,6 +168,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
         self.register_buffer("invariants", invariants)
+        self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_args = sampler_args
 
         hrrr_lat, hrrr_lon = HRRR.grid()
@@ -193,21 +199,35 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning_stds is not None:
             self.register_buffer("conditioning_stds", conditioning_stds)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+    def init_coords(self) -> tuple[CoordSystem]:
+        """Initialization coordinate system"""
+        return (
+            OrderedDict(
+                {
+                    "time": np.empty(0),
+                    "lead_time": np.array([np.timedelta64(0, "h")]),
+                    "variable": np.array(self.variables),
+                    "hrrr_y": self.hrrr_y,
+                    "hrrr_x": self.hrrr_x,
+                }
+            ),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def input_coords(self) -> tuple[FrameSchema]:
+        """Input coordinate system specifying required DataFrame fields."""
+        return (
+            FrameSchema(
+                {
+                    "time": np.empty(0, dtype="datetime64[ns]"),
+                    "lat": np.empty(0, dtype=np.float32),
+                    "lon": np.empty(0, dtype=np.float32),
+                    "observation": np.empty(0, dtype=np.float32),
+                    "variable": np.array(self.variables, dtype=str),
+                }
+            ),
+        )
+
+    def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -224,7 +244,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         output_coords = OrderedDict(
             {
-                "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(1, "h")]),
                 "variable": np.array(self.variables),
@@ -233,22 +252,21 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self.input_coords()
+        target_input_coords = self.init_coords()[0]
 
-        handshake_dim(input_coords, "hrrr_x", 5)
-        handshake_dim(input_coords, "hrrr_y", 4)
-        handshake_dim(input_coords, "variable", 3)
+        handshake_dim(input_coords[0], "hrrr_x", 4)
+        handshake_dim(input_coords[0], "hrrr_y", 3)
+        handshake_dim(input_coords[0], "variable", 2)
         # Index coords are arbitrary as long its on the HRRR grid, so just check size
-        handshake_size(input_coords, "hrrr_y", self.lat.shape[0])
-        handshake_size(input_coords, "hrrr_x", self.lat.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
+        handshake_size(input_coords[0], "hrrr_y", self.lat.shape[0])
+        handshake_size(input_coords[0], "hrrr_x", self.lat.shape[1])
+        handshake_coords(input_coords[0], target_input_coords, "variable")
 
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
+        output_coords["time"] = input_coords[0]["time"]
         output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+            output_coords["lead_time"] + input_coords[0]["lead_time"]
         )
-        return output_coords
+        return (output_coords,)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -434,13 +452,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out.detach()
 
-    # @torch.inference_mode()
-    @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+        obs: pd.DataFrame,
+    ) -> xr.DataArray:
         """Runs prognostic model 1 step
 
         Parameters
@@ -466,50 +482,95 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "StormCast has been called without initializing the model's conditioning_data_source"
             )
 
-        # TODO: Eventually pull out interpolation into model and remove it from fetch
-        # data potentially
-        conditioning, conditioning_coords = fetch_data(
+        # Use registered buffer to track model's current device
+        device = self.device_buffer.device
+
+        c = fetch_data(
             self.conditioning_data_source,
-            time=coords["time"],
+            time=x.coords["time"].data,
             variable=self.conditioning_variables,
-            lead_time=coords["lead_time"],
-            device=x.device,
-            interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
-            interp_method="linear",
-        )
-        # ensure data dimensions in the expected order
-        conditioning_coords_ordered = OrderedDict(
-            {
-                k: conditioning_coords[k]
-                for k in ["time", "lead_time", "variable", "lat", "lon"]
-            }
-        )
-        conditioning, conditioning_coords = map_coords(
-            conditioning, conditioning_coords, conditioning_coords_ordered
+            lead_time=x.coords["lead_time"].data,
+            device=self.device_buffer.device,
+            legacy=False,
         )
 
-        # Add a batch dim
-        conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
-        conditioning_coords.update({"batch": np.empty(0)})
-        conditioning_coords.move_to_end("batch", last=False)
+        # Interpolate conditioning from regular lat/lon grid to HRRR curvilinear grid
+        if cp is not None and isinstance(c.data, cp.ndarray):
+            # GPU path: bilinear interpolation using cupy, data stays on GPU
+            with cp.cuda.Device(device.index or 0):
+                data = c.data  # cupy [time, lead_time, variable, lat, lon]
+                src_lat = c.coords["lat"].values  # numpy 1D
+                src_lon = c.coords["lon"].values  # numpy 1D
 
-        # Handshake conditioning coords
-        # TODO: ugh the interp... have to deal with this for now, no solution
-        # handshake_coords(conditioning_coords, coords, "hrrr_x")
-        # handshake_coords(conditioning_coords, coords, "hrrr_y")
-        handshake_coords(conditioning_coords, coords, "lead_time")
-        handshake_coords(conditioning_coords, coords, "time")
+                # Compute fractional indices into the regular source grid
+                target_lat_cp = cp.asarray(self.lat, dtype=cp.float64)
+                target_lon_cp = cp.asarray(self.lon, dtype=cp.float64)
+                lat_step = float(src_lat[1] - src_lat[0])
+                lon_step = float(src_lon[1] - src_lon[0])
+                lat_frac = (target_lat_cp - float(src_lat[0])) / lat_step
+                lon_frac = (target_lon_cp - float(src_lon[0])) / lon_step
 
-        output_coords = self.output_coords(coords)
+                # Floor indices and interpolation weights
+                lat0 = cp.clip(
+                    cp.floor(lat_frac).astype(cp.int64), 0, data.shape[-2] - 2
+                )
+                lon0 = cp.clip(
+                    cp.floor(lon_frac).astype(cp.int64), 0, data.shape[-1] - 2
+                )
+                lat1 = lat0 + 1
+                lon1 = lon0 + 1
+                wlat = cp.clip(lat_frac - lat0.astype(cp.float64), 0.0, 1.0)
+                wlon = cp.clip(lon_frac - lon0.astype(cp.float64), 0.0, 1.0)
 
-        for i, _ in enumerate(coords["batch"]):
-            for j, _ in enumerate(coords["time"]):
-                for k, _ in enumerate(coords["lead_time"]):
-                    x[i, j, k : k + 1] = self._forward(
-                        x[i, j, k : k + 1], conditioning[i, j, k : k + 1]
-                    )
+                # Bilinear interpolation (fully vectorized over leading dims)
+                interp_data = (
+                    data[..., lat0, lon0] * (1 - wlat) * (1 - wlon)
+                    + data[..., lat0, lon1] * (1 - wlat) * wlon
+                    + data[..., lat1, lon0] * wlat * (1 - wlon)
+                    + data[..., lat1, lon1] * wlat * wlon
+                )
 
-        return x, output_coords
+            c = xr.DataArray(
+                data=interp_data,
+                dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+                coords={
+                    "time": c.coords["time"],
+                    "lead_time": c.coords["lead_time"],
+                    "variable": c.coords["variable"],
+                    "hrrr_y": self.hrrr_y,
+                    "hrrr_x": self.hrrr_x,
+                    "lat": (["hrrr_y", "hrrr_x"], self.lat),
+                    "lon": (["hrrr_y", "hrrr_x"], self.lon),
+                },
+            )
+        else:
+            # CPU path: use xarray's built-in interpolation
+            target_lat = xr.DataArray(self.lat, dims=["hrrr_y", "hrrr_x"])
+            target_lon = xr.DataArray(self.lon, dims=["hrrr_y", "hrrr_x"])
+            c = c.interp(lat=target_lat, lon=target_lon, method="linear")
+            c = c.assign_coords(
+                hrrr_y=("hrrr_y", self.hrrr_y),
+                hrrr_x=("hrrr_x", self.hrrr_x),
+                lat=(["hrrr_y", "hrrr_x"], self.lat),
+                lon=(["hrrr_y", "hrrr_x"], self.lon),
+            )
+
+        # Handshake conditioning coords, need to write some methods
+        # Should use the coords of the data array x, eventually
+        output_coords = self.output_coords(self.init_coords())
+
+        # Zero copy from cupy / numpy
+        x_tensor = torch.as_tensor(x.data)
+        c_tensor = torch.as_tensor(c.data)
+
+        # No batch dims at the moment
+        for j, _ in enumerate(x.coords["time"].data):
+            for k, _ in enumerate(x.coords["lead_time"].data):
+                x_tensor[j, k : k + 1] = self._forward(
+                    x_tensor[j, k : k + 1].data, c_tensor[j, k : k + 1].data
+                )
+
+        return x_tensor, output_coords
 
 
 if __name__ == "__main__":
@@ -523,18 +584,17 @@ if __name__ == "__main__":
     model = model.to("cuda")
 
     data = HRRR(verbose=False)
-    x, coords = fetch_data(
+    x = fetch_data(
         data,
         np.array(["2024-01-01"], dtype=np.datetime64),
-        model.input_coords()["variable"],
+        model.input_coords()[0]["variable"],
         device="cuda",
+        legacy=False,
     )
-    del coords["lat"]
-    del coords["lon"]
 
-    x, coords = map_coords(x, coords, model.input_coords())
+    x = map_coords_xr(x, model.init_coords()[0])
 
-    out, out_coords = model(x, coords)
+    out, _ = model(x, None)
 
     # Load stormcast_original.pt
     torch.save(out, "stormcast.pt")

@@ -100,6 +100,23 @@ class AssimilationModel(Protocol):
         """
         pass
 
+    def init_coords(self) -> tuple[FrameSchema | CoordSystem, ...] | None:
+        """Initialization coordinate system required by the assimilation model.
+
+        Specifies the coordinate system(s) for initial state data that must be provided
+        before the model can process observations. The returned coordinate systems should
+        match the expected input format for the first argument(s) passed to ``__call__``
+        or sent to ``create_generator`` when initializing the model state.
+
+        Returns
+        -------
+        tuple[FrameSchema | CoordSystem, ...] | None
+            Tuple of coordinate systems or frame schemas defining the structure of
+            required initialization data. Returns ``None`` if the model does not require
+            initialization data (e.g., stateless models).
+        """
+        pass
+
     def input_coords(self) -> tuple[FrameSchema | CoordSystem, ...]:
         """Input coordinate system of assimilation model.
 

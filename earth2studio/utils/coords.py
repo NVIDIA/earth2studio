@@ -14,12 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections import OrderedDict
 from copy import deepcopy
 from typing import Literal
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.utils.type import CoordSystem
 
@@ -309,6 +311,145 @@ def map_coords(
     # TODO: Remove this when proper support for dim
     mapped_coords = OrderedDict(list(mapped_coords.items())[: x.ndim])
     return x, mapped_coords
+
+
+def map_coords_xr(
+    x: xr.DataArray,
+    output_coords: CoordSystem,
+    method: Literal["nearest"] = "nearest",
+) -> xr.DataArray:
+    """Map xarray DataArray to target coordinate system using selection or interpolation.
+
+    Maps an input DataArray to match the coordinates specified in output_coords by
+    selecting or interpolating along dimensions. Supports both numpy and cupy-backed
+    DataArrays. Empty coordinate arrays are ignored, and warnings are issued for
+    missing coordinate keys.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Input DataArray to map. May be backed by numpy or cupy arrays.
+    output_coords : CoordSystem
+        Target coordinate system containing a subset of coordinates present in x.
+        Dimensions not in output_coords are preserved from the input.
+    method : Literal["nearest"], optional
+        Interpolation method for numeric coordinates, by default "nearest"
+
+    Returns
+    -------
+    xr.DataArray
+        Mapped DataArray with coordinates matching output_coords where specified.
+        Preserves all dimensions and coordinates not specified in output_coords.
+
+    Raises
+    ------
+    KeyError
+        If output coordinate dimension is not found in input DataArray
+    ValueError
+        If non-numeric coordinate values are not present in input coordinates
+        If interpolation method is not supported
+    """
+    result = x.copy()
+
+    # Build selection/interpolation dictionary
+    sel_dict = {}
+    interp_dict = {}
+
+    for key, value in output_coords.items():
+        # Ignore batch dimension
+        if key == "batch":
+            continue
+
+        # Skip empty arrays (free coordinate system)
+        if len(value) == 0:
+            continue
+
+        # Check if dimension exists in input
+        if key not in result.dims and key not in result.coords:
+            warnings.warn(
+                f"Coordinate key '{key}' not found in input DataArray. "
+                f"Available dims: {list(result.dims)}, "
+                f"Available coords: {list(result.coords.keys())}"
+            )
+            continue
+
+        # Get coordinate values from input DataArray
+        if key in result.coords:
+            coord_values = result.coords[key]
+        elif key in result.dims:
+            coord_values = result[key]
+        else:
+            continue  # Should not happen due to check above
+
+        coord_array = (
+            coord_values.values if hasattr(coord_values, "values") else coord_values
+        )
+
+        # Check if coordinate types are compatible
+        # Check for datetime/timedelta first (these are not numeric for comparison purposes)
+        is_datetime = np.issubdtype(value.dtype, np.datetime64) or np.issubdtype(
+            coord_array.dtype, np.datetime64
+        )
+        is_timedelta = np.issubdtype(value.dtype, np.timedelta64) or np.issubdtype(
+            coord_array.dtype, np.timedelta64
+        )
+        # Only treat as numeric if both are numeric AND neither is datetime/timedelta
+        is_numeric = (
+            not is_datetime
+            and not is_timedelta
+            and np.issubdtype(value.dtype, np.number)
+            and np.issubdtype(coord_array.dtype, np.number)
+        )
+
+        # Check if all output values are in input (exact match)
+        if is_numeric:
+            # Numeric coordinate: check if values match exactly
+            if len(value) == len(coord_array) and np.allclose(
+                value, coord_array, equal_nan=True
+            ):
+                continue  # No change needed, exact match
+
+            # Check if all values are present in input (can use selection)
+            if np.all(np.isin(value, coord_array)):
+                sel_dict[key] = value
+            else:
+                # Need interpolation for values not in input
+                # xarray's interp uses coordinate names and handles dimension mapping
+                interp_dict[key] = xr.DataArray(value, dims=[key])
+        elif is_datetime or is_timedelta:
+            # Datetime/timedelta coordinate: use direct equality comparison
+            if len(value) == len(coord_array) and np.array_equal(value, coord_array):
+                continue  # No change needed, exact match
+
+            # Check if all values are present in input (can use selection)
+            if np.all(np.isin(value, coord_array)):
+                sel_dict[key] = value
+            else:
+                # Need interpolation for datetime/timedelta values not in input
+                # xarray's interp uses coordinate names and handles dimension mapping
+                interp_dict[key] = xr.DataArray(value, dims=[key])
+        else:
+            # Non-numeric coordinate: must use selection, all values must be present
+            if not np.all(np.isin(value, coord_array)):
+                raise ValueError(
+                    f"For non-numeric coordinate '{key}', all values of output coords "
+                    f"must be in the input coordinates. Some elements of {value} are "
+                    f"not in {coord_array}."
+                )
+            sel_dict[key] = value
+
+    # Apply selection first (exact matches)
+    if sel_dict:
+        result = result.sel(sel_dict)
+
+    # Apply interpolation for numeric coordinates
+    if interp_dict:
+        if method == "nearest":
+            result = result.interp(interp_dict, method="nearest")
+        else:
+            raise ValueError(f"Interpolation method '{method}' not supported")
+
+    return result
 
 
 def split_coords(
