@@ -152,6 +152,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
         by default np.timedelta64(30, "m")
+    sda_std_y : float, optional
+        Observation noise standard deviation for DPS guidance, by default 0.4
+    sda_gamma : float, optional
+        SDA scaling factor for DPS guidance, by default 0.01
     """
 
     def __init__(
@@ -170,6 +174,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] = {},
         tolerance: TimeTolerance = np.timedelta64(30, "m"),
+        sda_std_y: float = 0.4,
+        sda_gamma: float = 0.01,
     ):
         super().__init__()
         self.regression_model = regression_model
@@ -180,6 +186,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_args = sampler_args
         self._tolerance = normalize_time_tolerance(tolerance)
+        self.sda_std_y = sda_std_y
+        self.sda_dps_norm = 2
+        self.sda_gamma = sda_gamma
 
         hrrr_lat, hrrr_lon = HRRR.grid()
         self.lat = hrrr_lat[
@@ -269,9 +278,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : tuple[CoordSystem]
+            Coordinates of tensor used to initialize the forecast model.
 
         Returns
         -------
@@ -429,7 +437,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
         latents = torch.randn_like(x, dtype=torch.float64)
-        self.sampler_args["sigma_max"] = 100
         latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
         class _CondtionalDiffusionWrapper(torch.nn.Module):
@@ -450,9 +457,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         guidance = DataConsistencyDPSGuidance(
             mask=mask,
             y=y_obs,
-            std_y=0.2,
-            norm=2,  # L2 norm
-            gamma=0.1,  # Enable SDA scaling
+            std_y=self.sda_std_y,
+            norm=self.sda_dps_norm,
+            gamma=self.sda_gamma,
             sigma_fn=scheduler.sigma,
             alpha_fn=scheduler.alpha,
         )
@@ -462,11 +469,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             guidances=guidance,
         )
         denoiser = scheduler.get_denoiser(score_predictor=score_predictor)
-
-        # Original
-        # denoiser = scheduler.get_denoiser(
-        #     x0_predictor=_CondtionalDiffusionWrapper(self.diffusion_model, condition)
-        # )
 
         edm_out = sample(
             denoiser,
@@ -797,7 +799,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Example
         -------
         >>> gen = model.create_generator(x0)
-        >>> state = next(gen)           # prime, yields None
+        >>> gen.send(None)           # prime, yields None
         >>> state = gen.send(obs_df)    # step 1 with observations
         >>> state = gen.send(None)      # step 2 without observations
         """
@@ -880,7 +882,7 @@ if __name__ == "__main__":
 
     obs_vars = rng.choice(["u10m", "v10m", "t2m"], size=n_obs)
     obs_vals = rng.normal(
-        loc=[280.0 if v == "t2m" else 0.0 for v in obs_vars], scale=5.0
+        loc=[280.0 if v == "t2m" else 0.0 for v in obs_vars], scale=3.0
     )
 
     obs_df = pd.DataFrame(
@@ -892,6 +894,7 @@ if __name__ == "__main__":
             "observation": obs_vals.astype(np.float32),
         }
     )
+    print(obs_df)
     obs_df.attrs = {"request_time": np.array(["2024-01-01"], dtype="datetime64[ns]")}
 
     out = model(x, obs_df)

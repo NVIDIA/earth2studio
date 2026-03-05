@@ -35,7 +35,7 @@ class AssimilationModel(Protocol):
 
     def __call__(
         self,
-        *args: pd.DataFrame | xr.DataArray,
+        *args: pd.DataFrame | xr.DataArray | None,
     ) -> tuple[pd.DataFrame | xr.DataArray, ...]:
         """Stateless iteration for the data assimilation model.
 
@@ -45,10 +45,11 @@ class AssimilationModel(Protocol):
 
         Parameters
         ----------
-        *args : pd.DataFrame | xr.DataArray
+        *args : pd.DataFrame | xr.DataArray | None
             Variable number of observation arguments. Each argument can be a
             DataFrame (pandas or cudf DataFrame) or xarray DataArray
-            containing observation data.
+            containing observation data. None can be passed for optional
+            arguments when no input data is available.
 
         Returns
         -------
@@ -60,9 +61,10 @@ class AssimilationModel(Protocol):
 
     def create_generator(
         self,
+        *args: pd.DataFrame | xr.DataArray,
     ) -> Generator[
         tuple[pd.DataFrame | xr.DataArray, ...],
-        tuple[pd.DataFrame | xr.DataArray, ...],
+        tuple[pd.DataFrame | xr.DataArray | None, ...],
         None,
     ]:
         """Creates a generator which accepts collection of input observations and
@@ -73,6 +75,13 @@ class AssimilationModel(Protocol):
         method and yields assimilated data (DataFrame or DataArray) as output.
         Supports any number of arguments (variadic).
 
+        Parameters
+        ----------
+        *args : pd.DataFrame | xr.DataArray
+            Variable number of initialization arguments, if any are required by
+            the model. Each argument can be a DataFrame (pandas or cudf
+            DataFrame) or xarray DataArray containing initial state data.
+
         Yields
         ------
         tuple[pd.DataFrame | xr.DataArray, ...]
@@ -82,11 +91,12 @@ class AssimilationModel(Protocol):
 
         Receives
         --------
-        tuple[pd.DataFrame | xr.DataArray, ...]
+        tuple[pd.DataFrame | xr.DataArray | None, ...]
             Observations sent via generator.send() as multiple arguments. Each
             argument can be a DataFrame (PyArrow Table or cudf DataFrame) or xarray
-            DataArray. None is sent initially to start the generator. Supports any
-            number of arguments.
+            DataArray. None is sent initially to start the generator and can also be
+            sent for iterations where no input data is available. Supports any number
+            of arguments.
 
         Examples
         --------
