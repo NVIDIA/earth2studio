@@ -238,6 +238,7 @@ class CorrelatedSphericalGaussian:
 - Use periods for complete sentences, omit for "by default" phrases
 - Include `Raises` section when exceptions are raised
 - Include `Warning` section for classes with important warnings
+- Do not put doc strings at the top of python files, only license headers should be above imports
 
 ## Tools
 
