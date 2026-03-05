@@ -799,7 +799,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Example
         -------
         >>> gen = model.create_generator(x0)
-        >>> gen.send(None)           # prime, yields None
+        >>> state = next(gen)           # yields initial state x0
         >>> state = gen.send(obs_df)    # step 1 with observations
         >>> state = gen.send(None)      # step 2 without observations
         """
@@ -809,10 +809,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "conditioning_data_source"
             )
 
-        device = self.device
-
-        # Prime the generator — yield None, receive first observations
-        obs = yield None  # type: ignore[misc]
+        # Yield the initial state so the caller can inspect it
+        obs = yield x
 
         try:
             while True:
@@ -829,7 +827,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
                 # Run forward with observations
                 for j, t in enumerate(x.coords["time"].data):
-                    y_obs, mask = self._build_obs_tensors(obs, t, device)
+                    y_obs, mask = self._build_obs_tensors(obs, t, self.device)
                     for k, _ in enumerate(x.coords["lead_time"].data):
                         x_tensor[j, k : k + 1] = self._forward(
                             x_tensor[j, k : k + 1],
@@ -841,12 +839,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 # Build output DataArray and use as next input
                 x = self._to_output_dataarray(x_tensor, output_coords)
 
-                # Yield result and wait for next observations
+                # Yield forecast result and wait for next observations
                 obs = yield x
 
         except GeneratorExit:
             logger.info("StormCast SDA clean up")
-            pass
 
 
 if __name__ == "__main__":
