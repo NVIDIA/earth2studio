@@ -175,7 +175,9 @@ class MSCObjectStorage(ObjectStorage):
     - AWS_SESSION_TOKEN (optional)
     - AWS_DEFAULT_REGION
 
-    For Azure, credentials can be provided via connection string or account name/key.
+    For Azure, credentials can be provided via:
+    - Connection string (AzureCredentials): Provide azure_connection_string
+    - Managed Identity (DefaultAzureCredentials): Omit azure_connection_string and provide endpoint_url or azure_account_name
 
     See: https://nvidia.github.io/multi-storage-client/user_guide/rust.html
     """
@@ -213,7 +215,7 @@ class MSCObjectStorage(ObjectStorage):
             access_key_id: AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
             secret_access_key: AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
             session_token: AWS session token for temporary credentials.
-            endpoint_url: Custom endpoint URL (for S3-compatible services).
+            endpoint_url: Custom endpoint URL (for S3-compatible services or Azure Blob Storage).
             use_transfer_acceleration: Enable S3 Transfer Acceleration (bucket must have it enabled).
             max_concurrency: Maximum number of concurrent transfers (default: 16).
             multipart_chunksize: Chunk size for multipart uploads in bytes (default: 8MB).
@@ -222,10 +224,16 @@ class MSCObjectStorage(ObjectStorage):
             cloudfront_domain: CloudFront distribution domain for signed URLs.
             cloudfront_key_pair_id: CloudFront key pair ID for signed URLs.
             cloudfront_private_key: PEM private key content as string.
-            azure_connection_string: Azure connection string.
-            azure_account_name: Azure storage account name.
+            azure_connection_string: Azure connection string (optional if using managed identity).
+            azure_account_name: Azure storage account name (required if using managed identity without endpoint_url).
             azure_account_key: Azure storage account key (optional for SAS token generation).
             azure_container_name: Azure container name.
+
+        Note:
+            For Azure with managed identity (DefaultAzureCredentials):
+            - Omit azure_connection_string to use managed identity
+            - Provide endpoint_url or azure_account_name to determine the storage endpoint
+            - Example: endpoint_url="https://account.blob.core.windows.net"
         """
         self.storage_type = storage_type
         self.bucket = bucket
@@ -267,34 +275,48 @@ class MSCObjectStorage(ObjectStorage):
 
         # Azure-specific configuration
         elif storage_type == "azure":
-            # Connection string is mandatory for Azure
-            if not azure_connection_string:
-                raise ObjectStorageError(
-                    "Azure connection string is required. "
-                    "Please provide azure_connection_string."
-                )
-
             self.azure_container_name = azure_container_name or bucket
             self.azure_account_key = azure_account_key
 
-            # Set Azure connection string
-            os.environ["AZURE_CONNECTION_STRING"] = azure_connection_string
+            # Determine if using managed identity (DefaultAzureCredentials)
+            # Managed identity is used when connection string is not provided
+            self.use_managed_identity = azure_connection_string is None
 
-            # Extract account name from connection string if not provided directly
-            if not azure_account_name:
-                self.azure_account_name = None
-                # Connection string format: DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...
-                for part in azure_connection_string.split(";"):
-                    if part.startswith("AccountName="):
-                        self.azure_account_name = part.split("=", 1)[1]
-                        break
-                if not self.azure_account_name:
-                    raise ObjectStorageError(
-                        "Could not extract account name from connection string. "
-                        "Please provide azure_account_name directly or ensure connection string contains AccountName."
-                    )
-            else:
+            if self.use_managed_identity:
+                # Using managed identity - connection string not needed
+                logger.info(
+                    "Using Azure Managed Identity (DefaultAzureCredentials). "
+                    f"Account: {azure_account_name or 'will be determined from endpoint'}, "
+                    f"Container: {self.azure_container_name}"
+                )
                 self.azure_account_name = azure_account_name
+            else:
+                # Using connection string authentication
+                # At this point, azure_connection_string is guaranteed to be not None
+                # (since use_managed_identity is False only when azure_connection_string is not None)
+                if azure_connection_string is None:
+                    raise ObjectStorageError(
+                        "Connection string required for non-managed identity mode"
+                    )
+
+                # Set Azure connection string
+                os.environ["AZURE_CONNECTION_STRING"] = azure_connection_string
+
+                # Extract account name from connection string if not provided directly
+                if not azure_account_name:
+                    self.azure_account_name = None
+                    # Connection string format: DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...
+                    for part in azure_connection_string.split(";"):
+                        if part.startswith("AccountName="):
+                            self.azure_account_name = part.split("=", 1)[1]
+                            break
+                    if not self.azure_account_name:
+                        raise ObjectStorageError(
+                            "Could not extract account name from connection string. "
+                            "Please provide azure_account_name directly or ensure connection string contains AccountName."
+                        )
+                else:
+                    self.azure_account_name = azure_account_name
         else:
             raise ValueError(
                 f"Unsupported storage_type: {storage_type}. Must be 's3' or 'azure'."
@@ -346,11 +368,14 @@ class MSCObjectStorage(ObjectStorage):
             }
         elif storage_type == "azure":
             # Build the Azure storage provider options
-            # Derive endpoint URL from connection string or account name
+            # Derive endpoint URL from endpoint_url parameter, connection string, or account name
             azure_endpoint_url = None
 
-            # First, try to extract BlobEndpoint directly from connection string
-            if azure_connection_string:
+            # First, check if endpoint_url was provided directly (for managed identity or custom endpoints)
+            if endpoint_url:
+                azure_endpoint_url = endpoint_url.rstrip("/")
+            # Then, try to extract BlobEndpoint directly from connection string
+            elif azure_connection_string:
                 for part in azure_connection_string.split(";"):
                     if part.startswith("BlobEndpoint="):
                         azure_endpoint_url = part.split("=", 1)[1].rstrip("/")
@@ -376,11 +401,14 @@ class MSCObjectStorage(ObjectStorage):
                 if not account_name:
                     raise ObjectStorageError(
                         "Azure endpoint_url cannot be determined. "
-                        "Please provide azure_connection_string (with AccountName or BlobEndpoint) "
+                        "Please provide endpoint_url, azure_connection_string (with AccountName or BlobEndpoint), "
                         "or azure_account_name."
                     )
 
                 azure_endpoint_url = f"https://{account_name}.blob.{endpoint_suffix}"
+                logger.info(
+                    f"Constructed Azure endpoint URL from account name: {azure_endpoint_url}"
+                )
 
             azure_storage_provider_options = {
                 "base_path": self.azure_container_name,
@@ -399,8 +427,17 @@ class MSCObjectStorage(ObjectStorage):
                 }
             }
 
-            # Add Azure credentials provider if connection string is provided
-            if azure_connection_string:
+            # Add Azure credentials provider
+            if self.use_managed_identity:
+                # Use DefaultAzureCredentials for managed identity
+                profile_config["profiles"][self.profile_name][
+                    "credentials_provider"
+                ] = {
+                    "type": "DefaultAzureCredentials",
+                    "options": {},
+                }
+            elif azure_connection_string:
+                # Use AzureCredentials with connection string
                 profile_config["profiles"][self.profile_name][
                     "credentials_provider"
                 ] = {

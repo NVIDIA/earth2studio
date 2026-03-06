@@ -436,6 +436,9 @@ class ConfigManager:
             self._config.object_storage.azure_container_name = os.getenv(
                 "AZURE_CONTAINER_NAME"
             )
+        # Support AZURE_ENDPOINT_URL for managed identity scenarios
+        if os.getenv("AZURE_ENDPOINT_URL"):
+            self._config.object_storage.endpoint_url = os.getenv("AZURE_ENDPOINT_URL")
 
         # Workflow exposure overrides
         if os.getenv("EXPOSED_WORKFLOWS"):

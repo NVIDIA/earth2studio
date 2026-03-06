@@ -343,6 +343,22 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-identity"
+version = "1.25.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "cryptography" },
+    { name = "msal" },
+    { name = "msal-extensions" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/3a/439a32a5e23e45f6a91f0405949dc66cfe6834aba15a430aebfc063a81e7/azure_identity-1.25.2.tar.gz", hash = "sha256:030dbaa720266c796221c6cdbd1999b408c079032c919fef725fcc348a540fe9", size = 284709 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/77/f658c76f9e9a52c784bd836aaca6fd5b9aae176f1f53273e758a2bcda695/azure_identity-1.25.2-py3-none-any.whl", hash = "sha256:1b40060553d01a72ba0d708b9a46d0f61f56312e215d8896d836653ffdc6753d", size = 191423 },
+]
+
+[[package]]
 name = "azure-storage-blob"
 version = "12.28.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1874,6 +1890,7 @@ precip-afno-v2 = [
 ]
 serve = [
     { name = "aiofiles" },
+    { name = "azure-identity" },
     { name = "azure-storage-blob" },
     { name = "cryptography" },
     { name = "fastapi" },
@@ -1979,6 +1996,7 @@ requires-dist = [
     { name = "anemoi-models", marker = "extra == 'aifs'", specifier = "==0.5.1" },
     { name = "anemoi-models", marker = "extra == 'aifsens'", specifier = "==0.5.1" },
     { name = "anemoi-models", marker = "extra == 'all'", specifier = "==0.5.1" },
+    { name = "azure-identity", marker = "extra == 'serve'", specifier = ">=1.15.0" },
     { name = "azure-storage-blob", marker = "extra == 'serve'", specifier = ">=12.19.0" },
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NVlabs/cBottle.git?rev=1d4435abe730d6b966e983633b466b345d60ac78" },
     { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NVlabs/cBottle.git?rev=1d4435abe730d6b966e983633b466b345d60ac78" },
@@ -4396,6 +4414,32 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e0/47/dd32fa426cc72114383ac549964eecb20ecfd886d1e5ccf5340b55b02f57/mpmath-1.3.0.tar.gz", hash = "sha256:7a28eb2a9774d00c7bc92411c19a89209d5da7c4c9a9e227be8330a23a25b91f", size = 508106 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl", hash = "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c", size = 536198 },
+]
+
+[[package]]
+name = "msal"
+version = "1.35.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/aa/5a646093ac218e4a329391d5a31e5092a89db7d2ef1637a90b82cd0b6f94/msal-1.35.1.tar.gz", hash = "sha256:70cac18ab80a053bff86219ba64cfe3da1f307c74b009e2da57ef040eb1b5656", size = 165658 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/86/16815fddf056ca998853c6dc525397edf0b43559bb4073a80d2bc7fe8009/msal-1.35.1-py3-none-any.whl", hash = "sha256:8f4e82f34b10c19e326ec69f44dc6b30171f2f7098f3720ea8a9f0c11832caa3", size = 119909 },
+]
+
+[[package]]
+name = "msal-extensions"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "msal" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/01/99/5d239b6156eddf761a636bded1118414d161bd6b7b37a9335549ed159396/msal_extensions-1.3.1.tar.gz", hash = "sha256:c5b0fd10f65ef62b5f1d62f4251d51cbcaf003fcedae8c91b040a488614be1a4", size = 23315 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/75/bd9b7bb966668920f06b200e84454c8f3566b102183bc55c5473d96cb2b9/msal_extensions-1.3.1-py3-none-any.whl", hash = "sha256:96d3de4d034504e969ac5e85bae8106c8373b5c6568e4c8fa7af2eca9dbe6bca", size = 20583 },
 ]
 
 [[package]]

@@ -32,7 +32,8 @@ cryptography>=41.0.0
 multi-storage-client[azure-storage-blob]
 # Azure Blob Storage for SAS token generation
 azure-storage-blob>=12.19.0
-azure-identity
+# Azure Identity for managed identity authentication
+azure-identity>=1.15.0
 
 # Development dependencies
 pytest>=7.0.0

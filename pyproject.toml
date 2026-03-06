@@ -107,6 +107,7 @@ serve = [
     "cryptography>=41.0.0",
     "multi-storage-client[azure-storage-blob]",
     "azure-storage-blob>=12.19.0",
+    "azure-identity>=1.15.0",
 ]
 # PX Models
 ace2 = [

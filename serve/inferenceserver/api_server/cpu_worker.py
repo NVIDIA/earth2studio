@@ -639,6 +639,9 @@ def process_object_storage_upload(
                     storage_kwargs["azure_container_name"] = (
                         config.object_storage.azure_container_name
                     )
+                # Support endpoint_url for Azure (useful for managed identity)
+                if config.object_storage.endpoint_url:
+                    storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
 
             try:
                 storage = MSCObjectStorage(**storage_kwargs)
