@@ -57,16 +57,12 @@ try:
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
     from physicsnemo.diffusion.samplers import sample
-    from physicsnemo.diffusion.samplers.legacy_deterministic_sampler import (
-        deterministic_sampler,
-    )
     from physicsnemo.models.diffusion_unets import StormCastUNet
 except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
     EDMPreconditioner = None
     OmegaConf = None
-    deterministic_sampler = None
 
 
 # Variables used in StormCastV1 paper
