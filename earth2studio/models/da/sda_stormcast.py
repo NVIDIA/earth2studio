@@ -150,7 +150,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         window around each requested time will be used for data assimilation,
         by default np.timedelta64(30, "m")
     sda_std_y : float, optional
-        Observation noise standard deviation for DPS guidance, by default 0.4
+        Observation noise standard deviation for DPS guidance, by default 0.5
     sda_gamma : float, optional
         SDA scaling factor for DPS guidance, by default 0.01
     """
@@ -171,7 +171,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] = {},
         time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
-        sda_std_y: float = 0.4,
+        sda_std_y: float = 0.5,
         sda_gamma: float = 0.01,
     ):
         super().__init__()
@@ -328,7 +328,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
-        sda_std_y: float = 0.4,
+        sda_std_y: float = 0.5,
         sda_gamma: float = 0.01,
     ) -> AssimilationModel:
         """Load prognostic from package
@@ -767,8 +767,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         c_tensor = torch.as_tensor(c.data)
 
         for j, t in enumerate(x.coords["time"].data):
-            y_obs, mask = self._build_obs_tensors(obs, t, device)
             for k, _ in enumerate(x.coords["lead_time"].data):
+                obs_time = t + output_coords[0]["lead_time"][0]
+                y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
                 x_tensor[j, k : k + 1] = self._forward(
                     x_tensor[j, k : k + 1], c_tensor[j, k : k + 1], y_obs, mask
                 )
@@ -832,8 +833,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
                 # Run forward with observations
                 for j, t in enumerate(x.coords["time"].data):
-                    y_obs, mask = self._build_obs_tensors(obs, t, self.device)
                     for k, _ in enumerate(x.coords["lead_time"].data):
+                        obs_time = t + output_coords[0]["lead_time"][0]
+                        y_obs, mask = self._build_obs_tensors(
+                            obs, obs_time, self.device
+                        )
                         x_tensor[j, k : k + 1] = self._forward(
                             x_tensor[j, k : k + 1],
                             c_tensor[j, k : k + 1],
