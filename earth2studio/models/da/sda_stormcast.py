@@ -149,7 +149,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
-    tolerance : TimeTolerance, optional
+    time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
         by default np.timedelta64(30, "m")
@@ -174,7 +174,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] = {},
-        tolerance: TimeTolerance = np.timedelta64(30, "m"),
+        time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
         sda_std_y: float = 0.4,
         sda_gamma: float = 0.01,
     ):
@@ -186,7 +186,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("invariants", invariants)
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_args = sampler_args
-        self._tolerance = normalize_time_tolerance(tolerance)
+        self._tolerance = normalize_time_tolerance(time_tolerance)
         self.sda_std_y = sda_std_y
         self.sda_dps_norm = 2
         self.sda_gamma = sda_gamma

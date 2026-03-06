@@ -62,7 +62,7 @@ class InterpEquirectangular(torch.nn.Module):
         grid over CONUS)
     interp_method : str, optional
         Interpolation method to use: 'nearest' or 'smolyak', by default "smolyak"
-    tolerance : TimeTolerance, optional
+    time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for interpolation, by default
         np.timedelta64(10, "m")
@@ -81,7 +81,7 @@ class InterpEquirectangular(torch.nn.Module):
         lat: np.ndarray | None = None,
         lon: np.ndarray | None = None,
         interp_method: str = "smolyak",
-        tolerance: TimeTolerance = np.timedelta64(10, "m"),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
     ) -> None:
         if interp_method not in ["nearest", "smolyak"]:
             raise ValueError(
@@ -96,7 +96,7 @@ class InterpEquirectangular(torch.nn.Module):
             lon if lon is not None else np.linspace(235.0, 295.0, 241, dtype=np.float32)
         )
         self.interp_method = interp_method
-        self._tolerance = normalize_time_tolerance(tolerance)
+        self._tolerance = normalize_time_tolerance(time_tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
     def init_coords(self) -> None:
