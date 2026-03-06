@@ -28,9 +28,8 @@ from loguru import logger
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
+from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import filter_time_range
-from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -99,16 +98,18 @@ INVARIANTS = ["lsm", "orography"]
 
 
 @check_optional_dependencies()
-class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """StormCast generative convection-allowing model for regional forecasts consists of
-    two core models: a regression and diffusion model. Model time step size is 1 hour,
-    taking as input:
+class StormCastSDA(torch.nn.Module, AutoModelMixin):
+    """StormCast with score-based data assimilation (SDA) using diffusion posterior
+    sampling for convection-allowing regional forecasts. Combines a regression and
+    diffusion model with DPS guidance to assimilate observations during inference.
+    Model time step size is 1 hour, taking as input:
 
     - High-resolution (3km) HRRR state over the central United States (99 vars)
     - High-resolution land-sea mask and orography invariants
     - Coarse resolution (25km) global state (26 vars)
+    - Point observations for data assimilation
 
-    The high-resolution grid is the HRRR Lambert conformal projection
+    The high-resolution grid is the HRRR Lambert conformal projection.
     Coarse-resolution inputs are regridded to the HRRR grid internally.
 
     Note
@@ -117,6 +118,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2408.10958
     - https://huggingface.co/nvidia/stormcast-v1-era5-hrrr
+    - https://arxiv.org/abs/2306.10574
 
     Parameters
     ----------
@@ -331,7 +333,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
-    ) -> DiagnosticModel:
+        sda_std_y: float = 0.4,
+        sda_gamma: float = 0.01,
+    ) -> AssimilationModel:
         """Load prognostic from package
 
         Parameters
@@ -340,6 +344,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Package to load model from
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
+        sda_std_y : float, optional
+            Observation noise standard deviation for DPS guidance, by default 0.4
+        sda_gamma : float, optional
+            SDA scaling factor for DPS guidance, by default 0.01
 
         Returns
         -------
@@ -409,9 +417,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_args=sampler_args,
+            sda_std_y=sda_std_y,
+            sda_gamma=sda_gamma,
         )
 
-    # @torch.inference_mode()
+    @torch.no_grad()
     def _forward(
         self,
         x: torch.Tensor,
@@ -487,7 +497,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out += edm_out
         out = out * self.stds + self.means
 
-        return out.detach()
+        return out
 
     @staticmethod
     def _points_in_polygon(points: np.ndarray, polygon: np.ndarray) -> np.ndarray:
@@ -852,8 +862,8 @@ if __name__ == "__main__":
     torch.manual_seed(42)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(42)
-    package = StormCast.load_default_package()
-    model = StormCast.load_model(package)
+    package = StormCastSDA.load_default_package()
+    model = StormCastSDA.load_model(package)
     model = model.to("cuda")
 
     data = HRRR(verbose=False)
