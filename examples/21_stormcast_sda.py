@@ -344,5 +344,4 @@ fig.colorbar(im0, ax=axes[0, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
 fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
 fig.colorbar(im2, ax=axes[2, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
 
-fig.suptitle("StormCast SDA 2024-01-01 Forecast Comparison", fontsize=16, y=1.0)
 plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tight")
