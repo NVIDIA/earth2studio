@@ -33,6 +33,12 @@ import torch
 
 from earth2studio.serve.client.e2client import RemoteEarth2Workflow
 
+# /// script
+# dependencies = [
+#   "matplotlib",
+# ]
+# ///
+
 
 def main(
     plot_file: str = "t2m_plot.png",

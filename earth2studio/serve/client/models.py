@@ -14,12 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Data models and schemas for Earth2Studio API requests and responses.
-
-This module defines dataclasses and enums for inference requests, responses,
-status, and result metadata used by the Earth2Studio REST API client.
-"""
 
 import json
 from dataclasses import dataclass
@@ -96,8 +90,18 @@ class InferenceRequest:
             return obj.isoformat()
         elif isinstance(obj, timedelta):
             return obj.total_seconds()
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.datetime64):
+            return str(obj)
+        elif isinstance(obj, np.timedelta64):
+            return obj / np.timedelta64(1, "s")  # seconds as float
         else:
-            return obj
+            raise TypeError(
+                f"Object of type {type(obj).__name__} is not JSON serializable"
+            )
 
 
 @dataclass
@@ -180,7 +184,7 @@ class InferenceRequestStatus:
             execution_id=data["execution_id"],
             status=RequestStatus(data["status"]),
             progress=progress,
-            error_message=data["error_message"],
+            error_message=data.get("error_message"),
         )
 
 
@@ -275,9 +279,11 @@ class InferenceRequestResults:
             for f in self.output_files
             if (".zarr/" in f.path) or f.path.endswith(".zarr")
         }
-        zarr_paths = {path[: path.find(".zarr") + len(".zarr")] for path in zarr_paths}
+        zarr_paths_sorted = sorted(
+            {path[: path.find(".zarr") + len(".zarr")] for path in zarr_paths}
+        )
         netcdf_paths = [f.path for f in self.output_files if f.path.endswith(".nc")]
-        return list(zarr_paths) + netcdf_paths
+        return zarr_paths_sorted + netcdf_paths
 
 
 @dataclass

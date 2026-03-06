@@ -14,15 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-FSSpec mapper for signed URLs with Zarr.
 
-Creates an fsspec mapper for AWS wildcard signed URLs (e.g. CloudFront),
-enabling access to Zarr stores and other files via signed HTTP requests.
-"""
-
-import os
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import fsspec  # type: ignore[import-untyped]
@@ -83,7 +76,7 @@ class SignedURLFileSystem(fsspec.AbstractFileSystem):
         separator = "&" if "?" in full_url else "?"
         return f"{full_url}{separator}{self._query_string}"
 
-    def _handle_403(self, e: BaseException, path: str) -> None:
+    def _handle_403(self, e: BaseException, path: str) -> "NoReturn":
         """
         Convert 403 errors to FileNotFoundError; re-raise others.
 
@@ -308,22 +301,3 @@ def get_mapper(
         return None
     else:
         raise ValueError(f"Unsupported storage type: {request_result.storage_type}")
-
-
-# Usage with xarray
-if __name__ == "__main__":
-    import xarray as xr
-
-    url = os.getenv("SIGNED_URL")
-    if not url:
-        raise ValueError("SIGNED_URL environment variable is not set")
-    mapper = create_cloudfront_mapper(url, zarr_path="results.zarr")
-
-    # Try consolidated first, fall back to non-consolidated
-    try:
-        ds = xr.open_zarr(mapper, consolidated=True)
-    except (FileNotFoundError, KeyError):
-        print("Consolidated metadata not found, trying non-consolidated...")
-        ds = xr.open_zarr(mapper, consolidated=False)
-
-    print(ds)

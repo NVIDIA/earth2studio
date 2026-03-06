@@ -37,6 +37,12 @@ from earth2studio.models.px import StormCast  # type: ignore[import-untyped]
 from earth2studio.run import deterministic  # type: ignore[import-untyped]
 from earth2studio.serve.client.e2client import RemoteEarth2Workflow
 
+# /// script
+# dependencies = [
+#   "matplotlib",
+# ]
+# ///
+
 
 def main(
     plot_file: str = "downscaled_t2m_plot.png",
@@ -91,7 +97,7 @@ def main(
 
     # Extract t2m data for the specified location
     ds = io.root
-    tp = ds["t2m"].sel(hrrr_x=x, hrrr_y=y, method="nearest").values.ravel()
+    t2m = ds["t2m"].sel(hrrr_x=x, hrrr_y=y, method="nearest").values.ravel()
 
     # Extract time coordinate
     time_coord = ds["lead_time"].values.astype("timedelta64[h]")
@@ -99,7 +105,7 @@ def main(
     # Create line plot of temperature
     print(f"   Creating plot: {plot_file}")
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(time_coord, tp, marker="o", linewidth=2, markersize=6)
+    ax.plot(time_coord, t2m, marker="o", linewidth=2, markersize=6)
     ax.set_xlabel("Lead Time (h)", fontsize=12)
     ax.set_ylabel("2-meter Temperature (K)", fontsize=12)
     ax.set_title(

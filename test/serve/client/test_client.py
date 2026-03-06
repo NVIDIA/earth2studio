@@ -29,14 +29,14 @@ import requests  # type: ignore[import-untyped]
 
 from earth2studio.serve.client.client import Earth2StudioClient
 from earth2studio.serve.client.exceptions import (
+    APIConnectionError as ClientConnectionError,
+)
+from earth2studio.serve.client.exceptions import (
     BadRequestError,
     Earth2StudioAPIError,
     InferenceRequestNotFoundError,
     InternalServerError,
     RequestTimeoutError,
-)
-from earth2studio.serve.client.exceptions import (
-    ConnectionError as ClientConnectionError,
 )
 from earth2studio.serve.client.models import (
     HealthStatus,

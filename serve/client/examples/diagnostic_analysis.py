@@ -42,6 +42,12 @@ from earth2studio.utils.type import (  # type: ignore[import-untyped]
     VariableArray,
 )
 
+# /// script
+# dependencies = [
+#   "matplotlib",
+# ]
+# ///
+
 
 def main(
     plot_file: str = "tp_plot.png",
@@ -53,9 +59,11 @@ def main(
     """Run a basic deterministic forecast and save a t2m plot.
 
     Args:
-        plot_file: Path to save the temperature plot (default: 't2m_plot.png')
-        lat: Latitude for temperature extraction (default: 37.4)
-        lon: Longitude for temperature extraction (default: -122.0)
+        plot_file: Path to save the precipitation plot (default: 'tp_plot.png')
+        lat: Latitude for precipitation extraction (default: 37.4)
+        lon: Longitude for precipitation extraction (default: -122.0)
+        start_time: Start time for the forecast (default: 2025-08-21 06:00 UTC)
+        num_steps: Number of forecast time steps (default: 10)
     """
 
     # Create client (configurable via environment variable)

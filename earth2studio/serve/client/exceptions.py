@@ -14,13 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Exception classes for Earth2Studio API client.
-"""
-
 
 class Earth2StudioAPIError(Exception):
-    """Base exception for Earth2Studio API errors."""
+    """Base exception for Earth2Studio API errors.
+
+    Parameters
+    ----------
+    message : str
+        Human-readable error message.
+    status_code : int, optional
+        HTTP status code if the error came from an API response.
+    details : str, optional
+        Additional error details.
+    """
 
     def __init__(
         self,
@@ -28,18 +34,6 @@ class Earth2StudioAPIError(Exception):
         status_code: int | None = None,
         details: str | None = None,
     ):
-        """
-        Initialize the exception.
-
-        Parameters
-        ----------
-        message : str
-            Human-readable error message.
-        status_code : int, optional
-            HTTP status code if the error came from an API response.
-        details : str, optional
-            Additional error details.
-        """
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -128,7 +122,7 @@ class RequestTimeoutError(Earth2StudioAPIError):
         super().__init__(message)
 
 
-class ConnectionError(Earth2StudioAPIError):
+class APIConnectionError(Earth2StudioAPIError):
     """Exception raised when connection to the API fails."""
 
     def __init__(self, message: str = "Failed to connect to Earth2Studio API"):

@@ -14,12 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Main client class for Earth2Studio API.
-
-Provides a synchronous HTTP client for the Earth2Studio REST API, including
-health checks, inference submission, status polling, and result download.
-"""
 
 import io
 import json
@@ -32,14 +26,14 @@ from requests.adapters import HTTPAdapter  # type: ignore[import-untyped]
 from requests.packages.urllib3.util.retry import Retry  # type: ignore[import-untyped]
 
 from earth2studio.serve.client.exceptions import (
+    APIConnectionError as ClientConnectionError,
+)
+from earth2studio.serve.client.exceptions import (
     BadRequestError,
     Earth2StudioAPIError,
     InferenceRequestNotFoundError,
     InternalServerError,
     RequestTimeoutError,
-)
-from earth2studio.serve.client.exceptions import (
-    ConnectionError as ClientConnectionError,
 )
 from earth2studio.serve.client.models import (
     HealthStatus,
@@ -92,24 +86,6 @@ class Earth2StudioClient:
         retry_backoff_factor: float = 0.3,
         token: str | None = None,
     ):
-        """
-        Initialize the client with base URL, workflow name, and optional settings.
-
-        Parameters
-        ----------
-        base_url : str, optional
-            Base URL of the Earth2Studio API server.
-        workflow_name : str, optional
-            Name of the workflow to use.
-        timeout : float, optional
-            Request timeout in seconds.
-        max_retries : int, optional
-            Maximum number of retries for failed requests.
-        retry_backoff_factor : float, optional
-            Backoff factor for retries.
-        token : str, optional
-            Optional authentication token.
-        """
         self.base_url = base_url.rstrip("/")
         self.workflow_name = workflow_name
         self.timeout = timeout
@@ -176,13 +152,13 @@ class Earth2StudioClient:
         ------
         RequestTimeoutError
             If the request times out.
-        ConnectionError
+        APIConnectionError
             If the connection fails.
         Earth2StudioAPIError
             For other request failures or non-2xx responses.
         """
         url = urljoin(self.base_url + "/", endpoint.lstrip("/"))
-        timeout = timeout or self.timeout
+        timeout = self.timeout if timeout is None else timeout
         try:
             response = self.session.request(
                 method=method,
@@ -194,7 +170,7 @@ class Earth2StudioClient:
             )
         except requests.exceptions.Timeout:
             raise RequestTimeoutError(
-                f"Request to {url} timed out after {self.timeout} seconds"
+                f"Request to {url} timed out after {timeout} seconds"
             )
         except requests.exceptions.ConnectionError as e:
             raise ClientConnectionError(f"Failed to connect to {url}: {str(e)}")
@@ -431,8 +407,8 @@ class Earth2StudioClient:
             elif status.status == RequestStatus.CANCELLED:
                 raise Earth2StudioAPIError("Inference request was cancelled")
 
-            # Check timeout
-            if timeout and (time.time() - start_time) > timeout:
+            # Check timeout (timeout=0.0 means fail immediately if not complete)
+            if timeout is not None and (time.time() - start_time) > timeout:
                 raise RequestTimeoutError(
                     f"Request {request_id} did not complete within {timeout} seconds"
                 )
@@ -516,13 +492,18 @@ class Earth2StudioClient:
             if not result.signed_url:
                 raise Earth2StudioAPIError("S3 storage type requires a signed URL")
 
-            from earth2studio.serve.client.object_storage import (
+            from earth2studio.serve.client.fsspec_utils import (
                 create_cloudfront_mapper,
             )
 
             mapper = create_cloudfront_mapper(result.signed_url, zarr_path="")
             # strip out the prefix execution_id from the path
-            path = "/".join(path.split("/")[1:])
+            parts = path.split("/")
+            if len(parts) < 2:
+                raise Earth2StudioAPIError(
+                    f"Expected S3 result path to include an execution-id prefix, got: {path!r}"
+                )
+            path = "/".join(parts[1:])
             content = mapper.fs.cat_file(path)
             return io.BytesIO(content)
 

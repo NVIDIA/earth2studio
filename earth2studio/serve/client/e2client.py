@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Remote Earth2Studio workflow client and inference output model wrappers.
-
-This module provides RemoteEarth2Workflow and InferenceOutputModel for running
-inference on a remote Earth2Studio API and consuming results as datasets or
-prognostic-style iterators.
-"""
 
 from collections import OrderedDict
 from collections.abc import Iterator
@@ -28,12 +21,12 @@ from typing import Any, Literal
 from urllib.parse import urljoin
 
 import numpy as np
+import torch
 
 try:
     import aiohttp
 except ImportError:
     aiohttp = None  # type: ignore[assignment]
-import torch
 import xarray as xr
 
 from earth2studio.data import (  # type: ignore[import-untyped]
@@ -42,7 +35,7 @@ from earth2studio.data import (  # type: ignore[import-untyped]
 )
 from earth2studio.models.auto import AutoModelMixin  # type: ignore[import-untyped]
 from earth2studio.models.px.utils import PrognosticMixin  # type: ignore[import-untyped]
-from earth2studio.serve.client import object_storage
+from earth2studio.serve.client import fsspec_utils
 from earth2studio.serve.client.client import Earth2StudioClient
 from earth2studio.serve.client.exceptions import Earth2StudioAPIError
 from earth2studio.serve.client.models import (
@@ -82,22 +75,6 @@ class RemoteEarth2Workflow:
         xr_args: dict[str, Any] | None = None,
         **client_kwargs: Any,
     ) -> None:
-        """
-        Initialize the remote workflow.
-
-        Parameters
-        ----------
-        base_url : str
-            URL of the Earth2Studio API server.
-        workflow_name : str
-            Name of the workflow to execute.
-        device : str or torch.device, optional
-            Device for tensor operations.
-        xr_args : dict, optional
-            Extra arguments for xarray open functions.
-        **client_kwargs : Any
-            Passed to Earth2StudioClient.
-        """
         self.base_url = base_url
         self.client = Earth2StudioClient(
             base_url=base_url, workflow_name=workflow_name, **client_kwargs
@@ -200,6 +177,8 @@ class RemoteEarth2WorkflowResult:
         ------
         Earth2StudioAPIError
             If the request did not return any outputs.
+        ValueError
+            If the result file format is not .zarr or .nc.
         """
         request_result = self._get_result()
         result_paths = request_result.result_paths()
@@ -209,7 +188,9 @@ class RemoteEarth2WorkflowResult:
 
         if result_path.endswith(".zarr"):
             if request_result.storage_type == StorageType.S3:
-                mapper = object_storage.get_mapper(request_result, "results.zarr")
+                # Extract zarr path without execution_id prefix (first path component)
+                zarr_path = "/".join(result_path.split("/")[1:])
+                mapper = fsspec_utils.get_mapper(request_result, zarr_path)
                 ds = xr.open_zarr(mapper, consolidated=True, **self.workflow.xr_args)
             elif request_result.storage_type == StorageType.SERVER:
                 result_url = urljoin(
@@ -245,6 +226,11 @@ class RemoteEarth2WorkflowResult:
                 request_result, result_path
             )
             ds = xr.open_dataset(result_data, engine="netcdf4", **self.workflow.xr_args)
+        else:
+            raise ValueError(
+                f"Unsupported result file format: {result_path!r}. "
+                "Only .zarr and .nc are supported for as_dataset()."
+            )
 
         return ds
 
@@ -309,6 +295,11 @@ def _convert_time_to_lead_time(
     time = coords["time"]
     dims = list(coords.keys())
     time_dim = dims.index("time")
+    if "lead_time" not in dims:
+        raise ValueError(
+            "Cannot convert to lead_time: 'lead_time' coordinate not found in "
+            f"fetch_data output. Available coords: {dims}"
+        )
     lead_time_dim = dims.index("lead_time")
     lead_time = time - start_time
     coords["time"] = np.array([start_time])
@@ -485,6 +476,7 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
             (tensor, coordinate_system) for each time step in the data source.
         """
         times = self.data_source.da.coords["time"].values
+        start_time = times[0]
         for time in times:
             (x, coords) = fetch_data(
                 self.data_source,
@@ -493,7 +485,6 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
                 device=self.device,
             )
             if self.iter_coord == "lead_time":
-                start_time = self.data_source.da.coords["time"].values[0]
                 (x, coords) = _convert_time_to_lead_time(x, coords, start_time)
 
             yield (x, coords)

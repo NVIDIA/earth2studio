@@ -27,17 +27,13 @@ EARTH2STUDIO_API_URL environment variable to be set.
 """
 
 import os
-import sys
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-# Add serve/client to Python path so earth2studio.serve.client can be imported
-_client_path = Path(__file__).resolve().parent.parent.parent.parent / "serve" / "client"
-if str(_client_path) not in sys.path:
-    sys.path.insert(0, str(_client_path))
+# earth2studio.serve.client is importable because uv adds the repository
+# root to sys.path when running: uv run -m pytest test/serve/client
 
 # =============================================================================
 # Pytest Configuration
