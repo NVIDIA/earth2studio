@@ -143,14 +143,16 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
+    sampler_steps : int, optional
+        Number of diffusion sampler steps, by default 64
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
         by default np.timedelta64(30, "m")
-    sda_std_y : float, optional
-        Observation noise standard deviation for DPS guidance, by default 0.5
+    sda_std_obs : float, optional
+        Observation noise standard deviation for DPS guidance, by default 0.1
     sda_gamma : float, optional
         SDA scaling factor for DPS guidance, by default 0.01
     """
@@ -169,9 +171,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
+        sampler_steps: int = 64,
         sampler_args: dict[str, float | int] = {},
         time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
-        sda_std_y: float = 0.5,
+        sda_std_obs: float = 0.1,
         sda_gamma: float = 0.01,
     ):
         super().__init__()
@@ -181,9 +184,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("stds", stds)
         self.register_buffer("invariants", invariants)
         self.register_buffer("device_buffer", torch.empty(0))
+        self.sampler_steps = sampler_steps
         self.sampler_args = sampler_args
         self._tolerance = normalize_time_tolerance(time_tolerance)
-        self.sda_std_y = sda_std_y
+        self.sda_std_obs = sda_std_obs
         self.sda_dps_norm = 2
         self.sda_gamma = sda_gamma
 
@@ -328,7 +332,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
-        sda_std_y: float = 0.5,
+        sampler_steps: int = 64,
+        sda_std_obs: float = 0.1,
         sda_gamma: float = 0.01,
     ) -> AssimilationModel:
         """Load prognostic from package
@@ -339,8 +344,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             Package to load model from
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
-        sda_std_y : float, optional
-            Observation noise standard deviation for DPS guidance, by default 0.4
+        sampler_steps : int, optional
+            Number of diffusion sampler steps, by default 64
+        sda_std_obs : float, optional
+            Observation noise standard deviation for DPS guidance, by default 0.1
         sda_gamma : float, optional
             SDA scaling factor for DPS guidance, by default 0.01
 
@@ -411,8 +418,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             conditioning_stds=conditioning_stds,
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
+            sampler_steps=sampler_steps,
             sampler_args=sampler_args,
-            sda_std_y=sda_std_y,
+            sda_std_obs=sda_std_obs,
             sda_gamma=sda_gamma,
         )
 
@@ -432,12 +440,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             conditioning = conditioning / self.conditioning_stds
 
         x = (x - self.means) / self.stds
+        y_obs = (y_obs - self.means) / self.stds
 
         # Run regression model
         invariant_tensor = self.invariants.repeat(x.shape[0], 1, 1, 1)
         concats = torch.cat((x, conditioning, invariant_tensor), dim=1)
 
         out = self.regression_model(concats)
+        y_obs = y_obs - out  # Convert to residual obs
 
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
@@ -462,7 +472,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         guidance = DataConsistencyDPSGuidance(
             mask=mask,
             y=y_obs,
-            std_y=self.sda_std_y,
+            std_y=self.sda_std_obs,
             norm=self.sda_dps_norm,
             gamma=self.sda_gamma,
             sigma_fn=scheduler.sigma,
@@ -479,7 +489,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             denoiser,
             latents,
             noise_scheduler=scheduler,
-            num_steps=self.sampler_args["num_steps"],
+            num_steps=self.sampler_steps,
             solver="edm_stochastic_heun",
             solver_options={
                 "S_churn": self.sampler_args["S_churn"],
@@ -491,7 +501,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         out += edm_out
         out = out * self.stds + self.means
-
         return out
 
     @staticmethod
