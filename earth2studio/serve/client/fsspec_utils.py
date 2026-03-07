@@ -227,7 +227,6 @@ class SignedURLFileSystem(fsspec.AbstractFileSystem):
                 self._handle_403(e, path)
             except FileNotFoundError:
                 return False
-        return False
 
 
 def create_cloudfront_mapper(signed_url: str, zarr_path: str = "") -> Any:

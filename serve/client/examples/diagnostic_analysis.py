@@ -44,7 +44,9 @@ from earth2studio.utils.type import (  # type: ignore[import-untyped]
 
 # /// script
 # dependencies = [
-#   "matplotlib",
+#   "torch",
+#   "earth2studio[serve]>=0.9.0",
+#   "matplotlib>=3.3.0",
 # ]
 # ///
 
@@ -106,7 +108,7 @@ def main(
     # Extract time coordinate
     time_coord = ds["lead_time"].values.astype("timedelta64[h]")
 
-    # Create line plot of temperature
+    # Create line plot of total precipitation
     print(f"   Creating plot: {plot_file}")
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(time_coord, tp, marker="o", linewidth=2, markersize=6)

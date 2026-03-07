@@ -194,8 +194,11 @@ class RemoteEarth2WorkflowResult:
                 ds = xr.open_zarr(mapper, consolidated=True, **self.workflow.xr_args)
             elif request_result.storage_type == StorageType.SERVER:
                 result_url = urljoin(
-                    self.workflow.base_url,
-                    f"{self.workflow.client.result_root_path(request_result)}{result_path}",
+                    self.workflow.base_url + "/",
+                    (
+                        self.workflow.client.result_root_path(request_result)
+                        + result_path
+                    ).lstrip("/"),
                 )
                 # Pass auth token and longer timeout for HTTP requests to zarr store
                 xr_kwargs = dict(self.workflow.xr_args)

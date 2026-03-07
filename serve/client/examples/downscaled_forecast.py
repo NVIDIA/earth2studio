@@ -39,7 +39,9 @@ from earth2studio.serve.client.e2client import RemoteEarth2Workflow
 
 # /// script
 # dependencies = [
-#   "matplotlib",
+#   "torch",
+#   "earth2studio[serve]>=0.9.0",
+#   "matplotlib>=3.3.0",
 # ]
 # ///
 

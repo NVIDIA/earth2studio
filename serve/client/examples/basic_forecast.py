@@ -35,7 +35,9 @@ from earth2studio.serve.client.e2client import RemoteEarth2Workflow
 
 # /// script
 # dependencies = [
-#   "matplotlib",
+#   "torch",
+#   "earth2studio[serve]>=0.9.0",
+#   "matplotlib>=3.3.0",
 # ]
 # ///
 
@@ -53,6 +55,8 @@ def main(
         plot_file: Path to save the temperature plot (default: 't2m_plot.png')
         lat: Latitude for temperature extraction (default: 37.4)
         lon: Longitude for temperature extraction (default: -122.0)
+        start_time: Forecast initialisation time (default: 2025-08-21 06:00 UTC)
+        num_steps: Number of forecast time steps (default: 10)
     """
 
     # Create client (configurable via environment variable)
