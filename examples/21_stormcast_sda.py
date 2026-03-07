@@ -76,7 +76,7 @@ from earth2studio.utils.coords import map_coords_xr
 package = StormCastSDA.load_default_package()
 # sda_std_obs: assumed observation noise std (lower = trust obs more)
 # sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=0.05)
+model = StormCastSDA.load_model(package, sda_std_obs=0.05, sda_gamma=0.02)
 model = model.to("cuda:0")
 
 # Data source for initial conditions
@@ -114,26 +114,26 @@ x = map_coords_xr(x, ic)
 nsteps = 4
 plot_vars = ["u10m", "v10m", "t2m"]
 
-# np.random.seed(42)
-# torch.manual_seed(42)
-# if torch.cuda.is_available():
-#     torch.cuda.manual_seed_all(42)
+np.random.seed(42)
+torch.manual_seed(42)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(42)
 
-# no_obs_frames = []
-# gen = model.create_generator(x.copy())
-# x_state = next(gen)  # Prime the generator, yields initial state
+no_obs_frames = []
+gen = model.create_generator(x.copy())
+x_state = next(gen)  # Prime the generator, yields initial state
 
-# for step in range(nsteps):
-#     print(f"Running forecast step {step}")
-#     x_state = gen.send(None)  # Advance one hour without observations
-#     no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
+for step in range(nsteps):
+    print(f"Running forecast step {step}")
+    x_state = gen.send(None)  # Advance one hour without observations
+    no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
-# gen.close()
-# no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
+gen.close()
+no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
 
-# # Save to Zarr (convert to numpy for storage)
-# no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
-# no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
+# Save to Zarr (convert to numpy for storage)
+no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
+no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
 
 # %%
 # Fetch Observations and Run With Assimilation
@@ -145,8 +145,8 @@ plot_vars = ["u10m", "v10m", "t2m"]
 
 # %%
 # Get ISD stations in the Oklahoma region and create the data source
-stations = ISD.get_stations_bbox((33.0, -100.0, 37.0, -96.0))
-isd = ISD(stations=stations, tolerance=timedelta(minutes=30), verbose=False)
+stations = ISD.get_stations_bbox((32.0, -105.0, 45.0, -90.0))
+isd = ISD(stations=stations, tolerance=timedelta(minutes=15), verbose=False)
 init_time = datetime(2024, 1, 1)
 
 # %%
@@ -166,7 +166,7 @@ station_lons = sample_df["lon"].values
 
 plt.close("all")
 fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 6))
-ax.set_extent([-101, -95, 32, 38], crs=ccrs.PlateCarree())
+ax.set_extent([-120, -80, 30, 45], crs=ccrs.PlateCarree())
 ax.add_feature(
     cartopy.feature.STATES.with_scale("50m"), linewidth=0.5, edgecolor="black"
 )
@@ -356,3 +356,117 @@ fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
 fig.colorbar(im2, ax=axes[2, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
 
 plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tight")
+
+# %%
+# Ground Truth Comparison
+# -----------------------
+# Fetch HRRR analysis (ground truth) at each valid forecast time and compute
+# the absolute error of both the no-obs and obs forecasts. This shows whether
+# assimilation improves accuracy relative to the actual analysis.
+
+# %%
+variable = "t2m"
+
+# Fetch HRRR ground truth for each forecast step
+truth_times = np.array([np.datetime64(init_time)])
+truth = fetch_data(
+    hrrr,
+    time=truth_times,
+    variable=np.array(plot_vars),
+    lead_time=np.array([np.timedelta64(h + 1, "h") for h in range(nsteps)]),
+    device="cpu",
+    legacy=False,
+)
+ic["variable"] = np.array(plot_vars)
+
+truth = map_coords_xr(truth, {"hrrr_y": ic["hrrr_y"], "hrrr_x": ic["hrrr_x"]})
+truth_vals = truth.sel(variable=variable).values  # [nsteps, hrrr_y, hrrr_x]
+no_obs_vals = no_obs_ds["prediction"].sel(variable=variable).values
+obs_vals = obs_ds["prediction"].sel(variable=variable).values
+
+# Compute absolute errors against ground truth
+no_obs_err = np.abs(no_obs_vals[0] - truth_vals[0])  # [nsteps, hrrr_y, hrrr_x]
+obs_err = np.abs(obs_vals[0] - truth_vals[0])  # [nsteps, hrrr_y, hrrr_x]
+
+# %%
+# Plot absolute errors between the two StormCast predictions: no-obs (top),
+# obs (middle), improvement (bottom)
+
+# %%
+plt.close("all")
+fig, axes = plt.subplots(
+    2,
+    nsteps,
+    subplot_kw={"projection": projection},
+    figsize=(5 * nsteps, 8),
+)
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1)
+
+err_max = 5
+for step in range(nsteps):
+    lead_hr = step + 1
+
+    # Row 0: No-obs absolute error
+    ax = axes[0, step]
+    im0 = ax.pcolormesh(
+        model.lon,
+        model.lat,
+        no_obs_err[step],
+        transform=ccrs.PlateCarree(),
+        cmap="magma",
+        vmin=0,
+        vmax=err_max,
+    )
+    ax.add_feature(
+        cartopy.feature.STATES.with_scale("50m"),
+        linewidth=0.5,
+        edgecolor="grey",
+        zorder=2,
+    )
+    ax.set_title(f"+{lead_hr}h")
+
+    # Row 1: Obs absolute error
+    ax = axes[1, step]
+    im1 = ax.pcolormesh(
+        model.lon,
+        model.lat,
+        obs_err[step],
+        transform=ccrs.PlateCarree(),
+        cmap="magma",
+        vmin=0,
+        vmax=err_max,
+    )
+    ax.scatter(
+        station_lons,
+        station_lats,
+        s=8,
+        facecolors="none",
+        edgecolors="cyan",
+        linewidths=0.8,
+        transform=ccrs.PlateCarree(),
+        zorder=3,
+    )
+    ax.add_feature(
+        cartopy.feature.STATES.with_scale("50m"),
+        linewidth=0.5,
+        edgecolor="grey",
+        zorder=2,
+    )
+
+# Set row labels
+for row, label in enumerate(["|No Obs - Truth|", "|Obs - Truth|"]):
+    bbox = axes[row, 0].get_position()
+    fig.text(
+        bbox.x0 - 0.01,
+        (bbox.y0 + bbox.y1) / 2,
+        label,
+        fontsize=11,
+        va="center",
+        ha="right",
+        rotation=90,
+    )
+
+fig.colorbar(im0, ax=axes[0, :].tolist(), shrink=0.6, label=f"|Δ{variable}| (m/s)")
+fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"|Δ{variable}| (m/s)")
+
+plt.savefig("outputs/21_stormcast_sda_gt_comparison.jpg", dpi=150, bbox_inches="tight")
