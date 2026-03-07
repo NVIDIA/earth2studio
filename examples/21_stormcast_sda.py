@@ -23,13 +23,13 @@ Running StormCast with diffusion posterior sampling to assimilate surface observ
 
 This example demonstrates how to use the StormCast SDA model for convection-allowing
 regional forecasts that incorporate sparse in-situ observations using diffusion posterior
-sampling (DPS). Two forecasts are run—one without observations and one with a 5x5 grid
-of synthetic surface observations to illustrate the impact of data assimilation.
+sampling (DPS). Two forecasts are run—one without observations and one with ISD
+surface station data from Oklahoma to illustrate the impact of data assimilation.
 
 In this example you will learn:
 
 - How to load and initialise the StormCast SDA model
-- Fetching HRRR initial conditions and creating synthetic observations
+- Fetching HRRR initial conditions and ISD surface observations
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
 """
@@ -47,7 +47,7 @@ In this example you will learn:
 #
 # - Assimilation Model: StormCast SDA :py:class:`earth2studio.models.da.StormCastSDA`.
 # - Datasource (state): HRRR analysis :py:class:`earth2studio.data.HRRR`.
-# - Observations: Synthetic surface observations (5x5 grid centered on Oklahoma).
+# - Datasource (obs): ISD surface stations :py:class:`earth2studio.data.ISD`.
 # - Datasource (conditioning): GFS forecasts :py:class:`earth2studio.data.GFS_FX`
 #   (loaded automatically by the model).
 #
@@ -65,17 +65,18 @@ load_dotenv()  # TODO: make common example prep function
 from datetime import datetime, timedelta
 
 import numpy as np
-import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.data import HRRR, fetch_data
+from earth2studio.data import HRRR, ISD, fetch_data
 from earth2studio.models.da import StormCastSDA
 from earth2studio.utils.coords import map_coords_xr
 
 # Load the default model package (downloads checkpoint from HuggingFace)
 package = StormCastSDA.load_default_package()
-model = StormCastSDA.load_model(package, sda_std_y=0.5, sda_gamma=0.05)
+# sda_std_obs: assumed observation noise std (lower = trust obs more)
+# sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
+model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=0.05)
 model = model.to("cuda:0")
 
 # Data source for initial conditions
@@ -113,94 +114,104 @@ x = map_coords_xr(x, ic)
 nsteps = 4
 plot_vars = ["u10m", "v10m", "t2m"]
 
-np.random.seed(42)
-torch.manual_seed(42)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(42)
+# np.random.seed(42)
+# torch.manual_seed(42)
+# if torch.cuda.is_available():
+#     torch.cuda.manual_seed_all(42)
 
-no_obs_frames = []
-gen = model.create_generator(x.copy())
-x_state = next(gen)  # Prime the generator, yields initial state
+# no_obs_frames = []
+# gen = model.create_generator(x.copy())
+# x_state = next(gen)  # Prime the generator, yields initial state
 
-for step in range(nsteps):
-    print(f"Running forecast step {step}")
-    x_state = gen.send(None)  # Advance one hour without observations
-    no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
+# for step in range(nsteps):
+#     print(f"Running forecast step {step}")
+#     x_state = gen.send(None)  # Advance one hour without observations
+#     no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
-gen.close()
-no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
+# gen.close()
+# no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
 
-# Save to Zarr (convert to numpy for storage)
-no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
-no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
+# # Save to Zarr (convert to numpy for storage)
+# no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
+# no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
 
 # %%
 # Fetch Observations and Run With Assimilation
 # ---------------------------------------------
-# Create a 5x5 grid of synthetic observations centered on Oklahoma (35N, 98W)
-# with wind speed that increases each time step. At each forecast step,
-# observations are provided for the current valid time (initialisation
-# time + lead time) so the model assimilates temporally relevant data.
+# Fetch ISD surface observations from Oklahoma and assimilate them at each
+# forecast step. The observations are fetched for the valid time
+# (initialisation time + lead time) so the model assimilates temporally
+# relevant data.
 
 # %%
-# Create a 5x5 grid of observation stations centered on Oklahoma (35N, 98W)
-center_lat = 40.0
-center_lon = -98.0
-grid_spacing = 1.0  # degrees
-
-# Create 5x5 grid of stations
-grid_size = 5
-lats = np.linspace(
-    center_lat - (grid_size - 1) * grid_spacing / 2,
-    center_lat + (grid_size - 1) * grid_spacing / 2,
-    grid_size,
-)
-lons = np.linspace(
-    center_lon - (grid_size - 1) * grid_spacing / 2,
-    center_lon + (grid_size - 1) * grid_spacing / 2,
-    grid_size,
-)
-
-# Create all combinations of lat/lon for the grid
-obs_lats, obs_lons = np.meshgrid(lats, lons, indexing="ij")
-obs_lats = obs_lats.flatten()
-obs_lons = obs_lons.flatten()
-
+# Get ISD stations in the Oklahoma region and create the data source
+stations = ISD.get_stations_bbox((33.0, -100.0, 37.0, -96.0))
+isd = ISD(stations=stations, tolerance=timedelta(minutes=30), verbose=False)
 init_time = datetime(2024, 1, 1)
 
+# %%
+# Plot ISD Station Locations
+# --------------------------
+# Visualise the ISD stations that will provide observations for assimilation.
+
+# %%
+import cartopy
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+
+# Fetch a sample to get station locations
+sample_df = isd(init_time, ["t2m", "u10m", "v10m"])
+station_lats = sample_df["lat"].values
+station_lons = sample_df["lon"].values
+
+plt.close("all")
+fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 6))
+ax.set_extent([-101, -95, 32, 38], crs=ccrs.PlateCarree())
+ax.add_feature(
+    cartopy.feature.STATES.with_scale("50m"), linewidth=0.5, edgecolor="black"
+)
+ax.add_feature(cartopy.feature.LAND, facecolor="lightyellow")
+ax.gridlines(draw_labels=True, linewidth=0.3, alpha=0.5)
+
+# Color by variable
+colors = {"t2m": "red", "u10m": "blue", "v10m": "green"}
+for var in sample_df["variable"].unique():
+    mask = sample_df["variable"] == var
+    ax.scatter(
+        station_lons[mask],
+        station_lats[mask],
+        s=20,
+        c=colors.get(var, "black"),
+        label=var,
+        transform=ccrs.PlateCarree(),
+        zorder=3,
+    )
+
+ax.legend(loc="upper right")
+ax.set_title("ISD Station Locations - Oklahoma Region")
+plt.savefig("outputs/21_isd_stations.jpg", dpi=150, bbox_inches="tight")
+
+# %%
+# Run Inference With Streaming Observations
+# ------------------------------------------
+# At each forecast step, fetch ISD observations for the current valid time
+# and send them to the model generator.
+
+# %%
 np.random.seed(42)
 torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
-
-# %%
-# Run inference loop now with streaming observations every forecast step
-
-# %%
 
 obs_frames = []
 gen = model.create_generator(x)
 x_state = next(gen)  # Prime the generator, yields initial state
 
 for step in range(nsteps):
+    # Fetch observations for the current forecast step time frame
     valid_time = init_time + timedelta(hours=step + 1)
-    # Wind speed increases by 1 m/s each time step, starting at 5 m/s
-    ws10m_value = -5.0
-
-    # Create synthetic observation DataFrame for all 25 stations
-    obs_df = pd.DataFrame(
-        {
-            "lat": obs_lats.tolist(),
-            "lon": obs_lons.tolist(),
-            "variable": ["u10m"] * len(obs_lats),
-            "observation": [ws10m_value] * len(obs_lats),
-            "time": [valid_time] * len(obs_lats),
-        }
-    )
-
-    print(
-        f"Running forecast step {step} - valid {valid_time}, {len(obs_df)} obs, u10m={ws10m_value:.1f} m/s"
-    )
+    obs_df = isd(valid_time, plot_vars)
+    print(f"Running forecast step {step} - valid {valid_time}, {len(obs_df)} obs")
     x_state = gen.send(obs_df)  # Advance one hour with observations
     obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
@@ -290,15 +301,15 @@ for step in range(nsteps):
         vmax=vmax,
     )
     ax.scatter(
-        obs_lons,
-        obs_lats,
-        s=30,
+        station_lons,
+        station_lats,
+        s=8,
         facecolors="none",
         edgecolors="black",
         linewidths=0.8,
         transform=ccrs.PlateCarree(),
         zorder=3,
-        label="Observations",
+        label="Stations",
     )
     ax.add_feature(
         cartopy.feature.STATES.with_scale("50m"),
