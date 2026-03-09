@@ -234,7 +234,7 @@ class GaussianRandomFieldS2(torch.nn.Module):
         N : int
             Number of functions to sample.
         xi : torch.Tensor, default is None
-            Noise is a complex tensor of size (N, nlat, nlat+1).
+            Noise is a complex tensor of size (N, lmax, mmax).
             If None, new Gaussian noise is sampled.
             If xi is provided, N is ignored.
 
