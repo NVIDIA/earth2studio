@@ -1743,7 +1743,6 @@ fcn = [
 fcn3 = [
     { name = "makani" },
     { name = "moviepy" },
-    { name = "nvidia-physicsnemo" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
     { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
@@ -1803,7 +1802,6 @@ serve = [
 sfno = [
     { name = "makani" },
     { name = "moviepy" },
-    { name = "nvidia-physicsnemo" },
     { name = "pynvml" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
@@ -1970,22 +1968,22 @@ requires-dist = [
     { name = "natten", marker = "extra == 'stormscope'" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", git = "https://github.com/NVIDIA/physicsnemo.git" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", git = "https://github.com/NVIDIA/physicsnemo.git" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.3.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
@@ -4969,7 +4967,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -4982,7 +4980,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
@@ -5014,9 +5012,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12" },
-    { name = "nvidia-cusparse-cu12" },
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
@@ -5029,7 +5027,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
@@ -5116,8 +5114,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
-version = "2.1.0a0"
-source = { git = "https://github.com/NVIDIA/physicsnemo.git#04b15d87ce3be5ef4a370c470a449e1ae3bd6e90" }
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cftime" },
     { name = "einops" },
@@ -5142,6 +5140,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "treelib" },
     { name = "warp-lang" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/bd/72eb242134e355810821d2c42e8ca9f15c6757c309e02389fc6f2bd40f02/nvidia_physicsnemo-2.0.0-py3-none-any.whl", hash = "sha256:fcea6ac198a2925ab81c3f62011225f53b73e1212e5364aac939ab599c0dfd9d", size = 1637877, upload-time = "2026-03-09T16:14:55.312Z" },
 ]
 
 [[package]]

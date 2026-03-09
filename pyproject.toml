@@ -150,7 +150,6 @@ fcn = [
 ]
 fcn3 = [
     "makani",
-    "nvidia-physicsnemo<2.0", # Until makani updates
     "ruamel.yaml>=0.18.14",
     "scipy>=1.10.0",
     "torch-harmonics>=0.8.0",
@@ -183,7 +182,6 @@ pangu = [
 ]
 sfno = [
     "makani",
-    "nvidia-physicsnemo<2.0", # Until makani updates
     "pynvml>=12.0.0",
     "ruamel-yaml>=0.18.10",
     "scipy>=1.10.0",
@@ -284,7 +282,6 @@ makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc1
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
-nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git"} # TODO temporary, will remove when pip wheel is out
 # Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics
 # lfs = true to prevent an error cloning the git LFS-stored GIFs in torch-harmonics readme; requires `uv>=0.9.15`
 torch-harmonics = [
