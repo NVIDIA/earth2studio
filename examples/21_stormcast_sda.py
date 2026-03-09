@@ -374,9 +374,6 @@ plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tig
 # assimilation improves accuracy relative to the actual analysis.
 
 # %%
-variable = "t2m"
-
-# Fetch HRRR ground truth for each forecast step
 truth_times = np.array([np.datetime64(init_time)])
 truth = fetch_data(
     hrrr,
