@@ -496,7 +496,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )
         denoiser = scheduler.get_denoiser(score_predictor=score_predictor)
 
-        print("here2")
         edm_out = sample(
             denoiser,
             latents,
