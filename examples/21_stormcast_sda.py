@@ -79,8 +79,8 @@ from earth2studio.data import HRRR, ISD, fetch_data
 from earth2studio.models.da import StormCastSDA
 from earth2studio.utils.coords import map_coords_xr
 
-# Load the default model package (downloads checkpoint from HuggingFace)
 package = StormCastSDA.load_default_package()
+# Load the model onto the GPU and configure SDA
 # sda_std_obs: assumed observation noise std (lower = trust obs more)
 # sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
 model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=0.001)
