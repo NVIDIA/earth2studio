@@ -204,12 +204,13 @@ class GaussianRandomFieldS2(torch.nn.Module):
             .to(device=device)
         )
         self.lmax = self.isht.lmax
+        self.mmax = self.isht.mmax
 
         # Square root of the eigenvalues of C.
         sqrt_eig = (
             torch.tensor([j * (j + 1) for j in range(self.lmax)], device=device)
             .view(self.lmax, 1)
-            .repeat(1, self.lmax + 1)
+            .repeat(1, self.mmax)
         )
         sqrt_eig = torch.tril(
             sigma * (((sqrt_eig / radius**2) + tau**2) ** (-alpha / 2.0))
@@ -247,7 +248,7 @@ class GaussianRandomFieldS2(torch.nn.Module):
         if xi is None:
             gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
             xi = gaussian_noise.sample(
-                torch.Size((N, self.lmax, self.lmax + 1, 2))
+                torch.Size((N, self.lmax, self.mmax, 2))
             ).squeeze()
             xi = torch.view_as_complex(xi)
 

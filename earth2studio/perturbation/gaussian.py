@@ -233,6 +233,7 @@ class CorrelatedSphericalField(torch.nn.Module):
             self.nlat, 2 * self.nlat, grid=grid, norm="backward"
         ).to(dtype=dtype)
         self.lmax = self.isht.lmax
+        self.mmax = self.isht.mmax
 
         r_earth = 6.371e6
         # kT is defined on slide 7
@@ -242,7 +243,7 @@ class CorrelatedSphericalField(torch.nn.Module):
         prods = (
             torch.tensor([j * (j + 1) for j in range(0, self.lmax)])
             .view(self.lmax, 1)
-            .repeat(1, self.lmax + 1)
+            .repeat(1, self.mmax)
         )
 
         sigma_n = torch.tril(torch.exp(-self.kT * prods / 2) * F0)
@@ -261,7 +262,7 @@ class CorrelatedSphericalField(torch.nn.Module):
         # in the call function
         self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
         xi = self.gaussian_noise.sample(
-            torch.Size((self.N, self.lmax, self.lmax + 1, 2))
+            torch.Size((self.N, self.lmax, self.mmax, 2))
         ).squeeze()
         xi = torch.view_as_complex(xi)
 
@@ -299,7 +300,7 @@ class CorrelatedSphericalField(torch.nn.Module):
 
             # Sample Gaussian noise. # TODO why??? for next step maybe?
             xi = self.gaussian_noise.sample(
-                torch.Size((self.N, self.lmax, self.lmax + 1, 2))
+                torch.Size((self.N, self.lmax, self.mmax, 2))
             ).squeeze()
             xi = torch.view_as_complex(xi)
 
