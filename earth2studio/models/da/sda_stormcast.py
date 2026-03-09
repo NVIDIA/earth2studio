@@ -463,7 +463,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         latents = torch.randn_like(x, dtype=torch.float64)
         latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
-        print("here")
 
         class _CondtionalDiffusionWrapper(torch.nn.Module):
             def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
