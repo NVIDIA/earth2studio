@@ -634,14 +634,26 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         var_indices = np.array([var_to_idx.get(str(v), -1) for v in obs_var])
         valid = var_indices >= 0
 
-        # TODO: Add support for multiple obs per cell
+        # Average multiple observations that map to the same grid cell
         if valid.any():
             vi = torch.tensor(var_indices[valid], device=device, dtype=torch.long)
             yi = torch.tensor(nearest_y[valid], device=device, dtype=torch.long)
             xi = torch.tensor(nearest_x[valid], device=device, dtype=torch.long)
             vals = torch.tensor(obs_val[valid], device=device, dtype=torch.float32)
-            y_obs[0, vi, yi, xi] = vals
-            mask[0, vi, yi, xi] = 1.0
+
+            # Flatten (vi, yi, xi) into a single linear index for scatter ops
+            flat_idx = vi * (n_hrrr_y * n_hrrr_x) + yi * n_hrrr_x + xi
+            flat_sum = torch.zeros(
+                n_var * n_hrrr_y * n_hrrr_x, device=device, dtype=torch.float32
+            )
+            flat_cnt = torch.zeros_like(flat_sum)
+            flat_sum.scatter_add_(0, flat_idx, vals)
+            flat_cnt.scatter_add_(0, flat_idx, torch.ones_like(vals))
+
+            occupied = flat_cnt > 0
+            flat_avg = torch.where(occupied, flat_sum / flat_cnt, flat_sum)
+            y_obs[0] = flat_avg.view(n_var, n_hrrr_y, n_hrrr_x)
+            mask[0] = occupied.float().view(n_var, n_hrrr_y, n_hrrr_x)
 
         return y_obs, mask
 

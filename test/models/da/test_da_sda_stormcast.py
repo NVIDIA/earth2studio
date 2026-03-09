@@ -18,6 +18,7 @@ from collections import OrderedDict
 from unittest.mock import patch
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 
@@ -235,6 +236,47 @@ def test_build_obs_tensors_outside_grid():
     y_obs, mask = model._build_obs_tensors(obs_df, time[0], model.device)
 
     assert (mask == 0).all()
+
+
+def test_build_obs_tensors_averages_duplicates():
+    model = _build_model()
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    ny, nx = model.lat.shape
+
+    mid_y, mid_x = ny // 2, nx // 2
+    pt_lat = float(model.lat[mid_y, mid_x])
+    pt_lon = float(model.lon[mid_y, mid_x])
+    var_name = str(model.variables[0])
+
+    # Three observations at the exact same location and variable
+    obs_df = pd.DataFrame(
+        {
+            "time": pd.to_datetime([time[0]] * 3),
+            "lat": [pt_lat] * 3,
+            "lon": [pt_lon] * 3,
+            "variable": [var_name] * 3,
+            "observation": [3.0, 9.0, 30.0],
+        }
+    )
+
+    y_obs, mask = model._build_obs_tensors(obs_df, time[0], model.device)
+
+    assert mask.sum() == 1
+    assert torch.isclose(y_obs[mask == 1], torch.tensor(14.0)).all()
+
+    obs_df = pd.DataFrame(
+        {
+            "time": pd.to_datetime([time[0]] * 3),
+            "lat": [0, pt_lat, pt_lat],
+            "lon": [0, pt_lon, pt_lon],
+            "variable": [var_name] * 3,
+            "observation": [3.0, 9.0, 30.0],
+        }
+    )
+
+    y_obs, mask = model._build_obs_tensors(obs_df, time[0], model.device)
+    assert mask.sum() == 1
+    assert torch.isclose(y_obs[mask == 1], torch.tensor(19.5)).all()
 
 
 # ---------- Unit test: _fetch_and_interp_conditioning ----------
