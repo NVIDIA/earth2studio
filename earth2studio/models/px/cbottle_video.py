@@ -376,7 +376,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Set up time tensors
         times0 = [
-            datetime.fromtimestamp(t.astype("datetime64[s]").astype(int), tz=timezone.utc)
+            datetime.fromtimestamp(
+                t.astype("datetime64[s]").astype(int), tz=timezone.utc
+            )
             for t in times.reshape(-1)
         ]
         second_of_day = np.array(
