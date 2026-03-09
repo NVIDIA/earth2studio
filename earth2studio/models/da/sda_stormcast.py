@@ -191,7 +191,18 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("invariants", invariants)
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_steps = sampler_steps
-        self.sampler_args = sampler_args if sampler_args is not None else {}
+        self.sampler_args = {
+            "num_steps": 18,
+            "sigma_min": 0.002,
+            "sigma_max": 800,
+            "rho": 7,
+            "S_churn": 0.0,
+            "S_min": 0.0,
+            "S_max": float("inf"),
+            "S_noise": 1,
+        }
+        if sampler_args is not None:
+            self.sampler_args.update(sampler_args)
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.sda_std_obs = sda_std_obs
         self.sda_dps_norm = 2
@@ -463,8 +474,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         latents = torch.randn_like(x, dtype=torch.float64)
         latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
-
-        class _CondtionalDiffusionWrapper(torch.nn.Module):
+        class _ConditionalDiffusionWrapper(torch.nn.Module):
             def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
                 super().__init__()
                 self.model = model
@@ -489,7 +499,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             alpha_fn=scheduler.alpha,
         )
         score_predictor = DPSDenoiser(
-            x0_predictor=_CondtionalDiffusionWrapper(self.diffusion_model, condition),
+            x0_predictor=_ConditionalDiffusionWrapper(self.diffusion_model, condition),
             x0_to_score_fn=scheduler.x0_to_score,
             guidances=guidance,
         )
