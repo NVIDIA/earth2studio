@@ -150,7 +150,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_steps : int, optional
-        Number of diffusion sampler steps, by default 32
+        Number of diffusion sampler steps, by default 36
     sampler_args : dict[str, float  |  int] | None, optional
         Arguments to pass to the diffusion sampler, by default None
     time_tolerance : TimeTolerance, optional
