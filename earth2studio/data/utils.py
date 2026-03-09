@@ -153,7 +153,7 @@ def fetch_data(
         # Convert to cupy arrays if CUDA device and cupy is available
         if device.type == "cuda":
             if cp is not None:
-                with cp.cuda.Device(device.index):
+                with cp.cuda.Device(device.index or 0):
                     da = da.copy(data=cp.asarray(da.values))
             else:
                 raise ImportError(
