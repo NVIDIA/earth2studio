@@ -21,14 +21,15 @@ StormCast Score-Based Data Assimilation
 
 Running StormCast with diffusion posterior sampling to assimilate surface observations.
 
-This example demonstrates how to use the StormCast SDA model for convection-allowing
-regional forecasts that incorporate sparse in-situ observations using diffusion posterior
-sampling (DPS). Two forecasts are run—one without observations and one with ISD
-surface station data from Oklahoma to illustrate the impact of data assimilation.
+This example demonstrates how to use the StormCast score-based data assimilation (SDA)
+model for convection-allowing regional forecasts that incorporate sparse in-situ
+observations using diffusion posterior sampling (DPS).
+Two forecasts are run—one without observations and one with ISD surface station data
+from Oklahoma, United States region to illustrate the impact of data assimilation.
 
 In this example you will learn:
 
-- How to load and initialise the StormCast SDA model
+- How to load and initialise the StormCast score-based data assimilation (SDA) model
 - Fetching HRRR initial conditions and ISD surface observations
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
@@ -51,7 +52,8 @@ In this example you will learn:
 # - Datasource (conditioning): GFS forecasts :py:class:`earth2studio.data.GFS_FX`
 #   (loaded automatically by the model).
 #
-# StormCast SDA extends StormCast with diffusion posterior sampling (DPS) guidance,
+# StormCast score-based data assimilation (SDA) extends StormCast with diffusion
+# posterior sampling (DPS) guidance,
 # allowing sparse point observations to steer the generative diffusion process.
 
 # %%
@@ -81,10 +83,9 @@ from earth2studio.utils.coords import map_coords_xr
 package = StormCastSDA.load_default_package()
 # sda_std_obs: assumed observation noise std (lower = trust obs more)
 # sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.05, sda_gamma=0.01)
+model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=0.001)
 model = model.to("cuda:0")
 
-# Data source for initial conditions
 hrrr = HRRR()
 
 # %%
@@ -111,12 +112,13 @@ x = map_coords_xr(x, ic)
 # %%
 # Run Without Observations
 # ------------------------
-# Step the model forward 4 hours without any observations.  Each call to
-# ``model.send(None)`` advances the state by one hour.  We store only the
-# surface variables used for comparison (u10m, v10m, t2m).
+# Step the model forward 6 hours without any observations. This is equivalent to using
+# the StormCast prognostic model as it will just use EDM diffusion sampling under the
+# hood.  Each call to ``model.send(None)`` advances the state by one hour.
+# We store only the surface variables used for comparison (u10m, v10m, t2m).
 
 # %%
-nsteps = 4
+nsteps = 6
 plot_vars = ["u10m", "v10m", "t2m"]
 
 np.random.seed(42)
@@ -392,12 +394,13 @@ no_obs_vals = no_obs_ds["prediction"].sel(variable=variable).values
 obs_vals = obs_ds["prediction"].sel(variable=variable).values
 
 # Compute absolute errors against ground truth
-no_obs_err = np.abs(no_obs_vals[0] - truth_vals[0])  # [nsteps, hrrr_y, hrrr_x]
-obs_err = np.abs(obs_vals[0] - truth_vals[0])  # [nsteps, hrrr_y, hrrr_x]
+no_obs_err = np.abs(no_obs_vals[0] - truth_vals[0])
+obs_err = np.abs(obs_vals[0] - truth_vals[0])
 
 # %%
-# Plot absolute errors between the two StormCast predictions: no-obs (top),
-# obs (middle), improvement (bottom)
+# Plot absolute errors between the StormCast predictions and HRRR analysis ground truth.
+# In later time-steps it is clear that StormCast with SDA sampline using ISD station
+# observations has improved accuracy over the vanilla stormcast prediction.
 
 # %%
 plt.close("all")
@@ -442,16 +445,6 @@ for step in range(nsteps):
         cmap="magma",
         vmin=0,
         vmax=err_max,
-    )
-    ax.scatter(
-        station_lons,
-        station_lats,
-        s=8,
-        facecolors="none",
-        edgecolors="cyan",
-        linewidths=0.8,
-        transform=ccrs.PlateCarree(),
-        zorder=3,
     )
     ax.add_feature(
         cartopy.feature.STATES.with_scale("50m"),

@@ -48,6 +48,12 @@ except ImportError:
     cp = None
 
 try:
+    from scipy.spatial import cKDTree
+except ImportError:
+    OptionalDependencyFailure("stormcast")
+    cKDTree = None
+
+try:
     from omegaconf import OmegaConf
     from physicsnemo.diffusion.guidance import (
         DataConsistencyDPSGuidance,
@@ -154,7 +160,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     sda_std_obs : float, optional
         Observation noise standard deviation for DPS guidance, by default 0.1
     sda_gamma : float, optional
-        SDA scaling factor for DPS guidance, by default 0.01
+        SDA scaling factor for DPS guidance, by default 0.001
     """
 
     def __init__(
@@ -175,7 +181,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sampler_args: dict[str, float | int] = {},
         time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
         sda_std_obs: float = 0.1,
-        sda_gamma: float = 0.01,
+        sda_gamma: float = 0.001,
     ):
         super().__init__()
         self.regression_model = regression_model
@@ -224,6 +230,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
                 ),
             ]
         )  # [n_boundary, 2] ordered (lat, lon)
+
+        # Build a KD-tree over (lat, lon) for efficient nearest-grid-point queries
+        self._grid_tree = cKDTree(np.column_stack([self.lat.ravel(), self.lon.ravel()]))
 
         self.variables = variables
 
@@ -334,7 +343,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
-        sda_gamma: float = 0.01,
+        sda_gamma: float = 0.001,
     ) -> AssimilationModel:
         """Load prognostic from package
 
@@ -345,11 +354,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
         sampler_steps : int, optional
-            Number of diffusion sampler steps, by default 32
+            Number of diffusion sampler steps, by default 36
         sda_std_obs : float, optional
             Observation noise standard deviation for DPS guidance, by default 0.1
         sda_gamma : float, optional
-            SDA scaling factor for DPS guidance, by default 0.01
+            SDA scaling factor for DPS guidance, by default 0.001
 
         Returns
         -------
@@ -454,6 +463,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         latents = torch.randn_like(x, dtype=torch.float64)
         latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
+        print("here")
+
         class _CondtionalDiffusionWrapper(torch.nn.Module):
             def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
                 super().__init__()
@@ -485,6 +496,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )
         denoiser = scheduler.get_denoiser(score_predictor=score_predictor)
 
+        print("here2")
         edm_out = sample(
             denoiser,
             latents,
@@ -588,13 +600,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         obs_var = obs_var[in_grid]
         obs_val = obs_val[in_grid]
 
-        # Find nearest HRRR grid point for each observation (vectorized)
-        grid_lat_flat = self.lat.ravel()  # [n_grid]
-        grid_lon_flat = self.lon.ravel()  # [n_grid]
-        lat_diff = obs_lat[:, None] - grid_lat_flat[None, :]  # [n_obs, n_grid]
-        lon_diff = obs_lon[:, None] - grid_lon_flat[None, :]  # [n_obs, n_grid]
-        dist_sq = lat_diff**2 + lon_diff**2
-        nearest_flat = np.argmin(dist_sq, axis=1)  # [n_obs]
+        # Find nearest HRRR grid point for each observation using a KD-tree
+        # to avoid allocating the full [n_obs, n_grid] distance matrix.
+        _, nearest_flat = self._grid_tree.query(np.column_stack([obs_lat, obs_lon]))
         nearest_y = nearest_flat // n_hrrr_x
         nearest_x = nearest_flat % n_hrrr_x
 
