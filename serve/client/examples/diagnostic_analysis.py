@@ -142,6 +142,14 @@ class NullDataSource:
         """Return an empty DataArray (unused coords for local diagnostic)."""
         return xr.DataArray()
 
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        return xr.DataArray()
+
 
 if __name__ == "__main__":
     main()

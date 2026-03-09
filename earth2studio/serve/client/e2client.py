@@ -239,11 +239,11 @@ class RemoteEarth2WorkflowResult:
 
     def as_data_source(self) -> InferenceOutputSource:
         """
-        Wait for inference to complete and return as InferenceOutputSource.
+        Wait for inference to complete and return as DataSource.
 
         Returns
         -------
-        InferenceOutputSource
+        DataSource
             Data source wrapper for the inference results.
         """
         ds = self.as_dataset()
@@ -338,24 +338,8 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         variables: list[str] | None = None,
         device: torch.device | str = "cpu",
     ):
-        """
-        Initialize with data source, iteration coordinate, optional variables, and device.
-
-        Parameters
-        ----------
-        data_source : InferenceOutputSource
-            Pre-computed inference data source.
-        iter_coord : {"time", "lead_time"}, optional
-            Coordinate to iterate over.
-        variables : list[str], optional
-            Variable names to include.
-        device : torch.device or str, optional
-            Device for tensor operations.
-        """
         self.data_source = data_source
         self.iter_coord = iter_coord
-        if variables is None:
-            variables = self.data_source.da.coords["variable"]
         self.variables = np.array(variables)
         self.device = device
 
