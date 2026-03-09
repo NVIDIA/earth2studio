@@ -144,7 +144,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_steps : int, optional
-        Number of diffusion sampler steps, by default 64
+        Number of diffusion sampler steps, by default 32
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
     time_tolerance : TimeTolerance, optional
@@ -171,7 +171,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
-        sampler_steps: int = 64,
+        sampler_steps: int = 36,
         sampler_args: dict[str, float | int] = {},
         time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
         sda_std_obs: float = 0.1,
@@ -332,7 +332,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
-        sampler_steps: int = 64,
+        sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.01,
     ) -> AssimilationModel:
@@ -345,7 +345,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
         sampler_steps : int, optional
-            Number of diffusion sampler steps, by default 64
+            Number of diffusion sampler steps, by default 32
         sda_std_obs : float, optional
             Observation noise standard deviation for DPS guidance, by default 0.1
         sda_gamma : float, optional

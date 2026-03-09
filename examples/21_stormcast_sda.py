@@ -47,7 +47,7 @@ In this example you will learn:
 #
 # - Assimilation Model: StormCast SDA :py:class:`earth2studio.models.da.StormCastSDA`.
 # - Datasource (state): HRRR analysis :py:class:`earth2studio.data.HRRR`.
-# - Datasource (obs): ISD surface stations :py:class:`earth2studio.data.ISD`.
+# - Datasource (obs): NOAA ISD surface stations :py:class:`earth2studio.data.ISD`.
 # - Datasource (conditioning): GFS forecasts :py:class:`earth2studio.data.GFS_FX`
 #   (loaded automatically by the model).
 #
@@ -67,6 +67,11 @@ from datetime import datetime, timedelta
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
+from tqdm import tqdm
+
+logger.remove()
+logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 from earth2studio.data import HRRR, ISD, fetch_data
 from earth2studio.models.da import StormCastSDA
@@ -76,7 +81,7 @@ from earth2studio.utils.coords import map_coords_xr
 package = StormCastSDA.load_default_package()
 # sda_std_obs: assumed observation noise std (lower = trust obs more)
 # sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.05, sda_gamma=0.02)
+model = StormCastSDA.load_model(package, sda_std_obs=0.05, sda_gamma=0.01)
 model = model.to("cuda:0")
 
 # Data source for initial conditions
@@ -123,8 +128,8 @@ no_obs_frames = []
 gen = model.create_generator(x.copy())
 x_state = next(gen)  # Prime the generator, yields initial state
 
-for step in range(nsteps):
-    print(f"Running forecast step {step}")
+for step in tqdm(range(nsteps), desc="No-obs forecast"):
+    logger.info(f"Running no-obs forecast step {step}")
     x_state = gen.send(None)  # Advance one hour without observations
     no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
@@ -138,8 +143,8 @@ no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="
 # %%
 # Fetch Observations and Run With Assimilation
 # ---------------------------------------------
-# Fetch ISD surface observations from Oklahoma and assimilate them at each
-# forecast step. The observations are fetched for the valid time
+# Fetch NOAA Integrated Surface Database (ISD) surface observations from Oklahoma and
+# assimilate them at each forecast step. The observations are fetched for the valid time
 # (initialisation time + lead time) so the model assimilates temporally
 # relevant data.
 
@@ -194,8 +199,10 @@ plt.savefig("outputs/21_isd_stations.jpg", dpi=150, bbox_inches="tight")
 # %%
 # Run Inference With Streaming Observations
 # ------------------------------------------
-# At each forecast step, fetch ISD observations for the current valid time
-# and send them to the model generator.
+# At each forecast step, fetch NOAA ISD observations for the current valid time
+# and send them to the model generator. The observations will be used in the SDA
+# guidance term when sampling the diffusion model effectively steering the generated
+# result to align with the stations data from the ISD data based.
 
 # %%
 np.random.seed(42)
@@ -207,11 +214,11 @@ obs_frames = []
 gen = model.create_generator(x)
 x_state = next(gen)  # Prime the generator, yields initial state
 
-for step in range(nsteps):
+for step in tqdm(range(nsteps), desc="Obs forecast"):
     # Fetch observations for the current forecast step time frame
     valid_time = init_time + timedelta(hours=step + 1)
     obs_df = isd(valid_time, plot_vars)
-    print(f"Running forecast step {step} - valid {valid_time}, {len(obs_df)} obs")
+    logger.info(f"Running obs forecast step {step}, {len(obs_df)} obs")
     x_state = gen.send(obs_df)  # Advance one hour with observations
     obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
