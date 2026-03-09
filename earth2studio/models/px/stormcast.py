@@ -361,8 +361,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
-        latents = torch.randn_like(x)
-        latents = self.sampler_args["sigma_max"] * latents.to(dtype=torch.float64)
+        latents = torch.randn_like(x, dtype=torch.float64)
+        latents = self.sampler_args["sigma_max"] * latents
 
         class _CondtionalDiffusionWrapper(torch.nn.Module):
             def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
@@ -384,7 +384,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         edm_out = sample(
             denoiser,
-            latents.to(dtype=torch.float64),
+            latents,
             noise_scheduler=scheduler,
             num_steps=self.sampler_args["num_steps"],
             solver="edm_stochastic_heun",
