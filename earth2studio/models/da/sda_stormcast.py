@@ -804,12 +804,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         c_tensor = torch.as_tensor(c.data)
 
         for j, t in enumerate(x.coords["time"].data):
-            for k, _ in enumerate(x.coords["lead_time"].data):
-                obs_time = t + output_coords[0]["lead_time"][0]
-                y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
-                x_tensor[j, k : k + 1] = self._forward(
-                    x_tensor[j, k : k + 1], c_tensor[j, k : k + 1], y_obs, mask
-                )
+            obs_time = t + output_coords[0]["lead_time"][0]
+            y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
+            x_tensor[j, :] = self._forward(x_tensor[j, :], c_tensor[j, :], y_obs, mask)
 
         return self._to_output_dataarray(x_tensor, output_coords)
 
@@ -870,17 +867,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
                 # Run forward with observations
                 for j, t in enumerate(x.coords["time"].data):
-                    for k, _ in enumerate(x.coords["lead_time"].data):
-                        obs_time = t + output_coords[0]["lead_time"][0]
-                        y_obs, mask = self._build_obs_tensors(
-                            obs, obs_time, self.device
-                        )
-                        x_tensor[j, k : k + 1] = self._forward(
-                            x_tensor[j, k : k + 1],
-                            c_tensor[j, k : k + 1],
-                            y_obs,
-                            mask,
-                        )
+                    obs_time = t + output_coords[0]["lead_time"][0]
+                    y_obs, mask = self._build_obs_tensors(obs, obs_time, self.device)
+                    x_tensor[j] = self._forward(x_tensor[j], c_tensor[j], y_obs, mask)
 
                 # Build output DataArray and use as next input
                 x = self._to_output_dataarray(x_tensor, output_coords)
