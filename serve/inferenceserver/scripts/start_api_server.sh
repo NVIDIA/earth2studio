@@ -54,6 +54,7 @@ if [ -f "$CONFIG_FILE" ]; then
     CONFIG_ZIP_NUM_WORKERS=$(read_config "worker.zip_num_workers")
     CONFIG_OBJSTORE_NUM_WORKERS=$(read_config "worker.objstore_num_workers")
     CONFIG_FINALIZE_NUM_WORKERS=$(read_config "worker.finalize_num_workers")
+    CONFIG_GEOCATALOG_NUM_WORKERS=$(read_config "worker.geocatalog_num_workers")
     CONFIG_PERSISTENT_WORKER=$(read_config "worker.persistent")
 fi
 
@@ -63,10 +64,11 @@ REDIS_HOST=${3:-${CONFIG_REDIS_HOST:-localhost}}  # Default Redis host
 NUM_RQ_WORKERS=${4:-${CONFIG_RQ_NUM_WORKERS:-1}}  # Default to 1 RQ workers
 NUM_ZIP_WORKERS=${5:-${CONFIG_ZIP_NUM_WORKERS:-1}}  # Default to 1 workers for result_zip queue
 NUM_OBJSTORE_WORKERS=${CONFIG_OBJSTORE_NUM_WORKERS:-1}  # Default to 1 object storage worker
+NUM_GEOCATALOG_WORKERS=${CONFIG_GEOCATALOG_NUM_WORKERS:-1}  # Default to 1 geocatalog ingestion worker
 NUM_FINALIZE_WORKERS=${CONFIG_FINALIZE_NUM_WORKERS:-1}  # Default to 1 finalize metadata worker
 PERSISTENT_WORKER=${CONFIG_PERSISTENT_WORKER:-false}
 
-echo "Starting Earth2Studio with $NUM_WORKERS API workers, $NUM_RQ_WORKERS RQ workers, $NUM_ZIP_WORKERS zip workers, $NUM_OBJSTORE_WORKERS object storage workers, and $NUM_FINALIZE_WORKERS finalize workers on port $API_PORT..."
+echo "Starting Earth2Studio with $NUM_WORKERS API workers, $NUM_RQ_WORKERS RQ workers, $NUM_ZIP_WORKERS zip workers, $NUM_OBJSTORE_WORKERS object storage workers, $NUM_GEOCATALOG_WORKERS geocatalog workers, and $NUM_FINALIZE_WORKERS finalize workers on port $API_PORT..."
 echo "Configuration: Redis=$REDIS_HOST, Persistent Worker=$PERSISTENT_WORKER"
 
 # Function to cleanup on exit
@@ -101,6 +103,12 @@ cleanup() {
     if pgrep -f "rq.*worker.*object_storage" > /dev/null; then
         echo "Stopping object storage workers..."
         pkill -f "rq.*worker.*object_storage"
+    fi
+
+    # Stop all geocatalog ingestion workers
+    if pgrep -f "rq.*worker.*geocatalog_ingestion" > /dev/null; then
+        echo "Stopping geocatalog ingestion workers..."
+        pkill -f "rq.*worker.*geocatalog_ingestion"
     fi
 
     # Stop all finalize metadata workers
@@ -157,6 +165,15 @@ for i in $(seq 1 $NUM_OBJSTORE_WORKERS); do
     echo "Started object storage worker $i (PID: $!)"
 done
 
+# Start geocatalog ingestion workers (used when AZURE_GEOCATALOG_URL is set)
+echo "Starting $NUM_GEOCATALOG_WORKERS geocatalog ingestion workers..."
+GEOCATALOG_WORKER_PIDS=()
+for i in $(seq 1 $NUM_GEOCATALOG_WORKERS); do
+    CUDA_VISIBLE_DEVICES="" rq worker -w rq.worker.SimpleWorker geocatalog_ingestion &
+    GEOCATALOG_WORKER_PIDS+=($!)
+    echo "Started geocatalog ingestion worker $i (PID: $!)"
+done
+
 # Start finalize metadata workers
 echo "Starting $NUM_FINALIZE_WORKERS finalize metadata workers..."
 FINALIZE_WORKER_PIDS=()
@@ -202,6 +219,13 @@ if [ "$OBJSTORE_WORKER_COUNT" -eq 0 ]; then
     exit 1
 fi
 
+# Check if geocatalog ingestion workers are running
+GEOCATALOG_WORKER_COUNT=$(pgrep -f "rq.*worker.*geocatalog_ingestion" | wc -l)
+if [ "$GEOCATALOG_WORKER_COUNT" -eq 0 ]; then
+    echo "Failed to start geocatalog ingestion workers..."
+    exit 1
+fi
+
 # Check if finalize metadata workers are running
 FINALIZE_WORKER_COUNT=$(pgrep -f "rq.*worker.*finalize_metadata" | wc -l)
 if [ "$FINALIZE_WORKER_COUNT" -eq 0 ]; then
@@ -221,12 +245,14 @@ echo "Uvicorn PID: $UVICORN_PID"
 echo "RQ Worker PIDs: ${RQ_WORKER_PIDS[*]}"
 echo "Zip Worker PIDs: ${ZIP_WORKER_PIDS[*]}"
 echo "Object Storage Worker PIDs: ${OBJSTORE_WORKER_PIDS[*]}"
+echo "Geocatalog Ingestion Worker PIDs: ${GEOCATALOG_WORKER_PIDS[*]}"
 echo "Finalize Metadata Worker PIDs: ${FINALIZE_WORKER_PIDS[*]}"
 echo "Cleanup Daemon PID: $CLEANUP_DAEMON_PID"
 echo "Active API workers: $API_WORKER_COUNT"
 echo "Active RQ inference workers: $RQ_WORKER_COUNT"
 echo "Active zip workers: $ZIP_WORKER_COUNT"
 echo "Active object storage workers: $OBJSTORE_WORKER_COUNT"
+echo "Active geocatalog ingestion workers: $GEOCATALOG_WORKER_COUNT"
 echo "Active finalize metadata workers: $FINALIZE_WORKER_COUNT"
 echo "API available at http://localhost:$API_PORT"
 echo "API docs at http://localhost:$API_PORT/docs"

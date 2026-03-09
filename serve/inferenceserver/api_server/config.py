@@ -57,6 +57,7 @@ class QueueConfig:
     name: str = "inference"
     result_zip_queue_name: str = "result_zip"
     object_storage_queue_name: str = "object_storage"
+    geocatalog_ingestion_queue_name: str = "geocatalog_ingestion"
     finalize_metadata_queue_name: str = "finalize_metadata"
     max_size: int = 10
     default_timeout: str = "1h"
@@ -142,6 +143,10 @@ class ObjectStorageConfig:
     )
     azure_container_name: str | None = (
         None  # Azure container name (falls back to bucket if not set)
+    )
+    # Azure Planetary Computer / GeoCatalog ingestion (optional)
+    azure_geocatalog_url: str | None = (
+        None  # When set, triggers PC ingestion after upload
     )
 
 
@@ -439,6 +444,10 @@ class ConfigManager:
         # Support AZURE_ENDPOINT_URL for managed identity scenarios
         if os.getenv("AZURE_ENDPOINT_URL"):
             self._config.object_storage.endpoint_url = os.getenv("AZURE_ENDPOINT_URL")
+        if os.getenv("AZURE_GEOCATALOG_URL"):
+            self._config.object_storage.azure_geocatalog_url = os.getenv(
+                "AZURE_GEOCATALOG_URL"
+            )
 
         # Workflow exposure overrides
         if os.getenv("EXPOSED_WORKFLOWS"):

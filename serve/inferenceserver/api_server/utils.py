@@ -196,7 +196,7 @@ async def create_file_stream(
 # Pipeline Stage Utilities
 # =============================================================================
 
-Stage = Literal["inference", "result_zip", "object_storage"]
+Stage = Literal["inference", "result_zip", "object_storage", "geocatalog_ingestion"]
 
 
 def queue_next_stage(
@@ -211,12 +211,12 @@ def queue_next_stage(
     Queue the next pipeline stage based on configuration.
 
     Pipeline flow:
-    - If result_zip_enabled: inference -> result_zip -> object_storage (if enabled) -> finalize
-    - If not result_zip_enabled: inference -> object_storage (if enabled) -> finalize
+    - If result_zip_enabled: inference -> result_zip -> object_storage (if enabled) -> [geocatalog_ingestion (if AZURE_GEOCATALOG_URL)] -> finalize
+    - If not result_zip_enabled: inference -> object_storage (if enabled) -> [geocatalog_ingestion (if AZURE_GEOCATALOG_URL)] -> finalize
 
     Args:
         redis_client: Redis client for queue connection
-        current_stage: The stage that just completed ("inference", "result_zip", "object_storage")
+        current_stage: The stage that just completed ("inference", "result_zip", "object_storage", "geocatalog_ingestion")
         workflow_name: Name of the workflow
         execution_id: Execution ID of the workflow
         output_path_str: Path to the output files
@@ -257,6 +257,16 @@ def queue_next_stage(
             args = (workflow_name, execution_id)
 
     elif current_stage == "object_storage":
+        if config.object_storage.azure_geocatalog_url:
+            next_queue = "geocatalog_ingestion"
+            next_func = "api_server.cpu_worker.process_geocatalog_ingestion"
+            args = (workflow_name, execution_id)
+        else:
+            next_queue = "finalize_metadata"
+            next_func = "api_server.cpu_worker.process_finalize_metadata"
+            args = (workflow_name, execution_id)
+
+    elif current_stage == "geocatalog_ingestion":
         next_queue = "finalize_metadata"
         next_func = "api_server.cpu_worker.process_finalize_metadata"
         args = (workflow_name, execution_id)

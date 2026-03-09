@@ -92,6 +92,7 @@ def check_admission_control() -> None:
         config.queue.name,
         config.queue.result_zip_queue_name,
         config.queue.object_storage_queue_name,
+        config.queue.geocatalog_ingestion_queue_name,
         config.queue.finalize_metadata_queue_name,
     ]
     for queue_name in queue_names:

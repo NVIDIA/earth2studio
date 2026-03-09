@@ -36,6 +36,7 @@ worker:
   num_workers: 1    # The number of RQ inference workers to create by default
   zip_num_workers: 1  # The number of RQ workers for result_zip queue
   objstore_num_workers: 1  # The number of RQ workers for object_storage queue
+  geocatalog_num_workers: 1  # The number of RQ workers for geocatalog_ingestion queue (used when AZURE_GEOCATALOG_URL is set)
   finalize_num_workers: 1  # The number of RQ workers for finalize_metadata queue
 
 paths:
@@ -94,6 +95,7 @@ object_storage:
   azure_account_name: null
   azure_account_key: null
   azure_container_name: null
+  azure_geocatalog_url: null  # When set, triggers Planetary Computer ingestion after Azure upload
 
 workflow_exposure:
   # List of workflow names to expose via API endpoints

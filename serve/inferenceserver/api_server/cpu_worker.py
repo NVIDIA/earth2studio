@@ -25,6 +25,7 @@ __all__ = [
     "create_results_zip",
     "process_result_zip",
     "process_object_storage_upload",
+    "process_geocatalog_ingestion",
     "process_finalize_metadata",
 ]
 
@@ -760,6 +761,23 @@ def process_object_storage_upload(
                 storage_info["remote_path"] = (
                     f"azure://{container_name}/{remote_prefix}"
                 )
+                # Build HTTPS blob URL for primary netcdf file (for GeoCatalog ingestion)
+                if (
+                    config.object_storage.azure_account_name
+                    and config.object_storage.azure_geocatalog_url
+                ):
+                    primary_nc = None
+                    if output_path.is_file() and output_path.suffix.lower() == ".nc":
+                        primary_nc = output_path.name
+                    elif output_path.is_dir():
+                        nc_files = sorted(output_path.rglob("*.nc"))
+                        if nc_files:
+                            primary_nc = nc_files[0].relative_to(output_path).as_posix()
+                    if primary_nc:
+                        storage_info["blob_url"] = (
+                            f"https://{config.object_storage.azure_account_name}.blob.core.windows.net/"
+                            f"{container_name}/{remote_prefix}/{primary_nc}"
+                        )
         if signed_url:
             storage_info["signed_url"] = signed_url
 
@@ -812,6 +830,187 @@ def process_object_storage_upload(
             workflow_name,
             execution_id,
             f"Object storage worker failed for {request_id}: {str(e)}",
+        )
+
+
+def process_geocatalog_ingestion(
+    workflow_name: str,
+    execution_id: str,
+) -> dict[str, Any] | None:
+    """
+    RQ Worker function to trigger ingestion of uploaded inference results into
+    Azure Planetary Computer / GeoCatalog when AZURE_GEOCATALOG_URL is configured.
+
+    This function is intended to be executed by the CPU worker from the
+    geocatalog_ingestion_queue, after process_object_storage_upload. It reads
+    storage info and parameters from Redis and calls the Planetary Computer
+    client to create a STAC feature for the uploaded netcdf blob.
+
+    Args:
+        workflow_name: Name of the workflow
+        execution_id: Execution ID of the workflow
+
+    Returns:
+        Dict containing result info, None on critical failure
+    """
+    request_id = f"{workflow_name}:{execution_id}"
+    logger.info(f"Processing geocatalog ingestion for {request_id}")
+
+    try:
+        geocatalog_url = config.object_storage.azure_geocatalog_url
+        if not geocatalog_url:
+            logger.warning(
+                f"AZURE_GEOCATALOG_URL not set, skipping geocatalog ingestion for {request_id}"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "AZURE_GEOCATALOG_URL not set",
+            }
+
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = get_inference_request_metadata_key(request_id)
+        storage_info_json = redis_client.get(storage_info_key)
+        pending_metadata_json = redis_client.get(metadata_key)
+
+        if not storage_info_json or not pending_metadata_json:
+            logger.warning(
+                f"Storage info or pending metadata missing for {request_id}, skipping geocatalog ingestion"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "missing storage/metadata",
+            }
+
+        storage_info = json.loads(storage_info_json)
+        metadata_dict = json.loads(pending_metadata_json)
+        blob_url = storage_info.get("blob_url")
+        parameters = metadata_dict.get("parameters") or {}
+
+        if not blob_url:
+            logger.warning(
+                f"No blob_url in storage info for {request_id} (e.g. not Azure or no .nc file), skipping geocatalog ingestion"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {"success": True, "skipped": True, "reason": "no blob_url"}
+
+        # Only trigger PC ingestion for workflows supported by PlanetaryComputerClient
+        _PC_SUPPORTED_WORKFLOWS = (
+            "foundry_fcn3_workflow",
+            "foundry_fcn3_stormscope_goes_workflow",
+        )
+        if workflow_name not in _PC_SUPPORTED_WORKFLOWS:
+            logger.info(
+                f"Workflow {workflow_name} not supported by Planetary Computer client, skipping ingestion for {request_id}"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "workflow not supported",
+            }
+
+        # Normalize parameters for pc_client: start_time must be datetime
+        if "start_time" in parameters:
+            st = parameters["start_time"]
+            if isinstance(st, str):
+                # ISO format: allow 'Z' suffix
+                normalized = st.replace("Z", "+00:00")
+                parameters = dict(parameters)
+                parameters["start_time"] = datetime.fromisoformat(normalized)
+
+        try:
+            from api_server.planetary_computer.pc_client import PlanetaryComputerClient
+
+            pc_client = PlanetaryComputerClient(workflow_name)
+            pc_client.create_feature(
+                geocatalog_url=geocatalog_url,
+                collection_id=None,
+                parameters=parameters,
+                blob_url=blob_url,
+            )
+            logger.info(f"GeoCatalog ingestion completed for {request_id}")
+        except Exception as e:
+            # Log but do not fail the pipeline; finalize_metadata should still run
+            logger.exception(
+                f"GeoCatalog ingestion failed for {request_id}: {e}. Queuing finalize_metadata anyway."
+            )
+
+        job_id = queue_next_stage(
+            redis_client=redis_client,
+            current_stage="geocatalog_ingestion",
+            workflow_name=workflow_name,
+            execution_id=execution_id,
+            output_path_str="",
+        )
+        if not job_id:
+            return fail_workflow(
+                workflow_name,
+                execution_id,
+                f"Failed to queue next pipeline stage for {request_id}",
+            )
+        logger.info(
+            f"Queued finalize_metadata for {workflow_name}:{execution_id} with RQ job ID: {job_id}"
+        )
+        return {"success": True}
+
+    except Exception as e:
+        logger.exception(f"Failed in geocatalog ingestion for {request_id}")
+        return fail_workflow(
+            workflow_name,
+            execution_id,
+            f"Geocatalog ingestion failed for {request_id}: {str(e)}",
         )
 
 
