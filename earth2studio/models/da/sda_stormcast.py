@@ -243,6 +243,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )  # [n_boundary, 2] ordered (lat, lon)
 
         # Build a KD-tree over (lat, lon) for efficient nearest-grid-point queries
+        # TODO: Make cpu and gpu support
         self._grid_tree = cKDTree(np.column_stack([self.lat.ravel(), self.lon.ravel()]))
 
         self.variables = variables
@@ -526,6 +527,12 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     @staticmethod
     def _points_in_polygon(points: np.ndarray, polygon: np.ndarray) -> np.ndarray:
         """Vectorized ray casting point-in-polygon test.
+        TODO: Improved this (GPU and reduce memory requirement) and make a general purpose util maybe...
+
+        Note
+        ----
+        For more information see the following references:
+        https://observablehq.com/@tmcw/understanding-point-in-polygon
 
         Parameters
         ----------
@@ -547,9 +554,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         # For each edge (m) and each point (n), check if horizontal ray crosses
         # Broadcasting: [m, 1] vs [1, n] -> [m, n]
         crosses = (vy[:, None] > py[None, :]) != (vy_next[:, None] > py[None, :])
-        x_intersect = (vx_next[:, None] - vx[:, None]) * (py[None, :] - vy[:, None]) / (
-            vy_next[:, None] - vy[:, None]
-        ) + vx[:, None]
+        dvy = vy_next[:, None] - vy[:, None]
+        safe_dvy = np.where(dvy == 0, 1.0, dvy)  # avoid division by zero; masked later
+        x_intersect = (vx_next[:, None] - vx[:, None]) * (
+            py[None, :] - vy[:, None]
+        ) / safe_dvy + vx[:, None]
         hits = crosses & (px[None, :] < x_intersect)
 
         # Odd number of crossings = inside
