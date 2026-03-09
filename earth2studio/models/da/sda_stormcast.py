@@ -149,14 +149,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
+    time_tolerance : TimeTolerance, optional
+        Time tolerance for filtering observations. Observations within the tolerance
+        window around each requested time will be used for data assimilation,
+        by default np.timedelta64(10, "m")
     sampler_steps : int, optional
         Number of diffusion sampler steps, by default 36
     sampler_args : dict[str, float  |  int] | None, optional
         Arguments to pass to the diffusion sampler, by default None
-    time_tolerance : TimeTolerance, optional
-        Time tolerance for filtering observations. Observations within the tolerance
-        window around each requested time will be used for data assimilation,
-        by default np.timedelta64(30, "m")
     sda_std_obs : float, optional
         Observation noise standard deviation for DPS guidance, by default 0.1
     sda_gamma : float, optional
@@ -177,9 +177,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
         sampler_args: dict[str, float | int] | None = None,
-        time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
     ):
@@ -352,6 +352,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
@@ -364,6 +365,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             Package to load model from
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
+        time_tolerance : TimeTolerance, optional
+            Time tolerance for filtering observations. Observations within the tolerance
+            window around each requested time will be used for data assimilation,
+            by default np.timedelta64(10, "m")
         sampler_steps : int, optional
             Number of diffusion sampler steps, by default 36
         sda_std_obs : float, optional
@@ -438,6 +443,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             conditioning_stds=conditioning_stds,
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
+            time_tolerance=time_tolerance,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
             sda_std_obs=sda_std_obs,
@@ -526,7 +532,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     @staticmethod
     def _points_in_polygon(points: np.ndarray, polygon: np.ndarray) -> np.ndarray:
         """Vectorized ray casting point-in-polygon test.
-        TODO: Improved this (GPU and reduce memory requirement) and make a general purpose util maybe...
+        TODO: Improved this (GPU and reduce memory requirement)
+        make a general purpose util maybe...
 
         Note
         ----
@@ -627,6 +634,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         var_indices = np.array([var_to_idx.get(str(v), -1) for v in obs_var])
         valid = var_indices >= 0
 
+        # TODO: Add support for multiple obs per cell
         if valid.any():
             vi = torch.tensor(var_indices[valid], device=device, dtype=torch.long)
             yi = torch.tensor(nearest_y[valid], device=device, dtype=torch.long)

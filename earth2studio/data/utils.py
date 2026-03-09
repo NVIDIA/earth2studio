@@ -67,11 +67,14 @@ if TYPE_CHECKING:
     from fsspec.implementations.cache_mapper import AbstractCacheMapper
 
 try:
-    import cudf
     import cupy as cp
 except ImportError:
-    cudf = None
     cp = None
+
+try:
+    import cudf
+except ImportError:
+    cudf = None
 
 
 def fetch_data(
