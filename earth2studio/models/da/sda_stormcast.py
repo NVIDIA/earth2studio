@@ -192,7 +192,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_steps = sampler_steps
         self.sampler_args = {
-            "num_steps": 18,
             "sigma_min": 0.002,
             "sigma_max": 800,
             "rho": 7,
