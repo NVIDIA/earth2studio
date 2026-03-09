@@ -26,17 +26,7 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import SFNO
 from earth2studio.utils import handshake_dim
 
-try:
-    import physicsnemo
 
-    _pn_ver = Version(physicsnemo.__version__)
-except Exception:
-    _pn_ver = Version("0")
-
-pytestmark = pytest.mark.skipif(
-    _pn_ver >= Version("2.0"),
-    reason=f"requires physicsnemo<2.0, found {_pn_ver}",
-)
 
 
 class PhooSFNOModel(torch.nn.Module):
