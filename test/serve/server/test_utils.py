@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for earth2studio.serve.server.utils."""
-
 from unittest.mock import MagicMock, patch
 
 from earth2studio.serve.server.utils import (

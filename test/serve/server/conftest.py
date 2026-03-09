@@ -14,13 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Shared pytest configuration for service tests.
-
-This conftest.py ensures the Python path allows earth2studio.serve.server
-modules to be imported (earth2studio is the project package).
-"""
-
 import sys
 from pathlib import Path
 
