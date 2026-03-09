@@ -357,7 +357,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
     ) -> AssimilationModel:
-        """Load prognostic from package
+        """Load assimilation from package
 
         Parameters
         ----------
@@ -374,8 +374,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        PrognosticModel
-            Prognostic model
+        AssimilationModel
+            Assimilation model
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
