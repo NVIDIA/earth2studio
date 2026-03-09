@@ -20,12 +20,10 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
-from packaging.version import Version
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import FCN3
 from earth2studio.utils import handshake_dim
-
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
