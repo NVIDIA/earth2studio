@@ -15,10 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Unit tests for RemoteEarth2Workflow and InferenceOutputModel.
-"""
-
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any
@@ -340,7 +336,7 @@ class TestConvertTimeToLeadTime:
             {
                 "time": times,
                 "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(["u10", "v10", "t2m", "tp"]),
+                "variable": np.array(["u10m", "v10m", "t2m", "tp"]),
                 "lat": np.arange(5),
                 "lon": np.arange(6),
             }
@@ -372,7 +368,7 @@ class TestConvertTimeToLeadTime:
             {
                 "time": times,
                 "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(["u10", "v10", "t2m"]),
+                "variable": np.array(["u10m", "v10m", "t2m"]),
                 "lat": np.arange(4),
                 "lon": np.arange(5),
             }
@@ -401,7 +397,7 @@ class TestInferenceOutputModel:
                 np.datetime64("2024-01-01T06:00:00"),
             ]
         )
-        variables = np.array(["u10", "v10", "t2m"])
+        variables = np.array(["u10m", "v10m", "t2m"])
         lats = np.arange(10)
         lons = np.arange(20)
 
@@ -439,15 +435,17 @@ class TestInferenceOutputModel:
         )
         assert model.iter_coord == "lead_time"
         assert model.device == "cpu"
-        np.testing.assert_array_equal(model.variables, np.array(["u10", "v10", "t2m"]))
+        np.testing.assert_array_equal(
+            model.variables, np.array(["u10m", "v10m", "t2m"])
+        )
 
         # Test with custom variables
         model = InferenceOutputModel(
             data_source=mock_data_source,
-            variables=["u10", "v10"],
+            variables=["u10m", "v10m"],
             device="cpu",
         )
-        np.testing.assert_array_equal(model.variables, np.array(["u10", "v10"]))
+        np.testing.assert_array_equal(model.variables, np.array(["u10m", "v10m"]))
 
     def test_coords(self, mock_data_source: Any) -> None:
         """Test input_coords and output_coords methods"""
@@ -467,7 +465,7 @@ class TestInferenceOutputModel:
         output_coords = model.output_coords(OrderedDict())
         assert isinstance(output_coords, OrderedDict)
         np.testing.assert_array_equal(
-            output_coords["variable"], np.array(["u10", "v10", "t2m"])
+            output_coords["variable"], np.array(["u10m", "v10m", "t2m"])
         )
         assert len(output_coords["lat"]) == 10
         assert len(output_coords["lon"]) == 20
@@ -497,7 +495,7 @@ class TestInferenceOutputModel:
         mock_da = Mock()
         mock_da.coords = {
             "time": mock_time_coord,
-            "variable": np.array(["u10"]),
+            "variable": np.array(["u10m"]),
             "lat": mock_lat_coord,
             "lon": mock_lon_coord,
         }
@@ -594,7 +592,7 @@ class TestInferenceOutputModel:
         mock_coords = OrderedDict(
             {
                 "time": np.array([np.datetime64("2024-01-01T00:00:00")]),
-                "variable": np.array(["u10", "v10", "t2m"]),
+                "variable": np.array(["u10m", "v10m", "t2m"]),
                 "lat": np.arange(10),
                 "lon": np.arange(20),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
@@ -643,7 +641,7 @@ class TestInferenceOutputModelIntegration:
         mock_da = Mock()
         mock_da.coords = {
             "time": mock_time_coord,
-            "variable": np.array(["u10"]),
+            "variable": np.array(["u10m"]),
             "lat": mock_lat_coord,
             "lon": mock_lon_coord,
         }

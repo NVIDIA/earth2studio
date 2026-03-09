@@ -15,17 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Pytest configuration for earth2studio.serve.client tests.
-
-This conftest.py ensures that the serve/client directory is on the Python path
-so that earth2studio.serve.client can be imported when running tests from the repository root
-with: uv run -m pytest test/serve/client
-
-Integration tests require a running Earth2Studio API server and the
-EARTH2STUDIO_API_URL environment variable to be set.
-"""
-
 import os
 from collections.abc import Iterator
 from typing import Any

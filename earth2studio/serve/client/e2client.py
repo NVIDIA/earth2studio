@@ -340,6 +340,8 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
     ):
         self.data_source = data_source
         self.iter_coord = iter_coord
+        if variables is None:
+            variables = self.data_source.da.coords["variable"]
         self.variables = np.array(variables)
         self.device = device
 

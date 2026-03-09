@@ -15,10 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Unit tests for Earth2StudioClient.
-"""
-
 import io
 import json
 from datetime import datetime
