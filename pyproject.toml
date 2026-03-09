@@ -99,11 +99,13 @@ serve = [
     # Metrics
     "prometheus_client>=0.17.0",
     # Additional utilities
-    "python-multipart>=0.0.6",
-    "python-dotenv>=1.0.0",
     "aiofiles>=23.0.0",
     "httpx>=0.25.0",
     "hydra-core>=1.3.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+    "requests>=2.25.0",
+    "urllib3>=1.26.0",
 ]
 # PX Models
 ace2 = [
@@ -373,7 +375,6 @@ exclude = []
 "docs/*.py" = ["F401"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
-
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
 "serve/server/test/*.py" = ["S101"]

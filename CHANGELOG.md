@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `fetch_dataframe` utility function
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
+- Adding Beta serve utils with inference server and client implementations
 
 ### Changed
 
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bug in cbottle datasource resulting identical samples for multiple samples
 - Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
+- Bug in spherical perturbations which did not use lmax from the SHT transform
 
 ### Security
 
