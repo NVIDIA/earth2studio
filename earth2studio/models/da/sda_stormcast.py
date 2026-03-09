@@ -151,8 +151,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_steps : int, optional
         Number of diffusion sampler steps, by default 32
-    sampler_args : dict[str, float  |  int], optional
-        Arguments to pass to the diffusion sampler, by default {}
+    sampler_args : dict[str, float  |  int] | None, optional
+        Arguments to pass to the diffusion sampler, by default None
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
@@ -178,7 +178,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_steps: int = 36,
-        sampler_args: dict[str, float | int] = {},
+        sampler_args: dict[str, float | int] | None = None,
         time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
@@ -191,7 +191,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("invariants", invariants)
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_steps = sampler_steps
-        self.sampler_args = sampler_args
+        self.sampler_args = sampler_args if sampler_args is not None else {}
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.sda_std_obs = sda_std_obs
         self.sda_dps_norm = 2
@@ -745,6 +745,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             },
         )
 
+    # NOTE: @torch.inference_mode() is intentionally omitted here.
+    # DPS guidance requires gradient computation through the denoiser for
+    # the score correction step; inference_mode would disable those gradients.
     def __call__(
         self,
         x: xr.DataArray,
