@@ -1675,14 +1675,14 @@ all = [
     { name = "scipy" },
     { name = "timm" },
     { name = "torch-harmonics", version = "0.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-12-earth2studio-ace2'" },
-    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" }, marker = "extra == 'extra-12-earth2studio-atlas' or extra == 'extra-12-earth2studio-fcn3' or extra == 'extra-12-earth2studio-perturbation' or extra == 'extra-12-earth2studio-sfno' or extra != 'extra-12-earth2studio-ace2'" },
+    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" }, marker = "extra == 'extra-12-earth2studio-atlas' or extra == 'extra-12-earth2studio-fcn3' or extra == 'extra-12-earth2studio-perturbation' or extra == 'extra-12-earth2studio-sfno' or extra != 'extra-12-earth2studio-ace2'" },
 ]
 atlas = [
     { name = "einops" },
     { name = "natten" },
     { name = "nvidia-physicsnemo" },
     { name = "timm" },
-    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
+    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
 ]
 aurora = [
     { name = "microsoft-aurora" },
@@ -1745,7 +1745,7 @@ fcn3 = [
     { name = "moviepy" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
-    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
+    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
 ]
 fengwu = [
     { name = "onnx" },
@@ -1774,7 +1774,7 @@ pangu = [
 ]
 perturbation = [
     { name = "scipy" },
-    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
+    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
 ]
 precip-afno = [
     { name = "nvidia-physicsnemo" },
@@ -1805,7 +1805,7 @@ sfno = [
     { name = "pynvml" },
     { name = "ruamel-yaml" },
     { name = "scipy" },
-    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
+    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" } },
 ]
 solarradiation-afno = [
     { name = "nvidia-physicsnemo" },
@@ -2055,10 +2055,10 @@ requires-dist = [
     { name = "torch-harmonics", marker = "extra == 'all'" },
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.7.4" },
     { name = "torch-harmonics", marker = "extra == 'all'", specifier = ">=0.8.0" },
-    { name = "torch-harmonics", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
-    { name = "torch-harmonics", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
-    { name = "torch-harmonics", marker = "extra == 'perturbation'", git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
-    { name = "torch-harmonics", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
+    { name = "torch-harmonics", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
+    { name = "torch-harmonics", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
+    { name = "torch-harmonics", marker = "extra == 'perturbation'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
+    { name = "torch-harmonics", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74" },
     { name = "tqdm", specifier = ">=4.65.0" },
     { name = "types-redis", marker = "extra == 'serve'" },
     { name = "urllib3", marker = "extra == 'serve'", specifier = ">=1.26.0" },
@@ -4056,7 +4056,7 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "torch" },
     { name = "torch-harmonics", version = "0.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-12-earth2studio-ace2'" },
-    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" }, marker = "extra == 'extra-12-earth2studio-atlas' or extra == 'extra-12-earth2studio-fcn3' or extra == 'extra-12-earth2studio-perturbation' or extra == 'extra-12-earth2studio-sfno' or extra != 'extra-12-earth2studio-ace2'" },
+    { name = "torch-harmonics", version = "0.8.1", source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" }, marker = "extra == 'extra-12-earth2studio-atlas' or extra == 'extra-12-earth2studio-fcn3' or extra == 'extra-12-earth2studio-perturbation' or extra == 'extra-12-earth2studio-sfno' or extra != 'extra-12-earth2studio-ace2'" },
     { name = "tqdm" },
     { name = "wandb" },
 ]
@@ -8133,7 +8133,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/9f/b5/fb47e55b935c868cc
 [[package]]
 name = "torch-harmonics"
 version = "0.8.1"
-source = { git = "https://github.com/NVIDIA/torch-harmonics.git?lfs=true&rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" }
+source = { git = "https://github.com/NVIDIA/torch-harmonics.git?rev=a632ca748a12bd9f74dbc1e00653317810991f74#a632ca748a12bd9f74dbc1e00653317810991f74" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version == '3.13.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
