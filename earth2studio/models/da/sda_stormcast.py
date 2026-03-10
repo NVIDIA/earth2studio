@@ -295,7 +295,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the assimilation model
 
         Parameters
         ----------
@@ -336,7 +336,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load prognostic package"""
+        """Load assimilation package"""
         package = Package(
             "hf://nvidia/stormcast-v1-era5-hrrr@6c89a0877a0d6b231033d3b0d8b9828a6f833ed8",
             cache_options={
@@ -789,7 +789,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         x: xr.DataArray,
         obs: pd.DataFrame | None,
     ) -> xr.DataArray:
-        """Runs prognostic model 1 step.
+        """Runs assimilation model 1 step.
 
         Parameters
         ----------
