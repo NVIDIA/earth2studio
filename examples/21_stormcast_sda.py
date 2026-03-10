@@ -254,9 +254,9 @@ fig, axes = plt.subplots(
     3,
     nsteps,
     subplot_kw={"projection": projection},
-    figsize=(5 * nsteps, 8),
+    figsize=(4 * nsteps, 8),
 )
-fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1)
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 for step in range(nsteps):
     lead_hr = step + 1
@@ -331,27 +331,48 @@ for step in range(nsteps):
         edgecolor="black",
         zorder=2,
     )
-    # No title for difference row
 
-# Set row labels using fig.text (GeoAxes suppresses set_ylabel)
-for row, label in enumerate(["No Obs", "Obs", "Difference"]):
-    bbox = axes[row, 0].get_position()
-    fig.text(
-        bbox.x0 - 0.01,
-        (bbox.y0 + bbox.y1) / 2,
-        label,
-        fontsize=12,
-        va="center",
-        ha="right",
-        rotation=90,
-    )
+axes[0, 0].text(
+    -0.07,
+    0.5,
+    "No Obs",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[0, 0].transAxes,
+)
+axes[1, 0].text(
+    -0.07,
+    0.5,
+    "Obs",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[1, 0].transAxes,
+)
+axes[2, 0].text(
+    -0.07,
+    0.5,
+    "Difference",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[2, 0].transAxes,
+)
 
 # Add colour bars
-fig.colorbar(im0, ax=axes[0, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
-fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
-fig.colorbar(im2, ax=axes[2, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
+plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"{variable} (m/s)")
+plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"{variable} (m/s)")
+plt.colorbar(im2, ax=axes[2, -1], shrink=0.6, label=f"{variable} (m/s)")
 
-plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tight")
+plt.tight_layout()
+plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150)
 
 # %%
 # Ground Truth Comparison
@@ -391,9 +412,9 @@ fig, axes = plt.subplots(
     2,
     nsteps,
     subplot_kw={"projection": projection},
-    figsize=(5 * nsteps, 10),
+    figsize=(4 * nsteps, 6),
 )
-fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1)
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 err_max = 5
 for step in range(nsteps):
@@ -436,20 +457,30 @@ for step in range(nsteps):
         zorder=2,
     )
 
-# Set row labels
-for row, label in enumerate(["|No Obs - Truth|", "|Obs - Truth|"]):
-    bbox = axes[row, 0].get_position()
-    fig.text(
-        bbox.x0 - 0.01,
-        (bbox.y0 + bbox.y1) / 2,
-        label,
-        fontsize=11,
-        va="center",
-        ha="right",
-        rotation=90,
-    )
+axes[0, 0].text(
+    -0.07,
+    0.5,
+    "|No Obs - Truth|",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[0, 0].transAxes,
+)
+axes[1, 0].text(
+    -0.07,
+    0.5,
+    "|Obs - Truth|",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[1, 0].transAxes,
+)
 
-fig.colorbar(im0, ax=axes[0, :].tolist(), shrink=0.6, label=f"|Δ{variable}| (m/s)")
-fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"|Δ{variable}| (m/s)")
-
-plt.savefig("outputs/21_stormcast_sda_gt_comparison.jpg", dpi=150, bbox_inches="tight")
+plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"|Δ{variable}| (m/s)")
+plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"|Δ{variable}| (m/s)")
+plt.tight_layout()
+plt.savefig("outputs/21_stormcast_sda_gt_comparison.jpg")
