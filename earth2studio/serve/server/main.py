@@ -24,6 +24,7 @@ with Redis and RQ for job queuing and Prometheus metrics.
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -292,9 +293,13 @@ async def health_check() -> dict[str, str]:
     """
     try:
         # Run the status script and check exit code
-        # Scripts live at repo serve/server/scripts, not inside the package
-        _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-        script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
+        # Prefer SCRIPT_DIR env var (required when package is installed without repo layout)
+        script_dir_env = os.environ.get("SCRIPT_DIR")
+        if script_dir_env:
+            script_path = Path(script_dir_env) / "status.sh"
+        else:
+            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+            script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
         process = await asyncio.create_subprocess_exec(
             str(script_path),
             stdout=asyncio.subprocess.PIPE,
