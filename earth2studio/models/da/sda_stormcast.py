@@ -480,14 +480,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         latents = torch.randn_like(x, dtype=torch.float64)
         latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
-        class _ConditionalDiffusionWrapper(torch.nn.Module):
-            def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
-                super().__init__()
-                self.model = model
-                self.img_lr = img_lr
-
-            def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-                return self.model(x, t, condition=self.img_lr)
+        def _conditional_diffusion(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+            return self.diffusion_model(x, t, condition=condition)
 
         scheduler = EDMNoiseScheduler(
             sigma_min=self.sampler_args["sigma_min"],
@@ -505,7 +499,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             alpha_fn=scheduler.alpha,
         )
         score_predictor = DPSDenoiser(
-            x0_predictor=_ConditionalDiffusionWrapper(self.diffusion_model, condition),
+            x0_predictor=_conditional_diffusion,
             x0_to_score_fn=scheduler.x0_to_score,
             guidances=guidance,
         )
