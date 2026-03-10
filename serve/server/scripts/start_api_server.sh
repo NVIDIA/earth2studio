@@ -18,10 +18,13 @@
 # Earth2Studio Multiple Workers Startup Script
 # This script starts multiple API workers, and RQ workers
 
-# Get the directory where this script is located.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# A way to override the config location while starting up the endpoint.
+# Get the directory where this script is located (or use env from Docker/startup.sh).
+SCRIPT_DIR=${SCRIPT_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}
 CONFIG_DIR=${CONFIG_DIR:-"${SCRIPT_DIR}/../conf"}
+# Export so uvicorn/rq workers (Python) see them for CONFIG_DIR/SCRIPT_DIR in main.py and config.py
+export SCRIPT_DIR
+export CONFIG_DIR
+export WORKFLOW_DIR
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 
 # Function to read config values from YAML using Python
