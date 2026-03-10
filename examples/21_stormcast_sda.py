@@ -81,9 +81,9 @@ from earth2studio.utils.coords import map_coords_xr
 
 package = StormCastSDA.load_default_package()
 # Load the model onto the GPU and configure SDA
-# sda_std_obs: assumed observation noise std (lower = trust obs more)
+# sda_std_obs: assumed (normalized) observation noise std (lower = trust obs more)
 # sda_gamma: DPS guidance scaling factor (lower = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.05, sda_gamma=0.001)
+model = StormCastSDA.load_model(package, sda_std_obs=0.01, sda_gamma=0.01)
 model = model.to("cuda:0")
 
 hrrr = HRRR()
@@ -118,7 +118,7 @@ x = map_coords_xr(x, ic)
 # We store only the surface variables used for comparison (u10m, v10m, t2m).
 
 # %%
-nsteps = 6
+nsteps = 2
 plot_vars = ["u10m", "v10m", "t2m"]
 
 np.random.seed(42)
