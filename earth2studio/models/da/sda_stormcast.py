@@ -688,6 +688,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
                 # Compute fractional indices via searchsorted (handles
                 # non-uniform spacing)
+                # Check that src_lat and src_lon are strictly ascending
+                if not (
+                    cp.all(src_lat[1:] > src_lat[:-1])
+                    and cp.all(src_lon[1:] > src_lon[:-1])
+                ):
+                    raise ValueError(
+                        "Source latitude and longitude arrays (src_lat, src_lon) must be strictly ascending for interpolation."
+                    )
                 lat_idx = cp.searchsorted(src_lat, target_lat_cp.ravel()) - 1
                 lat_idx = cp.clip(lat_idx, 0, len(src_lat) - 2)
                 lat_idx = lat_idx.reshape(target_lat_cp.shape)
