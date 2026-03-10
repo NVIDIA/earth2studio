@@ -25,7 +25,7 @@ This example demonstrates how to use the StormCast score-based data assimilation
 model for convection-allowing regional forecasts that incorporate sparse in-situ
 observations using diffusion posterior sampling (DPS).
 Two forecasts are run—one without observations and one with ISD surface station data
-from Oklahoma, United States region to illustrate the impact of data assimilation.
+from central United States region to illustrate the impact of data assimilation.
 
 In this example you will learn:
 
@@ -82,8 +82,8 @@ from earth2studio.utils.coords import map_coords_xr
 package = StormCastSDA.load_default_package()
 # Load the model onto the GPU and configure SDA
 # sda_std_obs: assumed observation noise std (lower = trust obs more)
-# sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=0.001)
+# sda_gamma: DPS guidance scaling factor (lower = stronger assimilation)
+model = StormCastSDA.load_model(package, sda_std_obs=0.05, sda_gamma=0.001)
 model = model.to("cuda:0")
 
 hrrr = HRRR()
@@ -126,32 +126,32 @@ torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
-no_obs_frames = []
-gen = model.create_generator(x.copy())
-x_state = next(gen)  # Prime the generator, yields initial state
+# no_obs_frames = []
+# gen = model.create_generator(x.copy())
+# x_state = next(gen)  # Prime the generator, yields initial state
 
-for step in tqdm(range(nsteps), desc="No-obs forecast"):
-    logger.info(f"Running no-obs forecast step {step}")
-    x_state = gen.send(None)  # Advance one hour without observations
-    no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
+# for step in tqdm(range(nsteps), desc="No-obs forecast"):
+#     logger.info(f"Running no-obs forecast step {step}")
+#     x_state = gen.send(None)  # Advance one hour without observations
+#     no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
-gen.close()
-no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
+# gen.close()
+# no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
 
-# Save to Zarr (convert to numpy for storage)
-no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
-no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
+# # Save to Zarr (convert to numpy for storage)
+# no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
+# no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
 
 # %%
 # Fetch Observations and Run With Assimilation
 # ---------------------------------------------
-# Fetch NOAA Integrated Surface Database (ISD) surface observations from Oklahoma and
-# assimilate them at each forecast step. The observations are fetched for the valid time
-# (initialisation time + lead time) so the model assimilates temporally
-# relevant data.
+# Fetch NOAA Integrated Surface Database (ISD) surface observations from the central
+# United States and assimilate them at each forecast step. The observations are fetched
+# for the valid time (initialisation time + lead time) so the model assimilates
+# temporally relevant data.
 
 # %%
-# Get ISD stations in the Oklahoma region and create the data source
+# Get ISD stations in the central United States region and create the data source
 stations = ISD.get_stations_bbox((32.0, -105.0, 45.0, -90.0))
 isd = ISD(stations=stations, tolerance=timedelta(minutes=15), verbose=False)
 init_time = datetime(2024, 1, 1)
@@ -173,29 +173,21 @@ station_lons = sample_df["lon"].values
 
 plt.close("all")
 fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 6))
-ax.set_extent([-120, -80, 30, 45], crs=ccrs.PlateCarree())
+ax.set_extent([-110, -85, 30, 47], crs=ccrs.PlateCarree())
 ax.add_feature(
     cartopy.feature.STATES.with_scale("50m"), linewidth=0.5, edgecolor="black"
 )
 ax.add_feature(cartopy.feature.LAND, facecolor="lightyellow")
 ax.gridlines(draw_labels=True, linewidth=0.3, alpha=0.5)
-
-# Color by variable
-colors = {"t2m": "red", "u10m": "blue", "v10m": "green"}
-for var in sample_df["variable"].unique():
-    mask = sample_df["variable"] == var
-    ax.scatter(
-        station_lons[mask],
-        station_lats[mask],
-        s=20,
-        c=colors.get(var, "black"),
-        label=var,
-        transform=ccrs.PlateCarree(),
-        zorder=3,
-    )
-
-ax.legend(loc="upper right")
-ax.set_title("ISD Station Locations - Oklahoma Region")
+ax.scatter(
+    station_lons,
+    station_lats,
+    s=20,
+    marker="x",
+    transform=ccrs.PlateCarree(),
+    zorder=3,
+)
+ax.set_title("ISD Station Locations - Central United States")
 plt.savefig("outputs/21_isd_stations.jpg", dpi=150, bbox_inches="tight")
 
 # %%
