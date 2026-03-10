@@ -19,7 +19,7 @@
 StormCast Score-Based Data Assimilation
 =======================================
 
-Running StormCast with diffusion posterior sampling to assimilate surface observations.
+Running StormCast with guided diffusion posterior sampling to assimilate observations.
 
 This example demonstrates how to use the StormCast score-based data assimilation (SDA)
 model for convection-allowing regional forecasts that incorporate sparse in-situ
@@ -395,7 +395,7 @@ fig, axes = plt.subplots(
     2,
     nsteps,
     subplot_kw={"projection": projection},
-    figsize=(5 * nsteps, 8),
+    figsize=(5 * nsteps, 10),
 )
 fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1)
 
