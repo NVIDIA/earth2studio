@@ -21,12 +21,9 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Coroutine
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
 
-import aiobotocore
-import fsspec
 import nest_asyncio
 import numpy as np
 import pandas as pd
@@ -40,6 +37,13 @@ from earth2studio.data.utils import (
     prep_data_inputs,
 )
 from earth2studio.lexicon import ISDLexicon
+
+
+@dataclass
+class _StationData:
+    station_id: str
+    year: int
+    dataframe: pd.DataFrame
 
 
 class ISD:
@@ -140,7 +144,6 @@ class ISD:
         self._verbose = verbose
 
         # Check to see if there is a running loop (initialized in async)
-        self._session = None
         try:
             nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
             loop = asyncio.get_running_loop()
@@ -189,8 +192,8 @@ class ISD:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        # if self.fs is None:
-        # loop.run_until_complete(self._async_init())
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
 
         df = loop.run_until_complete(self.fetch(time, variable, fields))
 
@@ -223,96 +226,90 @@ class ISD:
         pd.DataFrame
             ISD data frame
         """
-        # if self.fs is None:
-        #     raise ValueError(
-        #         "File store is not initialized! If you are calling this "
-        #         "function directly make sure the data source is initialized inside the "
-        #         "async loop!"
-        #     )
-
-        session = aiobotocore.session.AioSession()
-        async with session.create_client("s3") as client:
-            fs = s3fs.S3FileSystem(
-                anon=True,
-                asynchronous=True,
-                _s3=client,
-                session=session,
-                skip_instance_cache=True,
+        if self.fs is None:
+            raise ValueError(
+                "File store is not initialized! If you are calling this "
+                "function directly make sure the data source is initialized inside the "
+                "async loop!"
             )
 
-            # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-            # session = await self.fs.set_session(refresh=True)
+        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
+        session = await self.fs.set_session(refresh=True)
 
-            time, variable = prep_data_inputs(time, variable)
-            schema = self.resolve_fields(fields)
-            # Create cache dir if doesnt exist
-            pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+        time, variable = prep_data_inputs(time, variable)
+        schema = self.resolve_fields(fields)
+        # Create cache dir if doesnt exist
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-            # Check variables are valid
-            for v in variable:
-                try:
-                    ISDLexicon[v]
-                except KeyError as e:
-                    logger.error(f"variable id {v} not found in ISD lexicon")
-                    raise e
+        # Check variables are valid
+        for v in variable:
+            try:
+                ISDLexicon[v]
+            except KeyError as e:
+                logger.error(f"variable id {v} not found in ISD lexicon")
+                raise e
 
-            # Load dataframes for each station-year (cached parquet if available)
-            func_map: list[Coroutine[Any, Any, Any]] = []
-            for station in self.stations:
-                for dt in time:
-                    func_map.append(  # noqa: PERF401
-                        self._fetch_station_year(station, dt.year, fs)
-                    )
+        # Load dataframes for each station-year (cached parquet if available)
+        func_map: list[asyncio.Task[_StationData]] = []
+        for station in self.stations:
+            for dt in time:
+                func_map.append(  # noqa: PERF401
+                    self._fetch_station_year(station, dt.year)
+                )
 
-            # Launch all fetch requests
-            station_year_dfs = await tqdm.gather(
-                *func_map, desc="Fetching NOAA ISD data", disable=(not self._verbose)
-            )
+        # Launch all fetch requests
+        station_year_dfs = await tqdm.gather(
+            *func_map, desc="Fetching NOAA ISD data", disable=(not self._verbose)
+        )
 
-            # Gather all dataframes by station and by year
-            filtered_df = []
-            index = 0
-            for station in self.stations:
-                for dt in time:
-                    df = station_year_dfs[index]
-                    index += 1
+        # Gather all dataframes by station and by year
+        filtered_df = []
+        index = 0
+        for station in self.stations:
+            for dt in time:
+                df = station_year_dfs[index]
+                index += 1
 
-                    tmin = dt - self.tolerance
-                    tmax = dt + self.tolerance
+                tmin = dt - self.tolerance
+                tmax = dt + self.tolerance
 
-                    if df.empty:
-                        continue
+                if df.empty:
+                    continue
 
-                    df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
-                    if not df_window.empty:
-                        filtered_df.append(df_window)
+                df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
+                if not df_window.empty:
+                    filtered_df.append(df_window)
 
-            if len(filtered_df) == 0:
-                return pd.DataFrame(columns=schema.names)
+        if len(filtered_df) == 0:
+            return pd.DataFrame(columns=schema.names)
 
-            df = pd.concat(filtered_df, ignore_index=True)
+        df = pd.concat(filtered_df, ignore_index=True)
 
-            # Rename columns using schema metadata
-            if not df.empty:
-                df = df.rename(columns=self.column_map())
-                df["station"] = df["station"].astype(str)
-                # Normalize longitude from [-180, 180) to [0, 360)
-                if "lon" in df.columns:
-                    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-                    df["lon"] = (df["lon"] + 360.0) % 360.0
+        # Rename columns using schema metadata
+        if not df.empty:
+            df = df.rename(columns=self.column_map())
+            df["station"] = df["station"].astype(str)
+            # Normalize longitude from [-180, 180) to [0, 360)
+            if "lon" in df.columns:
+                df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+                df["lon"] = (df["lon"] + 360.0) % 360.0
 
-            # Process observation columns
-            df = self._extract_ws10m(df)
-            df = self._extract_uv(df)
-            df = self._extract_tp(df)
-            df = self._extract_t2m(df)
-            df = self._extract_fg10m(df)
-            df = self._extract_d2m(df)
-            df = self._extract_tcc(df)
+        # Process observation columns
+        df = self._extract_ws10m(df)
+        df = self._extract_uv(df)
+        df = self._extract_tp(df)
+        df = self._extract_t2m(df)
+        df = self._extract_fg10m(df)
+        df = self._extract_d2m(df)
+        df = self._extract_tcc(df)
 
-            # Transform to long format (one observation per row)
-            result = self._create_observation_dataframe(df, variable, schema)
-            result.attrs["source"] = self.SOURCE_ID
+        # Transform to long format (one observation per row)
+        result = self._create_observation_dataframe(df, variable, schema)
+        result.attrs["source"] = self.SOURCE_ID
+
+        # Close aiohttp client if s3fs
+        if session:
+            await session.close()
 
         return result
 
@@ -346,9 +343,7 @@ class ISD:
         df_long = df_long.dropna(subset=["observation"]).reset_index(drop=True)
         return df_long[[name for name in schema.names]]
 
-    async def _fetch_station_year(
-        self, station_id: str, year: int, fs: fsspec.AbstractFileSystem
-    ) -> pd.DataFrame:
+    async def _fetch_station_year(self, station_id: str, year: int) -> pd.DataFrame:
         """Async method for fetching csv to given station
 
         Parameters
@@ -363,8 +358,8 @@ class ISD:
         pd.DataFrame
             Pandas dataframe of CSV
         """
-        # if self.fs is None:
-        #     raise ValueError("File system is not initialized")
+        if self.fs is None:
+            raise ValueError("File system is not initialized")
 
         s3_url = f"s3://noaa-global-hourly-pds/{year}/{station_id}.csv"
         # Hash the URL for cache file names
@@ -373,23 +368,26 @@ class ISD:
 
         # Read from cached parquet if available
         if self._cache and os.path.isfile(parquet_path):
-            df = pd.read_parquet(parquet_path)
+            df = await asyncio.to_thread(pd.read_parquet, parquet_path)
         else:
-            # Check if the remote file exists before attempting to open it
-            if not await fs._exists(s3_url):
+            # Download CSV via s3fs to cache, then read with pandas
+            try:
+                # file_butter = await self.fs._open(s3_url)
+                async with await self.fs.open_async(s3_url, "rb") as f:
+                    df = await asyncio.to_thread(
+                        pd.read_csv,
+                        io.BytesIO(await f.read()),
+                        parse_dates=["DATE"],
+                        low_memory=False,  # Mixed types
+                    )
+                    await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
+            except FileNotFoundError:
+                # If that station does not have data for this year, return empty
                 if self._verbose:
                     logger.warning(
                         f"Station {station_id} does not have any data for requested year {year}"
                     )
                 return pd.DataFrame()
-
-            async with await fs.open_async(s3_url, "rb") as f:
-                df = pd.read_csv(
-                    io.BytesIO(await f.read()),
-                    parse_dates=["DATE"],
-                    low_memory=False,  # Mixed types
-                )
-                df.to_parquet(parquet_path, index=False)
 
         return df
 
