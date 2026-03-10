@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import IntEnum, StrEnum
 
 import numpy as np
@@ -376,14 +376,20 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Set up time tensors
         times0 = [
-            datetime.fromtimestamp(t.astype("datetime64[s]").astype(int))
+            datetime.fromtimestamp(
+                t.astype("datetime64[s]").astype(int), tz=timezone.utc
+            )
             for t in times.reshape(-1)
         ]
         second_of_day = np.array(
             [(t.hour * 3600) + (t.minute * 60) + t.second for t in times0]
         ).reshape(times.shape)
         day_of_year = np.array(
-            [(t - datetime(t.year, 1, 1)).total_seconds() / (86400.0) for t in times0]
+            [
+                (t - datetime(t.year, 1, 1, tzinfo=timezone.utc)).total_seconds()
+                / (86400.0)
+                for t in times0
+            ]
         ).reshape(times.shape)
         second_of_day = torch.tensor(second_of_day.astype(np.float32), device=device)
         day_of_year = torch.tensor(day_of_year.astype(np.float32), device=device)
