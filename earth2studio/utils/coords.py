@@ -462,11 +462,16 @@ def map_coords_xr(
             src_raw = np.asarray(result.coords[key].values)
             tgt_raw = np.asarray(target_da.values)
 
-            idx = np.searchsorted(src_raw, tgt_raw)
-            idx = np.clip(idx, 1, len(src_raw) - 1)
-            left = np.abs(tgt_raw - src_raw[idx - 1])
-            right = np.abs(tgt_raw - src_raw[idx])
-            idx = np.where(left <= right, idx - 1, idx)
+            sort_order = np.argsort(src_raw)
+            src_sorted = src_raw[sort_order]
+            idx_sorted = np.searchsorted(src_sorted, tgt_raw)
+            idx_sorted = np.clip(idx_sorted, 1, len(src_sorted) - 1)
+            left = np.abs(tgt_raw - src_sorted[idx_sorted - 1])
+            right = np.abs(tgt_raw - src_sorted[idx_sorted])
+            idx_sorted = np.where(left <= right, idx_sorted - 1, idx_sorted)
+
+            # Map back to original unsorted indices
+            idx = sort_order[idx_sorted]
 
             # Index into the data array along this dimension
             if is_cupy:
