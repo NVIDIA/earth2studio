@@ -152,7 +152,6 @@ no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="
 # temporally relevant data.
 
 # %%
-# Get ISD stations in the central United States region and create the data source
 stations = ISD.get_stations_bbox((32.0, -105.0, 45.0, -90.0))
 isd = ISD(stations=stations, tolerance=timedelta(minutes=15), verbose=False)
 
