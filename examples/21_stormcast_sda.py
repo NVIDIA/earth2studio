@@ -232,10 +232,6 @@ obs_np.to_dataset(name="prediction").to_zarr("outputs/21_with_obs.zarr", mode="w
 # difference (assimilated minus baseline).
 
 # %%
-import cartopy
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
-
 plt.close("all")
 variable = "u10m"
 
