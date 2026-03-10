@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:25.11-py3
+FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
 
 # update repo info
 RUN apt update -y && \
@@ -25,12 +25,11 @@ RUN cmake .. && \
     cp ./bin/DetectNodes /usr/local/bin && \
     cp ./bin/StitchNodes /usr/local/bin
 
-
 # copy source into the container.
-RUN mkdir -p /tc_tracking
+RUN mkdir -p /tc_tracking_src
 COPY . /tc_tracking_src
 WORKDIR /tc_tracking_src
 
 ENV FORCE_CUDA_EXTENSION=1
-ENV TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0 10.0 12.0+PTX"
+ENV TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0 10.0 12.0, 13.0+PTX"
 RUN uv pip install --system --break-system-packages --no-cache-dir .
