@@ -303,8 +303,8 @@ def test_fetch_and_interp_conditioning_gpu():
 
     from earth2studio.data.utils import prep_data_inputs
 
-    # Regular source grid (ascending lat required by cp.searchsorted)
-    src_lat = np.linspace(-90, 90, num=181)
+    # Descending latitude (typical weather data convention: 90 → -90)
+    src_lat = np.linspace(90, -90, num=181)
     src_lon = np.linspace(0, 360, num=361)
     field = np.random.randn(src_lat.shape[0], src_lon.shape[0])
 

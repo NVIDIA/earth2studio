@@ -686,16 +686,17 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
                 target_lat_cp = cp.asarray(self.lat, dtype=cp.float64)
                 target_lon_cp = cp.asarray(self.lon, dtype=cp.float64)
 
+                # Ensure ascending order for searchsorted (latitude is
+                # commonly descending in weather data, e.g. 90 -> -90)
+                if src_lat[-1] < src_lat[0]:
+                    src_lat = src_lat[::-1]
+                    data = data[..., ::-1, :]
+                if src_lon[-1] < src_lon[0]:
+                    src_lon = src_lon[::-1]
+                    data = data[..., :, ::-1]
+
                 # Compute fractional indices via searchsorted (handles
-                # non-uniform spacing)
-                # Check that src_lat and src_lon are strictly ascending
-                if not (
-                    cp.all(src_lat[1:] > src_lat[:-1])
-                    and cp.all(src_lon[1:] > src_lon[:-1])
-                ):
-                    raise ValueError(
-                        "Source latitude and longitude arrays (src_lat, src_lon) must be strictly ascending for interpolation."
-                    )
+                # non-uniform spacing), src_lat and src_lon needs to be acending
                 lat_idx = cp.searchsorted(src_lat, target_lat_cp.ravel()) - 1
                 lat_idx = cp.clip(lat_idx, 0, len(src_lat) - 2)
                 lat_idx = lat_idx.reshape(target_lat_cp.shape)
