@@ -64,7 +64,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import numpy as np
 import torch
@@ -83,7 +83,7 @@ package = StormCastSDA.load_default_package()
 # Load the model onto the GPU and configure SDA
 # sda_std_obs: assumed (normalized) observation noise std (lower = trust obs more)
 # sda_gamma: DPS guidance scaling factor (lower = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.01, sda_gamma=0.01)
+model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=1e-4)
 model = model.to("cuda:0")
 
 hrrr = HRRR()
@@ -91,17 +91,18 @@ hrrr = HRRR()
 # %%
 # Fetch Initial Conditions
 # ------------------------
-# Pull HRRR analysis data for January 1st 2024 and select the sub-grid that
+# Pull HRRR analysis data for April 3rd 2025, a date that saw a major tornado
+# outbreak across the central United States, and select the sub-grid that
 # StormCast expects. The model's :py:meth:`init_coords` describes the required
 # coordinate system.
 
 # %%
-time = np.array([np.datetime64("2024-01-01T00:00")])
+init_time = np.array([np.datetime64("2025-04-03T18:00")])
 ic = model.init_coords()[0]
 
 x = fetch_data(
     hrrr,
-    time=time,
+    time=init_time,
     variable=ic["variable"],
     lead_time=np.array([np.timedelta64(0, "h")]),
     device="cuda:0",
@@ -118,7 +119,7 @@ x = map_coords_xr(x, ic)
 # We store only the surface variables used for comparison (u10m, v10m, t2m).
 
 # %%
-nsteps = 2
+nsteps = 6
 plot_vars = ["u10m", "v10m", "t2m"]
 
 np.random.seed(42)
@@ -126,21 +127,21 @@ torch.manual_seed(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
-# no_obs_frames = []
-# gen = model.create_generator(x.copy())
-# x_state = next(gen)  # Prime the generator, yields initial state
+no_obs_frames = []
+gen = model.create_generator(x.copy())
+x_state = next(gen)  # Prime the generator, yields initial state
 
-# for step in tqdm(range(nsteps), desc="No-obs forecast"):
-#     logger.info(f"Running no-obs forecast step {step}")
-#     x_state = gen.send(None)  # Advance one hour without observations
-#     no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
+for step in tqdm(range(nsteps), desc="No-obs forecast"):
+    logger.info(f"Running no-obs forecast step {step}")
+    x_state = gen.send(None)  # Advance one hour without observations
+    no_obs_frames.append(x_state.sel(variable=plot_vars).copy())
 
-# gen.close()
-# no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
+gen.close()
+no_obs_da = xr.concat(no_obs_frames, dim="lead_time")
 
-# # Save to Zarr (convert to numpy for storage)
-# no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
-# no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
+# Save to Zarr (convert to numpy for storage)
+no_obs_np = no_obs_da.copy(data=no_obs_da.data.get())
+no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="w")
 
 # %%
 # Fetch Observations and Run With Assimilation
@@ -154,7 +155,6 @@ if torch.cuda.is_available():
 # Get ISD stations in the central United States region and create the data source
 stations = ISD.get_stations_bbox((32.0, -105.0, 45.0, -90.0))
 isd = ISD(stations=stations, tolerance=timedelta(minutes=15), verbose=False)
-init_time = datetime(2024, 1, 1)
 
 # %%
 # Plot ISD Station Locations
@@ -210,7 +210,7 @@ x_state = next(gen)  # Prime the generator, yields initial state
 
 for step in tqdm(range(nsteps), desc="Obs forecast"):
     # Fetch observations for the current forecast step time frame
-    valid_time = init_time + timedelta(hours=step + 1)
+    valid_time = init_time + np.timedelta64(step + 1, "h")
     obs_df = isd(valid_time, plot_vars)
     logger.info(f"Running obs forecast step {step}, {len(obs_df)} obs")
     x_state = gen.send(obs_df)  # Advance one hour with observations
@@ -268,9 +268,8 @@ for step in range(nsteps):
     obs_field = obs_vals[0, step]
     diff_field = obs_field - no_obs_field
 
-    vmin = -5
-    vmax = 5
-
+    vmin = -10
+    vmax = 10
     # Row 0: No-obs forecast
     ax = axes[0, step]
     im0 = ax.pcolormesh(
@@ -327,8 +326,8 @@ for step in range(nsteps):
         diff_field,
         transform=ccrs.PlateCarree(),
         cmap="RdBu_r",
-        vmin=-1,
-        vmax=1,
+        vmin=-3,
+        vmax=3,
     )
     ax.add_feature(
         cartopy.feature.STATES.with_scale("50m"),
@@ -366,10 +365,9 @@ plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tig
 # assimilation improves accuracy relative to the actual analysis.
 
 # %%
-truth_times = np.array([np.datetime64(init_time)])
 truth = fetch_data(
     hrrr,
-    time=truth_times,
+    time=init_time,
     variable=np.array(plot_vars),
     lead_time=np.array([np.timedelta64(h + 1, "h") for h in range(nsteps)]),
     device="cpu",
@@ -412,7 +410,7 @@ for step in range(nsteps):
         model.lat,
         no_obs_err[step],
         transform=ccrs.PlateCarree(),
-        cmap="magma",
+        cmap="viridis",
         vmin=0,
         vmax=err_max,
     )
@@ -431,7 +429,7 @@ for step in range(nsteps):
         model.lat,
         obs_err[step],
         transform=ccrs.PlateCarree(),
-        cmap="magma",
+        cmap="viridis",
         vmin=0,
         vmax=err_max,
     )
