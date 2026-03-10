@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.data import Random, RandomDataFrame, fetch_data, fetch_dataframe
 from earth2studio.models.da.sda_stormcast import StormCastSDA
@@ -294,6 +295,69 @@ def test_fetch_and_interp_conditioning():
     assert "hrrr_y" in c.dims
     assert "hrrr_x" in c.dims
     assert "variable" in c.dims
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_fetch_and_interp_conditioning_gpu():
+    from scipy.interpolate import RegularGridInterpolator
+
+    from earth2studio.data.utils import prep_data_inputs
+
+    # Regular source grid (ascending lat required by cp.searchsorted)
+    src_lat = np.linspace(-90, 90, num=181)
+    src_lon = np.linspace(0, 360, num=361)
+    field = np.random.randn(src_lat.shape[0], src_lon.shape[0])
+
+    class _AnalyticSource:
+        def __init__(self):
+            self.domain_coords = OrderedDict([("lat", src_lat), ("lon", src_lon)])
+
+        def __call__(self, time, variable):
+            time, variable = prep_data_inputs(time, variable)
+            data = np.broadcast_to(
+                field, (len(time), len(variable), len(src_lat), len(src_lon))
+            ).copy()
+            return xr.DataArray(
+                data=data,
+                dims=["time", "variable", "lat", "lon"],
+                coords={
+                    "time": time,
+                    "variable": variable,
+                    "lat": src_lat,
+                    "lon": src_lon,
+                },
+            )
+
+    ny = Y_END - Y_START
+    nx = X_END - X_START
+    model = StormCastSDA(
+        PhooRegressionModel(out_vars=NVAR),
+        PhooSDADiffusionModel(),
+        torch.zeros(1, NVAR, 1, 1),
+        torch.ones(1, NVAR, 1, 1),
+        torch.randn(1, 2, ny, nx),
+        hrrr_lat_lim=(Y_START, Y_END),
+        hrrr_lon_lim=(X_START, X_END),
+        variables=np.array(["u%02d" % i for i in range(NVAR)]),
+        conditioning_means=torch.zeros(1, NVAR_COND, 1, 1),
+        conditioning_stds=torch.ones(1, NVAR_COND, 1, 1),
+        conditioning_variables=np.array(["c%02d" % i for i in range(NVAR_COND)]),
+        conditioning_data_source=_AnalyticSource(),
+        sampler_args=SAMPLER_ARGS,
+    ).to("cuda:0")
+
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    x = _build_input_da(model, time, device="cuda:0")
+    c = model._fetch_and_interp_conditioning(x)
+
+    # Scipy reference bilinear interpolation
+    ref = RegularGridInterpolator((src_lat, src_lon), field, method="linear")
+    target_pts = np.column_stack([model.lat.ravel(), model.lon.ravel()])
+    expected = ref(target_pts).reshape(ny, nx)
+
+    c_np = c.data.get()
+    for v in range(NVAR_COND):
+        np.testing.assert_allclose(c_np[0, 0, v], expected, atol=1e-6, rtol=0)
 
 
 # ---------- Test: __call__ ----------

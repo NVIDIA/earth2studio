@@ -680,26 +680,32 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             # GPU path: bilinear interpolation using cupy, data stays on GPU
             with cp.cuda.Device(device.index or 0):
                 data = c.data
-                src_lat = c.coords["lat"].values
-                src_lon = c.coords["lon"].values
+                src_lat = cp.asarray(c.coords["lat"].values, dtype=cp.float64)
+                src_lon = cp.asarray(c.coords["lon"].values, dtype=cp.float64)
 
                 target_lat_cp = cp.asarray(self.lat, dtype=cp.float64)
                 target_lon_cp = cp.asarray(self.lon, dtype=cp.float64)
-                lat_step = float(src_lat[1] - src_lat[0])
-                lon_step = float(src_lon[1] - src_lon[0])
-                lat_frac = (target_lat_cp - float(src_lat[0])) / lat_step
-                lon_frac = (target_lon_cp - float(src_lon[0])) / lon_step
 
-                lat0 = cp.clip(
-                    cp.floor(lat_frac).astype(cp.int64), 0, data.shape[-2] - 2
-                )
-                lon0 = cp.clip(
-                    cp.floor(lon_frac).astype(cp.int64), 0, data.shape[-1] - 2
-                )
+                # Compute fractional indices via searchsorted (handles
+                # non-uniform spacing)
+                lat_idx = cp.searchsorted(src_lat, target_lat_cp.ravel()) - 1
+                lat_idx = cp.clip(lat_idx, 0, len(src_lat) - 2)
+                lat_idx = lat_idx.reshape(target_lat_cp.shape)
+
+                lon_idx = cp.searchsorted(src_lon, target_lon_cp.ravel()) - 1
+                lon_idx = cp.clip(lon_idx, 0, len(src_lon) - 2)
+                lon_idx = lon_idx.reshape(target_lon_cp.shape)
+
+                lat0 = lat_idx
+                lon0 = lon_idx
                 lat1 = lat0 + 1
                 lon1 = lon0 + 1
-                wlat = cp.clip(lat_frac - lat0.astype(cp.float64), 0.0, 1.0)
-                wlon = cp.clip(lon_frac - lon0.astype(cp.float64), 0.0, 1.0)
+
+                # Fractional weights between grid cells
+                wlat = (target_lat_cp - src_lat[lat0]) / (src_lat[lat1] - src_lat[lat0])
+                wlon = (target_lon_cp - src_lon[lon0]) / (src_lon[lon1] - src_lon[lon0])
+                wlat = cp.clip(wlat, 0.0, 1.0)
+                wlon = cp.clip(wlon, 0.0, 1.0)
 
                 interp_data = (
                     data[..., lat0, lon0] * (1 - wlat) * (1 - wlon)
