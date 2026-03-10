@@ -55,7 +55,12 @@ class ZarrBackend:
     def __init__(
         self,
         file_name: str = None,
-        chunks: dict[str, int] = {},
+        chunks: dict[str, int] = {  # to avoid writing in the same chunk by default
+            "ensemble": 1,  # dimensions not present in data are ignored
+            "time": 1,
+            "lead_time": 1,
+            "variable": 1,
+        },
         backend_kwargs: dict[str, Any] = {"overwrite": False},
         zarr_codecs: CompressorsLike = None,
     ) -> None:

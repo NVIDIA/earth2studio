@@ -49,9 +49,9 @@ Inside the package these are typed as `CoordSystem` which is defined as the foll
 CoordSystem = NewType("CoordSystem", OrderedDict[str, np.ndarray])
 ```
 
-The dictionary is ordered since the keys correspond the the dimensions of the associated
+The dictionary is ordered because the keys correspond to the dimensions of the associated
 data tensor.
-Let's consider a simple example of a 2D lat-lon grid:
+Let's consider a basic example of a 2D lat-lon grid:
 
 ```python
 x = torch.randn(181, 360)
@@ -83,18 +83,18 @@ Inference Studio when possible and the packages we interface with.
   dimension, consult batching docs for more details.
   - `np.empty(0)`
 * - `time`
-  - Time dimension, represented via numpy arrays of datetime objects.
+  - Time dimension, represented by numpy arrays of datetime objects.
   - `np.ndarray[np.datetime64[ns]]` (`TimeArray`)
 * - `lead_time`
   - Lead time is used to denote a dimension that indexes over forecast steps.
   - `np.ndarray[np.timedelta64[ns]]` (`LeadTimeArray`)
 * - `variable`
-  - Dimension representing physical variable (atmospheric, surface, etc). Earth-2
+  - Dimension representing physical variable (atmospheric, surface). Earth-2
   Inference Studio has its own naming convention. See {ref}`lexicon_userguide` docs
-  for more more details.
+  for more details.
   - `np.ndarray[str]` (`VariableArray`)
 * - `lat`
-  - Lattitude coordinate array, [-90, 90] is standard
+  - Latitude coordinate array, [-90, 90] is standard
   - `np.ndarray[float]`
 * - `lon`
   - Longitude coordinate array, [0, 360) is standard
@@ -191,7 +191,7 @@ it into the tensor, coord data struction on the device.
 From there, the data is kept on the GPU until the very last moment when writes are
 needed to in-memory or to file.
 
-```{figure} https://huggingface.co/datasets/NickGeneva/Earth2StudioAssets/raw/main/0.2.0/e2studio-data.png
+```{figure} https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/0.1.0/docs/e2studio-data.png
 :alt: earth2studio-data
 :width: 600px
 :align: center

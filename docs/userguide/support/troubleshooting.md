@@ -61,13 +61,13 @@ ValueError: Invalid org. Choose from ['no-org', '0123456789']
 ValueError: Invalid team. Choose from ['no-team', '0123456789']
 ```
 
-In these cases it's typically because there is an NGC API key on the system either via
+In these cases it's typically because there is an NGC API key on the system either using
 the NGC config file located at `~/.ngc/config` by default or by environment variable
 `NGC_CLI_API_KEY`.
 
 One solution is to rename your config file or unset the API key environment variable so
 Earth2Studio uses guest access.
-Otherwise one can modify the config / environment variables to provide the needed
+Otherwise you can modify the config or environment variables to provide the needed
 information.
 For example:
 
@@ -90,7 +90,7 @@ There are a few options to try outside of just waiting for the build to complete
 1. Install a prebuilt flash attention wheel, either from the official repo or other
   contributor projects like [flashattn.dev](https://flashattn.dev/#finder).
 
-2. If using a docker container is possible, the PyTorch docker container on NGC has
+2. If you are using a Docker container is possible, the PyTorch Docker container on NGC has
   flash attention already built inside of it. See {ref}`pytorch_container_environment`
   for details on how to install Earth2Studio inside a container.
 
@@ -106,7 +106,7 @@ There are a few options to try outside of just waiting for the build to complete
 ## Earth2Grid or TorchHarmonics Build Failure `Python.h: No such file or directory`
 
 [Earth2Grid](https://github.com/NVlabs/earth2grid) and [TorchHarmonics](https://github.com/NVIDIA/torch-harmonics)
-sometimes need to be installed from source and built on the users machine.
+sometimes need to be installed from source and built on your machine.
 This requires the installation of the Python 3 developer tools.
 Without it the following error will occur on attempted install:
 
@@ -118,7 +118,7 @@ compilation terminated.
 ninja: build stopped: subcommand failed.
 ```
 
-To build this dependency, the Python developer library is needed, on debian systems this
+To build this dependency, the Python developer library is needed, on Debian systems this
 can be installed with:
 
 ```bash
@@ -127,7 +127,7 @@ sudo apt-get install python3-dev
 
 ## Torch Harmonics has long build time for FCNv3
 
-This is a known challenge when building torch harmonics with cuda extensions which
+This is a known challenge when building torch harmonics with cuda extensions, which
 require the compilation of discrete-continuous (DISCO) convolutions.
 One method to speed up the install process is to limit the [cuda architectures](https://developer.nvidia.com/cuda-gpus)
 that are built to the specific card being used.

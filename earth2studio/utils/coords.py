@@ -76,7 +76,7 @@ def handshake_dim(
 def handshake_coords(
     input_coords: CoordSystem,
     target_coords: CoordSystem,
-    required_dim: str,
+    required_dim: str | list[str],
 ) -> None:
     """Simple check to see if the required dimensions have the same coordinate system
 
@@ -86,8 +86,8 @@ def handshake_coords(
         Input coordinate system to validate
     target_coords : CoordSystem
         Target coordinate system
-    required_dim : str
-        Required dimension (name of coordinate)
+    required_dim : str | list[str]
+        Required dimension(s) (name of coordinate)
     Raises
     ------
     KeyError
@@ -95,27 +95,31 @@ def handshake_coords(
     ValueError
         If coordinates of required dimensions don't match
     """
-    if required_dim not in input_coords:
-        raise KeyError(
-            f"Required dimension {required_dim} not found in input coordinates"
-        )
+    if isinstance(required_dim, str):
+        required_dim = [required_dim]
 
-    if required_dim not in target_coords:
-        raise KeyError(
-            f"Required dimension {required_dim} not found in target coordinates"
-        )
+    for _required_dim in required_dim:
+        if _required_dim not in input_coords:
+            raise KeyError(
+                f"Required dimension {_required_dim} not found in input coordinates"
+            )
 
-    if input_coords[required_dim].shape != target_coords[required_dim].shape:
-        raise ValueError(
-            f"Coordinate systems for required dim {required_dim} are not the same"
-        )
+        if _required_dim not in target_coords:
+            raise KeyError(
+                f"Required dimension {_required_dim} not found in target coordinates"
+            )
 
-    if not np.all(
-        (input_coords[required_dim] == target_coords[required_dim]).flatten()
-    ):
-        raise ValueError(
-            f"Coordinate systems for required dim {required_dim} are not the same"
-        )
+        if input_coords[_required_dim].shape != target_coords[_required_dim].shape:
+            raise ValueError(
+                f"Coordinate systems for required dim {_required_dim} are not the same"
+            )
+
+        if not np.all(
+            (input_coords[_required_dim] == target_coords[_required_dim]).flatten()
+        ):
+            raise ValueError(
+                f"Coordinate systems for required dim {_required_dim} are not the same"
+            )
 
 
 def handshake_size(
@@ -432,60 +436,96 @@ def convert_multidim_to_singledim(
     return CoordSystem(adjusted_coords), mapping
 
 
-def tile_xx_to_yy(
-    xx: torch.Tensor, xx_coords: CoordSystem, yy: torch.Tensor, yy_coords: CoordSystem
+def tile_coords(
+    x: torch.Tensor, coords: CoordSystem, target_coords: CoordSystem
 ) -> tuple[torch.Tensor, CoordSystem]:
-    """Tile tensor xx to match the leading dimensions of tensor yy and update coords accordingly.
-       eg if xx has shape (4, 721, 1440) and yy has shape (8, 2, 35, 721, 1440),
-       xx will be tiled to shape (8, 2, 4, 721, 1440), which is useful for concatenation
+    """Tile tensor x to match dimensions in target_coords that don't exist in coords.
+
+    This function tiles the input tensor to match leading dimensions from target_coords
+    that are not present in coords. Dimensions that exist in both coords and target_coords
+    are ignored in target_coords and use the values from coords instead.
 
     Parameters
     ----------
-    xx : torch.Tensor
+    x : torch.Tensor
         Source tensor to be tiled
-    xx_coords : CoordSystem
-        Coordinate system for xx tensor
-    yy : torch.Tensor
-        Target tensor whose shape determines tiling
-    yy_coords : CoordSystem
-        Coordinate system for yy tensor
+    coords : CoordSystem
+        Coordinate system for x tensor
+    target_coords : CoordSystem
+        Target coordinate system. Dimensions that exist in coords are ignored.
 
     Returns
     -------
-    Tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, CoordSystem]
         Tuple containing the tiled tensor and updated coordinate system
 
-    Raises
-    ------
-    ValueError
-        If xx has more dimensions than yy
-    ValueError
-        If trailing coordinate keys of yy_coords do not match xx_coords keys
+    Examples
+    --------
+    Tiling a tensor to match additional dimensions from target_coords
+
+    >>> from earth2studio.utils.coords import tile_coords
+    >>> from collections import OrderedDict
+    >>> import torch
+    >>> import numpy as np
+    >>>
+    >>> x = torch.randn(3, 4)
+    >>> coords = OrderedDict({
+    ...     "variable": np.array(["a", "b", "c"]),
+    ...     "time": np.array([0, 1, 2, 3])
+    ... })
+    >>>
+    >>> target_coords = OrderedDict({
+    ...     "batch": np.array([0, 1]),
+    ...     "ensemble": np.array([0, 1, 2]),
+    ...     "variable": np.array(["x", "y"]),  # Ignored, uses coords value
+    ...     "time": np.array([10, 20, 30, 40])  # Ignored, uses coords value
+    ... })
+    >>>
+    >>> # Tile x to match batch and ensemble dimensions
+    >>> x_tiled, out_coords = tile_coords(x, coords, target_coords)
+    >>> x_tiled.shape
+    torch.Size([2, 3, 3, 4])
+    >>> list(out_coords.keys())
+    ['batch', 'ensemble', 'variable', 'time']
     """
-    n_lead = len(yy.shape) - len(xx.shape)
+    coords_keys = set(coords.keys())
+    leading_dims = OrderedDict()
+    common_dims = []
 
-    if n_lead < 0:
-        raise ValueError("xx must have fewer dimensions than yy.")
+    for key, val in target_coords.items():
+        if key not in coords_keys:
+            leading_dims[key] = val
+        else:
+            common_dims.append(key)
 
-    if list(xx_coords.keys()) != list(yy_coords.keys())[-len(xx_coords) :]:
-        raise ValueError(
-            f"Trailing coordinate keys must match: xx_coords keys {list(xx_coords.keys())} "
-            f"!= yy_coords trailing keys {list(yy_coords.keys())[-len(xx_coords):]}"
-        )
+    # Validate that all common dims are at the end of target_coords
+    if common_dims:
+        target_keys = list(target_coords.keys())
+        coords_keys_list = list(coords.keys())
+        if target_keys[-len(common_dims) :] != coords_keys_list:
+            raise ValueError(
+                f"All common dimensions must appear at the end of target_coords. "
+                f"Common dimensions: {coords_keys_list}, "
+                f"target_coords trailing keys: {target_keys[-len(common_dims):]}, "
+                f"target_coords order: {target_keys}"
+            )
 
-    out_shape = yy.shape[:n_lead] + tuple([-1 for _ in range(len(xx.shape))])
-    out_coords = deepcopy(yy_coords)
-    for key, val in xx_coords.items():
+    n_lead = len(leading_dims)
+
+    out_coords = deepcopy(leading_dims)
+    for key, val in coords.items():
         out_coords[key] = val
 
-    return xx.expand(out_shape), out_coords
+    # add leading size-1 dims so tile has one rep per dimension, then tile to match target
+    reps = [len(dim) for dim in leading_dims.values()] + [1] * len(x.shape)
+    x_tiled = x.view(*([1] * n_lead), *x.shape).tile(reps)
+
+    return x_tiled, out_coords
 
 
 def cat_coords(
-    xx: torch.Tensor,
-    cox: CoordSystem,
-    yy: torch.Tensor,
-    coy: CoordSystem,
+    tensors: tuple[torch.Tensor, ...],
+    coords: tuple[CoordSystem, ...],
     dim: str = "variable",
 ) -> tuple[torch.Tensor, CoordSystem]:
     """
@@ -493,14 +533,10 @@ def cat_coords(
 
     Parameters
     ----------
-    xx : torch.Tensor
-        First input tensor which to concatenate
-    cox : CoordSystem
-        Ordered dict representing coordinate system that describes xx
-    yy : torch.Tensor
-        Second input tensor which to concatenate
-    coy : CoordSystem
-        Ordered dict representing coordinate system that describes yy
+    tensors : tuple[torch.Tensor, ...]
+        Tuple of input tensors to concatenate
+    coords : tuple[CoordSystem, ...]
+        Tuple of OrderedDicts representing coordinate systems for each tensor
     dim : str
         name of dimension along which to concatenate
 
@@ -509,22 +545,55 @@ def cat_coords(
     tuple[torch.Tensor, CoordSystem]
         Tuple containing output tensor and coordinate OrderedDict from
         concatenated data.
+
+    Raises
+    ------
+    ValueError
+        If tensors and coords have different lengths
+        If input tensors have different dimension names
+        If non-concatenation dimensions don't match across inputs
+    KeyError
+        If concatenation dimension is not found in all coordinate systems
     """
+    if len(tensors) != len(coords):
+        raise ValueError(
+            f"tensors and coords must have the same length, got {len(tensors)} tensors and {len(coords)} coords"
+        )
 
-    if dim not in cox:
-        raise ValueError(f"dim {dim} is not in coords: {list(cox)}.")
-    if dim not in coy:
-        raise ValueError(f"dim {dim} is not in coords: {list(coy)}.")
+    if len(tensors) == 0:
+        raise ValueError("at least one tensor and coord must be provided")
 
-    # fix difference in latitude
-    _cox = cox.copy()
-    _cox["lat"] = coy["lat"]
-    xx, cox = map_coords(xx, cox, _cox)
+    if len(tensors) == 1:
+        return tensors[0], deepcopy(coords[0])
 
-    coords = cox.copy()
-    dim_index = list(coords).index(dim)
+    # Use first coord as reference
+    ref_coord = coords[0]
 
-    zz = torch.cat((xx, yy), dim=dim_index)
-    coords[dim] = np.append(cox[dim], coy[dim])
+    # make sure cat dim is present in all tensors
+    handshake_dim(ref_coord, dim)
 
-    return zz, coords
+    # make sure all tensors have the same dimension names
+    ref_keys = list(ref_coord.keys())
+    for i, coord in enumerate(coords[1:], start=1):
+        handshake_dim(coord, dim)
+        if not list(coord.keys()) == ref_keys:
+            raise ValueError(
+                f"all input tensors must have the same dimension names. "
+                f"Tensor 0 has {ref_keys}, tensor {i} has {list(coord.keys())}"
+            )
+
+    # make sure all the other dimensions are of equal length
+    other_dims = list(ref_keys)
+    other_dims.remove(dim)
+    for i, coord in enumerate(coords[1:], start=1):
+        handshake_coords(ref_coord, coord, other_dims)
+
+    # assemble output coords
+    coz = deepcopy(ref_coord)
+    coz[dim] = np.concatenate([coord[dim] for coord in coords])
+
+    # concatenate tensors
+    dim_index = list(coz).index(dim)
+    zz = torch.cat(tensors, dim=dim_index)
+
+    return zz, coz

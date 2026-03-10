@@ -76,7 +76,6 @@ venv.bak/
 
 # VsCode
 .vscode/
-.cursor/
 
 # VIM
 *.swp

@@ -20,6 +20,7 @@ import os
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 import xarray as xr
@@ -28,11 +29,16 @@ from fsspec.implementations.http import HTTPFileSystem
 from earth2studio.data import (
     DataArrayFile,
     Random,
+    RandomDataFrame,
     datasource_to_file,
     fetch_data,
+    fetch_dataframe,
     prep_data_array,
 )
-from earth2studio.data.utils import AsyncCachingFileSystem, datasource_cache_root
+from earth2studio.data.utils import (
+    AsyncCachingFileSystem,
+    datasource_cache_root,
+)
 
 
 @pytest.fixture
@@ -182,6 +188,76 @@ def test_fetch_data(time, lead_time, device):
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
     assert not torch.isnan(x).any()
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("1993-04-05T00:00")]),
+        np.array(
+            [
+                np.datetime64("1999-10-11T12:00"),
+                np.datetime64("2001-06-04T00:00"),
+            ]
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        np.array([np.timedelta64(0, "h")]),
+        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+    ],
+)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_fetch_dataframe(time, lead_time, device):
+    variable = np.array(["t2m", "u10m"])
+    rdf = RandomDataFrame(n_obs=5)
+
+    # For CUDA, check if cudf is available first
+    if device != "cpu":
+        try:
+            import cudf
+        except ImportError:
+            pytest.skip("cudf not available for CUDA device")
+
+    result = fetch_dataframe(rdf, time, variable, lead_time=lead_time, device=device)
+
+    # Check return type based on device
+    if device == "cpu":
+        assert isinstance(result, pd.DataFrame)
+        df = result
+    else:
+        # CUDA device - should return cudf.DataFrame
+        import cudf
+
+        assert isinstance(result, cudf.DataFrame)
+        df = result.to_pandas()
+
+    # Check that DataFrame has expected columns
+    assert "time" in df.columns
+    assert "lat" in df.columns
+    assert "lon" in df.columns
+    assert "observation" in df.columns
+    assert "variable" in df.columns
+
+    # Check that variables match
+    assert set(df["variable"].unique()).issubset(set(variable))
+
+    # Check that we have data
+    assert len(df) > 0
+    assert not df.isnull().any().any()
 
 
 @pytest.mark.parametrize(
@@ -369,11 +445,24 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
 def test_datasource_cache(tmp_path, monkeypatch):
 
-    # Test with custom path via environment variable
+    # Test with data-specific cache environment variable
+    data_cache_path = str(tmp_path / "data_cache")
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", data_cache_path)
+    monkeypatch.delenv("EARTH2STUDIO_CACHE", raising=False)
+    assert datasource_cache_root() == data_cache_path
+    assert os.path.exists(data_cache_path)
+
+    # Test with general cache environment variable (should override if DATA_CACHE not set)
     custom_path = str(tmp_path / "custom_cache")
+    monkeypatch.delenv("EARTH2STUDIO_DATA_CACHE", raising=False)
     monkeypatch.setenv("EARTH2STUDIO_CACHE", custom_path)
     assert datasource_cache_root() == custom_path
     assert os.path.exists(custom_path)
+
+    # Test that DATA_CACHE takes precedence over CACHE
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", data_cache_path)
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", custom_path)
+    assert datasource_cache_root() == data_cache_path
 
     nonexistent_parent = str(tmp_path / "nonexistent")
     invalid_path = os.path.join(nonexistent_parent, "test")

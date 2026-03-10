@@ -23,7 +23,7 @@ directly.
 ## Recipe Prerequisites
 
 - Basic knowledge / understanding of Earth2Studio APIs
-- Background on the particular recipe usecase
+- Background on the particular recipe use case
 - Intermediate Python knowledge
 - Any specific hardware requirements listed
 
@@ -47,7 +47,7 @@ directly.
     (S2S) timescales using Earth2Studio, bridging the gap between weather forecasts
     (up to 2 weeks) and seasonal forecasts (3-6 months). The recipe supports multi-GPU
     distributed inference, parallel I/O using zarr format, diagnostic models, storage
-    space reduction via regional output, and scoring capabilities including ECMWF AIWQ
+    space reduction using regional output, and scoring capabilities including ECMWF AIWQ
     S2S metrics, with DLESyM and HENS-SFNO models being best-suited for S2S forecasting.
 
     - Difficulty: Advanced

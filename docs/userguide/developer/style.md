@@ -15,7 +15,7 @@ all files.
 Additional Code formatting principles:
 
 - Files are always lower-case reflecting, use shortened name of component they hold
-- Class names are capitalized using camel-case
+- Class names are capitalized using pascal-case
 - Function names are lower case using snake-case
 
 ## Linting

@@ -23,7 +23,7 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
+from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
@@ -158,7 +158,7 @@ def diagnostic(
     nsteps: int,
     prognostic: PrognosticModel,
     diagnostic: DiagnosticModel,
-    data: DataSource,
+    data: DataSource | ForecastSource,
     io: IOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
@@ -178,7 +178,7 @@ def diagnostic(
         Prognostic model
     diagnostic: DiagnosticModel
         Diagnostic model, must be on same coordinate axis as prognostic
-    data : DataSource
+    data : DataSource | ForecastSource
         Data source
     io : IOBackend
         IO object
