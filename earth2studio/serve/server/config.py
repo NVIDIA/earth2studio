@@ -168,9 +168,13 @@ class ConfigManager:
     def _initialize_config(self) -> None:
         """Initialize configuration from Hydra"""
         try:
-            # Config lives in serve/server/conf (unchanged location in repo)
-            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-            config_dir = _repo_root / "serve" / "server" / "conf"
+            # Prefer CONFIG_DIR env var (required when package is installed without repo layout)
+            config_dir_env = os.environ.get("CONFIG_DIR")
+            if config_dir_env:
+                config_dir = Path(config_dir_env)
+            else:
+                _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+                config_dir = _repo_root / "serve" / "server" / "conf"
 
             # Clear any existing Hydra instance
             GlobalHydra.instance().clear()
