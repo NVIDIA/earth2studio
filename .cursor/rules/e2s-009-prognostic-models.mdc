@@ -329,7 +329,7 @@ def to(self, device: torch.device | str) -> PrognosticModel:
 - Move any custom buffers/parameters to device
 - Return `self` for chaining
 - Torch.nn.Module parent class addresses this requirement most of the time
-- Generally its good to have `self.register_buffer("device_buffer", torch.empty(0))` in thier init to help track what the current device of the model is
+- Generally its good to have `self.register_buffer("device_buffer", torch.empty(0))` in their init to help track what the current device of the model is
 
 ## Data Operations on GPU
 

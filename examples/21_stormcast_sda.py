@@ -64,6 +64,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
+from collections import OrderedDict
 from datetime import timedelta
 
 import numpy as np
@@ -208,8 +209,11 @@ gen = model.create_generator(x)
 x_state = next(gen)  # Prime the generator, yields initial state
 
 for step in tqdm(range(nsteps), desc="Obs forecast"):
-    # Fetch observations for the current forecast step time frame
-    valid_time = init_time + np.timedelta64(step + 1, "h")
+    # Fetch observations for the next forecast step's valid time using model coords
+    x_coords = OrderedDict({d: x_state.coords[d].values for d in x_state.dims})
+    oc = model.output_coords((x_coords,))[0]
+    print(oc)
+    valid_time = oc["time"] + oc["lead_time"]
     obs_df = isd(valid_time, plot_vars)
     logger.info(f"Running obs forecast step {step}, {len(obs_df)} obs")
     x_state = gen.send(obs_df)  # Advance one hour with observations

@@ -57,7 +57,7 @@ try:
     from omegaconf import OmegaConf
     from physicsnemo.diffusion.guidance import (
         DataConsistencyDPSGuidance,
-        DPSDenoiser,
+        DPSScorePredictor,
     )
     from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
@@ -498,7 +498,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             sigma_fn=scheduler.sigma,
             alpha_fn=scheduler.alpha,
         )
-        score_predictor = DPSDenoiser(
+        score_predictor = DPSScorePredictor(
             x0_predictor=_conditional_diffusion,
             x0_to_score_fn=scheduler.x0_to_score,
             guidances=guidance,
