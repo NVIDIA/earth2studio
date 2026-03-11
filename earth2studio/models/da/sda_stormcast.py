@@ -666,7 +666,12 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         """
         device = self.device
 
-        c = fetch_data(
+        if self.conditioning_data_source is None:
+            raise RuntimeError(
+                "StormCast has been called without initializing the model's conditioning_data_source"
+            )
+
+        c: xr.DataArray = fetch_data(
             self.conditioning_data_source,
             time=x.coords["time"].data,
             variable=self.conditioning_variables,
