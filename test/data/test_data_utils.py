@@ -205,6 +205,13 @@ def test_fetch_data(time, lead_time, device):
     ],
 )
 def test_fetch_data_legacy_false(device):
+
+    if device == "cuda:0" and torch.cuda.is_available():
+        try:
+            import cupy as cp
+        except ImportError:
+            pytest.skip("cupy not available for CUDA device")
+
     time = np.array([np.datetime64("1993-04-05T00:00")])
     lead_time = np.array([np.timedelta64(0, "h")])
     variable = np.array(["a", "b", "c"])
@@ -220,13 +227,8 @@ def test_fetch_data_legacy_false(device):
     assert np.all(da.coords["variable"].values == variable)
 
     if device == "cuda:0" and torch.cuda.is_available():
-        try:
-            import cupy as cp
-
-            assert isinstance(da.data, cp.ndarray)
-            assert not cp.all(cp.isnan(da.data))
-        except ImportError:
-            pytest.skip("cupy not available for CUDA device")
+        assert isinstance(da.data, cp.ndarray)
+        assert not cp.all(cp.isnan(da.data))
     else:
         assert isinstance(da.data, np.ndarray)
         assert not np.all(np.isnan(da.data))
