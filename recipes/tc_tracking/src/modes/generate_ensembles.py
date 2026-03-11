@@ -1,36 +1,53 @@
 import os
 import random
+from collections import OrderedDict
 from copy import deepcopy
 
 import numpy as np
 import torch
-from omegaconf import OmegaConf
+from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 from zarr import consolidate_metadata
 
 from earth2studio.data import fetch_data
+from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import Package
+from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import SphericalGaussian
 from earth2studio.utils.coords import map_coords
+
 from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 from src.data.file_output import initialise_netcdf_output, setup_output, write_to_store
 from src.data.utils import DataSourceManager, load_heights
 from src.utils import (
     InstabilityDetection,
     get_set_of_random_seeds,
-    remove_duplicates,
     run_with_rank_ordered_execution,
     set_initial_times,
 )
 
 
-def initialise(cfg):
+def initialise(cfg: DictConfig) -> None:
+    """Set up the runtime environment for ensemble generation.
+
+    Configures CUDA memory allocation, initialises the distributed manager,
+    and seeds all random number generators if a seed is provided in the config.
+    Note that this does not affect the internal random state of forecast models.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object. May contain a ``random_seed`` key
+    """
+    # make pytorch occupy only GPU memory it really needs
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
+    # initialise ditributed manager
     DistributedManager.initialize()
 
-    # set seed
+    # intialise random seeds
+    # NOTE: DOES NOT affect the internal random state of the forecast models)
     if "random_seed" in cfg:
         torch.manual_seed(cfg.random_seed)
         np.random.seed(cfg.random_seed)
@@ -40,12 +57,32 @@ def initialise(cfg):
     return
 
 
-def load_model(cfg):
+def load_model(cfg: DictConfig) -> PrognosticModel:
+    """Load a prognostic model to device.
+
+    Model weights are loaded from the default package or from a
+    custom path specified via ``cfg.model_package``.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object. May contain ``model`` (str) and
+        ``model_package`` (str) keys
+
+    Returns
+    -------
+    PrognosticModel
+        Loaded prognostic model on the current device
+
+    Raises
+    ------
+    ValueError
+        If the requested model name is not supported
+    """
     model = "fcn3"
     if "model" in cfg:
         model = cfg.model
 
-    # select model
     if model[:4] == "aifs":
         from earth2studio.models.px import AIFSENS
 
@@ -74,7 +111,39 @@ def load_model(cfg):
     return model
 
 
-def run_inference(model, cfg, store, out_coords, ic_mems):
+def run_inference(
+    model: PrognosticModel,
+    cfg: DictConfig,
+    store: ZarrBackend | NetCDF4Backend | None,
+    out_coords: OrderedDict,
+    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
+) -> ZarrBackend | NetCDF4Backend | None:
+    """Run ensemble inference and optionally track tropical cyclones.
+
+    Iterates over initial-condition / ensemble-member batches, fetches the
+    corresponding data, rolls out the prognostic model, writes fields to the
+    output store, and feeds predictions to TempestExtremes for cyclone tracking
+    if configured. If stability check is enabled, unstable members are detected
+    and re-queued with a new seed.
+
+    Parameters
+    ----------
+    model : PrognosticModel
+        Prognostic model
+    cfg : DictConfig
+        Hydra configuration object
+    store : ZarrBackend | NetCDF4Backend | None
+        Output store (Zarr, NetCDF, or None)
+    out_coords : OrderedDict
+        Output coordinate system for sub-selecting written fields
+    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
+        List of (initial_condition, member_indices, random_seed) tuples
+
+    Returns
+    -------
+    ZarrBackend | NetCDF4Backend | None
+        The output store after all data has been written
+    """
     dist = DistributedManager()
 
     # data_source = hydra.utils.instantiate(cfg.data_source)
@@ -198,7 +267,24 @@ def run_inference(model, cfg, store, out_coords, ic_mems):
     return store
 
 
-def distribute_runs(ic_mems):
+def distribute_runs(
+    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
+) -> list[tuple[np.datetime64, np.ndarray, int]] | None:
+    """Partition work items across distributed ranks.
+
+    Splits the list of initial-condition / member batches evenly across all
+    ranks. Returns ``None`` for ranks that receive no work.
+
+    Parameters
+    ----------
+    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
+        List of (initial_condition, member_indices, random_seed) tuples
+
+    Returns
+    -------
+    list[tuple[np.datetime64, np.ndarray, int]] | None
+        Subset of work items assigned to this rank, or None if idle
+    """
     dist = DistributedManager()
 
     # get the number of initial conditions
@@ -216,7 +302,25 @@ def distribute_runs(ic_mems):
     return ic_mems
 
 
-def configure_runs(cfg):
+def configure_runs(
+    cfg: DictConfig,
+) -> tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]:
+    """Build and distribute the list of ensemble runs from the configuration.
+
+    Generates all (initial_condition, member_batch, random_seed) combinations
+    based on the configured ICs, ensemble size, and batch size, then
+    distributes them across all ranks.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object
+
+    Returns
+    -------
+    tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]
+        Tuple of (work items for this rank, list of all initial-condition times)
+    """
     ic_mems = []
 
     ics = set_initial_times(cfg)
@@ -243,36 +347,18 @@ def configure_runs(cfg):
     return ic_mems, ics
 
 
-def set_reproduction_configs(cfg):
-    ic_mems = OmegaConf.to_container(cfg.reproduce_members)
+def generate_ensemble(cfg: DictConfig) -> None:
+    """Generate an ensemble forecast with optional cyclone tracking.
 
-    ics = []
-    for ii in range(len(ic_mems)):
-        # time to numpy object
-        ic_mems[ii][0] = np.datetime64(ic_mems[ii][0])
-        ics.append(ic_mems[ii][0])
+    Entry point that initialises the environment, configures runs, loads
+    the model, sets up the output store, and runs distributed ensemble
+    inference.
 
-        # get full batches that include members which shall be reproduced
-        batch_id = ic_mems[ii][1] // cfg.batch_size
-        ic_mems[ii][1] = np.arange(
-            batch_id * cfg.batch_size,
-            min((batch_id + 1) * cfg.batch_size, cfg.ensemble_size),
-        )
-
-    # remove duplicates
-    ic_mems = remove_duplicates(ic_mems)
-    ics = list(set(ics))
-
-    if not DistributedManager().distributed:
-        return ic_mems, ics
-
-    ic_mems = distribute_runs(ic_mems)
-
-    return ic_mems, ics
-
-
-def generate_ensemble(cfg):
-
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object
+    """
     initialise(cfg)
 
     ic_mems, ics = configure_runs(cfg)
@@ -280,37 +366,6 @@ def generate_ensemble(cfg):
     model = load_model(cfg)
 
     # store, out_coords = setup_output(cfg, model, add_arrays=DistributedManager().rank == 0)
-    store, out_coords = (
-        run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
-            setup_output,
-            cfg=cfg,
-            model=model,
-            ics=ics,
-            add_arrays=DistributedManager().rank == 0,
-        )
-    )
-
-    if ic_mems is None:
-        DistributedManager().cleanup()
-        exit()
-
-    store = run_inference(model, cfg, store, out_coords, ic_mems)
-
-    return
-
-
-def reproduce_members(cfg):
-    if cfg.store_type == "zarr":
-        raise ValueError("Zarr output not supported for reproducing ensemble members")
-    if cfg.model != 'fcn3':
-        raise ValueError('Currently, reproducibility works for FCN3 only')
-
-    initialise(cfg)
-
-    ic_mems, ics = set_reproduction_configs(cfg)
-
-    model = load_model(cfg)
-
     store, out_coords = (
         run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
             setup_output,

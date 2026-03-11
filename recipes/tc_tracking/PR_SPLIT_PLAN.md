@@ -128,7 +128,7 @@ Each subsequent PR is a clean additive diff on top of the previous one.
 
 ### What was done for PR 1
 
-16 files were deleted and 5 files were modified. All changes are within `recipes/tc_tracking/`.
+16 files were deleted and 6 files were modified. All changes are within `recipes/tc_tracking/`.
 
 **Deleted files (16):**
 
@@ -173,19 +173,29 @@ Each subsequent PR is a clean additive diff on top of the previous one.
 - `cfg/helene.yaml`, `cfg/hato.yaml`
 - `src/__init__.py`, `src/data/__init__.py`, `src/modes/__init__.py`
 - `src/tempest_extremes.py`, `src/utils.py`, `src/data/utils.py`, `src/data/file_output.py`
-- `src/modes/generate_ensembles.py` (full file including `reproduce_members` and `set_reproduction_configs` functions -- they sit unused until PR 2 wires them up)
 - `test/.gitignore`, `test/cfg/baseline_helene.yaml`
 - `aux_data/orography.nc`
 - `uv.lock`
 - `PR_SPLIT_PLAN.md` (this file)
 
-**Deviation from original plan:** The original plan mentioned possibly removing `moviepy` and plotting-only deps from `pyproject.toml`. In practice, only `tropycal` was removed because the other deps are either harmless or potentially useful for users doing their own analysis.
+6. **`src/modes/generate_ensembles.py`**: Removed `reproduce_members` and `set_reproduction_configs` functions (they were unused dead code). Also removed the `from omegaconf import OmegaConf` import (only used by `set_reproduction_configs`) and `remove_duplicates` from the `src.utils` import (only used by `set_reproduction_configs`). These must be restored in PR 2.
+
+**Deviation from original plan:**
+- The original plan kept `generate_ensembles.py` unchanged (with `reproduce_members` and `set_reproduction_configs` sitting unused). This was later revised to remove them for a cleaner PR 1 with no dead code. PR 2 now needs to add them back.
+- The original plan mentioned possibly removing `moviepy` and plotting-only deps from `pyproject.toml`. In practice, only `tropycal` was removed because the other deps are either harmless or potentially useful for users doing their own analysis.
 
 ### Instructions for implementing PR 2 (reproduce_members)
 
-The `reproduce_members` function already exists in `src/modes/generate_ensembles.py` on `mkoch/tc_hunt_1`. The following needs to be added:
+The `reproduce_members` and `set_reproduction_configs` functions were removed from `src/modes/generate_ensembles.py` during PR 1 trimming. They need to be restored from `mkoch/tc_tracking`. The following changes are needed:
 
-1. **`tc_hunt.py`**: Add `reproduce_members` to the import from `src.modes.generate_ensembles` and add an `elif cfg.mode == "reproduce_members"` dispatch branch. Copy the exact import and dispatch pattern from `mkoch/tc_tracking:recipes/tc_tracking/tc_hunt.py`.
+1. **`src/modes/generate_ensembles.py`**: Restore the two removed functions and their dependencies:
+   - Add `from omegaconf import OmegaConf` to the imports (was removed in PR 1).
+   - Add `remove_duplicates` back to the `from src.utils import (...)` block.
+   - Add back the `set_reproduction_configs` function (place it after `configure_runs`, before `generate_ensemble`).
+   - Add back the `reproduce_members` function (place it after `generate_ensemble`, at the end of the file).
+   - Copy all of these from `mkoch/tc_tracking:recipes/tc_tracking/src/modes/generate_ensembles.py`.
+
+2. **`tc_hunt.py`**: Add `reproduce_members` to the import from `src.modes.generate_ensembles` and add an `elif cfg.mode == "reproduce_members"` dispatch branch. Copy the exact import and dispatch pattern from `mkoch/tc_tracking:recipes/tc_tracking/tc_hunt.py`.
 
 2. **`cfg/reproduce_helene.yaml`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/cfg/reproduce_helene.yaml`.
 

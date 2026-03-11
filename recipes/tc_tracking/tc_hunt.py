@@ -1,7 +1,7 @@
 import os
 
 # Set MKL/OMP threading environment variables BEFORE any other imports
-# This prevents MKL initialization race conditions that cause
+# This prevents MKL initialization race conditions that can cause
 # divide-by-zero crashes when running FCN3 with NCCL/UCX
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -13,7 +13,8 @@ from src.modes.generate_ensembles import generate_ensemble
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")
-def main(cfg: DictConfig) -> None:
+def tc_hunt(cfg: DictConfig) -> None:
+    """main function with initialisation."""
 
     if cfg.mode == "generate_ensemble":
         generate_ensemble(cfg)
@@ -29,4 +30,4 @@ def main(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    tc_hunt()
