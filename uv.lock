@@ -1878,7 +1878,7 @@ docs = [
     { name = "jupytext" },
     { name = "matplotlib" },
     { name = "myst-parser" },
-    { name = "pydata-sphinx-theme" },
+    { name = "nvidia-sphinx-theme" },
     { name = "scipy" },
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -2119,7 +2119,7 @@ docs = [
     { name = "jupytext", specifier = ">=1.15.0" },
     { name = "matplotlib" },
     { name = "myst-parser", specifier = ">=0.18.0" },
-    { name = "pydata-sphinx-theme", specifier = "==0.16.1" },
+    { name = "nvidia-sphinx-theme" },
     { name = "scipy" },
     { name = "sphinx", specifier = ">=6.0.0" },
     { name = "sphinx-autodoc-typehints", specifier = ">=1.24.0" },
@@ -5170,6 +5170,19 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/bd/72eb242134e355810821d2c42e8ca9f15c6757c309e02389fc6f2bd40f02/nvidia_physicsnemo-2.0.0-py3-none-any.whl", hash = "sha256:fcea6ac198a2925ab81c3f62011225f53b73e1212e5364aac939ab599c0dfd9d", size = 1637877, upload-time = "2026-03-09T16:14:55.312Z" },
+]
+
+[[package]]
+name = "nvidia-sphinx-theme"
+version = "0.0.9.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydata-sphinx-theme" },
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/79/017fab2f7167a9a9795665f894d04f77aafceca80821b51589bb4b23ff5c/nvidia_sphinx_theme-0.0.9.post1-py3-none-any.whl", hash = "sha256:21ca60206dff2f380d7783d64bbaf71a5b9cacae53c7d0686f089c16b5a3d45a", size = 143816, upload-time = "2025-11-09T23:16:55.719Z" },
 ]
 
 [[package]]
