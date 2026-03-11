@@ -642,6 +642,63 @@ uv add earth2studio --extra windgust-afno
 :::::
 ::::::
 
+#### Data Assimilation
+
+:::{admonition} Warning
+:class: warning
+
+Data assimilation model APIs are currently **in Beta** and may change in future
+releases. Expect possible breaking changes as these APIs mature.
+:::
+
+:::{admonition} Warning
+:class: warning
+
+All data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
+which are CUDA-dependent libraries.
+The default installation uses CUDA 12 (i.e., `cupy-cuda12x`, `cudf-cu12`).
+If your system uses a different CUDA version, you may need to adjust the dependencies.
+:::
+
+::::::{tab-set}
+:::::{tab-item} InterpEquirectangular
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-interp]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-interp
+```
+
+:::
+::::
+:::::
+:::::{tab-item} StormCast SDA
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-stormcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-stormcast
+```
+
+:::
+::::
+:::::
+::::::
+
 ### Submodule Dependencies
 
 A few features in various submodules require some specific dependencies that have been
