@@ -933,6 +933,7 @@ def process_geocatalog_ingestion(
                 )
             return {"success": True, "skipped": True, "reason": "no blob_url"}
 
+        logger.info(f"Blob URL: {blob_url}")
         # Only trigger PC ingestion for workflows supported by PlanetaryComputerClient
         _PC_SUPPORTED_WORKFLOWS = (
             "foundry_fcn3_workflow",
@@ -960,15 +961,6 @@ def process_geocatalog_ingestion(
                 "skipped": True,
                 "reason": "workflow not supported",
             }
-
-        # Normalize parameters for pc_client: start_time must be datetime
-        if "start_time" in parameters:
-            st = parameters["start_time"]
-            if isinstance(st, str):
-                # ISO format: allow 'Z' suffix
-                normalized = st.replace("Z", "+00:00")
-                parameters = dict(parameters)
-                parameters["start_time"] = datetime.fromisoformat(normalized)
 
         try:
             from api_server.planetary_computer.pc_client import PlanetaryComputerClient

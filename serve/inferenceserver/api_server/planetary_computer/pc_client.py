@@ -27,7 +27,7 @@ class PlanetaryComputerClient:
 
     APPLICATION_URL = "https://geocatalog.spatio.azure.com/"
     REQUESTS_TIMEOUT = 30
-    CREATION_TIMEOUT = 120
+    CREATION_TIMEOUT = 300
 
     def __init__(
         self,
@@ -313,6 +313,32 @@ class PlanetaryComputerClient:
         # Create new collection
         return self._create_collection(geocatalog_url, collection_id)
 
+    def _resolve_start_time(self, parameters: dict) -> datetime:
+        """
+        Resolve start_time from workflow parameters.
+        foundry_fcn3_workflow uses 'start_time'; foundry_fcn3_stormscope_goes_workflow uses 'start_time_stormscope'.
+        """
+        raw: datetime | str | None = None
+        if self.workflow_name == "foundry_fcn3_workflow":
+            raw = parameters.get("start_time")
+        elif self.workflow_name == "foundry_fcn3_stormscope_goes_workflow":
+            raw = parameters.get("start_time_stormscope")
+        else:
+            raise ValueError(f"Unsupported workflow name: {self.workflow_name}")
+        if raw is None:
+            raise ValueError(
+                f"Missing start time in parameters for workflow {self.workflow_name}. "
+                "Expected 'start_time' or (for stormscope) 'start_time_stormscope'."
+            )
+        if isinstance(raw, str):
+            normalized = raw.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized)
+        if isinstance(raw, datetime):
+            return raw
+        if hasattr(raw, "isoformat"):
+            return datetime.fromisoformat(raw.isoformat())
+        raise TypeError(f"start_time must be str or datetime, got {type(raw)}")
+
     def create_feature(
         self,
         geocatalog_url: str,
@@ -341,7 +367,7 @@ class PlanetaryComputerClient:
         else:
             self._ensure_collection_exists(geocatalog_url, collection_id)
 
-        start_time = parameters["start_time"]
+        start_time = self._resolve_start_time(parameters)
         step_sizes = {
             # Forecast step size in hours
             "foundry_fcn3_workflow": 6,

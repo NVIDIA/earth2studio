@@ -1897,7 +1897,7 @@ serve = [
     { name = "hiredis" },
     { name = "httpx" },
     { name = "hydra-core" },
-    { name = "multi-storage-client", extra = ["azure-storage-blob"] },
+    { name = "multi-storage-client" },
     { name = "prometheus-client" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -2076,7 +2076,7 @@ requires-dist = [
     { name = "moviepy", marker = "extra == 'all'" },
     { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "moviepy", marker = "extra == 'sfno'" },
-    { name = "multi-storage-client", extras = ["azure-storage-blob"], marker = "extra == 'serve'" },
+    { name = "multi-storage-client", marker = "extra == 'serve'", specifier = ">=0.44.0" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'all'", specifier = ">=0.33.0" },
     { name = "multi-storage-client", extras = ["boto3", "fsspec", "google-cloud-storage"], marker = "extra == 'data'", specifier = ">=0.33.0" },
     { name = "natten", marker = "extra == 'all'" },
@@ -4497,7 +4497,7 @@ wheels = [
 
 [[package]]
 name = "multi-storage-client"
-version = "0.42.0"
+version = "0.44.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -4515,21 +4515,18 @@ dependencies = [
     { name = "xattr" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/90/1e69cb6d71418b38a9409b0e2564efe1e7c12e18e63e478591ae0317dbcc/multi_storage_client-0.42.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:3db30610d6bb15a5c211af9d7b11c8a1a13265893c1a625d5aaadacdb61a9a8e", size = 8805275 },
-    { url = "https://files.pythonhosted.org/packages/de/dd/a55dc9e60113f98af10075c3e33b97007bfbfd2e6f8bc6a1b2b1b43857c8/multi_storage_client-0.42.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a8c2d491475eec5e80ad706eca7005d9bd17d30b29166e891c18695b42336493", size = 5155309 },
-    { url = "https://files.pythonhosted.org/packages/b9/b6/648a1d6b4482634fbb0d5bc0ba156b42fafd4f364227f9203bc4ac70dbac/multi_storage_client-0.42.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:91a87e05e0e09b8fbd6804bb1ac85a28213d4371e91d06d9c35ad12b247f28ec", size = 5422770 },
-    { url = "https://files.pythonhosted.org/packages/d4/5a/6af92f30d09c97a314594029c115da0c44d5fa14e772983d88ad8023d355/multi_storage_client-0.42.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:5c71c128b9f81cfbd59f1e2c2acfb2559658dfecde904496b7845901f0161430", size = 8798046 },
-    { url = "https://files.pythonhosted.org/packages/c1/b2/e686bcbe754bfede1773153d928422b2c4b25453faf0e228cf9cadfa73e0/multi_storage_client-0.42.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:afe72fcb3f44ddc23488ab65bbab8575181fe15f63d297074703a36f4d8f7cc9", size = 5155767 },
-    { url = "https://files.pythonhosted.org/packages/05/44/2b7e0ec6fa68f208cb919c38df346cca37c910906f564a43f74731eb6cdb/multi_storage_client-0.42.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:30410d59d1f93758640a15779af6379a961bfa0f9607809a2b869e8b750efac7", size = 5421800 },
-    { url = "https://files.pythonhosted.org/packages/6b/ba/c342143f3820a1debd223149bb362246c983b6b6ef70ad245b0d9cfc8509/multi_storage_client-0.42.0-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:dde8cbbd066f2756f5fc7efe7f2be713a4b9212f28ddd49dc9d8008148e86e97", size = 8797502 },
-    { url = "https://files.pythonhosted.org/packages/52/9c/43cfac582592df71723add55a40b7007c6c6412e4188e44a752ff5376a85/multi_storage_client-0.42.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d2321ab65f464aeee17c91d3e999ab9df42ba7fb8e8e67ee764f3f76c9b11a2f", size = 5155687 },
-    { url = "https://files.pythonhosted.org/packages/54/b6/c745f2bc357ba83373ad655fa7296a21e9022402cbab811dbd22aed2f87f/multi_storage_client-0.42.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c305df6d59e81f909c6a23d35fc3d0ceaac723238457f236a3f55261db0b5bae", size = 5422017 },
+    { url = "https://files.pythonhosted.org/packages/80/54/1489bf146831c73dec8b620fba0d9651a8506f0e7513f2b1bafa5bf3dd30/multi_storage_client-0.44.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:fa900ac3b781707feba16c8da2562ec84ca4f1b7d99c7bce88b6311882e0cb22", size = 9057010 },
+    { url = "https://files.pythonhosted.org/packages/5c/22/fb4131638365a0d49393ebb2761608ed393e4b6fbeb661ff28cd82b3ce3a/multi_storage_client-0.44.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2d06c99da4cbfb2f600d4ca6ae0f6daf9c6842f5f162e5fedb0f9cbd75c29d5f", size = 5401057 },
+    { url = "https://files.pythonhosted.org/packages/a2/26/6daf323ec45761b20ae1de6d9ef8b4013a17eae086b54ec225edb9e5bbf4/multi_storage_client-0.44.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:81581731532dba0a40ea5ff0bb04e512b3ca458db69306902ffa1c047e02bfe0", size = 5606993 },
+    { url = "https://files.pythonhosted.org/packages/af/bd/6c66e4546ecda95da63b882eafa6d9659af032282f924b01e046ac057290/multi_storage_client-0.44.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:045a1973602b8eaacb1ab86d363c58d901d8768c6b0bb79c0088e417b3aabb0f", size = 9047082 },
+    { url = "https://files.pythonhosted.org/packages/61/5a/3fd40749a360145e218a7a7bd8db562f650954404f55b8a219843ec709a2/multi_storage_client-0.44.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2f3d5456acfac890fd5291a4776ab57c38ffecceb160ede324836c2a02427d18", size = 5400355 },
+    { url = "https://files.pythonhosted.org/packages/41/c8/aa938f0602fd7d73dc541c1783d3ce2ddb5f9ea2121122f83e75f946c014/multi_storage_client-0.44.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8a0a0f8951d722b719cb7d68cd36d639bad3664cf5ac823611b83056541e7b8f", size = 5610085 },
+    { url = "https://files.pythonhosted.org/packages/a5/cf/47ac58a9ce3913fc43feef4f2d327a07367c171c5d7f0f684eb5f2df9a6e/multi_storage_client-0.44.0-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:f82f58b71dbcb07516fa1732ebd7df53cd62e65a9e50d694a1db6bb0cb5fbd29", size = 9044542 },
+    { url = "https://files.pythonhosted.org/packages/45/62/53b69c19554146345d33cb20cdae1516e2f2e5a35edee99a7c0ce58c7720/multi_storage_client-0.44.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2dd49feebdcd513a0f35701b8af03eb653f1b0efac7e8d686ee6c1bcdc40cbe5", size = 5399626 },
+    { url = "https://files.pythonhosted.org/packages/60/61/055349d323aa74e8b792d99d731660f52d0be7b16c2072486773b11b5fa7/multi_storage_client-0.44.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:17612cc379be566d6abb81a6e3a4732ee73a30717a6e2d3432db071c7b4e3d13", size = 5609202 },
 ]
 
 [package.optional-dependencies]
-azure-storage-blob = [
-    { name = "azure-storage-blob" },
-]
 boto3 = [
     { name = "boto3" },
 ]
