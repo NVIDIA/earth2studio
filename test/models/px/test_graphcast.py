@@ -127,8 +127,8 @@ def mock_GraphCastSmall_model():
     [
         np.array([np.datetime64("1993-04-05T00:00")]),
         np.array(
-            [np.datetime64("2001-06-04T00:00")]
-        ),  # Only len 1 time array is supported by GraphCastSmall model
+            [np.datetime64("1993-04-05T00:00"), np.datetime64("2001-06-04T00:00")]
+        ),
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -151,9 +151,6 @@ def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 83, 181, 360])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
@@ -346,9 +343,18 @@ def mock_GraphCastOperational_model():
     return p
 
 
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("2010-01-01T00:00")]),
+        np.array(
+            [np.datetime64("2010-01-01T00:00"), np.datetime64("2010-01-02T00:00")]
+        ),
+    ],
+)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
-def test_graphcast_operational_call(device, mock_GraphCastOperational_model):
+def test_graphcast_operational_call(time, device, mock_GraphCastOperational_model):
 
     p = mock_GraphCastOperational_model.to(device)
 
@@ -362,12 +368,11 @@ def test_graphcast_operational_call(device, mock_GraphCastOperational_model):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    time = np.array([np.datetime64("2010-01-01T00:00")])
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     out, out_coords = p(x, coords)
-    assert out.shape == (1, 1, 83, 721, 1440)
+    assert out.shape == torch.Size([len(time), 1, 83, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
