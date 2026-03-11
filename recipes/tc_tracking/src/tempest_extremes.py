@@ -60,30 +60,32 @@ class TempestExtremes:
     Parameters
     ----------
     detect_cmd : str
-        TempestExtremes DetectNodes command with arguments
-        Note that --in_data_list and --out_file_list will be ignored if provided
-        example: "/path/to/DetectNodes --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0"
+        TempestExtremes DetectNodes command with arguments.
+        Note that --in_data_list and --out_file_list will be ignored if provided.
+        Example: "/path/to/DetectNodes --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0"
     stitch_cmd : str
-        TempestExtremes StitchNodes command with arguments
-        Note that --in and --out will be ignored if provided
-        example: "/path/to/StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10"
-    input_vars :
+        TempestExtremes StitchNodes command with arguments.
+        Note that --in and --out will be ignored if provided.
+        Example: "/path/to/StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10"
+    input_vars : list[str]
         List of variables which are required for the tracking algorithm
-    n_steps :
+    batch_size : int
+        Number of ensemble members per batch
+    n_steps : int
         Number of time steps
-    time_step :
+    time_step : np.ndarray | list[np.timedelta64] | np.timedelta64
         Time step interval
-    lats :
+    lats : np.ndarray | torch.Tensor
         Latitude coordinates
-    lons :
+    lons : np.ndarray | torch.Tensor
         Longitude coordinates
+    store_dir : str
+        Path for storing output files.
+        If use_ram==False, intermediate files will also be written to that path.
     static_vars : torch.Tensor, optional
         A tensor holding static data like orography, by default None
     static_coords : dict, optional
         Coordinates of the static data, by default None
-    store_dir : str, optional
-        Path for storing output files, by default None.
-        if use_ram==False, intermediate files will also be written to that path
     keep_raw_data : bool, optional
         Whether to keep raw data files, by default False
     print_te_output : bool, optional
@@ -178,7 +180,7 @@ class TempestExtremes:
 
         Raises
         ------
-        OptionalDependencyFailure
+        RuntimeError
             If TempestExtremes executables are not available or cannot be executed
         """
         for cmd in (self.detect_cmd[0], self.stitch_cmd[0]):
@@ -248,14 +250,14 @@ class TempestExtremes:
 
         Parameters
         ----------
-        cmd : List[str]
+        cmd : list[str]
             Command as list of strings
-        args : List[str]
+        args : list[str]
             Arguments to remove
 
         Returns
         -------
-        List[str]
+        list[str]
             Command with specified arguments removed
         """
         for arg in args:
@@ -276,7 +278,7 @@ class TempestExtremes:
         ----------
         use_ram : bool
             Whether to use RAM for temporary storage
-        store_dir : Optional[str]
+        store_dir : str
             Base storage directory path
         """
         self.store_dir = os.path.abspath(os.path.join(store_dir, "cyclone_tracks_te"))
@@ -374,15 +376,15 @@ class TempestExtremes:
         return
 
     def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
-        """Dump raw data from store to NetCDF file.
+        """Dump raw data from store to NetCDF files.
 
         Morphs the store to TempestExtremes-compatible [time, lat, lon] structure
-        and writes to a (optionally in-RAM) NetCDF file, which can be ingested by TE.
+        and writes to (optionally in-RAM) NetCDF files, which can be ingested by TE.
 
         Returns
         -------
-        str
-            Path to the created NetCDF file
+        tuple[list[str], np.ndarray]
+            Tuple of (list of paths to the created NetCDF files, member indices)
         """
         if len(self.store.coords["time"]) > 1:
             raise ValueError(
@@ -550,6 +552,11 @@ class TempestExtremes:
         Runs the complete tracking pipeline including node detection
         and stitching operations.
 
+        Parameters
+        ----------
+        out_file_names : list[str] | None, optional
+            Custom output file names for each ensemble member, by default None
+
         Raises
         ------
         ChildProcessError
@@ -586,10 +593,10 @@ class TempestExtremes:
     def __call__(self, out_file_names: list[str] | None = None) -> None:
         """Make the class callable to execute cyclone tracking.
 
-        Returns
-        -------
-        None
-            Calls track_cyclones method
+        Parameters
+        ----------
+        out_file_names : list[str] | None, optional
+            Custom output file names for each ensemble member, by default None
         """
         return self.track_cyclones(out_file_names)
 
@@ -601,10 +608,10 @@ class TempestExtremes:
 
         Parameters
         ----------
-        ins : str
-            Path to input file list
-        outs : str
-            Path to output file list
+        insies : list[str]
+            Paths to input file lists
+        outsies : list[str]
+            Paths to output file lists
         """
         for ins, outs in zip(insies, outsies):
             with open(ins) as fl:
@@ -852,7 +859,7 @@ class AsyncTempestExtremes(TempestExtremes):
 
         Returns
         -------
-        Dict[str, int]
+        dict[str, int]
             Dictionary containing task status counts with keys:
             - 'running': Number of currently running tasks
             - 'pending': Number of pending tasks
@@ -893,9 +900,9 @@ class AsyncTempestExtremes(TempestExtremes):
 
         Returns
         -------
-        Union[Dict[str, Any], tuple[list[Any], list[tuple[str, Exception]]]]
-            If raise_on_error=True: dict with successful results
-            If raise_on_error=False: tuple of (results, exceptions)
+        dict[str, Any] | tuple[list[Any], list[tuple[str, Exception]]]
+            If raise_on_error=True: dict with successful results.
+            If raise_on_error=False: tuple of (results, exceptions).
 
         Raises
         ------
