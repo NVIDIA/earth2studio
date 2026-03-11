@@ -45,7 +45,9 @@ except ImportError:
 
 @cache
 def get_isht(nlat, nlon, grid="equiangular", norm="ortho", device=None):
-    return InverseRealSHT(nlat, nlon, grid=grid, norm=norm).to(device=device)
+    return InverseRealSHT(
+        nlat, nlon, lmax=nlat, mmax=nlon // 2 + 1, grid=grid, norm=norm
+    ).to(device=device)
 
 
 def spherical_white_noise(shape, scale=3.56, device=None, studentt_deg=None):
@@ -55,18 +57,20 @@ def spherical_white_noise(shape, scale=3.56, device=None, studentt_deg=None):
     if len(shape) < 2:
         raise ValueError(f"Shape must have at least 2 dimensions, got {shape}")
 
+    isht = get_isht(shape[-2], shape[-1], device=device)
+    lmax = isht.lmax
+    mmax = isht.mmax
+
     if studentt_deg is None:
-        noise = torch.randn(shape[0:-1] + [(shape[-1] // 2) + 1] + [2], device=device)
+        noise = torch.randn(shape[0:-2] + [lmax, mmax] + [2], device=device)
     else:
         dist = torch.distributions.studentT.StudentT(studentt_deg)
-        noise = dist.sample(shape[0:-1] + [(shape[-1] // 2) + 1] + [2]).to(device)
+        noise = dist.sample(shape[0:-2] + [lmax, mmax] + [2]).to(device)
 
     noise = (1.0 / math.sqrt(float(shape[-1] * shape[-2]))) * scale * noise
     noise = torch.view_as_complex(noise)
 
     noise = torch.tril(noise)
-
-    isht = get_isht(shape[-2], shape[-1], device=device)
 
     with torch.amp.autocast("cuda", enabled=False):
         return isht(noise)
