@@ -4,33 +4,38 @@ import shutil
 from collections import OrderedDict
 
 import numpy as np
-from torch import from_numpy
+import torch
+from omegaconf import DictConfig
 
 from earth2studio.io import NetCDF4Backend, ZarrBackend
+from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import map_coords, split_coords
 
 
 def initialise_output_coords(
-    cfg,
-    model,
-    ics,
-    out_vars,
-) -> dict:
-    """Initialize output coordinates
+    cfg: DictConfig,
+    model: PrognosticModel,
+    ics: np.ndarray,
+    out_vars: list[str],
+) -> OrderedDict:
+    """construct output corrds for storing fields.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config object
-    lon_coords: np.ndarray[np.float64]
-        a 1d array containing the longitude values of the grid. ordered ascending
-    lat_coords: np.ndarray[np.float64]
-        a 1d array containing the latitude values of the grid. ordered descending
+        Hydra config object.
+    model : PrognosticModel
+        Prognostic model whose coordinate metadata is used.
+    ics : np.ndarray
+        Array of initial condition times (dtype ``datetime64``).
+    out_vars : list[str]
+        Variable names to include in the output.
 
     Returns
     -------
-    output_coords: dict
-        output coordinates
+    OrderedDict
+        Output coordinate mapping with keys *time*, *lead_time*,
+        *variable*, and the spatial dimensions from the model.
     """
     out_coords = OrderedDict(
         {
@@ -52,7 +57,33 @@ def initialise_output_coords(
     return out_coords
 
 
-def add_arrays_to_store(store, out_coords, mems, add_arrays, ic=None, array_kwargs={}):
+def add_arrays_to_store(
+    store: ZarrBackend | NetCDF4Backend,
+    out_coords: OrderedDict,
+    mems: np.ndarray,
+    add_arrays: bool,
+    ic: np.datetime64 | None = None,
+    array_kwargs: dict | None = None,
+) -> None:
+    """Allocate arrays on a storage backend.
+
+    Parameters
+    ----------
+    store : ZarrBackend | NetCDF4Backend
+        Storage backend.
+    out_coords : OrderedDict
+        Base output coordinate mapping (not modified).
+    mems : np.ndarray
+        Ensemble member indices.
+    add_arrays : bool
+        If ``True``, call ``store.add_array``; otherwise do nothing.
+    ic : np.datetime64 | None, optional
+        If provided, restrict the *time* coordinate to this single IC.
+    array_kwargs : dict | None, optional
+        Extra keyword arguments forwarded to ``store.add_array``.
+    """
+    if array_kwargs is None:
+        array_kwargs = {}
     oco = copy.deepcopy(out_coords)
     oco["ensemble"] = mems
     oco.move_to_end("ensemble", last=False)
@@ -67,8 +98,41 @@ def add_arrays_to_store(store, out_coords, mems, add_arrays, ic=None, array_kwar
     return
 
 
-def setup_output(cfg, model, ics, add_arrays):
+def setup_output(
+    cfg: DictConfig,
+    model: PrognosticModel,
+    ics: np.ndarray,
+    add_arrays: bool,
+) -> tuple[ZarrBackend | None, OrderedDict]:
+    """Set up the storage backend.
 
+    Supports Zarr and NetCDF store types.  For NetCDF the store is created
+    later per initial condition (see :func:`initialise_netcdf_output`), so
+    this function returns ``None`` as the store.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config object.
+    model : PrognosticModel
+        Prognostic model whose coordinate metadata is used.
+    ics : np.ndarray
+        Array of initial condition times (dtype ``datetime64``).
+    add_arrays : bool
+        If ``True``, allocate output arrays on the backend immediately.
+
+    Returns
+    -------
+    tuple[ZarrBackend | None, OrderedDict]
+        The storage backend (or ``None`` for NetCDF / no-store) and the
+        output coordinate mapping.
+
+    Raises
+    ------
+    ValueError
+        If ``cfg.store_type`` is not one of ``"zarr"``, ``"netcdf"``, or
+        ``"none"``.
+    """
     if 'out_vars' in cfg:
         out_vars = list(dict.fromkeys(cfg.out_vars))
     else:
@@ -119,7 +183,34 @@ def setup_output(cfg, model, ics, add_arrays):
     return store, out_coords
 
 
-def initialise_netcdf_output(cfg, out_coords, ic, ic_mems):
+def initialise_netcdf_output(
+    cfg: DictConfig,
+    out_coords: OrderedDict,
+    ic: np.datetime64,
+    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
+) -> NetCDF4Backend:
+    """Create a NetCDF4 store for a single initial condition.
+
+    The file name encodes the IC timestamp and ensemble member range.
+    Random seeds are written into the store alongside the forecast arrays.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config object.
+    out_coords : OrderedDict
+        Output coordinate mapping (not modified).
+    ic : np.datetime64
+        Initial condition time for this file.
+    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
+        Full list of ``(ic_time, member_indices, seed)`` tuples; only
+        entries matching *ic* are used.
+
+    Returns
+    -------
+    NetCDF4Backend
+        Initialised storage backend ready for writing.
+    """
     mems = np.concatenate([mem for iic, mem, _ in ic_mems if iic == ic]).flatten()
     seeds = np.concatenate(
         [
@@ -153,7 +244,7 @@ def initialise_netcdf_output(cfg, out_coords, ic, ic_mems):
 
     # add random seed to store
     store.add_array(coords={"ensemble": mems}, array_name="random_seed")
-    store.write(from_numpy(seeds), {"ensemble": mems}, "random_seed")
+    store.write(torch.from_numpy(seeds), {"ensemble": mems}, "random_seed")
 
     # add arrays to the store
     add_arrays_to_store(
@@ -163,7 +254,26 @@ def initialise_netcdf_output(cfg, out_coords, ic, ic_mems):
     return store
 
 
-def write_to_store(store, xx, coords, out_coords):
+def write_to_store(
+    store: ZarrBackend | NetCDF4Backend | None,
+    xx: torch.Tensor,
+    coords: OrderedDict,
+    out_coords: OrderedDict,
+) -> None:
+    """Map coordinates and write a single time-step to the store.
+    If store is ``None`` the call is a no-op.
+
+    Parameters
+    ----------
+    store : ZarrBackend | NetCDF4Backend | None
+        Storage backend, or ``None`` to skip writing.
+    xx : torch.Tensor
+        Data tensor for the current time-step.
+    coords : OrderedDict
+        Coordinate mapping for *xx*.
+    out_coords : OrderedDict
+        Target output coordinate mapping used for remapping.
+    """
     if store is not None:
         xx_sub, coords_sub = map_coords(xx, coords, out_coords)
         store.write(*split_coords(xx_sub, coords_sub, dim="variable"))

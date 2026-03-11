@@ -1,9 +1,9 @@
 project: 'baseline_helene'
 mode: 'generate_ensemble'
-model: 'fcn3' # 'fcn3' 'sfno' 'aifs'
+model: 'fcn3' # 'fcn3' 'aifs'
 random_seed: 7777
 
-ics: ["2024-09-24 00:00:00"] #, "2024-09-24 06:00:00"] #, "2024-09-24 12:00:00"]
+ics: ["2024-09-24 00:00:00"]
 
 n_steps: 15
 ensemble_size: 5
