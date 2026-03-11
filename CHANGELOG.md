@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `fetch_dataframe` utility function
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
+- Added StormCast SDA model
 - Adding Beta serve utils with inference server and client implementations
 
 ### Changed

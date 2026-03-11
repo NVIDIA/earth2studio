@@ -15,3 +15,4 @@
 # limitations under the License.
 
 from .interp import InterpEquirectangular
+from .sda_stormcast import StormCastSDA
