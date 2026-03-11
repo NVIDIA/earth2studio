@@ -237,7 +237,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     ]
                 ),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 721, endpoint=True),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
@@ -248,7 +248,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
                 "variable": np.array(VARIABLES + ["tp06"]),
-                "lat": np.linspace(-90, 90, 721, endpoint=True),
+                "lat": np.linspace(90, -90, 721, endpoint=True),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
@@ -561,7 +561,9 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 .T.transpose(..., "time", "lead_time", "variable", "lat", "lon")
             )
 
-        return torch.from_numpy(dataarray.to_numpy().copy())
+        out = torch.from_numpy(dataarray.to_numpy().copy())
+        out = out.flip(-2)  # Flip lat from ascending (-90->90, JAX native) to (90->-90)
+        return out
 
     @staticmethod
     def get_jax_device_from_tensor(x: torch.Tensor) -> "jax.Device":
