@@ -119,6 +119,7 @@ or maintain internal state across time steps.
    :template: dataassim.rst
 
    InterpEquirectangular
+   StormCastSDA
 
 :mod:`earth2studio.models`: Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
