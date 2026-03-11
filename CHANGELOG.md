@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed ISD data frame return to master schema
 - handshake_coords is now accepting list of dimensions while remaining backwards-compatible
 - Updated CBottle infill to mixture of model checkpoints
+- Updated GraphCastOperational and GraphCastSmall latitude input / output to be [90,-90]
 
 ### Deprecated
 
