@@ -169,7 +169,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
     levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
     useful for running with lower memory and compute constraints while maintaining good
-    forecast skill. The model operates on a 1-degree lat-lon grid (south-pole including)
+    forecast skill. The model operates on a 1-degree lat-lon grid (pole including)
     equirectangular grid with 85 variables including:
 
     - Surface variables (2m temperature, 10m winds, etc.)
@@ -238,7 +238,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     ]
                 ),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 181, endpoint=True),
+                "lat": np.linspace(90, -90, 181, endpoint=True),
                 "lon": np.linspace(0, 360, 360, endpoint=False),
             }
         )
@@ -249,7 +249,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(-90, 90, 181, endpoint=True),
+                "lat": np.linspace(90, -90, 181, endpoint=True),
                 "lon": np.linspace(0, 360, 360, endpoint=False),
             }
         )
@@ -559,7 +559,9 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 .T.transpose(..., "time", "lead_time", "variable", "lat", "lon")
             )
 
-        return torch.from_numpy(dataarray.to_numpy().copy())
+        out = torch.from_numpy(dataarray.to_numpy().copy())
+        out = out.flip(-2)  # Flip lat from ascending (-90->90, JAX native) to (90->-90)
+        return out
 
     @staticmethod
     def get_jax_device_from_tensor(x: torch.Tensor) -> "jax.Device":
