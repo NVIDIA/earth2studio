@@ -506,11 +506,12 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             # Create a separate JAX iterator for each init time
             # (rollout._get_next_inputs only supports single time)
+            time_dim = list(coords.keys()).index("time")
             n_times = len(coords["time"])
             self.iterators = []
 
             for t in range(n_times):
-                x_t = x[:, t : t + 1, ...]
+                x_t = x.narrow(time_dim, t, 1)
                 coords_t = coords.copy()
                 coords_t["time"] = coords["time"][t : t + 1]
 
@@ -616,10 +617,11 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = map_coords(x, coords, self.input_coords())
 
             # Loop over time dimension (JAX model supports single init time only)
-            n_times = x.shape[1]
+            time_dim = list(coords.keys()).index("time")
+            n_times = len(coords["time"])
             results = []
             for t in range(n_times):
-                x_t = x[:, t : t + 1, ...]
+                x_t = x.narrow(time_dim, t, 1)
                 coords_t = coords.copy()
                 coords_t["time"] = coords["time"][t : t + 1]
 
