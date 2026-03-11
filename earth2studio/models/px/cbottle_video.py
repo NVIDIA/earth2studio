@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import IntEnum, StrEnum
 
 import numpy as np
@@ -376,14 +376,20 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Set up time tensors
         times0 = [
-            datetime.fromtimestamp(t.astype("datetime64[s]").astype(int))
+            datetime.fromtimestamp(
+                t.astype("datetime64[s]").astype(int), tz=timezone.utc
+            )
             for t in times.reshape(-1)
         ]
         second_of_day = np.array(
             [(t.hour * 3600) + (t.minute * 60) + t.second for t in times0]
         ).reshape(times.shape)
         day_of_year = np.array(
-            [(t - datetime(t.year, 1, 1)).total_seconds() / (86400.0) for t in times0]
+            [
+                (t - datetime(t.year, 1, 1, tzinfo=timezone.utc)).total_seconds()
+                / (86400.0)
+                for t in times0
+            ]
         ).reshape(times.shape)
         second_of_day = torch.tensor(second_of_day.astype(np.float32), device=device)
         day_of_year = torch.tensor(day_of_year.astype(np.float32), device=device)
@@ -418,7 +424,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained CBottle3D model package from Nvidia model registry"""
         return Package(
-            "ngc://models/nvidia/earth-2/cbottle@1.2",
+            "hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -458,14 +464,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         PrognosticModel
             Prognostic Model
         """
-        checkpoints = [
-            package.resolve("cBottle-video.zip"),
-        ]
+        try:
+            package.resolve("config.json")  # HF tracking download statistics
+        except FileNotFoundError:
+            pass
 
         # https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L810
         experts = []
         batch_info = None
-        for path in checkpoints:
+        for path in [package.resolve("cBottle-video.zip")]:
             with Checkpoint(path) as c:
                 model = c.read_model().eval()
                 experts.append(model)

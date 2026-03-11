@@ -90,7 +90,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : float, optional
-        Noise amplitude used to generate latent variables, by default 80
+        Noise amplitude used to generate latent variables, by default 200
     batch_size : int, optional
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4

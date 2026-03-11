@@ -104,7 +104,7 @@ def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
     return vec_convert(cftime_array)
 
 
-@check_optional_dependencies("ace2")
+@check_optional_dependencies()
 class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ACE2-ERA5 prognostic model wrapper.
 

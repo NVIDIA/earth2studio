@@ -36,6 +36,7 @@ Used for fetching initial conditions for inference and validation data for scori
    data.MRMS
    data.NCAR_ERA5
    data.PlanetaryComputerECMWFOpenDataIFS
+   data.PlanetaryComputerGOES
    data.PlanetaryComputerMODISFire
    data.PlanetaryComputerOISST
    data.PlanetaryComputerSentinel3AOD
@@ -82,6 +83,7 @@ Data sources that provide tabular data.
    :template: datasource.rst
 
    data.ISD
+   data.RandomDataFrame
    data.UFSObsConv
    data.UFSObsSat
 
