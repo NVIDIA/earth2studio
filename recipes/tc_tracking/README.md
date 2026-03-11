@@ -16,15 +16,15 @@ Although TempestExtremes is not GPU-accelerated, its execution time on CPU is ty
    - [1.2 UV Environment](#12-uv-environment)
 2. [Configure and Execute Runs](#2-configure-and-execute-runs)
    - [2.1 Generate Ensemble](#21-generate-ensemble)
-   - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
-   - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5-using-ibtracs-as-ground-truth)
-3. [Visualisation](#3-visualisation)
+   - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members) *(coming soon)*
+   - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5-using-ibtracs-as-ground-truth) *(coming soon)*
+3. [Visualisation](#3-visualisation) *(coming soon)*
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
-   - [5.1 Extract Baseline](#51-extract-baseline-optional)
+   - [5.1 Extract Baseline](#51-extract-baseline-optional) *(coming soon)*
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
-   - [5.3 Analyse Tracks](#53-analyse-tracks)
-   - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
+   - [5.3 Analyse Tracks](#53-analyse-tracks) *(coming soon)*
+   - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields) *(coming soon)*
 
 
 ## 1. Setting up the Environment
@@ -83,8 +83,8 @@ torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
 The pipeline has three operational modes:
 
 - **`generate_ensemble`**: Generate an ensemble prediction and extract tropical cyclones.
-- **`reproduce_members`**: Reproduce individual ensemble members to store atmospheric fields of interesting tracks. Note: Currently only works with FCN3, as AIFS-ENS does not expose a method to set the model's internal random state.
-- **`extract_baseline`**: Extract tropical cyclone tracks from historical reanalysis data (e.g. ERA5) for validation purposes.
+- **`reproduce_members`** *(coming soon)*: Reproduce individual ensemble members to store atmospheric fields of interesting tracks. Note: Currently only works with FCN3, as AIFS-ENS does not expose a method to set the model's internal random state.
+- **`extract_baseline`** *(coming soon)*: Extract tropical cyclone tracks from historical reanalysis data (e.g. ERA5) for validation purposes.
 
 In the following we will explain how to configure the yaml files for those three modes. You can find example configs in `./cfg`.
 
@@ -178,6 +178,12 @@ This propagates the project name and output directory to Hydra's logging system.
 
 ### 2.2 Reproduce Individual Ensemble Members
 
+> [!Note]
+> This feature will be available in a future update.
+
+<details>
+<summary>Preview</summary>
+
 A common workflow is to run ensemble forecasts without storing atmospheric fields, since track data is approximately five orders of magnitude smaller than the associated field data. This enables sending results of hundreds of hypothetical cyclone seasons as an email attachment. However, for ensemble members with particularly interesting tracks, examining the atmospheric fields can help understand the storm's evolution.
 
 FCN3 provides access to its internal random state, enabling exact reproduction of individual ensemble members. In theory, AIFS-ENS should have this capability as well, but the internal random state is not exposed through the Anemoi models interface, preventing reproducibility of AIFS-ENS runs.
@@ -213,8 +219,16 @@ The example above would reproduce members 5 and 8 from the ensemble starting at 
 
 **Batch Reproduction Behaviour**: Note that the internal random state can only be set for a complete batch. While individual members within a batch will produce independent predictions, they share the same random seed. This means a full batch must always be reproduced. For example, with a batch size of 2 in the example above, the run would reproduce members 4, 5, 8, and 9 from the midnight ensemble, and members 4, 5, 12, and 13 from the midday ensemble.
 
+</details>
+
 
 ### 2.3 Extract Reference Tracks from ERA5 Using IBTrACS as Ground Truth
+
+> [!Note]
+> This feature will be available in a future update.
+
+<details>
+<summary>Preview</summary>
 
 [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive) (International Best Track Archive for Climate Stewardship) is considered the gold standard for tropical cyclone observation data. However, it represents point observations that a global model at quarter-degree resolution cannot reproduce accurately. Therefore, a meaningful validation of model predictions must be performed against ERA5. To do so, we first have to extract tropical cyclone tracks directly from reanalysis data (such as ERA5) and compare the predictions against these reference tracks. This pipeline demonstrates how to extract reference tracks for named storms, using IBTrACS to identify the temporal windows and approximate locations of storms of interest.
 
@@ -273,14 +287,24 @@ data_source:
             _target_: earth2studio.data.CDS
 ```
 
+</details>
+
 
 ## 3. Visualisation
+
+> [!Note]
+> Visualisation tools will be available in a future update.
+
+<details>
+<summary>Preview</summary>
 
 Two Jupyter notebooks are provided in `./plotting` for analysing and visualising tropical cyclone tracking results:
 
 - **`tracks_slayground.ipynb`**: Ensemble track analysis including spaghetti plots (trajectory visualisation), absolute and relative intensity metrics (wind speed, MSLP), comparisons against ERA5 reference tracks and IBTrACS observations, extreme value statistics, and error moment analysis over lead time.
 
 - **`plot_tracks_n_fields.ipynb`**: Create animated visualisations of storm tracks overlaid on atmospheric field data.
+
+</details>
 
 ## 4. TempestExtremes Integration
 
@@ -308,6 +332,12 @@ This section walks through an example workflow demonstrating the pipeline's core
 
 ### 5.1 Extract Baseline (Optional)
 
+> [!Note]
+> This feature will be available in a future update.
+
+<details>
+<summary>Preview</summary>
+
 This step extracts reference tracks from ERA5 reanalysis for comparison with forecast predictions. Note that downloading the ERA5 field data for Hato and Helene is required and can take some time. If it takes too long, you can skip this step and use the pre-computed reference tracks provided in `./test/aux_data` instead.
 
 First, download the IBTrACS data, then extract the baseline tracks:
@@ -319,6 +349,8 @@ python tc_hunt.py --config-name=extract_era5.yaml
 This should produce a folder called `outputs_reference_tracks/` containing two reference track files:
 - `reference_track_hato_2017_west_pacific.csv`
 - `reference_track_helene_2024_north_atlantic.csv`
+
+</details>
 
 ### 5.2 Produce Ensemble Forecasts
 
@@ -332,6 +364,12 @@ python tc_hunt.py --config-name=hato.yaml
 This should produce two output folders: `outputs_helene` and `outputs_hato`, each containing tracked tropical cyclone trajectories.
 
 ### 5.3 Analyse Tracks
+
+> [!Note]
+> Visualisation tools will be available in a future update.
+
+<details>
+<summary>Preview</summary>
 
 Visualise the results using the notebook `plotting/tracks_slayground.ipynb`.
 
@@ -353,7 +391,15 @@ tru_track_dir = '/path/to/outputs_reference_tracks'
 # tru_track_dir = '/path/to/test/aux_data'
 ```
 
+</details>
+
 ### 5.4 Reproduce Interesting Members to Extract Fields
+
+> [!Note]
+> This feature will be available in a future update.
+
+<details>
+<summary>Preview</summary>
 
 Suppose that after conducting the above analysis you want to take a closer look at ensemble members 0, 8, 9, and 12 of the Helene prediction. Since the forecast was produced with FCN3, we can reproduce these members and store the atmospheric fields for detailed analysis.
 
@@ -387,4 +433,6 @@ Use the notebook `plotting/plot_tracks_n_fields.ipynb` to create animated visual
 3. Run the notebook to generate an interactive animation where you can step through time.
 
 **Verification**: To verify that reproducibility worked correctly, point `track_dir` to the original Helene run (`outputs_helene/cyclone_tracks_te`) and confirm that the tracks are identical.
+
+</details>
 
