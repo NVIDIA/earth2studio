@@ -38,28 +38,22 @@ from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
 try:
     import cupy as cp
 except ImportError:
-    cp = None
-
-try:
-    import earth2grid
-except ImportError:
-    OptionalDependencyFailure("da-healda")
-    earth2grid = None
-
-try:
-    from physicsnemo.experimental.models.healda import HealDA as _HealDAModel
-except ImportError:
-    OptionalDependencyFailure("da-healda")
-    _HealDAModel = None
+    cp = None  # type: ignore[assignment]
 
 try:
     import cudf
 except ImportError:
-    cudf = None
+    cudf = None  # type: ignore[assignment, misc]
 
-# ---------------------------------------------------------------------------
-# ERA5 channel definitions
-# ---------------------------------------------------------------------------
+try:
+    import earth2grid
+    from physicsnemo.experimental.models.healda import HealDA as _HealDAModel
+except ImportError:
+    OptionalDependencyFailure("da-healda")
+    earth2grid = None
+    _HealDAModel = None
+
+
 ERA5_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 ERA5_VARIABLES_3D = ["U", "V", "T", "Z", "Q"]
 ERA5_VARIABLES_2D = [
@@ -78,12 +72,9 @@ ERA5_CHANNELS = [
     *ERA5_VARIABLES_2D,
 ]
 
-# ---------------------------------------------------------------------------
-# Sensor / observation definitions
-# ---------------------------------------------------------------------------
+
 SAT_SENSORS = ("atms", "mhs", "amsua", "amsub")
 ALL_SENSORS = (*SAT_SENSORS, "conv")
-
 # E2studio conventional variable → 0-based local_channel_id.
 # Channel ordering matches CONV_CHANNELS:
 #   0: gps_angle, 1: gps_t, 2: gps_q, 3: ps, 4: q, 5: t, 6: u, 7: v
@@ -118,9 +109,6 @@ _CONV_CHANNEL_RANGES = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Metadata feature computation (pure-PyTorch reference path)
-# ---------------------------------------------------------------------------
 def _fourier_features(x_norm: torch.Tensor, num_freqs: int) -> torch.Tensor:
     device = x_norm.device
     freqs = torch.arange(1, num_freqs + 1, device=device, dtype=x_norm.dtype) * (
@@ -219,9 +207,6 @@ def _compute_unified_metadata(
     return torch.cat(features, dim=-1)  # [n_obs, 28]
 
 
-# ---------------------------------------------------------------------------
-# Sensor normalization helpers
-# ---------------------------------------------------------------------------
 def _load_sensor_stats(
     stats_dir: str, package: Package
 ) -> dict[str, dict[str, np.ndarray]]:
@@ -284,9 +269,6 @@ def _load_era5_denorm_stats(package: Package) -> tuple[np.ndarray, np.ndarray]:
     )
 
 
-# ---------------------------------------------------------------------------
-# HealDA model
-# ---------------------------------------------------------------------------
 @check_optional_dependencies()
 class HealDA(torch.nn.Module, AutoModelMixin):
     """HealDA data assimilation model for global weather analysis from sparse
@@ -351,9 +333,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         # Build the channel stats table once
         self._channel_stats = self._build_channel_stats()
 
-    # ------------------------------------------------------------------
-    # Satellite platform lists (derived from sensor_stats raw_to_local)
-    # ------------------------------------------------------------------
     @staticmethod
     def _sat_platforms(sensor: str) -> list[str]:
         _SENSOR_PLATFORMS: dict[str, list[str]] = {
@@ -384,9 +363,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         }
         return _SENSOR_CHANNELS.get(sensor, 0)
 
-    # ------------------------------------------------------------------
-    # Package loading
-    # ------------------------------------------------------------------
     @classmethod
     def load_default_package(cls) -> Package:
         """Load the default HealDA model package from HuggingFace.
@@ -461,39 +437,56 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             time_tolerance=time_tolerance,
         )
 
-    # ------------------------------------------------------------------
-    # Protocol methods
-    # ------------------------------------------------------------------
     def init_coords(self) -> None:
-        """Initialization coords (not required for stateless model)."""
+        """Initialzation coords (not required)"""
         return None
 
-    def input_coords(self) -> tuple[FrameSchema]:
+    def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
         """Input coordinate system specifying required DataFrame fields.
+
+        Returns two FrameSchemas: one for conventional observations and one for
+        satellite observations. When calling the model, either may be ``None``
+        but not both.
 
         Returns
         -------
-        tuple[FrameSchema]
-            Tuple containing a FrameSchema with fields expected in the observation
-            DataFrame: time, lat, lon, observation, variable, and sensor-specific
-            columns
+        tuple[FrameSchema, FrameSchema]
+            (conventional_schema, satellite_schema) describing the expected
+            columns for each observation DataFrame
         """
-        return (
-            FrameSchema(
-                {
-                    "time": np.empty(0, dtype="datetime64[ns]"),
-                    "lat": np.empty(0, dtype=np.float32),
-                    "lon": np.empty(0, dtype=np.float32),
-                    "observation": np.empty(0, dtype=np.float32),
-                    "variable": np.empty(0, dtype=str),
-                    "sensor": np.empty(0, dtype=str),
-                }
-            ),
+        conv_schema = FrameSchema(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lat": np.empty(0, dtype=np.float32),
+                "lon": np.empty(0, dtype=np.float32),
+                "observation": np.empty(0, dtype=np.float32),
+                "variable": np.array(
+                    ["u", "v", "q", "t", "gps", "gps_t", "gps_q"], dtype=str
+                ),
+                "type": np.empty(0, dtype=np.uint16),
+                "elev": np.empty(0, dtype=np.float32),
+                "pres": np.empty(0, dtype=np.float32),
+            }
         )
+        sat_schema = FrameSchema(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lat": np.empty(0, dtype=np.float32),
+                "lon": np.empty(0, dtype=np.float32),
+                "observation": np.empty(0, dtype=np.float32),
+                "variable": np.array(list(SAT_SENSORS), dtype=str),
+                "channel_index": np.empty(0, dtype=np.uint16),
+                "satellite": np.empty(0, dtype=str),
+                "scan_angle": np.empty(0, dtype=np.float32),
+                "satellite_za": np.empty(0, dtype=np.float32),
+                "solza": np.empty(0, dtype=np.float32),
+            }
+        )
+        return conv_schema, sat_schema
 
     def output_coords(
         self,
-        input_coords: tuple[CoordSystem],
+        input_coords: tuple[CoordSystem, CoordSystem],
         request_time: np.ndarray | None = None,
         **kwargs: Any,
     ) -> tuple[CoordSystem]:
@@ -528,19 +521,22 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def __call__(
         self,
-        obs: pd.DataFrame,
+        conv_obs: pd.DataFrame | None = None,
+        sat_obs: pd.DataFrame | None = None,
     ) -> xr.DataArray:
-        """Run HealDA inference from a pre-processed observation DataFrame.
+        """Run HealDA inference from conventional and/or satellite observations.
 
-        The DataFrame should contain columns matching the unified observation schema
-        produced by :py:meth:`_prep_sat_sensor` or :py:meth:`_prep_conv`.
+        At least one of the two observation DataFrames must be provided. Each
+        DataFrame must carry a ``request_time`` entry in its ``.attrs``.
 
         Parameters
         ----------
-        obs : pd.DataFrame
-            Observation DataFrame with columns: lat, lon, obs_time_ns, observation,
-            local_channel, local_platform, sensor, obs_type, height, pressure,
-            scan_angle, sat_zenith_angle, sol_zenith_angle
+        conv_obs : pd.DataFrame | None, optional
+            Conventional observation DataFrame from
+            :py:class:`earth2studio.data.UFSObsConv`, by default None
+        sat_obs : pd.DataFrame | None, optional
+            Satellite observation DataFrame from
+            :py:class:`earth2studio.data.UFSObsSat`, by default None
 
         Returns
         -------
@@ -548,9 +544,22 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Global analysis on the HEALPix grid with dimensions
             [time, variable, npix]. Data is on the same device as the model
             (cupy array for GPU, numpy for CPU).
+
+        Raises
+        ------
+        ValueError
+            If both *conv_obs* and *sat_obs* are ``None``
         """
-        # Extract valid time from DataFrame attrs
-        request_time = obs.attrs.get("request_time", None)
+        if conv_obs is None and sat_obs is None:
+            raise ValueError("At least one of conv_obs or sat_obs must be provided.")
+
+        # Determine request_time from whichever DataFrame is present
+        request_time = None
+        for df in (conv_obs, sat_obs):
+            if df is not None:
+                request_time = df.attrs.get("request_time", None)
+                if request_time is not None:
+                    break
         if request_time is None:
             raise ValueError(
                 "Observation DataFrame must have 'request_time' in attrs. "
@@ -559,7 +568,26 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         device = self.condition.device
 
-        # Filter by time tolerance
+        # Pre-process each source into unified schema, then concatenate
+        parts: list[pd.DataFrame] = []
+        if conv_obs is not None and len(conv_obs) > 0:
+            parts.append(self.prep_conv(conv_obs))
+        if sat_obs is not None and len(sat_obs) > 0:
+            for sensor in SAT_SENSORS:
+                sensor_df = sat_obs[sat_obs["variable"] == sensor]
+                if len(sensor_df) > 0:
+                    parts.append(self.prep_sat_sensor(sensor_df, sensor))
+
+        if len(parts) == 0:
+            logger.warning("No observations provided, returning empty analysis")
+            (output_coords,) = self.output_coords(
+                self.input_coords(), request_time=request_time
+            )
+            return self._empty_output(output_coords)
+
+        obs = pd.concat(parts, ignore_index=True)
+
+        # Filter by time tolerance and normalize
         obs_filtered = self._filter_and_normalize(obs)
         if len(obs_filtered) == 0:
             logger.warning("No observations after filtering, returning empty analysis")
@@ -590,14 +618,14 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def create_generator(self) -> Generator[
         xr.DataArray,
-        pd.DataFrame | None,
+        tuple[pd.DataFrame | None, pd.DataFrame | None],
         None,
     ]:
         """Creates a generator for stateless iterative assimilation.
 
-        The generator accepts observation DataFrames via ``send()`` and yields
-        global analysis fields. Since HealDA is stateless, each call is
-        independent.
+        The generator accepts a tuple of ``(conv_obs, sat_obs)`` DataFrames via
+        ``send()`` and yields global analysis fields. Since HealDA is stateless,
+        each call is independent.
 
         Yields
         ------
@@ -606,24 +634,25 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         Receives
         --------
-        pd.DataFrame | None
-            Observation DataFrame sent via ``generator.send()``. None can be sent
-            when no observations are available (yields empty output).
+        tuple[pd.DataFrame | None, pd.DataFrame | None]
+            A ``(conv_obs, sat_obs)`` tuple sent via ``generator.send()``.
+            Either element may be ``None`` but not both.
         """
-        observations = yield None  # type: ignore[misc]
+        inputs = yield None  # type: ignore[misc]
         try:
             while True:
-                if observations is None:
+                conv_obs, sat_obs = inputs if inputs is not None else (None, None)
+                if conv_obs is None and sat_obs is None:
                     logger.warning(
                         "No observations provided to HealDA, yielding empty output"
                     )
                     (output_coords,) = self.output_coords(self.input_coords())
                     da = self._empty_output(output_coords)
                 else:
-                    da = self.__call__(observations)
-                observations = yield da
+                    da = self.__call__(conv_obs, sat_obs)
+                inputs = yield da
         except GeneratorExit:
-            logger.debug("HealDAAssimilation generator clean up complete.")
+            logger.debug("HealDA generator clean up complete.")
 
     # ------------------------------------------------------------------
     # Observation pre-processing
