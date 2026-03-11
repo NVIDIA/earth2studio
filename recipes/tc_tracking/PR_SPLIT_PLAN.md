@@ -149,7 +149,7 @@ Each subsequent PR is a clean additive diff on top of the previous one.
 - `test/cfg/reproduce_helene.yaml`
 - `test/test_historic_tc_extraction.sh`
 
-**Modified files (5):**
+**Modified files (6):**
 
 1. **`tc_hunt.py`**: Removed `from src.modes.baseline_extraction import extract_baseline` and removed `reproduce_members` from the `generate_ensembles` import. Removed the `extract_baseline` and `reproduce_members` dispatch branches. Only `generate_ensemble` mode is wired up. Error message updated to list only `"generate_ensemble"`.
 
@@ -172,7 +172,7 @@ Each subsequent PR is a clean additive diff on top of the previous one.
 - `.gitignore`, `Dockerfile`, `set_envs.sh`, `helene_pred.gif`
 - `cfg/helene.yaml`, `cfg/hato.yaml`
 - `src/__init__.py`, `src/data/__init__.py`, `src/modes/__init__.py`
-- `src/tempest_extremes.py`, `src/utils.py`, `src/data/utils.py`, `src/data/file_output.py`
+- `src/tempest_extremes.py`, `src/data/utils.py`, `src/data/file_output.py`
 - `test/.gitignore`, `test/cfg/baseline_helene.yaml`
 - `aux_data/orography.nc`
 - `uv.lock`
@@ -180,58 +180,64 @@ Each subsequent PR is a clean additive diff on top of the previous one.
 
 6. **`src/modes/generate_ensembles.py`**: Removed `reproduce_members` and `set_reproduction_configs` functions (they were unused dead code). Also removed the `from omegaconf import OmegaConf` import (only used by `set_reproduction_configs`) and `remove_duplicates` from the `src.utils` import (only used by `set_reproduction_configs`). These must be restored in PR 2.
 
+7. **`src/utils.py`**: Removed three functions unused in PR 1: `remove_duplicates` (only used by removed `set_reproduction_configs`), `squeeze_coords`, and `great_circle_distance` (no callers in PR 1). PR 2 must restore `remove_duplicates`. If PR 3's baseline extraction uses `squeeze_coords` or `great_circle_distance`, restore those from `mkoch/tc_tracking` as well.
+
 **Deviation from original plan:**
 - The original plan kept `generate_ensembles.py` unchanged (with `reproduce_members` and `set_reproduction_configs` sitting unused). This was later revised to remove them for a cleaner PR 1 with no dead code. PR 2 now needs to add them back.
 - The original plan mentioned possibly removing `moviepy` and plotting-only deps from `pyproject.toml`. In practice, only `tropycal` was removed because the other deps are either harmless or potentially useful for users doing their own analysis.
 
 ### Instructions for implementing PR 2 (reproduce_members)
 
-The `reproduce_members` and `set_reproduction_configs` functions were removed from `src/modes/generate_ensembles.py` during PR 1 trimming. They need to be restored from `mkoch/tc_tracking`. The following changes are needed:
+The `reproduce_members` and `set_reproduction_configs` functions were removed from `src/modes/generate_ensembles.py` during PR 1 trimming. The `remove_duplicates` function was removed from `src/utils.py`. All need to be restored from `mkoch/tc_tracking`. The following changes are needed:
 
-1. **`src/modes/generate_ensembles.py`**: Restore the two removed functions and their dependencies:
+1. **`src/utils.py`**: Restore the `remove_duplicates` function. Copy it from `mkoch/tc_tracking:recipes/tc_tracking/src/utils.py` (it was removed in PR 1 as unused).
+
+2. **`src/modes/generate_ensembles.py`**: Restore the two removed functions and their dependencies:
    - Add `from omegaconf import OmegaConf` to the imports (was removed in PR 1).
    - Add `remove_duplicates` back to the `from src.utils import (...)` block.
    - Add back the `set_reproduction_configs` function (place it after `configure_runs`, before `generate_ensemble`).
    - Add back the `reproduce_members` function (place it after `generate_ensemble`, at the end of the file).
    - Copy all of these from `mkoch/tc_tracking:recipes/tc_tracking/src/modes/generate_ensembles.py`.
 
-2. **`tc_hunt.py`**: Add `reproduce_members` to the import from `src.modes.generate_ensembles` and add an `elif cfg.mode == "reproduce_members"` dispatch branch. Copy the exact import and dispatch pattern from `mkoch/tc_tracking:recipes/tc_tracking/tc_hunt.py`.
+3. **`tc_hunt.py`**: Add `reproduce_members` to the import from `src.modes.generate_ensembles` and add an `elif cfg.mode == "reproduce_members"` dispatch branch. Copy the exact import and dispatch pattern from `mkoch/tc_tracking:recipes/tc_tracking/tc_hunt.py`.
 
-2. **`cfg/reproduce_helene.yaml`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/cfg/reproduce_helene.yaml`.
+4. **`cfg/reproduce_helene.yaml`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/cfg/reproduce_helene.yaml`.
 
-3. **`test/cfg/reproduce_helene.yaml`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/test/cfg/reproduce_helene.yaml`.
+5. **`test/cfg/reproduce_helene.yaml`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/test/cfg/reproduce_helene.yaml`.
 
-4. **`test/test_tc_hunt.sh`**: Restore the reproduction section that was removed in PR 1. Copy the full script from `mkoch/tc_tracking:recipes/tc_tracking/test/test_tc_hunt.sh`.
+6. **`test/test_tc_hunt.sh`**: Restore the reproduction section that was removed in PR 1. Copy the full script from `mkoch/tc_tracking:recipes/tc_tracking/test/test_tc_hunt.sh`.
 
-5. **`README.md`**: Un-grey section 2.2 (Reproduce Individual Ensemble Members). Remove the `> [!Note]` callout and `<details>` wrapper. Remove the `*(coming soon)*` marker from the TOC entry for 2.2 and from the `reproduce_members` bullet in the mode list. The content inside the `<details>` block is already the correct text (preserved unchanged from the original).
+7. **`README.md`**: Un-grey section 2.2 (Reproduce Individual Ensemble Members). Remove the `> [!Note]` callout and `<details>` wrapper. Remove the `*(coming soon)*` marker from the TOC entry for 2.2 and from the `reproduce_members` bullet in the mode list. The content inside the `<details>` block is already the correct text (preserved unchanged from the original).
 
-6. **`test/README.md`**: Restore the reproduction part of Test 1. Copy from `mkoch/tc_tracking:recipes/tc_tracking/test/README.md` and include everything up to (but not including) "Test 2".
+8. **`test/README.md`**: Restore the reproduction part of Test 1. Copy from `mkoch/tc_tracking:recipes/tc_tracking/test/README.md` and include everything up to (but not including) "Test 2".
 
-7. **Section 5.4 in README.md**: Un-grey this section too (it describes reproducing interesting members). Same approach: remove callout + details wrapper, remove `*(coming soon)*` from TOC.
+9. **Section 5.4 in README.md**: Un-grey this section too (it describes reproducing interesting members). Same approach: remove callout + details wrapper, remove `*(coming soon)*` from TOC.
 
 ### Instructions for implementing PR 3 (extract_baseline)
 
-1. **`src/modes/baseline_extraction.py`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/src/modes/baseline_extraction.py`.
+1. **`src/utils.py`** (if needed): If `baseline_extraction.py` uses `squeeze_coords` or `great_circle_distance`, restore those functions from `mkoch/tc_tracking:recipes/tc_tracking/src/utils.py` (they were removed in PR 1 as unused).
 
-2. **`tc_hunt.py`**: Add `from src.modes.baseline_extraction import extract_baseline` and add the `elif cfg.mode == "extract_baseline"` dispatch branch. Copy pattern from `mkoch/tc_tracking`.
+2. **`src/modes/baseline_extraction.py`**: Copy from `mkoch/tc_tracking` using `git show mkoch/tc_tracking:recipes/tc_tracking/src/modes/baseline_extraction.py`.
 
-3. **`cfg/extract_era5.yaml`**: Copy from `mkoch/tc_tracking`.
+3. **`tc_hunt.py`**: Add `from src.modes.baseline_extraction import extract_baseline` and add the `elif cfg.mode == "extract_baseline"` dispatch branch. Copy pattern from `mkoch/tc_tracking`.
 
-4. **`aux_data/ibtracs.HATO_HELENE.list.v04r01.csv`**: Copy from `mkoch/tc_tracking`.
+4. **`cfg/extract_era5.yaml`**: Copy from `mkoch/tc_tracking`.
 
-5. **`aux_data/reference_track_hato_2017_west_pacific.csv`**: Copy from `mkoch/tc_tracking`.
+5. **`aux_data/ibtracs.HATO_HELENE.list.v04r01.csv`**: Copy from `mkoch/tc_tracking`.
 
-6. **`aux_data/reference_track_helene_2024_north_atlantic.csv`**: Copy from `mkoch/tc_tracking`.
+6. **`aux_data/reference_track_hato_2017_west_pacific.csv`**: Copy from `mkoch/tc_tracking`.
 
-7. **`test/test_historic_tc_extraction.sh`**: Copy from `mkoch/tc_tracking`.
+7. **`aux_data/reference_track_helene_2024_north_atlantic.csv`**: Copy from `mkoch/tc_tracking`.
 
-8. **`test/cfg/extract_era5.yaml`**: Copy from `mkoch/tc_tracking`.
+8. **`test/test_historic_tc_extraction.sh`**: Copy from `mkoch/tc_tracking`.
 
-9. **`pyproject.toml`**: Add `"tropycal>=1.4"` back to the `dependencies` list (between `tqdm` and `zarrdump` alphabetically). Regenerate `uv.lock`.
+9. **`test/cfg/extract_era5.yaml`**: Copy from `mkoch/tc_tracking`.
 
-10. **`README.md`**: Un-grey sections 2.3 (Extract Reference Tracks) and 5.1 (Extract Baseline). Remove callouts, details wrappers, and `*(coming soon)*` markers. Remove `*(coming soon)*` from the `extract_baseline` bullet in the mode list.
+10. **`pyproject.toml`**: Add `"tropycal>=1.4"` back to the `dependencies` list (between `tqdm` and `zarrdump` alphabetically). Regenerate `uv.lock`.
 
-11. **`test/README.md`**: Add back "Test 2: Extracting individual storms from historic data". Copy from `mkoch/tc_tracking:recipes/tc_tracking/test/README.md`.
+11. **`README.md`**: Un-grey sections 2.3 (Extract Reference Tracks) and 5.1 (Extract Baseline). Remove callouts, details wrappers, and `*(coming soon)*` markers. Remove `*(coming soon)*` from the `extract_baseline` bullet in the mode list.
+
+12. **`test/README.md`**: Add back "Test 2: Extracting individual storms from historic data". Copy from `mkoch/tc_tracking:recipes/tc_tracking/test/README.md`.
 
 ### Instructions for implementing PR 4 (plotting)
 

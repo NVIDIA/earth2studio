@@ -11,18 +11,18 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.utils.time import to_time_array
 
 
-def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
-    """Build list of IC times.
+def set_initial_times(cfg: DictConfig) -> np.ndarray:
+    """Build array of initial conditions.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config object
+        Hydra config object.
 
     Returns
     -------
-    list[np.datetime64]
-        List of initial condition times.
+    np.ndarray
+        Array of initial conditions (dtype ``datetime64``).
     """
     # list of ICs
     if "ics" in cfg:
@@ -44,33 +44,32 @@ def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
     return ics
 
 
-def remove_duplicates(data_list):
+def get_set_of_random_seeds(
+    n_ics: int, ensemble_size: int, batch_size: int, seed: int | None
+) -> np.ndarray:
+    """Generate a unique set of random seeds for ensemble batches.
+
+    Parameters
+    ----------
+    n_ics : int
+        Number of initial conditions.
+    ensemble_size : int
+        Total number of ensemble members per IC.
+    batch_size : int
+        Number of ensemble members per batch.
+    seed : int | None
+        Seed for the random number generator.
+
+    Returns
+    -------
+    np.ndarray
+        Array of ``uint32`` random seeds with length ``n_batches * n_ics``.
+
+    Raises
+    ------
+    RecursionError
+        If a unique set cannot be found within 1000 iterations.
     """
-    Remove duplicates while preserving numpy dtype distinctions.
-    Arrays with same values but different dtypes are considered different.
-    """
-
-    def to_hashable(item):
-        if isinstance(item, np.ndarray):
-            # Include dtype and shape information
-            return (tuple(item.tolist()), str(item.dtype), item.shape)
-        elif isinstance(item, np.datetime64):
-            return str(item)
-        return item
-
-    seen = set()
-    result = []
-
-    for sublist in data_list:
-        hashable_key = tuple(to_hashable(item) for item in sublist)
-        if hashable_key not in seen:
-            seen.add(hashable_key)
-            result.append(sublist)
-
-    return result
-
-
-def get_set_of_random_seeds(n_ics, ensemble_size, batch_size, seed):
     n_batches = ceil(ensemble_size / batch_size)
     rng = np.random.default_rng(seed=seed)
 
@@ -90,22 +89,27 @@ def get_set_of_random_seeds(n_ics, ensemble_size, batch_size, seed):
 def run_with_rank_ordered_execution(
     func: Callable, *args: Any, first_rank: int = 0, **kwargs: Any
 ) -> Any:
-    """Executes `func(*args, **kwargs)` safely in a distributed setting:
-    - First on the specified `rank`
-    - Then, after synchronization, on the other ranks
+    """Execute a function safely in a distributed setting.
 
-    Args:
-        func (Callable): Function to execute
-        args (tuple, optional): Positional arguments for the function. Defaults to ().
-        first_rank (int, optional): Rank to run the function first. Defaults to 0.
-        kwargs (dict, optional): Keyword arguments for the function. Defaults to None.
+    The function runs first on ``first_rank``, then after a barrier
+    synchronisation on all remaining ranks.
 
-    Returns:
-        The return value of func(*args, **kwargs)
+    Parameters
+    ----------
+    func : Callable
+        Function to execute.
+    *args : Any
+        Positional arguments forwarded to *func*.
+    first_rank : int, optional
+        Rank that runs the function first.  Defaults to ``0``.
+    **kwargs : Any
+        Keyword arguments forwarded to *func*.
+
+    Returns
+    -------
+    Any
+        Return value of ``func(*args, **kwargs)``.
     """
-    if kwargs is None:
-        kwargs = {}
-
     dist = DistributedManager()
     current_rank = dist.rank
 
@@ -128,45 +132,34 @@ def run_with_rank_ordered_execution(
     return result
 
 
-def squeeze_coords(xx, coords, squeeze_dim):
-    if isinstance(squeeze_dim, str):
-        squeeze_dim = [squeeze_dim]
-
-    for dim in squeeze_dim:
-        idx = list(coords.keys()).index(dim)
-
-        assert coords[dim].shape == (
-            1,
-        ), f"can only squeeze dims of length 1, coords[{dim}] has shape {coords[dim].shape}"
-        assert (
-            xx.shape[idx] == 1
-        ), f"can only squeeze dims of length 1, xx[{dim}] has shape {xx.shape[idx]}"
-
-        xx = xx.squeeze(idx)
-        coords.pop(dim)
-
-    return xx, coords
-
-
-def great_circle_distance(lat1, lon1, lat2, lon2):
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    aa = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
-
-    return 6371000 * cc
-
-
 class InstabilityDetection:
+    """Monitor field-mean deviations to detect blow ups.
+
+    Computes spatially averaged values per variable and ensemble member and
+    checks whether they remain within the given thresholds relative to a
+    baseline established on the first call.
+
+    Parameters
+    ----------
+    vars : list[str]
+        Variable names to monitor.
+    thresholds : list[float]
+        Absolute deviation threshold for each variable.
+    input_coords : OrderedDict | None, optional
+        Initial coordinate mapping.  Defaults to ``None``.
+
+    Raises
+    ------
+    ValueError
+        If the number of thresholds does not match the number of variables.
+    """
+
     def __init__(
         self,
         vars: list[str],
         thresholds: list[float],
         input_coords: OrderedDict | None = None,
     ) -> None:
-
         self.vars = vars
         self.thresh = torch.Tensor(thresholds)
         self.reset(input_coords)
@@ -174,7 +167,15 @@ class InstabilityDetection:
         if not len(vars) == len(thresholds):
             raise ValueError("please provide exactly one threshold per variable")
 
-    def reset(self, coords: OrderedDict = None):
+    def reset(self, coords: OrderedDict | None = None) -> None:
+        """Reset the baseline and coordinate state.
+
+        Parameters
+        ----------
+        coords : OrderedDict | None, optional
+            New coordinate mapping.  If provided, ``update_coords`` is
+            called immediately.  Defaults to ``None``.
+        """
         self.baseline = None
         self._input_coords = None
         self._output_coords = None
@@ -182,8 +183,17 @@ class InstabilityDetection:
         if coords:
             self.update_coords(coords)
 
-    def update_coords(self, coords):
-        # scrub time and lead_time dimensions if exist
+    def update_coords(self, coords: OrderedDict) -> None:
+        """Derive input/output coordinate mappings from coords.
+
+        ``time``, ``lead_time`` and ``ensemble`` dimensions are stripped from
+        the input mapping.
+
+        Parameters
+        ----------
+        coords : OrderedDict
+            Coordinate mapping (modified in place).
+        """
         coords.pop("time", None)
         coords.pop("lead_time", None)
         self._output_coords = OrderedDict({"ensemble": coords.pop("ensemble", None)})
@@ -192,15 +202,36 @@ class InstabilityDetection:
         self._input_coords["variable"] = self.vars
 
     @property
-    def input_coords(self):
+    def input_coords(self) -> OrderedDict | None:
+        """Expected input coordinate mapping, or ``None`` before first call."""
         return self._input_coords
 
     @property
-    def output_coords(self):
+    def output_coords(self) -> OrderedDict | None:
+        """Output coordinate mapping (ensemble only), or ``None`` before first call."""
         return self._output_coords
 
-    def __call__(self, xx: torch.Tensor, coords: OrderedDict):
+    def __call__(
+        self, xx: torch.Tensor, coords: OrderedDict
+    ) -> tuple[torch.Tensor, OrderedDict]:
+        """Check whether field means remain within threshold of the baseline.
 
+        On the first invocation the baseline is established from xx.
+        Subsequent calls compare against it.
+
+        Parameters
+        ----------
+        xx : torch.Tensor
+            Data tensor matching the coordinate mapping.
+        coords : OrderedDict
+            Coordinate mapping for *xx*.
+
+        Returns
+        -------
+        tuple[torch.Tensor, OrderedDict]
+            Boolean tensor (``True`` = stable) per ensemble member, and the
+            output coordinate mapping.
+        """
         var_dim = list(coords).index("variable")
         batch_dim = list(coords).index("ensemble") if "ensemble" in coords else None
         if "ensemble" in coords:
