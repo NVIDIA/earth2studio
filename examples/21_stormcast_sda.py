@@ -212,7 +212,6 @@ for step in tqdm(range(nsteps), desc="Obs forecast"):
     # Fetch observations for the next forecast step's valid time using model coords
     x_coords = OrderedDict({d: x_state.coords[d].values for d in x_state.dims})
     oc = model.output_coords((x_coords,))[0]
-    print(oc)
     valid_time = oc["time"] + oc["lead_time"]
     obs_df = isd(valid_time, plot_vars)
     logger.info(f"Running obs forecast step {step}, {len(obs_df)} obs")
@@ -406,7 +405,7 @@ obs_err = np.abs(obs_vals[0] - truth_vals[0])
 
 # %%
 # Plot absolute errors between the StormCast predictions and HRRR analysis ground truth.
-# In later time-steps it is clear that StormCast with SDA sampline using ISD station
+# In later time-steps it is clear that StormCast with SDA sampling using ISD station
 # observations has improved accuracy over the vanilla stormcast prediction.
 
 # %%
