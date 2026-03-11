@@ -10,7 +10,7 @@ def load_heights(oro_path):
     oro = xr.load_dataset(oro_path)
 
     coords = OrderedDict(
-        {"variable": np.array(["height"]), "lat": oro.latitude, "lon": oro.longitude}
+        {"variable": np.array(["height"]), "lat": oro.latitude.values, "lon": oro.longitude.values}
     )
     geop = torch.Tensor(oro["Z"].to_numpy()) / 9.80665  # divide by gravity to get height
 

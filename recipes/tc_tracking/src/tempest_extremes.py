@@ -23,7 +23,7 @@ from earth2studio.utils.coords import (
     cat_coords,
     map_coords,
     split_coords,
-    tile_xx_to_yy,
+    tile_coords,
 )
 
 
@@ -499,12 +499,12 @@ class TempestExtremes:
         if self.static_vars is not None:
             self.static_vars = self.static_vars.to(xx.device)
             if len(xx.shape) > len(self.static_vars.shape):
-                _static_vars, _static_coords = tile_xx_to_yy(
-                    self.static_vars, self.static_coords, xx, coords
+                _static_vars, _static_coords = tile_coords(
+                    self.static_vars, self.static_coords, coords
                 )
             else:
                 _static_vars, _static_coords = self.static_vars, self.static_coords
-            xx, coords = cat_coords(xx, coords, _static_vars, _static_coords)
+            xx, coords = cat_coords((xx, _static_vars), (coords, _static_coords))
 
         # select output data and write to store
         xx_sub, coords_sub = map_coords(xx, coords, self._store_coords)
