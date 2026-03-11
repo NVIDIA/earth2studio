@@ -491,9 +491,14 @@ class UFSObsConv(_UFSObsBase):
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
                 gsi_platform, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
-            except KeyError as e:
-                logger.error(f"Variable id {v} not found in GSI conventional lexicon")
-                raise e
+            except KeyError:
+                if v in GSISatelliteLexicon:
+                    logger.warning(
+                        f"Variable id {v} is a UFS satellite variable, skipping in conventional fetch"
+                    )
+                    continue
+                logger.error(f"Variable id {v} not found in GSI lexicon")
+                raise
 
             for t in time_list:
                 tmin = t - self.tolerance
@@ -682,6 +687,14 @@ class UFSObsSat(_UFSObsBase):
             except KeyError as e:
                 logger.error(f"Variable id {v} not found in GSI satellite lexicon")
                 raise e
+            except KeyError:
+                if v in GSIConventionalLexicon:
+                    logger.warning(
+                        f"Variable id {v} is a UFS conventional variable, skipping in satellite fetch"
+                    )
+                    continue
+                logger.error(f"Variable id {v} not found in GSI lexicon")
+                raise
 
             for gsi_platform in gsi_platforms:
                 for t in time_list:
