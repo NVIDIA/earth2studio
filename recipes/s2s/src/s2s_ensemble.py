@@ -18,6 +18,7 @@ from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
+from typing import cast
 
 import numpy as np
 import torch
@@ -183,12 +184,16 @@ class S2SEnsembleRunner:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0, self.coords0 = fetch_data(
-            source=data,
-            time=time,
-            variable=self.prognostic_ic["variable"],
-            lead_time=self.prognostic_ic["lead_time"],
-            device="cpu",
+        self.x0, self.coords0 = cast(
+            tuple[torch.Tensor, CoordSystem],
+            fetch_data(
+                source=data,
+                time=time,
+                variable=self.prognostic_ic["variable"],
+                lead_time=self.prognostic_ic["lead_time"],
+                device="cpu",
+                legacy=True,
+            ),
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
 

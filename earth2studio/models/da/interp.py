@@ -100,7 +100,7 @@ class InterpEquirectangular(torch.nn.Module):
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
     def init_coords(self) -> None:
-        """Initialzation coords (not required)"""
+        """Initialization coords (not required)"""
         return None
 
     def input_coords(self) -> tuple[FrameSchema]:

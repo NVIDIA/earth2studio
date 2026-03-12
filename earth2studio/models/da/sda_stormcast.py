@@ -57,7 +57,7 @@ try:
     from omegaconf import OmegaConf
     from physicsnemo.diffusion.guidance import (
         DataConsistencyDPSGuidance,
-        DPSDenoiser,
+        DPSScorePredictor,
     )
     from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
@@ -149,14 +149,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
-    sampler_steps : int, optional
-        Number of diffusion sampler steps, by default 32
-    sampler_args : dict[str, float  |  int], optional
-        Arguments to pass to the diffusion sampler, by default {}
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
-        by default np.timedelta64(30, "m")
+        by default np.timedelta64(10, "m")
+    sampler_steps : int, optional
+        Number of diffusion sampler steps, by default 36
+    sampler_args : dict[str, float  |  int] | None, optional
+        Arguments to pass to the diffusion sampler, by default None
     sda_std_obs : float, optional
         Observation noise standard deviation for DPS guidance, by default 0.1
     sda_gamma : float, optional
@@ -177,9 +177,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
-        sampler_args: dict[str, float | int] = {},
-        time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
+        sampler_args: dict[str, float | int] | None = None,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
     ):
@@ -191,7 +191,17 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("invariants", invariants)
         self.register_buffer("device_buffer", torch.empty(0))
         self.sampler_steps = sampler_steps
-        self.sampler_args = sampler_args
+        self.sampler_args = {
+            "sigma_min": 0.002,
+            "sigma_max": 800,
+            "rho": 7,
+            "S_churn": 0.0,
+            "S_min": 0.0,
+            "S_max": float("inf"),
+            "S_noise": 1,
+        }
+        if sampler_args is not None:
+            self.sampler_args.update(sampler_args)
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.sda_std_obs = sda_std_obs
         self.sda_dps_norm = 2
@@ -232,6 +242,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )  # [n_boundary, 2] ordered (lat, lon)
 
         # Build a KD-tree over (lat, lon) for efficient nearest-grid-point queries
+        # TODO: Make cpu and gpu support
         self._grid_tree = cKDTree(np.column_stack([self.lat.ravel(), self.lon.ravel()]))
 
         self.variables = variables
@@ -284,7 +295,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the assimilation model
 
         Parameters
         ----------
@@ -325,7 +336,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load prognostic package"""
+        """Load assimilation package"""
         package = Package(
             "hf://nvidia/stormcast-v1-era5-hrrr@6c89a0877a0d6b231033d3b0d8b9828a6f833ed8",
             cache_options={
@@ -341,11 +352,12 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
     ) -> AssimilationModel:
-        """Load prognostic from package
+        """Load assimilation from package
 
         Parameters
         ----------
@@ -353,6 +365,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             Package to load model from
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
+        time_tolerance : TimeTolerance, optional
+            Time tolerance for filtering observations. Observations within the tolerance
+            window around each requested time will be used for data assimilation,
+            by default np.timedelta64(10, "m")
         sampler_steps : int, optional
             Number of diffusion sampler steps, by default 36
         sda_std_obs : float, optional
@@ -362,8 +378,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        PrognosticModel
-            Prognostic model
+        AssimilationModel
+            Assimilation model
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -427,6 +443,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             conditioning_stds=conditioning_stds,
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
+            time_tolerance=time_tolerance,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
             sda_std_obs=sda_std_obs,
@@ -463,16 +480,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         latents = torch.randn_like(x, dtype=torch.float64)
         latents = self.sampler_args["sigma_max"] * latents  # Initial guess
 
-        print("here")
-
-        class _CondtionalDiffusionWrapper(torch.nn.Module):
-            def __init__(self, model: torch.nn.Module, img_lr: torch.Tensor):
-                super().__init__()
-                self.model = model
-                self.img_lr = img_lr
-
-            def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-                return self.model(x, t, condition=self.img_lr)
+        def _conditional_diffusion(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+            return self.diffusion_model(x, t, condition=condition)
 
         scheduler = EDMNoiseScheduler(
             sigma_min=self.sampler_args["sigma_min"],
@@ -489,14 +498,13 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             sigma_fn=scheduler.sigma,
             alpha_fn=scheduler.alpha,
         )
-        score_predictor = DPSDenoiser(
-            x0_predictor=_CondtionalDiffusionWrapper(self.diffusion_model, condition),
+        score_predictor = DPSScorePredictor(
+            x0_predictor=_conditional_diffusion,
             x0_to_score_fn=scheduler.x0_to_score,
             guidances=guidance,
         )
         denoiser = scheduler.get_denoiser(score_predictor=score_predictor)
 
-        print("here2")
         edm_out = sample(
             denoiser,
             latents,
@@ -518,6 +526,13 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     @staticmethod
     def _points_in_polygon(points: np.ndarray, polygon: np.ndarray) -> np.ndarray:
         """Vectorized ray casting point-in-polygon test.
+        TODO: Improved this (GPU and reduce memory requirement)
+        make a general purpose util maybe...
+
+        Note
+        ----
+        For more information see the following references:
+        https://observablehq.com/@tmcw/understanding-point-in-polygon
 
         Parameters
         ----------
@@ -539,9 +554,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         # For each edge (m) and each point (n), check if horizontal ray crosses
         # Broadcasting: [m, 1] vs [1, n] -> [m, n]
         crosses = (vy[:, None] > py[None, :]) != (vy_next[:, None] > py[None, :])
-        x_intersect = (vx_next[:, None] - vx[:, None]) * (py[None, :] - vy[:, None]) / (
-            vy_next[:, None] - vy[:, None]
-        ) + vx[:, None]
+        dvy = vy_next[:, None] - vy[:, None]
+        safe_dvy = np.where(dvy == 0, 1.0, dvy)  # avoid division by zero; masked later
+        x_intersect = (vx_next[:, None] - vx[:, None]) * (
+            py[None, :] - vy[:, None]
+        ) / safe_dvy + vx[:, None]
         hits = crosses & (px[None, :] < x_intersect)
 
         # Odd number of crossings = inside
@@ -611,13 +628,26 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         var_indices = np.array([var_to_idx.get(str(v), -1) for v in obs_var])
         valid = var_indices >= 0
 
+        # Average multiple observations that map to the same grid cell
         if valid.any():
             vi = torch.tensor(var_indices[valid], device=device, dtype=torch.long)
             yi = torch.tensor(nearest_y[valid], device=device, dtype=torch.long)
             xi = torch.tensor(nearest_x[valid], device=device, dtype=torch.long)
             vals = torch.tensor(obs_val[valid], device=device, dtype=torch.float32)
-            y_obs[0, vi, yi, xi] = vals
-            mask[0, vi, yi, xi] = 1.0
+
+            # Flatten (vi, yi, xi) into a single linear index for scatter ops
+            flat_idx = vi * (n_hrrr_y * n_hrrr_x) + yi * n_hrrr_x + xi
+            flat_sum = torch.zeros(
+                n_var * n_hrrr_y * n_hrrr_x, device=device, dtype=torch.float32
+            )
+            flat_cnt = torch.zeros_like(flat_sum)
+            flat_sum.scatter_add_(0, flat_idx, vals)
+            flat_cnt.scatter_add_(0, flat_idx, torch.ones_like(vals))
+
+            occupied = flat_cnt > 0
+            flat_avg = torch.where(occupied, flat_sum / flat_cnt, flat_sum)
+            y_obs[0] = flat_avg.view(n_var, n_hrrr_y, n_hrrr_x)
+            mask[0] = occupied.float().view(n_var, n_hrrr_y, n_hrrr_x)
 
         return y_obs, mask
 
@@ -636,7 +666,12 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         """
         device = self.device
 
-        c = fetch_data(
+        if self.conditioning_data_source is None:
+            raise RuntimeError(
+                "StormCast has been called without initializing the model's conditioning_data_source"
+            )
+
+        c: xr.DataArray = fetch_data(
             self.conditioning_data_source,
             time=x.coords["time"].data,
             variable=self.conditioning_variables,
@@ -650,26 +685,41 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             # GPU path: bilinear interpolation using cupy, data stays on GPU
             with cp.cuda.Device(device.index or 0):
                 data = c.data
-                src_lat = c.coords["lat"].values
-                src_lon = c.coords["lon"].values
+                src_lat = cp.asarray(c.coords["lat"].values, dtype=cp.float64)
+                src_lon = cp.asarray(c.coords["lon"].values, dtype=cp.float64)
 
                 target_lat_cp = cp.asarray(self.lat, dtype=cp.float64)
                 target_lon_cp = cp.asarray(self.lon, dtype=cp.float64)
-                lat_step = float(src_lat[1] - src_lat[0])
-                lon_step = float(src_lon[1] - src_lon[0])
-                lat_frac = (target_lat_cp - float(src_lat[0])) / lat_step
-                lon_frac = (target_lon_cp - float(src_lon[0])) / lon_step
 
-                lat0 = cp.clip(
-                    cp.floor(lat_frac).astype(cp.int64), 0, data.shape[-2] - 2
-                )
-                lon0 = cp.clip(
-                    cp.floor(lon_frac).astype(cp.int64), 0, data.shape[-1] - 2
-                )
+                # Ensure ascending order for searchsorted (latitude is
+                # commonly descending in weather data, e.g. 90 -> -90)
+                if src_lat[-1] < src_lat[0]:
+                    src_lat = src_lat[::-1]
+                    data = data[..., ::-1, :]
+                if src_lon[-1] < src_lon[0]:
+                    src_lon = src_lon[::-1]
+                    data = data[..., :, ::-1]
+
+                # Compute fractional indices via searchsorted (handles
+                # non-uniform spacing), src_lat and src_lon needs to be acending
+                lat_idx = cp.searchsorted(src_lat, target_lat_cp.ravel()) - 1
+                lat_idx = cp.clip(lat_idx, 0, len(src_lat) - 2)
+                lat_idx = lat_idx.reshape(target_lat_cp.shape)
+
+                lon_idx = cp.searchsorted(src_lon, target_lon_cp.ravel()) - 1
+                lon_idx = cp.clip(lon_idx, 0, len(src_lon) - 2)
+                lon_idx = lon_idx.reshape(target_lon_cp.shape)
+
+                lat0 = lat_idx
+                lon0 = lon_idx
                 lat1 = lat0 + 1
                 lon1 = lon0 + 1
-                wlat = cp.clip(lat_frac - lat0.astype(cp.float64), 0.0, 1.0)
-                wlon = cp.clip(lon_frac - lon0.astype(cp.float64), 0.0, 1.0)
+
+                # Fractional weights between grid cells
+                wlat = (target_lat_cp - src_lat[lat0]) / (src_lat[lat1] - src_lat[lat0])
+                wlon = (target_lon_cp - src_lon[lon0]) / (src_lon[lon1] - src_lon[lon0])
+                wlat = cp.clip(wlat, 0.0, 1.0)
+                wlon = cp.clip(wlon, 0.0, 1.0)
 
                 interp_data = (
                     data[..., lat0, lon0] * (1 - wlat) * (1 - wlon)
@@ -745,12 +795,15 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             },
         )
 
+    # NOTE: @torch.inference_mode() is intentionally omitted here.
+    # DPS guidance requires gradient computation through the denoiser for
+    # the score correction step; inference_mode would disable those gradients.
     def __call__(
         self,
         x: xr.DataArray,
         obs: pd.DataFrame | None,
     ) -> xr.DataArray:
-        """Runs prognostic model 1 step.
+        """Runs assimilation model 1 step.
 
         Parameters
         ----------
@@ -784,12 +837,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         c_tensor = torch.as_tensor(c.data)
 
         for j, t in enumerate(x.coords["time"].data):
-            for k, _ in enumerate(x.coords["lead_time"].data):
-                obs_time = t + output_coords[0]["lead_time"][0]
-                y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
-                x_tensor[j, k : k + 1] = self._forward(
-                    x_tensor[j, k : k + 1], c_tensor[j, k : k + 1], y_obs, mask
-                )
+            obs_time = t + output_coords[0]["lead_time"][0]
+            y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
+            x_tensor[j, :] = self._forward(x_tensor[j, :], c_tensor[j, :], y_obs, mask)
 
         return self._to_output_dataarray(x_tensor, output_coords)
 
@@ -850,17 +900,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
                 # Run forward with observations
                 for j, t in enumerate(x.coords["time"].data):
-                    for k, _ in enumerate(x.coords["lead_time"].data):
-                        obs_time = t + output_coords[0]["lead_time"][0]
-                        y_obs, mask = self._build_obs_tensors(
-                            obs, obs_time, self.device
-                        )
-                        x_tensor[j, k : k + 1] = self._forward(
-                            x_tensor[j, k : k + 1],
-                            c_tensor[j, k : k + 1],
-                            y_obs,
-                            mask,
-                        )
+                    obs_time = t + output_coords[0]["lead_time"][0]
+                    y_obs, mask = self._build_obs_tensors(obs, obs_time, self.device)
+                    x_tensor[j] = self._forward(x_tensor[j], c_tensor[j], y_obs, mask)
 
                 # Build output DataArray and use as next input
                 x = self._to_output_dataarray(x_tensor, output_coords)

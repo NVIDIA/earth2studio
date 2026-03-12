@@ -19,13 +19,13 @@
 StormCast Score-Based Data Assimilation
 =======================================
 
-Running StormCast with diffusion posterior sampling to assimilate surface observations.
+Running StormCast with guided diffusion posterior sampling to assimilate observations.
 
 This example demonstrates how to use the StormCast score-based data assimilation (SDA)
 model for convection-allowing regional forecasts that incorporate sparse in-situ
 observations using diffusion posterior sampling (DPS).
 Two forecasts are run—one without observations and one with ISD surface station data
-from Oklahoma, United States region to illustrate the impact of data assimilation.
+from central United States region to illustrate the impact of data assimilation.
 
 In this example you will learn:
 
@@ -64,7 +64,8 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from datetime import datetime, timedelta
+from collections import OrderedDict
+from datetime import timedelta
 
 import numpy as np
 import torch
@@ -79,11 +80,11 @@ from earth2studio.data import HRRR, ISD, fetch_data
 from earth2studio.models.da import StormCastSDA
 from earth2studio.utils.coords import map_coords_xr
 
-# Load the default model package (downloads checkpoint from HuggingFace)
 package = StormCastSDA.load_default_package()
-# sda_std_obs: assumed observation noise std (lower = trust obs more)
-# sda_gamma: DPS guidance scaling factor (higher = stronger assimilation)
-model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=0.001)
+# Load the model onto the GPU and configure SDA
+# sda_std_obs: assumed (normalized) observation noise std (lower = trust obs more)
+# sda_gamma: DPS guidance scaling factor (lower = stronger assimilation)
+model = StormCastSDA.load_model(package, sda_std_obs=0.1, sda_gamma=1e-4)
 model = model.to("cuda:0")
 
 hrrr = HRRR()
@@ -91,17 +92,18 @@ hrrr = HRRR()
 # %%
 # Fetch Initial Conditions
 # ------------------------
-# Pull HRRR analysis data for January 1st 2024 and select the sub-grid that
+# Pull HRRR analysis data for April 3rd 2025, a date that saw a major tornado
+# outbreak across the central United States, and select the sub-grid that
 # StormCast expects. The model's :py:meth:`init_coords` describes the required
 # coordinate system.
 
 # %%
-time = np.array([np.datetime64("2024-01-01T00:00")])
+init_time = np.array([np.datetime64("2025-04-03T18:00")])
 ic = model.init_coords()[0]
 
 x = fetch_data(
     hrrr,
-    time=time,
+    time=init_time,
     variable=ic["variable"],
     lead_time=np.array([np.timedelta64(0, "h")]),
     device="cuda:0",
@@ -145,16 +147,14 @@ no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="
 # %%
 # Fetch Observations and Run With Assimilation
 # ---------------------------------------------
-# Fetch NOAA Integrated Surface Database (ISD) surface observations from Oklahoma and
-# assimilate them at each forecast step. The observations are fetched for the valid time
-# (initialisation time + lead time) so the model assimilates temporally
-# relevant data.
+# Fetch NOAA Integrated Surface Database (ISD) surface observations from the central
+# United States and assimilate them at each forecast step. The observations are fetched
+# for the valid time (initialisation time + lead time) so the model assimilates
+# temporally relevant data.
 
 # %%
-# Get ISD stations in the Oklahoma region and create the data source
 stations = ISD.get_stations_bbox((32.0, -105.0, 45.0, -90.0))
 isd = ISD(stations=stations, tolerance=timedelta(minutes=15), verbose=False)
-init_time = datetime(2024, 1, 1)
 
 # %%
 # Plot ISD Station Locations
@@ -173,29 +173,21 @@ station_lons = sample_df["lon"].values
 
 plt.close("all")
 fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(8, 6))
-ax.set_extent([-120, -80, 30, 45], crs=ccrs.PlateCarree())
+ax.set_extent([-110, -85, 30, 47], crs=ccrs.PlateCarree())
 ax.add_feature(
     cartopy.feature.STATES.with_scale("50m"), linewidth=0.5, edgecolor="black"
 )
 ax.add_feature(cartopy.feature.LAND, facecolor="lightyellow")
 ax.gridlines(draw_labels=True, linewidth=0.3, alpha=0.5)
-
-# Color by variable
-colors = {"t2m": "red", "u10m": "blue", "v10m": "green"}
-for var in sample_df["variable"].unique():
-    mask = sample_df["variable"] == var
-    ax.scatter(
-        station_lons[mask],
-        station_lats[mask],
-        s=20,
-        c=colors.get(var, "black"),
-        label=var,
-        transform=ccrs.PlateCarree(),
-        zorder=3,
-    )
-
-ax.legend(loc="upper right")
-ax.set_title("ISD Station Locations - Oklahoma Region")
+ax.scatter(
+    station_lons,
+    station_lats,
+    s=20,
+    marker="x",
+    transform=ccrs.PlateCarree(),
+    zorder=3,
+)
+ax.set_title("ISD Station Locations - Central United States")
 plt.savefig("outputs/21_isd_stations.jpg", dpi=150, bbox_inches="tight")
 
 # %%
@@ -217,8 +209,10 @@ gen = model.create_generator(x)
 x_state = next(gen)  # Prime the generator, yields initial state
 
 for step in tqdm(range(nsteps), desc="Obs forecast"):
-    # Fetch observations for the current forecast step time frame
-    valid_time = init_time + timedelta(hours=step + 1)
+    # Fetch observations for the next forecast step's valid time using model coords
+    x_coords = OrderedDict({d: x_state.coords[d].values for d in x_state.dims})
+    oc = model.output_coords((x_coords,))[0]
+    valid_time = oc["time"] + oc["lead_time"]
     obs_df = isd(valid_time, plot_vars)
     logger.info(f"Running obs forecast step {step}, {len(obs_df)} obs")
     x_state = gen.send(obs_df)  # Advance one hour with observations
@@ -240,10 +234,6 @@ obs_np.to_dataset(name="prediction").to_zarr("outputs/21_with_obs.zarr", mode="w
 # difference (assimilated minus baseline).
 
 # %%
-import cartopy
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
-
 plt.close("all")
 variable = "u10m"
 
@@ -266,9 +256,9 @@ fig, axes = plt.subplots(
     3,
     nsteps,
     subplot_kw={"projection": projection},
-    figsize=(5 * nsteps, 8),
+    figsize=(4 * nsteps, 8),
 )
-fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1)
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 for step in range(nsteps):
     lead_hr = step + 1
@@ -276,9 +266,8 @@ for step in range(nsteps):
     obs_field = obs_vals[0, step]
     diff_field = obs_field - no_obs_field
 
-    vmin = -5
-    vmax = 5
-
+    vmin = -10
+    vmax = 10
     # Row 0: No-obs forecast
     ax = axes[0, step]
     im0 = ax.pcolormesh(
@@ -335,8 +324,8 @@ for step in range(nsteps):
         diff_field,
         transform=ccrs.PlateCarree(),
         cmap="RdBu_r",
-        vmin=-1,
-        vmax=1,
+        vmin=-3,
+        vmax=3,
     )
     ax.add_feature(
         cartopy.feature.STATES.with_scale("50m"),
@@ -344,27 +333,48 @@ for step in range(nsteps):
         edgecolor="black",
         zorder=2,
     )
-    # No title for difference row
 
-# Set row labels using fig.text (GeoAxes suppresses set_ylabel)
-for row, label in enumerate(["No Obs", "Obs", "Difference"]):
-    bbox = axes[row, 0].get_position()
-    fig.text(
-        bbox.x0 - 0.01,
-        (bbox.y0 + bbox.y1) / 2,
-        label,
-        fontsize=12,
-        va="center",
-        ha="right",
-        rotation=90,
-    )
+axes[0, 0].text(
+    -0.07,
+    0.5,
+    "No Obs",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[0, 0].transAxes,
+)
+axes[1, 0].text(
+    -0.07,
+    0.5,
+    "Obs",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[1, 0].transAxes,
+)
+axes[2, 0].text(
+    -0.07,
+    0.5,
+    "Difference",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[2, 0].transAxes,
+)
 
 # Add colour bars
-fig.colorbar(im0, ax=axes[0, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
-fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
-fig.colorbar(im2, ax=axes[2, :].tolist(), shrink=0.6, label=f"{variable} (m/s)")
+plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"{variable} (m/s)")
+plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"{variable} (m/s)")
+plt.colorbar(im2, ax=axes[2, -1], shrink=0.6, label=f"{variable} (m/s)")
 
-plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tight")
+plt.tight_layout()
+plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150)
 
 # %%
 # Ground Truth Comparison
@@ -374,13 +384,9 @@ plt.savefig("outputs/21_stormcast_sda_comparison.jpg", dpi=150, bbox_inches="tig
 # assimilation improves accuracy relative to the actual analysis.
 
 # %%
-variable = "t2m"
-
-# Fetch HRRR ground truth for each forecast step
-truth_times = np.array([np.datetime64(init_time)])
 truth = fetch_data(
     hrrr,
-    time=truth_times,
+    time=init_time,
     variable=np.array(plot_vars),
     lead_time=np.array([np.timedelta64(h + 1, "h") for h in range(nsteps)]),
     device="cpu",
@@ -399,7 +405,7 @@ obs_err = np.abs(obs_vals[0] - truth_vals[0])
 
 # %%
 # Plot absolute errors between the StormCast predictions and HRRR analysis ground truth.
-# In later time-steps it is clear that StormCast with SDA sampline using ISD station
+# In later time-steps it is clear that StormCast with SDA sampling using ISD station
 # observations has improved accuracy over the vanilla stormcast prediction.
 
 # %%
@@ -408,9 +414,9 @@ fig, axes = plt.subplots(
     2,
     nsteps,
     subplot_kw={"projection": projection},
-    figsize=(5 * nsteps, 8),
+    figsize=(4 * nsteps, 6),
 )
-fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1)
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 err_max = 5
 for step in range(nsteps):
@@ -423,7 +429,7 @@ for step in range(nsteps):
         model.lat,
         no_obs_err[step],
         transform=ccrs.PlateCarree(),
-        cmap="magma",
+        cmap="viridis",
         vmin=0,
         vmax=err_max,
     )
@@ -442,7 +448,7 @@ for step in range(nsteps):
         model.lat,
         obs_err[step],
         transform=ccrs.PlateCarree(),
-        cmap="magma",
+        cmap="viridis",
         vmin=0,
         vmax=err_max,
     )
@@ -453,20 +459,30 @@ for step in range(nsteps):
         zorder=2,
     )
 
-# Set row labels
-for row, label in enumerate(["|No Obs - Truth|", "|Obs - Truth|"]):
-    bbox = axes[row, 0].get_position()
-    fig.text(
-        bbox.x0 - 0.01,
-        (bbox.y0 + bbox.y1) / 2,
-        label,
-        fontsize=11,
-        va="center",
-        ha="right",
-        rotation=90,
-    )
+axes[0, 0].text(
+    -0.07,
+    0.5,
+    "|No Obs - Truth|",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[0, 0].transAxes,
+)
+axes[1, 0].text(
+    -0.07,
+    0.5,
+    "|Obs - Truth|",
+    va="bottom",
+    ha="center",
+    rotation="vertical",
+    rotation_mode="anchor",
+    fontsize=12,
+    transform=axes[1, 0].transAxes,
+)
 
-fig.colorbar(im0, ax=axes[0, :].tolist(), shrink=0.6, label=f"|Δ{variable}| (m/s)")
-fig.colorbar(im1, ax=axes[1, :].tolist(), shrink=0.6, label=f"|Δ{variable}| (m/s)")
-
-plt.savefig("outputs/21_stormcast_sda_gt_comparison.jpg", dpi=150, bbox_inches="tight")
+plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"|Δ{variable}| (m/s)")
+plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"|Δ{variable}| (m/s)")
+plt.tight_layout()
+plt.savefig("outputs/21_stormcast_sda_gt_comparison.jpg")

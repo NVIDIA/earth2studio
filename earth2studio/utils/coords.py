@@ -25,6 +25,11 @@ import xarray as xr
 
 from earth2studio.utils.type import CoordSystem
 
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
+
 
 def handshake_dim(
     input_coords: CoordSystem,
@@ -442,12 +447,65 @@ def map_coords_xr(
     if sel_dict:
         result = result.sel(sel_dict)
 
-    # Apply interpolation for numeric coordinates
+    # Apply nearest-neighbor interpolation per dimension using torch
     if interp_dict:
-        if method == "nearest":
-            result = result.interp(interp_dict, method="nearest")
-        else:
+        if method != "nearest":
             raise ValueError(f"Interpolation method '{method}' not supported")
+
+        data = result.data
+        is_cupy = cp is not None and isinstance(data, cp.ndarray)
+        dims = list(result.dims)
+        new_coords = dict(result.coords)
+
+        for key, target_da in interp_dict.items():
+            dim_idx = dims.index(key)
+            src_raw = np.asarray(result.coords[key].values)
+            tgt_raw = np.asarray(target_da.values)
+
+            sort_order = np.argsort(src_raw)
+            src_sorted = src_raw[sort_order]
+            idx_sorted = np.searchsorted(src_sorted, tgt_raw)
+            idx_sorted = np.clip(idx_sorted, 1, len(src_sorted) - 1)
+            left = np.abs(tgt_raw - src_sorted[idx_sorted - 1])
+            right = np.abs(tgt_raw - src_sorted[idx_sorted])
+            idx_sorted = np.where(left <= right, idx_sorted - 1, idx_sorted)
+
+            # Map back to original unsorted indices
+            idx = sort_order[idx_sorted]
+
+            # Index into the data array along this dimension
+            if is_cupy:
+                idx_arr = cp.asarray(idx)
+                data = cp.take(data, idx_arr, axis=dim_idx)
+            else:
+                data = np.take(data, idx, axis=dim_idx)
+
+            # Update the interpolated dimension coordinate
+            new_coords[key] = (key, tgt_raw)
+
+            # Re-index any non-dimension coordinates that depend on this dim
+            for cname, cval in list(new_coords.items()):
+                if cname == key:
+                    continue
+                if isinstance(cval, xr.Variable):
+                    c_dims = cval.dims
+                    c_data = cval.values
+                elif isinstance(cval, xr.DataArray):
+                    c_dims = cval.dims
+                    c_data = cval.values
+                elif isinstance(cval, tuple) and len(cval) == 2:
+                    c_dims, c_data = cval
+                    if isinstance(c_dims, str):
+                        c_dims = (c_dims,)
+                else:
+                    continue
+
+                if key in c_dims:
+                    ax = list(c_dims).index(key)
+                    c_data = np.take(np.asarray(c_data), idx, axis=ax)
+                    new_coords[cname] = (c_dims, c_data)
+
+        result = xr.DataArray(data=data, dims=dims, coords=new_coords)
 
     return result
 
