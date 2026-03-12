@@ -175,7 +175,9 @@ plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 # %%
 # Run With Conventional Observations Only
 # ----------------------------------------
-# Call the model with only conventional observations to see its standalone impact.
+# DA models can be called directly for stateless inference or via
+# ``create_generator`` for stateful (iterative) assimilation workflows.
+# Here we use the direct call to run three independent analyses.
 
 # %%
 torch.manual_seed(42)
