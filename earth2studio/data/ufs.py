@@ -684,9 +684,6 @@ class UFSObsSat(_UFSObsBase):
                 gsi_platforms = [
                     p for p in gsi_platforms0.split(",") if p in self.satellites
                 ]
-            except KeyError as e:
-                logger.error(f"Variable id {v} not found in GSI satellite lexicon")
-                raise e
             except KeyError:
                 if v in GSIConventionalLexicon:
                     logger.warning(

@@ -26,8 +26,6 @@ from earth2studio.models.da.healda import (
     ALL_SENSORS,
     E2S_CHANNELS,
     HealDA,
-    _compute_unified_metadata,
-    _fourier_features,
 )
 
 try:
@@ -182,71 +180,8 @@ def _build_raw_sat_df(n_obs=10, request_time=None, sensor="atms"):
     return df
 
 
-def _mock_forward(inputs, device):
-    return torch.randn(1, NVAR, TIME_LENGTH, NPIX, device=device)
-
-
-def test_fourier_features():
-    x = torch.tensor([0.0, 0.5, 1.0])
-    out = _fourier_features(x, 3)
-    assert out.shape == (3, 6)  # 3 freqs * 2 (sin + cos)
-
-
-def test_compute_unified_metadata():
-    n = 5
-    device = torch.device("cpu")
-    target = torch.full((n,), 1704067200, dtype=torch.int64, device=device)
-    lon = torch.rand(n, device=device) * 360
-    time_ns = torch.full((n,), 1704067200 * 10**9, dtype=torch.int64, device=device)
-    height = torch.tensor([100, 200, float("nan"), 500, float("nan")], device=device)
-    pressure = torch.tensor([1000, float("nan"), 500, 300, float("nan")], device=device)
-    scan = torch.full((n,), float("nan"), device=device)
-    sat_zen = torch.full((n,), float("nan"), device=device)
-    sol_zen = torch.full((n,), float("nan"), device=device)
-
-    out = _compute_unified_metadata(
-        target,
-        lon=lon,
-        time=time_ns,
-        height=height,
-        pressure=pressure,
-        scan_angle=scan,
-        sat_zenith_angle=sat_zen,
-        sol_zenith_angle=sol_zen,
-    )
-    assert out.shape == (n, 28)
-    assert torch.isfinite(out).all()
-
-
-def test_build_channel_stats():
-    model = _build_model()
-    stats = model._channel_stats
-    assert "sensor" in stats.columns
-    assert "local_channel" in stats.columns
-    assert "mean" in stats.columns
-    assert "std" in stats.columns
-    # conv has 8 channels, atms has 22
-    assert len(stats) == 30
-
-
-def test_filter_and_normalize():
-    model = _build_model()
-    df = _build_conv_obs_df(20)
-    result = model._filter_and_normalize(df)
-    assert len(result) > 0
-    assert "mean" not in result.columns
-    assert "std" not in result.columns
-    # Observations should be z-score normalized (not raw values)
-    assert result["observation"].dtype == np.float32
-
-
-def test_filter_and_normalize_empty():
-    model = _build_model()
-    # All observations outside valid range for "t" channel (150-350)
-    df = _build_conv_obs_df(5)
-    df["observation"] = 999.0
-    result = model._filter_and_normalize(df)
-    assert len(result) == 0
+def _mock_forward(inputs):
+    return torch.randn(1, NVAR, TIME_LENGTH, NPIX, device=inputs["condition"].device)
 
 
 def test_build_model_inputs():
@@ -259,9 +194,7 @@ def test_build_model_inputs():
     filtered["sensor"] = filtered["sensor"].astype(sensor_order)
     filtered = filtered.sort_values("sensor", kind="stable").reset_index(drop=True)
 
-    inputs = model._build_model_inputs(
-        filtered, pd.Timestamp("2024-01-01T12:00:00"), torch.device("cpu")
-    )
+    inputs = model._build_model_inputs(filtered, pd.Timestamp("2024-01-01T12:00:00"))
     assert "obs" in inputs
     assert "float_metadata" in inputs
     assert "pix" in inputs

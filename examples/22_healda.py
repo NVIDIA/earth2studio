@@ -281,6 +281,7 @@ plt.close("all")
 
 diff_titles = ["Conv - ERA5", "Sat - ERA5", "Conv+Sat - ERA5"]
 diff_results = [result_conv, result_sat, result_both]
+diff_ranges = {"t2m": (-20, 20), "z500": (-3000, 3000)}
 
 fig, axes = plt.subplots(
     len(diff_results),
@@ -298,15 +299,14 @@ for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
         )  # [nlat, nlon] cupy -> numpy
         field_era5 = era5_interp.sel(variable=var).data[0]  # [nlat, nlon]
         diff = field_pred - field_era5
-        vmax = np.nanpercentile(np.abs(diff), 98)
         im = ax.pcolormesh(
             lon,
             lat,
             diff,
             transform=ccrs.PlateCarree(),
             cmap="RdBu_r",
-            vmin=-vmax,
-            vmax=vmax,
+            vmin=diff_ranges[var][0],
+            vmax=diff_ranges[var][1],
         )
         ax.coastlines(linewidth=0.5)
         ax.gridlines(linewidth=0.3, alpha=0.5)

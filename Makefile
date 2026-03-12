@@ -93,8 +93,7 @@ docs-build-examples:
 
 .PHONY: docs-dev
 docs-dev:
-	# rm -rf examples/outputs
-	uv sync --extra all --group docs
+	@echo "Make sure you synced your uv environment with needed extras and --group docs..."
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html
 
 .PHONY: container-service

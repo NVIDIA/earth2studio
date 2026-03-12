@@ -28,6 +28,8 @@ from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
+
+# from earth2studio.models.da.utils import filter_time_range
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -127,166 +129,6 @@ _CONV_CHANNEL_RANGES = [
 ]
 
 
-def _fourier_features(x_norm: torch.Tensor, num_freqs: int) -> torch.Tensor:
-    device = x_norm.device
-    freqs = torch.arange(1, num_freqs + 1, device=device, dtype=x_norm.dtype) * (
-        2 * math.pi
-    )
-    x_expanded = x_norm.unsqueeze(-1) * freqs
-    return torch.cat([torch.sin(x_expanded), torch.cos(x_expanded)], dim=-1)
-
-
-def _compute_unified_metadata(
-    target_time_sec: torch.Tensor,
-    lon: torch.Tensor,
-    time: torch.Tensor,
-    height: torch.Tensor,
-    pressure: torch.Tensor,
-    scan_angle: torch.Tensor,
-    sat_zenith_angle: torch.Tensor,
-    sol_zenith_angle: torch.Tensor,
-) -> torch.Tensor:
-    """Compute 28-dim observation metadata features.
-
-    Parameters
-    ----------
-    target_time_sec : torch.Tensor
-        Target time as epoch seconds (int64), broadcast to all obs
-    lon : torch.Tensor
-        Longitude in degrees [n_obs]
-    time : torch.Tensor
-        Observation times as epoch nanoseconds (int64) [n_obs]
-    height : torch.Tensor
-        Height in meters [n_obs], NaN for satellite obs
-    pressure : torch.Tensor
-        Pressure in hPa [n_obs], NaN for satellite obs
-    scan_angle : torch.Tensor
-        Scan angle in degrees [n_obs], NaN for conventional obs
-    sat_zenith_angle : torch.Tensor
-        Satellite zenith angle in degrees [n_obs], NaN for conventional obs
-    sol_zenith_angle : torch.Tensor
-        Solar zenith angle in degrees [n_obs], NaN for conventional obs
-
-    Returns
-    -------
-    torch.Tensor
-        Metadata features [n_obs, 28]
-    """
-    features: list[torch.Tensor] = []
-
-    # Local solar time (4 features)
-    sod = (time // 1_000_000_000) % 86400
-    utc_hours = sod.float() / 3600.0
-    lst = (utc_hours + lon / 15.0) % 24.0
-    features.append(_fourier_features(lst / 24.0, 2))
-
-    # Relative time (2 features)
-    target_ns = target_time_sec * 1_000_000_000
-    dt_sec = (time - target_ns).float() * 1e-9
-    dt_norm = dt_sec / 86400.0
-    features.append(torch.stack([dt_norm, dt_norm**2], dim=-1))
-
-    # Height (8 features)
-    h_valid = ~torch.isnan(height)
-    h_norm = torch.clamp(height / 60000.0, 0.0, 1.0)
-    h_feat = _fourier_features(h_norm, 4)
-    h_feat[~h_valid] = 0.0
-    features.append(h_feat)
-
-    # Pressure (8 features)
-    p_valid = ~torch.isnan(pressure)
-    p_norm = torch.clamp(pressure / 1100.0, 0.0, 1.0)
-    p_feat = _fourier_features(p_norm, 4)
-    p_feat[~p_valid] = 0.0
-    features.append(p_feat)
-
-    # Scan angle (2 features)
-    s_valid = ~torch.isnan(scan_angle)
-    xi = scan_angle / 50.0
-    s_feat = torch.stack([xi, xi**2], dim=-1)
-    s_feat[~s_valid] = 0.0
-    features.append(s_feat)
-
-    # Satellite zenith (2 features)
-    sat_valid = ~torch.isnan(sat_zenith_angle)
-    cos_sat = torch.cos(torch.deg2rad(sat_zenith_angle))
-    sat_feat = torch.stack([cos_sat, cos_sat**2], dim=-1)
-    sat_feat[~sat_valid] = 0.0
-    features.append(sat_feat)
-
-    # Solar zenith (2 features)
-    sol_valid = ~torch.isnan(sol_zenith_angle)
-    cos_sol = torch.cos(torch.deg2rad(sol_zenith_angle))
-    sin_sol = torch.sin(torch.deg2rad(sol_zenith_angle))
-    sol_feat = torch.stack([cos_sol, sin_sol], dim=-1)
-    sol_feat[~sol_valid] = 0.0
-    features.append(sol_feat)
-
-    return torch.cat(features, dim=-1)  # [n_obs, 28]
-
-
-def _load_sensor_stats(
-    stats_dir: str, package: Package
-) -> dict[str, dict[str, np.ndarray]]:
-    """Load per-sensor normalization stats from package CSV files.
-
-    Parameters
-    ----------
-    stats_dir : str
-        Directory within the package containing CSV files
-    package : Package
-        The model package
-
-    Returns
-    -------
-    dict[str, dict[str, np.ndarray]]
-        Mapping sensor_name -> {"means", "stds", "raw_to_local"}
-    """
-    result: dict[str, dict[str, np.ndarray]] = {}
-    for sensor in ALL_SENSORS:
-        try:
-            csv_path = package.resolve(f"{stats_dir}/{sensor}_normalizations.csv")
-        except FileNotFoundError:
-            continue
-        df = pd.read_csv(csv_path)
-        df = df[df["Platform_ID"] == -1].sort_values("Raw_Channel_ID")
-        means = df["obs_mean"].to_numpy(dtype=np.float32)
-        stds = df["obs_std"].to_numpy(dtype=np.float32)
-        raw_ids = df["Raw_Channel_ID"].to_numpy()
-        max_raw = int(raw_ids.max())
-        lut = np.full(max_raw + 1, 0, dtype=int)
-        for local_idx, raw in enumerate(raw_ids, start=1):
-            lut[int(raw)] = local_idx
-        result[sensor] = {"means": means, "stds": stds, "raw_to_local": lut}
-    return result
-
-
-def _load_era5_denorm_stats(package: Package) -> tuple[np.ndarray, np.ndarray]:
-    """Load ERA5 channel mean/std for output denormalization.
-
-    Parameters
-    ----------
-    package : Package
-        The model package
-
-    Returns
-    -------
-    tuple[np.ndarray, np.ndarray]
-        (mean, std) arrays of shape [n_channels] ordered by ERA5_CHANNELS
-    """
-    csv_path = package.resolve("stats/era5_13_levels_stats.csv")
-    stats = pd.read_csv(csv_path)
-    level = stats["level"].astype(int)
-    channel = np.where(
-        level.eq(-1), stats["variable"], stats["variable"] + level.astype(str)
-    )
-    ordered = stats.assign(channel=channel).set_index("channel").loc[ERA5_CHANNELS]
-    return (
-        ordered["mean"].to_numpy(dtype=np.float32),
-        ordered["std"].to_numpy(dtype=np.float32),
-    )
-
-
 @check_optional_dependencies()
 class HealDA(torch.nn.Module, AutoModelMixin):
     """HealDA data assimilation model for global weather analysis from sparse
@@ -344,6 +186,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("condition", condition)
         self.register_buffer("_era5_mean", era5_mean)
         self.register_buffer("_era5_std", era5_std)
+        self.register_buffer("device_buffer", torch.empty(0))
         self._sensor_stats = sensor_stats
         self._lat_lon = lat_lon
         self._tolerance = normalize_time_tolerance(time_tolerance)
@@ -403,89 +246,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         }
         return _SENSOR_CHANNELS.get(sensor, 0)
 
-    @classmethod
-    def load_default_package(cls) -> Package:
-        """Load the default HealDA model package from HuggingFace.
-
-        Returns
-        -------
-        Package
-            Model package pointing to the HuggingFace repository
-        """
-        return Package(
-            "hf://nvidia/healda@21895a63705a770cde42c4d20d1d0543fefa954a",
-            cache_options={"same_names": True},
-        )
-
-    @classmethod
-    @check_optional_dependencies()
-    def load_model(
-        cls,
-        package: Package,
-        lat_lon: bool = False,
-        output_resolution: tuple[int, int] = (181, 360),
-        time_tolerance: TimeTolerance = np.timedelta64(12, "h"),
-        condition: torch.Tensor | None = None,
-    ) -> AssimilationModel:
-        """Load HealDA model from package.
-
-        Parameters
-        ----------
-        package : Package
-            Package containing model checkpoint and statistics
-        lat_lon : bool, optional
-            If True the output is regridded to a regular lat-lon grid,
-            by default False
-        output_resolution : tuple[int, int], optional
-            ``(nlat, nlon)`` size of the output lat-lon grid. Only used when
-            ``lat_lon=True``, by default ``(181, 360)``
-        time_tolerance : TimeTolerance, optional
-            Time tolerance for filtering observations, by default np.timedelta64(12, "h")
-        condition : torch.Tensor | None, optional
-            Static conditioning fields (orography, land fraction) on the HEALPix grid
-            with shape [1, in_channels, time_length, npix]. If None, defaults to zeros.
-
-        Returns
-        -------
-        AssimilationModel
-            Loaded HealDA assimilation model
-        """
-        try:
-            package.resolve("config.json")
-        except FileNotFoundError:
-            pass
-
-        model = _HealDAModel.from_checkpoint(package.resolve("healda_ufs_era5.mdlus"))
-        model.eval()
-
-        # Static conditioning (orography, land fraction) on HEALPix grid
-        # Shape: [1, in_channels, time_length, npix]
-        if condition is None:
-            n_in = model.in_channels
-            npix = model.npix
-            time_length = model.time_length
-            condition = torch.zeros(1, n_in, time_length, npix, dtype=torch.float32)
-            logger.info(
-                "No static condition provided, using zeros. "
-                "For best results, provide orography and land fraction fields."
-            )
-
-        # Load normalization statistics
-        sensor_stats = _load_sensor_stats("stats", package)
-        era5_mean, era5_std = _load_era5_denorm_stats(package)
-        era5_mean_t = torch.from_numpy(era5_mean).view(1, -1, 1, 1)
-        era5_std_t = torch.from_numpy(era5_std).view(1, -1, 1, 1)
-
-        return cls(
-            model=model,
-            condition=condition,
-            era5_mean=era5_mean_t,
-            era5_std=era5_std_t,
-            sensor_stats=sensor_stats,
-            lat_lon=lat_lon,
-            output_resolution=output_resolution,
-            time_tolerance=time_tolerance,
-        )
+    @property
+    def device(self) -> torch.device:
+        return self.device_buffer.device
 
     def init_coords(self) -> None:
         """Initialzation coords (not required)"""
@@ -583,6 +346,133 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             ),
         )
 
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Load the default HealDA model package from HuggingFace.
+
+        Returns
+        -------
+        Package
+            Model package pointing to the HuggingFace repository
+        """
+        return Package(
+            "hf://nvidia/healda@21895a63705a770cde42c4d20d1d0543fefa954a",
+            cache_options={"same_names": True},
+        )
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(
+        cls,
+        package: Package,
+        lat_lon: bool = False,
+        output_resolution: tuple[int, int] = (181, 360),
+        time_tolerance: TimeTolerance = np.timedelta64(12, "h"),
+        condition: torch.Tensor | None = None,
+    ) -> AssimilationModel:
+        """Load HealDA model from package.
+
+        Parameters
+        ----------
+        package : Package
+            Package containing model checkpoint and statistics
+        lat_lon : bool, optional
+            If True the output is regridded to a regular lat-lon grid,
+            by default False
+        output_resolution : tuple[int, int], optional
+            ``(nlat, nlon)`` size of the output lat-lon grid. Only used when
+            ``lat_lon=True``, by default ``(181, 360)``
+        time_tolerance : TimeTolerance, optional
+            Time tolerance for filtering observations, by default np.timedelta64(12, "h")
+        condition : torch.Tensor | None, optional
+            Static conditioning fields (orography, land fraction) on the HEALPix grid
+            with shape [1, in_channels, time_length, npix]. If None, defaults to zeros.
+
+        Returns
+        -------
+        AssimilationModel
+            Loaded HealDA assimilation model
+        """
+        try:
+            package.resolve("config.json")
+        except FileNotFoundError:
+            pass
+
+        model = _HealDAModel.from_checkpoint(package.resolve("healda_ufs_era5.mdlus"))
+        model.eval()
+
+        # Static conditioning (orography, land fraction) on HEALPix grid
+        # Shape: [1, in_channels, time_length, npix]
+        if condition is None:
+            n_in = model.in_channels
+            npix = model.npix
+            time_length = model.time_length
+            condition = torch.zeros(1, n_in, time_length, npix, dtype=torch.float32)
+            logger.info(
+                "No static condition provided, using zeros. "
+                "For best results, provide orography and land fraction fields."
+            )
+
+        # Load sensor normalization statistics
+        sensor_stats: dict[str, dict[str, np.ndarray]] = {}
+        for sensor in ALL_SENSORS:
+            df = pd.read_csv(package.resolve(f"stats/{sensor}_normalizations.csv"))
+            df = df[df["Platform_ID"] == -1].sort_values("Raw_Channel_ID")
+            means = df["obs_mean"].to_numpy(dtype=np.float32)
+            stds = df["obs_std"].to_numpy(dtype=np.float32)
+            raw_ids = df["Raw_Channel_ID"].to_numpy()
+            max_raw = int(raw_ids.max())
+            lut = np.full(max_raw + 1, 0, dtype=int)
+            for local_idx, raw in enumerate(raw_ids, start=1):
+                lut[int(raw)] = local_idx
+            sensor_stats[sensor] = {"means": means, "stds": stds, "raw_to_local": lut}
+
+        # Load ERA normalization stats
+        stats = pd.read_csv(package.resolve("stats/era5_13_levels_stats.csv"))
+        level = stats["level"].astype(int)
+        channel = np.where(
+            level.eq(-1), stats["variable"], stats["variable"] + level.astype(str)
+        )
+        ordered = stats.assign(channel=channel).set_index("channel").loc[ERA5_CHANNELS]
+        era5_mean = torch.from_numpy(ordered["mean"].to_numpy(dtype=np.float32))
+        era5_std = torch.from_numpy(ordered["std"].to_numpy(dtype=np.float32))
+
+        return cls(
+            model=model,
+            condition=condition,
+            era5_mean=era5_mean.view(1, -1, 1, 1),
+            era5_std=era5_std.view(1, -1, 1, 1),
+            sensor_stats=sensor_stats,
+            lat_lon=lat_lon,
+            output_resolution=output_resolution,
+            time_tolerance=time_tolerance,
+        )
+
+    @torch.inference_mode()
+    def _forward(self, inputs: dict[str, torch.Tensor]) -> torch.Tensor:
+        batch_size = inputs["second_of_day"].shape[0]
+        noise_labels = torch.zeros([batch_size], device=self.device)
+        class_labels = torch.empty([batch_size, 0], device=self.device)
+
+        with torch.autocast(self.device.type, dtype=torch.bfloat16):
+            prediction = self._model(
+                x=inputs["condition"],
+                t=noise_labels,
+                obs=inputs["obs"],
+                float_metadata=inputs["float_metadata"],
+                pix=inputs["pix"],
+                local_channel=inputs["local_channel"],
+                local_platform=inputs["local_platform"],
+                obs_type=inputs["obs_type"],
+                offsets=inputs["offsets"],
+                second_of_day=inputs["second_of_day"],
+                day_of_year=inputs["day_of_year"],
+                class_labels=class_labels,
+            )
+
+        # Denormalize: prediction is [batch, channels, time, npix]
+        return self._era5_std * prediction + self._era5_mean
+
     def __call__(
         self,
         conv_obs: pd.DataFrame | None = None,
@@ -630,8 +520,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "This is typically set by earth2studio data sources."
             )
 
-        device = self.condition.device
-
         # Pre-process each source into unified schema, then concatenate
         parts: list[pd.DataFrame] = []
         if conv_obs is not None and len(conv_obs) > 0:
@@ -641,14 +529,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 sensor_df = sat_obs[sat_obs["variable"] == sensor]
                 if len(sensor_df) > 0:
                     parts.append(self.prep_sat_sensor(sensor_df, sensor))
-
-        if len(parts) == 0:
-            logger.warning("No observations provided, returning empty analysis")
-            (output_coords,) = self.output_coords(
-                self.input_coords(), request_time=request_time
-            )
-            return self._empty_output(output_coords)
-
         obs = pd.concat(parts, ignore_index=True)
 
         # Filter by time tolerance and normalize
@@ -669,12 +549,11 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         # Build model inputs
         valid_time = pd.Timestamp(request_time[0])
-        inputs = self._build_model_inputs(obs_sorted, valid_time, device)
+        inputs = self._build_model_inputs(obs_sorted, valid_time)
 
         # Run inference
-        prediction = self._forward(inputs, device)
+        prediction = self._forward(inputs)
 
-        # Build output DataArray
         (output_coords,) = self.output_coords(
             self.input_coords(), request_time=request_time
         )
@@ -685,11 +564,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         tuple[pd.DataFrame | None, pd.DataFrame | None],
         None,
     ]:
-        """Creates a generator for stateless iterative assimilation.
-
-        The generator accepts a tuple of ``(conv_obs, sat_obs)`` DataFrames via
-        ``send()`` and yields global analysis fields. Since HealDA is stateless,
-        each call is independent.
+        """Creates a generator which accepts collection of input observations and
+        yields the output global assimilated data.
 
         Yields
         ------
@@ -711,9 +587,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         except GeneratorExit:
             logger.debug("HealDA generator clean up complete.")
 
-    # ------------------------------------------------------------------
-    # Observation pre-processing
-    # ------------------------------------------------------------------
     def _build_channel_stats(self) -> pd.DataFrame:
         """Build per-(sensor, local_channel) normalization stats table."""
         rows: list[dict] = []
@@ -825,13 +698,16 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def _filter_and_normalize(self, obs: pd.DataFrame) -> pd.DataFrame:
         """Join per-channel stats, apply QC filtering, and z-score normalize."""
-        # Convert cudf to pandas if needed
+        # Convert cudf to pandas if needed (TODO: See if can be removed)
         if cudf is not None and isinstance(obs, cudf.DataFrame):
             obs = obs.to_pandas()
 
-        obs = obs.merge(self._channel_stats, on=["sensor", "local_channel"], how="left")
+        # Filter observations within tolerance window
+        # obs = filter_time_range(
+        #     obs, request_time, self._tolerance, time_column="obs_time_ns"
+        # )
 
-        # Base: obs must be finite and within valid range
+        obs = obs.merge(self._channel_stats, on=["sensor", "local_channel"], how="left")
         valid = obs["observation"].notna()
         valid &= (obs["observation"] >= obs["min_valid"]) & (
             obs["observation"] <= obs["max_valid"]
@@ -871,13 +747,12 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         self,
         obs: pd.DataFrame,
         valid_time: pd.Timestamp,
-        device: torch.device,
     ) -> dict[str, torch.Tensor]:
         """Convert processed DataFrame into model-ready tensors."""
         total_obs = len(obs)
 
         def to_dev(col: str) -> torch.Tensor:
-            return torch.from_numpy(obs[col].values).to(device, non_blocking=True)
+            return torch.from_numpy(obs[col].values).to(self.device, non_blocking=True)
 
         lat = to_dev("lat")
         lon = to_dev("lon")
@@ -903,10 +778,10 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             ).timestamp()
         )
         target_time = torch.full(
-            (total_obs,), valid_epoch, dtype=torch.int64, device=device
+            (total_obs,), valid_epoch, dtype=torch.int64, device=self.device
         )
 
-        float_metadata = _compute_unified_metadata(
+        float_metadata = HealDA._compute_unified_metadata(
             target_time,
             lon=lon,
             time=to_dev("obs_time_ns"),
@@ -930,46 +805,15 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             "local_channel": to_dev("local_channel"),
             "local_platform": to_dev("local_platform"),
             "obs_type": to_dev("obs_type"),
-            "offsets": offsets.to(device),
+            "offsets": offsets.to(self.device),
             "condition": self.condition,
             "second_of_day": torch.tensor(
-                [[second_of_day]], dtype=torch.float32, device=device
+                [[second_of_day]], dtype=torch.float32, device=self.device
             ),
             "day_of_year": torch.tensor(
-                [[day_of_year]], dtype=torch.float32, device=device
+                [[day_of_year]], dtype=torch.float32, device=self.device
             ),
         }
-
-    # ------------------------------------------------------------------
-    # Inference
-    # ------------------------------------------------------------------
-    @torch.inference_mode()
-    def _forward(
-        self, inputs: dict[str, torch.Tensor], device: torch.device
-    ) -> torch.Tensor:
-        """Run model forward pass and denormalize output."""
-        batch_size = inputs["second_of_day"].shape[0]
-        noise_labels = torch.zeros([batch_size], device=device)
-        class_labels = torch.empty([batch_size, 0], device=device)
-
-        with torch.autocast("cuda", dtype=torch.bfloat16):
-            prediction = self._model(
-                x=inputs["condition"],
-                t=noise_labels,
-                obs=inputs["obs"],
-                float_metadata=inputs["float_metadata"],
-                pix=inputs["pix"],
-                local_channel=inputs["local_channel"],
-                local_platform=inputs["local_platform"],
-                obs_type=inputs["obs_type"],
-                offsets=inputs["offsets"],
-                second_of_day=inputs["second_of_day"],
-                day_of_year=inputs["day_of_year"],
-                class_labels=class_labels,
-            )
-
-        # Denormalize: prediction is [batch, channels, time, npix]
-        return self._era5_std * prediction + self._era5_mean
 
     # ------------------------------------------------------------------
     # Output helpers
@@ -1046,3 +890,101 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             dims=dims,
             coords=output_coords,
         )
+
+    @staticmethod
+    def _fourier_features(x_norm: torch.Tensor, num_freqs: int) -> torch.Tensor:
+        device = x_norm.device
+        freqs = torch.arange(1, num_freqs + 1, device=device, dtype=x_norm.dtype) * (
+            2 * math.pi
+        )
+        x_expanded = x_norm.unsqueeze(-1) * freqs
+        return torch.cat([torch.sin(x_expanded), torch.cos(x_expanded)], dim=-1)
+
+    @staticmethod
+    def _compute_unified_metadata(
+        target_time_sec: torch.Tensor,
+        lon: torch.Tensor,
+        time: torch.Tensor,
+        height: torch.Tensor,
+        pressure: torch.Tensor,
+        scan_angle: torch.Tensor,
+        sat_zenith_angle: torch.Tensor,
+        sol_zenith_angle: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute 28-dim observation metadata features.
+
+        Parameters
+        ----------
+        target_time_sec : torch.Tensor
+            Target time as epoch seconds (int64), broadcast to all obs
+        lon : torch.Tensor
+            Longitude in degrees [n_obs]
+        time : torch.Tensor
+            Observation times as epoch nanoseconds (int64) [n_obs]
+        height : torch.Tensor
+            Height in meters [n_obs], NaN for satellite obs
+        pressure : torch.Tensor
+            Pressure in hPa [n_obs], NaN for satellite obs
+        scan_angle : torch.Tensor
+            Scan angle in degrees [n_obs], NaN for conventional obs
+        sat_zenith_angle : torch.Tensor
+            Satellite zenith angle in degrees [n_obs], NaN for conventional obs
+        sol_zenith_angle : torch.Tensor
+            Solar zenith angle in degrees [n_obs], NaN for conventional obs
+
+        Returns
+        -------
+        torch.Tensor
+            Metadata features [n_obs, 28]
+        """
+        features: list[torch.Tensor] = []
+
+        # Local solar time (4 features)
+        sod = (time // 1_000_000_000) % 86400
+        utc_hours = sod.float() / 3600.0
+        lst = (utc_hours + lon / 15.0) % 24.0
+        features.append(HealDA._fourier_features(lst / 24.0, 2))
+
+        # Relative time (2 features)
+        target_ns = target_time_sec * 1_000_000_000
+        dt_sec = (time - target_ns).float() * 1e-9
+        dt_norm = dt_sec / 86400.0
+        features.append(torch.stack([dt_norm, dt_norm**2], dim=-1))
+
+        # Height (8 features)
+        h_valid = ~torch.isnan(height)
+        h_norm = torch.clamp(height / 60000.0, 0.0, 1.0)
+        h_feat = HealDA._fourier_features(h_norm, 4)
+        h_feat[~h_valid] = 0.0
+        features.append(h_feat)
+
+        # Pressure (8 features)
+        p_valid = ~torch.isnan(pressure)
+        p_norm = torch.clamp(pressure / 1100.0, 0.0, 1.0)
+        p_feat = HealDA._fourier_features(p_norm, 4)
+        p_feat[~p_valid] = 0.0
+        features.append(p_feat)
+
+        # Scan angle (2 features)
+        s_valid = ~torch.isnan(scan_angle)
+        xi = scan_angle / 50.0
+        s_feat = torch.stack([xi, xi**2], dim=-1)
+        s_feat[~s_valid] = 0.0
+        features.append(s_feat)
+
+        # Satellite zenith (2 features)
+        sat_valid = ~torch.isnan(sat_zenith_angle)
+        cos_sat = torch.cos(torch.deg2rad(sat_zenith_angle))
+        sat_feat = torch.stack([cos_sat, cos_sat**2], dim=-1)
+        sat_feat[~sat_valid] = 0.0
+        features.append(sat_feat)
+
+        # Solar zenith (2 features)
+        sol_valid = ~torch.isnan(sol_zenith_angle)
+        cos_sol = torch.cos(torch.deg2rad(sol_zenith_angle))
+        sin_sol = torch.sin(torch.deg2rad(sol_zenith_angle))
+        sol_feat = torch.stack([cos_sol, sin_sol], dim=-1)
+        sol_feat[~sol_valid] = 0.0
+        features.append(sol_feat)
+
+        return torch.cat(features, dim=-1)  # [n_obs, 28]
