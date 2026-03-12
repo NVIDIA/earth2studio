@@ -118,6 +118,7 @@ or maintain internal state across time steps.
    :toctree: generated/models/da/
    :template: dataassim.rst
 
+   HealDA
    InterpEquirectangular
    StormCastSDA
 
