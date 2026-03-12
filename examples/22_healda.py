@@ -92,12 +92,12 @@ model = model.to("cuda:0")
 # The UFS data sources return pandas DataFrames that match the schemas expected by
 # :py:meth:`HealDA.input_coords`.  We use
 # :py:func:`earth2studio.data.fetch_dataframe` which attaches ``request_time``
-# metadata required by the model.
+# metadata required by the model.  The tolerance parameter defines a 3 hour
+# window around the analysis time so that observations within that range are included.
 
 # %%
 analysis_time = np.array([np.datetime64("2024-01-01T00:00")])
 
-# Conventional observations (radiosonde, surface, GPS-RO)
 conv_source = UFSObsConv(tolerance=timedelta(hours=3))
 conv_schema, sat_schema = model.input_coords()
 conv_df = fetch_dataframe(
@@ -108,7 +108,6 @@ conv_df = fetch_dataframe(
 )
 logger.info(f"Fetched {len(conv_df)} conventional observations")
 
-# Satellite observations (ATMS, MHS, AMSU-A, AMSU-B)
 sat_source = UFSObsSat(tolerance=timedelta(hours=3))
 sat_df = fetch_dataframe(
     sat_source,
@@ -275,8 +274,6 @@ plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 # %%
 era5_ds = NCAR_ERA5()
 era5_da = era5_ds(analysis_time, plot_vars)
-
-# Interpolate ERA5 to the model output grid so shapes match
 era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 # %%
