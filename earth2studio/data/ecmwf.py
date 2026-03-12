@@ -244,7 +244,7 @@ class _ECMWFOpenDataSource(ABC):
 
         async_tasks = await self._create_tasks(time, lead_time, variable)
         func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+            functools.partial(self._download_wrapper, xr_array=xr_array), async_tasks
         )
 
         await tqdm.gather(
@@ -307,7 +307,7 @@ class _ECMWFOpenDataSource(ABC):
                     )
         return tasks
 
-    async def fetch_wrapper(
+    async def _download_wrapper(
         self,
         task: ECMWFOpenDataAsyncTask,
         xr_array: xr.DataArray,
