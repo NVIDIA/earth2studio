@@ -1,18 +1,25 @@
 # Object Storage Support
 
-This document describes how to configure and use object storage (AWS S3 with CloudFront) for storing
-workflow results in the Earth2Studio Inference Server.
+This document describes how to configure and use object storage (AWS S3 with CloudFront or
+Azure Blob Storage) for storing workflow results in the Earth2Studio Inference Server.
 
 ## Overview
 
 By default, workflow results are stored locally on the inference server. When object storage is
-enabled, results are automatically uploaded to S3 and served via CloudFront signed URLs. This
-provides:
+enabled, results are automatically uploaded to your chosen cloud storage provider (AWS S3 or
+Azure Blob Storage) and served via signed URLs. This provides:
 
 - **Scalability**: Offload storage from the inference server
-- **Performance**: CloudFront CDN for fast global access
+- **Performance**: Fast global access via CDN (CloudFront for S3) or direct Azure Blob Storage access
 - **Security**: Time-limited signed URLs for secure access
-- **Seamless Client Experience**: The Python client SDK automatically handles both storage types
+- **Seamless Client Experience**: The Python client SDK automatically handles all storage types
+
+## Storage Provider Options
+
+The inference server supports two storage providers:
+
+- **AWS S3**: With optional CloudFront CDN for enhanced performance
+- **Azure Blob Storage**: Direct access with SAS (Shared Access Signature) URLs
 
 ## AWS Prerequisites
 
@@ -20,70 +27,54 @@ Before enabling object storage, you need to set up the following AWS resources:
 
 ### 1. S3 Bucket
 
-Create an S3 bucket to store workflow results:
-
-```bash
-aws s3 mb s3://your-bucket-name --region us-east-1
-```
-
+Create an S3 bucket to store workflow results.
 **Must for performance**: Enable S3 Transfer Acceleration for faster uploads:
-
-```bash
-aws s3api put-bucket-accelerate-configuration \
-    --bucket your-bucket-name \
-    --accelerate-configuration Status=Enabled
-```
 
 ### 2. CloudFront Distribution
 
-Create a CloudFront distribution to serve content from your S3 bucket:
-
-1. Go to AWS CloudFront Console → Create Distribution
-2. Set Origin Domain to your S3 bucket (`your-bucket-name.s3.amazonaws.com`)
-3. Set Origin Access to "Origin access control settings (recommended)"
-4. Create a new Origin Access Control (OAC)
-5. Update the S3 bucket policy to allow CloudFront access (AWS will provide the policy)
+Create a CloudFront distribution to serve content from your S3 bucket.
 
 ### 3. CloudFront Key Pair for Signed URLs
 
-To generate signed URLs, you need a CloudFront key pair:
-
-1. Go to AWS CloudFront Console → Key Management → Public Keys
-2. Create a new public key by uploading a public key you generated:
-
-```bash
-# Generate a private key
-openssl genrsa -out cloudfront-private-key.pem 2048
-
-# Extract the public key
-openssl rsa -in cloudfront-private-key.pem -pubout -out cloudfront-public-key.pem
-```
-
-Then:
-
-1. Upload `cloudfront-public-key.pem` to CloudFront
-2. Create a Key Group containing your public key
-3. Associate the Key Group with your CloudFront distribution's behavior settings (Restrict Viewer
-Access → Yes, Trusted Key Groups)
-4. Note the **Key Pair ID** (e.g., `KUCQGLNFR6UH1`)
-5. Keep `cloudfront-private-key.pem` secure - this is used by the server to sign URLs
+To generate signed URLs, you need a CloudFront key pair.
 
 ### 4. IAM Credentials
 
-Create IAM credentials with permissions to upload to S3. See [Creating IAM
-users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) for
-detailed instructions. The credentials need `s3:PutObject`, `s3:GetObject`,
-`s3:DeleteObject`, and `s3:ListBucket` permissions on your bucket.
+Create IAM credentials with permissions to upload to S3.
+
+## Azure Prerequisites
+
+Before enabling Azure Blob Storage, you need to set up the following Azure resources:
+
+### 1. Azure Storage Account
+
+Create an Azure Storage Account.
+
+### 2. Storage Container
+
+Create a blob container in your storage account.
+
+### 3. Connection String, Account Key
+
+You will need a connection string to write into the container.
+The account key is required for generating SAS (Shared Access Signature) signed URLs.
+
+### 4. Permissions
+
+Ensure your Azure credentials have the permissions to write/read into the container.
 
 ## Server Configuration
 
 ### Environment Variables
 
-Configure object storage using environment variables:
+Configure object storage using environment variables. Choose either AWS S3 or Azure Blob Storage:
+
+#### AWS S3 Configuration
 
 ```bash
 # Enable object storage
 export OBJECT_STORAGE_ENABLED=true
+export OBJECT_STORAGE_TYPE=s3
 
 # S3 Configuration
 export OBJECT_STORAGE_BUCKET=your-bucket-name
@@ -111,13 +102,46 @@ export CLOUDFRONT_PRIVATE_KEY_PATH=/path/to/cloudfront-private-key.pem
 export OBJECT_STORAGE_SIGNED_URL_EXPIRES_IN=3600  # URL expiration in seconds
 ```
 
+#### Azure Blob Storage Configuration
+
+```bash
+# Enable object storage
+export OBJECT_STORAGE_ENABLED=true
+export OBJECT_STORAGE_TYPE=azure
+
+# Azure Configuration
+export OBJECT_STORAGE_BUCKET=your-container-name  # Container name (used as bucket equivalent)
+export OBJECT_STORAGE_PREFIX=outputs  # Optional: prefix for uploaded files
+
+# Azure Credentials (Connection String - Recommended)
+export AZURE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=mystorageaccount;AccountKey=...;EndpointSuffix=core.windows.net"
+
+# OR Azure Credentials (Account Name and Key - Alternative)
+export AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount
+export AZURE_STORAGE_ACCOUNT_KEY=...  # Required for SAS URL generation
+
+# Optional: Container name (defaults to OBJECT_STORAGE_BUCKET if not set)
+export AZURE_CONTAINER_NAME=workflow-results
+
+# Transfer Configuration
+export OBJECT_STORAGE_MAX_CONCURRENCY=16          # Concurrent upload threads
+export OBJECT_STORAGE_MULTIPART_CHUNKSIZE=8388608 # 8MB chunk size
+export OBJECT_STORAGE_USE_RUST_CLIENT=true        # High-performance Rust client
+
+# Signed URL Configuration
+export OBJECT_STORAGE_SIGNED_URL_EXPIRES_IN=3600  # SAS URL expiration in seconds
+```
+
 ### YAML Configuration
 
 Alternatively, configure via `config.yaml`:
 
+#### AWS S3 YAML Configuration
+
 ```yaml
 object_storage:
   enabled: true
+  storage_type: s3
   bucket: your-bucket-name
   region: us-east-1
   prefix: outputs
@@ -131,32 +155,57 @@ object_storage:
   signed_url_expires_in: 3600
 ```
 
+#### Azure Blob Storage YAML Configuration
+
+```yaml
+object_storage:
+  enabled: true
+  storage_type: azure
+  bucket: your-container-name  # Container name (used as bucket equivalent)
+  prefix: outputs
+  max_concurrency: 16
+  multipart_chunksize: 8388608
+  use_rust_client: true
+  azure_connection_string: "DefaultEndpointsProtocol=https;AccountName=mystorageaccount;AccountKey=...;EndpointSuffix=core.windows.net"
+  azure_account_name: mystorageaccount  # Optional if in connection string
+  azure_account_key: ...  # Required for SAS URL generation
+  azure_container_name: workflow-results  # Optional, defaults to bucket
+  signed_url_expires_in: 3600
+```
+
 ### Configuration Parameters Reference
 
 <!-- markdownlint-disable MD013 -->
 | Parameter | Environment Variable | Default | Description |
 |-----------|---------------------|---------|-------------|
 | `enabled` | `OBJECT_STORAGE_ENABLED` | `false` | Enable object storage |
-| `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name |
-| `region` | `OBJECT_STORAGE_REGION` | `us-east-1` | AWS region |
+| `storage_type` | `OBJECT_STORAGE_TYPE` | `s3` | Storage provider: `s3` or `azure` |
+| `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name or Azure container name |
+| `region` | `OBJECT_STORAGE_REGION` | `us-east-1` | AWS region (S3 only) |
 | `prefix` | `OBJECT_STORAGE_PREFIX` | `outputs` | Remote prefix for files |
-| `access_key_id` | `OBJECT_STORAGE_ACCESS_KEY_ID` | `null` | AWS access key ID |
-| `secret_access_key` | `OBJECT_STORAGE_SECRET_ACCESS_KEY` | `null` | AWS secret access key |
-| `session_token` | `OBJECT_STORAGE_SESSION_TOKEN` | `null` | AWS session token |
+| `access_key_id` | `OBJECT_STORAGE_ACCESS_KEY_ID` | `null` | AWS access key ID (S3 only) |
+| `secret_access_key` | `OBJECT_STORAGE_SECRET_ACCESS_KEY` | `null` | AWS secret access key (S3 only) |
+| `session_token` | `OBJECT_STORAGE_SESSION_TOKEN` | `null` | AWS session token (S3 only) |
 | `endpoint_url` | `OBJECT_STORAGE_ENDPOINT_URL` | `null` | Custom endpoint (S3-compatible) |
-| `use_transfer_acceleration` | `OBJECT_STORAGE_TRANSFER_ACCELERATION` | `true` | Enable S3 Transfer Acceleration |
+| `use_transfer_acceleration` | `OBJECT_STORAGE_TRANSFER_ACCELERATION` | `true` | Enable S3 Transfer Acceleration (S3 only) |
 | `max_concurrency` | `OBJECT_STORAGE_MAX_CONCURRENCY` | `16` | Max concurrent transfers |
 | `multipart_chunksize` | `OBJECT_STORAGE_MULTIPART_CHUNKSIZE` | `8388608` | Multipart chunk size (bytes) |
 | `use_rust_client` | `OBJECT_STORAGE_USE_RUST_CLIENT` | `true` | Use high-performance Rust client |
-| `cloudfront_domain` | `CLOUDFRONT_DOMAIN` | `null` | CloudFront distribution domain |
-| `cloudfront_key_pair_id` | `CLOUDFRONT_KEY_PAIR_ID` | `null` | CloudFront key pair ID |
-| `cloudfront_private_key_path` | `CLOUDFRONT_PRIVATE_KEY_PATH` | `null` | Path to private key PEM file |
+| `cloudfront_domain` | `CLOUDFRONT_DOMAIN` | `null` | CloudFront distribution domain (S3 only) |
+| `cloudfront_key_pair_id` | `CLOUDFRONT_KEY_PAIR_ID` | `null` | CloudFront key pair ID (S3 only) |
+| `cloudfront_private_key_path` | `CLOUDFRONT_PRIVATE_KEY_PATH` | `null` | Path to private key PEM file (S3 only) |
+| `azure_connection_string` | `AZURE_CONNECTION_STRING` | `null` | Azure connection string (Azure only, recommended) |
+| `azure_account_name` | `AZURE_STORAGE_ACCOUNT_NAME` | `null` | Azure storage account name (Azure only) |
+| `azure_account_key` | `AZURE_STORAGE_ACCOUNT_KEY` | `null` | Azure account key for SAS URLs (Azure only) |
+| `azure_container_name` | `AZURE_CONTAINER_NAME` | `null` | Azure container name (Azure only, defaults to bucket) |
 | `signed_url_expires_in` | `OBJECT_STORAGE_SIGNED_URL_EXPIRES_IN` | `3600` | Signed URL expiration (seconds) |
 <!-- markdownlint-enable MD013 -->
 
 ## Result Metadata
 
 When object storage is enabled, the workflow result metadata includes additional fields:
+
+### AWS S3 Example
 
 ```json
 {
@@ -174,12 +223,30 @@ When object storage is enabled, the workflow result metadata includes additional
 }
 ```
 
+### Azure Blob Storage Example
+
+```json
+{
+  "request_id": "exec_1769560728_10ed9d3c",
+  "status": "completed",
+  "storage_type": "azure",
+  "signed_url":
+    "https://mystorageaccount.blob.core.windows.net/workflow-results/outputs/exec_1769560728_10ed9d3c?sv=2021-06-08&ss=b&srt=co&sp=rl&se=2025-01-01T00:00:00Z&st=2024-12-31T00:00:00Z&spr=https&sig=...",
+  "remote_path": "outputs/exec_1769560728_10ed9d3c",
+  "output_files": [
+    {"path": "exec_1769560728_10ed9d3c/results.zarr/.zarray", "size": 123},
+    {"path": "exec_1769560728_10ed9d3c/results.zarr/t2m/0.0.0", "size": 4567890}
+  ]
+}
+```
+
 ### Storage Type Values
 
 | Value | Description |
 |-------|-------------|
 | `server` | Results stored locally on the inference server |
 | `s3` | Results stored in S3, accessible via CloudFront signed URL |
+| `azure` | Results stored in Azure Blob Storage, accessible via SAS signed URL |
 
 ## Client Usage
 
@@ -209,7 +276,7 @@ request_result = client.run_inference_sync(
     InferenceRequest(parameters={"start_time": [datetime(2025, 8, 21, 6)]})
 )
 
-# Automatically downloads from S3 if storage_type is "s3"
+# Automatically downloads from S3 or Azure if storage_type is "s3" or "azure"
 for file in request_result.output_files[:5]:
     content = client.download_result(request_result, file.path)
     print(f"Downloaded {file.path}: {len(content.getvalue())} bytes")
@@ -217,7 +284,10 @@ for file in request_result.output_files[:5]:
 
 ### Using Signed URLs Directly
 
-For advanced use cases, you can use the signed URL directly:
+For advanced use cases, you can use the signed URL directly. The format differs between
+S3/CloudFront and Azure:
+
+#### Using CloudFront Signed URLs
 
 ```python
 import requests
@@ -237,6 +307,22 @@ file_url = f"{base_url}/{file_path}?{query_params}"
 response = requests.get(file_url)
 ```
 
+#### Using Azure SAS URLs
+
+```python
+import requests
+
+# Get the signed URL from the result
+signed_url = request_result.signed_url
+# Example:
+# https://mystorageaccount.blob.core.windows.net/workflow-results/outputs/exec_123?sv=...&sig=...
+
+# Azure SAS URLs already include the full path - append the file path
+file_path = "results.zarr/.zarray"
+file_url = f"{signed_url}/{file_path}" if not signed_url.endswith("/") else f"{signed_url}{file_path}"
+response = requests.get(file_url)
+```
+
 ### Using with Xarray and Zarr
 
 The client provides an fsspec mapper for opening Zarr stores directly:
@@ -252,63 +338,3 @@ mapper = create_cloudfront_mapper(request_result.signed_url, zarr_path="results.
 ds = xr.open_zarr(mapper, consolidated=True)
 print(ds)
 ```
-
-## Signed URL Format
-
-CloudFront signed URLs contain three query parameters:
-
-```text
-https://d30anq61ot046p.cloudfront.net/outputs/exec_123/*?Policy=eyJTdGF0ZW1lbnQiOl...\
-&Signature=ABC123...&Key-Pair-Id=KUCQGLNFR6UH1
-```
-
-| Parameter | Description |
-|-----------|-------------|
-| `Policy` | Base64-encoded JSON policy specifying resource and expiration |
-| `Signature` | RSA signature of the policy using the private key |
-| `Key-Pair-Id` | CloudFront key pair ID used to verify the signature |
-
-The wildcard (`*`) in the URL path allows access to all files under that prefix.
-
-## Testing
-
-Run object storage integration tests:
-
-```bash
-# Set required environment variables
-export TEST_S3_BUCKET=my-test-bucket
-export AWS_ACCESS_KEY_ID=AKIA...
-export AWS_SECRET_ACCESS_KEY=...
-
-# Run S3 upload tests
-pytest test/integration/test_object_storage.py -v
-
-# Run CloudFront signed URL tests (requires additional config)
-export TEST_CLOUDFRONT_DOMAIN=https://d30anq61ot046p.cloudfront.net
-export TEST_CLOUDFRONT_KEY_PAIR_ID=KUCQGLNFR6UH1
-export TEST_CLOUDFRONT_PRIVATE_KEY_PATH=/path/to/private.pem
-pytest test/integration/test_object_storage.py::TestCloudFrontSignedUrl -v
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **403 Forbidden from CloudFront**
-   - Verify the S3 bucket policy allows CloudFront OAC access
-   - Check that the CloudFront distribution is configured with the correct origin
-   - Ensure the key pair is in a Key Group associated with the distribution
-
-2. **Signed URL expired**
-   - Increase `signed_url_expires_in` configuration
-   - Request fresh results from the API (URLs are regenerated)
-
-3. **Upload failures**
-   - Verify IAM credentials have `s3:PutObject` permission
-   - Check bucket name and region are correct
-   - If using Transfer Acceleration, ensure it's enabled on the bucket
-
-4. **Slow uploads**
-   - Enable `use_rust_client` for better performance
-   - Increase `max_concurrency` for more parallel uploads
-   - Enable `use_transfer_acceleration` if uploading from distant regions

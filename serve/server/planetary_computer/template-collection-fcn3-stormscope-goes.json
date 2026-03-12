@@ -1,0 +1,42 @@
+{
+  "type": "Collection",
+  "stac_version": "1.0.0",
+  "id": "earth-2-fcn3-stormscope-goes-{uuid}",
+  "title": "Earth-2 StormScope-GOES conditioned on FourCastNet3",
+  "description": "Forecasts generated with the FourCastNet3-conditioned StormScope-GOES workflow on Microsoft Foundry.",
+  "links": [],
+  "stac_extensions": [],
+  "item_assets": {
+    "data": {
+      "type": "application/x-netcdf",
+      "roles": []
+    }
+  },
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -135,
+          20,
+          -60,
+          53
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          null,
+          null
+        ]
+      ]
+    }
+  },
+  "license": "other",
+  "keywords": [
+    "CONUS",
+    "Forecast",
+    "Earth-2"
+  ],
+  "providers": []
+}

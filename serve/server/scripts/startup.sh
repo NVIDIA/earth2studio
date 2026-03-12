@@ -17,6 +17,15 @@
 
 set -euo pipefail
 
+# Set EARTH2STUDIO_MODEL_CACHE to use AZUREML_MODEL_DIR if available
+if [ -n "${AZUREML_MODEL_DIR:-}" ]; then
+    echo "AZUREML_MODEL_DIR: $AZUREML_MODEL_DIR"
+    export EARTH2STUDIO_MODEL_CACHE="$AZUREML_MODEL_DIR/${EARTH2STUDIO_MODEL_SUBPATH:-e2s_fcn3_stormscope}"
+    echo "--------------------------------"
+    echo "EARTH2STUDIO_MODEL_CACHE: $EARTH2STUDIO_MODEL_CACHE"
+    ls -la $EARTH2STUDIO_MODEL_CACHE && echo "--------------------------------"
+fi
+
 # Use CONFIG_DIR/SCRIPT_DIR from env if set (e.g. in Docker); else resolve from script location
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 SERVE_SERVER_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"

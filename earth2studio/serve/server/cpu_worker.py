@@ -539,7 +539,11 @@ def process_object_storage_upload(
 
         # Upload to object storage if enabled
 
-        if config.object_storage.enabled and config.object_storage.bucket:
+        # Check if object storage is enabled and properly configured
+        if config.object_storage.enabled and (
+            config.object_storage.bucket
+            or config.object_storage.storage_type == "azure"
+        ):
             from earth2studio.serve.server.object_storage import (
                 MSCObjectStorage,
                 ObjectStorageError,
@@ -553,43 +557,77 @@ def process_object_storage_upload(
                     f"Output path does not exist: {output_path}",
                 )
 
-            # Create S3 storage instance
+            # Create storage instance
             storage_kwargs: dict[str, Any] = {
-                "bucket": config.object_storage.bucket,
-                "region": config.object_storage.region,
-                "use_transfer_acceleration": config.object_storage.use_transfer_acceleration,
+                "bucket": config.object_storage.bucket
+                or config.object_storage.azure_container_name
+                or "",
+                "storage_type": config.object_storage.storage_type,
                 "max_concurrency": config.object_storage.max_concurrency,
                 "multipart_chunksize": config.object_storage.multipart_chunksize,
                 "use_rust_client": config.object_storage.use_rust_client,
             }
 
-            # Add optional credentials
-            if (
-                config.object_storage.access_key_id
-                and config.object_storage.secret_access_key
-            ):
-                storage_kwargs["access_key_id"] = config.object_storage.access_key_id
-                storage_kwargs["secret_access_key"] = (
-                    config.object_storage.secret_access_key
+            # Add storage-type-specific configuration
+            if config.object_storage.storage_type == "s3":
+                # S3-specific parameters
+                storage_kwargs["region"] = config.object_storage.region
+                storage_kwargs["use_transfer_acceleration"] = (
+                    config.object_storage.use_transfer_acceleration
                 )
-            if config.object_storage.session_token:
-                storage_kwargs["session_token"] = config.object_storage.session_token
-            if config.object_storage.endpoint_url:
-                storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
 
-            # Add CloudFront configuration for signed URLs
-            if config.object_storage.cloudfront_domain:
-                storage_kwargs["cloudfront_domain"] = (
-                    config.object_storage.cloudfront_domain
-                )
-            if config.object_storage.cloudfront_key_pair_id:
-                storage_kwargs["cloudfront_key_pair_id"] = (
-                    config.object_storage.cloudfront_key_pair_id
-                )
-            if config.object_storage.cloudfront_private_key:
-                storage_kwargs["cloudfront_private_key"] = (
-                    config.object_storage.cloudfront_private_key
-                )
+                # Add optional S3 credentials
+                if (
+                    config.object_storage.access_key_id
+                    and config.object_storage.secret_access_key
+                ):
+                    storage_kwargs["access_key_id"] = (
+                        config.object_storage.access_key_id
+                    )
+                    storage_kwargs["secret_access_key"] = (
+                        config.object_storage.secret_access_key
+                    )
+                if config.object_storage.session_token:
+                    storage_kwargs["session_token"] = (
+                        config.object_storage.session_token
+                    )
+                if config.object_storage.endpoint_url:
+                    storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
+
+                # Add CloudFront configuration for signed URLs
+                if config.object_storage.cloudfront_domain:
+                    storage_kwargs["cloudfront_domain"] = (
+                        config.object_storage.cloudfront_domain
+                    )
+                if config.object_storage.cloudfront_key_pair_id:
+                    storage_kwargs["cloudfront_key_pair_id"] = (
+                        config.object_storage.cloudfront_key_pair_id
+                    )
+                if config.object_storage.cloudfront_private_key:
+                    storage_kwargs["cloudfront_private_key"] = (
+                        config.object_storage.cloudfront_private_key
+                    )
+            elif config.object_storage.storage_type == "azure":
+                # Azure-specific parameters
+                if config.object_storage.azure_connection_string:
+                    storage_kwargs["azure_connection_string"] = (
+                        config.object_storage.azure_connection_string
+                    )
+                if config.object_storage.azure_account_name:
+                    storage_kwargs["azure_account_name"] = (
+                        config.object_storage.azure_account_name
+                    )
+                if config.object_storage.azure_account_key:
+                    storage_kwargs["azure_account_key"] = (
+                        config.object_storage.azure_account_key
+                    )
+                if config.object_storage.azure_container_name:
+                    storage_kwargs["azure_container_name"] = (
+                        config.object_storage.azure_container_name
+                    )
+                # Support endpoint_url for Azure (useful for managed identity)
+                if config.object_storage.endpoint_url:
+                    storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
 
             try:
                 storage = MSCObjectStorage(**storage_kwargs)
@@ -606,8 +644,13 @@ def process_object_storage_upload(
             )
 
             # Upload the output directory
+            storage_location = (
+                f"s3://{config.object_storage.bucket}"
+                if config.object_storage.storage_type == "s3"
+                else f"azure://{config.object_storage.azure_container_name or config.object_storage.bucket}"
+            )
             logger.info(
-                f"Uploading {output_path} to s3://{config.object_storage.bucket}/{remote_prefix}"
+                f"Uploading {output_path} to {storage_location}/{remote_prefix}"
             )
 
             try:
@@ -631,23 +674,36 @@ def process_object_storage_upload(
                     f"Failed to upload to object storage: {upload_result.errors}",
                 )
 
-            storage_type = "s3"
+            storage_type = config.object_storage.storage_type
             logger.info(
                 f"Successfully uploaded {upload_result.files_uploaded} files "
                 f"({upload_result.total_bytes} bytes) to {upload_result.destination}"
             )
 
-            # Generate signed URL if CloudFront is configured
-            cloudfront_configured = all(
-                [
-                    config.object_storage.cloudfront_domain,
-                    config.object_storage.cloudfront_key_pair_id,
-                    config.object_storage.cloudfront_private_key,
-                ]
-            )
+            # Generate signed URL if configured
+            # For S3: requires CloudFront configuration
+            # For Azure: requires account_name and account_key
+            can_generate_signed_url = False
+            if storage_type == "s3":
+                can_generate_signed_url = all(
+                    [
+                        config.object_storage.cloudfront_domain,
+                        config.object_storage.cloudfront_key_pair_id,
+                        config.object_storage.cloudfront_private_key,
+                    ]
+                )
+            elif storage_type == "azure":
+                can_generate_signed_url = all(
+                    [
+                        config.object_storage.azure_account_name,
+                        config.object_storage.azure_account_key,
+                    ]
+                )
 
-            if not cloudfront_configured:
-                logger.info("CloudFront not configured, skipping signed URL generation")
+            if not can_generate_signed_url:
+                logger.info(
+                    f"Signed URL generation not configured for {storage_type}, skipping"
+                )
             else:
                 try:
                     signed_url_path = f"{remote_prefix}/*"
@@ -677,10 +733,36 @@ def process_object_storage_upload(
         storage_info = {
             "storage_type": storage_type,
         }
-        if storage_type == "s3" and remote_prefix:
-            storage_info["remote_path"] = (
-                f"s3://{config.object_storage.bucket}/{remote_prefix}"
-            )
+        if remote_prefix:
+            if storage_type == "s3":
+                storage_info["remote_path"] = (
+                    f"s3://{config.object_storage.bucket}/{remote_prefix}"
+                )
+            elif storage_type == "azure":
+                container_name = (
+                    config.object_storage.azure_container_name
+                    or config.object_storage.bucket
+                )
+                storage_info["remote_path"] = (
+                    f"azure://{container_name}/{remote_prefix}"
+                )
+                # Build HTTPS blob URL for primary netcdf file (for GeoCatalog ingestion)
+                if (
+                    config.object_storage.azure_account_name
+                    and config.object_storage.azure_geocatalog_url
+                ):
+                    primary_nc = None
+                    if output_path.is_file() and output_path.suffix.lower() == ".nc":
+                        primary_nc = output_path.name
+                    elif output_path.is_dir():
+                        nc_files = sorted(output_path.rglob("*.nc"))
+                        if nc_files:
+                            primary_nc = nc_files[0].relative_to(output_path).as_posix()
+                    if primary_nc:
+                        storage_info["blob_url"] = (
+                            f"https://{config.object_storage.azure_account_name}.blob.core.windows.net/"
+                            f"{container_name}/{remote_prefix}/{primary_nc}"
+                        )
         if signed_url:
             storage_info["signed_url"] = signed_url
 
@@ -718,7 +800,7 @@ def process_object_storage_upload(
             "signed_url": signed_url,
         }
 
-        if upload_result and storage_type == "s3":
+        if upload_result:
             result["files_uploaded"] = upload_result.files_uploaded
             result["total_bytes"] = upload_result.total_bytes
             result["destination"] = upload_result.destination
@@ -733,6 +815,181 @@ def process_object_storage_upload(
             workflow_name,
             execution_id,
             f"Object storage worker failed for {request_id}: {str(e)}",
+        )
+
+
+def process_geocatalog_ingestion(
+    workflow_name: str,
+    execution_id: str,
+) -> dict[str, Any] | None:
+    """
+    RQ Worker function to trigger ingestion of uploaded inference results into
+    Azure Planetary Computer / GeoCatalog when AZURE_GEOCATALOG_URL is configured.
+
+    This function is intended to be executed by the CPU worker from the
+    geocatalog_ingestion_queue, after process_object_storage_upload. It reads
+    storage info and parameters from Redis and calls the Planetary Computer
+    client to create a STAC feature for the uploaded netcdf blob.
+
+    Args:
+        workflow_name: Name of the workflow
+        execution_id: Execution ID of the workflow
+
+    Returns:
+        Dict containing result info, None on critical failure
+    """
+    request_id = f"{workflow_name}:{execution_id}"
+    logger.info(f"Processing geocatalog ingestion for {request_id}")
+
+    try:
+        geocatalog_url = config.object_storage.azure_geocatalog_url
+        if not geocatalog_url:
+            logger.warning(
+                f"AZURE_GEOCATALOG_URL not set, skipping geocatalog ingestion for {request_id}"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "AZURE_GEOCATALOG_URL not set",
+            }
+
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = get_inference_request_metadata_key(request_id)
+        storage_info_json = redis_client.get(storage_info_key)
+        pending_metadata_json = redis_client.get(metadata_key)
+
+        if not storage_info_json or not pending_metadata_json:
+            logger.warning(
+                f"Storage info or pending metadata missing for {request_id}, skipping geocatalog ingestion"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "missing storage/metadata",
+            }
+
+        storage_info = json.loads(storage_info_json)
+        metadata_dict = json.loads(pending_metadata_json)
+        blob_url = storage_info.get("blob_url")
+        parameters = metadata_dict.get("parameters") or {}
+
+        if not blob_url:
+            logger.warning(
+                f"No blob_url in storage info for {request_id} (e.g. not Azure or no .nc file), skipping geocatalog ingestion"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {"success": True, "skipped": True, "reason": "no blob_url"}
+
+        logger.info(f"Blob URL: {blob_url}")
+        # Only trigger PC ingestion for workflows supported by PlanetaryComputerClient
+        _PC_SUPPORTED_WORKFLOWS = (
+            "foundry_fcn3_workflow",
+            "foundry_fcn3_stormscope_goes_workflow",
+        )
+        if workflow_name not in _PC_SUPPORTED_WORKFLOWS:
+            logger.info(
+                f"Workflow {workflow_name} not supported by Planetary Computer client, skipping ingestion for {request_id}"
+            )
+            job_id = queue_next_stage(
+                redis_client=redis_client,
+                current_stage="geocatalog_ingestion",
+                workflow_name=workflow_name,
+                execution_id=execution_id,
+                output_path_str="",
+            )
+            if not job_id:
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Failed to queue finalize_metadata for {request_id}",
+                )
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "workflow not supported",
+            }
+
+        try:
+            from earth2studio.serve.server.planetary_computer.pc_client import (
+                PlanetaryComputerClient,
+            )
+
+            pc_client = PlanetaryComputerClient(workflow_name)
+            pc_client.create_feature(
+                geocatalog_url=geocatalog_url,
+                collection_id=None,
+                parameters=parameters,
+                blob_url=blob_url,
+            )
+            logger.info(f"GeoCatalog ingestion completed for {request_id}")
+        except Exception as e:
+            # Log but do not fail the pipeline; finalize_metadata should still run
+            logger.exception(
+                f"GeoCatalog ingestion failed for {request_id}: {e}. Queuing finalize_metadata anyway."
+            )
+
+        job_id = queue_next_stage(
+            redis_client=redis_client,
+            current_stage="geocatalog_ingestion",
+            workflow_name=workflow_name,
+            execution_id=execution_id,
+            output_path_str="",
+        )
+        if not job_id:
+            return fail_workflow(
+                workflow_name,
+                execution_id,
+                f"Failed to queue next pipeline stage for {request_id}",
+            )
+        logger.info(
+            f"Queued finalize_metadata for {workflow_name}:{execution_id} with RQ job ID: {job_id}"
+        )
+        return {"success": True}
+
+    except Exception as e:
+        logger.exception(f"Failed in geocatalog ingestion for {request_id}")
+        return fail_workflow(
+            workflow_name,
+            execution_id,
+            f"Geocatalog ingestion failed for {request_id}: {str(e)}",
         )
 
 
@@ -768,6 +1025,7 @@ def process_finalize_metadata(
     storage_info_json = redis_client.get(storage_info_key)
 
     if not pending_metadata_json or not results_zip_dir_str:
+        logger.error(f"Pending metadata not found in Redis for {request_id}")
         return fail_workflow(
             workflow_name,
             execution_id,
