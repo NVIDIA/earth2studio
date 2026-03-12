@@ -55,7 +55,7 @@ except ImportError:
     earth2grid = None
     _HealDAModel = None
 
-
+# Internal channel names used by the model weights / stats CSV.
 ERA5_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 ERA5_VARIABLES_3D = ["U", "V", "T", "Z", "Q"]
 ERA5_VARIABLES_2D = [
@@ -69,13 +69,12 @@ ERA5_VARIABLES_2D = [
     "sst",
     "sic",
 ]
-# Internal channel names used by the model weights / stats CSV.
 ERA5_CHANNELS = [
     *[f"{var}{lev}" for var in ERA5_VARIABLES_3D for lev in ERA5_LEVELS],
     *ERA5_VARIABLES_2D,
 ]
 
-# Mapping from internal channel names to Earth2Studio standard vocabulary.
+# Mapping / channels based on E2S standard vocab
 _CHANNEL_TO_E2S: dict[str, str] = {
     "tas": "t2m",
     "uas": "u10m",
@@ -84,17 +83,29 @@ _CHANNEL_TO_E2S: dict[str, str] = {
     "100v": "v100m",
     "pres_msl": "msl",
 }
-# 3D variables: upper-case prefix → lower-case (e.g. U1000 → u1000)
 for _var3d in ERA5_VARIABLES_3D:
     for _lev in ERA5_LEVELS:
         _CHANNEL_TO_E2S[f"{_var3d}{_lev}"] = f"{_var3d.lower()}{_lev}"
-
-# Public channel list expressed in E2Studio vocabulary.
 E2S_CHANNELS = [_CHANNEL_TO_E2S.get(ch, ch) for ch in ERA5_CHANNELS]
 
-
+# Supported sensor lists / mappings
 SAT_SENSORS = ("atms", "mhs", "amsua", "amsub")
 ALL_SENSORS = (*SAT_SENSORS, "conv")
+SENSOR_PLATFORMS: dict[str, list[str]] = {
+    "atms": ["npp", "n20"],
+    "mhs": ["metop-a", "metop-b", "metop-c", "n18", "n19"],
+    "amsua": [
+        "metop-a",
+        "metop-b",
+        "metop-c",
+        "n15",
+        "n16",
+        "n17",
+        "n18",
+        "n19",
+    ],
+    "amsub": ["n15", "n16", "n17"],
+}
 # E2studio conventional variable → 0-based local_channel_id.
 # Channel ordering matches CONV_CHANNELS:
 #   0: gps_angle, 1: gps_t, 2: gps_q, 3: ps, 4: q, 5: t, 6: u, 7: v
@@ -163,11 +174,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ``lat_lon=True``, by default ``(181, 360)`` (1° resolution)
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations, by default np.timedelta64(12, "h")
-
-    Warning
-    -------
-    This model requires the ``da-healda`` optional dependency group which includes
-    earth2grid, physicsnemo, and GPU-accelerated DataFrame libraries.
     """
 
     def __init__(
@@ -193,15 +199,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         self._grid = earth2grid.healpix.Grid(
             6, pixel_order=earth2grid.healpix.HEALPIX_PAD_XY
         )
-        self._all_sat_platforms = sorted(
-            {
-                p
-                for s in SAT_SENSORS
-                if s in self._sensor_stats
-                for p in self._sat_platforms(s)
-            }
-        )
-        # Build the channel stats table once
         self._channel_stats = self._build_channel_stats()
 
         # Setup lat-lon regridder when requested
@@ -215,36 +212,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             self._output_lat = None
             self._output_lon = None
             self._regridder = None
-
-    @staticmethod
-    def _sat_platforms(sensor: str) -> list[str]:
-        _SENSOR_PLATFORMS: dict[str, list[str]] = {
-            "atms": ["npp", "n20"],
-            "mhs": ["metop-a", "metop-b", "metop-c", "n18", "n19"],
-            "amsua": [
-                "metop-a",
-                "metop-b",
-                "metop-c",
-                "n15",
-                "n16",
-                "n17",
-                "n18",
-                "n19",
-            ],
-            "amsub": ["n15", "n16", "n17"],
-        }
-        return _SENSOR_PLATFORMS.get(sensor, [])
-
-    @staticmethod
-    def _sensor_channels(sensor: str) -> int:
-        _SENSOR_CHANNELS: dict[str, int] = {
-            "atms": 22,
-            "mhs": 5,
-            "amsua": 15,
-            "amsub": 5,
-            "conv": 8,
-        }
-        return _SENSOR_CHANNELS.get(sensor, 0)
 
     @property
     def device(self) -> torch.device:
@@ -637,7 +604,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         """
         stats = self._sensor_stats[sensor]
         raw_ch = df["channel_index"].values.astype(int)
-        platforms = self._sat_platforms(sensor)
+        platforms = SENSOR_PLATFORMS.get(sensor, [])
         platform_map = {name: i for i, name in enumerate(platforms)}
         return pd.DataFrame(
             {
