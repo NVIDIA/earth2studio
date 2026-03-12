@@ -19,7 +19,7 @@
 HealDA Global Data Assimilation
 ================================
 
-Producing a global weather analysis from satellite and conventional observations.
+Producing a global weather analysis from satellite and in-situ observations.
 
 This example demonstrates how to use the HealDA data assimilation model to produce
 a global weather analysis on a HEALPix grid from sparse in-situ (conventional) and
@@ -30,9 +30,9 @@ and both combined to illustrate the impact of each observation type.
 In this example you will learn:
 
 - How to load and initialise the HealDA data assimilation model
-- Using the built-in ``lat_lon`` option for lat-lon output
 - Fetching UFS conventional and satellite observation DataFrames
 - Running the model with different observation combinations
+- Comparing the assimilated global fields against ERA5 data
 """
 # /// script
 # dependencies = [
@@ -76,14 +76,13 @@ from tqdm import tqdm
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-from earth2studio.data import UFSObsConv, UFSObsSat, fetch_dataframe
+from earth2studio.data import NCAR_ERA5, UFSObsConv, UFSObsSat, fetch_dataframe
 from earth2studio.models.da import HealDA
 
 # Load the default model package (downloads checkpoint from HuggingFace)
 # Setting lat_lon=True regrids the native HEALPix output to a regular lat-lon grid.
-# The default output_resolution is (721, 1440) for ~0.25° resolution.
 package = HealDA.load_default_package()
-model = HealDA.load_model(package, lat_lon=True, output_resolution=(181, 360))
+model = HealDA.load_model(package, lat_lon=True)
 model = model.to("cuda:0")
 
 # %%
@@ -105,6 +104,7 @@ conv_df = fetch_dataframe(
     conv_source,
     time=analysis_time,
     variable=np.array(conv_schema["variable"]),
+    fields=np.array(list(conv_schema.keys())),
 )
 logger.info(f"Fetched {len(conv_df)} conventional observations")
 
@@ -114,8 +114,63 @@ sat_df = fetch_dataframe(
     sat_source,
     time=analysis_time,
     variable=np.array(sat_schema["variable"]),
+    fields=np.array(list(sat_schema.keys())),
 )
 logger.info(f"Fetched {len(sat_df)} satellite observations")
+
+# %%
+# Observation Locations
+# ---------------------
+# Plot the spatial distribution of conventional and satellite observations to
+# visualise their coverage before running the assimilation.
+
+# %%
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+
+plt.close("all")
+fig, axes = plt.subplots(
+    1,
+    2,
+    subplot_kw={"projection": ccrs.Robinson()},
+    figsize=(16, 4),
+)
+
+# Conventional observations
+ax = axes[0]
+ax.set_global()
+ax.coastlines(linewidth=0.5)
+ax.gridlines(linewidth=0.3, alpha=0.5)
+ax.scatter(
+    conv_df["lon"].values,
+    conv_df["lat"].values,
+    s=0.4,
+    alpha=0.3,
+    c="tab:blue",
+    transform=ccrs.PlateCarree(),
+)
+ax.set_title(f"Conventional obs (n={len(conv_df):,})", fontsize=13)
+
+# Satellite observations
+ax = axes[1]
+ax.set_global()
+ax.coastlines(linewidth=0.5)
+ax.gridlines(linewidth=0.3, alpha=0.5)
+ax.scatter(
+    sat_df["lon"].values,
+    sat_df["lat"].values,
+    s=0.4,
+    alpha=0.3,
+    c="tab:orange",
+    transform=ccrs.PlateCarree(),
+)
+ax.set_title(f"Satellite obs (n={len(sat_df):,})", fontsize=13)
+fig.suptitle(
+    f"Observation Locations {str(analysis_time[0])[:16]} UTC",
+    fontsize=15,
+)
+plt.tight_layout()
+plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 
 # %%
 # Run With Conventional Observations Only
@@ -156,9 +211,6 @@ logger.info(f"Combined analysis shape: {result_both.shape}")
 # (``Z500``).  Each row shows a different observation configuration.
 
 # %%
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
-
 plt.close("all")
 plot_vars = ["tas", "Z500"]
 titles = ["Conv only", "Sat only", "Conv + Sat"]
@@ -169,24 +221,24 @@ fig, axes = plt.subplots(
     len(results),
     len(plot_vars),
     subplot_kw={"projection": projection},
-    figsize=(7 * len(plot_vars), 4 * len(results)),
+    figsize=(14, 8),
 )
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 lat = results[0].coords["lat"].values
 lon = results[0].coords["lon"].values
+cmaps = ["Spectral_r", "PiYG"]
 
 for row, (title, da) in enumerate(zip(titles, results)):
     for col, var in enumerate(plot_vars):
         ax = axes[row, col]
-        field = da.sel(variable=var).values[0]  # [nlat, nlon]
-        if hasattr(field, "get"):
-            field = field.get()  # cupy -> numpy
+        field = da.sel(variable=var).data[0].get()  # [nlat, nlon] cupy -> numpy
         im = ax.pcolormesh(
             lon,
             lat,
             field,
             transform=ccrs.PlateCarree(),
-            cmap="Spectral_r",
+            cmap=cmaps[col],
         )
         ax.coastlines(linewidth=0.5)
         ax.gridlines(linewidth=0.3, alpha=0.5)
@@ -194,54 +246,65 @@ for row, (title, da) in enumerate(zip(titles, results)):
         if row == 0:
             ax.set_title(var, fontsize=14)
         if col == 0:
-            bbox = ax.get_position()
-            fig.text(
-                bbox.x0 - 0.01,
-                (bbox.y0 + bbox.y1) / 2,
+            ax.text(
+                -0.05,
+                0.5,
                 title,
                 fontsize=12,
-                va="center",
-                ha="right",
-                rotation=90,
+                va="bottom",
+                ha="center",
+                rotation="vertical",
+                rotation_mode="anchor",
+                transform=ax.transAxes,
             )
 
-fig.suptitle(
-    f"HealDA Analysis — {str(analysis_time[0])[:16]} UTC",
-    fontsize=16,
-    y=1.01,
-)
-plt.savefig("outputs/22_healda_analysis.jpg", dpi=150, bbox_inches="tight")
+fig.suptitle(f"HealDA Analysis {str(analysis_time[0])[:16]} UTC", fontsize=18, y=0.97)
+plt.tight_layout()
+plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 
 # %%
-# Difference Plot
-# ---------------
-# Show the difference between the combined analysis and each single-source run.
-# This highlights where adding the other observation type changes the analysis
-# most.
+# HealDA vs ERA5
+# --------------
+# Fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive and compare
+# each analysis against it.  ERA5 uses different variable names, so we map
+# HealDA names to the corresponding ERA5 identifiers. As expected the combination of
+# data sources yields to most accuracte global prediction.
+
+# %%
+# Mapping from HealDA output names to ERA5 data-source variable ids
+healda_to_era5 = {"tas": "t2m", "Z500": "z500"}
+era5_vars = [healda_to_era5[v] for v in plot_vars]
+
+era5_ds = NCAR_ERA5()
+era5_da = era5_ds(analysis_time, era5_vars)
+
+# Interpolate ERA5 to the model output grid so shapes match
+era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 # %%
 plt.close("all")
 
+diff_titles = ["Conv - ERA5", "Sat - ERA5", "Conv+Sat - ERA5"]
+diff_results = [result_conv, result_sat, result_both]
+
 fig, axes = plt.subplots(
-    2,
+    len(diff_results),
     len(plot_vars),
     subplot_kw={"projection": projection},
-    figsize=(7 * len(plot_vars), 8),
+    figsize=(14, 8),
 )
+fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
-diff_titles = ["(Conv+Sat) − Conv", "(Conv+Sat) − Sat"]
-diff_pairs = [(result_both, result_conv), (result_both, result_sat)]
-
-for row, (diff_title, (da_a, da_b)) in enumerate(zip(diff_titles, diff_pairs)):
+for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
     for col, var in enumerate(plot_vars):
         ax = axes[row, col]
-        field_a = da_a.sel(variable=var).values[0]
-        field_b = da_b.sel(variable=var).values[0]
-        if hasattr(field_a, "get"):
-            field_a = field_a.get()
-        if hasattr(field_b, "get"):
-            field_b = field_b.get()
-        diff = field_a - field_b
+        field_pred = (
+            da_pred.sel(variable=var).data[0].get()
+        )  # [nlat, nlon] cupy -> numpy
+        field_era5 = era5_interp.sel(variable=healda_to_era5[var]).data[
+            0
+        ]  # [nlat, nlon]
+        diff = field_pred - field_era5
         vmax = np.nanpercentile(np.abs(diff), 98)
         im = ax.pcolormesh(
             lon,
@@ -259,19 +322,21 @@ for row, (diff_title, (da_a, da_b)) in enumerate(zip(diff_titles, diff_pairs)):
             ax.set_title(var, fontsize=14)
         if col == 0:
             bbox = ax.get_position()
-            fig.text(
-                bbox.x0 - 0.01,
-                (bbox.y0 + bbox.y1) / 2,
-                diff_title,
+            ax.text(
+                -0.05,
+                0.5,
+                title,
                 fontsize=12,
-                va="center",
-                ha="right",
-                rotation=90,
+                va="bottom",
+                ha="center",
+                rotation="vertical",
+                rotation_mode="anchor",
+                transform=ax.transAxes,
             )
 
 fig.suptitle(
-    f"HealDA Analysis Differences — {str(analysis_time[0])[:16]} UTC",
-    fontsize=16,
-    y=1.01,
+    f"HealDA Analysis Error {str(analysis_time[0])[:16]} UTC",
+    fontsize=18,
+    y=0.97,
 )
 plt.savefig("outputs/22_healda_differences.jpg", dpi=150, bbox_inches="tight")

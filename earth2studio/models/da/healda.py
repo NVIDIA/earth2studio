@@ -980,7 +980,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         if self._lat_lon and self._regridder is not None:
             # Regrid each batch×channel from HEALPix to lat-lon
-            out = self._regridder(out.float())
+            out = self._regridder(out.double())
 
         device = out.device
         if device.type == "cuda" and cp is not None:
