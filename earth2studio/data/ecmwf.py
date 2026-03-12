@@ -171,7 +171,7 @@ class _ECMWFOpenDataSource(ABC):
         Note
         ----
         For peturbed data from ensemble models, the returned data array will have an
-        extra `sample` dimension added to it.
+        extra `ensemble` dimension added to it.
 
         Returns
         -------
@@ -241,12 +241,12 @@ class _ECMWFOpenDataSource(ABC):
                         len(self.LON),
                     )
                 ),
-                dims=["time", "lead_time", "variable", "sample", "lat", "lon"],
+                dims=["time", "lead_time", "variable", "ensemble", "lat", "lon"],
                 coords={
                     "time": time,
                     "lead_time": lead_time,
                     "variable": variable,
-                    "sample": np.array(self._members),
+                    "ensemble": np.array(self._members),
                     "lat": self.LAT,
                     "lon": self.LON,
                 },
@@ -347,7 +347,7 @@ class _ECMWFOpenDataSource(ABC):
                             f"No GRIB messages found for ensemble member {m} in {grib_file}"
                         )
                     member_arrays.append(msgs[0].values)
-                values = np.stack(member_arrays, axis=0)  # [sample, y, x]
+                values = np.stack(member_arrays, axis=0)  # [ensemble, y, x]
             else:
                 values = grbs[1].values  # [y, x]
             # Provided [-180, 180], roll to [0, 360] along x dimension
@@ -526,7 +526,7 @@ class IFS(_ECMWFOpenDataSource):
             IFS analysis data array
         """
         da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
-        return da.isel(lead_time=0)
+        return da.isel(lead_time=0).drop_vars("lead_time")
 
     async def fetch(  # type: ignore[override]
         self,
@@ -778,9 +778,9 @@ class IFS_ENS(_ECMWFOpenDataSource):
             IFS ENS initial state data array.
         """
         da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
-        return da.isel(lead_time=0)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da.isel(lead_time=0).drop_vars("lead_time")
 
     async def fetch(  # type: ignore[override]
         self,
@@ -802,10 +802,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS initial state data array.
         """
-        da = await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
-        return da.isel(lead_time=0)
+        return await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -922,8 +919,8 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
             IFS ENS forecast data array
         """
         da = self._call(time, lead_time, variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
     async def fetch(
@@ -949,10 +946,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS forecast data array.
         """
-        da = await self._fetch(time, lead_time, variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
-        return da
+        return await self._fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -1183,8 +1177,8 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
             AIFS ENS forecast data array
         """
         da = self._call(time, lead_time, variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
     async def fetch(  # type: ignore[override]
@@ -1210,8 +1204,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             ECMWF weather data array.
         """
-        da = await self._fetch(time, lead_time, variable)
-        return da.isel(sample=0)
+        return await self._fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
