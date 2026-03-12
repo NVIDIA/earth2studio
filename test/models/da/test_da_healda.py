@@ -84,9 +84,6 @@ class MockGrid:
         return torch.zeros(lon.shape[0], dtype=torch.long, device=lon.device)
 
 
-# ---------- Helpers ----------
-
-
 def _build_sensor_stats():
     return {
         "conv": {
@@ -189,9 +186,6 @@ def _mock_forward(inputs, device):
     return torch.randn(1, NVAR, TIME_LENGTH, NPIX, device=device)
 
 
-# ---------- Tests: metadata features ----------
-
-
 def test_fourier_features():
     x = torch.tensor([0.0, 0.5, 1.0])
     out = _fourier_features(x, 3)
@@ -222,9 +216,6 @@ def test_compute_unified_metadata():
     )
     assert out.shape == (n, 28)
     assert torch.isfinite(out).all()
-
-
-# ---------- Tests: channel stats and filtering ----------
 
 
 def test_build_channel_stats():
@@ -258,9 +249,6 @@ def test_filter_and_normalize_empty():
     assert len(result) == 0
 
 
-# ---------- Tests: build_model_inputs ----------
-
-
 def test_build_model_inputs():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
@@ -280,9 +268,6 @@ def test_build_model_inputs():
     assert "offsets" in inputs
     assert inputs["float_metadata"].shape[1] == 28
     assert inputs["offsets"].shape[0] == len(ALL_SENSORS)
-
-
-# ---------- Tests: __call__ ----------
 
 
 @pytest.mark.parametrize(
@@ -331,9 +316,6 @@ def test_healda_call_empty_obs():
     assert np.all(np.isnan(out.values))
 
 
-# ---------- Tests: create_generator ----------
-
-
 def test_healda_generator():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
@@ -368,9 +350,6 @@ def test_healda_generator():
     gen.close()
 
 
-# ---------- Tests: protocol methods ----------
-
-
 def test_healda_init_coords():
     model = _build_model()
     assert model.init_coords() is None
@@ -398,9 +377,6 @@ def test_healda_output_coords():
     assert "npix" in coords
     assert len(coords["variable"]) == NVAR
     assert len(coords["npix"]) == NPIX
-
-
-# ---------- Tests: package loading ----------
 
 
 @pytest.fixture(scope="function")
