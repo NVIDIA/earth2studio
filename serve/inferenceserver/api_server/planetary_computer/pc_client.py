@@ -161,9 +161,12 @@ class PlanetaryComputerClient:
             start_time=iso_start[:13], uuid=uuid4()
         )
         stac_config["properties"]["datetime"] = iso_start
-        stac_config["properties"]["start_datetime"] = iso_end
+        stac_config["properties"]["start_datetime"] = iso_start
         stac_config["properties"]["end_datetime"] = iso_end
         stac_config["assets"]["data"]["href"] = blob_url
+        stac_config["assets"]["data"]["description"] = stac_config["assets"]["data"][
+            "description"
+        ].format(start_time=iso_start, end_time=iso_end)
         return stac_config
 
     def _update_tile_settings(self, geocatalog_url: str, collection_id: str) -> None:
