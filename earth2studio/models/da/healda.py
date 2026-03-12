@@ -67,10 +67,28 @@ ERA5_VARIABLES_2D = [
     "sst",
     "sic",
 ]
+# Internal channel names used by the model weights / stats CSV.
 ERA5_CHANNELS = [
     *[f"{var}{lev}" for var in ERA5_VARIABLES_3D for lev in ERA5_LEVELS],
     *ERA5_VARIABLES_2D,
 ]
+
+# Mapping from internal channel names to Earth2Studio standard vocabulary.
+_CHANNEL_TO_E2S: dict[str, str] = {
+    "tas": "t2m",
+    "uas": "u10m",
+    "vas": "v10m",
+    "100u": "u100m",
+    "100v": "v100m",
+    "pres_msl": "msl",
+}
+# 3D variables: upper-case prefix → lower-case (e.g. U1000 → u1000)
+for _var3d in ERA5_VARIABLES_3D:
+    for _lev in ERA5_LEVELS:
+        _CHANNEL_TO_E2S[f"{_var3d}{_lev}"] = f"{_var3d.lower()}{_lev}"
+
+# Public channel list expressed in E2Studio vocabulary.
+E2S_CHANNELS = [_CHANNEL_TO_E2S.get(ch, ch) for ch in ERA5_CHANNELS]
 
 
 SAT_SENSORS = ("atms", "mhs", "amsua", "amsub")
@@ -545,7 +563,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                     OrderedDict(
                         {
                             "time": request_time,
-                            "variable": np.array(ERA5_CHANNELS, dtype=str),
+                            "variable": np.array(E2S_CHANNELS, dtype=str),
                             "lat": self._output_lat,
                             "lon": self._output_lon,
                         }
@@ -558,7 +576,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 OrderedDict(
                     {
                         "time": request_time,
-                        "variable": np.array(ERA5_CHANNELS, dtype=str),
+                        "variable": np.array(E2S_CHANNELS, dtype=str),
                         "npix": np.arange(self._model.npix),
                     }
                 )

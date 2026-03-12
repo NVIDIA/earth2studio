@@ -207,12 +207,12 @@ logger.info(f"Combined analysis shape: {result_both.shape}")
 # ---------------
 # Because we loaded the model with ``lat_lon=True`` the output is already on a
 # regular equiangular lat-lon grid, so no manual regridding is needed.
-# Compare the three runs for surface temperature (``tas``) and 500 hPa geopotential
-# (``Z500``).  Each row shows a different observation configuration.
+# Compare the three runs for surface temperature (``t2m``) and 500 hPa geopotential
+# (``z500``).  Each row shows a different observation configuration.
 
 # %%
 plt.close("all")
-plot_vars = ["tas", "Z500"]
+plot_vars = ["t2m", "z500"]
 titles = ["Conv only", "Sat only", "Conv + Sat"]
 results = [result_conv, result_sat, result_both]
 projection = ccrs.Robinson()
@@ -266,17 +266,13 @@ plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 # HealDA vs ERA5
 # --------------
 # Fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive and compare
-# each analysis against it.  ERA5 uses different variable names, so we map
-# HealDA names to the corresponding ERA5 identifiers. As expected the combination of
-# data sources yields to most accuracte global prediction.
+# each analysis against it.  HealDA now outputs standard Earth2Studio variable
+# names so we can query ERA5 with the same identifiers. As expected the
+# combination of data sources yields the most accurate global prediction.
 
 # %%
-# Mapping from HealDA output names to ERA5 data-source variable ids
-healda_to_era5 = {"tas": "t2m", "Z500": "z500"}
-era5_vars = [healda_to_era5[v] for v in plot_vars]
-
 era5_ds = NCAR_ERA5()
-era5_da = era5_ds(analysis_time, era5_vars)
+era5_da = era5_ds(analysis_time, plot_vars)
 
 # Interpolate ERA5 to the model output grid so shapes match
 era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
@@ -301,9 +297,7 @@ for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
         field_pred = (
             da_pred.sel(variable=var).data[0].get()
         )  # [nlat, nlon] cupy -> numpy
-        field_era5 = era5_interp.sel(variable=healda_to_era5[var]).data[
-            0
-        ]  # [nlat, nlon]
+        field_era5 = era5_interp.sel(variable=var).data[0]  # [nlat, nlon]
         diff = field_pred - field_era5
         vmax = np.nanpercentile(np.abs(diff), 98)
         im = ax.pcolormesh(

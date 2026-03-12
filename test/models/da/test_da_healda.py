@@ -24,7 +24,7 @@ import xarray as xr
 
 from earth2studio.models.da.healda import (
     ALL_SENSORS,
-    ERA5_CHANNELS,
+    E2S_CHANNELS,
     HealDA,
     _compute_unified_metadata,
     _fourier_features,
@@ -37,7 +37,7 @@ except ImportError:
 
 # ---------- Constants ----------
 
-NVAR = len(ERA5_CHANNELS)  # 74
+NVAR = len(E2S_CHANNELS)  # 74
 NPIX = 48
 IN_CHANNELS = 2
 TIME_LENGTH = 1
@@ -118,6 +118,7 @@ def _build_model(device="cpu"):
 
 
 def _build_conv_obs_df(n_obs=10, request_time=None):
+    """Internal (post-prep_conv) format for testing _filter_and_normalize etc."""
     if request_time is None:
         request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     t_ns = request_time[0].astype("datetime64[ns]").view(np.int64)
@@ -138,6 +139,50 @@ def _build_conv_obs_df(n_obs=10, request_time=None):
             "sol_zenith_angle": np.full(n_obs, np.nan, dtype=np.float32),
         }
     )
+
+
+def _build_raw_conv_df(n_obs=10, request_time=None):
+    """Raw input format matching conv_schema (time, variable, type, elev, pres)."""
+    if request_time is None:
+        request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
+    t = request_time[0].astype("datetime64[ns]")
+    df = pd.DataFrame(
+        {
+            "time": np.full(n_obs, t),
+            "lat": np.random.uniform(-90, 90, n_obs).astype(np.float32),
+            "lon": np.random.uniform(0, 360, n_obs).astype(np.float32),
+            "observation": np.random.uniform(200, 300, n_obs).astype(np.float32),
+            "variable": "t",
+            "type": "0",
+            "elev": np.full(n_obs, 100.0, dtype=np.float32),
+            "pres": np.full(n_obs, 500.0, dtype=np.float32),
+        }
+    )
+    df.attrs = {"request_time": request_time}
+    return df
+
+
+def _build_raw_sat_df(n_obs=10, request_time=None, sensor="atms"):
+    """Raw input format matching sat_schema."""
+    if request_time is None:
+        request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
+    t = request_time[0].astype("datetime64[ns]")
+    df = pd.DataFrame(
+        {
+            "time": np.full(n_obs, t),
+            "lat": np.random.uniform(-90, 90, n_obs).astype(np.float32),
+            "lon": np.random.uniform(0, 360, n_obs).astype(np.float32),
+            "observation": np.random.uniform(200, 300, n_obs).astype(np.float32),
+            "variable": sensor,
+            "channel_index": np.ones(n_obs, dtype=np.uint16),
+            "satellite": "n20",
+            "scan_angle": np.zeros(n_obs, dtype=np.float32),
+            "satellite_za": np.full(n_obs, 30.0, dtype=np.float32),
+            "solza": np.full(n_obs, 45.0, dtype=np.float32),
+        }
+    )
+    df.attrs = {"request_time": request_time}
+    return df
 
 
 def _mock_forward(inputs, device):
@@ -255,8 +300,7 @@ def test_build_model_inputs():
 def test_healda_call(device):
     model = _build_model(device=device)
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    df = _build_conv_obs_df(15, request_time)
-    df.attrs = {"request_time": request_time}
+    df = _build_raw_conv_df(15, request_time)
 
     with patch.object(model, "_forward", _mock_forward):
         out = model(df)
@@ -269,8 +313,8 @@ def test_healda_call(device):
 
 def test_healda_call_missing_request_time():
     model = _build_model()
-    df = _build_conv_obs_df(5)
-    # No attrs → should raise
+    df = _build_raw_conv_df(5)
+    df.attrs = {}  # No request_time → should raise
     with pytest.raises(ValueError, match="request_time"):
         model(df)
 
@@ -278,9 +322,8 @@ def test_healda_call_missing_request_time():
 def test_healda_call_empty_obs():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    df = _build_conv_obs_df(5, request_time)
+    df = _build_raw_conv_df(5, request_time)
     df["observation"] = 999.0  # Will be filtered out
-    df.attrs = {"request_time": request_time}
 
     out = model(df)
     assert isinstance(out, xr.DataArray)
@@ -294,8 +337,8 @@ def test_healda_call_empty_obs():
 def test_healda_generator():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    df = _build_conv_obs_df(10, request_time)
-    df.attrs = {"request_time": request_time}
+    conv_df = _build_raw_conv_df(10, request_time)
+    sat_df = _build_raw_sat_df(10, request_time)
 
     gen = model.create_generator()
     result = gen.send(None)
@@ -303,17 +346,19 @@ def test_healda_generator():
 
     # conv only
     with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((df, None))
+        da = gen.send((conv_df, None))
     assert isinstance(da, xr.DataArray)
     assert da.shape == (1, NVAR, NPIX)
 
+    # sat only
     with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((None, df))
+        da = gen.send((None, sat_df))
     assert isinstance(da, xr.DataArray)
     assert da.shape == (1, NVAR, NPIX)
 
+    # both
     with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((df, df))
+        da = gen.send((conv_df, sat_df))
     assert isinstance(da, xr.DataArray)
     assert da.shape == (1, NVAR, NPIX)
 
@@ -380,8 +425,7 @@ def healda_model() -> HealDA:
 def test_healda_package(device, healda_model):
     model = healda_model.to(device)
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    df = _build_conv_obs_df(20, request_time)
-    df.attrs = {"request_time": request_time}
+    df = _build_raw_conv_df(20, request_time)
 
     out = model(df)
 
