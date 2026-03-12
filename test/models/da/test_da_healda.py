@@ -301,15 +301,24 @@ def test_healda_generator():
     result = gen.send(None)
     assert result is None
 
+    # conv only
     with patch.object(model, "_forward", _mock_forward):
-        da = gen.send(df)
+        da = gen.send((df, None))
     assert isinstance(da, xr.DataArray)
     assert da.shape == (1, NVAR, NPIX)
 
-    # Send None → empty output
-    da_none = gen.send(None)
-    assert isinstance(da_none, xr.DataArray)
-    assert np.all(np.isnan(da_none.values))
+    with patch.object(model, "_forward", _mock_forward):
+        da = gen.send((None, df))
+    assert isinstance(da, xr.DataArray)
+    assert da.shape == (1, NVAR, NPIX)
+
+    with patch.object(model, "_forward", _mock_forward):
+        da = gen.send((df, df))
+    assert isinstance(da, xr.DataArray)
+    assert da.shape == (1, NVAR, NPIX)
+
+    with pytest.raises(ValueError, match="At least one"):
+        gen.send((None, None))
 
     gen.close()
 
@@ -324,11 +333,15 @@ def test_healda_init_coords():
 
 def test_healda_input_coords():
     model = _build_model()
-    (schema,) = model.input_coords()
-    assert "time" in schema
-    assert "lat" in schema
-    assert "lon" in schema
-    assert "observation" in schema
+    conv_schema, sat_schema = model.input_coords()
+    assert "time" in conv_schema
+    assert "lat" in conv_schema
+    assert "observation" in conv_schema
+    assert "variable" in conv_schema
+    assert "time" in sat_schema
+    assert "lat" in sat_schema
+    assert "observation" in sat_schema
+    assert "channel_index" in sat_schema
 
 
 def test_healda_output_coords():

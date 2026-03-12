@@ -294,6 +294,13 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ERA5 per-channel std for output denormalization [1, n_channels, 1, 1]
     sensor_stats : dict[str, dict[str, np.ndarray]]
         Per-sensor normalization statistics loaded from the package
+    lat_lon : bool, optional
+        If True the model output is regridded from the native HEALPix grid to a
+        regular equiangular lat-lon grid using ``earth2grid``. If False the raw
+        HEALPix output is returned with an ``npix`` dimension, by default False
+    output_resolution : tuple[int, int], optional
+        ``(nlat, nlon)`` size of the output lat-lon grid. Only used when
+        ``lat_lon=True``, by default ``(181, 360)`` (1° resolution)
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations, by default np.timedelta64(12, "h")
 
@@ -310,6 +317,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         era5_mean: torch.Tensor,
         era5_std: torch.Tensor,
         sensor_stats: dict[str, dict[str, np.ndarray]],
+        lat_lon: bool = False,
+        output_resolution: tuple[int, int] = (181, 360),
         time_tolerance: TimeTolerance = np.timedelta64(12, "h"),
     ) -> None:
         super().__init__()
@@ -318,6 +327,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         self.register_buffer("_era5_mean", era5_mean)
         self.register_buffer("_era5_std", era5_std)
         self._sensor_stats = sensor_stats
+        self._lat_lon = lat_lon
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self._grid = earth2grid.healpix.Grid(
             6, pixel_order=earth2grid.healpix.HEALPIX_PAD_XY
@@ -332,6 +342,18 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         )
         # Build the channel stats table once
         self._channel_stats = self._build_channel_stats()
+
+        # Setup lat-lon regridder when requested
+        if self._lat_lon:
+            nlat, nlon = output_resolution
+            self._output_lat = np.linspace(90, -90, nlat)
+            self._output_lon = np.linspace(0, 360, nlon, endpoint=False)
+            ll_grid = earth2grid.latlon.equiangular_lat_lon_grid(nlat, nlon)
+            self._regridder = earth2grid.get_regridder(self._grid, ll_grid)
+        else:
+            self._output_lat = None
+            self._output_lon = None
+            self._regridder = None
 
     @staticmethod
     def _sat_platforms(sensor: str) -> list[str]:
@@ -382,6 +404,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
+        lat_lon: bool = False,
+        output_resolution: tuple[int, int] = (181, 360),
         time_tolerance: TimeTolerance = np.timedelta64(12, "h"),
         condition: torch.Tensor | None = None,
     ) -> AssimilationModel:
@@ -391,6 +415,12 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ----------
         package : Package
             Package containing model checkpoint and statistics
+        lat_lon : bool, optional
+            If True the output is regridded to a regular lat-lon grid,
+            by default False
+        output_resolution : tuple[int, int], optional
+            ``(nlat, nlon)`` size of the output lat-lon grid. Only used when
+            ``lat_lon=True``, by default ``(181, 360)``
         time_tolerance : TimeTolerance, optional
             Time tolerance for filtering observations, by default np.timedelta64(12, "h")
         condition : torch.Tensor | None, optional
@@ -434,6 +464,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             era5_mean=era5_mean_t,
             era5_std=era5_std_t,
             sensor_stats=sensor_stats,
+            lat_lon=lat_lon,
+            output_resolution=output_resolution,
             time_tolerance=time_tolerance,
         )
 
@@ -502,10 +534,24 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         tuple[CoordSystem]
-            Coordinate system with time, variable, and npix dimensions
+            Coordinate system with time, variable, and lat/lon or npix dimensions
         """
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
+
+        if self._lat_lon:
+            return (
+                CoordSystem(
+                    OrderedDict(
+                        {
+                            "time": request_time,
+                            "variable": np.array(ERA5_CHANNELS, dtype=str),
+                            "lat": self._output_lat,
+                            "lon": self._output_lon,
+                        }
+                    )
+                ),
+            )
 
         return (
             CoordSystem(
@@ -642,14 +688,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         try:
             while True:
                 conv_obs, sat_obs = inputs if inputs is not None else (None, None)
-                if conv_obs is None and sat_obs is None:
-                    logger.warning(
-                        "No observations provided to HealDA, yielding empty output"
-                    )
-                    (output_coords,) = self.output_coords(self.input_coords())
-                    da = self._empty_output(output_coords)
-                else:
-                    da = self.__call__(conv_obs, sat_obs)
+                da = self.__call__(conv_obs, sat_obs)
                 inputs = yield da
         except GeneratorExit:
             logger.debug("HealDA generator clean up complete.")
@@ -934,16 +973,27 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         xr.DataArray
-            Analysis on HEALPix grid
+            Analysis field, either on HEALPix (npix) or lat-lon grid
         """
         # Take last time step, shape -> [1, channels, npix]
         out = prediction[:, :, -1, :]
+
+        if self._lat_lon and self._regridder is not None:
+            # Regrid each batch×channel from HEALPix to lat-lon
+            out = self._regridder(out.float())
 
         device = out.device
         if device.type == "cuda" and cp is not None:
             data = cp.asarray(out)
         else:
             data = out.cpu().numpy()
+
+        if self._lat_lon:
+            return xr.DataArray(
+                data=data,
+                dims=["time", "variable", "lat", "lon"],
+                coords=output_coords,
+            )
 
         return xr.DataArray(
             data=data,
@@ -955,11 +1005,19 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         """Return an empty (NaN-filled) DataArray."""
         n_time = len(output_coords["time"])
         n_var = len(output_coords["variable"])
-        n_pix = len(output_coords["npix"])
         device = self.condition.device
-        data = torch.full(
-            (n_time, n_var, n_pix), float("nan"), dtype=torch.float32, device=device
-        )
+
+        if self._lat_lon:
+            n_lat = len(output_coords["lat"])
+            n_lon = len(output_coords["lon"])
+            shape = (n_time, n_var, n_lat, n_lon)
+            dims = ["time", "variable", "lat", "lon"]
+        else:
+            n_pix = len(output_coords["npix"])
+            shape = (n_time, n_var, n_pix)  # type: ignore[assignment]
+            dims = ["time", "variable", "npix"]
+
+        data = torch.full(shape, float("nan"), dtype=torch.float32, device=device)
         if device.type == "cuda" and cp is not None:
             data_np = cp.asarray(data)
         else:
@@ -967,6 +1025,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         return xr.DataArray(
             data=data_np,
-            dims=["time", "variable", "npix"],
+            dims=dims,
             coords=output_coords,
         )
