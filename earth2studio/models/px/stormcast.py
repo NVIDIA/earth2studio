@@ -43,15 +43,11 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from omegaconf import OmegaConf
-    from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
-    from physicsnemo.diffusion.samplers.legacy_deterministic_sampler import (
-        deterministic_sampler,
-    )
-    from physicsnemo.models.diffusion_unets import StormCastUNet
+    from physicsnemo.models import Module as PhysicsNemoModule
+    from physicsnemo.utils.generative import deterministic_sampler
 except ImportError:
     OptionalDependencyFailure("stormcast")
-    StormCastUNet = None
-    EDMPrecond = None
+    PhysicsNemoModule = None
     OmegaConf = None
     deterministic_sampler = None
 
@@ -291,14 +287,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("model.yaml"))
 
-        # TODO: remove strict=False once checkpoints/imports updated to new diffusion API
-        regression = StormCastUNet.from_checkpoint(
-            package.resolve("StormCastUNet.0.0.mdlus"),
-            strict=False,
+        regression = PhysicsNemoModule.from_checkpoint(
+            package.resolve("StormCastUNet.0.0.mdlus")
         )
-        diffusion = EDMPrecond.from_checkpoint(
-            package.resolve("EDMPrecond.0.0.mdlus"),
-            strict=False,
+        diffusion = PhysicsNemoModule.from_checkpoint(
+            package.resolve("EDMPrecond.0.0.mdlus")
         )
 
         # Load metadata: means, stds, grid

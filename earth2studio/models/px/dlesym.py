@@ -36,7 +36,7 @@ from earth2studio.utils.type import CoordSystem
 try:
     import earth2grid
     from omegaconf import OmegaConf
-    from physicsnemo import Module
+    from physicsnemo.models import Module
     from physicsnemo.utils.insolation import insolation
 except ImportError:
     OptionalDependencyFailure("dlesym")

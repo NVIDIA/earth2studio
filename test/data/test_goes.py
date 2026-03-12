@@ -219,7 +219,6 @@ def test_goes_sources(satellite, scan_mode, time, variable, valid):
     assert shape[3] == expected_dims[1]
 
 
-@pytest.mark.xfail
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",

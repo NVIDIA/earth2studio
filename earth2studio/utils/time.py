@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from earth2studio.utils.type import LeadTimeArray, TimeArray, TimeTolerance
+from earth2studio.utils.type import LeadTimeArray, TimeArray
 
 
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
@@ -95,64 +95,3 @@ def to_time_array(time: list[str] | list[datetime] | TimeArray) -> TimeArray:
             )
 
     return np.array(output).astype("datetime64[ns]")
-
-
-def normalize_time_tolerance(
-    tolerance: TimeTolerance,
-) -> tuple[np.timedelta64, np.timedelta64]:
-    """Normalize a TimeTolerance to a tuple of (lower_bound, upper_bound) as np.timedelta64.
-
-    Parameters
-    ----------
-    tolerance : TimeTolerance
-        Time tolerance value. Can be:
-        - A single timedelta or np.timedelta64 (interpreted as symmetric +/- bounds)
-        - A tuple of (timedelta, timedelta) or (np.timedelta64, np.timedelta64)
-          (interpreted as (lower_bound, upper_bound))
-
-    Returns
-    -------
-    tuple[np.timedelta64, np.timedelta64]
-        Tuple of (lower_bound, upper_bound) as np.timedelta64 values.
-        For a single tolerance value, returns (-tolerance, +tolerance).
-        For a tuple, returns the normalized bounds.
-
-    Examples
-    --------
-    >>> normalize_time_tolerance(np.timedelta64(1, "h"))
-    (numpy.timedelta64(-3600,'s'), numpy.timedelta64(3600,'s'))
-
-    >>> normalize_time_tolerance((np.timedelta64(-2, "h"), np.timedelta64(3, "h")))
-    (numpy.timedelta64(-7200,'s'), numpy.timedelta64(10800,'s'))
-    """
-    # Handle single value (symmetric tolerance)
-    if isinstance(tolerance, (timedelta, np.timedelta64)):
-        tol = np.timedelta64(tolerance)
-        return (-tol, tol)
-
-    # Handle tuple
-    if isinstance(tolerance, tuple):
-        if len(tolerance) != 2:
-            raise ValueError(
-                f"TimeTolerance tuple must have 2 elements, got {len(tolerance)}"
-            )
-
-        lower, upper = tolerance
-
-        # Convert both to np.timedelta64
-        lower_td = np.timedelta64(lower)
-        upper_td = np.timedelta64(upper)
-
-        # Ensure lower <= upper
-        if lower_td > upper_td:
-            raise ValueError(
-                f"TimeTolerance tuple must have lower_bound <= upper_bound, "
-                f"got ({lower_td}, {upper_td})"
-            )
-
-        return (lower_td, upper_td)
-
-    raise TypeError(
-        f"TimeTolerance must be timedelta, np.timedelta64, or tuple of 2, "
-        f"got {type(tolerance)}"
-    )

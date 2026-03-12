@@ -169,7 +169,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
     levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
     useful for running with lower memory and compute constraints while maintaining good
-    forecast skill. The model operates on a 1-degree lat-lon grid (pole including)
+    forecast skill. The model operates on a 1-degree lat-lon grid (south-pole including)
     equirectangular grid with 85 variables including:
 
     - Surface variables (2m temperature, 10m winds, etc.)
@@ -238,7 +238,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     ]
                 ),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 181, endpoint=True),
+                "lat": np.linspace(-90, 90, 181, endpoint=True),
                 "lon": np.linspace(0, 360, 360, endpoint=False),
             }
         )
@@ -249,7 +249,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(6, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 181, endpoint=True),
+                "lat": np.linspace(-90, 90, 181, endpoint=True),
                 "lon": np.linspace(0, 360, 360, endpoint=False),
             }
         )
@@ -457,7 +457,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Get device
         device = x.device
 
-        # first batch has 2 times (lead_times)
+        # first batch has 2 times
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
         yield x[:, :, 1:, ...], coords_out
@@ -467,11 +467,8 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Forward is identity operator
             coords = self.output_coords(coords)
 
-            # Get next prediction from all time iterators
-            results = [
-                self.iterator_result_to_tensor(next(it)) for it in self.iterators
-            ]
-            x = torch.cat(results, dim=1) if len(results) > 1 else results[0]
+            # Get next prediction
+            x = self.iterator_result_to_tensor(next(self.iterator))
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)
@@ -504,37 +501,24 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         with jax.default_device(self.get_jax_device_from_tensor(x)):
-            # Create a separate JAX iterator for each init time
-            # (rollout._get_next_inputs only supports single time)
-            time_dim = list(coords.keys()).index("time")
-            n_times = len(coords["time"])
-            self.iterators = []
+            batch, target_lead_times = self.from_dataarray_to_dataset(
+                xr.DataArray(x.cpu(), coords=coords), 6
+            )
 
-            for t in range(n_times):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
+            inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
+                batch,
+                target_lead_times=target_lead_times,
+                **dataclasses.asdict(self.ckpt.task_config),
+            )
 
-                batch, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
-
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    batch,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.ckpt.task_config),
-                )
-
-                self.iterators.append(
-                    self._chunked_prediction_generator(
-                        predictor_fn=self.run_forward,
-                        rng=self.prng_key,
-                        inputs=inputs,
-                        targets_template=targets * np.nan,
-                        batch=batch,
-                        forcings=forcings,
-                    )
-                )
+            self.iterator = self._chunked_prediction_generator(
+                predictor_fn=self.run_forward,
+                rng=self.prng_key,
+                inputs=inputs,
+                targets_template=targets * np.nan,
+                batch=batch,
+                forcings=forcings,
+            )
 
             yield from self._default_generator(x, coords)
 
@@ -575,9 +559,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 .T.transpose(..., "time", "lead_time", "variable", "lat", "lon")
             )
 
-        out = torch.from_numpy(dataarray.to_numpy().copy())
-        out = out.flip(-2)  # Flip lat from ascending (-90->90, JAX native) to (90->-90)
-        return out
+        return torch.from_numpy(dataarray.to_numpy().copy())
 
     @staticmethod
     def get_jax_device_from_tensor(x: torch.Tensor) -> "jax.Device":
@@ -616,35 +598,24 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Map lat and lon if needed
             x, coords = map_coords(x, coords, self.input_coords())
 
-            # Loop over time dimension (JAX model supports single init time only)
-            time_dim = list(coords.keys()).index("time")
-            n_times = len(coords["time"])
-            results = []
-            for t in range(n_times):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
+            data, target_lead_times = self.from_dataarray_to_dataset(
+                xr.DataArray(x.cpu(), coords=coords), 6
+            )
 
-                data, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
+            inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
+                data,
+                target_lead_times=target_lead_times,
+                **dataclasses.asdict(self.ckpt.task_config),
+            )
 
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    data,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.ckpt.task_config),
-                )
-
-                predictions = rollout.chunked_prediction(
-                    self.run_forward,
-                    rng=self.prng_key,
-                    inputs=inputs,
-                    targets_template=targets * np.nan,
-                    forcings=forcings,
-                )
-                results.append(self.iterator_result_to_tensor(predictions))
-
-            out = torch.cat(results, dim=1) if n_times > 1 else results[0]
+            predictions = rollout.chunked_prediction(
+                self.run_forward,
+                rng=self.prng_key,
+                inputs=inputs,
+                targets_template=targets * np.nan,
+                forcings=forcings,
+            )
+            out = self.iterator_result_to_tensor(predictions)
             output_coords = self.output_coords(coords)
 
             # Convert to device

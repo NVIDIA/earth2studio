@@ -43,38 +43,17 @@ from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.utils import isfilelike
 from loguru import logger
 
-from earth2studio.data.base import (
-    DataFrameSource,
-    DataSource,
-    ForecastFrameSource,
-    ForecastSource,
-)
+from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
     timearray_to_datetime,
     to_time_array,
 )
-from earth2studio.utils.type import (
-    CoordSystem,
-    FieldArray,
-    LeadTimeArray,
-    TimeArray,
-    VariableArray,
-)
+from earth2studio.utils.type import CoordSystem, LeadTimeArray, TimeArray, VariableArray
 
 if TYPE_CHECKING:
     from fsspec.implementations.cache_mapper import AbstractCacheMapper
-
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
-
-try:
-    import cudf
-except ImportError:
-    cudf = None
 
 
 def fetch_data(
@@ -83,18 +62,16 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device = "cpu",
-    interp_to: CoordSystem | None = None,
+    interp_to: CoordSystem = None,
     interp_method: str = "nearest",
-    legacy: bool = True,
-) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray:
-    """Utility function to fetch data arrays from particular sources and load data on
-    the target device. If desired, xarray interpolation/regridding in the spatial
-    domain can be used by passing a target coordinate system via the optional
-    `interp_to` argument.
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Utility function to fetch data for models and load data on the target device.
+    If desired, xarray interpolation/regridding in the spatial domain can be used
+    by passing a target coordinate system via the optional `interp_to` argument.
 
     Parameters
     ----------
-    source : DataSource | ForecastSource
+    source : DataSource
         The data source to fetch from
     time : TimeArray
         Timestamps to return data for (UTC).
@@ -104,24 +81,20 @@ def fetch_data(
         Lead times to fetch for each provided time, by default
         np.array(np.timedelta64(0, "h"))
     device : torch.device, optional
-        Torch device to load data tensor to, by default "cpu"
+        Torch devive to load data tensor to, by default "cpu"
     interp_to : CoordSystem, optional
         If provided, the fetched data will be interpolated to the coordinates
         specified by lat/lon arrays in this CoordSystem
     interp_method : str
         Interpolation method to use with xarray (by default 'nearest')
-    legacy : bool, optional
-        If True (default), returns tuple of (torch.Tensor, CoordSystem).
-        If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem] | xr.DataArray
-        If legacy=True: Tuple containing output tensor and coordinate OrderedDict.
-        If legacy=False: xr.DataArray with numpy arrays (CPU) or cupy arrays (CUDA).
+    tuple[torch.Tensor, CoordSystem]
+        Tuple containing output tensor and coordinate OrderedDict
     """
+
     sig = signature(source.__call__)
-    device = torch.device(device)
 
     if "lead_time" in sig.parameters:
         # Working with a Forecast Data Source
@@ -139,90 +112,12 @@ def fetch_data(
 
         da = xr.concat(da, "lead_time")
 
-    if legacy:
-        return prep_data_array(
-            da,
-            device=device,
-            interp_to=interp_to,
-            interp_method=interp_method,
-        )
-
-    # Non-legacy path: return xr.DataArray
-    else:
-        if interp_to is not None:
-            raise ValueError(
-                "The interp_to argument is not supported when legacy is False. Set legacy=True to use interpolation."
-            )
-        # Convert to cupy arrays if CUDA device and cupy is available
-        if device.type == "cuda":
-            if cp is not None:
-                with cp.cuda.Device(device.index or 0):
-                    da = da.copy(data=cp.asarray(da.values))
-            else:
-                raise ImportError(
-                    "cupy is required when using device='cuda' with legacy=False. "
-                    "Install cupy or use legacy=True."
-                )
-        return da
-
-
-def fetch_dataframe(
-    source: DataFrameSource | ForecastFrameSource,
-    time: TimeArray,
-    variable: VariableArray,
-    fields: FieldArray | None = None,
-    lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
-    device: torch.device = "cpu",
-) -> pd.DataFrame | cudf.DataFrame:
-    """Utility function to fetch data frames from particular sources
-
-    Parameters
-    ----------
-    source : DataFrameSource | ForecastFrameSource
-        The data source to fetch from
-    time : TimeArray
-        Timestamps to return data for (UTC).
-    variable : VariableArray
-        Strings or list of strings that refer to variables to return
-    fields : FieldArray | None
-        Array of strings indicating which fields to return in data frame, if None all
-        possible fields will be returned, by default None
-    lead_time : LeadTimeArray, optional
-        Lead times to fetch for each provided time, by default
-        np.array(np.timedelta64(0, "h"))
-    device : torch.device, optional
-        Torch device to load data tensor to, by default "cpu"
-
-    Returns
-    -------
-    pd.DataFrame | cudf.DataFrame
-        Pandas dataframe if device is CPU, cudf DataFrame if device is CUDA
-    """
-    sig = signature(source.__call__)
-
-    if "lead_time" in sig.parameters:
-        # Working with a ForecastFrameSource
-        df = source(time, lead_time, variable, fields=fields)  # type: ignore
-    else:
-        # Combine all adjusted times and get unique values using broadcasting
-        all_times = (time[:, None] + lead_time).flatten()
-        unique_times = np.unique(all_times)
-        df = source(unique_times, variable, fields=fields)  # type: ignore
-    # Add request meta-data
-    df.attrs = {"request_time": time, "request_lead_time": lead_time}
-
-    # Convert to appropriate format based on device
-    device = torch.device(device)
-    if device.type == "cuda":
-        if cudf is None:
-            raise ImportError(
-                "cudf is required for CUDA device. Install with: pip install cudf"
-            )
-        with cp.cuda.Device(device.index):
-            result = cudf.from_pandas(df)
-        return result
-    else:
-        return df
+    return prep_data_array(
+        da,
+        device=device,
+        interp_to=interp_to,
+        interp_method=interp_method,
+    )
 
 
 def prep_data_array(
@@ -343,9 +238,6 @@ def prep_data_inputs(
     """
     if isinstance(variable, str):
         variable = [variable]
-
-    if isinstance(variable, np.ndarray):
-        variable = variable.astype(str).tolist()
 
     if isinstance(time, datetime):
         time = [time]

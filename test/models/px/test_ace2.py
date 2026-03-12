@@ -29,8 +29,6 @@ from earth2studio.models.px.ace2 import (
 )
 from earth2studio.utils import handshake_dim
 
-pytest.importorskip("fme")
-
 
 class PhooOutput:
     prediction: dict = {}

@@ -187,28 +187,6 @@ class InferenceOutputSource:
 
         return self.da.sel(time=time, variable=variable)
 
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the GFS lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            Inference output data array
-        """
-        return self.__call__(time, variable)
-
 
 class DataSetFile:
     """A local xarray dataset file data source. This file should be compatible with

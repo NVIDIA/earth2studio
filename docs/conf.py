@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 version = ".".join(release.split(".")[:2])
 project = "Earth2Studio"
-copyright = "2026, NVIDIA"
+copyright = "2025, NVIDIA"
 author = "NVIDIA"
 
 # -- General configuration ---------------------------------------------------
@@ -83,7 +83,6 @@ html_css_files = [
     "css/nvidia-sphinx-theme.css",
 ]
 html_theme_options = {
-    "public_docs_features": True,
     "logo": {
         "text": "Earth2Studio",
         "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",

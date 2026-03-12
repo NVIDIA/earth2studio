@@ -33,11 +33,12 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
+from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 from .hens_utilities import (
     TCTracking,
+    cat_coords,
     get_batchid_from_ensid,
     save_corrdiff_output,
 )
@@ -388,14 +389,8 @@ class EnsembleBase:
                         yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
                         yy, codib = dx_model(yy, codia)
 
-                        # map lat/lon of diagnostic model to forecast model (often there is difference in lat)
-                        _codib = OrderedDict(
-                            {_dim: coords[_dim] for _dim in ["lat", "lon"]}
-                        )
-                        yy, codib = map_coords(yy, codib, _codib)
-
-                        # concatenate tensors along variable dimension
-                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
+                        # concatenate diagnostic variable to forecast vars
+                        xx, coords = cat_coords(xx, coords, yy, codib, "variable")
 
                     # --- CorrDiff models (run after each step, separately) ---
                     # For each CorrDiff model, run the downscaling, collect outputs and coordinates,

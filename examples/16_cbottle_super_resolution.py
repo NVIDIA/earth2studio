@@ -92,7 +92,6 @@ cbottle_sr = CBottleSR.load_model(
     package,
     output_resolution=(1024, 1024),
     super_resolution_window=super_resolution_window,
-    distilled_model=True,
 )
 
 # Load the infill model

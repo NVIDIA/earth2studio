@@ -733,3 +733,10 @@ class UFSObsSat(_UFSObsBase):
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add satellite column for satellite data."""
         df["satellite"] = task.satellite
+
+
+if __name__ == "__main__":
+
+    ds = UFSObsSat(satellites=["npp"], tolerance=timedelta(hours=6))
+    df = ds(datetime(2024, 2, 1), ["atms"], ["lon", "variable"])
+    print(df)

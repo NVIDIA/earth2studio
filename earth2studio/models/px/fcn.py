@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -79,7 +81,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     paper. For additional information see the following resources:
 
     - https://arxiv.org/abs/2202.11214
-    - https://huggingface.co/nvidia/fourcastnet1
+    - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_fcn
 
     Parameters
     ----------
@@ -175,7 +177,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         return Package(
-            "hf://nvidia/fourcastnet1@c67a63995f6c8e0e557eb3d791f32f437e9b02d5",
+            "ngc://models/nvidia/modulus/modulus_fcn@v0.2",
             cache_options={
                 "cache_storage": Package.default_cache("fcn"),
                 "same_names": True,
@@ -189,16 +191,20 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
     ) -> PrognosticModel:
         """Load prognostic from package"""
-        try:
-            package.resolve("config.json")  # HF tracking download statistics
-        except FileNotFoundError:
-            pass
+        fcn_zip = Path(package.resolve("fcn.zip"))
+        # Have to manually unzip here. Should not zip checkpoints in the future
+        with zipfile.ZipFile(fcn_zip, "r") as zip_ref:
+            zip_ref.extractall(fcn_zip.parent)
 
-        model = AFNO.from_checkpoint(package.resolve("fcn.mdlus"))
+        model = AFNO.from_checkpoint(str(fcn_zip.parent / Path("fcn/fcn.mdlus")))
         model.eval()
 
-        local_center = torch.Tensor(np.load(package.resolve("global_means.npy")))
-        local_std = torch.Tensor(np.load(package.resolve("global_stds.npy")))
+        local_center = torch.Tensor(
+            np.load(str(fcn_zip.parent / Path("fcn/global_means.npy")))
+        )
+        local_std = torch.Tensor(
+            np.load(str(fcn_zip.parent / Path("fcn/global_stds.npy")))
+        )
         return cls(model, center=local_center, scale=local_std)
 
     @torch.inference_mode()

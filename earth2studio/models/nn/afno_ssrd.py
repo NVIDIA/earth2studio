@@ -18,8 +18,8 @@ from functools import partial
 import physicsnemo  # noqa: F401 for docs
 import torch
 import torch.nn as nn
-from physicsnemo import Module
 from physicsnemo.models.afno.afno import Block
+from physicsnemo.models.module import Module
 
 Tensor = torch.Tensor
 

@@ -117,7 +117,6 @@ class PhooCorrDiff(torch.nn.Module):
         return torch.as_tensor(sigma)
 
 
-@pytest.mark.skip(reason="FCN3 test for dx wrapper is slow")
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize("model_type", ["precip", "solar"])
 @pytest.mark.parametrize(

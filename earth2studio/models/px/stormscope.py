@@ -46,7 +46,7 @@ from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from physicsnemo import Module
+    from physicsnemo.models import Module
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")

@@ -232,18 +232,16 @@ class CorrelatedSphericalField(torch.nn.Module):
         self.isht = InverseRealSHT(
             self.nlat, 2 * self.nlat, grid=grid, norm="backward"
         ).to(dtype=dtype)
-        self.lmax = self.isht.lmax
-        self.mmax = self.isht.mmax
 
         r_earth = 6.371e6
         # kT is defined on slide 7
         self.kT = (length_scale / r_earth) ** 2 / 2
-        F0 = self.calculateF0(self.sigma, self.phi, self.lmax, self.kT)
+        F0 = self.calculateF0(self.sigma, self.phi, self.nlat, self.kT)
 
         prods = (
-            torch.tensor([j * (j + 1) for j in range(0, self.lmax)])
-            .view(self.lmax, 1)
-            .repeat(1, self.mmax)
+            torch.tensor([j * (j + 1) for j in range(0, self.nlat)])
+            .view(self.nlat, 1)
+            .repeat(1, self.nlat + 1)
         )
 
         sigma_n = torch.tril(torch.exp(-self.kT * prods / 2) * F0)
@@ -262,7 +260,7 @@ class CorrelatedSphericalField(torch.nn.Module):
         # in the call function
         self.gaussian_noise = torch.distributions.normal.Normal(self.mean, self.var)
         xi = self.gaussian_noise.sample(
-            torch.Size((self.N, self.lmax, self.mmax, 2))
+            torch.Size((self.N, self.nlat, self.nlat + 1, 2))
         ).squeeze()
         xi = torch.view_as_complex(xi)
 
@@ -273,13 +271,13 @@ class CorrelatedSphericalField(torch.nn.Module):
         self.register_buffer("coeff", coeff)
 
     def calculateF0(
-        self, sigma: float, phi: float, lmax: int, kT: float
+        self, sigma: float, phi: float, nlat: int, kT: float
     ) -> torch.Tensor:
         """This function scales the coefficients such that their grid-point standarddeviation is sigma.
         sigma is the desired variance phi is a np.exp(-dt/time_scale)
         """
         numerator = sigma**2 * (1 - (phi**2))
-        wavenumbers = torch.arange(1, lmax)
+        wavenumbers = torch.arange(1, nlat)
         denominator = (2 * wavenumbers + 1) * torch.exp(
             -kT * wavenumbers * (wavenumbers + 1)
         )
@@ -300,7 +298,7 @@ class CorrelatedSphericalField(torch.nn.Module):
 
             # Sample Gaussian noise. # TODO why??? for next step maybe?
             xi = self.gaussian_noise.sample(
-                torch.Size((self.N, self.lmax, self.mmax, 2))
+                torch.Size((self.N, self.nlat, self.nlat + 1, 2))
             ).squeeze()
             xi = torch.view_as_complex(xi)
 

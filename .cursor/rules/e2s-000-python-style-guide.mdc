@@ -75,17 +75,6 @@ This rule enforces the coding standards for Earth2Studio as defined in [style.md
 - Run `make lint` to check linting
 - Pre-commit hooks will automatically format and lint code
 
-## Logging
-
-- Print statements should always be done via [loguru.logger](https://loguru.readthedocs.io/en/stable/api.html) or using [rich.console](https://rich.readthedocs.io/en/stable/reference/console.html)
-- Generally, debugging messages should be placed behind a verbose toggle
-- For tqdm progress bars be sure to use the following snippet at the top of the file to ensure progress bars are not disrupted
-
-  ```
-  logger.remove()
-  add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-  ```
-
 ## Code Quality Reminders
 
 - Always include type hints for function parameters and return values
@@ -93,4 +82,3 @@ This rule enforces the coding standards for Earth2Studio as defined in [style.md
 - Prefer modern Python 3.10+ type syntax (`list[str]`, `str | None`)
 - Ensure all files have the SPDX license header at the top
 - Follow black formatting (run `make format` if unsure)
-- Do not use Python's native print() inside any files of the earth2studio folder
