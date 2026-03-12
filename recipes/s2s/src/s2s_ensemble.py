@@ -18,6 +18,7 @@ from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
+from typing import cast
 
 import numpy as np
 import torch
@@ -29,12 +30,11 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 from .s2s_utilities import (
     calculate_torch_seed,
-    cat_coords,
     get_batchid_from_ensid,
     run_with_rank_ordered_execution,
 )
@@ -184,12 +184,16 @@ class S2SEnsembleRunner:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0, self.coords0 = fetch_data(
-            source=data,
-            time=time,
-            variable=self.prognostic_ic["variable"],
-            lead_time=self.prognostic_ic["lead_time"],
-            device="cpu",
+        self.x0, self.coords0 = cast(
+            tuple[torch.Tensor, CoordSystem],
+            fetch_data(
+                source=data,
+                time=time,
+                variable=self.prognostic_ic["variable"],
+                lead_time=self.prognostic_ic["lead_time"],
+                device="cpu",
+                legacy=True,
+            ),
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -329,7 +333,7 @@ class S2SEnsembleRunner:
         for k in self.io_dict.keys():
             if self.writer_executor is not None:
                 future = self.writer_executor.submit(
-                    self.io_dict[k].write, *split_coords(xx_sub, coords_sub)
+                    self.io_dict[k].write, *split_coords(xx_sub, coords_sub)  # type: ignore[arg-type]
                 )
                 self.writer_threads.append(future)
             else:
@@ -371,7 +375,7 @@ class S2SEnsembleRunner:
                         yy, codib = dx_model(yy, codia)
 
                         # concatenate diagnostic variable to forecast vars
-                        xx, coords = cat_coords(xx, coords, yy, codib, "variable")
+                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
 
                     # pass output variables to io backend
                     for k in self.io_dict.keys():

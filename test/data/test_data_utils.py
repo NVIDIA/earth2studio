@@ -20,6 +20,7 @@ import os
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 import xarray as xr
@@ -28,11 +29,17 @@ from fsspec.implementations.http import HTTPFileSystem
 from earth2studio.data import (
     DataArrayFile,
     Random,
+    RandomDataFrame,
     datasource_to_file,
     fetch_data,
+    fetch_dataframe,
     prep_data_array,
 )
-from earth2studio.data.utils import AsyncCachingFileSystem, datasource_cache_root
+from earth2studio.data.utils import (
+    AsyncCachingFileSystem,
+    datasource_cache_root,
+    prep_forecast_inputs,
+)
 
 
 @pytest.fixture
@@ -113,6 +120,7 @@ def test_prep_dataarray(foo_data_array, dims, device):
 
 
 def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_array):
+    pytest.importorskip("scipy", reason="scipy not installed")
     # Create another curvilinear grid
     y, x = np.mgrid[0:20, 0:24]
     target_lat = 30 + y * 1 + np.cos(x * 0.3) * 0.3
@@ -185,6 +193,118 @@ def test_fetch_data(time, lead_time, device):
 
 
 @pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_fetch_data_legacy_false(device):
+
+    if device == "cuda:0" and torch.cuda.is_available():
+        try:
+            import cupy as cp
+        except ImportError:
+            pytest.skip("cupy not available for CUDA device")
+
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    lead_time = np.array([np.timedelta64(0, "h")])
+    variable = np.array(["a", "b", "c"])
+    domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
+    r = Random(domain)
+
+    da = fetch_data(r, time, variable, lead_time, device=device, legacy=False)
+
+    assert isinstance(da, xr.DataArray)
+    assert da.dims == ("time", "lead_time", "variable", "lat", "lon")
+    assert np.all(da.coords["time"].values == time)
+    assert np.all(da.coords["lead_time"].values == lead_time)
+    assert np.all(da.coords["variable"].values == variable)
+
+    if device == "cuda:0" and torch.cuda.is_available():
+        assert isinstance(da.data, cp.ndarray)
+        assert not cp.all(cp.isnan(da.data))
+    else:
+        assert isinstance(da.data, np.ndarray)
+        assert not np.all(np.isnan(da.data))
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        np.array([np.datetime64("1993-04-05T00:00")]),
+        np.array(
+            [
+                np.datetime64("1999-10-11T12:00"),
+                np.datetime64("2001-06-04T00:00"),
+            ]
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "lead_time",
+    [
+        np.array([np.timedelta64(0, "h")]),
+        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+    ],
+)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_fetch_dataframe(time, lead_time, device):
+    variable = np.array(["t2m", "u10m"])
+    rdf = RandomDataFrame(n_obs=5)
+
+    # For CUDA, check if cudf is available first
+    if device != "cpu":
+        try:
+            import cudf
+        except ImportError:
+            pytest.skip("cudf not available for CUDA device")
+
+    result = fetch_dataframe(rdf, time, variable, lead_time=lead_time, device=device)
+
+    # Check return type based on device
+    if device == "cpu":
+        assert isinstance(result, pd.DataFrame)
+        df = result
+    else:
+        # CUDA device - should return cudf.DataFrame
+        import cudf
+
+        assert isinstance(result, cudf.DataFrame)
+        df = result.to_pandas()
+
+    # Check that DataFrame has expected columns
+    assert "time" in df.columns
+    assert "lat" in df.columns
+    assert "lon" in df.columns
+    assert "observation" in df.columns
+    assert "variable" in df.columns
+
+    # Check that variables match
+    assert set(df["variable"].unique()).issubset(set(variable))
+
+    # Check that we have data
+    assert len(df) > 0
+    assert not df.isnull().any().any()
+
+
+@pytest.mark.parametrize(
     "time",
     [
         np.array([np.datetime64("1993-04-05T00:00")]),
@@ -205,6 +325,7 @@ def test_fetch_data(time, lead_time, device):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_fetch_data_interp(time, lead_time, device):
+    pytest.importorskip("scipy", reason="scipy not installed")
     # Original (source) domain
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict(
@@ -439,6 +560,64 @@ def test_clear_cache(tmp_path):
     # Cache directory should still exist, but file should be gone
     assert os.path.exists(cache_dir)
     assert not os.path.exists(dummy_file)
+
+
+@pytest.mark.parametrize(
+    "time, lead_time, variable",
+    [
+        (datetime.datetime(2020, 1, 1, 12, 0), datetime.timedelta(hours=6), "t2m"),
+        (
+            [
+                datetime.datetime(2020, 1, 1, 12, 0),
+                datetime.datetime(2020, 1, 2, 12, 0),
+            ],
+            [datetime.timedelta(hours=6), datetime.timedelta(hours=12)],
+            ["t2m", "u10m"],
+        ),
+        (
+            np.array(
+                [np.datetime64("2020-01-01T12:00"), np.datetime64("2020-01-02T12:00")]
+            ),
+            np.array([np.timedelta64(6, "h"), np.timedelta64(12, "h")]),
+            np.array(["t2m", "u10m", "v10m"]),
+        ),
+    ],
+)
+def test_prep_forecast_inputs(time, lead_time, variable):
+    time_list, lead_time_list, variable_list = prep_forecast_inputs(
+        time, lead_time, variable
+    )
+
+    assert isinstance(time_list, list)
+    assert all(isinstance(t, datetime.datetime) for t in time_list)
+
+    assert isinstance(lead_time_list, list)
+    assert all(isinstance(lt, datetime.timedelta) for lt in lead_time_list)
+
+    assert isinstance(variable_list, list)
+    assert all(isinstance(v, str) for v in variable_list)
+
+    # Verify correct lengths
+    if isinstance(time, datetime.datetime):
+        assert len(time_list) == 1
+    elif isinstance(time, list):
+        assert len(time_list) == len(time)
+    else:  # np.ndarray
+        assert len(time_list) == len(time)
+
+    if isinstance(lead_time, datetime.timedelta):
+        assert len(lead_time_list) == 1
+    elif isinstance(lead_time, list):
+        assert len(lead_time_list) == len(lead_time)
+    else:  # np.ndarray
+        assert len(lead_time_list) == len(lead_time)
+
+    if isinstance(variable, str):
+        assert len(variable_list) == 1
+    elif isinstance(variable, list):
+        assert len(variable_list) == len(variable)
+    else:  # np.ndarray
+        assert len(variable_list) == len(variable)
 
 
 @pytest.mark.asyncio

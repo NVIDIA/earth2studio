@@ -60,7 +60,8 @@ Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 data = [
     "cdsapi>=0.7.5",
     "cfgrib >= 0.9.10.3",
-    "eccodes>=2.38.0",
+    "eccodes>=2.39.2",
+    "eccodeslib>=2.39.2",
     "ecmwf-opendata>=0.3.3",
     "intake-esgf>=2025.9.26",
     "pandas<3.0", # https://github.com/esgf2-us/intake-esgf/issues/167
@@ -79,8 +80,7 @@ perturbation = [
     "scipy>=1.15.2",
 ]
 statistics = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.0.1",
 ]
 utils = [
     "scipy>=1.15.2",
@@ -93,16 +93,19 @@ serve = [
     "pydantic>=2.0.0",
     # Redis dependencies
     "redis>=5.0.0",
+    "types-redis",
     "hiredis>=2.0.0",
     "rq>=1.15.0",
     # Metrics
     "prometheus_client>=0.17.0",
     # Additional utilities
-    "python-multipart>=0.0.6",
-    "python-dotenv>=1.0.0",
     "aiofiles>=23.0.0",
     "httpx>=0.25.0",
     "hydra-core>=1.3.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+    "requests>=2.25.0",
+    "urllib3>=1.26.0",
     # Object storage related
     "cryptography>=41.0.0",
     "multi-storage-client>=0.44.0",
@@ -112,7 +115,6 @@ serve = [
 # PX Models
 ace2 = [
     "fme",
-    "h5py<=3.14.0",
     "pandas>=2.3.2",
     "scipy>=1.15.2",
 ]
@@ -133,27 +135,23 @@ atlas = [
     "timm",
     "torch-harmonics",
     "einops",
-    "nvidia-physicsnemo>=1.3.0,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.3.0",
 ]
 aurora = [
     "microsoft-aurora>=1.6.0",
 ]
 dlesym = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
+    "nvidia-physicsnemo>=1.0.1",
     "earth2grid",
     "omegaconf>=2.3.0",
     "hydra-core>=1.3.2",
-    "pytz", # Remove on physicsnemo 2.0
 ]
 dlwp = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
+    "nvidia-physicsnemo>=1.0.1",
     "importlib_metadata",
-    "pytz", # Remove on physicsnemo 2.0
 ]
 fcn = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.0.1",
 ]
 fcn3 = [
     "makani",
@@ -161,7 +159,6 @@ fcn3 = [
     "scipy>=1.10.0",
     "torch-harmonics>=0.8.0",
     "moviepy",
-    "pytz", # Remove on physicsnemo 2.0
 ]
 fengwu = [
     "onnx",
@@ -181,8 +178,7 @@ graphcast = [
     "dm-tree>=0.1.9",
 ]
 interp-modafno = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=2.0",
 ]
 pangu = [
     "onnx",
@@ -199,19 +195,17 @@ sfno = [
 ]
 stormcast = [
     "einops>=0.8.1",
-    "nvidia-physicsnemo>=1.0.1,<2.0",
+    "nvidia-physicsnemo>=2.0",
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
     "pyproj>=3.7.1",
-    "pytz", # Remove on physicsnemo 2.0
 ]
 stormscope = [
     "natten",
-    "nvidia-physicsnemo==1.3.0",
+    "nvidia-physicsnemo>=2.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
-    "pytz", # Remove on physicsnemo 2.0
 ]
 # DX Models
 cbottle = [
@@ -221,10 +215,9 @@ cbottle = [
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
-    "nvidia-physicsnemo>=1.2.0,<2.0",
+    "nvidia-physicsnemo>=2.0",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
-    "pytz", # Remove on physicsnemo 2.0
 ]
 cyclone = [
     "cucim-cu12>=25.4.0",
@@ -233,36 +226,55 @@ cyclone = [
 ]
 derived = []
 precip-afno = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.0.1",
 ]
 precip-afno-v2 = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.0.1",
 ]
 solarradiation-afno = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.0.1",
 ]
 windgust-afno = [
-    "nvidia-physicsnemo>=1.0.1,<2.0",
-    "pytz", # Remove on physicsnemo 2.0
+    "nvidia-physicsnemo>=1.0.1",
 ]
 # DA Models
 da-interp = [
     "cupy-cuda12x<14.0.0",
     "cudf-cu12==26.2.*",
 ]
+da-stormcast = [
+    "earth2studio[stormcast]",
+    "cupy-cuda12x<14.0.0",
+    "cudf-cu12==26.2.*",
+]
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils]",
-    "earth2studio[ace2,aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,stormscope,graphcast]",
+    "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[da-interp,da-stormcast]",
 ]
 
 # ==== UV configuration ====
 [tool.uv]
-conflicts = []
+conflicts = [
+  [
+    { extra = "ace2" },
+    { extra = "atlas" },
+  ],
+  [
+    { extra = "ace2" },
+    { extra = "fcn3" },
+  ],
+  [
+    { extra = "ace2" },
+    { extra = "perturbation" },
+  ],
+  [
+    { extra = "ace2" },
+    { extra = "sfno" },
+  ]
+]
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
@@ -275,12 +287,19 @@ natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
-cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "1d4435abe730d6b966e983633b466b345d60ac78" }
+cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "8b8b358466e6b2f50d1779009790002ceb596e72" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
-makani = { git = "https://github.com/NVIDIA/makani.git", rev = "fd1a62b9f27aebbc793f0cbafd838a3811de43fd"}
+makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" }
+# Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics
+torch-harmonics = [
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "perturbation"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "atlas"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
+]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -314,6 +333,7 @@ dev = [
     "pytest-skip-slow>=0.0.5",
     "pytest-testmon>=2.1.3",
     "pyyaml>=6.0",
+    "types-redis",
     "types-requests",
     "ruff",
     "pytest-asyncio>=0.26.0",
@@ -332,7 +352,7 @@ docs = [
     "sphinx-togglebutton>=0.3.0",
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
-    "pydata-sphinx-theme==0.16.1"
+    "nvidia-sphinx-theme"
 ]
 
 [tool.hatch.version]
@@ -362,10 +382,9 @@ exclude = []
 "docs/*.py" = ["F401"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
-
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
-"serve/test/*.py" = ["S101"]
+"serve/server/test/*.py" = ["S101"]
 
 # ==== Pytest configuration ====
 [tool.pytest.ini_options]

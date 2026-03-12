@@ -18,6 +18,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -25,7 +26,7 @@ from earth2studio.utils.imports import (
 )
 
 try:
-    from physicsnemo.experimental.models.dit.dit import DiT as PNM_DiT
+    from physicsnemo.models import DiT as PNM_DiT
 except ImportError:
     OptionalDependencyFailure("stormscope")
     PNM_DiT = None  # type: ignore[assignment]
@@ -78,13 +79,13 @@ class EDMPrecond(torch.nn.Module):
             self.p_min = p_min
             self.x_offset = x_offset
             self.slope = slope
-            print(f"sigma_max_dropout: {self.sigma_max_dropout}")
-            print(f"sigma_min_dropout: {self.sigma_min_dropout}")
-            print(f"dropout_function_type: {self.dropout_function_type}")
-            print(f"p_max: {self.p_max}")
-            print(f"p_min: {self.p_min}")
-            print(f"x_offset: {self.x_offset}")
-            print(f"slope: {self.slope}")
+            logger.debug(f"sigma_max_dropout: {self.sigma_max_dropout}")
+            logger.debug(f"sigma_min_dropout: {self.sigma_min_dropout}")
+            logger.debug(f"dropout_function_type: {self.dropout_function_type}")
+            logger.debug(f"p_max: {self.p_max}")
+            logger.debug(f"p_min: {self.p_min}")
+            logger.debug(f"x_offset: {self.x_offset}")
+            logger.debug(f"slope: {self.slope}")
         else:
             self.noise_dependent_dropout = False
 

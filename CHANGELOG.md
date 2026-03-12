@@ -15,25 +15,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data
 - Added accumulated variable support to NCAR ERA5 data source
+- Added routine to tile tensors to higher-dimensional tensors
+- Added routine to concatenate tensors along specified coordinate dimension
 - Added Planetary Computer data source for GOES cloud and moisture imagery
 - Added ability to have seperate data and model cache locations via env variables
 - Added random dataframe source
 - Added base reflectivity to MRMS data source
+- Added `fetch_dataframe` utility function
+- Added data assimilation model class
+- Added equirectangular interpolation data assimilation model
+- Added StormCast SDA model
+- Adding Beta serve utils with inference server and client implementations
 
 ### Changed
 
 - Changed available date for ARCO data source to be dynamically updated
 - Changed ISD data frame return to master schema
+- handshake_coords is now accepting list of dimensions while remaining backwards-compatible
 - Updated CBottle infill to mixture of model checkpoints
+- Updated GraphCastOperational and GraphCastSmall latitude input / output to be [90,-90]
+- Updated GraphCast models to support multiple time inputs, multiple times will be looped not batched
 
 ### Deprecated
 
 ### Removed
 
+- Removed device from cbottle SR load_model api
+
 ### Fixed
 
+- Fixed timezone bug in `CBottleVideo` that converted UTC time to local system time
 - Bug in cbottle datasource resulting identical samples for multiple samples
 - Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
+- Bug in spherical perturbations which did not use lmax from the SHT transform
 
 ### Security
 
@@ -43,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle repo to NVlabs location
 - Updated Makani dependency hash to later version with pyproject toml fix
 - Updated ACE2 dependency hash with setuptools fix
+- Updated models using PhysicsNeMo to compliance with `nvidia-physicsnemo>=2.0`
 
 ## [0.12.1] - 2026-01-29
 
