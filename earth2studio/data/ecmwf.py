@@ -140,17 +140,7 @@ class _ECMWFOpenDataSource(ABC):
         """Retrieve ECMWF data. The child class should override this"""
         pass
 
-    @abstractmethod
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data, the child class should over ride this and call/"""
-        pass
-
-    def _call(  # type: ignore[override]
+    def fetch(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -525,31 +515,8 @@ class IFS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS analysis data array
         """
-        da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = self.fetch(time, np.array([0], dtype="datetime64[h]"), variable)
         return da.isel(lead_time=0).drop_vars("lead_time")
-
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            IFS analysis data array.
-        """
-        da = await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
-        return da.isel(lead_time=0)
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
@@ -639,32 +606,7 @@ class IFS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS forecast data array
         """
-        return self._call(time, lead_time, variable)
-
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        lead_time: timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times to fetch.
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            IFS forecast data array.
-        """
-        return await self._fetch(time, lead_time, variable)
+        return self.fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -777,32 +719,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS initial state data array.
         """
-        da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = self.fetch(time, np.array([0], dtype="datetime64[h]"), variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da.isel(lead_time=0).drop_vars("lead_time")
-
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            IFS ENS initial state data array.
-        """
-        return await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -918,35 +838,10 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS forecast data array
         """
-        da = self._call(time, lead_time, variable)
+        da = self.fetch(time, lead_time, variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        lead_time: timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times to fetch.
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            IFS ENS forecast data array.
-        """
-        return await self._fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -1049,32 +944,7 @@ class AIFS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             AIFS forecast data array
         """
-        return self._call(time, lead_time, variable)
-
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        lead_time: timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times to fetch.
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            AIFS forecast data array.
-        """
-        return await self._fetch(time, lead_time, variable)
+        return self.fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -1176,35 +1046,10 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             AIFS ENS forecast data array
         """
-        da = self._call(time, lead_time, variable)
+        da = self.fetch(time, lead_time, variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
-
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        lead_time: timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times to fetch.
-        variable : str | list[str] | VariableArray
-            String, list of strings or array of strings that refer to variables to
-            return. Must be in the data lexicon.
-
-        Returns
-        -------
-        xr.DataArray
-            ECMWF weather data array.
-        """
-        return await self._fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
