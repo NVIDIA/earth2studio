@@ -267,8 +267,8 @@ plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 # %%
 # HealDA vs ERA5
 # --------------
-# Fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive and compare
-# each analysis against it.  HealDA now outputs standard Earth2Studio variable
+# Next fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive to compare
+# against the assimilated fields.  HealDA outputs standard Earth2Studio variable
 # names so we can query ERA5 with the same identifiers. As expected the
 # combination of data sources yields the most accurate global prediction.
 
