@@ -1,4 +1,4 @@
-
+ 
 
 import os
 import re
@@ -33,7 +33,7 @@ class Config:
     
     compile_models: bool = True
     stormscope_num_steps: int = 96
-    solar_num_steps: int = 48
+    solar_num_steps: int = 24
 
 
 # =============================================================================
@@ -558,10 +558,30 @@ def main():
     # Configuration
     config = Config()
     init_times = [
+        datetime(2024, 5, 5, 0, 0, 0),
+        datetime(2024, 5, 5, 6, 0, 0),
+        datetime(2024, 5, 5, 12, 0, 0),
+        datetime(2024, 5, 5, 18, 0, 0),
+        datetime(2024, 5, 6, 0, 0, 0),
+        datetime(2024, 5, 6, 6, 0, 0),
+        datetime(2024, 5, 6, 12, 0, 0),
+        datetime(2024, 5, 6, 18, 0, 0),
+        datetime(2024, 5, 7, 0, 0, 0),
+        datetime(2024, 5, 7, 6, 0, 0),
+        datetime(2024, 5, 7, 12, 0, 0),
+        datetime(2024, 5, 7, 18, 0, 0),
+        datetime(2024, 5, 8, 0, 0, 0),
+        datetime(2024, 5, 8, 6, 0, 0),
+        datetime(2024, 5, 8, 12, 0, 0),
+        datetime(2024, 5, 8, 18, 0, 0),
+        datetime(2024, 5, 9, 0, 0, 0),
+        datetime(2024, 5, 9, 6, 0, 0),
+        datetime(2024, 5, 9, 12, 0, 0),
+        datetime(2024, 5, 9, 18, 0, 0),
         # datetime(2024, 5, 10, 0, 0, 0),
         # datetime(2024, 5, 10, 6, 0, 0),
         # datetime(2024, 5, 10, 12, 0, 0),
-        datetime(2024, 5, 10, 18, 0, 0),
+        # datetime(2024, 5, 10, 18, 0, 0),
         # datetime(2024, 5, 11, 0, 0, 0),
         # datetime(2024, 5, 11, 6, 0, 0),
         # datetime(2024, 5, 11, 12, 0, 0),
@@ -574,6 +594,14 @@ def main():
         # datetime(2024, 5, 13, 6, 0, 0),
         # datetime(2024, 5, 13, 12, 0, 0),
         # datetime(2024, 5, 13, 18, 0, 0),
+        # datetime(2024, 5, 14, 0, 0, 0),
+        # datetime(2024, 5, 14, 6, 0, 0),
+        # datetime(2024, 5, 14, 12, 0, 0),
+        # datetime(2024, 5, 14, 18, 0, 0),
+        # datetime(2024, 5, 15, 0, 0, 0),
+        # datetime(2024, 5, 15, 6, 0, 0),
+        # datetime(2024, 5, 15, 12, 0, 0),
+        # datetime(2024, 5, 15, 18, 0, 0),
     ]
     
     # Setup

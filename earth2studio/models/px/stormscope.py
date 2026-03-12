@@ -23,6 +23,8 @@ from typing import Any, cast
 import numpy as np
 import torch
 import torch.nn as nn
+import xarray as xr
+import zarr
 from loguru import logger
 from numpy.typing import ArrayLike
 
@@ -50,7 +52,10 @@ try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")
+    OmegaConf = None  # type: ignore[assignment]
     Module = None  # type: ignore[assignment]
+    deterministic_sampler = None  # type: ignore[assignment]
+    stochastic_sampler = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
 from earth2studio.models.nn.stormscope_util import (
@@ -959,6 +964,501 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output data tensor and coordinate system dictionary.
         """
         yield from self._default_generator(x, coords)
+
+
+@check_optional_dependencies()
+class StormScopeSolar(StormScopeBase):
+    """Solar radiation nowcasting model with StormScope-style interface."""
+
+    def __init__(
+        self,
+        regression_model: torch.nn.Module | None,
+        diffusion_model: torch.nn.Module,
+        means: torch.Tensor,
+        stds: torch.Tensor,
+        latitudes: torch.Tensor,
+        longitudes: torch.Tensor,
+        conditioning_means: torch.Tensor | None = None,
+        conditioning_stds: torch.Tensor | None = None,
+        invariants: torch.Tensor | None = None,
+        valid_mask: torch.Tensor | None = None,
+        variables: np.ndarray | None = None,
+        conditioning_variables: np.ndarray | None = None,
+        conditioning_data_source: DataSource | ForecastSource | None = None,
+        sampler_args: dict[str, Any] | None = None,
+        sampler_type: str = "deterministic",
+        input_times: np.ndarray = np.array([np.timedelta64(0, "m")]),
+        output_times: np.ndarray = np.array([np.timedelta64(10, "m")]),
+        input_interp_max_dist_km: float = 12.0,
+    ):
+        variables_arr = np.array(variables or ["ghi"])
+        conditioning_vars_arr = np.array(conditioning_variables or [])
+        model_spec = [
+            {
+                "model": nn.Identity(),
+                "sigma_min": 0.0,
+                "sigma_max": 1.0,
+            }
+        ]
+
+        super().__init__(
+            model_spec=model_spec,
+            means=means,
+            stds=stds,
+            variables=variables_arr,
+            latitudes=latitudes,
+            longitudes=longitudes,
+            conditioning_means=conditioning_means,
+            conditioning_stds=conditioning_stds,
+            conditioning_variables=conditioning_vars_arr,
+            conditioning_data_source=conditioning_data_source,
+            sampler_args=sampler_args or {},
+            input_times=input_times,
+            output_times=output_times,
+            input_interp_max_dist_km=input_interp_max_dist_km,
+            conditioning_interp_max_dist_km=input_interp_max_dist_km,
+        )
+
+        self.regression_model = regression_model
+        self.diffusion_model = diffusion_model
+        self.sampler_type = sampler_type
+
+        if conditioning_data_source is None:
+            logger.warning(
+                "No conditioning data source was provided to StormScopeSolar; "
+                "set conditioning_data_source before running inference."
+            )
+
+        if invariants is not None:
+            self.register_buffer("invariants", invariants)
+        else:
+            self.invariants = None
+
+        if valid_mask is not None:
+            self.valid_mask = valid_mask.to(self.latitudes.device)
+
+        self._compute_sincos_latlon()
+
+    def _compute_sincos_latlon(self) -> None:
+        lat_rad = torch.deg2rad(self.latitudes)
+        lon_rad = torch.deg2rad(self.longitudes)
+        sincos_latlon = torch.stack(
+            [
+                torch.cos(lat_rad),
+                torch.cos(lon_rad),
+                torch.sin(lat_rad),
+                torch.sin(lon_rad),
+            ],
+            dim=0,
+        )
+        self.register_buffer("sincos_latlon", sincos_latlon)
+
+    def build_input_interpolator(
+        self,
+        source_lats: np.ndarray,
+        source_lons: np.ndarray,
+        max_dist_km: float | None = None,
+    ) -> None:
+        if max_dist_km is None:
+            max_dist_km = self._input_interp_max_dist_km
+        self.input_interp = NearestNeighborInterpolator(
+            source_lats=source_lats,
+            source_lons=source_lons,
+            target_lats=self._lat_cpu_copy,
+            target_lons=self._lon_cpu_copy,
+            max_dist_km=max_dist_km,
+        )
+
+    def interpolate(
+        self,
+        x: torch.Tensor,
+        fill_value: float = 0.0,
+    ) -> torch.Tensor:
+        if self.input_interp is None:
+            raise ValueError("Input interpolator not found. Call build_input_interpolator first.")
+        if torch.isnan(x).any():
+            x = torch.nan_to_num(x, nan=fill_value)
+        result = self.input_interp(x)
+        return torch.nan_to_num(result, nan=fill_value)
+
+    def normalize_state(self, x: torch.Tensor) -> torch.Tensor:
+        return (x - self.means) / (self.stds + 1e-8)
+
+    def denormalize_state(self, x: torch.Tensor) -> torch.Tensor:
+        return x * self.stds + self.means
+
+    def normalize_conditioning(self, c: torch.Tensor) -> torch.Tensor:
+        if hasattr(self, "conditioning_means") and hasattr(self, "conditioning_stds"):
+            n_norm = self.conditioning_means.shape[1]
+            c_goes = c[..., :n_norm, :, :]
+            c_rest = c[..., n_norm:, :, :]
+            c_goes_norm = (c_goes - self.conditioning_means) / (
+                self.conditioning_stds + 1e-8
+            )
+            c = torch.cat([c_goes_norm, c_rest], dim=-3)
+        return c
+
+    def compute_sza(self, timestamp: datetime | np.datetime64) -> torch.Tensor:
+        if isinstance(timestamp, np.datetime64):
+            timestamp = timestamp.astype("datetime64[us]").astype(datetime)
+        H, W = self.latitudes.shape
+        sza_flat = cos_zenith_angle(timestamp, self._lon_cpu_copy, self._lat_cpu_copy)
+        sza_2d = sza_flat.reshape(H, W).astype(np.float32)
+        return torch.from_numpy(sza_2d).to(self.latitudes.device)
+
+    def build_conditioning(
+        self,
+        goes_data: torch.Tensor,
+        timestamp: datetime | np.datetime64,
+    ) -> torch.Tensor:
+        B = goes_data.shape[0]
+        device = goes_data.device
+
+        cos_sza = self.compute_sza(timestamp).to(device)
+        cos_sza = cos_sza.unsqueeze(0).unsqueeze(0).unsqueeze(0).expand(
+            B, -1, -1, -1, -1
+        )
+
+        sincos = self.sincos_latlon.to(device)
+        sincos = sincos.unsqueeze(0).unsqueeze(0).expand(B, -1, -1, -1, -1)
+
+        if self.invariants is not None:
+            inv = self.invariants.to(device).unsqueeze(0).expand(B, -1, -1, -1, -1)
+        else:
+            inv = None
+
+        if goes_data.dim() == 4:
+            goes_data = goes_data.unsqueeze(1)
+
+        if inv is not None:
+            conditioning = torch.cat([goes_data, inv, cos_sza, sincos], dim=2)
+        else:
+            conditioning = torch.cat([goes_data, cos_sza, sincos], dim=2)
+
+        return conditioning
+
+    def apply_valid_mask(self, x: torch.Tensor, fill_value: float = 0.0) -> torch.Tensor:
+        if self.valid_mask is None:
+            return x
+        mask = self.valid_mask.to(x.device)
+        while mask.dim() < x.dim():
+            mask = mask.unsqueeze(0)
+        return torch.where(mask.expand_as(x), x, torch.full_like(x, fill_value))
+
+    def input_coords(self) -> CoordSystem:
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": self.input_times,
+                "variable": self.variables,
+                "y": self.y,
+                "x": self.x,
+            }
+        )
+
+    @batch_coords()
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": self.output_times,
+                "variable": np.array(self.variables),
+                "y": self.y,
+                "x": self.x,
+            }
+        )
+        target_input_coords = self.input_coords()
+        handshake_dim(input_coords, "x", 5)
+        handshake_dim(input_coords, "y", 4)
+        handshake_dim(input_coords, "variable", 3)
+        handshake_size(input_coords, "y", self.latitudes.shape[0])
+        handshake_size(input_coords, "x", self.latitudes.shape[1])
+        handshake_coords(input_coords, target_input_coords, "variable")
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"][-1]
+        )
+        return output_coords
+
+    def fetch_conditioning(
+        self, coords: CoordSystem, device: torch.device
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        if self.conditioning_data_source is None:
+            raise RuntimeError(
+                "StormScopeSolar has been called without initializing the model's conditioning_data_source"
+            )
+        conditioning, conditioning_coords = fetch_data(
+            self.conditioning_data_source,
+            time=coords["time"],
+            variable=self.conditioning_variables,
+            lead_time=coords["lead_time"],
+            device=device,
+        )
+        return conditioning, conditioning_coords
+
+    @torch.inference_mode()
+    def _forward(
+        self,
+        state: torch.Tensor,
+        conditioning: torch.Tensor,
+        first_step: bool = False,
+    ) -> torch.Tensor:
+        if state.dim() == 5:
+            state = state[:, 0]
+        B, C, H, W = state.shape
+
+        if first_step:
+            state_norm = state.unsqueeze(1)
+        else:
+            state_norm = self.normalize_state(state).unsqueeze(1)
+
+        cond_norm = self.normalize_conditioning(conditioning)
+        diffusion_cond = torch.cat([state_norm, cond_norm], dim=2)
+
+        if self.regression_model is not None:
+            reg_input = cond_norm[:, 0]
+            reg_out = self.regression_model(reg_input).unsqueeze(1)
+        else:
+            reg_out = torch.zeros_like(state_norm)
+
+        latents = torch.randn(B, C, H, W, device=state.device, dtype=state.dtype)
+        diffusion_input = diffusion_cond[:, 0]
+
+        if self.sampler_type == "stochastic":
+            edm_out = stochastic_sampler(
+                self.diffusion_model,
+                latents=latents,
+                img_lr=diffusion_input,
+                **self.sampler_args,
+            )
+        else:
+            edm_out = deterministic_sampler(
+                self.diffusion_model,
+                latents=latents,
+                img_lr=diffusion_input,
+                **self.sampler_args,
+            )
+
+        if edm_out.dim() == 4:
+            edm_out = edm_out.unsqueeze(1)
+
+        out_norm = reg_out + edm_out
+        out = self.denormalize_state(out_norm)
+        out = torch.clamp(out, min=0)
+        out = self.apply_valid_mask(out, fill_value=0.0)
+
+        goes_ch0 = conditioning[:, :, 0:1, :, :]
+        goes_unavailable = goes_ch0 == 0
+        out = torch.where(goes_unavailable.expand_as(out), torch.zeros_like(out), out)
+        return out
+
+    @torch.inference_mode()
+    @batch_func()
+    def call_with_conditioning(
+        self,
+        state: torch.Tensor,
+        coords: CoordSystem,
+        conditioning: torch.Tensor,
+        conditioning_coords: CoordSystem,
+        first_step: bool = False,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        if (
+            "time" not in coords
+            or "batch" not in coords
+            or len(coords["time"]) == 0
+            or len(coords["batch"]) == 0
+        ):
+            raise ValueError(
+                "Invalid coordinates for call_with_conditioning: must contain 'time' and 'batch' dimensions with nonzero length"
+            )
+
+        if self.input_interp is not None:
+            conditioning = self.interpolate(conditioning)
+
+        if conditioning.dim() == state.dim() - 1:
+            conditioning = conditioning.repeat(state.shape[0], 1, 1, 1, 1, 1)
+
+        handshake_coords(conditioning_coords, coords, "time")
+        handshake_coords(conditioning_coords, coords, "lead_time")
+
+        output_coords = self.output_coords(coords)
+        state_out = torch.zeros_like(state)
+
+        for i, _ in enumerate(coords["batch"]):
+            for j, _ in enumerate(coords["time"]):
+                for k, _ in enumerate(coords["lead_time"]):
+                    timestamp = conditioning_coords["time"][j]
+                    if "lead_time" in conditioning_coords:
+                        timestamp = timestamp + conditioning_coords["lead_time"][k]
+                    goes_slice = conditioning[i, j, k : k + 1].unsqueeze(0)
+                    cond = self.build_conditioning(goes_slice, timestamp)
+                    state_out[i, j, k : k + 1] = self._forward(
+                        state[i, j, k : k + 1],
+                        cond,
+                        first_step=first_step,
+                    )
+
+        return state_out, output_coords
+
+    @torch.inference_mode()
+    @batch_func()
+    def __call__(
+        self,
+        state: torch.Tensor,
+        coords: CoordSystem,
+        first_step: bool = False,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        conditioning, conditioning_coords = self.fetch_conditioning(coords, state.device)
+        return self.call_with_conditioning(
+            state,
+            coords,
+            conditioning,
+            conditioning_coords,
+            first_step=first_step,
+        )
+
+    @batch_func()
+    def next_input(
+        self,
+        pred: torch.Tensor,
+        pred_coords: CoordSystem,
+        state: torch.Tensor,
+        state_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        lt_dim = list(state_coords.keys()).index("lead_time")
+        lt_dim_pred = list(pred_coords.keys()).index("lead_time")
+        if lt_dim != lt_dim_pred or lt_dim != 2:
+            raise ValueError(
+                "The lead time dimension must be in the 3rd position for the input and prediction."
+            )
+
+        if self.sliding_window:
+            n_in, n_out = len(self.input_times), len(self.output_times)
+            next_state = torch.zeros_like(state)
+            next_coords = state_coords.copy()
+            next_state[:, :, : n_in - n_out, ...] = state[:, :, n_out:, ...]
+            next_state[:, :, n_in - n_out :, ...] = pred[:, :, :, ...]
+            next_coords["lead_time"] = (
+                self.input_times + pred_coords["lead_time"][-1]
+            )
+        else:
+            next_state = pred
+            next_coords = pred_coords.copy()
+        return next_state, next_coords
+
+    @batch_func()
+    def _default_generator(
+        self,
+        state: torch.Tensor,
+        coords: CoordSystem,
+    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords = coords.copy()
+        ic_coords = coords.copy()
+        ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
+        yield self.apply_valid_mask(state, fill_value=float("nan")), ic_coords
+
+        while True:
+            state, coords = self.front_hook(state, coords)
+            state_pred, coords_pred = self.__call__(state, coords)
+            state_pred, coords_pred = self.rear_hook(state_pred, coords_pred)
+            yield state_pred, coords_pred.copy()
+            state, coords = self.next_input(state_pred, coords_pred, state, coords)
+
+    def create_iterator(
+        self, state: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        yield from self._default_generator(state, coords)
+
+    @classmethod
+    def load_model(
+        cls,
+        package: Package,
+        sampler_type: str = "deterministic",
+        conditioning_data_source: DataSource | ForecastSource | None = None,
+    ) -> "StormScopeSolar":
+        try:
+            OmegaConf.register_new_resolver("eval", eval)
+        except ValueError:
+            pass
+
+        config = OmegaConf.load(package.resolve("model.yaml"))
+
+        regression = None
+        try:
+            regression = Module.from_checkpoint(
+                package.resolve("StormCastUNet.0.0.mdlus")
+            )
+            logger.info("Loaded regression model")
+        except (FileNotFoundError, Exception) as e:
+            logger.warning(f"No regression model found: {e}. Running in diffusion-only mode.")
+
+        diffusion = Module.from_checkpoint(package.resolve("EDMPrecond.0.0.mdlus"))
+        logger.info("Loaded diffusion model")
+
+        store = zarr.storage.ZipStore(package.resolve("metadata.zarr.zip"), mode="r")
+        metadata = xr.open_zarr(store, zarr_format=2)
+        variables = list(metadata["variable"].values)
+        conditioning_variables = list(metadata["conditioning_variable"].values)
+
+        means = torch.from_numpy(metadata["means"].values[None, :, None, None]).float()
+        stds = torch.from_numpy(metadata["stds"].values[None, :, None, None]).float()
+        conditioning_means = torch.from_numpy(
+            metadata["conditioning_means"].values[None, :, None, None]
+        ).float()
+        conditioning_stds = torch.from_numpy(
+            metadata["conditioning_stds"].values[None, :, None, None]
+        ).float()
+
+        lat_2d = torch.from_numpy(metadata["latitude"].values).float()
+        lon_2d = torch.from_numpy(metadata["longitude"].values).float()
+        logger.info(f"Loaded lat/lon grids: shape={lat_2d.shape}")
+
+        invariant_names = getattr(config.data, "invariants", [])
+        invariants = None
+        if invariant_names and "invariants" in metadata:
+            try:
+                invariants = metadata["invariants"].sel(invariant=invariant_names).values
+                invariants = torch.from_numpy(invariants).float().unsqueeze(0)
+            except Exception as e:
+                logger.warning(f"Could not load invariants: {e}")
+                invariants = None
+
+        valid_mask = None
+        if "valid_mask" in metadata:
+            valid_mask = torch.from_numpy(metadata["valid_mask"].values).bool()
+            valid_fraction = valid_mask.float().mean().item()
+            logger.info(
+                f"Loaded valid mask: shape={valid_mask.shape}, valid={valid_fraction:.1%}"
+            )
+
+        sampler_args = dict(config.sampler_args) if config.sampler_args else {}
+
+        logger.info("SolarStormScope model loaded")
+        logger.info(f"  Variables: {variables}")
+        logger.info(f"  Conditioning variables: {len(conditioning_variables)}")
+        logger.info(f"  Invariants: {invariant_names}")
+        logger.info(f"  Sampler: {sampler_type}")
+
+        return cls(
+            regression_model=regression,
+            diffusion_model=diffusion,
+            means=means,
+            stds=stds,
+            latitudes=lat_2d,
+            longitudes=lon_2d,
+            conditioning_means=conditioning_means,
+            conditioning_stds=conditioning_stds,
+            invariants=invariants,
+            valid_mask=valid_mask,
+            variables=np.array(variables),
+            conditioning_variables=np.array(conditioning_variables),
+            conditioning_data_source=conditioning_data_source,
+            sampler_args=sampler_args,
+            sampler_type=sampler_type,
+        )
 
 
 class StormScopeGOES(StormScopeBase):
