@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import xarray as xr
 import zarr
-from api_server.workflow import Earth2Workflow, WorkflowProgress, workflow_registry
 
 from earth2studio.data import (
     GOES,
@@ -22,6 +21,11 @@ from earth2studio.models.px import FCN3, DiagnosticWrapper, InterpModAFNO
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
+)
+from earth2studio.serve.server import (
+    Earth2Workflow,
+    WorkflowProgress,
+    workflow_registry,
 )
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
