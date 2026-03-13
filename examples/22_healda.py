@@ -92,13 +92,13 @@ model = model.to("cuda:0")
 # The UFS data sources return pandas DataFrames that match the schemas expected by
 # :py:meth:`HealDA.input_coords`.  We use
 # :py:func:`earth2studio.data.fetch_dataframe` which attaches ``request_time``
-# metadata required by the model.  The tolerance parameter defines a 3 hour
-# window around the analysis time so that observations within that range are included.
+# metadata required by the model.  The time_tolerance parameter defines a time
+# window around the analysis time so that observations will be retrieved for.
 
 # %%
 analysis_time = np.array([np.datetime64("2024-01-01T00:00")])
 
-conv_source = UFSObsConv(tolerance=timedelta(hours=3))
+conv_source = UFSObsConv(time_tolerance=(timedelta(hours=-21), timedelta(hours=3)))
 conv_schema, sat_schema = model.input_coords()
 conv_df = fetch_dataframe(
     conv_source,
@@ -108,7 +108,7 @@ conv_df = fetch_dataframe(
 )
 logger.info(f"Fetched {len(conv_df)} conventional observations")
 
-sat_source = UFSObsSat(tolerance=timedelta(hours=3))
+sat_source = UFSObsSat(time_tolerance=(timedelta(hours=-21), timedelta(hours=3)))
 sat_df = fetch_dataframe(
     sat_source,
     time=analysis_time,
@@ -121,7 +121,8 @@ logger.info(f"Fetched {len(sat_df)} satellite observations")
 # Observation Locations
 # ---------------------
 # Plot the spatial distribution of conventional and satellite observations to
-# visualise their coverage before running the assimilation.
+# visualise their coverage before running the assimilation. There are 12-14 million
+# observations typically for the models 24 hour time window.
 
 # %%
 import cartopy.crs as ccrs
@@ -143,7 +144,7 @@ ax.gridlines(linewidth=0.3, alpha=0.5)
 ax.scatter(
     conv_df["lon"].values,
     conv_df["lat"].values,
-    s=0.4,
+    s=0.1,
     alpha=0.3,
     c="tab:blue",
     transform=ccrs.PlateCarree(),
@@ -158,7 +159,7 @@ ax.gridlines(linewidth=0.3, alpha=0.5)
 ax.scatter(
     sat_df["lon"].values,
     sat_df["lat"].values,
-    s=0.4,
+    s=0.1,
     alpha=0.3,
     c="tab:orange",
     transform=ccrs.PlateCarree(),
