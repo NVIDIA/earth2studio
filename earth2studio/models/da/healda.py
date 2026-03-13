@@ -243,7 +243,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "lon": np.empty(0, dtype=np.float32),
                 "observation": np.empty(0, dtype=np.float32),
                 "variable": np.array(
-                    ["u", "v", "q", "t", "gps", "gps_t", "gps_q"], dtype=str
+                    ["u", "v", "q", "t", "pres", "gps", "gps_t", "gps_q"], dtype=str
                 ),
                 "type": np.empty(0, dtype=np.uint16),
                 "elev": np.empty(0, dtype=np.float32),

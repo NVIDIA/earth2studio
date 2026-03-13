@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+_SERVE_AVAILABLE = False
 try:
     import redis  # type: ignore[import-untyped]
     from api_server.config import get_config  # type: ignore[import-untyped]
@@ -39,8 +40,12 @@ try:
         workflow_registry,
     )
     from pydantic import Field, ValidationError  # type: ignore[import-untyped]
+
+    _SERVE_AVAILABLE = True
 except ImportError:
     pass
+
+pytestmark = pytest.mark.skipif(not _SERVE_AVAILABLE, reason="serve deps not available")
 
 
 @pytest.fixture(scope="module", autouse=True)
