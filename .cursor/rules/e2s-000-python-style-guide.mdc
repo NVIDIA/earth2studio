@@ -26,6 +26,7 @@ This rule enforces the coding standards for Earth2Studio as defined in [style.md
    - `VariableArray` for variable arrays
    - `LeadTimeArray` for lead time arrays
    - `TimeArray` for time arrays
+   - `TimeTolerance` for time tolerance parameters (see Time Tolerance rule)
 
 2. **Python 3.10+ Type Features**:
    - Use built-in generic types instead of `typing` package (PEP 585):
