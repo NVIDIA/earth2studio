@@ -1,0 +1,119 @@
+---
+globs: earth2studio/**/*.py
+description: Earth2Studio handling of temporal tolerances
+---
+
+## Time Tolerance
+
+Any component that filters or windows data by time (data sources, DA models, etc.)
+**MUST** use the `TimeTolerance` type from [type.py](mdc:earth2studio/utils/type.py)
+and the `normalize_time_tolerance` utility from [time.py](mdc:earth2studio/utils/time.py).
+
+### TimeTolerance Type
+
+`TimeTolerance` is a union type that accepts either:
+- A **single value** (`timedelta` or `np.timedelta64`) - interpreted as a symmetric ± window
+- A **tuple of two values** (`(lower_bound, upper_bound)`) - interpreted as an asymmetric window (lower is typically negative)
+
+```python
+TimeTolerance = (
+    timedelta
+    | np.timedelta64
+    | tuple[timedelta, timedelta]
+    | tuple[np.timedelta64, np.timedelta64]
+)
+```
+
+### Naming Convention
+
+- **Parameter name**: Always `time_tolerance`
+- **Type hint**: Always `TimeTolerance` (never raw `timedelta | np.timedelta64`)
+- **Docstring type**: `TimeTolerance, optional`
+
+### normalize_time_tolerance
+
+Always use `normalize_time_tolerance()` from [time.py](mdc:earth2studio/utils/time.py)
+to convert a `TimeTolerance` into a `(lower_bound, upper_bound)` tuple of `np.timedelta64`.
+The component then may convert from np.timedelta64 a needed.
+**Never manually interpret the tolerance value.**
+
+```python
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeTolerance
+```
+
+`normalize_time_tolerance` returns:
+- For a single value `t`: `(-t, +t)` (symmetric)
+- For a tuple `(a, b)`: `(a, b)` after validation that `a <= b`
+
+### Usage in Data sources
+
+The use of time_tolerance might be neede for different DataSources, ForecastSources,
+DataFrameSources and ForecastFrameSources.
+
+- DataSources, ForecastSources might need this parameter when data is not produced at
+    an exact rate. For example satellite images what might be at 10 minute intervals
+    but exact observation time might deviate around a few seconds.
+- DataFrameSources, ForecastFrameSources when observations are not provided at fixed
+    intervals
+
+
+```python
+def __init__(
+    self,
+    time_tolerance: TimeTolerance = np.timedelta64(0),
+    ...
+) -> None:
+    lower, upper = normalize_time_tolerance(time_tolerance)
+    # Data source can then convert these into the needed format from np.datetime64
+```
+
+See [ufs.py](mdc:earth2studio/data/ufs.py) for a complete reference.
+
+### Usage in Models
+
+In model constructors, normalize tolerance at init time and store the `np.timedelta64`
+tuple directly (models typically work with `np.datetime64` arrays, not Python `datetime`):
+
+```python
+def __init__(
+    self,
+    time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
+    ...
+) -> None:
+    self._tolerance = normalize_time_tolerance(time_tolerance)
+```
+
+Then pass the tuple to helper functions like `filter_time_range`:
+
+```python
+filtered_df = filter_time_range(
+    df, request_time, self._tolerance, time_column="time"
+)
+```
+
+Typicall for AutoModels, the `time_tolerance` parameter should also be provided
+in the `load_model` function. For example for an AssimilationModel this might look like
+the following:
+
+```python
+@classmethod
+@check_optional_dependencies()
+def load_model(
+    cls,
+    package: Package,
+    time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
+    ...
+) -> AssimilationModel:
+```
+
+See [interp.py](mdc:earth2studio/models/da/interp.py) for a complete reference.
+
+### Reminders
+
+- Always use `TimeTolerance` as the type hint for all tolerance parameters
+- Call `normalize_time_tolerance()` once at init time
+- Store the normalized bounds (not the raw input)
+- Do not use raw `timedelta | np.timedelta64` as the type hint
+- Do not manually interpret symmetric vs. asymmetric tolerance
+- Do not store the original tolerance value — always normalize first

@@ -154,7 +154,7 @@ no_obs_np.to_dataset(name="prediction").to_zarr("outputs/21_no_obs.zarr", mode="
 
 # %%
 stations = ISD.get_stations_bbox((32.0, -105.0, 45.0, -90.0))
-isd = ISD(stations=stations, tolerance=timedelta(minutes=15), verbose=False)
+isd = ISD(stations=stations, time_tolerance=timedelta(minutes=15), verbose=False)
 
 # %%
 # Plot ISD Station Locations
