@@ -48,8 +48,8 @@ class EnsembleWorkflowParameters(WorkflowParameters):
 
     # Forecast configuration
     forecast_times: list[str] = Field(
-        default=["2024-01-01"],
-        description="List of forecast initialization times (ISO or YYYY-MM-DD format)",
+        default=["2024-01-01T00:00:00"],
+        description="List of forecast initialization times (ISO 8601 datetime format, e.g. '2024-01-01T00:00:00')",
     )
     nsteps: int = Field(
         default=10,
@@ -348,11 +348,14 @@ class EnsembleWorkflow(Workflow):
                 io[variable][0, 0, step],
                 f"{forecast_time} - Lead: {lead_hrs}hrs - Member 0",
             )
-            plot_field(
-                ax2,
-                io[variable][1, 0, step],
-                f"{forecast_time} - Lead: {lead_hrs}hrs - Member 1",
-            )
+            if parameters.nensemble >= 2:
+                plot_field(
+                    ax2,
+                    io[variable][1, 0, step],
+                    f"{forecast_time} - Lead: {lead_hrs}hrs - Member 1",
+                )
+            else:
+                ax2.set_visible(False)
             std_data = np.std(io[variable][:, 0, step], axis=0)
             plot_field(
                 ax3,
