@@ -34,7 +34,7 @@ TimeTolerance = (
 
 Always use `normalize_time_tolerance()` from [time.py](mdc:earth2studio/utils/time.py)
 to convert a `TimeTolerance` into a `(lower_bound, upper_bound)` tuple of `np.timedelta64`.
-The component then may convert from np.timedelta64 a needed.
+The component then may convert from np.timedelta64 as needed.
 **Never manually interpret the tolerance value.**
 
 ```python
@@ -48,14 +48,15 @@ from earth2studio.utils.type import TimeTolerance
 
 ### Usage in Data sources
 
-The use of time_tolerance might be neede for different DataSources, ForecastSources,
+The use of time_tolerance might be needed for different DataSources, ForecastSources,
 DataFrameSources and ForecastFrameSources.
 
 - DataSources, ForecastSources might need this parameter when data is not produced at
-    an exact rate. For example satellite images what might be at 10 minute intervals
+    an exact rate. For example satellite images that might be at 10 minute intervals
     but exact observation time might deviate around a few seconds.
 - DataFrameSources, ForecastFrameSources when observations are not provided at fixed
-    intervals
+    intervals. Sparse observations typically have complete different time stamps so
+    the need for a time tolerance is very common for these components.
 
 
 ```python
@@ -92,9 +93,9 @@ filtered_df = filter_time_range(
 )
 ```
 
-Typicall for AutoModels, the `time_tolerance` parameter should also be provided
-in the `load_model` function. For example for an AssimilationModel this might look like
-the following:
+Typically for `earth2studio.models.auto.AutoModelMixin`, the `time_tolerance` parameter
+should also be provided in the `load_model` function. For example for an AssimilationModel
+this might look like the following:
 
 ```python
 @classmethod
