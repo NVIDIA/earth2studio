@@ -312,7 +312,7 @@ toolz==1.1.0
     #   partd
 torch==2.8.0
     # via earth2studio
-tornado==6.5.4
+tornado==6.5.5
     # via
     #   bokeh
     #   distributed
