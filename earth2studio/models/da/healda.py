@@ -426,13 +426,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         noise_labels = torch.zeros([batch_size], device=self.device)
         class_labels = torch.empty([batch_size, 0], device=self.device)
 
-        print(inputs["condition"].shape)
-        print(noise_labels.shape)
-        print(inputs["obs"].shape)
-        print(inputs["offsets"].shape)
-        print(inputs["second_of_day"].shape)
-        print(inputs["day_of_year"].shape)
-
         with torch.autocast(self.device.type, dtype=torch.bfloat16):
             prediction = self._model(
                 x=inputs["condition"],
