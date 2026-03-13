@@ -600,8 +600,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         platforms = SENSOR_PLATFORMS.get(sensor, [])
         platform_map = {name: i for i, name in enumerate(platforms)}
 
-        if set(df["satellite"].unique()) - set(platform_map.keys()):
-            raise ValueError("Unknown satellite platform(s) present")
+        unknown_vars = set(df["satellite"].unique()) - set(platform_map.keys())
+        if unknown_vars:
+            raise ValueError(f"Unknown satellite platform(s) present: {unknown_vars}")
 
         return pd.DataFrame(
             {
@@ -636,6 +637,11 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         pd.DataFrame
             Standardized DataFrame with unified column schema
         """
+
+        unknown_vars = set(df["variable"].unique()) - set(CONV_VAR_CHANNEL.keys())
+        if unknown_vars:
+            raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")
+
         return pd.DataFrame(
             {
                 "lat": df["lat"].values.astype(np.float32),
@@ -783,16 +789,16 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         ``[s0_t0, s0_t1, …, s0_tN, s1_t0, s1_t1, …, sK_tN]``
 
-        The ``offsets`` tensor (shape ``[sensors, 1, n_times]``) stores the
+        The ``offsets`` tensor (shape [sensors, batch, 1]) stores the
         cumulative end-index in that layout, guaranteeing
         ``offsets[s,:,:] < offsets[s+1,:,:]`` and
-        ``offsets[s,0,t] <= offsets[s,0,t+1]``.
+        ``offsets[s,t,:] <= offsets[s,t+1,:]``.
 
         Parameters
         ----------
         obs_dict : dict[str, list[pd.DataFrame | None]]
             Keyed by sensor name (:data:`ALL_SENSORS`).  Each value is a list
-            of length ``len(request_time)`` with a DataFrame per time slot
+            of length ``len(request_time)`` with a observation DataFrame per time slot
             (or ``None`` when no observations exist for that slot).
         request_time : TimeArray
             Analysis valid times
@@ -827,7 +833,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 running += n
                 offsets[s_idx, t_idx, 0] = running
 
-        # target_time: [total_obs] — epoch seconds matching the flat order
+        # target_time: [total_obs] - epoch seconds matching the flat order
         if target_time_parts:
             target_time = torch.cat(target_time_parts).to(
                 self.device, non_blocking=True
