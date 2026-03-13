@@ -39,6 +39,8 @@ NVAR = len(E2S_CHANNELS)  # 74
 NPIX = 48
 IN_CHANNELS = 2
 TIME_LENGTH = 1
+NLAT = 5
+NLON = 10
 
 
 # ---------- Mock neural network ----------
@@ -82,6 +84,18 @@ class MockGrid:
         return torch.zeros(lon.shape[0], dtype=torch.long, device=lon.device)
 
 
+class MockRegridder:
+    def __init__(self, nlat, nlon):
+        self.nlat = nlat
+        self.nlon = nlon
+
+    def __call__(self, x):
+        # x: [batch, var, npix] → [batch, var, lat, lon]
+        return torch.randn(
+            *x.shape[:-1], self.nlat, self.nlon, dtype=x.dtype, device=x.device
+        )
+
+
 def _build_sensor_stats():
     return {
         "conv": {
@@ -97,16 +111,20 @@ def _build_sensor_stats():
     }
 
 
-def _build_model(device="cpu"):
+def _build_model(device="cpu", lat_lon=False):
     with patch("earth2studio.models.da.healda.earth2grid") as mock_e2g:
         mock_e2g.healpix.Grid.return_value = MockGrid()
         mock_e2g.healpix.HEALPIX_PAD_XY = 0
+        if lat_lon:
+            mock_e2g.get_regridder.return_value = MockRegridder(NLAT, NLON)
         model = HealDA(
             model=PhooHealDAModel(),
             condition=torch.zeros(1, IN_CHANNELS, TIME_LENGTH, NPIX),
             era5_mean=torch.zeros(1, NVAR, 1, 1),
             era5_std=torch.ones(1, NVAR, 1, 1),
             sensor_stats=_build_sensor_stats(),
+            lat_lon=lat_lon,
+            output_resolution=(NLAT, NLON),
         )
     model._grid = MockGrid()
     return model.to(device)
@@ -237,16 +255,22 @@ def test_build_model_inputs(request_time):
         ),
     ],
 )
-def test_healda_call(device, request_time):
-    model = _build_model(device=device)
+@pytest.mark.parametrize("lat_lon", [False, True])
+def test_healda_call(device, request_time, lat_lon):
+    model = _build_model(device=device, lat_lon=lat_lon)
     df = _build_raw_conv_df(15, request_time)
 
     with patch.object(model, "_forward", _mock_forward):
         out = model(df)
 
+    n_times = len(request_time)
     assert isinstance(out, xr.DataArray)
-    assert out.dims == ("time", "variable", "npix")
-    assert out.shape == (len(request_time), NVAR, NPIX)
+    if lat_lon:
+        assert out.dims == ("time", "variable", "lat", "lon")
+        assert out.shape == (n_times, NVAR, NLAT, NLON)
+    else:
+        assert out.dims == ("time", "variable", "npix")
+        assert out.shape == (n_times, NVAR, NPIX)
     assert np.all(out.coords["time"].values == request_time)
 
 

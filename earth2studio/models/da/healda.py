@@ -604,6 +604,14 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         if unknown_vars:
             raise ValueError(f"Unknown satellite platform(s) present: {unknown_vars}")
 
+        max_raw = len(stats["raw_to_local"]) - 1
+        out_of_bounds = raw_ch[raw_ch > max_raw]
+        if len(out_of_bounds) > 0:
+            raise ValueError(
+                f"Sensor {sensor!r}: channel_index values {set(out_of_bounds.tolist())} "
+                f"exceed max channel {max_raw} in stats table"
+            )
+
         return pd.DataFrame(
             {
                 "lat": df["lat"].values.astype(np.float32),
