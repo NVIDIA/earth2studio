@@ -20,7 +20,7 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import redis  # type: ignore[import-untyped]
 
@@ -948,11 +948,16 @@ def process_geocatalog_ingestion(
             }
 
         try:
-            from earth2studio.serve.server.planetary_computer.pc_client import (
-                PlanetaryComputerClient,
-            )
+            from earth2studio.serve.server.pc_client import PlanetaryComputerClient
 
-            pc_client = PlanetaryComputerClient(workflow_name)
+            pc_client = PlanetaryComputerClient(
+                cast(
+                    Literal[
+                        "foundry_fcn3_workflow", "foundry_fcn3_stormscope_goes_workflow"
+                    ],
+                    workflow_name,
+                )
+            )
             pc_client.create_feature(
                 geocatalog_url=geocatalog_url,
                 collection_id=None,

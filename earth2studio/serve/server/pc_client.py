@@ -1,18 +1,27 @@
 import json
 import logging
-import os
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from time import perf_counter
 from typing import Literal
 from uuid import uuid4
 
 import requests
-from api_server.workflow import WorkflowParameters
 from azure.identity import DefaultAzureCredential
+
+from earth2studio.serve.server.workflow import WorkflowParameters
 
 logger = logging.getLogger("planetary_computer")
 logger.setLevel(logging.INFO)
+
+# JSON templates remain in serve/server/planetary_computer/ (original location, sibling of earth2studio)
+_TEMPLATE_DIR = (
+    Path(__file__).resolve().parent.parent.parent.parent
+    / "serve"
+    / "server"
+    / "planetary_computer"
+)
 
 
 class PlanetaryComputerClient:
@@ -115,9 +124,7 @@ class PlanetaryComputerClient:
             "foundry_fcn3_workflow": "template-collection-fcn3.json",
             "foundry_fcn3_stormscope_goes_workflow": "template-collection-fcn3-stormscope-goes.json",
         }
-        template_fn = os.path.join(
-            os.path.dirname(__file__), template_fns[self.workflow_name]
-        )
+        template_fn = _TEMPLATE_DIR / template_fns[self.workflow_name]
         with open(template_fn) as f:
             stac_config = json.load(f)
 
@@ -148,9 +155,7 @@ class PlanetaryComputerClient:
             "foundry_fcn3_workflow": "template-feature-fcn3.json",
             "foundry_fcn3_stormscope_goes_workflow": "template-feature-fcn3-stormscope-goes.json",
         }
-        template_fn = os.path.join(
-            os.path.dirname(__file__), template_fns[self.workflow_name]
-        )
+        template_fn = _TEMPLATE_DIR / template_fns[self.workflow_name]
         with open(template_fn) as f:
             stac_config = json.load(f)
 

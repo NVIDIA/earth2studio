@@ -232,7 +232,7 @@ class BackendProgress:
     def __init__(
         self,
         io: IOBackend,
-        workflow: "Earth2Workflow",
+        workflow: Earth2Workflow,
         execution_id: str,
         progress_dim: str = "lead_time",
     ) -> None:
