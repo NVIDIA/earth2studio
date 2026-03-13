@@ -524,7 +524,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         (output_coords,) = self.output_coords(
             self.input_coords(), request_time=request_time
         )
-        return self._to_output_dataarray(prediction, output_coords)
+        return self.build_output(prediction, output_coords)
 
     def create_generator(self) -> Generator[
         xr.DataArray,
@@ -762,9 +762,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             result[sensor] = time_list
         return result
 
-    # ------------------------------------------------------------------
-    # Tensor assembly
-    # ------------------------------------------------------------------
     @staticmethod
     def _datetime64_to_epoch_sec(t: np.datetime64) -> int:
         """Convert a numpy datetime64 to integer UTC epoch seconds."""
@@ -919,10 +916,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             ).unsqueeze(1),
         }
 
-    # ------------------------------------------------------------------
-    # Output helpers
-    # ------------------------------------------------------------------
-    def _to_output_dataarray(
+    def build_output(
         self,
         prediction: torch.Tensor,
         output_coords: CoordSystem,
