@@ -28,14 +28,13 @@ from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
-
-# from earth2studio.models.da.utils import filter_time_range
+from earth2studio.models.da.utils import filter_time_range
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
 
 try:
     import cupy as cp
@@ -173,7 +172,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ``(nlat, nlon)`` size of the output lat-lon grid. Only used when
         ``lat_lon=True``, by default ``(181, 360)`` (1° resolution)
     time_tolerance : TimeTolerance, optional
-        Time tolerance for filtering observations, by default np.timedelta64(12, "h")
+        Time tolerance for filtering observations, by default (-21 hours, 3 hours)
     """
 
     def __init__(
@@ -185,7 +184,10 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         sensor_stats: dict[str, dict[str, np.ndarray]],
         lat_lon: bool = False,
         output_resolution: tuple[int, int] = (181, 360),
-        time_tolerance: TimeTolerance = np.timedelta64(12, "h"),
+        time_tolerance: TimeTolerance = (
+            np.timedelta64(-21, "h"),
+            np.timedelta64(3, "h"),
+        ),
     ) -> None:
         super().__init__()
         self._model = model
@@ -323,7 +325,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Model package pointing to the HuggingFace repository
         """
         return Package(
-            "hf://nvidia/healda@21895a63705a770cde42c4d20d1d0543fefa954a",
+            "hf://nvidia/healda@3b9e57f7f3f0db3affac8ff38bf5248cc9087bf2",
             cache_options={"same_names": True},
         )
 
@@ -334,7 +336,10 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         package: Package,
         lat_lon: bool = False,
         output_resolution: tuple[int, int] = (181, 360),
-        time_tolerance: TimeTolerance = np.timedelta64(12, "h"),
+        time_tolerance: TimeTolerance = (
+            np.timedelta64(-21, "h"),
+            np.timedelta64(3, "h"),
+        ),
         condition: torch.Tensor | None = None,
     ) -> AssimilationModel:
         """Load HealDA model from package.
@@ -350,7 +355,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             ``(nlat, nlon)`` size of the output lat-lon grid. Only used when
             ``lat_lon=True``, by default ``(181, 360)``
         time_tolerance : TimeTolerance, optional
-            Time tolerance for filtering observations, by default np.timedelta64(12, "h")
+            Time tolerance for filtering observations, by default (-21 hours, 3 hours)
         condition : torch.Tensor | None, optional
             Static conditioning fields (orography, land fraction) on the HEALPix grid
             with shape [1, in_channels, time_length, npix]. If None, defaults to zeros.
@@ -421,6 +426,13 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         noise_labels = torch.zeros([batch_size], device=self.device)
         class_labels = torch.empty([batch_size, 0], device=self.device)
 
+        print(inputs["condition"].shape)
+        print(noise_labels.shape)
+        print(inputs["obs"].shape)
+        print(inputs["offsets"].shape)
+        print(inputs["second_of_day"].shape)
+        print(inputs["day_of_year"].shape)
+
         with torch.autocast(self.device.type, dtype=torch.bfloat16):
             prediction = self._model(
                 x=inputs["condition"],
@@ -487,38 +499,26 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "This is typically set by earth2studio data sources."
             )
 
-        # Pre-process each source into unified schema, then concatenate
-        parts: list[pd.DataFrame] = []
-        if conv_obs is not None and len(conv_obs) > 0:
-            parts.append(self.prep_conv(conv_obs))
-        if sat_obs is not None and len(sat_obs) > 0:
-            for sensor in SAT_SENSORS:
-                sensor_df = sat_obs[sat_obs["variable"] == sensor]
-                if len(sensor_df) > 0:
-                    parts.append(self.prep_sat_sensor(sensor_df, sensor))
-        obs = pd.concat(parts, ignore_index=True)
+        # Normalize request_time to a numpy datetime64 array
+        if isinstance(request_time, np.ndarray):
+            request_time = request_time.astype("datetime64[ns]")
+        else:
+            request_time = np.array(
+                [np.datetime64(request_time, "ns")], dtype="datetime64[ns]"
+            )
 
-        # Filter by time tolerance and normalize
-        obs_filtered = self._filter_and_normalize(obs)
-        if len(obs_filtered) == 0:
+        # Pre-process, QC, normalize, and split by (sensor, time)
+        obs_dict = self.filter_and_normalize(conv_obs, sat_obs, request_time)
+
+        # Check if all (sensor, time) buckets are empty
+        if all(df is None for time_list in obs_dict.values() for df in time_list):
             logger.warning("No observations after filtering, returning empty analysis")
             (output_coords,) = self.output_coords(
                 self.input_coords(), request_time=request_time
             )
             return self._empty_output(output_coords)
 
-        # Sort by sensor order
-        sensor_order = pd.CategoricalDtype(categories=ALL_SENSORS, ordered=True)
-        obs_filtered["sensor"] = obs_filtered["sensor"].astype(sensor_order)
-        obs_sorted = obs_filtered.sort_values("sensor", kind="stable").reset_index(
-            drop=True
-        )
-
-        # Build model inputs
-        valid_time = pd.Timestamp(request_time[0])
-        inputs = self._build_model_inputs(obs_sorted, valid_time)
-
-        # Run inference
+        inputs = self.build_input(obs_dict, request_time)
         prediction = self._forward(inputs)
 
         (output_coords,) = self.output_coords(
@@ -606,13 +606,15 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         raw_ch = df["channel_index"].values.astype(int)
         platforms = SENSOR_PLATFORMS.get(sensor, [])
         platform_map = {name: i for i, name in enumerate(platforms)}
+
+        if set(df["satellite"].unique()) - set(platform_map.keys()):
+            raise ValueError("Unknown satellite platform(s) present")
+
         return pd.DataFrame(
             {
                 "lat": df["lat"].values.astype(np.float32),
                 "lon": df["lon"].values.astype(np.float32),
-                "obs_time_ns": df["time"]
-                .values.astype("datetime64[ns]")
-                .view(np.int64),
+                "obs_time_ns": df["time"].values.astype("datetime64[ns]"),
                 "observation": df["observation"].values.astype(np.float64),
                 "local_channel": (stats["raw_to_local"][raw_ch] - 1).astype(np.int32),
                 "local_platform": df["satellite"]
@@ -645,9 +647,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             {
                 "lat": df["lat"].values.astype(np.float32),
                 "lon": df["lon"].values.astype(np.float32),
-                "obs_time_ns": df["time"]
-                .values.astype("datetime64[ns]")
-                .view(np.int64),
+                "obs_time_ns": df["time"].values.astype("datetime64[ns]"),
                 "observation": df["observation"].values.astype(np.float64),
                 "local_channel": df["variable"]
                 .map(CONV_VAR_CHANNEL)
@@ -663,17 +663,58 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             }
         )
 
-    def _filter_and_normalize(self, obs: pd.DataFrame) -> pd.DataFrame:
-        """Join per-channel stats, apply QC filtering, and z-score normalize."""
+    def filter_and_normalize(
+        self,
+        conv_obs: pd.DataFrame | None,
+        sat_obs: pd.DataFrame | None,
+        request_time: TimeArray,
+    ) -> dict[str, list[pd.DataFrame | None]]:
+        """Pre-process, QC-filter, z-score normalize, and split observations by
+        sensor and request time.
+
+        This method handles the full observation pipeline:
+
+        1. Convert raw inputs via :meth:`prep_conv` / :meth:`prep_sat_sensor`.
+        2. Merge per-channel normalization statistics.
+        3. Apply QC filters (range checks, height/pressure bounds for conv).
+        4. Z-score normalize observations.
+        5. Split into per-sensor, per-time buckets.
+
+        Parameters
+        ----------
+        conv_obs : pd.DataFrame | None
+            Raw conventional observation DataFrame (or ``None``)
+        sat_obs : pd.DataFrame | None
+            Raw satellite observation DataFrame (or ``None``)
+        request_time : TimeArray
+            One or more analysis valid times
+
+        Returns
+        -------
+        dict[str, list[pd.DataFrame | None]]
+            Dictionary to dictionary mapping sensor name to list of data frames for each
+            request time.
+        """
+        # 1. Standardize raw inputs into a unified schema.
+        parts: list[pd.DataFrame] = []
+        if conv_obs is not None and len(conv_obs) > 0:
+            parts.append(self.prep_conv(conv_obs))
+        if sat_obs is not None and len(sat_obs) > 0:
+            for sensor in SAT_SENSORS:
+                sensor_df = sat_obs[sat_obs["variable"] == sensor]
+                if len(sensor_df) > 0:
+                    parts.append(self.prep_sat_sensor(sensor_df, sensor))
+
+        if not parts:
+            return {s: [None] * len(request_time) for s in ALL_SENSORS}
+
+        obs = pd.concat(parts, ignore_index=True)
+
         # Convert cudf to pandas if needed (TODO: See if can be removed)
         if cudf is not None and isinstance(obs, cudf.DataFrame):
             obs = obs.to_pandas()
 
-        # Filter observations within tolerance window
-        # obs = filter_time_range(
-        #     obs, request_time, self._tolerance, time_column="obs_time_ns"
-        # )
-
+        # 2. QC and normalize once on the full set (time-independent).
         obs = obs.merge(self._channel_stats, on=["sensor", "local_channel"], how="left")
         valid = obs["observation"].notna()
         valid &= (obs["observation"] >= obs["min_valid"]) & (
@@ -705,53 +746,140 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         obs["observation"] = ((obs["observation"] - obs["mean"]) / obs["std"]).astype(
             np.float32
         )
-        return obs.drop(columns=["mean", "std", "min_valid", "max_valid"])
+        obs = obs.drop(columns=["mean", "std", "min_valid", "max_valid"])
+
+        # 3. Split by sensor, then by time within each sensor.
+        result: dict[str, list[pd.DataFrame | None]] = {}
+        for sensor in ALL_SENSORS:
+            sensor_df = obs[obs["sensor"] == sensor]
+            time_list: list[pd.DataFrame | None] = []
+            for t in request_time:
+                t_arr = np.array([t], dtype="datetime64[ns]")
+                df_t = filter_time_range(
+                    sensor_df, t_arr, self._tolerance, time_column="obs_time_ns"
+                )
+                time_list.append(df_t if len(df_t) > 0 else None)
+            result[sensor] = time_list
+        return result
 
     # ------------------------------------------------------------------
     # Tensor assembly
     # ------------------------------------------------------------------
-    def _build_model_inputs(
+    @staticmethod
+    def _datetime64_to_epoch_sec(t: np.datetime64) -> int:
+        """Convert a numpy datetime64 to integer UTC epoch seconds."""
+        t_dt = pd.Timestamp(t).to_pydatetime()
+        return int(
+            dt.datetime(
+                t_dt.year,
+                t_dt.month,
+                t_dt.day,
+                t_dt.hour,
+                t_dt.minute,
+                t_dt.second,
+                tzinfo=dt.timezone.utc,
+            ).timestamp()
+        )
+
+    def build_input(
         self,
-        obs: pd.DataFrame,
-        valid_time: pd.Timestamp,
+        obs_dict: dict[str, list[pd.DataFrame | None]],
+        request_time: TimeArray,
     ) -> dict[str, torch.Tensor]:
-        """Convert processed DataFrame into model-ready tensors."""
-        total_obs = len(obs)
+        """Convert the per-(sensor, time) observation dict into model-ready tensors.
+
+        Observations are laid out **sensor-major, time-minor** in the flat
+        tensor so that all observations for a given sensor are contiguous:
+
+        ``[s0_t0, s0_t1, …, s0_tN, s1_t0, s1_t1, …, sK_tN]``
+
+        The ``offsets`` tensor (shape ``[sensors, 1, n_times]``) stores the
+        cumulative end-index in that layout, guaranteeing
+        ``offsets[s,:,:] < offsets[s+1,:,:]`` and
+        ``offsets[s,0,t] <= offsets[s,0,t+1]``.
+
+        Parameters
+        ----------
+        obs_dict : dict[str, list[pd.DataFrame | None]]
+            Keyed by sensor name (:data:`ALL_SENSORS`).  Each value is a list
+            of length ``len(request_time)`` with a DataFrame per time slot
+            (or ``None`` when no observations exist for that slot).
+        request_time : TimeArray
+            Analysis valid times
+
+        Returns
+        -------
+        dict[str, torch.Tensor]
+            Dictionary of tensors ready for the internal model forward call.
+        """
+        n_times = len(request_time)
+        n_sensors = len(ALL_SENSORS)
+
+        # Iterate sensor-major, time-minor. Note that time here is actually batch
+        # dimension for the model (not to be confused with time_length in the HealDA
+        # which is input time window)
+        ordered_parts: list[pd.DataFrame] = []
+        target_time_parts: list[torch.Tensor] = []
+        offsets = torch.zeros(n_sensors, n_times, 1, dtype=torch.int32)
+        running = 0
+
+        for s_idx, sensor in enumerate(ALL_SENSORS):
+            time_list = obs_dict[sensor]
+            for t_idx in range(n_times):
+                df = time_list[t_idx]
+                n = 0 if df is None else len(df)
+                if df is not None and n > 0:
+                    ordered_parts.append(df)
+                    epoch_sec = self._datetime64_to_epoch_sec(request_time[t_idx])
+                    target_time_parts.append(
+                        torch.full((n,), epoch_sec, dtype=torch.int64)
+                    )
+                running += n
+                offsets[s_idx, t_idx, 0] = running
+
+        # target_time: [total_obs] — epoch seconds matching the flat order
+        if target_time_parts:
+            target_time = torch.cat(target_time_parts).to(
+                self.device, non_blocking=True
+            )
+        else:
+            target_time = torch.empty(0, dtype=torch.int64, device=self.device)
+
+        # Concatenate all observations in sensor-major order.
+        if ordered_parts:
+            obs = pd.concat(ordered_parts, ignore_index=True)
+        else:
+            obs = pd.DataFrame(
+                columns=[
+                    "lat",
+                    "lon",
+                    "obs_time_ns",
+                    "observation",
+                    "local_channel",
+                    "local_platform",
+                    "sensor",
+                    "obs_type",
+                    "height",
+                    "pressure",
+                    "scan_angle",
+                    "sat_zenith_angle",
+                    "sol_zenith_angle",
+                ]
+            )
 
         def to_dev(col: str) -> torch.Tensor:
             return torch.from_numpy(obs[col].values).to(self.device, non_blocking=True)
 
         lat = to_dev("lat")
         lon = to_dev("lon")
-
-        # Cumulative per-sensor offsets
-        counts = obs.groupby("sensor", observed=False).size()
-        per_sensor = torch.tensor(
-            [int(counts.get(s, 0)) for s in ALL_SENSORS], dtype=torch.int32
+        # obs_time_ns is datetime64[ns]; convert to int64 epoch nanoseconds
+        obs_time_int = (
+            obs["obs_time_ns"].values.astype("datetime64[ns]").astype(np.int64)
         )
-        offsets = per_sensor.cumsum(0).reshape(-1, 1, 1)
-
-        # Time encoding
-        valid_dt = valid_time.to_pydatetime()
-        valid_epoch = int(
-            dt.datetime(
-                valid_dt.year,
-                valid_dt.month,
-                valid_dt.day,
-                valid_dt.hour,
-                valid_dt.minute,
-                valid_dt.second,
-                tzinfo=dt.timezone.utc,
-            ).timestamp()
-        )
-        target_time = torch.full(
-            (total_obs,), valid_epoch, dtype=torch.int64, device=self.device
-        )
-
         float_metadata = HealDA._compute_unified_metadata(
             target_time,
             lon=lon,
-            time=to_dev("obs_time_ns"),
+            time=torch.from_numpy(obs_time_int).to(self.device, non_blocking=True),
             height=to_dev("height"),
             pressure=to_dev("pressure"),
             scan_angle=to_dev("scan_angle"),
@@ -759,11 +887,20 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             sol_zenith_angle=to_dev("sol_zenith_angle"),
         )
 
-        # Calendar features
-        midnight = valid_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        second_of_day = (valid_dt - midnight).total_seconds()
-        jan1 = valid_dt.replace(month=1, day=1, hour=0, minute=0, second=0)
-        day_of_year = (valid_dt - jan1).total_seconds() / 86400.0
+        # Calendar features & condition expansion.
+        seconds_of_day: list[float] = []
+        days_of_year: list[float] = []
+        for t in request_time:
+            t_dt = pd.Timestamp(t).to_pydatetime()
+            midnight = t_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            jan1 = t_dt.replace(month=1, day=1, hour=0, minute=0, second=0)
+            seconds_of_day.append((t_dt - midnight).total_seconds())
+            days_of_year.append((t_dt - jan1).total_seconds() / 86400.0)
+
+        # Expand condition to match batch with the number of time inputs
+        condition = self.condition  # [batch, in_channels, time_length, npix]
+        if condition.shape[2] != n_times:
+            condition = condition[:, :, :, :].expand(n_times, -1, -1, -1).contiguous()
 
         return {
             "obs": to_dev("observation"),
@@ -773,13 +910,13 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             "local_platform": to_dev("local_platform"),
             "obs_type": to_dev("obs_type"),
             "offsets": offsets.to(self.device),
-            "condition": self.condition,
+            "condition": condition,
             "second_of_day": torch.tensor(
-                [[second_of_day]], dtype=torch.float32, device=self.device
-            ),
+                seconds_of_day, dtype=torch.float32, device=self.device
+            ).unsqueeze(1),
             "day_of_year": torch.tensor(
-                [[day_of_year]], dtype=torch.float32, device=self.device
-            ),
+                days_of_year, dtype=torch.float32, device=self.device
+            ).unsqueeze(1),
         }
 
     # ------------------------------------------------------------------
@@ -795,7 +932,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         prediction : torch.Tensor
-            Model output [batch, channels, time, npix]
+            Model output [batch, variable, 1, npix]
         output_coords : CoordSystem
             Output coordinate system
 
@@ -804,15 +941,11 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         xr.DataArray
             Analysis field, either on HEALPix (npix) or lat-lon grid
         """
-        # Take last time step, shape -> [1, channels, npix]
-        out = prediction[:, :, -1, :]
-
+        out = prediction.squeeze(2).contiguous()
         if self._lat_lon and self._regridder is not None:
-            # Regrid each batch×channel from HEALPix to lat-lon
             out = self._regridder(out.double())
 
-        device = out.device
-        if device.type == "cuda" and cp is not None:
+        if self.device.type == "cuda" and cp is not None:
             data = cp.asarray(out)
         else:
             data = out.cpu().numpy()

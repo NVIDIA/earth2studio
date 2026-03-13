@@ -112,38 +112,13 @@ def _build_model(device="cpu"):
     return model.to(device)
 
 
-def _build_conv_obs_df(n_obs=10, request_time=None):
-    """Internal (post-prep_conv) format for testing _filter_and_normalize etc."""
-    if request_time is None:
-        request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    t_ns = request_time[0].astype("datetime64[ns]").view(np.int64)
-    return pd.DataFrame(
-        {
-            "lat": np.random.uniform(-90, 90, n_obs).astype(np.float32),
-            "lon": np.random.uniform(0, 360, n_obs).astype(np.float32),
-            "obs_time_ns": np.full(n_obs, t_ns, dtype=np.int64),
-            "observation": np.random.uniform(200, 300, n_obs).astype(np.float64),
-            "local_channel": np.full(n_obs, 5, dtype=np.int32),  # "t" channel
-            "local_platform": np.zeros(n_obs, dtype=np.int64),
-            "sensor": "conv",
-            "obs_type": np.zeros(n_obs, dtype=np.int32),
-            "height": np.full(n_obs, 100.0, dtype=np.float32),
-            "pressure": np.full(n_obs, 500.0, dtype=np.float32),
-            "scan_angle": np.full(n_obs, np.nan, dtype=np.float32),
-            "sat_zenith_angle": np.full(n_obs, np.nan, dtype=np.float32),
-            "sol_zenith_angle": np.full(n_obs, np.nan, dtype=np.float32),
-        }
-    )
-
-
 def _build_raw_conv_df(n_obs=10, request_time=None):
     """Raw input format matching conv_schema (time, variable, type, elev, pres)."""
     if request_time is None:
         request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    t = request_time[0].astype("datetime64[ns]")
     df = pd.DataFrame(
         {
-            "time": np.full(n_obs, t),
+            "time": np.tile(request_time, n_obs)[:n_obs],
             "lat": np.random.uniform(-90, 90, n_obs).astype(np.float32),
             "lon": np.random.uniform(0, 360, n_obs).astype(np.float32),
             "observation": np.random.uniform(200, 300, n_obs).astype(np.float32),
@@ -181,26 +156,64 @@ def _build_raw_sat_df(n_obs=10, request_time=None, sensor="atms"):
 
 
 def _mock_forward(inputs):
-    return torch.randn(1, NVAR, TIME_LENGTH, NPIX, device=inputs["condition"].device)
+    return torch.randn(
+        inputs["condition"].shape[0], NVAR, 1, NPIX, device=inputs["condition"].device
+    )
 
 
-def test_build_model_inputs():
+@pytest.mark.parametrize(
+    "request_time",
+    [
+        np.array([np.datetime64("2024-01-01T12:00:00")]),
+        np.array(
+            [np.datetime64("2024-01-01T12:00:00"), np.datetime64("2024-01-01T18:00:00")]
+        ),
+        np.array(
+            [
+                np.datetime64("2024-01-01T06:00:00"),
+                np.datetime64("2024-01-01T12:00:00"),
+                np.datetime64("2024-01-01T18:00:00"),
+            ]
+        ),
+    ],
+)
+def test_build_model_inputs(request_time):
     model = _build_model()
-    request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    df = _build_conv_obs_df(10, request_time)
-    filtered = model._filter_and_normalize(df)
+    n_times = len(request_time)
 
-    sensor_order = pd.CategoricalDtype(categories=ALL_SENSORS, ordered=True)
-    filtered["sensor"] = filtered["sensor"].astype(sensor_order)
-    filtered = filtered.sort_values("sensor", kind="stable").reset_index(drop=True)
+    # Build one raw conv DF per request time with observations at that time
+    parts = []
+    for i, t in enumerate(request_time):
+        df = _build_raw_conv_df(10 + i, request_time)
+        df["time"] = t.astype("datetime64[ns]")
+        parts.append(df)
+    raw_conv = pd.concat(parts, ignore_index=True)
+    raw_conv.attrs = {"request_time": request_time}
 
-    inputs = model._build_model_inputs(filtered, pd.Timestamp("2024-01-01T12:00:00"))
+    obs_dict = model.filter_and_normalize(raw_conv, None, request_time)
+    assert set(obs_dict.keys()) == set(ALL_SENSORS)
+
+    inputs = model.build_input(obs_dict, request_time)
+    total_obs = sum(
+        len(df) for time_list in obs_dict.values() for df in time_list if df is not None
+    )
     assert "obs" in inputs
     assert "float_metadata" in inputs
     assert "pix" in inputs
     assert "offsets" in inputs
+    assert inputs["obs"].shape[0] == total_obs
     assert inputs["float_metadata"].shape[1] == 28
-    assert inputs["offsets"].shape[0] == len(ALL_SENSORS)
+    assert inputs["offsets"].shape == (len(ALL_SENSORS), n_times, 1)
+    assert inputs["second_of_day"].shape == (n_times, 1)
+    assert inputs["day_of_year"].shape == (n_times, 1)
+    assert inputs["condition"].shape[0] == n_times
+    # Sensor monotonicity: offsets[s,:,:] <= offsets[s+1,:,:]
+    for s in range(len(ALL_SENSORS) - 1):
+        assert (inputs["offsets"][s, :, :] <= inputs["offsets"][s + 1, :, :]).all()
+    # Time monotonicity within each sensor
+    for s in range(len(ALL_SENSORS)):
+        for t in range(n_times - 1):
+            assert inputs["offsets"][s, t, 0] <= inputs["offsets"][s, t + 1, 0]
 
 
 @pytest.mark.parametrize(
@@ -215,9 +228,17 @@ def test_build_model_inputs():
         ),
     ],
 )
-def test_healda_call(device):
+@pytest.mark.parametrize(
+    "request_time",
+    [
+        np.array([np.datetime64("2024-01-01T12:00:00")]),
+        np.array(
+            [np.datetime64("2024-01-01T12:00:00"), np.datetime64("2024-01-01T18:00:00")]
+        ),
+    ],
+)
+def test_healda_call(device, request_time):
     model = _build_model(device=device)
-    request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     df = _build_raw_conv_df(15, request_time)
 
     with patch.object(model, "_forward", _mock_forward):
@@ -225,7 +246,7 @@ def test_healda_call(device):
 
     assert isinstance(out, xr.DataArray)
     assert out.dims == ("time", "variable", "npix")
-    assert out.shape == (1, NVAR, NPIX)
+    assert out.shape == (len(request_time), NVAR, NPIX)
     assert np.all(out.coords["time"].values == request_time)
 
 
