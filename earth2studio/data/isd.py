@@ -61,7 +61,7 @@ class ISD:
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
-        by default np.timedelta64(0)
+        by default np.timedelta64(10, 'm')
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -131,7 +131,7 @@ class ISD:
     def __init__(
         self,
         stations: list[str],
-        time_tolerance: TimeTolerance = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,

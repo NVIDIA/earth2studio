@@ -110,6 +110,17 @@ def load_model(
 
 See [interp.py](mdc:earth2studio/models/da/interp.py) for a complete reference.
 
+### Docstring
+
+The numpy style doc string for this paramter should be the following:
+
+```
+time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default ...
+```
+
 ### Reminders
 
 - Always use `TimeTolerance` as the type hint for all tolerance parameters

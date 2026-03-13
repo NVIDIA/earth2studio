@@ -69,7 +69,7 @@ class _UFSObsBase:
 
     def __init__(
         self,
-        time_tolerance: TimeTolerance = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         max_workers: int = 24,
         cache: bool = True,
         async_timeout: int = 600,
@@ -414,9 +414,9 @@ class UFSObsConv(_UFSObsBase):
     Parameters
     ----------
     time_tolerance : TimeTolerance, optional
-        Time tolerance for filtering observations. Can be a single
-        ``timedelta``/``np.timedelta64`` (symmetric ±) or a tuple of two values
-        ``(lower_bound, upper_bound)``, by default np.timedelta64(0).
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     max_workers : int, optional
         Max workers in async IO thread pool for concurrent downloads, by default 24.
     cache : bool, optional
@@ -548,9 +548,9 @@ class UFSObsSat(_UFSObsBase):
     Parameters
     ----------
     time_tolerance : TimeTolerance, optional
-        Time tolerance for filtering observations. Can be a single
-        ``timedelta``/``np.timedelta64`` (symmetric ±) or a tuple of two values
-        ``(lower_bound, upper_bound)``, by default np.timedelta64(0).
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     satellites : list[str], optional
         List of satellite platforms to include, by default includes all platforms.
     max_workers : int, optional
@@ -645,7 +645,7 @@ class UFSObsSat(_UFSObsBase):
 
     def __init__(
         self,
-        tolerance: TimeTolerance = np.timedelta64(0),
+        tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
         max_workers: int = 24,
         cache: bool = True,
