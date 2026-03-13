@@ -55,7 +55,7 @@ from earth2studio.data import ISD
     ],
 )
 def test_isd_fetch(stations, time, variable, tol):
-    ds = ISD(stations=stations, tolerance=tol, cache=False)
+    ds = ISD(stations=stations, time_tolerance=tol, cache=False)
     df = ds(time, variable)
 
     assert list(df.columns) == ds.SCHEMA.names
@@ -94,7 +94,7 @@ def test_isd_cache(time, variable, cache):
 
     ds = ISD(
         stations=["72781024243"],
-        tolerance=timedelta(hours=12),
+        time_tolerance=timedelta(hours=12),
         cache=cache,
         verbose=False,
     )
@@ -126,7 +126,7 @@ def test_isd_schema_fields():
     time = np.array(["2025-01-01T12:00:00"], dtype=np.datetime64)
     tol = timedelta(minutes=10)
 
-    ds = ISD(stations=[station], tolerance=tol)
+    ds = ISD(stations=[station], time_tolerance=tol)
 
     # Test with default schema (all fields)
     df_full = ds(time, ["t2m"], fields=None)
@@ -142,7 +142,7 @@ def test_isd_exceptions():
     # Throw key error for invalid variable
     ds = ISD(
         stations=["72781024243"],
-        tolerance=timedelta(hours=12),
+        time_tolerance=timedelta(hours=12),
         cache=False,
         verbose=False,
     )
@@ -243,7 +243,7 @@ def test_isd_station_bbox(bbox):
 def _shared_isd(request):
     # shared datasource (its internal methods operate on the passed DataFrame)
     request.cls.isd = ISD(
-        stations=[], tolerance=timedelta(0), cache=False, verbose=False
+        stations=[], time_tolerance=timedelta(0), cache=False, verbose=False
     )
 
 

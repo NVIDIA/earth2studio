@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle infill to mixture of model checkpoints
 - Updated GraphCastOperational and GraphCastSmall latitude input / output to be [90,-90]
 - Updated GraphCast models to support multiple time inputs, multiple times will be looped not batched
+- Renamed `tolerance` parameter in ISD data source to `time_tolerance`
 
 ### Deprecated
 
