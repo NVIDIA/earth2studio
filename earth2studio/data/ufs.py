@@ -645,7 +645,7 @@ class UFSObsSat(_UFSObsBase):
 
     def __init__(
         self,
-        tolerance: TimeTolerance = np.timedelta64(10, "m"),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
         max_workers: int = 24,
         cache: bool = True,
@@ -663,7 +663,7 @@ class UFSObsSat(_UFSObsBase):
                 )
         self.satellites = satellites
         super().__init__(
-            time_tolerance=tolerance,
+            time_tolerance=time_tolerance,
             max_workers=max_workers,
             cache=cache,
             async_timeout=async_timeout,
