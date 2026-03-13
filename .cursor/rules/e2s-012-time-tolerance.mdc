@@ -58,6 +58,8 @@ DataFrameSources and ForecastFrameSources.
     intervals. Sparse observations typically have complete different time stamps so
     the need for a time tolerance is very common for these components.
 
+The parameter should always have a default value but will likely vary between each
+data source.
 
 ```python
 def __init__(
@@ -75,6 +77,8 @@ See [ufs.py](mdc:earth2studio/data/ufs.py) for a complete reference.
 
 In model constructors, normalize tolerance at init time and store the `np.timedelta64`
 tuple directly (models typically work with `np.datetime64` arrays, not Python `datetime`):
+The parameter should always have a default value but will likely vary between each
+model.
 
 ```python
 def __init__(
