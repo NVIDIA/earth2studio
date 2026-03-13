@@ -57,8 +57,8 @@ class DeterministicWorkflowParameters(WorkflowParameters):
     )
 
     # Model configuration
-    model_type: Literal["dlwp", "fcn"] = Field(
-        default="fcn", description="Prognostic model type (dlwp, fcn)"
+    model_type: Literal["dlwp", "fcn", "fcn3"] = Field(
+        default="fcn", description="Prognostic model type (dlwp, fcn, fcn3)"
     )
 
     # Data source configuration
@@ -141,7 +141,7 @@ class DeterministicWorkflow(Workflow):
             from earth2studio import run
             from earth2studio.data import GFS
             from earth2studio.io import ZarrBackend
-            from earth2studio.models.px import DLWP, FCN
+            from earth2studio.models.px import DLWP, FCN, FCN3
 
             # Load prognostic model
             progress = WorkflowProgress(
@@ -157,6 +157,9 @@ class DeterministicWorkflow(Workflow):
             elif parameters.model_type.lower() == "fcn":
                 package = FCN.load_default_package()
                 model = FCN.load_model(package)
+            elif parameters.model_type.lower() == "fcn3":
+                package = FCN3.load_default_package()
+                model = FCN3.load_model(package)
             else:
                 raise ValueError(f"Unsupported model type: {parameters.model_type}")
 
