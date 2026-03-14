@@ -968,9 +968,10 @@ def process_geocatalog_ingestion(
                 config_dir=pc_config_dir,
                 workflow_name=pc_workflow_name,
             )
+            collection_id = parameters.get("collection_id")
             pc_client.create_feature(
                 geocatalog_url=geocatalog_url,
-                collection_id=None,
+                collection_id=collection_id,
                 parameters=parameters,
                 blob_url=blob_url,
             )

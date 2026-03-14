@@ -391,6 +391,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         seeds_fcn3: Sequence[int] | None = None,
         seeds_stormscope: Sequence[int] | None = None,
         variables: Sequence[str] | None = None,
+        collection_id: str | None = None,
     ) -> None:
         self.validate_start_times(start_time_stormscope, start_time_fcn3)
         lead_times = np.array([np.timedelta64(i, "h") for i in range(n_steps + 1)])

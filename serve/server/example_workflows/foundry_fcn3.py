@@ -138,6 +138,7 @@ class FoundryFCN3Workflow(Earth2Workflow):
         n_samples: int = 16,
         seeds: Sequence[int] | None = None,
         variables: Sequence[str] | None = None,
+        collection_id: str | None = None,
     ) -> None:
         self.validate_start_time(start_time)
         lead_times = np.array([np.timedelta64(i * 6, "h") for i in range(n_steps + 1)])
