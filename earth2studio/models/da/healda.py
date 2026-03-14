@@ -157,11 +157,12 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     model : torch.nn.Module
         The underlying HealDA neural network
     condition : torch.Tensor
-        Static conditioning fields (orography, land fraction) on the HEALPix grid
+        Static conditioning fields (e.g. orography, land fraction) on the HEALPix grid
+        of size [1, n_static, 1, npix]
     era5_mean : torch.Tensor
-        ERA5 per-channel mean for output denormalization [1, n_channels, 1, 1]
+        ERA5 per-channel mean for output denormalization [1, out_variables, 1, 1]
     era5_std : torch.Tensor
-        ERA5 per-channel std for output denormalization [1, n_channels, 1, 1]
+        ERA5 per-channel std for output denormalization [1, out_variables, 1, 1]
     sensor_stats : dict[str, dict[str, np.ndarray]]
         Per-sensor normalization statistics loaded from the package
     lat_lon : bool, optional
@@ -325,7 +326,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Model package pointing to the HuggingFace repository
         """
         return Package(
-            "hf://nvidia/healda@3b9e57f7f3f0db3affac8ff38bf5248cc9087bf2",
+            "hf://nvidia/healda@28e22277aab12a7c9e3e160c003539ef57bb24b1",
             cache_options={"same_names": True},
         )
 
@@ -340,7 +341,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             np.timedelta64(-21, "h"),
             np.timedelta64(3, "h"),
         ),
-        condition: torch.Tensor | None = None,
     ) -> AssimilationModel:
         """Load HealDA model from package.
 
@@ -356,9 +356,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             ``lat_lon=True``, by default ``(181, 360)``
         time_tolerance : TimeTolerance, optional
             Time tolerance for filtering observations, by default (-21 hours, 3 hours)
-        condition : torch.Tensor | None, optional
-            Static conditioning fields (orography, land fraction) on the HEALPix grid
-            with shape [1, in_channels, time_length, npix]. If None, defaults to zeros.
 
         Returns
         -------
@@ -374,16 +371,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         model.eval()
 
         # Static conditioning (orography, land fraction) on HEALPix grid
-        # Shape: [1, in_channels, time_length, npix]
-        if condition is None:
-            n_in = model.in_channels
-            npix = model.npix
-            time_length = model.time_length
-            condition = torch.zeros(1, n_in, time_length, npix, dtype=torch.float32)
-            logger.info(
-                "No static condition provided, using zeros. "
-                "For best results, provide orography and land fraction fields."
-            )
+        condition = torch.from_numpy(
+            np.load(package.resolve("static/condition_hpx6_padxy.npy"))
+        )  # [1, 2, 1, npix]
 
         # Load sensor normalization statistics
         sensor_stats: dict[str, dict[str, np.ndarray]] = {}

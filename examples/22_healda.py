@@ -142,8 +142,8 @@ ax.set_global()
 ax.coastlines(linewidth=0.5)
 ax.gridlines(linewidth=0.3, alpha=0.5)
 ax.scatter(
-    conv_df["lon"].values,
-    conv_df["lat"].values,
+    conv_df["lon"].values[::10],
+    conv_df["lat"].values[::10],
     s=0.1,
     alpha=0.3,
     c="tab:blue",
@@ -157,8 +157,8 @@ ax.set_global()
 ax.coastlines(linewidth=0.5)
 ax.gridlines(linewidth=0.3, alpha=0.5)
 ax.scatter(
-    sat_df["lon"].values,
-    sat_df["lat"].values,
+    sat_df["lon"].values[::10],
+    sat_df["lat"].values[::10],
     s=0.1,
     alpha=0.3,
     c="tab:orange",
@@ -173,31 +173,15 @@ plt.tight_layout()
 plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 
 # %%
-# Run With Conventional Observations Only
-# ----------------------------------------
 # DA models can be called directly for stateless inference or via
-# ``create_generator`` for stateful (iterative) assimilation workflows.
-# Here we use the direct call to run three independent analyses.
-
-# %%
-torch.manual_seed(42)
-result_conv = model(conv_obs=conv_df)
-logger.info(f"Conv-only analysis shape: {result_conv.shape}")
-
-# %%
-# Run With Satellite Observations Only
-# -------------------------------------
-# Call the model with only satellite observations.
-
-# %%
-torch.manual_seed(42)
-result_sat = model(sat_obs=sat_df)
-logger.info(f"Sat-only analysis shape: {result_sat.shape}")
-
-# %%
-# Run With Both Observation Types
-# --------------------------------
-# Combine conventional and satellite observations for the fullest analysis.
+# :py:meth:`~earth2studio.models.da.HealDA.create_generator` for stateful (iterative)
+# assimilation workflows.  Here we use the direct call API to invoke the model.
+#
+# HealDA is designed to work with the (-21, 3) hour observation window from the UFS
+# replay archive using both conventional and satellite observations. However, the DA
+# model interface is flexible enough to accept different time windows and observation
+# sources. Below we test three configurations - conventional only, satellite only, and
+# proper combined - to illustrate the impact each observation type has on the analysis.
 
 # %%
 torch.manual_seed(42)
@@ -205,18 +189,30 @@ result_both = model(conv_obs=conv_df, sat_obs=sat_df)
 logger.info(f"Combined analysis shape: {result_both.shape}")
 
 # %%
+torch.manual_seed(42)
+result_conv = model(conv_obs=conv_df)
+logger.info(f"Conv-only analysis shape: {result_conv.shape}")
+
+
+# %%
+torch.manual_seed(42)
+result_sat = model(sat_obs=sat_df)
+logger.info(f"Sat-only analysis shape: {result_sat.shape}")
+
+
+# %%
 # Post Processing
 # ---------------
 # Because we loaded the model with ``lat_lon=True`` the output is already on a
 # regular equiangular lat-lon grid, so no manual regridding is needed.
-# Compare the three runs for surface temperature (``t2m``) and 500 hPa geopotential
-# (``z500``).  Each row shows a different observation configuration.
+# Compare the three runs for surface temperature (t2m) and total column water vapour
+# (tcwv). Each row shows a different observation configuration.
 
 # %%
 plt.close("all")
-plot_vars = ["t2m", "z500"]
-titles = ["Conv only", "Sat only", "Conv + Sat"]
-results = [result_conv, result_sat, result_both]
+plot_vars = ["t2m", "tcwv"]
+titles = ["Conv + Sat", "Conv only", "Sat only"]
+results = [result_both, result_conv, result_sat]
 projection = ccrs.Robinson()
 
 fig, axes = plt.subplots(
@@ -229,7 +225,7 @@ fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 lat = results[0].coords["lat"].values
 lon = results[0].coords["lon"].values
-cmaps = ["Spectral_r", "PiYG"]
+cmaps = ["Spectral_r", "twilight_shifted"]
 
 for row, (title, da) in enumerate(zip(titles, results)):
     for col, var in enumerate(plot_vars):
@@ -268,9 +264,10 @@ plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 # HealDA vs ERA5
 # --------------
 # Next fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive to compare
-# against the assimilated fields.  HealDA outputs standard Earth2Studio variable
-# names so we can query ERA5 with the same identifiers. As expected the
-# combination of data sources yields the most accurate global prediction.
+# against the assimilated fields. HealDA outputs standard Earth2Studio variable
+# names so we can query ERA5 with the same identifiers. We expect the runs that
+# are missing an observation source to show larger errors, while the combined run
+# yields the most accurate global prediction.
 
 # %%
 era5_ds = NCAR_ERA5()
@@ -280,9 +277,9 @@ era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 # %%
 plt.close("all")
 
-diff_titles = ["Conv - ERA5", "Sat - ERA5", "Conv+Sat - ERA5"]
-diff_results = [result_conv, result_sat, result_both]
-diff_ranges = {"t2m": (-20, 20), "z500": (-3000, 3000)}
+diff_titles = ["Conv+Sat - ERA5", "Conv - ERA5", "Sat - ERA5"]
+diff_results = [result_both, result_conv, result_sat]
+diff_ranges = {"t2m": (-20, 20), "tcwv": (0, 10)}
 
 fig, axes = plt.subplots(
     len(diff_results),
