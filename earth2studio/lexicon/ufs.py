@@ -43,13 +43,14 @@ class GSIConventionalLexicon(metaclass=LexiconType):
         "q": "conv::q::ges::Observation",
         "t": "conv::t::ges::Observation",
         "pres": "conv::ps::ges::Observation",
-        "u10m": "conv::uv::ges::u_Observation",
-        "v10m": "conv::uv::ges::v_Observation",
-        "q2m": "conv::q::ges::Observation",
-        "t2m": "conv::t::ges::Observation",
-        "sp": "conv::ps::ges::Observation",
-        "u100m": "conv::uv::ges::u_Observation",
-        "v100m": "conv::uv::ges::v_Observation",
+        # Removing surface until we have elevation map to reference for filtering
+        # "u10m": "conv::uv::ges::u_Observation",
+        # "v10m": "conv::uv::ges::v_Observation",
+        # "q2m": "conv::q::ges::Observation",
+        # "t2m": "conv::t::ges::Observation",
+        # "sp": "conv::ps::ges::Observation",
+        # "u100m": "conv::uv::ges::u_Observation",
+        # "v100m": "conv::uv::ges::v_Observation",
         "gps": "conv::gps::ges::Observation",
         # Global Navigation System Radio Occultation is a remote sensing method
         # Could merge these with t and q but unique measurement method so keeping seperate
@@ -74,6 +75,7 @@ class GSIConventionalLexicon(metaclass=LexiconType):
         """
         gsi_key = cls.VOCAB[val]
 
+        # This doesnt work currently, elev is from sea level so need a orography field to filter surface
         if val in ["u10m", "v10m", "sp"]:
 
             def mod(x: pd.DataFrame) -> pd.DataFrame:

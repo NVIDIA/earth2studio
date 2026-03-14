@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
 - Added StormCast SDA model
-- Adding Beta serve utils with inference server and client implementations
+- Added beta serve utils with inference server and client implementations
+- Added HealPix data assimilation (HealDA) model
 
 ### Changed
 

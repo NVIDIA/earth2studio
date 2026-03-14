@@ -39,8 +39,8 @@ from earth2studio.data import UFSObsConv, UFSObsSat
 @pytest.mark.parametrize(
     "variable, tol",
     [
-        (["t2m"], timedelta(hours=1)),
-        (["u10m", "v10m"], timedelta(hours=2)),
+        (["t"], timedelta(hours=1)),
+        (["u", "v"], timedelta(hours=2)),
     ],
 )
 def test_ufsobsconv_fetch(time, variable, tol):
@@ -75,7 +75,7 @@ def test_ufsobsconv_fetch(time, variable, tol):
         datetime(year=2024, month=1, day=1, hour=0),
     ],
 )
-@pytest.mark.parametrize("variable", [["t2m"]])
+@pytest.mark.parametrize("variable", [["t"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_ufsobsconv_cache(time, variable, cache):
     ds = UFSObsConv(
@@ -107,11 +107,11 @@ def test_ufsobsconv_schema_fields():
 
     ds = UFSObsConv(time_tolerance=tol, cache=False, verbose=False)
 
-    df_full = ds(time, ["t2m"], fields=None)
+    df_full = ds(time, ["t"], fields=None)
     assert list(df_full.columns) == ds.SCHEMA.names
 
     subset_fields = ["time", "lat", "lon", "observation", "variable"]
-    df_subset = ds(time, ["t2m"], fields=subset_fields)
+    df_subset = ds(time, ["t"], fields=subset_fields)
     assert list(df_subset.columns) == subset_fields
 
 
@@ -128,7 +128,7 @@ def test_ufsobsconv_exceptions():
     with pytest.raises(KeyError):
         ds(
             datetime(2024, 1, 1),
-            ["t2m"],
+            ["t"],
             fields=["observation", "variable", "invalid_field"],
         )
 

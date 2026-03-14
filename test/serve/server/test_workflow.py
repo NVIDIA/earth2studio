@@ -23,21 +23,29 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-import redis  # type: ignore[import-untyped]
-from pydantic import Field, ValidationError  # type: ignore[import-untyped]
 
-from earth2studio.serve.server.config import get_config  # type: ignore[import-untyped]
-from earth2studio.serve.server.workflow import (  # type: ignore[import-untyped]
-    Workflow,
-    WorkflowParameters,
-    WorkflowProgress,
-    WorkflowRegistry,
-    WorkflowResult,
-    WorkflowStatus,
-    parse_workflow_directories_from_env,
-    register_all_workflows,
-    workflow_registry,
-)
+_SERVE_AVAILABLE = False
+try:
+    import redis  # type: ignore[import-untyped]
+    from api_server.config import get_config  # type: ignore[import-untyped]
+    from api_server.workflow import (  # type: ignore[import-untyped]
+        Workflow,
+        WorkflowParameters,
+        WorkflowProgress,
+        WorkflowRegistry,
+        WorkflowResult,
+        WorkflowStatus,
+        parse_workflow_directories_from_env,
+        register_all_workflows,
+        workflow_registry,
+    )
+    from pydantic import Field, ValidationError  # type: ignore[import-untyped]
+
+    _SERVE_AVAILABLE = True
+except ImportError:
+    pass
+
+pytestmark = pytest.mark.skipif(not _SERVE_AVAILABLE, reason="serve deps not available")
 
 
 @pytest.fixture(scope="module", autouse=True)
