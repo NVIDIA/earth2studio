@@ -190,29 +190,27 @@ logger.info(f"Combined analysis shape: {result_both.shape}")
 
 # %%
 torch.manual_seed(42)
-result_conv = model(conv_obs=conv_df)
-logger.info(f"Conv-only analysis shape: {result_conv.shape}")
-
-
-# %%
-torch.manual_seed(42)
 result_sat = model(sat_obs=sat_df)
 logger.info(f"Sat-only analysis shape: {result_sat.shape}")
 
+# %%
+torch.manual_seed(42)
+result_conv = model(conv_obs=conv_df)
+logger.info(f"Conv-only analysis shape: {result_conv.shape}")
 
 # %%
 # Post Processing
 # ---------------
 # Because we loaded the model with ``lat_lon=True`` the output is already on a
 # regular equiangular lat-lon grid, so no manual regridding is needed.
-# Compare the three runs for surface temperature (t2m) and total column water vapour
-# (tcwv). Each row shows a different observation configuration.
+# Compare the three runs for surface temperature (t2m) and geo-potential 500 hPa
+# (z500). Each row shows a different observation configuration.
 
 # %%
 plt.close("all")
-plot_vars = ["t2m", "tcwv"]
-titles = ["Conv + Sat", "Conv only", "Sat only"]
-results = [result_both, result_conv, result_sat]
+plot_vars = ["t2m", "z500"]
+titles = ["Conv + Sat", "Sat only", "Conv only"]
+results = [result_both, result_sat, result_conv]
 projection = ccrs.Robinson()
 
 fig, axes = plt.subplots(
@@ -225,7 +223,7 @@ fig.subplots_adjust(wspace=0.02, hspace=0.08, left=0.1, right=0.9)
 
 lat = results[0].coords["lat"].values
 lon = results[0].coords["lon"].values
-cmaps = ["Spectral_r", "twilight_shifted"]
+cmaps = ["Spectral_r", "PRGn"]
 
 for row, (title, da) in enumerate(zip(titles, results)):
     for col, var in enumerate(plot_vars):
@@ -275,12 +273,22 @@ era5_da = era5_ds(analysis_time, plot_vars)
 era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 # %%
+diff_titles = ["Conv+Sat - ERA5", "Conv - ERA5", "Sat - ERA5"]
+diff_results = [result_both, result_sat, result_conv]
+for title, da_pred in zip(diff_titles, diff_results):
+    for var in plot_vars:
+        field_pred = da_pred.sel(variable=var).data[0]
+        if hasattr(field_pred, "get"):
+            field_pred = field_pred.get()
+        field_era5 = era5_interp.sel(variable=var).data[0]
+        mae = float(np.abs(field_pred - field_era5).mean())
+        logger.info(f"{title} | {var} MAE: {mae:.4f}")
+
+# %%
 plt.close("all")
 
-diff_titles = ["Conv+Sat - ERA5", "Conv - ERA5", "Sat - ERA5"]
-diff_results = [result_both, result_conv, result_sat]
-diff_ranges = {"t2m": (-20, 20), "tcwv": (0, 10)}
 
+diff_ranges = {"t2m": (-20, 20), "z500": (0, 10)}
 fig, axes = plt.subplots(
     len(diff_results),
     len(plot_vars),
@@ -303,8 +311,8 @@ for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
             diff,
             transform=ccrs.PlateCarree(),
             cmap="RdBu_r",
-            vmin=diff_ranges[var][0],
-            vmax=diff_ranges[var][1],
+            # vmin=diff_ranges[var][0],
+            # vmax=diff_ranges[var][1],
         )
         ax.coastlines(linewidth=0.5)
         ax.gridlines(linewidth=0.3, alpha=0.5)
