@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -15,12 +16,11 @@ from earth2studio.serve.server.workflow import WorkflowParameters
 logger = logging.getLogger("planetary_computer")
 logger.setLevel(logging.INFO)
 
-# JSON templates remain in serve/server/planetary_computer/ (original location, sibling of earth2studio)
+# Directory containing STAC collection/feature JSON templates. Override with env var to use custom templates.
 _TEMPLATE_DIR = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "serve"
-    / "server"
-    / "planetary_computer"
+    Path(os.environ["EARTH2STUDIO_PC_TEMPLATE_DIR"])
+    if os.environ.get("EARTH2STUDIO_PC_TEMPLATE_DIR")
+    else Path("/workspace/earth2studio-project/serve/server/planetary_computer")
 )
 
 
