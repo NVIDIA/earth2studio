@@ -122,7 +122,7 @@ logger.info(f"Fetched {len(sat_df)} satellite observations")
 # ---------------------
 # Plot the spatial distribution of conventional and satellite observations to
 # visualise their coverage before running the assimilation. There are 12-14 million
-# observations typically for the models 24 hour time window.
+# observations typically for the model's 24-hour time window.
 
 # %%
 import cartopy.crs as ccrs
@@ -203,7 +203,7 @@ logger.info(f"Conv-only analysis shape: {result_conv.shape}")
 # ---------------
 # Because we loaded the model with ``lat_lon=True`` the output is already on a
 # regular equiangular lat-lon grid, so no manual regridding is needed.
-# Compare the three runs for surface temperature (t2m) and geo-potential 500 hPa
+# Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
 # (z500). Each row shows a different observation configuration.
 
 # %%
@@ -288,7 +288,7 @@ for title, da_pred in zip(diff_titles, diff_results):
 plt.close("all")
 
 
-diff_ranges = {"t2m": (-20, 20), "z500": (0, 10)}
+diff_ranges = {"t2m": (-10, 10), "z500": (-500, 500)}
 fig, axes = plt.subplots(
     len(diff_results),
     len(plot_vars),
@@ -311,8 +311,8 @@ for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
             diff,
             transform=ccrs.PlateCarree(),
             cmap="RdBu_r",
-            # vmin=diff_ranges[var][0],
-            # vmax=diff_ranges[var][1],
+            vmin=diff_ranges[var][0],
+            vmax=diff_ranges[var][1],
         )
         ax.coastlines(linewidth=0.5)
         ax.gridlines(linewidth=0.3, alpha=0.5)
