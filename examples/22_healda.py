@@ -38,7 +38,6 @@ In this example you will learn:
 # dependencies = [
 #   "earth2studio[da-healda] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
-#   "matplotlib",
 # ]
 # ///
 
