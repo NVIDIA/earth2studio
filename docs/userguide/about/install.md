@@ -661,6 +661,24 @@ If your system uses a different CUDA version, you may need to adjust the depende
 :::
 
 ::::::{tab-set}
+:::::{tab-item} HealDA
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-healda]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-healda
+```
+
+:::
+::::
+:::::
 :::::{tab-item} InterpEquirectangular
 ::::{tab-set}
 :::{tab-item} pip

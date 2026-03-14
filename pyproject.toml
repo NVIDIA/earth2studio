@@ -233,6 +233,12 @@ windgust-afno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 # DA Models
+da-healda = [
+    "earth2grid",
+    "nvidia-physicsnemo>=2.0",
+    "cupy-cuda12x<14.0.0",
+    "cudf-cu12==26.2.*",
+]
 da-interp = [
     "cupy-cuda12x<14.0.0",
     "cudf-cu12==26.2.*",
