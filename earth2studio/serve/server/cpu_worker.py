@@ -16,11 +16,12 @@
 
 import json
 import logging
+import os
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any
 
 import redis  # type: ignore[import-untyped]
 
@@ -919,12 +920,12 @@ def process_geocatalog_ingestion(
             return {"success": True, "skipped": True, "reason": "no blob_url"}
 
         logger.info(f"Blob URL: {blob_url}")
-        # Only trigger PC ingestion for workflows supported by PlanetaryComputerClient
-        _PC_SUPPORTED_WORKFLOWS = (
-            "foundry_fcn3_workflow",
-            "foundry_fcn3_stormscope_goes_workflow",
-        )
-        if workflow_name not in _PC_SUPPORTED_WORKFLOWS:
+        # Only trigger PC ingestion for workflows supported by PlanetaryComputerGeoCatalogClient
+        _PC_WORKFLOW_SUFFIX: dict[str, str] = {
+            "foundry_fcn3_workflow": "fcn3",
+            "foundry_fcn3_stormscope_goes_workflow": "fcn3-stormscope-goes",
+        }
+        if workflow_name not in _PC_WORKFLOW_SUFFIX:
             logger.info(
                 f"Workflow {workflow_name} not supported by Planetary Computer client, skipping ingestion for {request_id}"
             )
@@ -947,16 +948,25 @@ def process_geocatalog_ingestion(
                 "reason": "workflow not supported",
             }
 
-        try:
-            from earth2studio.serve.server.pc_client import PlanetaryComputerClient
+        env_pc = os.environ.get("EARTH2STUDIO_PC_TEMPLATE_DIR")
+        pc_config_dir: str | Path
+        if env_pc is not None:
+            pc_config_dir = env_pc
+        else:
+            _here = Path(__file__).resolve().parent
+            pc_config_dir = (
+                _here.parent.parent.parent / "serve" / "server" / "planetary_computer"
+            )
+        pc_workflow_name = _PC_WORKFLOW_SUFFIX[workflow_name]
 
-            pc_client = PlanetaryComputerClient(
-                cast(
-                    Literal[
-                        "foundry_fcn3_workflow", "foundry_fcn3_stormscope_goes_workflow"
-                    ],
-                    workflow_name,
-                )
+        try:
+            from earth2studio.data.planetary_computer import (
+                PlanetaryComputerGeoCatalogClient,
+            )
+
+            pc_client = PlanetaryComputerGeoCatalogClient(
+                config_dir=pc_config_dir,
+                workflow_name=pc_workflow_name,
             )
             pc_client.create_feature(
                 geocatalog_url=geocatalog_url,
