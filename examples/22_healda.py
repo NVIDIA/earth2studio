@@ -273,7 +273,7 @@ era5_da = era5_ds(analysis_time, plot_vars)
 era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 # %%
-diff_titles = ["Conv+Sat - ERA5", "Conv - ERA5", "Sat - ERA5"]
+diff_titles = ["Conv+Sat - ERA5", "Sat - ERA5", "Conv - ERA5"]
 diff_results = [result_both, result_sat, result_conv]
 for title, da_pred in zip(diff_titles, diff_results):
     for var in plot_vars:
@@ -286,7 +286,6 @@ for title, da_pred in zip(diff_titles, diff_results):
 
 # %%
 plt.close("all")
-
 
 diff_ranges = {"t2m": (-10, 10), "z500": (-500, 500)}
 fig, axes = plt.subplots(
