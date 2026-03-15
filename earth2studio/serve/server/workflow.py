@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import importlib.util
 import json
 import logging
@@ -22,10 +24,24 @@ import sys
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
-import redis  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    import redis  # type: ignore[import-untyped]
+    from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+except ImportError:
+    OptionalDependencyFailure("serve")
+    BaseModel = object
+    ConfigDict = None
+    Field = None
+    ValidationInfo = None
+    field_validator = lambda *args, **kwargs: lambda fn: fn  # noqa: E731
+
 
 # Import configuration
 from earth2studio.serve.server.config import (
@@ -34,12 +50,9 @@ from earth2studio.serve.server.config import (
     get_workflow_config,
 )
 
-# Get configuration
-config = get_config()
 config_manager = get_config_manager()
-
-# Configure logging
 config_manager.setup_logging()
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,16 +68,16 @@ class WorkflowStatus:
     EXPIRED = "expired"
 
 
+@check_optional_dependencies()
 class WorkflowArgsBase(BaseModel):
     """Base parameters for workflow execution."""
 
-    # Add strict validation - reject unknown fields
-    model_config = ConfigDict(extra="forbid")
+    if ConfigDict is not None:
+        # Add strict validation - reject unknown fields
+        model_config = ConfigDict(extra="forbid")
 
     @classmethod
-    def validate(
-        cls, data: Union[dict[str, Any], "WorkflowArgsBase"]
-    ) -> "WorkflowArgsBase":
+    def validate(cls, data: dict[str, Any] | WorkflowArgsBase) -> WorkflowArgsBase:
         """
         Validate and convert parameters to the correct type.
 
@@ -110,7 +123,7 @@ class WorkflowParameters(WorkflowArgsBase):
     @field_validator("forecast_times", "start_time", mode="before", check_fields=False)
     @classmethod
     def validate_datetime_list(
-        cls: type["WorkflowParameters"],
+        cls: type[WorkflowParameters],
         v: list[str] | list[datetime] | str | datetime | None,
         info: ValidationInfo,
     ) -> list[str] | list[datetime] | str | datetime | None:
@@ -138,8 +151,6 @@ class WorkflowParameters(WorkflowArgsBase):
         ValueError
             If any value is not in valid ISO 8601 datetime format.
         """
-        from datetime import datetime
-
         # If None or not present, skip validation
         if v is None:
             return v
@@ -263,7 +274,7 @@ class WorkflowResult(BaseModel):
     end_time: str | None = None
     execution_time_seconds: float | None = None
     error_message: str | None = None
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict = Field(default_factory=dict) if Field is not None else {}
 
     def __init__(
         self, workflow_name: str, execution_id: str, status: str, **kwargs: Any
@@ -299,7 +310,7 @@ class Workflow(ABC):
         name and description are set by the registry during workflow instantiation.
         """
         self.redis_client: redis.Redis | None = None
-        self.output_dir = Path(config.paths.default_output_dir)
+        self.output_dir = Path(get_config().paths.default_output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def set_redis_client(self, redis_client: redis.Redis) -> None:
@@ -541,7 +552,7 @@ class Workflow(ABC):
         try:
             redis_client.setex(
                 f"workflow_execution:{workflow_name}:{execution_id}",
-                config.redis.retention_ttl,
+                get_config().redis.retention_ttl,
                 json.dumps(data.model_dump(mode="json"), default=json_serial),
             )
         except Exception:
@@ -584,7 +595,7 @@ class Workflow(ABC):
                 current_data.update(updates)
                 redis_client.setex(
                     f"workflow_execution:{workflow_name}:{execution_id}",
-                    config.redis.retention_ttl,
+                    get_config().redis.retention_ttl,
                     json.dumps(current_data, default=json_serial),
                 )
         except Exception:
@@ -604,6 +615,7 @@ def json_serial(obj: Any) -> Any:
     raise TypeError(f"Type {type(obj)} is not serializable")
 
 
+@check_optional_dependencies()
 class WorkflowRegistry:
     """Registry for managing custom workflows."""
 
@@ -938,6 +950,7 @@ workflow_registry = WorkflowRegistry()
 
 
 # Convenience function for backward compatibility and ease of use
+@check_optional_dependencies()
 def register_all_workflows(redis_client: redis.Redis) -> None:
     """
     Register all workflows (built-in and user-provided).
