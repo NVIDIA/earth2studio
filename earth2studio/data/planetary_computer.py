@@ -1249,10 +1249,10 @@ class PlanetaryComputerGeoCatalogClient:
 
     Parameters
     ----------
-    config_dir : str | pathlib.Path
-        Directory containing the GeoCatalog JSON config and template files.
     workflow_name : str
         Workflow name used in filenames (e.g. "fcn3", "fcn3-stormscope-goes").
+    config_dir : str | pathlib.Path
+        Directory containing the GeoCatalog JSON config and template files.
     """
 
     APPLICATION_URL = "https://geocatalog.spatio.azure.com/"
@@ -1261,8 +1261,8 @@ class PlanetaryComputerGeoCatalogClient:
 
     def __init__(
         self,
-        config_dir: str | pathlib.Path,
         workflow_name: str,
+        config_dir: str | pathlib.Path,
     ) -> None:
         try:
             from azure.identity import DefaultAzureCredential as _DefaultAzureCredential

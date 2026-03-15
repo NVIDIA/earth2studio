@@ -948,15 +948,10 @@ def process_geocatalog_ingestion(
                 "reason": "workflow not supported",
             }
 
-        env_pc = os.environ.get("EARTH2STUDIO_PC_TEMPLATE_DIR")
-        pc_config_dir: str | Path
-        if env_pc is not None:
-            pc_config_dir = env_pc
-        else:
-            _here = Path(__file__).resolve().parent
-            pc_config_dir = (
-                _here.parent.parent.parent / "serve" / "server" / "planetary_computer"
-            )
+        pc_config_dir = os.environ.get(
+            "EARTH2STUDIO_PC_TEMPLATE_DIR",
+            "/workspace/earth2studio-project/serve/server/planetary_computer",
+        )
         pc_workflow_name = _PC_WORKFLOW_SUFFIX[workflow_name]
 
         try:
@@ -965,8 +960,8 @@ def process_geocatalog_ingestion(
             )
 
             pc_client = PlanetaryComputerGeoCatalogClient(
-                config_dir=pc_config_dir,
                 workflow_name=pc_workflow_name,
+                config_dir=pc_config_dir,
             )
             collection_id = parameters.get("collection_id")
             pc_client.create_feature(
