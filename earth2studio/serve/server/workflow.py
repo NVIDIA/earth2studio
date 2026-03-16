@@ -50,6 +50,7 @@ from earth2studio.serve.server.config import (
     get_workflow_config,
 )
 
+config = get_config()
 config_manager = get_config_manager()
 config_manager.setup_logging()
 
@@ -310,7 +311,7 @@ class Workflow(ABC):
         name and description are set by the registry during workflow instantiation.
         """
         self.redis_client: redis.Redis | None = None
-        self.output_dir = Path(get_config().paths.default_output_dir)
+        self.output_dir = Path(config.paths.default_output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def set_redis_client(self, redis_client: redis.Redis) -> None:
@@ -552,7 +553,7 @@ class Workflow(ABC):
         try:
             redis_client.setex(
                 f"workflow_execution:{workflow_name}:{execution_id}",
-                get_config().redis.retention_ttl,
+                config.redis.retention_ttl,
                 json.dumps(data.model_dump(mode="json"), default=json_serial),
             )
         except Exception:
@@ -595,7 +596,7 @@ class Workflow(ABC):
                 current_data.update(updates)
                 redis_client.setex(
                     f"workflow_execution:{workflow_name}:{execution_id}",
-                    get_config().redis.retention_ttl,
+                    config.redis.retention_ttl,
                     json.dumps(current_data, default=json_serial),
                 )
         except Exception:
