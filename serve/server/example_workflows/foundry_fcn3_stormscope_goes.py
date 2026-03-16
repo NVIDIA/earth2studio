@@ -120,7 +120,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         ref = datetime(1900, 1, 1)
         if (time_stormscope - ref).total_seconds() % (1 * 60 * 60) != 0:
             raise ValueError(
-                f"Start time for StormScope must be 6-hour interval: {time_stormscope}"
+                f"Start time for StormScope must be 1-hour interval: {time_stormscope}"
             )
         if (time_fcn3 - ref).total_seconds() % (6 * 60 * 60) != 0:
             raise ValueError(

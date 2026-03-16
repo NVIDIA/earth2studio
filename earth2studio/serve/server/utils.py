@@ -117,17 +117,26 @@ def parse_range_header(
 
     start_str, end_str = range_part.split("-", 1)
 
-    if start_str:
-        start = int(start_str)
-        if end_str:
-            end = int(end_str)
+    try:
+        if start_str:
+            start = int(start_str)
+            if end_str:
+                end = int(end_str)
+            else:
+                end = file_size - 1
         else:
+            # Suffix range: "-suffix" means last N bytes
+            suffix = int(end_str)
+            start = max(0, file_size - suffix)
             end = file_size - 1
-    else:
-        # Suffix range: "-suffix" means last N bytes
-        suffix = int(end_str)
-        start = max(0, file_size - suffix)
-        end = file_size - 1
+    except ValueError:
+        raise HTTPException(
+            status_code=416,
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": f"Invalid range values in: {range_header}",
+            },
+        )
 
     # Validate range
     if start < 0 or start >= file_size or end < start or end >= file_size:

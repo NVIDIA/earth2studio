@@ -1313,8 +1313,13 @@ class GeoCatalogClient:
 
     def _create_element(self, url: str, stac_config: dict) -> None:
         response = self._post(url, body=stac_config)
-        location = response.headers["location"]
         log = logging.getLogger("planetary_computer.geocatalog")
+        if response.status_code not in {200, 201, 202}:
+            log.error(
+                "POST to '%s' failed: %s - %s", url, response.status_code, response.text
+            )
+            return
+        location = response.headers["location"]
         log.info("Creating '%s'...", stac_config["id"])
         start = perf_counter()
         while True:
