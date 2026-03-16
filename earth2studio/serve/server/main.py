@@ -25,7 +25,6 @@ import asyncio
 import json
 import logging
 import os
-import sys
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -47,10 +46,9 @@ try:
     from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
     from pydantic import BaseModel, Field
     from rq import Queue
-except ImportError:
-    _, exc_value, tb_value = sys.exc_info()
+except ImportError as e:
     raise OptionalDependencyError(
-        "serve", "earth2studio.serve.server.main", exc_value, tb_value
+        "serve", "earth2studio.serve.server.main", e, e.__traceback__
     )
 
 from earth2studio.serve.server.config import get_config, get_config_manager
