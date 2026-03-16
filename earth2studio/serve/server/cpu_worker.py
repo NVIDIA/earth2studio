@@ -558,6 +558,18 @@ def process_object_storage_upload(
                     f"Output path does not exist: {output_path}",
                 )
 
+            # Validate Azure container name is configured
+            if config.object_storage.storage_type == "azure":
+                if (
+                    not config.object_storage.azure_container_name
+                    and not config.object_storage.bucket
+                ):
+                    return fail_workflow(
+                        workflow_name,
+                        execution_id,
+                        "Azure storage is enabled but neither 'azure_container_name' nor 'bucket' is configured",
+                    )
+
             # Create storage instance
             storage_kwargs: dict[str, Any] = {
                 "bucket": config.object_storage.bucket

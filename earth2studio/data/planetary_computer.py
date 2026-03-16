@@ -1311,21 +1311,21 @@ class GeoCatalogClient:
             timeout=self.REQUESTS_TIMEOUT,
         )
 
-    def _create_element(self, url: str, stac_config: dict) -> None:
+    def _create_element(self, url: str, stac_config: dict) -> bool:
         response = self._post(url, body=stac_config)
         log = logging.getLogger("planetary_computer.geocatalog")
         if response.status_code not in {200, 201, 202}:
             log.error(
                 "POST to '%s' failed: %s - %s", url, response.status_code, response.text
             )
-            return
+            return False
         location = response.headers["location"]
         log.info("Creating '%s'...", stac_config["id"])
         start = perf_counter()
         while True:
             if (perf_counter() - start) > self.CREATION_TIMEOUT:
                 log.error("Creation of '%s' timed out", stac_config["id"])
-                return
+                return False
             response = self._get(location)
             status = response.json()["status"]
             log.info(status)
@@ -1334,8 +1334,10 @@ class GeoCatalogClient:
             _time_module.sleep(5)
         if status == "Succeeded":
             log.info("Successfully created '%s'", stac_config["id"])
+            return True
         else:
             log.error("Failed to create '%s': %s", stac_config["id"], response.text)
+            return False
 
     def _get_collection_json(self, collection_id: str | None) -> dict:
         path = self._config_dir / f"template-collection-{self._workflow_name}.json"
@@ -1421,10 +1423,12 @@ class GeoCatalogClient:
         collection_id: str | None,
     ) -> str:
         stac_config = self._get_collection_json(collection_id)
-        self._create_element(
+        success = self._create_element(
             url=f"{geocatalog_url}/stac/collections",
             stac_config=stac_config,
         )
+        if not success:
+            raise RuntimeError(f"Failed to create collection '{stac_config['id']}'")
         self._update_tile_settings(geocatalog_url, stac_config["id"])
         self._update_render_options(geocatalog_url, stac_config["id"])
         return stac_config["id"]
@@ -1472,8 +1476,10 @@ class GeoCatalogClient:
         step_hours = self._parameters["step_size_hours"]
         end_time = start_time + timedelta(hours=step_hours)
         stac_config = self._get_feature_json(start_time, end_time, blob_url)
-        self._create_element(
+        success = self._create_element(
             url=f"{geocatalog_url}/stac/collections/{collection_id}/items",
             stac_config=stac_config,
         )
+        if not success:
+            raise RuntimeError(f"Failed to create feature '{stac_config['id']}'")
         return collection_id, stac_config["id"]

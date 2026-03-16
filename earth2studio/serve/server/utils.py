@@ -138,8 +138,8 @@ def parse_range_header(
             },
         )
 
-    # Validate range
-    if start < 0 or start >= file_size or end < start or end >= file_size:
+    # Validate range - clamp end to file_size - 1 per RFC 9110 §14.1.2
+    if start < 0 or start >= file_size or end < start:
         raise HTTPException(
             status_code=416,
             headers={
@@ -150,6 +150,8 @@ def parse_range_header(
                 "details": f"Requested range {start}-{end} is invalid for file size {file_size}",
             },
         )
+    # Clamp end to the last valid byte
+    end = min(end, file_size - 1)
 
     status_code = 206  # Partial Content
     content_length = end - start + 1
