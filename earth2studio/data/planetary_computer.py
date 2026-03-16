@@ -36,6 +36,7 @@ import nest_asyncio
 import netCDF4
 import numpy as np
 import pygrib
+import requests
 import xarray as xr
 from loguru import logger
 from tqdm import tqdm
@@ -69,11 +70,6 @@ except ImportError:
     planetary_computer = None
     rioxarray = None
     Item = TypeVar("Item")  # type: ignore
-
-try:
-    import requests
-except ImportError:
-    requests = None  # type: ignore[assignment]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1284,6 +1280,7 @@ class GeoCatalogClient:
             self._parameters = json.load(f)
 
     def update_headers(self) -> None:
+        """Refresh the Authorization header using a new Azure credential token."""
         credential = self._DefaultAzureCredential()
         token = credential.get_token(self.APPLICATION_URL)
         self.headers = {"Authorization": f"Bearer {token.token}"}
