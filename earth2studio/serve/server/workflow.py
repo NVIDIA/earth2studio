@@ -261,6 +261,7 @@ class WorkflowProgress(BaseModel):
     error_message: str | None = None
 
 
+@check_optional_dependencies()
 class WorkflowResult(BaseModel):
     """Base result structure for workflow execution."""
 
@@ -275,7 +276,7 @@ class WorkflowResult(BaseModel):
     end_time: str | None = None
     execution_time_seconds: float | None = None
     error_message: str | None = None
-    metadata: dict = Field(default_factory=dict) if Field is not None else {}
+    metadata: dict | None = Field(default_factory=dict) if Field is not None else None
 
     def __init__(
         self, workflow_name: str, execution_id: str, status: str, **kwargs: Any
