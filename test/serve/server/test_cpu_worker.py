@@ -116,6 +116,7 @@ class MockObjectStorageConfig:
     cloudfront_key_pair_id: str | None = None
     cloudfront_private_key_path: str | None = None
     signed_url_expires_in: int = 3600
+    azure_geocatalog_url: str | None = None
 
 
 @dataclass
@@ -152,6 +153,7 @@ from earth2studio.serve.server.cpu_worker import (  # noqa: E402  # noqa: E402
     create_results_zip,
     fail_workflow,
     process_finalize_metadata,
+    process_geocatalog_ingestion,
     process_object_storage_upload,
     process_result_zip,
 )
@@ -1397,6 +1399,325 @@ class TestProcessObjectStorageUpload:
         assert result is not None and result.get("success") is False
         mock_fail.assert_called_once()
         assert "does not exist" in mock_fail.call_args[0][2]
+
+
+class TestProcessGeocatalogIngestion:
+    """Tests for process_geocatalog_ingestion RQ worker function."""
+
+    def test_process_geocatalog_ingestion_url_not_set_skips_and_queues(self):
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch("earth2studio.serve.server.cpu_worker.redis_client") as _:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    mock_config.object_storage.azure_geocatalog_url = None
+                    mock_queue_next.return_value = "job_1"
+
+                    result = process_geocatalog_ingestion(
+                        workflow_name="foundry_fcn3_workflow",
+                        execution_id="exec_1",
+                    )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result.get("skipped") is True
+        assert "AZURE_GEOCATALOG_URL" in result.get("reason", "")
+        mock_queue_next.assert_called_once()
+        assert mock_queue_next.call_args[1]["current_stage"] == "geocatalog_ingestion"
+
+    def test_process_geocatalog_ingestion_url_not_set_queue_fails_returns_fail_workflow(
+        self,
+    ):
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch("earth2studio.serve.server.cpu_worker.redis_client") as _:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    with patch(
+                        "earth2studio.serve.server.cpu_worker.fail_workflow"
+                    ) as mock_fail:
+                        mock_config.object_storage.azure_geocatalog_url = None
+                        mock_queue_next.return_value = None
+                        mock_fail.return_value = {"success": False}
+
+                        result = process_geocatalog_ingestion(
+                            workflow_name="foundry_fcn3_workflow",
+                            execution_id="exec_1",
+                        )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "finalize_metadata" in mock_fail.call_args[0][2].lower()
+
+    def test_process_geocatalog_ingestion_storage_or_metadata_missing_skips_and_queues(
+        self,
+    ):
+        request_id = "foundry_fcn3_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    mock_config.object_storage.azure_geocatalog_url = (
+                        "https://geocatalog.example/"
+                    )
+                    mock_redis.get.side_effect = lambda k: {
+                        storage_info_key: None,
+                        metadata_key: None,
+                    }.get(k)
+                    mock_queue_next.return_value = "job_1"
+
+                    result = process_geocatalog_ingestion(
+                        workflow_name="foundry_fcn3_workflow",
+                        execution_id="exec_1",
+                    )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result.get("skipped") is True
+        assert (
+            "missing" in result.get("reason", "").lower()
+            or "storage" in result.get("reason", "").lower()
+        )
+        mock_queue_next.assert_called_once()
+
+    def test_process_geocatalog_ingestion_no_blob_url_skips_and_queues(self):
+        request_id = "foundry_fcn3_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        storage_info = {}
+        pending_metadata = {"parameters": {"start_time": "2025-01-01T00:00:00Z"}}
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    mock_config.object_storage.azure_geocatalog_url = (
+                        "https://geocatalog.example/"
+                    )
+                    mock_redis.get.side_effect = lambda k: {
+                        storage_info_key: json.dumps(storage_info),
+                        metadata_key: json.dumps(pending_metadata),
+                    }.get(k)
+                    mock_queue_next.return_value = "job_1"
+
+                    result = process_geocatalog_ingestion(
+                        workflow_name="foundry_fcn3_workflow",
+                        execution_id="exec_1",
+                    )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result.get("skipped") is True
+        assert "blob" in result.get("reason", "").lower()
+        mock_queue_next.assert_called_once()
+
+    def test_process_geocatalog_ingestion_workflow_not_supported_skips_and_queues(self):
+        request_id = "other_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        storage_info = {"blob_url": "https://storage.example/blob.nc"}
+        pending_metadata = {"parameters": {"start_time": "2025-01-01T00:00:00Z"}}
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    mock_config.object_storage.azure_geocatalog_url = (
+                        "https://geocatalog.example/"
+                    )
+                    mock_redis.get.side_effect = lambda k: {
+                        storage_info_key: json.dumps(storage_info),
+                        metadata_key: json.dumps(pending_metadata),
+                    }.get(k)
+                    mock_queue_next.return_value = "job_1"
+
+                    result = process_geocatalog_ingestion(
+                        workflow_name="other_workflow",
+                        execution_id="exec_1",
+                    )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result.get("skipped") is True
+        assert "not supported" in result.get("reason", "").lower()
+        mock_queue_next.assert_called_once()
+
+    def test_process_geocatalog_ingestion_success_calls_create_feature_and_queues(self):
+        request_id = "foundry_fcn3_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        storage_info = {"blob_url": "https://storage.example/container/out.nc"}
+        pending_metadata = {
+            "parameters": {"start_time": "2025-01-01T00:00:00Z"},
+        }
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    with patch(
+                        "earth2studio.data.planetary_computer.GeoCatalogClient"
+                    ) as mock_client_class:
+                        mock_config.object_storage.azure_geocatalog_url = (
+                            "https://geocatalog.example/"
+                        )
+                        mock_redis.get.side_effect = lambda k: {
+                            storage_info_key: json.dumps(storage_info),
+                            metadata_key: json.dumps(pending_metadata),
+                        }.get(k)
+                        mock_queue_next.return_value = "job_1"
+                        mock_client = Mock()
+                        mock_client_class.return_value = mock_client
+
+                        result = process_geocatalog_ingestion(
+                            workflow_name="foundry_fcn3_workflow",
+                            execution_id="exec_1",
+                        )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result.get("skipped") is not True
+        mock_client.create_feature.assert_called_once()
+        call_kw = mock_client.create_feature.call_args[1]
+        assert call_kw["geocatalog_url"] == "https://geocatalog.example/"
+        assert call_kw["blob_url"] == "https://storage.example/container/out.nc"
+        assert call_kw["parameters"] == {"start_time": "2025-01-01T00:00:00Z"}
+        mock_queue_next.assert_called_once()
+
+    def test_process_geocatalog_ingestion_passes_collection_id_when_in_parameters(self):
+        request_id = "foundry_fcn3_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        storage_info = {"blob_url": "https://storage.example/out.nc"}
+        pending_metadata = {
+            "parameters": {
+                "start_time": "2025-01-01T00:00:00Z",
+                "collection_id": "my-custom-collection",
+            },
+        }
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    with patch(
+                        "earth2studio.data.planetary_computer.GeoCatalogClient"
+                    ) as mock_client_class:
+                        mock_config.object_storage.azure_geocatalog_url = (
+                            "https://geocatalog.example/"
+                        )
+                        mock_redis.get.side_effect = lambda k: {
+                            storage_info_key: json.dumps(storage_info),
+                            metadata_key: json.dumps(pending_metadata),
+                        }.get(k)
+                        mock_queue_next.return_value = "job_1"
+                        mock_client = Mock()
+                        mock_client_class.return_value = mock_client
+
+                        process_geocatalog_ingestion(
+                            workflow_name="foundry_fcn3_workflow",
+                            execution_id="exec_1",
+                        )
+
+        call_kw = mock_client_class.return_value.create_feature.call_args[1]
+        assert call_kw["collection_id"] == "my-custom-collection"
+
+    def test_process_geocatalog_ingestion_create_feature_exception_still_queues(self):
+        request_id = "foundry_fcn3_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        storage_info = {"blob_url": "https://storage.example/out.nc"}
+        pending_metadata = {"parameters": {"start_time": "2025-01-01T00:00:00Z"}}
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    with patch(
+                        "earth2studio.data.planetary_computer.GeoCatalogClient"
+                    ) as mock_client_class:
+                        mock_config.object_storage.azure_geocatalog_url = (
+                            "https://geocatalog.example/"
+                        )
+                        mock_redis.get.side_effect = lambda k: {
+                            storage_info_key: json.dumps(storage_info),
+                            metadata_key: json.dumps(pending_metadata),
+                        }.get(k)
+                        mock_queue_next.return_value = "job_1"
+                        mock_client_class.return_value.create_feature.side_effect = (
+                            ValueError("create_feature failed")
+                        )
+
+                        result = process_geocatalog_ingestion(
+                            workflow_name="foundry_fcn3_workflow",
+                            execution_id="exec_1",
+                        )
+
+        assert result is not None
+        assert result["success"] is True
+        mock_queue_next.assert_called_once()
+
+    def test_process_geocatalog_ingestion_queue_next_returns_none_returns_fail_workflow(
+        self,
+    ):
+        request_id = "foundry_fcn3_workflow:exec_1"
+        storage_info_key = f"inference_request:{request_id}:storage_info"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        storage_info = {"blob_url": "https://storage.example/out.nc"}
+        pending_metadata = {"parameters": {"start_time": "2025-01-01T00:00:00Z"}}
+
+        with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
+            with patch(
+                "earth2studio.serve.server.cpu_worker.redis_client"
+            ) as mock_redis:
+                with patch(
+                    "earth2studio.serve.server.cpu_worker.queue_next_stage"
+                ) as mock_queue_next:
+                    with patch(
+                        "earth2studio.data.planetary_computer.GeoCatalogClient"
+                    ) as _:
+                        with patch(
+                            "earth2studio.serve.server.cpu_worker.fail_workflow"
+                        ) as mock_fail:
+                            mock_config.object_storage.azure_geocatalog_url = (
+                                "https://geocatalog.example/"
+                            )
+                            mock_redis.get.side_effect = lambda k: {
+                                storage_info_key: json.dumps(storage_info),
+                                metadata_key: json.dumps(pending_metadata),
+                            }.get(k)
+                            mock_queue_next.return_value = None
+                            mock_fail.return_value = {"success": False}
+
+                            result = process_geocatalog_ingestion(
+                                workflow_name="foundry_fcn3_workflow",
+                                execution_id="exec_1",
+                            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "next pipeline stage" in mock_fail.call_args[0][2].lower()
 
 
 if __name__ == "__main__":

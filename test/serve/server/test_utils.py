@@ -14,14 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi import HTTPException
 
 from earth2studio.serve.server.utils import (
+    create_file_stream,
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
     get_results_zip_dir_key,
     get_signed_url_key,
+    parse_range_header,
     queue_next_stage,
 )
 
@@ -264,3 +270,196 @@ class TestQueueNextStage:
             )
 
         assert result is None
+
+
+class TestParseRangeHeader:
+    """Tests for parse_range_header."""
+
+    def test_no_range_header_returns_full_file(self):
+        """None range_header returns full file range with status 200."""
+        start, end, content_length, status_code = parse_range_header(None, 1000)
+        assert start == 0
+        assert end == 999
+        assert content_length == 1000
+        assert status_code == 200
+
+    def test_explicit_range_returns_partial_content(self):
+        """bytes=0-99 returns first 100 bytes with status 206."""
+        start, end, content_length, status_code = parse_range_header("bytes=0-99", 1000)
+        assert start == 0
+        assert end == 99
+        assert content_length == 100
+        assert status_code == 206
+
+    def test_open_ended_range(self):
+        """bytes=500- returns from byte 500 to end of file."""
+        start, end, content_length, status_code = parse_range_header("bytes=500-", 1000)
+        assert start == 500
+        assert end == 999
+        assert content_length == 500
+        assert status_code == 206
+
+    def test_suffix_range(self):
+        """bytes=-200 returns last 200 bytes of file."""
+        start, end, content_length, status_code = parse_range_header("bytes=-200", 1000)
+        assert start == 800
+        assert end == 999
+        assert content_length == 200
+        assert status_code == 206
+
+    def test_suffix_range_larger_than_file(self):
+        """bytes=-2000 on a 1000-byte file returns entire file from byte 0."""
+        start, end, content_length, status_code = parse_range_header(
+            "bytes=-2000", 1000
+        )
+        assert start == 0
+        assert end == 999
+        assert content_length == 1000
+        assert status_code == 206
+
+    def test_multiple_ranges_uses_first(self):
+        """Multiple ranges are accepted; only the first range is used."""
+        start, end, content_length, status_code = parse_range_header(
+            "bytes=0-99,200-299", 1000
+        )
+        assert start == 0
+        assert end == 99
+        assert content_length == 100
+        assert status_code == 206
+
+    def test_non_bytes_unit_raises_416(self):
+        """Range header not starting with 'bytes=' raises HTTPException 416."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_range_header("items=0-99", 1000)
+        assert exc_info.value.status_code == 416
+
+    def test_missing_dash_raises_416(self):
+        """Range spec without a dash raises HTTPException 416."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_range_header("bytes=100", 1000)
+        assert exc_info.value.status_code == 416
+
+    def test_start_beyond_file_size_raises_416(self):
+        """start >= file_size raises HTTPException 416."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_range_header("bytes=1000-1099", 1000)
+        assert exc_info.value.status_code == 416
+
+    def test_end_beyond_file_size_raises_416(self):
+        """end >= file_size raises HTTPException 416."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_range_header("bytes=0-1000", 1000)
+        assert exc_info.value.status_code == 416
+
+    def test_end_before_start_raises_416(self):
+        """end < start raises HTTPException 416."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_range_header("bytes=200-100", 1000)
+        assert exc_info.value.status_code == 416
+
+
+class TestCreateFileStream:
+    """Tests for create_file_stream."""
+
+    @pytest.mark.asyncio
+    async def test_streams_full_file(self):
+        """Streams entire file content when start=0."""
+        file_data = b"hello world"
+        mock_file = AsyncMock()
+        mock_file.read.side_effect = [file_data, b""]
+        mock_file.__aenter__ = AsyncMock(return_value=mock_file)
+        mock_file.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "earth2studio.serve.server.utils.aiofiles.open", return_value=mock_file
+        ):
+            chunks = [
+                chunk
+                async for chunk in create_file_stream(
+                    Path("/fake/file.bin"), 0, len(file_data)
+                )
+            ]
+
+        assert b"".join(chunks) == file_data
+        mock_file.seek.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_seeks_to_start_for_range_request(self):
+        """Seeks to the start offset for range requests (start > 0)."""
+        file_data = b"partial content"
+        mock_file = AsyncMock()
+        mock_file.read.side_effect = [file_data, b""]
+        mock_file.__aenter__ = AsyncMock(return_value=mock_file)
+        mock_file.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "earth2studio.serve.server.utils.aiofiles.open", return_value=mock_file
+        ):
+            chunks = [
+                chunk
+                async for chunk in create_file_stream(
+                    Path("/fake/file.bin"), 512, len(file_data)
+                )
+            ]
+
+        mock_file.seek.assert_called_once_with(512)
+        assert b"".join(chunks) == file_data
+
+    @pytest.mark.asyncio
+    async def test_streams_in_multiple_chunks(self):
+        """Yields multiple chunks when file exceeds chunk size."""
+        chunk_size = 1048576  # 1MB
+        chunk1 = b"A" * chunk_size
+        chunk2 = b"B" * 512
+        mock_file = AsyncMock()
+        mock_file.read.side_effect = [chunk1, chunk2, b""]
+        mock_file.__aenter__ = AsyncMock(return_value=mock_file)
+        mock_file.__aexit__ = AsyncMock(return_value=False)
+
+        content_length = chunk_size + 512
+        with patch(
+            "earth2studio.serve.server.utils.aiofiles.open", return_value=mock_file
+        ):
+            chunks = [
+                chunk
+                async for chunk in create_file_stream(
+                    Path("/fake/file.bin"), 0, content_length
+                )
+            ]
+
+        assert len(chunks) == 2
+        assert chunks[0] == chunk1
+        assert chunks[1] == chunk2
+
+    @pytest.mark.asyncio
+    async def test_stops_when_chunk_is_empty(self):
+        """Stops streaming early if read returns empty bytes before content_length is reached."""
+        mock_file = AsyncMock()
+        mock_file.read.return_value = b""
+        mock_file.__aenter__ = AsyncMock(return_value=mock_file)
+        mock_file.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "earth2studio.serve.server.utils.aiofiles.open", return_value=mock_file
+        ):
+            chunks = [
+                chunk
+                async for chunk in create_file_stream(Path("/fake/file.bin"), 0, 1000)
+            ]
+
+        assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_reraises_exception_on_read_error(self):
+        """Re-raises exceptions encountered during file streaming."""
+        mock_file = AsyncMock()
+        mock_file.read.side_effect = OSError("disk error")
+        mock_file.__aenter__ = AsyncMock(return_value=mock_file)
+        mock_file.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "earth2studio.serve.server.utils.aiofiles.open", return_value=mock_file
+        ):
+            with pytest.raises(OSError, match="disk error"):
+                async for _ in create_file_stream(Path("/fake/file.bin"), 0, 1000):
+                    pass

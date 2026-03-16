@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import pathlib
 import shutil
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -28,7 +30,10 @@ from earth2studio.data import (
     PlanetaryComputerOISST,
     PlanetaryComputerSentinel3AOD,
 )
-from earth2studio.data.planetary_computer import _PlanetaryComputerData
+from earth2studio.data.planetary_computer import (
+    GeoCatalogClient,
+    _PlanetaryComputerData,
+)
 from earth2studio.lexicon.planetary_computer import PlanetaryComputerOISSTLexicon
 
 
@@ -73,6 +78,216 @@ def test_planetary_computer_base_extract_not_implemented() -> None:
 
     with pytest.raises(NotImplementedError):
         ds.extract_variable_numpy(None, None, datetime.now(timezone.utc))
+
+
+@pytest.fixture
+def geocatalog_config_dir(tmp_path):
+    workflow = "fcn3"
+    (tmp_path / f"parameters-{workflow}.json").write_text(
+        json.dumps({"step_size_hours": 6, "start_time_parameter_key": "start_time"})
+    )
+    (tmp_path / f"template-collection-{workflow}.json").write_text(
+        json.dumps({"type": "Collection", "id": "earth-2-fcn3-{uuid}", "title": "Test"})
+    )
+    (tmp_path / f"template-feature-{workflow}.json").write_text(
+        json.dumps(
+            {
+                "type": "Feature",
+                "id": "fcn3-{start_time}-{uuid}",
+                "properties": {
+                    "datetime": "{start_time}",
+                    "start_datetime": "{start_time}",
+                    "end_datetime": "{end_time}",
+                },
+                "assets": {
+                    "data": {
+                        "href": "PLACEHOLDER",
+                        "description": "From {start_time} to {end_time}.",
+                    }
+                },
+            }
+        )
+    )
+    (tmp_path / f"tile-settings-{workflow}.json").write_text(
+        json.dumps({"minZoom": 0, "maxItemsPerTile": 35})
+    )
+    (tmp_path / f"render-options-{workflow}.json").write_text(
+        json.dumps([{"id": "t2m", "scale": [263, 313], "cmap": "balance"}])
+    )
+    return tmp_path
+
+
+@pytest.fixture
+def mock_azure_credential():
+    with patch("azure.identity.DefaultAzureCredential") as m:
+        cred = MagicMock()
+        token = MagicMock()
+        token.token = "mock-token"  # noqa: S105
+        cred.get_token.return_value = token
+        m.return_value = cred
+        yield m
+
+
+@pytest.fixture
+def mock_requests():
+    with patch("earth2studio.data.planetary_computer.requests") as m:
+        get_resp = MagicMock()
+        get_resp.status_code = 200
+        get_resp.json.return_value = {"status": "Succeeded"}
+        get_resp.headers = {}
+        m.get.return_value = get_resp
+
+        post_resp = MagicMock()
+        post_resp.status_code = 201
+        post_resp.headers = {"location": "https://geocatalog.example/status/123"}
+        m.post.return_value = post_resp
+
+        put_resp = MagicMock()
+        put_resp.status_code = 200
+        m.put.return_value = put_resp
+
+        yield m
+
+
+def test_geocatalog_client_init_success(geocatalog_config_dir, mock_azure_credential):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    assert client._workflow_name == "fcn3"
+    assert client._parameters["step_size_hours"] == 6
+    assert client._parameters["start_time_parameter_key"] == "start_time"
+
+
+def test_geocatalog_client_init_missing_parameters_file(
+    tmp_path, mock_azure_credential
+):
+    with pytest.raises(FileNotFoundError, match="parameters-other_workflow.json"):
+        GeoCatalogClient("other_workflow", tmp_path)
+
+
+def test_geocatalog_client_resolve_start_time_iso_string(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    params = {"start_time": "2025-01-15T12:00:00Z"}
+    result = client._resolve_start_time(params)
+    assert result == datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def test_geocatalog_client_resolve_start_time_iso_string_with_offset(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    params = {"start_time": "2025-01-15T12:00:00+00:00"}
+    result = client._resolve_start_time(params)
+    assert result == datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def test_geocatalog_client_resolve_start_time_datetime(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    dt = datetime(2025, 2, 1, 6, 0, 0, tzinfo=timezone.utc)
+    params = {"start_time": dt}
+    result = client._resolve_start_time(params)
+    assert result == dt
+
+
+def test_geocatalog_client_resolve_start_time_missing_key_raises(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    with pytest.raises(ValueError, match="Missing 'start_time'"):
+        client._resolve_start_time({})
+
+
+def test_geocatalog_client_resolve_start_time_invalid_type_raises(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    with pytest.raises(TypeError, match="start time must be str or datetime"):
+        client._resolve_start_time({"start_time": 12345})
+
+
+def test_geocatalog_client_get_collection_json_generates_uuid_when_collection_id_none(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    out = client._get_collection_json(None)
+    assert out["id"].startswith("earth-2-fcn3-")
+    assert len(out["id"]) > len("earth-2-fcn3-")
+
+
+def test_geocatalog_client_get_collection_json_uses_id_when_collection_id_provided(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    out = client._get_collection_json("my-collection-id")
+    assert out["id"] == "my-collection-id"
+
+
+def test_geocatalog_client_get_feature_json_formats_times_and_blob_url(
+    geocatalog_config_dir, mock_azure_credential
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    start = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    end = start + timedelta(hours=6)
+    out = client._get_feature_json(
+        start_time=start,
+        end_time=end,
+        blob_url="https://storage.example/container/blob.nc",
+    )
+    assert out["properties"]["datetime"] == start.isoformat()
+    assert out["properties"]["start_datetime"] == start.isoformat()
+    assert out["properties"]["end_datetime"] == end.isoformat()
+    assert out["assets"]["data"]["href"] == "https://storage.example/container/blob.nc"
+    assert "2025-01-01" in out["assets"]["data"]["description"]
+    assert out["id"].startswith("fcn3-")
+
+
+def test_geocatalog_client_create_feature_returns_collection_and_feature_id(
+    geocatalog_config_dir, mock_azure_credential, mock_requests
+):
+    mock_requests.get.return_value.json.return_value = {"status": "Succeeded"}
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    collection_id, feature_id = client.create_feature(
+        geocatalog_url="https://geocatalog.example/",
+        collection_id=None,
+        parameters={"start_time": "2025-01-01T00:00:00Z"},
+        blob_url="https://storage.example/blob.nc",
+    )
+    assert collection_id is not None
+    assert feature_id is not None
+    assert feature_id.startswith("fcn3-")
+
+
+def test_geocatalog_client_create_feature_uses_existing_collection_when_provided(
+    geocatalog_config_dir, mock_azure_credential, mock_requests
+):
+    mock_requests.get.return_value.status_code = 200
+    mock_requests.get.return_value.json.return_value = {"status": "Succeeded"}
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    collection_id, feature_id = client.create_feature(
+        geocatalog_url="https://geocatalog.example/",
+        collection_id="existing-collection",
+        parameters={"start_time": "2025-01-01T00:00:00Z"},
+        blob_url="https://storage.example/blob.nc",
+    )
+    assert collection_id == "existing-collection"
+    assert feature_id is not None
+    post_urls = [c[0][0] for c in mock_requests.post.call_args_list]
+    assert not any("/stac/collections" in u and "items" not in u for u in post_urls)
+
+
+def test_geocatalog_client_create_feature_missing_start_time_raises(
+    geocatalog_config_dir, mock_azure_credential, mock_requests
+):
+    client = GeoCatalogClient("fcn3", geocatalog_config_dir)
+    with pytest.raises(ValueError, match="Missing 'start_time'"):
+        client.create_feature(
+            geocatalog_url="https://geocatalog.example/",
+            collection_id="existing-collection",
+            parameters={},
+            blob_url="https://storage.example/blob.nc",
+        )
 
 
 @pytest.mark.slow
