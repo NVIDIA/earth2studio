@@ -1583,6 +1583,114 @@ workflow_registry.register(SimpleWorkflow)
                 self.registry.auto_register_workflows(mock_redis)
 
 
+class TestWorkflowRegistryExposure:
+    """Tests for WorkflowRegistry.is_workflow_exposed and list_workflows with exposure filtering."""
+
+    def setup_method(self):
+        self.registry = WorkflowRegistry()
+        self.registry.register(Workflow1)
+        self.registry.register(Workflow2)
+        self.registry.register(Workflow3)
+
+    def _make_config(self, exposed=None, warmup=None):
+        mock_config = MagicMock()
+        mock_config.workflow_exposure.exposed_workflows = (
+            exposed if exposed is not None else []
+        )
+        mock_config.workflow_exposure.warmup_workflows = (
+            warmup if warmup is not None else []
+        )
+        return mock_config
+
+    # --- is_workflow_exposed ---
+
+    def test_is_workflow_exposed_empty_list_exposes_all(self):
+        """Empty exposed_workflows means all workflows are exposed."""
+        mock_config = self._make_config(exposed=[], warmup=[])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            assert self.registry.is_workflow_exposed("workflow2") is True
+            assert self.registry.is_workflow_exposed("unknown_wf") is True
+
+    def test_is_workflow_exposed_in_exposed_list(self):
+        """Workflow in exposed_workflows is exposed."""
+        mock_config = self._make_config(exposed=["workflow1", "workflow2"], warmup=[])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            assert self.registry.is_workflow_exposed("workflow1") is True
+            assert self.registry.is_workflow_exposed("workflow2") is True
+
+    def test_is_workflow_exposed_in_warmup_list_only(self):
+        """Workflow in warmup_workflows (but not exposed_workflows) is still exposed."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=["workflow2"])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            assert self.registry.is_workflow_exposed("workflow2") is True
+
+    def test_is_workflow_exposed_not_in_any_list(self):
+        """Workflow not in exposed or warmup lists is not exposed."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=["workflow2"])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            assert self.registry.is_workflow_exposed("workflow3") is False
+
+    # --- list_workflows ---
+
+    def test_list_workflows_exposed_only_empty_list_returns_all(self):
+        """Empty exposed_workflows with exposed_only=True returns all registered workflows."""
+        mock_config = self._make_config(exposed=[], warmup=[])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            result = self.registry.list_workflows(exposed_only=True)
+        assert set(result.keys()) == {"workflow1", "workflow2", "workflow3"}
+
+    def test_list_workflows_exposed_only_filters_to_exposed_list(self):
+        """exposed_only=True excludes warmup-only workflows from the listing."""
+        mock_config = self._make_config(
+            exposed=["workflow1", "workflow2"], warmup=["workflow3"]
+        )
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            result = self.registry.list_workflows(exposed_only=True)
+        assert set(result.keys()) == {"workflow1", "workflow2"}
+        assert "workflow3" not in result
+
+    def test_list_workflows_exposed_only_false_returns_all(self):
+        """exposed_only=False returns all registered workflows regardless of config."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=[])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            result = self.registry.list_workflows(exposed_only=False)
+        assert set(result.keys()) == {"workflow1", "workflow2", "workflow3"}
+
+    def test_list_workflows_default_is_exposed_only(self):
+        """list_workflows() with no args defaults to exposed_only=True."""
+        mock_config = self._make_config(exposed=["workflow1"], warmup=[])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            result = self.registry.list_workflows()
+        assert set(result.keys()) == {"workflow1"}
+
+    def test_list_workflows_returns_descriptions(self):
+        """list_workflows includes the description for each returned workflow."""
+        mock_config = self._make_config(exposed=[], warmup=[])
+        with patch(
+            "earth2studio.serve.server.config.get_config", return_value=mock_config
+        ):
+            result = self.registry.list_workflows()
+        assert result["workflow1"] == "First workflow"
+        assert result["workflow2"] == "Second workflow"
+
+
 # Test helper functions
 class TestHelperFunctions:
     """Test helper functions"""
