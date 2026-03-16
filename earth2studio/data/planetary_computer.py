@@ -1235,7 +1235,7 @@ class PlanetaryComputerGOES(_PlanetaryComputerData):
                 )
 
 
-class PlanetaryComputerGeoCatalogClient:
+class GeoCatalogClient:
     """Client for ingesting STAC features into a Planetary Computer GeoCatalog.
 
     Workflow-specific behavior (templates, tile settings, render options, step size,
@@ -1268,7 +1268,7 @@ class PlanetaryComputerGeoCatalogClient:
             from azure.identity import DefaultAzureCredential as _DefaultAzureCredential
         except ImportError as e:
             raise ImportError(
-                "PlanetaryComputerGeoCatalogClient requires 'azure-identity'. "
+                "GeoCatalogClient requires 'azure-identity'. "
                 "Install with the serve extra or pip install azure-identity."
             ) from e
         self._DefaultAzureCredential = _DefaultAzureCredential

@@ -920,7 +920,7 @@ def process_geocatalog_ingestion(
             return {"success": True, "skipped": True, "reason": "no blob_url"}
 
         logger.info(f"Blob URL: {blob_url}")
-        # Only trigger PC ingestion for workflows supported by PlanetaryComputerGeoCatalogClient
+        # Only trigger PC ingestion for workflows supported by GeoCatalogClient
         _PC_WORKFLOW_SUFFIX: dict[str, str] = {
             "foundry_fcn3_workflow": "fcn3",
             "foundry_fcn3_stormscope_goes_workflow": "fcn3-stormscope-goes",
@@ -955,11 +955,9 @@ def process_geocatalog_ingestion(
         pc_workflow_name = _PC_WORKFLOW_SUFFIX[workflow_name]
 
         try:
-            from earth2studio.data.planetary_computer import (
-                PlanetaryComputerGeoCatalogClient,
-            )
+            from earth2studio.data.planetary_computer import GeoCatalogClient
 
-            pc_client = PlanetaryComputerGeoCatalogClient(
+            pc_client = GeoCatalogClient(
                 workflow_name=pc_workflow_name,
                 config_dir=pc_config_dir,
             )
