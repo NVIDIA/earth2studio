@@ -213,9 +213,10 @@ class TestQueueNextStage:
         assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
 
     def test_object_storage_stage_queues_finalize_metadata(self):
-        """current_stage=object_storage enqueues process_finalize_metadata."""
+        """current_stage=object_storage enqueues process_finalize_metadata when geocatalog is not configured."""
         mock_redis = MagicMock()
         mock_config = MagicMock()
+        mock_config.object_storage.azure_geocatalog_url = None
         mock_config.queue.finalize_metadata_queue_name = "finalize_metadata"
         mock_config.queue.default_timeout = "1h"
         mock_config.queue.job_timeout = "2h"
