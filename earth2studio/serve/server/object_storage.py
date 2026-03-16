@@ -338,14 +338,12 @@ class MSCObjectStorage(ObjectStorage):
                 )
                 self.azure_account_name = azure_account_name
             else:
-                # Using connection string authentication
-                # At this point, azure_connection_string is guaranteed to be not None
-                # (since use_managed_identity is False only when azure_connection_string is not None)
+                # Using connection string authentication — azure_connection_string is
+                # guaranteed to be not None here (see use_managed_identity above).
                 if azure_connection_string is None:
                     raise ObjectStorageError(
                         "Connection string required for non-managed identity mode"
                     )
-
                 # Set Azure connection string
                 os.environ["AZURE_CONNECTION_STRING"] = azure_connection_string
 

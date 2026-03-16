@@ -1327,7 +1327,20 @@ class GeoCatalogClient:
                 log.error("Creation of '%s' timed out", stac_config["id"])
                 return False
             response = self._get(location)
-            status = response.json()["status"]
+            if response.status_code not in {200, 201, 202}:
+                log.warning(
+                    "Polling '%s' returned %s, retrying...",
+                    location,
+                    response.status_code,
+                )
+                _time_module.sleep(5)
+                continue
+            try:
+                status = response.json()["status"]
+            except (ValueError, KeyError) as exc:
+                log.warning("Unexpected polling response: %s", exc)
+                _time_module.sleep(5)
+                continue
             log.info(status)
             if status not in {"Pending", "Running"}:
                 break
