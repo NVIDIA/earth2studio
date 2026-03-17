@@ -21,9 +21,21 @@ from logging import LogRecord
 from pathlib import Path
 from typing import Any, Literal, Optional, cast
 
-from hydra import compose, initialize_config_dir
-from hydra.core.global_hydra import GlobalHydra
-from omegaconf import OmegaConf
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from hydra import compose, initialize_config_dir
+    from hydra.core.global_hydra import GlobalHydra
+    from omegaconf import OmegaConf
+except ImportError:
+    OptionalDependencyFailure("serve")
+    compose = None
+    initialize_config_dir = None
+    GlobalHydra = None
+    OmegaConf = None
 
 logger = logging.getLogger(__name__)
 
@@ -464,6 +476,7 @@ def get_config_manager() -> ConfigManager:
 
 
 # Convenience function to reset config (mainly for testing)
+@check_optional_dependencies()
 def reset_config() -> None:
     """Reset the configuration manager singleton (mainly for testing)."""
     ConfigManager._instance = None
