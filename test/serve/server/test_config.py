@@ -584,3 +584,295 @@ class TestConfigManagerDictToConfig:
         assert config.redis.host == "test_host"
         # Other configs should have defaults
         assert config.queue.name == "inference"  # Default value
+
+
+class TestObjectStorageEnvOverrides:
+    """Test object storage and Azure environment variable overrides"""
+
+    def setup_method(self) -> None:
+        self._vars = [
+            "OBJECT_STORAGE_TYPE",
+            "OBJECT_STORAGE_BUCKET",
+            "OBJECT_STORAGE_REGION",
+            "OBJECT_STORAGE_PREFIX",
+            "OBJECT_STORAGE_ACCESS_KEY_ID",
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+            "OBJECT_STORAGE_SESSION_TOKEN",
+            "OBJECT_STORAGE_ENDPOINT_URL",
+            "OBJECT_STORAGE_TRANSFER_ACCELERATION",
+            "OBJECT_STORAGE_MAX_CONCURRENCY",
+            "OBJECT_STORAGE_MULTIPART_CHUNKSIZE",
+            "OBJECT_STORAGE_USE_RUST_CLIENT",
+            "CLOUDFRONT_DOMAIN",
+            "CLOUDFRONT_KEY_PAIR_ID",
+            "CLOUDFRONT_PRIVATE_KEY",
+            "SIGNED_URL_EXPIRES_IN",
+            "AZURE_CONNECTION_STRING",
+            "AZURE_STORAGE_ACCOUNT_NAME",
+            "AZURE_STORAGE_ACCOUNT_KEY",
+            "AZURE_CONTAINER_NAME",
+            "AZURE_ENDPOINT_URL",
+            "AZURE_GEOCATALOG_URL",
+            "EXPOSED_WORKFLOWS",
+            "OUTPUT_FORMAT",
+            "CONFIG_DIR",
+        ]
+        for v in self._vars:
+            os.environ.pop(v, None)
+
+    def teardown_method(self) -> None:
+        for v in self._vars:
+            os.environ.pop(v, None)
+        reset_config()
+
+    def _get_manager(self) -> "ConfigManager":
+        reset_config()
+        return ConfigManager()
+
+    def test_object_storage_type_s3(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_TYPE"] = "s3"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.storage_type == "s3"
+
+    def test_object_storage_type_azure(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_TYPE"] = "azure"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.storage_type == "azure"
+
+    def test_object_storage_type_invalid_ignored(self) -> None:
+        manager = self._get_manager()
+        original = manager.config.object_storage.storage_type
+        os.environ["OBJECT_STORAGE_TYPE"] = "gcs"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.storage_type == original
+
+    def test_object_storage_bucket(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_BUCKET"] = "my-bucket"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.bucket == "my-bucket"
+
+    def test_object_storage_region(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_REGION"] = "eu-west-1"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.region == "eu-west-1"
+
+    def test_object_storage_prefix(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_PREFIX"] = "custom/prefix"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.prefix == "custom/prefix"
+
+    def test_object_storage_access_key_id(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_ACCESS_KEY_ID"] = "AKID"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.access_key_id == "AKID"
+
+    def test_object_storage_secret_access_key(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_SECRET_ACCESS_KEY"] = "SECRET"  # noqa: S105
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.secret_access_key == "SECRET"  # noqa: S105
+
+    def test_object_storage_session_token(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_SESSION_TOKEN"] = "TOKEN"  # noqa: S105
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.session_token == "TOKEN"  # noqa: S105
+
+    def test_object_storage_endpoint_url(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_ENDPOINT_URL"] = "https://s3.local"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.endpoint_url == "https://s3.local"
+
+    def test_object_storage_transfer_acceleration_true(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_TRANSFER_ACCELERATION"] = "true"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.use_transfer_acceleration is True
+
+    def test_object_storage_transfer_acceleration_false(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_TRANSFER_ACCELERATION"] = "false"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.use_transfer_acceleration is False
+
+    def test_object_storage_max_concurrency(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_MAX_CONCURRENCY"] = "32"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.max_concurrency == 32
+
+    def test_object_storage_multipart_chunksize(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_MULTIPART_CHUNKSIZE"] = "8388608"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.multipart_chunksize == 8388608
+
+    def test_object_storage_use_rust_client_true(self) -> None:
+        manager = self._get_manager()
+        os.environ["OBJECT_STORAGE_USE_RUST_CLIENT"] = "true"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.use_rust_client is True
+
+    def test_cloudfront_domain(self) -> None:
+        manager = self._get_manager()
+        os.environ["CLOUDFRONT_DOMAIN"] = "cdn.example.com"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.cloudfront_domain == "cdn.example.com"
+
+    def test_cloudfront_key_pair_id(self) -> None:
+        manager = self._get_manager()
+        os.environ["CLOUDFRONT_KEY_PAIR_ID"] = "KID123"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.cloudfront_key_pair_id == "KID123"
+
+    def test_cloudfront_private_key(self) -> None:
+        manager = self._get_manager()
+        os.environ["CLOUDFRONT_PRIVATE_KEY"] = "-----BEGIN RSA PRIVATE KEY-----"
+        manager._apply_env_overrides()
+        assert (
+            manager.config.object_storage.cloudfront_private_key
+            == "-----BEGIN RSA PRIVATE KEY-----"
+        )
+
+    def test_signed_url_expires_in(self) -> None:
+        manager = self._get_manager()
+        os.environ["SIGNED_URL_EXPIRES_IN"] = "3600"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.signed_url_expires_in == 3600
+
+    def test_azure_connection_string(self) -> None:
+        manager = self._get_manager()
+        os.environ["AZURE_CONNECTION_STRING"] = "DefaultEndpointsProtocol=https;..."
+        manager._apply_env_overrides()
+        assert (
+            manager.config.object_storage.azure_connection_string
+            == "DefaultEndpointsProtocol=https;..."
+        )
+
+    def test_azure_storage_account_name(self) -> None:
+        manager = self._get_manager()
+        os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = "myaccount"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.azure_account_name == "myaccount"
+
+    def test_azure_storage_account_key(self) -> None:
+        manager = self._get_manager()
+        os.environ["AZURE_STORAGE_ACCOUNT_KEY"] = "base64key=="  # noqa: S105
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.azure_account_key == "base64key=="
+
+    def test_azure_container_name(self) -> None:
+        manager = self._get_manager()
+        os.environ["AZURE_CONTAINER_NAME"] = "mycontainer"
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.azure_container_name == "mycontainer"
+
+    def test_azure_endpoint_url(self) -> None:
+        manager = self._get_manager()
+        os.environ["AZURE_ENDPOINT_URL"] = "https://myaccount.blob.core.windows.net"
+        manager._apply_env_overrides()
+        assert (
+            manager.config.object_storage.endpoint_url
+            == "https://myaccount.blob.core.windows.net"
+        )
+
+    def test_azure_geocatalog_url(self) -> None:
+        manager = self._get_manager()
+        os.environ["AZURE_GEOCATALOG_URL"] = "https://geocatalog.example.com"
+        manager._apply_env_overrides()
+        assert (
+            manager.config.object_storage.azure_geocatalog_url
+            == "https://geocatalog.example.com"
+        )
+
+    def test_exposed_workflows_parses_comma_separated(self) -> None:
+        manager = self._get_manager()
+        os.environ["EXPOSED_WORKFLOWS"] = "workflow_a, workflow_b, workflow_c"
+        manager._apply_env_overrides()
+        assert manager.config.workflow_exposure.exposed_workflows == [
+            "workflow_a",
+            "workflow_b",
+            "workflow_c",
+        ]
+
+    def test_exposed_workflows_single(self) -> None:
+        manager = self._get_manager()
+        os.environ["EXPOSED_WORKFLOWS"] = "only_workflow"
+        manager._apply_env_overrides()
+        assert manager.config.workflow_exposure.exposed_workflows == ["only_workflow"]
+
+    def test_output_format_zarr(self) -> None:
+        manager = self._get_manager()
+        os.environ["OUTPUT_FORMAT"] = "zarr"
+        manager._apply_env_overrides()
+        assert manager.config.paths.output_format == "zarr"
+
+    def test_output_format_netcdf4(self) -> None:
+        manager = self._get_manager()
+        os.environ["OUTPUT_FORMAT"] = "netcdf4"
+        manager._apply_env_overrides()
+        assert manager.config.paths.output_format == "netcdf4"
+
+    def test_output_format_invalid_ignored(self) -> None:
+        manager = self._get_manager()
+        original = manager.config.paths.output_format
+        os.environ["OUTPUT_FORMAT"] = "csv"
+        manager._apply_env_overrides()
+        assert manager.config.paths.output_format == original
+
+    def test_apply_env_overrides_no_op_when_config_none(self) -> None:
+        """_apply_env_overrides returns early when _config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        # Should not raise
+        manager._apply_env_overrides()
+
+    def test_ensure_paths_exist_no_op_when_config_none(self) -> None:
+        """_ensure_paths_exist returns early when _config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        # Should not raise
+        manager._ensure_paths_exist()
+
+    def test_config_property_reinitializes_when_none(self) -> None:
+        """config property calls _initialize_config when _config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        cfg = manager.config
+        assert isinstance(cfg, AppConfig)
+
+    def test_workflow_config_property_reinitializes_when_none(self) -> None:
+        """workflow_config property calls _initialize_config when _workflow_config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._workflow_config = None
+        wf_cfg = manager.workflow_config
+        assert wf_cfg is not None
+
+    def test_initialize_config_uses_config_dir_env_var(self) -> None:
+        """_initialize_config uses CONFIG_DIR env var when set"""
+        reset_config()
+        with patch(
+            "earth2studio.serve.server.config.initialize_config_dir"
+        ) as mock_init:
+            mock_init.side_effect = Exception("stop here")
+            os.environ["CONFIG_DIR"] = "/custom/conf"
+            ConfigManager()
+            # Config falls back to defaults on exception, but we can verify the path
+            # was derived from CONFIG_DIR by checking that initialize_config_dir was
+            # called with the env-var path
+            call_args = mock_init.call_args
+            assert call_args is not None
+            assert "/custom/conf" in call_args[1].get(
+                "config_dir", call_args[0][0] if call_args[0] else ""
+            )
