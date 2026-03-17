@@ -37,7 +37,7 @@ import aiofiles  # type: ignore[import-untyped]
 import redis as redis_sync  # type: ignore[import-untyped]  # For RQ (synchronous)
 import redis.asyncio as redis  # type: ignore[import-untyped]
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -47,8 +47,10 @@ from rq import Queue
 # Import configuration
 from earth2studio.serve.server.config import get_config, get_config_manager
 from earth2studio.serve.server.utils import (
+    create_file_stream,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
+    parse_range_header,
 )
 
 # Import workflow registry
@@ -95,6 +97,7 @@ def check_admission_control() -> None:
         config.queue.name,
         config.queue.result_zip_queue_name,
         config.queue.object_storage_queue_name,
+        config.queue.geocatalog_ingestion_queue_name,
         config.queue.finalize_metadata_queue_name,
     ]
     for queue_name in queue_names:
@@ -385,7 +388,7 @@ async def list_workflows() -> dict[str, dict[str, str]]:
     dict
         Single key ``workflows`` mapping workflow name to description.
     """
-    workflows = workflow_registry.list_workflows()
+    workflows = workflow_registry.list_workflows(exposed_only=True)
     return {"workflows": workflows}
 
 
@@ -414,11 +417,15 @@ async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
     HTTPException
         404 if workflow not found; 500 if schema generation fails.
     """
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     try:
@@ -522,11 +529,15 @@ async def execute_workflow(
         404 if workflow not found; 422 if parameters invalid; 429 if queues full;
         503 if Redis/queue not initialized; 500 on enqueue failure.
     """
-    # Check if workflow exists and get the workflow class for validation
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Validate parameters early to provide immediate feedback using classmethod
@@ -650,11 +661,15 @@ async def get_workflow_status(workflow_name: str, execution_id: str) -> Workflow
     # Create logger adapter with execution_id
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     try:
@@ -718,11 +733,15 @@ async def get_workflow_results(
     # Create logger adapter with execution_id
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Check workflow status first
@@ -815,7 +834,10 @@ async def get_workflow_results(
 
 @app.get("/v1/infer/{workflow_name}/{execution_id}/results/{filepath:path}")
 async def get_workflow_result_file(
-    workflow_name: str, execution_id: str, filepath: str
+    workflow_name: str,
+    execution_id: str,
+    filepath: str,
+    request: Request,
 ) -> StreamingResponse:
     """
     Stream a specific file from the workflow execution results.
@@ -844,11 +866,15 @@ async def get_workflow_result_file(
         403 on path traversal attempt; 404 if workflow, execution, file, or zip
         not found or results not completed; 503 if Redis not initialized; 500 on error.
     """
-    # Check if workflow exists
+    # Check if workflow exists and is exposed
     custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
+        )
+    if not workflow_registry.is_workflow_exposed(workflow_name):
+        raise HTTPException(
+            status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
 
     # Check workflow status first
@@ -902,29 +928,32 @@ async def get_workflow_result_file(
                     },
                 )
 
-            # Stream the zip file
-            async def stream_zip_file() -> AsyncGenerator[bytes, None]:
-                """Stream the zip file contents"""
-                try:
-                    chunk_size = 8192
-                    async with aiofiles.open(zip_file_path, "rb") as f:
-                        while True:
-                            chunk = await f.read(chunk_size)
-                            if not chunk:
-                                break
-                            yield chunk
-                            await asyncio.sleep(0)
-                except Exception:
-                    logger.exception(f"Error streaming zip file {zip_file_path}")
-                    raise
+            # Get file size and parse range header
+            zip_file_size = zip_file_path.stat().st_size
+            range_header = request.headers.get("Range")
+            start, end, content_length, status_code = parse_range_header(
+                range_header, zip_file_size
+            )
+
+            # Create streaming response
+            stream_generator = create_file_stream(
+                zip_file_path, start, content_length, "zip file"
+            )
 
             headers = {
                 "Content-Disposition": f'attachment; filename="{zip_filename}"',
-                "Content-Length": str(zip_file_path.stat().st_size),
+                "Content-Length": str(content_length),
+                "Accept-Ranges": "bytes",
             }
 
+            if range_header:
+                headers["Content-Range"] = f"bytes {start}-{end}/{zip_file_size}"
+
             return StreamingResponse(
-                stream_zip_file(), media_type="application/zip", headers=headers
+                stream_generator,
+                media_type="application/zip",
+                headers=headers,
+                status_code=status_code,
             )
 
         # Regular case: get file from output directory
@@ -1005,29 +1034,28 @@ async def get_workflow_result_file(
         if media_type is None:
             media_type = "application/octet-stream"
 
-        # Stream the file
-        async def stream_file() -> AsyncGenerator[bytes, None]:
-            """Stream the file contents"""
-            try:
-                chunk_size = 8192
-                async with aiofiles.open(requested_path, "rb") as f:
-                    while True:
-                        chunk = await f.read(chunk_size)
-                        if not chunk:
-                            break
-                        yield chunk
-                        await asyncio.sleep(0)
-            except Exception:
-                logger.exception(f"Error streaming file {requested_path}")
-                raise
-
-        # Set appropriate headers
+        # Get file size and parse range header
+        file_size = requested_path.stat().st_size
+        range_header = request.headers.get("Range")
+        start, end, content_length, status_code = parse_range_header(
+            range_header, file_size
+        )
+        stream_generator = create_file_stream(
+            requested_path, start, content_length, "file"
+        )
         headers = {
             "Content-Disposition": f'attachment; filename="{requested_path.name}"',
-            "Content-Length": str(requested_path.stat().st_size),
+            "Content-Length": str(content_length),
+            "Accept-Ranges": "bytes",
         }
-
-        return StreamingResponse(stream_file(), media_type=media_type, headers=headers)
+        if range_header:
+            headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+        return StreamingResponse(
+            stream_generator,
+            media_type=media_type,
+            headers=headers,
+            status_code=status_code,
+        )
 
     except HTTPException:
         raise

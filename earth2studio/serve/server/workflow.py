@@ -738,12 +738,79 @@ class WorkflowRegistry:
 
         return instance
 
-    def list_workflows(self) -> dict[str, str]:
-        """List all registered workflows."""
-        return {
-            name: workflow_class.description
-            for name, workflow_class in self._workflows.items()
-        }
+    def is_workflow_exposed(self, workflow_name: str) -> bool:
+        """
+        Check if a workflow is exposed via API.
+
+        A workflow is exposed if:
+        - The exposed_workflows list is empty (all workflows exposed by default), OR
+        - The workflow name is in the exposed_workflows list, OR
+        - The workflow name is in the warmup_workflows list (accessible for warmup)
+
+        Parameters
+        ----------
+        workflow_name : str
+            Name of the workflow to check
+
+        Returns
+        -------
+        bool
+            True if workflow should be exposed, False otherwise
+        """
+        from earth2studio.serve.server.config import get_config
+
+        config = get_config()
+        exposed_workflows = config.workflow_exposure.exposed_workflows
+        warmup_workflows = config.workflow_exposure.warmup_workflows
+
+        # Empty list means all workflows are exposed
+        if not exposed_workflows:
+            return True
+
+        # Check if in exposed list or warmup list
+        return workflow_name in exposed_workflows or workflow_name in warmup_workflows
+
+    def list_workflows(self, exposed_only: bool = True) -> dict[str, str]:
+        """
+        List registered workflows.
+
+        Parameters
+        ----------
+        exposed_only : bool, optional
+            If True, only return workflows that are in exposed_workflows
+            (warmup-only workflows are excluded from public listing).
+            If False, return all registered workflows.
+
+        Returns
+        -------
+        dict
+            Dictionary mapping workflow names to descriptions
+        """
+        if exposed_only:
+            from earth2studio.serve.server.config import get_config
+
+            config = get_config()
+            exposed_workflows = config.workflow_exposure.exposed_workflows
+
+            # Empty list means all workflows are exposed (including warmup)
+            if not exposed_workflows:
+                return {
+                    name: workflow_class.description
+                    for name, workflow_class in self._workflows.items()
+                }
+
+            # Only return workflows in the exposed_workflows list
+            # (warmup-only workflows are excluded from public listing)
+            return {
+                name: workflow_class.description
+                for name, workflow_class in self._workflows.items()
+                if name in exposed_workflows
+            }
+        else:
+            return {
+                name: workflow_class.description
+                for name, workflow_class in self._workflows.items()
+            }
 
     def discover_and_register_from_directories(
         self, workflow_dirs: list, include_builtin: bool = True

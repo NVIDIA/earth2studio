@@ -14,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
+from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any, Literal
 
+import aiofiles  # type: ignore[import-untyped]
 import redis  # type: ignore[import-untyped]
+from fastapi import HTTPException
 from rq import Queue
 
 from earth2studio.serve.server.config import get_config
@@ -56,13 +61,150 @@ def get_signed_url_key(request_id: str) -> str:
 
 
 # =============================================================================
+# File Streaming Utilities
+# =============================================================================
+
+
+def parse_range_header(
+    range_header: str | None, file_size: int
+) -> tuple[int, int, int, int]:
+    """
+    Parse Range header and return start, end, content_length, and status_code.
+
+    Args:
+        range_header: The Range header value from the request, or None
+        file_size: Total size of the file in bytes
+
+    Returns:
+        Tuple of (start, end, content_length, status_code)
+
+    Raises:
+        HTTPException: If the range is invalid (416 status)
+    """
+    start = 0
+    end = file_size - 1
+    status_code = 200
+
+    if not range_header:
+        return (start, end, file_size, status_code)
+
+    # Parse Range header: "bytes=start-end" or "bytes=start-" or "bytes=-suffix"
+    if not range_header.startswith("bytes="):
+        raise HTTPException(
+            status_code=416,
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": "Only byte ranges are supported",
+            },
+        )
+
+    range_spec = range_header[6:]  # Remove "bytes=" prefix
+    ranges = range_spec.split(",")
+
+    # For now, only handle single range (first range)
+    if len(ranges) > 1:
+        logger.warning(f"Multiple ranges requested, using first: {range_header}")
+
+    range_part = ranges[0].strip()
+    if "-" not in range_part:
+        raise HTTPException(
+            status_code=416,
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": "Invalid range format",
+            },
+        )
+
+    start_str, end_str = range_part.split("-", 1)
+
+    try:
+        if start_str:
+            start = int(start_str)
+            if end_str:
+                end = int(end_str)
+            else:
+                end = file_size - 1
+        else:
+            # Suffix range: "-suffix" means last N bytes
+            suffix = int(end_str)
+            start = max(0, file_size - suffix)
+            end = file_size - 1
+    except ValueError:
+        raise HTTPException(
+            status_code=416,
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": f"Invalid range values in: {range_header}",
+            },
+        )
+
+    # Validate range - clamp end to file_size - 1 per RFC 9110 §14.1.2
+    if start < 0 or start >= file_size or end < start:
+        raise HTTPException(
+            status_code=416,
+            headers={
+                "Content-Range": f"bytes */{file_size}",
+            },
+            detail={
+                "error": "Range Not Satisfiable",
+                "details": f"Requested range {start}-{end} is invalid for file size {file_size}",
+            },
+        )
+    # Clamp end to the last valid byte
+    end = min(end, file_size - 1)
+
+    status_code = 206  # Partial Content
+    content_length = end - start + 1
+    return (start, end, content_length, status_code)
+
+
+async def create_file_stream(
+    file_path: Path, start: int, content_length: int, file_description: str = "file"
+) -> AsyncGenerator[bytes, None]:
+    """
+    Create an async generator that streams a file with optional range support.
+
+    Args:
+        file_path: Path to the file to stream
+        start: Starting byte position (0 for full file, or range start)
+        content_length: Number of bytes to stream
+        file_description: Description for error logging
+
+    Yields:
+        Bytes chunks from the file
+    """
+    try:
+        chunk_size = 1048576  # 1MB chunks for better performance
+        async with aiofiles.open(file_path, "rb") as f:
+            # Seek to start position if range request
+            if start > 0:
+                await f.seek(start)
+
+            remaining = content_length
+            while remaining > 0:
+                read_size = min(chunk_size, remaining)
+                chunk = await f.read(read_size)
+                if not chunk:
+                    break
+                yield chunk
+                remaining -= len(chunk)
+                await asyncio.sleep(0)
+    except Exception:
+        logger.exception(f"Error streaming {file_description} {file_path}")
+        raise
+
+
+# =============================================================================
 # Pipeline Stage Utilities
 # =============================================================================
 
 
+Stage = Literal["inference", "result_zip", "object_storage", "geocatalog_ingestion"]
+
+
 def queue_next_stage(
     redis_client: redis.Redis,
-    current_stage: Literal["inference", "result_zip", "object_storage"],
+    current_stage: Stage,
     workflow_name: str,
     execution_id: str,
     output_path_str: str,
@@ -72,12 +214,12 @@ def queue_next_stage(
     Queue the next pipeline stage based on configuration.
 
     Pipeline flow:
-    - If result_zip_enabled: inference -> result_zip -> object_storage (if enabled) -> finalize
-    - If not result_zip_enabled: inference -> object_storage (if enabled) -> finalize
+    - If result_zip_enabled: inference -> result_zip -> object_storage (if enabled) -> [geocatalog_ingestion (if AZURE_GEOCATALOG_URL)] -> finalize
+    - If not result_zip_enabled: inference -> object_storage (if enabled) -> [geocatalog_ingestion (if AZURE_GEOCATALOG_URL)] -> finalize
 
     Args:
         redis_client: Redis client for queue connection
-        current_stage: The stage that just completed ("inference", "result_zip", "object_storage")
+        current_stage: The stage that just completed ("inference", "result_zip", "object_storage", "geocatalog_ingestion")
         workflow_name: Name of the workflow
         execution_id: Execution ID of the workflow
         output_path_str: Path to the output files
@@ -120,6 +262,18 @@ def queue_next_stage(
             args = (workflow_name, execution_id)
 
     elif current_stage == "object_storage":
+        if config.object_storage.azure_geocatalog_url:
+            next_queue = "geocatalog_ingestion"
+            next_func = (
+                "earth2studio.serve.server.cpu_worker.process_geocatalog_ingestion"
+            )
+            args = (workflow_name, execution_id)
+        else:
+            next_queue = "finalize_metadata"
+            next_func = "earth2studio.serve.server.cpu_worker.process_finalize_metadata"
+            args = (workflow_name, execution_id)
+
+    elif current_stage == "geocatalog_ingestion":
         next_queue = "finalize_metadata"
         next_func = "earth2studio.serve.server.cpu_worker.process_finalize_metadata"
         args = (workflow_name, execution_id)

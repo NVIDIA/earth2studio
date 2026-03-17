@@ -1,0 +1,7 @@
+[
+  {"id": "t2m", "scale": [263, 313], "cmap": "balance"},
+  {"id": "t850", "scale": [263, 313], "cmap": "balance"},
+  {"id": "u10m", "scale": [-20, 20], "cmap": "prgn"},
+  {"id": "v10m", "scale": [-20, 20], "cmap": "prgn"},
+  {"id": "z500", "scale": [45000, 60000], "cmap": "viridis"}
+]

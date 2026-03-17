@@ -1,0 +1,10 @@
+[
+  {"id": "abi01c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi02c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi03c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi07c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi08c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi09c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi10c", "scale": [0, 1], "cmap": "plasma"},
+  {"id": "abi13c", "scale": [0, 1], "cmap": "plasma"}
+]

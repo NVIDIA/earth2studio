@@ -18,19 +18,25 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+import logging
 import os
 import pathlib
 import shutil
+import time as _time_module
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 from typing import Any, TypeVar
 from urllib.parse import urlparse
+from uuid import uuid4
 
 import nest_asyncio
 import netCDF4
 import numpy as np
 import pygrib
+import requests
 import xarray as xr
 from loguru import logger
 from tqdm import tqdm
@@ -1223,3 +1229,270 @@ class PlanetaryComputerGOES(_PlanetaryComputerData):
                 raise ValueError(
                     f"Requested date time {time} is after {self._satellite} was retired ({end_date})"
                 )
+
+
+class GeoCatalogClient:
+    """Client for ingesting STAC features into a Planetary Computer GeoCatalog.
+
+    Workflow-specific behavior (templates, tile settings, render options, step size,
+    start-time parameter key) is loaded from JSON files in the caller-provided config
+    directory. This class is independent of concrete workflows.
+
+    Expected files per workflow (workflow_name is passed by the caller):
+    - parameters-{workflow_name}.json: step_size_hours, start_time_parameter_key
+    - template-collection-{suffix}.json, template-feature-{suffix}.json
+    - tile-settings-{suffix}.json, render-options-{suffix}.json
+
+    Parameters
+    ----------
+    workflow_name : str
+        Workflow name used in filenames (e.g. "fcn3", "fcn3-stormscope-goes").
+    config_dir : str | pathlib.Path
+        Directory containing the GeoCatalog JSON config and template files.
+    """
+
+    APPLICATION_URL = "https://geocatalog.spatio.azure.com/"
+    REQUESTS_TIMEOUT = 30
+    CREATION_TIMEOUT = 300
+
+    def __init__(
+        self,
+        workflow_name: str,
+        config_dir: str | pathlib.Path,
+    ) -> None:
+        try:
+            from azure.identity import DefaultAzureCredential as _DefaultAzureCredential
+        except ImportError as e:
+            raise ImportError(
+                "GeoCatalogClient requires 'azure-identity'. "
+                "Install with the serve extra or pip install azure-identity."
+            ) from e
+        self._DefaultAzureCredential = _DefaultAzureCredential
+        self._workflow_name = workflow_name
+        self._config_dir = pathlib.Path(config_dir)
+        self._parameters: dict[str, Any] = {}
+        self._load_parameters()
+        self.headers: dict | None = None
+
+    def _load_parameters(self) -> None:
+        path = self._config_dir / f"parameters-{self._workflow_name}.json"
+        with open(path) as f:
+            self._parameters = json.load(f)
+
+    def update_headers(self) -> None:
+        """Refresh the Authorization header using a new Azure credential token."""
+        credential = self._DefaultAzureCredential()
+        token = credential.get_token(self.APPLICATION_URL)
+        self.headers = {"Authorization": f"Bearer {token.token}"}
+
+    def _get(self, url: str) -> Any:
+        return requests.get(
+            url,
+            headers=self.headers,
+            params={"api-version": "2025-04-30-preview"},
+            timeout=self.REQUESTS_TIMEOUT,
+        )
+
+    def _post(self, url: str, body: dict | None = None) -> Any:
+        return requests.post(
+            url,
+            json=body,
+            headers=self.headers,
+            params={"api-version": "2025-04-30-preview"},
+            timeout=self.REQUESTS_TIMEOUT,
+        )
+
+    def _put(self, url: str, body: dict | None = None) -> Any:
+        return requests.put(
+            url,
+            json=body,
+            headers=self.headers,
+            params={"api-version": "2025-04-30-preview"},
+            timeout=self.REQUESTS_TIMEOUT,
+        )
+
+    def _create_element(self, url: str, stac_config: dict) -> bool:
+        response = self._post(url, body=stac_config)
+        log = logging.getLogger("planetary_computer.geocatalog")
+        if response.status_code not in {200, 201, 202}:
+            log.error(
+                "POST to '%s' failed: %s - %s", url, response.status_code, response.text
+            )
+            return False
+        location = response.headers["location"]
+        log.info("Creating '%s'...", stac_config["id"])
+        start = perf_counter()
+        while True:
+            if (perf_counter() - start) > self.CREATION_TIMEOUT:
+                log.error("Creation of '%s' timed out", stac_config["id"])
+                return False
+            response = self._get(location)
+            if response.status_code not in {200, 201, 202}:
+                log.warning(
+                    "Polling '%s' returned %s, retrying...",
+                    location,
+                    response.status_code,
+                )
+                _time_module.sleep(5)
+                continue
+            try:
+                status = response.json()["status"]
+            except (ValueError, KeyError) as exc:
+                log.warning("Unexpected polling response: %s", exc)
+                _time_module.sleep(5)
+                continue
+            log.info(status)
+            if status not in {"Pending", "Running"}:
+                break
+            _time_module.sleep(5)
+        if status == "Succeeded":
+            log.info("Successfully created '%s'", stac_config["id"])
+            return True
+        else:
+            log.error("Failed to create '%s': %s", stac_config["id"], response.text)
+            return False
+
+    def _get_collection_json(self, collection_id: str | None) -> dict:
+        path = self._config_dir / f"template-collection-{self._workflow_name}.json"
+        with open(path) as f:
+            stac_config = json.load(f)
+        if collection_id is None:
+            stac_config["id"] = stac_config["id"].format(uuid=uuid4())
+        else:
+            stac_config["id"] = collection_id
+        return stac_config
+
+    def _get_feature_json(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        blob_url: str,
+    ) -> dict:
+        path = self._config_dir / f"template-feature-{self._workflow_name}.json"
+        with open(path) as f:
+            stac_config = json.load(f)
+        iso_start = start_time.isoformat()
+        iso_end = end_time.isoformat()
+        stac_config["id"] = stac_config["id"].format(
+            start_time=iso_start[:13], uuid=uuid4()
+        )
+        stac_config["properties"]["datetime"] = iso_start
+        stac_config["properties"]["start_datetime"] = iso_start
+        stac_config["properties"]["end_datetime"] = iso_end
+        stac_config["assets"]["data"]["href"] = blob_url
+        stac_config["assets"]["data"]["description"] = stac_config["assets"]["data"][
+            "description"
+        ].format(start_time=iso_start, end_time=iso_end)
+        return stac_config
+
+    def _update_tile_settings(self, geocatalog_url: str, collection_id: str) -> None:
+        path = self._config_dir / f"tile-settings-{self._workflow_name}.json"
+        with open(path) as f:
+            tile_settings = json.load(f)
+        response = self._put(
+            f"{geocatalog_url}/stac/collections/{collection_id}/configurations/tile-settings",
+            body=tile_settings,
+        )
+        if response.status_code not in {200, 201}:
+            log = logging.getLogger("planetary_computer.geocatalog")
+            log.error(
+                "Could not update tile settings: Error %s - %s",
+                response.status_code,
+                response.text,
+            )
+
+    def _update_render_options(self, geocatalog_url: str, collection_id: str) -> None:
+        path = self._config_dir / f"render-options-{self._workflow_name}.json"
+        with open(path) as f:
+            render_params = json.load(f)
+        log = logging.getLogger("planetary_computer.geocatalog")
+        for params in render_params:
+            render_option = {
+                "id": f"auto-{params['id']}",
+                "name": params["id"],
+                "type": "raster-tile",
+                "options": (
+                    f"assets=data&subdataset_name={params['id']}"
+                    "&sel=time=2100-01-01&sel=ensemble=0&sel_method=nearest"
+                    f"&rescale={params['scale'][0]},{params['scale'][1]}"
+                    f"&colormap_name={params['cmap']}"
+                ),
+                "minZoom": 0,
+            }
+            response = self._post(
+                f"{geocatalog_url}/stac/collections/{collection_id}/configurations/render-options",
+                body=render_option,
+            )
+            if response.status_code not in {200, 201}:
+                log.error(
+                    "Could not update render options: Error %s - %s",
+                    response.status_code,
+                    response.text,
+                )
+
+    def _create_collection(
+        self,
+        geocatalog_url: str,
+        collection_id: str | None,
+    ) -> str:
+        stac_config = self._get_collection_json(collection_id)
+        success = self._create_element(
+            url=f"{geocatalog_url}/stac/collections",
+            stac_config=stac_config,
+        )
+        if not success:
+            raise RuntimeError(f"Failed to create collection '{stac_config['id']}'")
+        self._update_tile_settings(geocatalog_url, stac_config["id"])
+        self._update_render_options(geocatalog_url, stac_config["id"])
+        return stac_config["id"]
+
+    def _ensure_collection_exists(self, geocatalog_url: str, collection_id: str) -> str:
+        response = self._get(f"{geocatalog_url}/stac/collections/{collection_id}")
+        if response.status_code == 200:
+            return collection_id
+        if response.status_code != 404:
+            raise RuntimeError(
+                f"Failed to retrieve collection: Error {response.status_code} - {response.text}"
+            )
+        return self._create_collection(geocatalog_url, collection_id)
+
+    def _resolve_start_time(self, parameters: dict) -> datetime:
+        key = self._parameters["start_time_parameter_key"]
+        raw = parameters.get(key)
+        if raw is None:
+            raise ValueError(
+                f"Missing {key!r} in parameters for workflow {self._workflow_name!r}"
+            )
+        if isinstance(raw, str):
+            normalized = raw.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized)
+        if isinstance(raw, datetime):
+            return raw
+        if hasattr(raw, "isoformat"):
+            return datetime.fromisoformat(raw.isoformat())
+        raise TypeError(f"start time must be str or datetime, got {type(raw)}")
+
+    def create_feature(
+        self,
+        geocatalog_url: str,
+        collection_id: str | None,
+        parameters: dict,
+        blob_url: str,
+    ) -> tuple[str, str]:
+        """Ingest a new STAC feature into the collection."""
+        self.update_headers()
+        if collection_id is None:
+            collection_id = self._create_collection(geocatalog_url, None)
+        else:
+            self._ensure_collection_exists(geocatalog_url, collection_id)
+        start_time = self._resolve_start_time(parameters)
+        step_hours = self._parameters["step_size_hours"]
+        end_time = start_time + timedelta(hours=step_hours)
+        stac_config = self._get_feature_json(start_time, end_time, blob_url)
+        success = self._create_element(
+            url=f"{geocatalog_url}/stac/collections/{collection_id}/items",
+            stac_config=stac_config,
+        )
+        if not success:
+            raise RuntimeError(f"Failed to create feature '{stac_config['id']}'")
+        return collection_id, stac_config["id"]
