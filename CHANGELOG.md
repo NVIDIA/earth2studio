@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added StormCast SDA model
 - Added beta serve utils with inference server and client implementations
 - Added HealPix data assimilation (HealDA) model
+- Added `energy_score` metric for multivariate ensemble forecast verification
 
 ### Changed
 
