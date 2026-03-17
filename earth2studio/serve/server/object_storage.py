@@ -340,7 +340,7 @@ class MSCObjectStorage(ObjectStorage):
             else:
                 # Using connection string authentication — azure_connection_string is
                 # guaranteed to be not None here (see use_managed_identity above).
-                if azure_connection_string is None:
+                if azure_connection_string is None:  # pragma: no cover
                     raise ObjectStorageError(
                         "Connection string required for non-managed identity mode"
                     )

@@ -212,6 +212,40 @@ class TestQueueNextStage:
         assert "process_finalize_metadata" in mock_queue.enqueue.call_args[0][0]
         assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
 
+    def test_object_storage_stage_with_geocatalog_url_queues_geocatalog(self):
+        """current_stage=object_storage with geocatalog URL enqueues process_geocatalog_ingestion."""
+        mock_redis = MagicMock()
+        mock_config = MagicMock()
+        mock_config.object_storage.azure_geocatalog_url = (
+            "https://geocatalog.example.com"
+        )
+        mock_config.queue.geocatalog_ingestion_queue_name = "geocatalog_ingestion"
+        mock_config.queue.default_timeout = "1h"
+        mock_config.queue.job_timeout = "2h"
+        mock_job = MagicMock()
+        mock_job.id = "job_geo"
+        mock_queue = MagicMock()
+        mock_queue.enqueue.return_value = mock_job
+
+        with (
+            patch(
+                "earth2studio.serve.server.utils.get_config", return_value=mock_config
+            ),
+            patch("earth2studio.serve.server.utils.Queue", return_value=mock_queue),
+        ):
+            result = queue_next_stage(
+                redis_client=mock_redis,
+                current_stage="object_storage",
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str="/out",
+            )
+
+        assert result == "job_geo"
+        mock_queue.enqueue.assert_called_once()
+        assert "process_geocatalog_ingestion" in mock_queue.enqueue.call_args[0][0]
+        assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
+
     def test_object_storage_stage_queues_finalize_metadata(self):
         """current_stage=object_storage enqueues process_finalize_metadata when geocatalog is not configured."""
         mock_redis = MagicMock()
@@ -242,6 +276,37 @@ class TestQueueNextStage:
         assert result == "job_final"
         mock_queue.enqueue.assert_called_once()
         assert "process_finalize_metadata" in mock_queue.enqueue.call_args[0][0]
+
+    def test_geocatalog_ingestion_stage_queues_finalize_metadata(self):
+        """current_stage=geocatalog_ingestion enqueues process_finalize_metadata."""
+        mock_redis = MagicMock()
+        mock_config = MagicMock()
+        mock_config.queue.finalize_metadata_queue_name = "finalize_metadata"
+        mock_config.queue.default_timeout = "1h"
+        mock_config.queue.job_timeout = "2h"
+        mock_job = MagicMock()
+        mock_job.id = "job_finalize"
+        mock_queue = MagicMock()
+        mock_queue.enqueue.return_value = mock_job
+
+        with (
+            patch(
+                "earth2studio.serve.server.utils.get_config", return_value=mock_config
+            ),
+            patch("earth2studio.serve.server.utils.Queue", return_value=mock_queue),
+        ):
+            result = queue_next_stage(
+                redis_client=mock_redis,
+                current_stage="geocatalog_ingestion",
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str="/out",
+            )
+
+        assert result == "job_finalize"
+        mock_queue.enqueue.assert_called_once()
+        assert "process_finalize_metadata" in mock_queue.enqueue.call_args[0][0]
+        assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
 
     def test_enqueue_exception_returns_none(self):
         """When Queue.enqueue raises, queue_next_stage returns None."""
@@ -361,6 +426,13 @@ class TestParseRangeHeader:
         with pytest.raises(HTTPException) as exc_info:
             parse_range_header("bytes=200-100", 1000)
         assert exc_info.value.status_code == 416
+
+    def test_non_numeric_range_values_raises_416(self):
+        """Non-integer range values raise HTTPException 416."""
+        with pytest.raises(HTTPException) as exc_info:
+            parse_range_header("bytes=abc-xyz", 1000)
+        assert exc_info.value.status_code == 416
+        assert "Invalid range values" in exc_info.value.detail["details"]
 
 
 class TestCreateFileStream:
