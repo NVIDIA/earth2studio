@@ -32,12 +32,19 @@ class energy_score:
         ES = (1/M) * sum_m ||x_m - y|| - 1/(2*M^2) * sum_m sum_m' ||x_m - x_m'||
 
     where ||.|| denotes the Euclidean norm computed over the multivariate
-    dimensions. This is a proper scoring rule that is minimized when the
-    forecast distribution matches the true distribution.
+    dimensions. This is a proper scoring rule that is minimized when the forecast
+    distribution matches the true distribution.
 
     Unlike CRPS which evaluates each variable/grid point independently, the
     Energy Score captures whether the ensemble preserves spatial correlations
     across variables and grid points.
+
+    .. warning::
+        Setting ``multivariate_dimensions`` to large spatial grids (e.g.,
+        ``['lat', 'lon']`` with 721x1440 = ~1M elements) produces a feature
+        vector of that size per ensemble member. For M=50 members this requires
+        ~200 MB per tensor in float32. Prefer selecting a subset of dimensions
+        unless full-field verification is explicitly needed.
 
     Parameters
     ----------
@@ -55,8 +62,10 @@ class energy_score:
         Weights for the reduction dimensions. Must have the same number of
         dimensions as passed in reduction_dimensions. By default None.
     fair: bool, optional
-        If True, use the fair (unbiased) Energy Score estimator with the
-        correction factor M/(M-1). By default False.
+        If True, use the fair (unbiased) Energy Score estimator, which
+        replaces the ``1/(2*M^2)`` denominator with ``1/(2*M*(M-1))``,
+        excluding the zero self-distance diagonal from the denominator count.
+        Requires at least 2 ensemble members. By default False.
 
     References
     ----------
@@ -246,82 +255,38 @@ def _energy_score_compute(
     coord_keys = list(x_coords.keys())
     ens_dim = coord_keys.index(ensemble_dimension)
     M = ensemble.shape[ens_dim]
-
-    # Get indices for multivariate dims in ensemble tensor
     mv_dims = [coord_keys.index(d) for d in multivariate_dimensions]
 
     # Term 1: (1/M) * sum_m ||x_m - y||
-    # Expand truth to match ensemble shape along ensemble dim
     diff_xy = ensemble - truth.unsqueeze(ens_dim)
-    # Compute L2 norm over multivariate dims
-    # We need to square, sum over mv_dims, then sqrt
-    term1 = _l2_norm_over_dims(diff_xy, mv_dims).mean(dim=ens_dim)
+    term1 = torch.sqrt((diff_xy * diff_xy).sum(dim=mv_dims)).mean(dim=ens_dim)
 
-    # Term 2: 1/(2*M^2) * sum_m sum_m' ||x_m - x_m'||
-    # or for fair: 1/(2*M*(M-1)) * sum_{m!=m'} ||x_m - x_m'||
-    # We use torch.cdist for efficiency
-
-    # We need to reshape ensemble so that ens_dim and mv_dims are isolated
-    # Move ens_dim to position 0 and mv_dims to the end, flatten the rest
-    # into a batch dimension for cdist
-
-    # Strategy: flatten multivariate dims into a single dim, then use cdist
-    # First, move ensemble dim to -2 and multivariate dims to -1 (flattened)
-
-    # Determine permutation: [remaining_dims..., ens_dim, mv_dims_flattened...]
+    # Term 2: pairwise ensemble spread via cdist
+    # Permute to (*remaining, M, *mv) then flatten to (batch, M, D)
     all_dims = list(range(ensemble.ndim))
     remaining_dims = [d for d in all_dims if d != ens_dim and d not in mv_dims]
-    perm = remaining_dims + [ens_dim] + mv_dims
-    x_perm = ensemble.permute(*perm)
+    x_perm = ensemble.permute(*remaining_dims, ens_dim, *mv_dims)
 
-    # Now shape is (*remaining, M, *mv_sizes)
     remaining_shape = x_perm.shape[: len(remaining_dims)]
     mv_size = 1
     for d in mv_dims:
         mv_size *= ensemble.shape[d]
-
-    # Reshape to (batch, M, D) where D = product of multivariate dim sizes
     batch_size = 1
     for s in remaining_shape:
         batch_size *= s
     x_flat = x_perm.reshape(batch_size, M, mv_size)
 
-    # Use cdist for pairwise distances
-    pairwise_dists = torch.cdist(x_flat, x_flat, p=2)  # (batch, M, M)
+    pairwise_dists = torch.cdist(x_flat, x_flat, p=2)
 
     if fair:
-        # Fair estimator: exclude diagonal (m == m'), divide by M*(M-1)
         if M < 2:
-            raise ValueError("Fair Energy Score requires at least 2 ensemble members.")
-        # Zero out diagonal then sum, which gives sum_{m!=m'}
+            raise ValueError(f"Fair Energy Score requires ensemble size >= 2, got {M}.")
         mask = ~torch.eye(M, device=pairwise_dists.device, dtype=torch.bool)
         pairwise_sum = (pairwise_dists * mask.unsqueeze(0)).sum(dim=(-1, -2))
         term2 = pairwise_sum / (2.0 * M * (M - 1))
     else:
-        # Standard estimator: sum all pairs including diagonal, divide by 2*M^2
         pairwise_sum = pairwise_dists.sum(dim=(-1, -2))
         term2 = pairwise_sum / (2.0 * M * M)
 
-    # Reshape term2 back to remaining_shape
     term2 = term2.reshape(remaining_shape)
-
-    es = term1 - term2
-    return es
-
-
-def _l2_norm_over_dims(x: torch.Tensor, dims: list[int]) -> torch.Tensor:
-    """Compute L2 norm over specified dimensions.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input tensor.
-    dims : list[int]
-        Dimensions to compute the norm over (will be reduced).
-
-    Returns
-    -------
-    torch.Tensor
-        Tensor with specified dimensions removed.
-    """
-    return torch.sqrt((x * x).sum(dim=dims))
+    return term1 - term2

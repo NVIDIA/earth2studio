@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
 - Adding Beta serve utils with inference server and client implementations
+- Added `energy_score` metric for multivariate ensemble forecast verification
 
 ### Changed
 
