@@ -14,11 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import logging
 from typing import Any, Literal
 
-import redis  # type: ignore[import-untyped]
-from rq import Queue
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    import redis  # type: ignore[import-untyped]
+    from rq import Queue
+except ImportError:
+    OptionalDependencyFailure("serve")
+    redis = None
+    Queue = None
 
 from earth2studio.serve.server.config import get_config
 
@@ -60,6 +72,7 @@ def get_signed_url_key(request_id: str) -> str:
 # =============================================================================
 
 
+@check_optional_dependencies()
 def queue_next_stage(
     redis_client: redis.Redis,
     current_stage: Literal["inference", "result_zip", "object_storage"],
