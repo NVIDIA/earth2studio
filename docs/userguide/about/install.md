@@ -163,6 +163,7 @@ can take a long time to compile.
 :::{tab-item} pip
 
 ```bash
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
 pip install earth2studio[atlas]
 ```
 
@@ -267,7 +268,7 @@ for known suggestions/fixes related to this install process.
 
 ```bash
 export FORCE_CUDA_EXTENSION=1
-pip install --no-build-isolation torch-harmonics==0.8.0
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
 pip install "makani @ git+https://github.com/NVIDIA/makani.git@fd1a62b9f27aebbc793f0cbafd838a3811de43fd"
 pip install earth2studio[fcn3]
 ```
@@ -277,7 +278,6 @@ pip install earth2studio[fcn3]
 
 ```bash
 export FORCE_CUDA_EXTENSION=1
-uv add torch-harmonics==0.8.0 --no-build-isolation
 uv add earth2studio --extra fcn3
 ```
 
@@ -375,6 +375,7 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
 pip install "makani @ git+https://github.com/NVIDIA/makani.git@fd1a62b9f27aebbc793f0cbafd838a3811de43fd"
 pip install earth2studio[sfno]
 ```
@@ -634,6 +635,81 @@ pip install earth2studio[windgust-afno]
 
 ```bash
 uv add earth2studio --extra windgust-afno
+```
+
+:::
+::::
+:::::
+::::::
+
+#### Data Assimilation
+
+:::{admonition} Warning
+:class: warning
+
+Data assimilation model APIs are currently **in Beta** and may change in future
+releases. Expect possible breaking changes as these APIs mature.
+:::
+
+:::{admonition} Warning
+:class: warning
+
+All data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
+which are CUDA-dependent libraries.
+The default installation uses CUDA 12 (i.e., `cupy-cuda12x`, `cudf-cu12`).
+If your system uses a different CUDA version, you may need to adjust the dependencies.
+:::
+
+::::::{tab-set}
+:::::{tab-item} HealDA
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-healda]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-healda
+```
+
+:::
+::::
+:::::
+:::::{tab-item} InterpEquirectangular
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-interp]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-interp
+```
+
+:::
+::::
+:::::
+:::::{tab-item} StormCast SDA
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-stormcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-stormcast
 ```
 
 :::

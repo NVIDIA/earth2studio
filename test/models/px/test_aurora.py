@@ -20,7 +20,11 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
-from aurora import Batch, Metadata
+
+try:
+    from aurora import Batch, Metadata
+except ImportError:
+    pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Aurora
