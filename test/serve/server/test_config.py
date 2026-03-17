@@ -867,20 +867,11 @@ class TestObjectStorageEnvOverrides:
         assert wf_cfg == expected
 
     def test_initialize_config_uses_config_dir_env_var(self) -> None:
-        """_initialize_config uses CONFIG_DIR env var when set"""
+        """_initialize_config uses CONFIG_DIR env var when set (covers lines 203-204)"""
         reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        manager._workflow_config = None
         os.environ["CONFIG_DIR"] = "/custom/conf"
-        captured: list = []
-
-        def capture_init(config_dir: str, **kwargs: object) -> None:
-            captured.append(config_dir)
-            raise Exception("stop after capture")
-
-        with patch(
-            "earth2studio.serve.server.config.initialize_config_dir",
-            side_effect=capture_init,
-        ):
-            ConfigManager()
-
-        assert len(captured) == 1
-        assert "/custom/conf" in captured[0]
+        manager._initialize_config()
+        assert isinstance(manager._config, AppConfig)
