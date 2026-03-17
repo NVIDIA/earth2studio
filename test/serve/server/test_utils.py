@@ -346,11 +346,15 @@ class TestParseRangeHeader:
             parse_range_header("bytes=1000-1099", 1000)
         assert exc_info.value.status_code == 416
 
-    def test_end_beyond_file_size_raises_416(self):
-        """end >= file_size raises HTTPException 416."""
-        with pytest.raises(HTTPException) as exc_info:
-            parse_range_header("bytes=0-1000", 1000)
-        assert exc_info.value.status_code == 416
+    def test_end_beyond_file_size_clamped_to_last_byte(self):
+        """end >= file_size is clamped to file_size-1 per RFC 9110 §14.1.2, returns 206."""
+        start, end, content_length, status_code = parse_range_header(
+            "bytes=0-1000", 1000
+        )
+        assert start == 0
+        assert end == 999
+        assert content_length == 1000
+        assert status_code == 206
 
     def test_end_before_start_raises_416(self):
         """end < start raises HTTPException 416."""
