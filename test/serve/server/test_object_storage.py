@@ -140,7 +140,7 @@ class TestMSCObjectStorage:
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "f1.txt").write_text("hello")
             storage = MSCObjectStorage(bucket="b", region="us-east-1")
-            storage._s3_client.sync_from.return_value = None
+            storage._storage_client.sync_from.return_value = None
 
             result = storage.upload_directory(
                 local_directory=tmpdir,
@@ -159,7 +159,7 @@ class TestMSCObjectStorage:
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "f1.txt").write_text("x")
             storage = MSCObjectStorage(bucket="b", region="us-east-1")
-            storage._s3_client.sync_from.side_effect = Exception("sync failed")
+            storage._storage_client.sync_from.side_effect = Exception("sync failed")
 
             result = storage.upload_directory(
                 local_directory=tmpdir,
@@ -196,7 +196,7 @@ class TestMSCObjectStorage:
                 remote_key="key.txt",
             )
             assert result is True
-            storage._s3_client.upload_file.assert_called_once()
+            storage._storage_client.upload_file.assert_called_once()
         finally:
             Path(path).unlink(missing_ok=True)
 
@@ -206,7 +206,7 @@ class TestMSCObjectStorage:
             path = f.name
         try:
             storage = MSCObjectStorage(bucket="b", region="us-east-1")
-            storage._s3_client.upload_file.side_effect = Exception("upload failed")
+            storage._storage_client.upload_file.side_effect = Exception("upload failed")
 
             result = storage.upload_file(
                 local_file=path,
@@ -219,14 +219,14 @@ class TestMSCObjectStorage:
     def test_file_exists_returns_true_when_info_succeeds(self, mock_msc):
         """file_exists returns True when info() does not raise."""
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
-        storage._s3_client.info.return_value = None
+        storage._storage_client.info.return_value = None
 
         assert storage.file_exists("my/key") is True
 
     def test_file_exists_returns_false_when_file_not_found(self, mock_msc):
         """file_exists returns False when info() raises FileNotFoundError."""
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
-        storage._s3_client.info.side_effect = FileNotFoundError()
+        storage._storage_client.info.side_effect = FileNotFoundError()
 
         assert storage.file_exists("my/key") is False
 
@@ -235,12 +235,12 @@ class TestMSCObjectStorage:
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
 
         assert storage.delete_file("my/key") is True
-        storage._s3_client.delete.assert_called_once()
+        storage._storage_client.delete.assert_called_once()
 
     def test_delete_file_returns_false_when_file_not_found(self, mock_msc):
         """delete_file returns False when delete raises FileNotFoundError."""
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
-        storage._s3_client.delete.side_effect = FileNotFoundError()
+        storage._storage_client.delete.side_effect = FileNotFoundError()
 
         assert storage.delete_file("my/key") is False
 
