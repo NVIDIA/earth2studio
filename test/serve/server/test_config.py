@@ -856,23 +856,31 @@ class TestObjectStorageEnvOverrides:
         reset_config()
         manager = ConfigManager()
         manager._workflow_config = None
-        wf_cfg = manager.workflow_config
-        assert wf_cfg is not None
+        expected = {"wf": {"param": 1}}
+        with patch.object(
+            manager,
+            "_initialize_config",
+            side_effect=lambda: setattr(manager, "_workflow_config", expected),
+        ) as mock_init:
+            wf_cfg = manager.workflow_config
+        mock_init.assert_called_once()
+        assert wf_cfg == expected
 
     def test_initialize_config_uses_config_dir_env_var(self) -> None:
         """_initialize_config uses CONFIG_DIR env var when set"""
         reset_config()
+        os.environ["CONFIG_DIR"] = "/custom/conf"
+        captured: list = []
+
+        def capture_init(config_dir: str, **kwargs: object) -> None:
+            captured.append(config_dir)
+            raise Exception("stop after capture")
+
         with patch(
-            "earth2studio.serve.server.config.initialize_config_dir"
-        ) as mock_init:
-            mock_init.side_effect = Exception("stop here")
-            os.environ["CONFIG_DIR"] = "/custom/conf"
+            "earth2studio.serve.server.config.initialize_config_dir",
+            side_effect=capture_init,
+        ):
             ConfigManager()
-            # Config falls back to defaults on exception, but we can verify the path
-            # was derived from CONFIG_DIR by checking that initialize_config_dir was
-            # called with the env-var path
-            call_args = mock_init.call_args
-            assert call_args is not None
-            assert "/custom/conf" in call_args[1].get(
-                "config_dir", call_args[0][0] if call_args[0] else ""
-            )
+
+        assert len(captured) == 1
+        assert "/custom/conf" in captured[0]
