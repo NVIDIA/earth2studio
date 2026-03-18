@@ -250,10 +250,10 @@ da-stormcast = [
 ]
 # All, must not have conflicts
 all = [
-    "earth2studio[data,perturbation,statistics,utils]",
+    "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
-    "earth2studio[da-interp,da-stormcast]",
+    "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
 
 # ==== UV configuration ====
