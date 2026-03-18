@@ -36,10 +36,10 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
-#     "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
-#     "earth2studio[corrdiff] @ git+https://github.com/NVIDIA/earth2studio.git",
-#     "cartopy",
-#     "matplotlib",
+#   "torch==2.9.1", # Match lock file to avoid torch-harmonics issue
+#   "earth2studio[sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[corrdiff] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
 # ]
 # ///
 

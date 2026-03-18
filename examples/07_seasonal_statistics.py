@@ -184,6 +184,7 @@ def run_stats(
 # %%
 from collections import OrderedDict
 
+import fsspec
 import numpy as np
 import torch
 
@@ -232,12 +233,9 @@ class SOI:
         self,
     ):
         # Read in Tahiti and Darwin SLP data
-        from physicsnemo.utils.filesystem import _download_cached
-
-        file_path = _download_cached(
-            "https://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"
-        )
-        ds = pd.read_csv(file_path, sep=r"\s+")
+        url = "https://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"
+        with fsspec.open(url, "r") as f:
+            ds = pd.read_csv(f, sep=r"\s+")
         dates = pd.date_range("1999-01-01", freq="d", periods=len(ds))
         ds["date"] = dates
         ds = ds.set_index("date")

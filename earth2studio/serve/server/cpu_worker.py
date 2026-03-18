@@ -22,7 +22,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import redis  # type: ignore[import-untyped]
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    import redis  # type: ignore[import-untyped]
+except ImportError:
+    OptionalDependencyFailure("serve")
+    redis = None
 
 # Import configuration
 from earth2studio.serve.server.config import get_config, get_config_manager
@@ -416,6 +425,7 @@ def create_results_zip(
         return None
 
 
+@check_optional_dependencies()
 def process_result_zip(
     workflow_name: str,
     execution_id: str,
@@ -505,6 +515,7 @@ def process_result_zip(
         raise
 
 
+@check_optional_dependencies()
 def process_object_storage_upload(
     workflow_name: str,
     execution_id: str,
@@ -736,6 +747,7 @@ def process_object_storage_upload(
         )
 
 
+@check_optional_dependencies()
 def process_finalize_metadata(
     workflow_name: str,
     execution_id: str,

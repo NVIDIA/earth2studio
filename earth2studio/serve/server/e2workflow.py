@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import inspect
 import logging
 from abc import ABCMeta, abstractmethod
@@ -22,7 +24,18 @@ from typing import Any, ClassVar, get_type_hints
 
 import torch
 import zarr
-from pydantic import Field, create_model
+
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from pydantic import Field, create_model
+except ImportError:
+    OptionalDependencyFailure("serve")
+    Field = None  # type: ignore[assignment]
+    create_model = None  # type: ignore[assignment]
 
 from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.serve.server.config import get_config
@@ -35,6 +48,7 @@ from earth2studio.serve.server.workflow import (
 from earth2studio.utils.type import CoordSystem
 
 
+@check_optional_dependencies()
 def _convert_param(param: inspect.Parameter, typeinfo: type) -> tuple[type, Field]:
     """Convert parameter to Pydantic Field declaration with validation constraints"""
     field_kwargs = {}
@@ -52,6 +66,7 @@ def _convert_param(param: inspect.Parameter, typeinfo: type) -> tuple[type, Fiel
     return (typeinfo, Field(**field_kwargs))
 
 
+@check_optional_dependencies()
 def func_to_model(
     function: Callable,
     model_name: str = "Parameters",
