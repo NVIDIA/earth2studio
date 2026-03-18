@@ -277,7 +277,7 @@ diff_results = [result_both, result_sat, result_conv]
 for title, da_pred in zip(diff_titles, diff_results):
     for var in plot_vars:
         field_pred = da_pred.sel(variable=var).values[0]
-        field_era5 = era5_interp.sel(variable=var).data[0]
+        field_era5 = era5_interp.sel(variable=var).values[0]
         mae = float(np.abs(field_pred - field_era5).mean())
         logger.info(f"{title} | {var} MAE: {mae:.4f}")
 
