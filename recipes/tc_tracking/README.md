@@ -443,4 +443,3 @@ Use the notebook `plotting/plot_tracks_n_fields.ipynb` to create animated visual
 **Verification**: To verify that reproducibility worked correctly, point `track_dir` to the original Helene run (`outputs_helene/cyclone_tracks_te`) and confirm that the tracks are identical.
 
 </details>
-
