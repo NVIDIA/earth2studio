@@ -29,6 +29,7 @@ class StorageType(str, Enum):
 
     SERVER = "server"
     S3 = "s3"
+    AZURE = "azure"
 
 
 class RequestStatus(Enum):

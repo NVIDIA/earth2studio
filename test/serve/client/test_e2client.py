@@ -37,6 +37,7 @@ from earth2studio.serve.client.models import (
     InferenceRequestResults,
     OutputFile,
     RequestStatus,
+    StorageType,
 )
 
 
@@ -243,6 +244,90 @@ class TestRemoteEarth2WorkflowResult:
 
                 mock_client.download_result.assert_called_once()
                 mock_open_dataset.assert_called_once()
+
+    def test_as_dataset_azure_zarr(self) -> None:
+        """Test as_dataset for Azure storage zarr uses get_mapper with 'results.zarr'"""
+        with patch(
+            "earth2studio.serve.client.e2client.Earth2StudioClient"
+        ) as mock_client_class:
+            mock_client = Mock()
+            mock_client_class.return_value = mock_client
+
+            workflow = RemoteEarth2Workflow(
+                base_url="http://localhost:8000",
+                workflow_name="test_workflow",
+            )
+
+            mock_inference_result = InferenceRequestResults(
+                request_id="exec_azure",
+                status=RequestStatus.COMPLETED,
+                output_files=[OutputFile(path="results.zarr", size=2048)],
+                completion_time=datetime.now(),
+                storage_type=StorageType.AZURE,
+                signed_url="https://account.blob.core.windows.net/container/*?sig=abc",
+            )
+            mock_client.wait_for_completion.return_value = mock_inference_result
+
+            mock_ds = MagicMock()
+            with (
+                patch(
+                    "earth2studio.serve.client.e2client.fsspec_utils.get_mapper"
+                ) as mock_get_mapper,
+                patch("xarray.open_zarr", return_value=mock_ds) as mock_open_zarr,
+            ):
+                mock_mapper = Mock()
+                mock_get_mapper.return_value = mock_mapper
+
+                result = RemoteEarth2WorkflowResult(workflow, "exec_azure")
+                ds = result.as_dataset()
+
+                # get_mapper should be called with "results.zarr" for Azure
+                mock_get_mapper.assert_called_once_with(
+                    mock_inference_result, "results.zarr"
+                )
+                mock_open_zarr.assert_called_once_with(mock_mapper, consolidated=True)
+                assert ds is mock_ds
+
+    def test_as_dataset_s3_zarr(self) -> None:
+        """Test as_dataset for S3 storage zarr uses get_mapper with execution_id-stripped path"""
+        with patch(
+            "earth2studio.serve.client.e2client.Earth2StudioClient"
+        ) as mock_client_class:
+            mock_client = Mock()
+            mock_client_class.return_value = mock_client
+
+            workflow = RemoteEarth2Workflow(
+                base_url="http://localhost:8000",
+                workflow_name="test_workflow",
+            )
+
+            mock_inference_result = InferenceRequestResults(
+                request_id="exec_s3",
+                status=RequestStatus.COMPLETED,
+                output_files=[OutputFile(path="exec_s3/results.zarr", size=2048)],
+                completion_time=datetime.now(),
+                storage_type=StorageType.S3,
+                signed_url="https://cdn.example.com/bucket?Policy=p&Signature=s&Key-Pair-Id=k",
+            )
+            mock_client.wait_for_completion.return_value = mock_inference_result
+
+            mock_ds = MagicMock()
+            with (
+                patch(
+                    "earth2studio.serve.client.e2client.fsspec_utils.get_mapper"
+                ) as mock_get_mapper,
+                patch("xarray.open_zarr", return_value=mock_ds),
+            ):
+                mock_get_mapper.return_value = Mock()
+
+                result = RemoteEarth2WorkflowResult(workflow, "exec_s3")
+                ds = result.as_dataset()
+
+                # S3 strips the first path component (execution_id prefix)
+                mock_get_mapper.assert_called_once_with(
+                    mock_inference_result, "results.zarr"
+                )
+                assert ds is mock_ds
 
     def test_as_dataset_no_outputs(self) -> None:
         """Test as_dataset when no output files are available"""

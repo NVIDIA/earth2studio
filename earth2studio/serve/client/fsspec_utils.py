@@ -269,6 +269,192 @@ def create_cloudfront_mapper(signed_url: str, zarr_path: str = "") -> Any:
     return mapper
 
 
+# Create a custom filesystem that replaces * with the filename
+class AzureSignedURLFileSystem(fsspec.AbstractFileSystem):
+    """Wrapper that replaces wildcard * with filename and appends SAS token."""
+
+    def __init__(
+        self, base_fs: Any, query_params: dict[str, str], base_url: str
+    ) -> None:
+        super().__init__()
+        self._fs = base_fs
+        self._query_params = query_params
+        self._base_url = base_url
+        self._query_string = urlencode(query_params, safe="~")
+
+    def _make_signed_path(self, path: str) -> str:
+        """Replace wildcard * with the actual path and append SAS token."""
+        if path.startswith("http"):
+            full_url = path
+        else:
+            clean_path = path.lstrip("/")
+            # Replace * in base_url with the actual path
+            if "*" in self._base_url:
+                # Replace the * wildcard with the cleaned path
+                full_url = self._base_url.replace("*", clean_path)
+            else:
+                full_url = (
+                    f"{self._base_url}/{clean_path}" if clean_path else self._base_url
+                )
+        separator = "&" if "?" in full_url else "?"
+        return f"{full_url}{separator}{self._query_string}"
+
+    def _handle_403(self, e: BaseException, path: str) -> "NoReturn":
+        """Convert 403 errors to FileNotFoundError."""
+        error_str = str(e).lower()
+        if "403" in str(e) or "forbidden" in error_str:
+            raise FileNotFoundError(f"File not found: {path}") from None
+        raise e
+
+    def _open(self, path: str, mode: str = "rb", **kwargs: Any) -> Any:
+        try:
+            return self._fs._open(self._make_signed_path(path), mode=mode, **kwargs)
+        except Exception as e:
+            self._handle_403(e, path)
+
+    def cat_file(
+        self, path: str, start: int | None = None, end: int | None = None, **kwargs: Any
+    ) -> Any:
+        """
+        Read file contents with signed URL; 403 is converted to FileNotFoundError.
+
+        Parameters
+        ----------
+        path : str
+            Path or URL to read.
+        start : int, optional
+            Start byte offset.
+        end : int, optional
+            End byte offset.
+        **kwargs : Any
+            Passed to the underlying filesystem.
+
+        Returns
+        -------
+        Any
+            File contents (typically bytes).
+
+        Raises
+        ------
+        FileNotFoundError
+            If the server returns 403.
+        """
+        try:
+            return self._fs.cat_file(
+                self._make_signed_path(path), start=start, end=end, **kwargs
+            )
+        except Exception as e:
+            self._handle_403(e, path)
+
+    def _cat_file(
+        self, path: str, start: int | None = None, end: int | None = None, **kwargs: Any
+    ) -> Any:
+        """Async version used by zarr."""
+        return self.cat_file(path, start=start, end=end, **kwargs)
+
+    def info(self, path: str, **kwargs: Any) -> Any:
+        """
+        Return metadata for path with signed URL; 403 becomes FileNotFoundError.
+
+        Parameters
+        ----------
+        path : str
+            Path or URL.
+        **kwargs : Any
+            Passed to the underlying filesystem.
+
+        Returns
+        -------
+        Any
+            Metadata dict for the path.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the server returns 403.
+        """
+        try:
+            return self._fs.info(self._make_signed_path(path), **kwargs)
+        except Exception as e:
+            self._handle_403(e, path)
+
+    def exists(self, path: str, **kwargs: Any) -> bool:
+        """
+        Return True if path exists; 403 is treated as not found.
+
+        Parameters
+        ----------
+        path : str
+            Path or URL to check.
+        **kwargs : Any
+            Passed to the underlying filesystem.
+
+        Returns
+        -------
+        bool
+            True if path exists, False if not found or 403.
+        """
+        try:
+            return self._fs.exists(self._make_signed_path(path), **kwargs)
+        except Exception as e:
+            try:
+                self._handle_403(e, path)
+            except FileNotFoundError:
+                return False
+
+
+def create_azure_mapper(signed_url: str, zarr_path: str = "") -> Any:
+    """
+    Create an fsspec mapper for an Azure Blob Storage signed URL with wildcard.
+
+    The Azure signed URL contains a wildcard (*) that needs to be replaced with
+    the actual filename when accessing files.
+
+    Parameters
+    ----------
+    signed_url : str
+        Azure signed URL with wildcard (*) and SAS token query params.
+    zarr_path : str, optional
+        Path to the zarr store within the signed URL prefix.
+
+    Returns
+    -------
+    mapper : fsspec.mapping.FSMap
+        A mapper suitable for use with xarray.open_zarr()
+    """
+    # Parse the URL
+    parsed = urlparse(signed_url)
+
+    # Extract query parameters (SAS token)
+    query_params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+
+    # Get base path - keep the * wildcard if present
+    base_path = parsed.path
+
+    # If zarr_path is provided, append it before the wildcard
+    if zarr_path != "":
+        # Replace * with zarr_path if * is at the end, otherwise append
+        if base_path.endswith("/*"):
+            base_path = base_path[:-2] + f"/{zarr_path}/*"
+        elif base_path.endswith("*"):
+            base_path = base_path[:-1] + f"{zarr_path}/*"
+        else:
+            base_path = f"{base_path}/{zarr_path}/*"
+    elif not base_path.endswith("*"):
+        # Ensure there's a wildcard at the end if no zarr_path
+        base_path = base_path.rstrip("/") + "/*"
+
+    # Reconstruct base URL with wildcard
+    base_url = f"{parsed.scheme}://{parsed.netloc}{base_path}"
+
+    # Create HTTP filesystem
+    fs = fsspec.filesystem("https")
+    signed_fs = AzureSignedURLFileSystem(fs, query_params, base_url)
+    mapper = fsspec.mapping.FSMap(root="", fs=signed_fs, check=False, create=False)
+
+    return mapper
+
+
 def get_mapper(
     request_result: InferenceRequestResults, zarr_path: str = ""
 ) -> Any | None:
@@ -296,6 +482,10 @@ def get_mapper(
         if request_result.signed_url is None:
             raise ValueError("S3 storage type requires a signed URL")
         return create_cloudfront_mapper(request_result.signed_url, zarr_path)
+    elif request_result.storage_type == StorageType.AZURE:
+        if request_result.signed_url is None:
+            raise ValueError("Azure storage type requires a signed URL")
+        return create_azure_mapper(request_result.signed_url, zarr_path)
     elif request_result.storage_type == StorageType.SERVER:
         return None
     else:

@@ -192,6 +192,10 @@ class RemoteEarth2WorkflowResult:
                 zarr_path = "/".join(result_path.split("/")[1:])
                 mapper = fsspec_utils.get_mapper(request_result, zarr_path)
                 ds = xr.open_zarr(mapper, consolidated=True, **self.workflow.xr_args)
+
+            elif request_result.storage_type == StorageType.AZURE:
+                mapper = fsspec_utils.get_mapper(request_result, "results.zarr")
+                ds = xr.open_zarr(mapper, consolidated=True, **self.workflow.xr_args)
             elif request_result.storage_type == StorageType.SERVER:
                 result_url = urljoin(
                     self.workflow.base_url + "/",
