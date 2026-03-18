@@ -1,8 +1,8 @@
-FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
+FROM nvcr.io/nvidia/physicsnemo/physicsnemo:26.03
 
 # update repo info
 RUN apt update -y && \
-    apt install -y libibmad5 unixodbc && \
+    apt install -y libibmad5 unixodbc git-lfs && \
     apt install -y netcdf-bin libnetcdf-dev
 
 # upgrade cmake

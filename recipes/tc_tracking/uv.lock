@@ -966,51 +966,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fcn3-tcs"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "cartopy" },
-    { name = "earth2studio", extra = ["aifsens", "data", "fcn3"] },
-    { name = "hydra-core" },
-    { name = "importlib-metadata" },
-    { name = "ipykernel" },
-    { name = "matplotlib" },
-    { name = "more-itertools" },
-    { name = "moviepy" },
-    { name = "ninja" },
-    { name = "omegaconf" },
-    { name = "pytest" },
-    { name = "ruamel-yaml" },
-    { name = "scipy" },
-    { name = "setuptools" },
-    { name = "tqdm" },
-    { name = "tropycal" },
-    { name = "zarrdump" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cartopy", specifier = ">=0.24.1" },
-    { name = "earth2studio", extras = ["data", "aifsens", "fcn3"], git = "https://github.com/NVIDIA/earth2studio.git" },
-    { name = "hydra-core", specifier = ">=1.3.2" },
-    { name = "importlib-metadata", specifier = ">=8.7.0" },
-    { name = "ipykernel", specifier = ">=6.30.1" },
-    { name = "matplotlib", specifier = ">=3.10.3" },
-    { name = "more-itertools", specifier = ">=10.7.0" },
-    { name = "moviepy", specifier = ">=2.2.1" },
-    { name = "ninja", specifier = ">=1.13.0" },
-    { name = "omegaconf", specifier = ">=2.3.0" },
-    { name = "pytest" },
-    { name = "ruamel-yaml", specifier = ">=0.18.14" },
-    { name = "scipy", specifier = ">=1.16.0" },
-    { name = "setuptools", specifier = ">=80.9.0" },
-    { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "tropycal", specifier = ">=1.4" },
-    { name = "zarrdump", specifier = ">=0.6.0" },
-]
-
-[[package]]
 name = "filelock"
 version = "3.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3724,6 +3679,51 @@ wheels = [
 ]
 
 [[package]]
+name = "tc-hunt"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "cartopy" },
+    { name = "earth2studio", extra = ["aifsens", "data", "fcn3"] },
+    { name = "huggingface-hub" },
+    { name = "hydra-core" },
+    { name = "importlib-metadata" },
+    { name = "ipykernel" },
+    { name = "matplotlib" },
+    { name = "more-itertools" },
+    { name = "moviepy" },
+    { name = "ninja" },
+    { name = "omegaconf" },
+    { name = "pytest" },
+    { name = "ruamel-yaml" },
+    { name = "scipy" },
+    { name = "setuptools" },
+    { name = "tqdm" },
+    { name = "zarrdump" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cartopy", specifier = ">=0.24.1" },
+    { name = "earth2studio", extras = ["data", "aifsens", "fcn3"], git = "https://github.com/NVIDIA/earth2studio.git" },
+    { name = "huggingface-hub" },
+    { name = "hydra-core", specifier = ">=1.3.2" },
+    { name = "importlib-metadata", specifier = ">=8.7.0" },
+    { name = "ipykernel", specifier = ">=6.30.1" },
+    { name = "matplotlib", specifier = ">=3.10.3" },
+    { name = "more-itertools", specifier = ">=10.7.0" },
+    { name = "moviepy", specifier = ">=2.2.1" },
+    { name = "ninja", specifier = ">=1.13.0" },
+    { name = "omegaconf", specifier = ">=2.3.0" },
+    { name = "pytest" },
+    { name = "ruamel-yaml", specifier = ">=0.18.14" },
+    { name = "scipy", specifier = ">=1.16.0" },
+    { name = "setuptools", specifier = ">=80.9.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
+    { name = "zarrdump", specifier = ">=0.6.0" },
+]
+
+[[package]]
 name = "threadpoolctl"
 version = "3.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3917,22 +3917,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/74/1f/dfb531f90a2d367d914adfee771babbd3f1a5b26c3f5fbc458dee21daa78/triton-3.3.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b89d846b5a4198317fec27a5d3a609ea96b6d557ff44b56c23176546023c4240", size = 155673035, upload-time = "2025-05-29T23:40:02.468Z" },
     { url = "https://files.pythonhosted.org/packages/28/71/bd20ffcb7a64c753dc2463489a61bf69d531f308e390ad06390268c4ea04/triton-3.3.1-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a3198adb9d78b77818a5388bff89fa72ff36f9da0bc689db2f0a651a67ce6a42", size = 155735832, upload-time = "2025-05-29T23:40:10.522Z" },
 ]
-
-[[package]]
-name = "tropycal"
-version = "1.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "matplotlib" },
-    { name = "networkx" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "pyshp" },
-    { name = "requests" },
-    { name = "scipy" },
-    { name = "xarray" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/92/b0242ae376a79e1954699c8e83af17ce6c82a069d4618e80daeb7c723ac5/tropycal-1.4.tar.gz", hash = "sha256:3ad0b3b5b5631ba6db8b24aae16b32baa7e43bba841468faa58355790720d12c", size = 10080794, upload-time = "2025-08-02T14:08:56.788Z" }
 
 [[package]]
 name = "typing-extensions"
