@@ -1,6 +1,12 @@
 # Cyclone Tracking
 
-![Helene Prediction](helene_pred.gif)
+<!-- markdownlint-disable MD033 -->
+<div align="center">
+
+![Helene Prediction](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/recipes/tc_tracking/helene_pred.gif)
+
+</div>
+<!-- markdownlint-enable MD033 -->
 
 > [!Note]
 > This recipe serves as an example of how to integrate custom downstream models into a forecasting pipeline. While TempestExtremes is used here for tropical cyclone tracking, the patterns demonstrated—such as asynchronous CPU/GPU execution, in-memory file handling, and diagnostic model integration—can be adapted for other downstream analysis tools.
@@ -99,6 +105,7 @@ project: 'helene'          # project name used for output names
 mode: 'generate_ensemble'  # choose mode
 model: 'aifs'              # 'fcn3' or 'aifs'
 random_seed: 7777          # optional: random seed (DOES NOT directly control model-internal random state)
+model_package: '/path/to/weights'  # optional: path to model package. uses default package if none provided
 ```
 
 **<a name="config_ens"></a>Ensemble Configuration**
@@ -133,10 +140,11 @@ The data source can be any of the Earth-2 Studio data sources or a custom data s
 cyclone_tracking:
     asynchronous: True                             # let GPU produce next prediction while CPU executes TempestExtremes
     vars: ['msl', 'u10m', 'v10m', 'z300', 'z500']  # variables required by TempestExtremes
-    detect_cmd: 'DetectNodes --verbosity 0 --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,1.0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0'
+    detect_cmd: 'DetectNodes --verbosity 0 --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0.;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0'
     stitch_cmd: 'StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10'
                                                    # detect node and stitch node commands from TempestExtremes
-    orography_path: './orography.nc'               # path to orography file (required only if height is relevant to TempestExtremes)
+    orography_path: https://huggingface.co/nvidia/fourcastnet3/blob/main/orography.nc  # path to orography data
+        #  required only if height is used in TempestExtremes. either local nc file or pulled from huggingface and cached locally
     keep_raw_data: False                           # whether to keep raw field data used for tracking
     use_ram: True                                  # write in-memory files to avoid disk I/O
     task_timeout_seconds: 120                      # timeout for tracking tasks
@@ -263,7 +271,7 @@ The script queries the IBTrACS database to determine when each storm was active,
   wget https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
   ```
   Note: This file is over 300MB and may take several minutes to download.
-- For testing with only Helene and Hato, you can use the subset provided at `./test/aux_data/ibtracs.HATO_HELENE.list.v04r01.csv`.
+
 
 **Reanalysis Data**:
 - For extracting multiple storms, we recommend using an on-premise dataset to avoid lengthy download times.
