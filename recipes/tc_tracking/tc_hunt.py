@@ -20,9 +20,7 @@ def tc_hunt(cfg: DictConfig) -> None:
         generate_ensemble(cfg)
 
     else:
-        raise ValueError(
-            f'invalid mode: {cfg.mode}, choose from "generate_ensemble"'
-        )
+        raise ValueError(f'invalid mode: {cfg.mode}, choose from "generate_ensemble"')
 
     print(f"finished **yaaayyyy**")
 

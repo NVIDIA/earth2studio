@@ -133,11 +133,11 @@ def setup_output(
         If ``cfg.store_type`` is not one of ``"zarr"``, ``"netcdf"``, or
         ``"none"``.
     """
-    if 'out_vars' in cfg:
+    if "out_vars" in cfg:
         out_vars = list(dict.fromkeys(cfg.out_vars))
     else:
         out_vars = []
-        if not cfg.store_type == 'none':
+        if not cfg.store_type == "none":
             raise ValueError("out_vars must be specified if store_type is not none.")
     out_coords = initialise_output_coords(cfg, model, ics, out_vars)
     chunks = {

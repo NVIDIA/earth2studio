@@ -14,7 +14,6 @@ from earth2studio.data.utils import datasource_cache_root
 from src.utils import run_with_rank_ordered_execution
 
 
-
 def resolve_oro_path(oro_path: str) -> str:
     """Return a local file path for the orography dataset.
 
@@ -22,7 +21,7 @@ def resolve_oro_path(oro_path: str) -> str:
     Earth2Studio cache under ``tc_hunt/`` and the cached path is returned.
     Local paths are returned unchanged.
     """
-    
+
     hf_url_pattern = re.compile(
         r"^https://huggingface\.co/(?P<repo>[^/]+/[^/]+)/blob/(?P<revision>[^/]+)/(?P<path>.+)$"
     )
@@ -35,9 +34,7 @@ def resolve_oro_path(oro_path: str) -> str:
     filename = match.group("path")
 
     cache_dir = os.path.join(datasource_cache_root(), "tc_hunt")
-    return hf_hub_download(
-        repo_id, filename, revision=revision, local_dir=cache_dir
-    )
+    return hf_hub_download(repo_id, filename, revision=revision, local_dir=cache_dir)
 
 
 def load_heights(oro_path: str) -> tuple[torch.Tensor, OrderedDict]:
@@ -61,9 +58,15 @@ def load_heights(oro_path: str) -> tuple[torch.Tensor, OrderedDict]:
     oro = xr.load_dataset(oro_path)
 
     coords = OrderedDict(
-        {"variable": np.array(["height"]), "lat": oro.latitude.values, "lon": oro.longitude.values}
+        {
+            "variable": np.array(["height"]),
+            "lat": oro.latitude.values,
+            "lon": oro.longitude.values,
+        }
     )
-    geop = torch.Tensor(oro["Z"].to_numpy()) / 9.80665  # divide by gravity to get height
+    geop = (
+        torch.Tensor(oro["Z"].to_numpy()) / 9.80665
+    )  # divide by gravity to get height
 
     return geop, coords
 

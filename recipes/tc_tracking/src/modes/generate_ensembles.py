@@ -16,10 +16,9 @@ from earth2studio.models.auto import Package
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import SphericalGaussian
 from earth2studio.utils.coords import map_coords
-
-from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 from src.data.file_output import initialise_netcdf_output, setup_output, write_to_store
 from src.data.utils import DataSourceManager, load_heights
+from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 from src.utils import (
     InstabilityDetection,
     get_set_of_random_seeds,
@@ -221,7 +220,9 @@ def run_inference(
         # set random state or apply perturbation
         if (not "model" in cfg) or (cfg.model == "fcn3"):
             model.set_rng(seed=seed)
-        elif cfg.model[:4] == 'aifs': # no need for perturbation, but also cannot set internal noise state
+        elif (
+            cfg.model[:4] == "aifs"
+        ):  # no need for perturbation, but also cannot set internal noise state
             pass
         else:
             sg = SphericalGaussian(noise_amplitude=0.0005)
