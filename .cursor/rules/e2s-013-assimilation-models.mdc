@@ -558,21 +558,20 @@ class MyDAModel(torch.nn.Module, AutoModelMixin):
 
 ## Reminders
 
-- **Always inherit from**: `torch.nn.Module`, `AutoModelMixin`
-- **Always decorate the class** with `@check_optional_dependencies()`
-- **Always decorate `load_model`** with `@check_optional_dependencies()`
+- **Always decorate the class** with `@check_optional_dependencies()` if extra dependency group is needed
+- **Always decorate `load_model`** with `@check_optional_dependencies()` if extra dependency group is needed
 - **`input_coords` and `output_coords` return tuples**, even for single inputs/outputs
 - **Use `FrameSchema` for tabular DataFrame inputs** and `CoordSystem` for gridded inputs/outputs
 - **`request_time` must be validated** in `__call__` — expect it in `obs.attrs`
-- **Return output on the model's device** — use cupy for GPU, numpy for CPU
+- **Return output on the model's device** - If a dense array output use cupy for GPU, numpy for CPU
 - **Use `validate_observation_fields`** to check required DataFrame columns early
 - **Use `filter_time_range`** for time-window filtering of observations
 - **Use `dfseries_to_torch`** for zero-copy cudf→torch column conversion
 - **Prime `create_generator` with `yield None`** (or the initial state) before the loop
 - **Handle `GeneratorExit`** in `create_generator` for clean-up
 - **Register `device_buffer`** to track device via a `device` property
-- **Do NOT use `@batch_func` or `@batch_coords`** — these are px/dx conventions only
+- **Do NOT use `@batch_func` or `@batch_coords`** - these are px/dx conventions only
 - **Do NOT use `@torch.inference_mode()`** if the forward pass requires gradients (e.g., DPS guidance); document the reason if omitted
 - **Documentation**: Add the DA model to [models.rst](mdc:docs/modules/models.rst) in the `earth2studio.models.da` section, maintaining alphabetical order
 - DO NOT attempt to make a general base class with intent to reuse the wrapper
-- DO NOT over-populate the `load_model()` API — only expose essential parameters
+- DO NOT over-populate the `load_model()` API - only expose essential parameters
