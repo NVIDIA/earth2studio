@@ -140,7 +140,7 @@ class _ECMWFOpenDataSource(ABC):
         """Retrieve ECMWF data. The child class should override this"""
         pass
 
-    def fetch(  # type: ignore[override]
+    def _call(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -177,13 +177,13 @@ class _ECMWFOpenDataSource(ABC):
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
-                self._fetch(time, lead_time, variable), timeout=self.async_timeout
+                self.fetch(time, lead_time, variable), timeout=self.async_timeout
             )
         )
 
         return xr_array
 
-    async def _fetch(  # type: ignore[override]
+    async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -515,7 +515,7 @@ class IFS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS analysis data array
         """
-        da = self.fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
         return da.isel(lead_time=0).drop_vars("lead_time")
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -606,7 +606,7 @@ class IFS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS forecast data array
         """
-        return self.fetch(time, lead_time, variable)
+        return self._call(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -719,7 +719,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS initial state data array.
         """
-        da = self.fetch(time, np.array([0], dtype="datetime64[h]"), variable)
+        da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da.isel(lead_time=0).drop_vars("lead_time")
@@ -838,7 +838,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS forecast data array
         """
-        da = self.fetch(time, lead_time, variable)
+        da = self._call(time, lead_time, variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
@@ -944,7 +944,7 @@ class AIFS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             AIFS forecast data array
         """
-        return self.fetch(time, lead_time, variable)
+        return self._call(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -1046,7 +1046,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             AIFS ENS forecast data array
         """
-        da = self.fetch(time, lead_time, variable)
+        da = self._call(time, lead_time, variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
