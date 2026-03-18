@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
 - Added StormCast SDA model
-- Adding Beta serve utils with inference server and client implementations
+- Added beta serve utils with inference server and client implementations
+- Added HealPix data assimilation (HealDA) model
+- Added `energy_score` metric for multivariate ensemble forecast verification
 
 ### Changed
 
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle infill to mixture of model checkpoints
 - Updated GraphCastOperational and GraphCastSmall latitude input / output to be [90,-90]
 - Updated GraphCast models to support multiple time inputs, multiple times will be looped not batched
+- Renamed `tolerance` parameter in ISD data source to `time_tolerance`
 
 ### Deprecated
 

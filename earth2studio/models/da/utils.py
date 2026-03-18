@@ -16,11 +16,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from functools import reduce
 
 import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
+
+from earth2studio.utils.type import TimeArray
 
 try:
     import cudf
@@ -57,23 +60,25 @@ def validate_observation_fields(
 
 def filter_time_range(
     df: pd.DataFrame | cudf.DataFrame,
-    request_time: np.datetime64 | datetime | str,
+    request_time: np.datetime64 | datetime | str | TimeArray,
     tolerance: tuple[np.timedelta64, np.timedelta64],
     time_column: str = "time",
 ) -> pd.DataFrame | cudf.DataFrame:
     """Filter DataFrame rows where time column is within the specified tolerance range.
 
     Filters the DataFrame to include only rows where the time column value is within
-    [request_time + lower_bound, request_time + upper_bound]. Ensures the time column
-    is of dtype datetime64[ns].
+    [request_time + lower_bound, request_time + upper_bound]. When *request_time* is a
+    :class:`~numpy.ndarray` of datetime64 values, a row is kept if it falls within the
+    tolerance window of **any** of the provided times.
 
     Parameters
     ----------
     df : pd.DataFrame | cudf.DataFrame
         DataFrame to filter. Can be pandas or cudf DataFrame.
-    request_time : np.datetime64 | datetime | str
-        Reference time for filtering. Observations within the tolerance window
-        around this time will be included.
+    request_time : np.datetime64 | datetime | str | TimeArray
+        Reference time(s) for filtering. Observations within the tolerance window
+        around this time will be included. If a numpy array of datetime64 is provided,
+        the union of all individual tolerance windows is used.
     tolerance : tuple[np.timedelta64, np.timedelta64]
         Tuple of (lower_bound, upper_bound) time deltas defining the tolerance window.
     time_column : str, optional
@@ -96,8 +101,6 @@ def filter_time_range(
             f"Available columns: {list(df.columns)}"
         )
 
-    request_time_ns = np.datetime64(request_time, "ns")
-
     # Ensure time column is datetime64[ns]
     time_series = df[time_column]
     if time_series.dtype != "datetime64[ns]":
@@ -107,13 +110,18 @@ def filter_time_range(
             df[time_column] = cudf.to_datetime(time_series).astype("datetime64[ns]")
         else:
             df[time_column] = pd.to_datetime(time_series).astype("datetime64[ns]")
+    # Ensure request_time is datetime64[ns] array
+    if isinstance(request_time, np.ndarray) and request_time.ndim >= 1:
+        times_ns = request_time.astype("datetime64[ns]")
+    else:
+        times_ns = np.array([np.datetime64(request_time, "ns")])
 
-    # Calculate time bounds
     lower_bound, upper_bound = tolerance
-    time_min = request_time_ns + lower_bound
-    time_max = request_time_ns + upper_bound
-
-    time_mask = (df[time_column] >= time_min) & (df[time_column] <= time_max)
+    masks = [
+        (df[time_column] >= t + lower_bound) & (df[time_column] <= t + upper_bound)
+        for t in times_ns
+    ]
+    time_mask = reduce(lambda a, b: a | b, masks)
     return df[time_mask]
 
 
