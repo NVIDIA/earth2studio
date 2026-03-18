@@ -666,6 +666,8 @@ If your system uses a different CUDA version, you may need to adjust the depende
 :::{tab-item} pip
 
 ```bash
+pip install hatchling
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
 pip install earth2studio[da-healda]
 ```
 
