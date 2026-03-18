@@ -78,34 +78,33 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     ValueError
         If the requested model name is not supported
     """
-    model = "fcn3"
+    model_name = "fcn3"
     if "model" in cfg:
-        model = cfg.model
+        model_name = cfg.model
 
-    if model[:4] == "aifs":
+    if model_name[:4] == "aifs":
         from earth2studio.models.px import AIFSENS
 
-        model = AIFSENS
-    elif model == "fcn3":
+        model_cls = AIFSENS
+    elif model_name == "fcn3":
         from earth2studio.models.px import FCN3
 
-        model = FCN3
-    elif model == "sfno":
+        model_cls = FCN3
+    elif model_name == "sfno":
         from earth2studio.models.px import SFNO
 
-        model = SFNO
+        model_cls = SFNO
     else:
-        raise ValueError(f"model {model} not supported")
+        raise ValueError(f"model {model_name} not supported")
 
     # load weights
     pkg = (
         Package(cfg.model_package)
         if "model_package" in cfg
-        else model.load_default_package()
+        else model_cls.load_default_package()
     )
 
-    # load full model
-    model = model.load_model(pkg).to(DistributedManager().device)
+    model = model_cls.load_model(pkg).to(DistributedManager().device)
 
     return model
 
@@ -218,7 +217,7 @@ def run_inference(
         # exit()
 
         # set random state or apply perturbation
-        if (not "model" in cfg) or (cfg.model == "fcn3"):
+        if ("model" not in cfg) or (cfg.model == "fcn3"):
             model.set_rng(seed=seed)
         elif (
             cfg.model[:4] == "aifs"
@@ -261,7 +260,7 @@ def run_inference(
         cyclone_tracking.cleanup()
 
     # Consolidate metadata in zarr files
-    if dist.rank == 0 and cfg.store_type == "zarr":
+    if dist.rank == 0 and cfg.store_type == "zarr" and store is not None:
         # TODO add barrier such that rank 0 finishes last
         consolidate_metadata(store.store)
 
@@ -298,7 +297,7 @@ def distribute_runs(
 
     if len(ic_mems) == 0:
         print(f"nothing to do for rank {dist.rank}, exiting")
-        ic_mems = None
+        return None
 
     return ic_mems
 
@@ -343,9 +342,9 @@ def configure_runs(
     if not DistributedManager().distributed:
         return ic_mems, ics
 
-    ic_mems = distribute_runs(ic_mems)
+    ic_mems_rank = distribute_runs(ic_mems)
 
-    return ic_mems, ics
+    return ic_mems_rank, ics
 
 
 def generate_ensemble(cfg: DictConfig) -> None:

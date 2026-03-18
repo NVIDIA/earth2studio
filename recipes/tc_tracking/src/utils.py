@@ -176,9 +176,9 @@ class InstabilityDetection:
             New coordinate mapping.  If provided, ``update_coords`` is
             called immediately.  Defaults to ``None``.
         """
-        self.baseline = None
-        self._input_coords = None
-        self._output_coords = None
+        self.baseline: torch.Tensor | None = None
+        self._input_coords: OrderedDict | None = None
+        self._output_coords: OrderedDict | None = None
 
         if coords:
             self.update_coords(coords)
@@ -213,7 +213,7 @@ class InstabilityDetection:
 
     def __call__(
         self, xx: torch.Tensor, coords: OrderedDict
-    ) -> tuple[torch.Tensor, OrderedDict]:
+    ) -> tuple[torch.Tensor, OrderedDict | None]:
         """Check whether field means remain within threshold of the baseline.
 
         On the first invocation the baseline is established from xx.
@@ -240,7 +240,7 @@ class InstabilityDetection:
         if self.baseline is None:
             self.baseline = xx.mean(
                 dim=tuple(
-                    [ii for ii in range(len(coords)) if not ii in (var_dim, batch_dim)]
+                    [ii for ii in range(len(coords)) if ii not in (var_dim, batch_dim)]
                 )
             )
             comp = self.baseline
@@ -248,7 +248,7 @@ class InstabilityDetection:
         else:
             comp = xx.mean(
                 dim=tuple(
-                    [ii for ii in range(len(coords)) if not ii in (var_dim, batch_dim)]
+                    [ii for ii in range(len(coords)) if ii not in (var_dim, batch_dim)]
                 )
             )
 

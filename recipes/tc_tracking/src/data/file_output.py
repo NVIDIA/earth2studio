@@ -2,6 +2,7 @@ import copy
 import os
 import shutil
 from collections import OrderedDict
+from typing import Any
 
 import numpy as np
 import torch
@@ -146,7 +147,7 @@ def setup_output(
         "lead_time": 1,
         "variable": 1,
     }
-    array_kwargs = {}
+    array_kwargs: dict[str, Any] = {}
 
     # TODO: let proc zero create dir and add barrier
     os.makedirs(cfg.store_dir, exist_ok=True)

@@ -106,7 +106,7 @@ class DataSourceManager:
             # extract valid years for source and build mapping
             years = source.years
             if isinstance(years, str):
-                if not "-" in years:
+                if "-" not in years:
                     years = int(years)
 
             if isinstance(years, int):
@@ -146,7 +146,7 @@ class DataSourceManager:
         year = np.unique(time_stamps.astype("datetime64[Y]").astype(int) + 1970)
 
         if len(year) > 1:
-            raise ValueError(f"track spans multiple years, which is not yet supported")
+            raise ValueError("track spans multiple years, which is not yet supported")
         else:
             year = year[0]
 

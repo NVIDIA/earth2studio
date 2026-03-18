@@ -7,9 +7,9 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_DYNAMIC", "FALSE")
 
-import hydra
-from omegaconf import DictConfig
-from src.modes.generate_ensembles import generate_ensemble
+import hydra  # noqa: E402
+from omegaconf import DictConfig  # noqa: E402
+from src.modes.generate_ensembles import generate_ensemble  # noqa: E402
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")
@@ -22,7 +22,7 @@ def tc_hunt(cfg: DictConfig) -> None:
     else:
         raise ValueError(f'invalid mode: {cfg.mode}, choose from "generate_ensemble"')
 
-    print(f"finished **yaaayyyy**")
+    print("finished **yaaayyyy**")
 
     return
 

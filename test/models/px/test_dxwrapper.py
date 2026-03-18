@@ -284,9 +284,7 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         ([np.datetime64("2025-08-21T00:00:00")], 1),
     ],
 )
-@pytest.mark.parametrize("keep_px_output", [False, True])
-def test_fcn3_tc_tracker(device, times, keep_px_output):
-    # Spoof models
+def test_dxwrapper_run(device, times, number_of_samples):
 
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
