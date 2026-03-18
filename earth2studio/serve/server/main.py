@@ -24,6 +24,7 @@ with Redis and RQ for job queuing and Prometheus metrics.
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -32,25 +33,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import aiofiles  # type: ignore[import-untyped]
-import redis as redis_sync  # type: ignore[import-untyped]  # For RQ (synchronous)
-import redis.asyncio as redis  # type: ignore[import-untyped]
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from pydantic import BaseModel, Field
-from rq import Queue
+from earth2studio.utils.imports import OptionalDependencyError
 
-# Import configuration
+try:
+    import aiofiles  # type: ignore[import-untyped]
+    import redis as redis_sync  # type: ignore[import-untyped]  # For RQ (synchronous)
+    import redis.asyncio as redis  # type: ignore[import-untyped]
+    import uvicorn
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import Response, StreamingResponse
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+    from pydantic import BaseModel, Field
+    from rq import Queue
+except ImportError as e:
+    raise OptionalDependencyError(
+        "serve", "earth2studio.serve.server.main", e, e.__traceback__
+    )
+
 from earth2studio.serve.server.config import get_config, get_config_manager
 from earth2studio.serve.server.utils import (
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
 )
-
-# Import workflow registry
 from earth2studio.serve.server.workflow import (
     WorkflowResult,
     WorkflowStatus,
@@ -65,12 +70,7 @@ config_manager = get_config_manager()
 config_manager.setup_logging()
 logger = logging.getLogger(__name__)
 
-# FastAPI app will be created after lifespan definition
-
-# Redis client (will be initialized in startup event)
 redis_client: redis.Redis | None = None
-
-# RQ configuration
 redis_sync_client: redis_sync.Redis | None = None
 inference_queue: Queue | None = None
 
@@ -292,9 +292,13 @@ async def health_check() -> dict[str, str]:
     """
     try:
         # Run the status script and check exit code
-        # Scripts live at repo serve/server/scripts, not inside the package
-        _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-        script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
+        # Prefer SCRIPT_DIR env var (required when package is installed without repo layout)
+        script_dir_env = os.environ.get("SCRIPT_DIR")
+        if script_dir_env:
+            script_path = Path(script_dir_env) / "status.sh"
+        else:
+            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+            script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
         process = await asyncio.create_subprocess_exec(
             str(script_path),
             stdout=asyncio.subprocess.PIPE,

@@ -162,6 +162,40 @@ For Debian systems this can be done through APT:
 apt install cmake
 ```
 
+## Torch Harmonics Import Error (undefined symbol)
+
+```text
+ 37 from .spectral_convolution import SpectralConvS2                         │ │
+│ │   38 from .disco import DiscreteContinuousConvS2, DiscreteContinuousConv │ │
+│ │   39 from .resample import ResampleS2                                    │ │
+│ │ ❱ 40 from .attention import AttentionS2, NeighborhoodAttentionS2         │ │
+│ │   41 from . import quadrature                                            │ │
+│ │   42 from . import random_fields                                         │ │
+│ │   43 from . import examples                                              │ │
+│ │                                                                          │ │
+│ │ /builds/modulus/earth-2/earth2studio/.cache/uv/…                         │ │
+│ │ in <module>                                                              │ │
+│ │                                                                          │ │
+│ │   35 from attention_helpers import cuda_kernels_is_available, optimized_ │ │
+│ │   36                                                                     │ │
+│ │   37 if optimized_kernels_is_available():                                │ │
+│ │ ❱ 38 │   from . import _C                                                │ │
+│ │   39 │   from torch.ops import attention_kernels                         │ │
+│ │   40 else:                                                               │ │
+│ │   41 │   attention_kernels = None                                        │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+│ ImportError:                                                                 │
+│ /builds/modulus/earth-2/earth2studio/.cache/uv/…                             │
+│ undefined symbol: _ZN3c104cuda29c10_cuda_check_implementationEiPKcS2_ib      │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This error typically means that `torch-harmonics` was compiled against a different
+version of PyTorch than the one currently installed. Verify that your PyTorch version
+matches the one `torch-harmonics` was originally built with. Note that `uv` caches
+compiled packages across virtual environments, so you may need to clear the cache
+(`uv cache clean`) and rebuild the package.
+
 ## RuntimeError: Cannot find the ecCodes library
 
 This can surface when using a data source (including: CDS, GFS, HRRR) that needs to

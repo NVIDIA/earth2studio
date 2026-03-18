@@ -206,12 +206,12 @@ test-px-models:
         compare_to: 'refs/heads/main'
     - <<: *test_rule_never
 
-# TODO: REMOVE
-test-px-makani:
+# TODO: REMOVE, CONFLICT CURRENTLY
+test-px-ace2:
   extends:
     - .test:base
   variables:
-    TOX_ENV: test-px-models-makani
+    TOX_ENV: test-px-models-ace2
   rules:
     - <<: *test_rule_always_if_pytest_all
     - <<: *test_rule_main_with_changes

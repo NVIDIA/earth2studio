@@ -281,8 +281,10 @@ def test_interp_multiple_times(sample_observations_pandas, small_grid):
 def test_interp_tolerance(sample_observations_pandas, small_grid, device):
     lat, lon = small_grid
     # Use a larger tolerance to capture observations
-    tolerance = np.timedelta64(2, "h")
-    model = InterpEquirectangular(lat=lat, lon=lon, tolerance=tolerance).to(device)
+    time_tolerance = np.timedelta64(2, "h")
+    model = InterpEquirectangular(lat=lat, lon=lon, time_tolerance=time_tolerance).to(
+        device
+    )
 
     # Create observations with times spread out
     base_time = np.datetime64("2024-01-01T12:00:00")
