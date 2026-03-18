@@ -1,51 +1,51 @@
 {
   "profiles": [
     {
-        "workflow": "stormcast_fcn3",
+        "workflow": "stormcast_fcn3_workflow",
         "gpus.used": 1,
         "average": {
-            "utilization.gpu": "18.93 %",
-            "utilization.memory": "6.72 %"
+            "utilization.gpu": "47.21 %",
+            "utilization.memory": "20.37 %"
         },
-        "peak": {
+          "peak": {
             "utilization.gpu": "100 %",
-            "utilization.memory": "60 %",
-            "memory.used": "72096 MiB",
-            "memory.total": "143771 MiB"
+            "utilization.memory": "53 %",
+            "memory.used": "65142 MiB",
+            "memory.total": "81920 MiB"
         }
     },
     {
-        "workflow": "deterministic_earth2",
+        "workflow": "deterministic_earth2_workflow",
         "gpus.used": 1,
-         "average": {
-            "utilization.gpu": "0.20 %",
-            "utilization.memory": "0.09 %"
+        "average": {
+            "utilization.gpu": "5.64 %",
+            "utilization.memory": "2.49 %"
         },
         "peak": {
-            "utilization.gpu": "25 %",
-            "utilization.memory": "11 %",
-            "memory.used": "4250 MiB",
-            "memory.total": "143771 MiB"
+            "utilization.gpu": "86 %",
+            "utilization.memory": "47 %",
+            "memory.used": "65142 MiB",
+            "memory.total": "81920 MiB"
         }
     },
     {
-        "workflow": "diagnostic",
+        "workflow": "diagnostic_workflow",
         "prognostic_model": "fcn",
         "diagnostic_model": "precipitation_afno",
         "gpus.used": 1,
         "average": {
-            "utilization.gpu": "0.76 %",
-            "utilization.memory": "0.33 %"
+            "utilization.gpu": "44.85 %",
+            "utilization.memory": "27.66 %"
         },
         "peak": {
-            "utilization.gpu": "48 %",
-            "utilization.memory": "21 %",
-            "memory.used": "4882 MiB",
-            "memory.total": "143771 MiB"
+            "utilization.gpu": "100 %",
+            "utilization.memory": "63 %",
+            "memory.used": "65142 MiB",
+            "memory.total": "81920 MiB"
         }
     },
     {
-        "workflow": "diagnostic",
+        "workflow": "diagnostic_workflow",
         "prognostic_model": "dlwp",
         "diagnostic_model": "precipitation_afno",
         "gpus.used": 1,
@@ -61,33 +61,63 @@
         }
     },
     {
-        "workflow": "deterministic",
+        "workflow": "deterministic_workflow",
         "model": "fcn",
         "gpus.used": 1,
         "average": {
-            "utilization.gpu": "0.39 %",
-            "utilization.memory": "0.16 %"
+            "utilization.gpu": "5.59 %",
+            "utilization.memory": "2.48 %"
         },
         "peak": {
-            "utilization.gpu": "25 %",
-            "utilization.memory": "11 %",
-            "memory.used": "4250 MiB",
-            "memory.total": "143771 MiB"
+            "utilization.gpu": "87 %",
+            "utilization.memory": "47 %",
+            "memory.used": "65142 MiB",
+            "memory.total": "81920 MiB"
         }
     },
     {
-        "workflow": "deterministic",
+        "workflow": "deterministic_workflow",
         "model": "dlwp",
         "gpus.used": 1,
         "average": {
-            "utilization.gpu": "0.27 %",
+            "utilization.gpu": "1.34 %",
             "utilization.memory": "0.12 %"
         },
         "peak": {
-            "utilization.gpu": "25 %",
-            "utilization.memory": "11 %",
-            "memory.used": "4250 MiB",
-            "memory.total": "143771 MiB"
+            "utilization.gpu": "8 %",
+            "utilization.memory": "1 %",
+            "memory.used": "65142 MiB",
+            "memory.total": "81920 MiB"
+        }
+    },
+    {
+        "workflow": "deterministic_workflow",
+        "model": "fcn3",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "29.44 %",
+            "utilization.memory": "6.24 %"
+        },
+        "peak": {
+            "utilization.gpu": "100 %",
+            "utilization.memory": "44 %",
+            "memory.used": "62840 MiB",
+            "memory.total": "81920 MiB"
+        }
+    },
+    {
+        "workflow": "ensemble_workflow",
+        "model": "fcn",
+        "gpus.used": 1,
+        "average": {
+            "utilization.gpu": "18.31 %",
+            "utilization.memory": "11.19 %"
+        },
+        "peak": {
+            "utilization.gpu": "58 %",
+            "utilization.memory": "31 %",
+            "memory.used": "5744 MiB",
+            "memory.total": "81920 MiB"
         }
     }
   ]

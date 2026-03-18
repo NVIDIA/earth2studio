@@ -26,6 +26,9 @@ class LexiconType(type):
         """Retrieve variable name."""
         return cls.get_item(val)  # type: ignore[attr-defined]
 
+    def __contains__(cls, val: object) -> bool:
+        return val in cls.VOCAB  # type: ignore[attr-defined]
+
 
 E2STUDIO_VOCAB = {
     "u10m": "u-component (eastward, zonal) of wind at 10 m (m s-1)",

@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import json
 import logging
 import shutil
@@ -25,7 +27,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import redis  # type: ignore[import-untyped]
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    import redis  # type: ignore[import-untyped]
+except ImportError:
+    OptionalDependencyFailure("serve")
+    redis = None  # type: ignore[assignment]
 
 from earth2studio.serve.server.config import get_config, get_config_manager
 from earth2studio.serve.server.workflow import WorkflowStatus
@@ -244,6 +255,7 @@ def cleanup_expired_results(
         logger.info("Cleanup watchdog: no expired results found")
 
 
+@check_optional_dependencies()
 def main() -> None:
     """Main daemon loop"""
     config = get_config()

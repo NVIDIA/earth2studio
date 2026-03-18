@@ -67,11 +67,14 @@ if TYPE_CHECKING:
     from fsspec.implementations.cache_mapper import AbstractCacheMapper
 
 try:
-    import cudf
     import cupy as cp
 except ImportError:
-    cudf = None
     cp = None
+
+try:
+    import cudf
+except ImportError:
+    cudf = None
 
 
 def fetch_data(
@@ -82,7 +85,8 @@ def fetch_data(
     device: torch.device = "cpu",
     interp_to: CoordSystem | None = None,
     interp_method: str = "nearest",
-) -> tuple[torch.Tensor, CoordSystem]:
+    legacy: bool = True,
+) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray:
     """Utility function to fetch data arrays from particular sources and load data on
     the target device. If desired, xarray interpolation/regridding in the spatial
     domain can be used by passing a target coordinate system via the optional
@@ -106,13 +110,18 @@ def fetch_data(
         specified by lat/lon arrays in this CoordSystem
     interp_method : str
         Interpolation method to use with xarray (by default 'nearest')
+    legacy : bool, optional
+        If True (default), returns tuple of (torch.Tensor, CoordSystem).
+        If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
-        Tuple containing output tensor and coordinate OrderedDict
+    tuple[torch.Tensor, CoordSystem] | xr.DataArray
+        If legacy=True: Tuple containing output tensor and coordinate OrderedDict.
+        If legacy=False: xr.DataArray with numpy arrays (CPU) or cupy arrays (CUDA).
     """
     sig = signature(source.__call__)
+    device = torch.device(device)
 
     if "lead_time" in sig.parameters:
         # Working with a Forecast Data Source
@@ -130,12 +139,31 @@ def fetch_data(
 
         da = xr.concat(da, "lead_time")
 
-    return prep_data_array(
-        da,
-        device=device,
-        interp_to=interp_to,
-        interp_method=interp_method,
-    )
+    if legacy:
+        return prep_data_array(
+            da,
+            device=device,
+            interp_to=interp_to,
+            interp_method=interp_method,
+        )
+
+    # Non-legacy path: return xr.DataArray
+    else:
+        if interp_to is not None:
+            raise ValueError(
+                "The interp_to argument is not supported when legacy is False. Set legacy=True to use interpolation."
+            )
+        # Convert to cupy arrays if CUDA device and cupy is available
+        if device.type == "cuda":
+            if cp is not None:
+                with cp.cuda.Device(device.index or 0):
+                    da = da.copy(data=cp.asarray(da.values))
+            else:
+                raise ImportError(
+                    "cupy is required when using device='cuda' with legacy=False. "
+                    "Install cupy or use legacy=True."
+                )
+        return da
 
 
 def fetch_dataframe(
@@ -315,6 +343,9 @@ def prep_data_inputs(
     """
     if isinstance(variable, str):
         variable = [variable]
+
+    if isinstance(variable, np.ndarray):
+        variable = variable.astype(str).tolist()
 
     if isinstance(time, datetime):
         time = [time]
