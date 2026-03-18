@@ -297,7 +297,7 @@ for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
     for col, var in enumerate(plot_vars):
         ax = axes[row, col]
         field_pred = da_pred.sel(variable=var).values[0]  # [nlat, nlon] cupy -> numpy
-        field_era5 = era5_interp.sel(variable=var).data[0]  # [nlat, nlon]
+        field_era5 = era5_interp.sel(variable=var).values[0]  # [nlat, nlon]
         diff = field_pred - field_era5
         im = ax.pcolormesh(
             lon,
