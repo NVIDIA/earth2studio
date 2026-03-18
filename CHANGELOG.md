@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added tropical cyclone tracking recipe with async TempestExtremes integration
 - Added NOAA UFS observation dataframe sources for satellite and conventional data
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data

@@ -27,7 +27,7 @@ from omegaconf import DictConfig
 
 from earth2studio.data import DataSource
 from earth2studio.data.utils import datasource_cache_root
-from src.utils import run_with_rank_ordered_execution
+from src.tc_hunt_utils import run_with_rank_ordered_execution
 
 
 def resolve_oro_path(oro_path: str) -> str:

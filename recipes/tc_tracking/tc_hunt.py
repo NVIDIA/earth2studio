@@ -25,7 +25,7 @@ os.environ.setdefault("MKL_DYNAMIC", "FALSE")
 
 import hydra  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
-from src.modes.generate_ensembles import generate_ensemble  # noqa: E402
+from src.modes.generate_tc_hunt_ensembles import generate_ensemble  # noqa: E402
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")
