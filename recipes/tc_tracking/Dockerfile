@@ -3,7 +3,8 @@ FROM nvcr.io/nvidia/physicsnemo/physicsnemo:26.03
 # update repo info
 RUN apt update -y && \
     apt install -y libibmad5 unixodbc git-lfs && \
-    apt install -y netcdf-bin libnetcdf-dev
+    apt install -y netcdf-bin libnetcdf-dev && \
+    git lfs install
 
 # upgrade cmake
 RUN apt remove cmake -y && \
