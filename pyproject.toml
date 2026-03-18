@@ -325,7 +325,7 @@ dev = [
     "black==24.1.0",
     "coverage>=6.5.0",
     "interrogate>=1.5.0",
-    "hatch>=1.14.0",
+    "hatch>=1.16.5",
     "mypy",
     "pre-commit",
     "pytest>=6.0.0",
