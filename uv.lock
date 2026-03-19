@@ -1612,14 +1612,12 @@ aifs = [
     { name = "earthkit-regrid" },
     { name = "ecmwf-opendata" },
     { name = "flash-attn" },
-    { name = "omegaconf" },
 ]
 aifsens = [
     { name = "anemoi-models" },
     { name = "earthkit-regrid" },
     { name = "ecmwf-opendata" },
     { name = "flash-attn" },
-    { name = "omegaconf" },
 ]
 all = [
     { name = "aiofiles" },
@@ -1852,7 +1850,6 @@ stormscope = [
     { name = "natten" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
-    { name = "omegaconf" },
     { name = "scipy" },
 ]
 utils = [
@@ -1981,9 +1978,9 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'data'", specifier = "==0.28.1" },
     { name = "httpx", marker = "extra == 'serve'", specifier = ">=0.25.0" },
     { name = "huggingface-hub", specifier = ">=0.27.0" },
-    { name = "hydra-core", marker = "extra == 'all'", specifier = "==1.4.0.dev1" },
     { name = "hydra-core", marker = "extra == 'all'", specifier = ">=1.3.0" },
-    { name = "hydra-core", marker = "extra == 'dlesym'", specifier = "==1.4.0.dev1" },
+    { name = "hydra-core", marker = "extra == 'all'", specifier = ">=1.3.2" },
+    { name = "hydra-core", marker = "extra == 'dlesym'", specifier = ">=1.3.2" },
     { name = "hydra-core", marker = "extra == 'serve'", specifier = ">=1.3.0" },
     { name = "importlib-metadata", marker = "extra == 'all'" },
     { name = "importlib-metadata", marker = "extra == 'dlwp'" },
@@ -2030,13 +2027,10 @@ requires-dist = [
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormscope'", specifier = ">=0.2.11" },
-    { name = "omegaconf", marker = "extra == 'aifs'", specifier = "==2.4.0.dev3" },
-    { name = "omegaconf", marker = "extra == 'aifsens'", specifier = "==2.4.0.dev3" },
-    { name = "omegaconf", marker = "extra == 'all'", specifier = "==2.4.0.dev3" },
-    { name = "omegaconf", marker = "extra == 'da-stormcast'", specifier = "==2.4.0.dev3" },
-    { name = "omegaconf", marker = "extra == 'dlesym'", specifier = "==2.4.0.dev3" },
-    { name = "omegaconf", marker = "extra == 'stormcast'", specifier = "==2.4.0.dev3" },
-    { name = "omegaconf", marker = "extra == 'stormscope'", specifier = "==2.4.0.dev3" },
+    { name = "omegaconf", marker = "extra == 'all'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'da-stormcast'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'dlesym'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
     { name = "onnx", marker = "extra == 'all'" },
     { name = "onnx", marker = "extra == 'fengwu'" },
     { name = "onnx", marker = "extra == 'fuxi'" },
