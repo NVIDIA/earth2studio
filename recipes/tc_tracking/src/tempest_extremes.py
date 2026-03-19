@@ -957,15 +957,15 @@ class AsyncTempestExtremes(TempestExtremes):
         else:
             return results, exceptions
 
-    def wait_for_completion(self, timeout_per_task: int = 360) -> None:
+    def wait_for_completion(self, timeout_per_task: int | None = None) -> None:
         """Wait for all background tasks associated with this instance to complete.
 
         This method blocks until all background tasks have finished execution.
 
         Parameters
         ----------
-        timeout_per_task : int, optional
-            Timeout in seconds for each task, by default 360
+        timeout_per_task : int | None, optional
+            Timeout in seconds for each task. If None, uses self.timeout.
 
         Raises
         ------
@@ -974,6 +974,9 @@ class AsyncTempestExtremes(TempestExtremes):
         Exception
             If any background task failed with other exceptions
         """
+        if timeout_per_task is None:
+            timeout_per_task = self.timeout
+
         with self._instance_lock:
             tasks_to_wait = list(self._instance_tasks)
 
@@ -1179,7 +1182,7 @@ class AsyncTempestExtremes(TempestExtremes):
             f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"
         )
 
-    def cleanup(self, timeout_per_task: int = 360) -> None:
+    def cleanup(self, timeout_per_task: int | None = None) -> None:
         """Explicitly clean up and wait for all background tasks to complete.
 
         This method should be called before the object is destroyed or the program exits
@@ -1187,8 +1190,8 @@ class AsyncTempestExtremes(TempestExtremes):
 
         Parameters
         ----------
-        timeout_per_task : int, optional
-            Timeout in seconds for each task, by default 360
+        timeout_per_task : int | None, optional
+            Timeout in seconds for each task. If None, uses self.timeout.
 
         Raises
         ------
@@ -1199,6 +1202,9 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         if self._cleanup_done:
             return
+
+        if timeout_per_task is None:
+            timeout_per_task = self.timeout
 
         try:
             # Wait for all instance tasks to complete
