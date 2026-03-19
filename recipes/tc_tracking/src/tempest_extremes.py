@@ -549,18 +549,33 @@ class TempestExtremes:
         Raises
         ------
         ChildProcessError
-            If TempestExtremes command fails (detected by "EXCEPTION" in output)
+            If TempestExtremes command fails (detected by "EXCEPTION" in output
+            or a non-zero return code from the OS, e.g. segfault or OOM kill)
         """
-        # detect nodes
         out = run(command, capture_output=True)  # noqa: S603
 
-        # Print output to terminal if requested
-        if print_output:
-            print(out.stdout.decode("utf-8"))
+        stdout_text = out.stdout.decode("utf-8")
+        stderr_text = out.stderr.decode("utf-8") if out.stderr else ""
 
-        # unfortunately, TE does not fail with proper returncode
-        if "EXCEPTION" in out.stdout.decode("utf-8"):
-            print(out.stdout.decode("utf-8"))
+        if print_output:
+            print(stdout_text)
+
+        # TE itself exits 0 even on errors, but uses "EXCEPTION" in stdout.
+        # A non-zero return code means the process was killed by the OS
+        # (e.g. SIGSEGV, OOM SIGKILL, missing shared lib) before TE could
+        # report anything.
+        if out.returncode != 0:
+            if not print_output:
+                print(stdout_text)
+            if stderr_text:
+                print(stderr_text)
+            raise ChildProcessError(
+                f"\nERROR: {command[0]} was killed or crashed "
+                f"(returncode={out.returncode}), see output above for details."
+            )
+
+        if "EXCEPTION" in stdout_text:
+            print(stdout_text)
             raise ChildProcessError(
                 f"\nERROR: {command[0]} failed, see output above from TempestExtremes for details."
             )
