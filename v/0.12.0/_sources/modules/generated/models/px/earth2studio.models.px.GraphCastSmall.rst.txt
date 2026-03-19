@@ -1,0 +1,23 @@
+﻿:mod:`earth2studio.models.px`.GraphCastSmall
+===================================================
+
+.. currentmodule:: earth2studio.models.px
+
+.. autoclass:: GraphCastSmall
+
+   
+    .. automethod:: __call__
+    .. automethod:: create_iterator
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.px.GraphCastSmall:
+
+.. minigallery:: earth2studio.models.px.GraphCastSmall
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

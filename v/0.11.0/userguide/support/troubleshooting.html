@@ -1,0 +1,744 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Troubleshooting &#8212; Earth2Studio 0.11.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=f3b36f1a"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/support/troubleshooting';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Frequently Asked Questions" href="faq.html" />
+    <link rel="prev" title="Recipe Guide" href="../developer/recipes.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.11" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">About</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="../about/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/lexicon.html">Lexicon</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../developer/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/style.html">Style Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/documentation.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/build.html">Build Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/recipes.html">Recipe Guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Troubleshooting</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="troubleshooting">
+<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h1>
+<section id="onnx-runtime-error-when-binding-input">
+<h2>ONNX Runtime  Error when binding input<a class="headerlink" href="#onnx-runtime-error-when-binding-input" title="Link to this heading">#</a></h2>
+<p>When running an ONNX based model, such as FengWu or Pangu, one may see a runtime error
+where the model fails to bind input data when using a GPU. The error message may look
+like.</p>
+<blockquote>
+<div><p>RuntimeError: Error when binding input: There’s no data transfer registered for
+copying tensors from Device:[DeviceType:1 MemoryType:0 DeviceId:0]</p>
+</div></blockquote>
+<p>or</p>
+<blockquote>
+<div><p>onnxruntime::Provider&amp; onnxruntime::ProviderLibrary::Get() [ONNXRuntimeError] : 1 :
+FAIL : Failed to load library libonnxruntime_providers_cuda.so with error:
+libcublasLt.so.11: cannot open shared object file: No such file or directory.</p>
+</div></blockquote>
+<p>This is an error from ONNX runtime not being installed correctly.
+If you are using CUDA 12 make sure you manually pip install following the instructions
+on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.
+You may need to manually link the needed libraries, see this
+<a class="reference external" href="https://github.com/microsoft/onnxruntime/issues/19616">Github issue</a> for reference.</p>
+</section>
+<section id="importerror-object-is-not-installed-install-manually-or-using-pip">
+<h2>ImportError: object is not installed, install manually or using pip<a class="headerlink" href="#importerror-object-is-not-installed-install-manually-or-using-pip" title="Link to this heading">#</a></h2>
+<p>This is an error that arises typically when the proper optional dependencies are not
+installed on the system.
+For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>&gt;&gt;&gt;<span class="w"> </span>from<span class="w"> </span>earth2studio.data<span class="w"> </span>import<span class="w"> </span>CDS
+&gt;&gt;&gt;<span class="w"> </span>CDS<span class="o">()</span>
+Traceback<span class="w"> </span><span class="o">(</span>most<span class="w"> </span>recent<span class="w"> </span>call<span class="w"> </span>last<span class="o">)</span>:
+<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;&lt;stdin&gt;&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">1</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>&lt;module&gt;
+<span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;/earth2studio/earth2studio/data/cds.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">90</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>__init__
+<span class="w">    </span>raise<span class="w"> </span>ImportError<span class="o">(</span>
+ImportError:<span class="w"> </span>cdsapi<span class="w"> </span>is<span class="w"> </span>not<span class="w"> </span>installed,<span class="w"> </span>install<span class="w"> </span>manually<span class="w"> </span>or<span class="w"> </span>using<span class="w"> </span><span class="sb">`</span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span><span class="sb">`</span>
+</pre></div>
+</div>
+<p>The error message should indicate what the install group is that needs to be added.
+In the above example, running the command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
+<span class="c1"># Or with pip</span>
+pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>data<span class="o">]</span>
+<span class="c1"># Or if you are developer</span>
+uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>data
+</pre></div>
+</div>
+<p>will fix the problem.
+For additional information refer to the <a class="reference internal" href="../about/install.html#optional-dependencies"><span class="std std-ref">Optional Dependencies</span></a> section.</p>
+</section>
+<section id="earth2studio-not-authorized-to-download-public-models-from-ngc">
+<h2>Earth2Studio not authorized to download public models from NGC<a class="headerlink" href="#earth2studio-not-authorized-to-download-public-models-from-ngc" title="Link to this heading">#</a></h2>
+<p>Earth2Studio will attempt to use NGC CLI based authentication to download models.
+Sometimes credential misconfiguration can impact access to even public models with
+potential errors like:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ValueError:<span class="w"> </span>Invalid<span class="w"> </span>org.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-org&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
+<span class="c1"># or</span>
+ValueError:<span class="w"> </span>Invalid<span class="w"> </span>team.<span class="w"> </span>Choose<span class="w"> </span>from<span class="w"> </span><span class="o">[</span><span class="s1">&#39;no-team&#39;</span>,<span class="w"> </span><span class="s1">&#39;0123456789&#39;</span><span class="o">]</span>
+</pre></div>
+</div>
+<p>In these cases it’s typically because there is an NGC API key on the system either via
+the NGC config file located at <code class="docutils literal notranslate"><span class="pre">~/.ngc/config</span></code> by default or by environment variable
+<code class="docutils literal notranslate"><span class="pre">NGC_CLI_API_KEY</span></code>.</p>
+<p>One solution is to rename your config file or unset the API key environment variable so
+Earth2Studio uses guest access.
+Otherwise one can modify the config / environment variables to provide the needed
+information.
+For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">NGC_CLI_ORG</span><span class="o">=</span>no-org
+<span class="nb">export</span><span class="w"> </span><span class="nv">NGC_CLI_TEAM</span><span class="o">=</span>no-team
+</pre></div>
+</div>
+<p>For more information see the <a class="reference external" href="https://docs.ngc.nvidia.com/cli/index.html">NGC CLI docs</a>.</p>
+<p>Still having some problems? Open an issue.</p>
+</section>
+<section id="flash-attention-has-long-build-time-for-aifs-models">
+<h2>Flash Attention has long build time for AIFS models<a class="headerlink" href="#flash-attention-has-long-build-time-for-aifs-models" title="Link to this heading">#</a></h2>
+<p>Both the deterministic AIFS and AIFS Ensemble extras depend on Flash Attention. This is
+a known issue with the library with several <a class="reference external" href="https://github.com/Dao-AILab/flash-attention/issues/1038">issues</a>
+on the subject.
+There are a few options to try outside of just waiting for the build to complete.</p>
+<ol class="arabic">
+<li><p>If using a docker container is possible, the PyTorch docker container on NGC has
+flash attention already built inside of it. See <a class="reference internal" href="../about/install.html#pytorch-container-environment"><span class="std std-ref">PyTorch Docker Container</span></a>
+for details on how to install Earth2Studio inside a container.</p></li>
+<li><p>Speed up the compile time by increasing the number of jobs used during the build
+process. The upper limit depends on the systems memory, too large may result in
+a crash:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Ninja build jobs, increase depending on system memory</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MAX_JOBS</span><span class="o">=</span><span class="m">8</span>
+</pre></div>
+</div>
+</li>
+<li><p>Disable unused features in the library not needed for inference:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># https://github.com/Dao-AILab/flash-attention/issues/1486</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM128</span><span class="o">=</span>FALSE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_CLUSTER</span><span class="o">=</span>FALSE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_BACKWARD</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_SPLIT</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_LOCAL</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_PAGEDKV</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_FP16</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_FP8</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_APPENDKV</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_VARLEN</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_PACKGQA</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_SOFTCAP</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM64</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM96</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM192</span><span class="o">=</span>TRUE
+<span class="nb">export</span><span class="w"> </span><span class="nv">FLASH_ATTENTION_DISABLE_HDIM256</span><span class="o">=</span>TRUE
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="failed-to-install-earth2grid-python-h-no-such-file-or-directory">
+<h2>Failed to Install Earth2Grid <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code><a class="headerlink" href="#failed-to-install-earth2grid-python-h-no-such-file-or-directory" title="Link to this heading">#</a></h2>
+<p><a class="reference external" href="https://github.com/NVlabs/earth2grid">Earth2Grid</a> needs to be installed from source.
+To build this dependency, the Python developer library is needed, on debian systems this
+can be installed with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>python3-dev
+</pre></div>
+</div>
+</section>
+<section id="torch-harmonics-has-long-build-time-for-fcnv3">
+<h2>Torch Harmonics has long build time for FCNv3<a class="headerlink" href="#torch-harmonics-has-long-build-time-for-fcnv3" title="Link to this heading">#</a></h2>
+<p>This is a known challenge when building torch harmonics with cuda extensions which
+require the compilation of discrete-continuous (DISCO) convolutions.
+One method to speed up the install process is to limit the <a class="reference external" href="https://developer.nvidia.com/cuda-gpus">cuda architectures</a>
+that are built to the specific card being used.
+For example, to compile for just Ada Lovelace and newer architectures, set the
+following environment variables before installing:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">FORCE_CUDA_EXTENSION</span><span class="o">=</span><span class="m">1</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">TORCH_CUDA_ARCH_LIST</span><span class="o">=</span><span class="s2">&quot;8.9 9.0 10.0 12.0+PTX&quot;</span>
+</pre></div>
+</div>
+<p>See the <a class="reference external" href="https://github.com/NVIDIA/torch-harmonics">torch harmonics repo</a> for more
+information.
+If torch harmonics is already installed, you may need to force a re-install to build
+the cuda extensions:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span>--force-reinstall<span class="w"> </span>--upgrade<span class="w"> </span>--no-deps<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-cache<span class="w">  </span>--verbose<span class="w"> </span>torch-harmonics<span class="o">==</span><span class="m">0</span>.8.0
+<span class="c1"># Or respective uv command</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../developer/recipes.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Recipe Guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="faq.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Frequently Asked Questions</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#onnx-runtime-error-when-binding-input">ONNX Runtime  Error when binding input</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#importerror-object-is-not-installed-install-manually-or-using-pip">ImportError: object is not installed, install manually or using pip</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio-not-authorized-to-download-public-models-from-ngc">Earth2Studio not authorized to download public models from NGC</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flash-attention-has-long-build-time-for-aifs-models">Flash Attention has long build time for AIFS models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#failed-to-install-earth2grid-python-h-no-such-file-or-directory">Failed to Install Earth2Grid <code class="docutils literal notranslate"><span class="pre">Python.h:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#torch-harmonics-has-long-build-time-for-fcnv3">Torch Harmonics has long build time for FCNv3</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/userguide/support/troubleshooting.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+﻿:mod:`earth2studio.models.da`.HealDA
+===========================================
+
+.. currentmodule:: earth2studio.models.da
+
+.. autoclass:: HealDA
+
+   
+    .. automethod:: __call__
+    .. automethod:: create_generator
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.da.HealDA:
+
+.. minigallery:: earth2studio.models.da.HealDA
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

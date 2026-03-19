@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.rmse
+==========================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: rmse
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.statistics.rmse:
+
+.. minigallery:: earth2studio.statistics.rmse
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

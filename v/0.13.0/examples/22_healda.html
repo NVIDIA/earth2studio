@@ -1,0 +1,1262 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>HealDA Global Data Assimilation &#8212; Earth2Studio 0.13.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=1019fba8"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/22_healda';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.13.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending Earth2Studio" href="extend/index.html" />
+    <link rel="prev" title="StormCast Score-Based Data Assimilation" href="21_stormcast_sda.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.13" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="19_local_datasource.html">Creating a Local Data Source</a></li>
+<li class="toctree-l1"><a class="reference internal" href="20_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="21_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">HealDA Global Data Assimilation</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">HealDA Global Data Assimilation</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-22-healda-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="healda-global-data-assimilation">
+<span id="sphx-glr-examples-22-healda-py"></span><h1>HealDA Global Data Assimilation<a class="headerlink" href="#healda-global-data-assimilation" title="Link to this heading">#</a></h1>
+<p>Producing a global weather analysis from satellite and in-situ observations.</p>
+<p>This example demonstrates how to use the HealDA data assimilation model to produce
+a global weather analysis on a HEALPix grid from sparse in-situ (conventional) and
+satellite radiance observations sourced from the NOAA UFS replay archive.
+Three runs are compared: conventional observations only, satellite observations only,
+and both combined to illustrate the impact of each observation type.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to load and initialise the HealDA data assimilation model</p></li>
+<li><p>Fetching UFS conventional and satellite observation DataFrames</p></li>
+<li><p>Running the model with different observation combinations</p></li>
+<li><p>Comparing the assimilated global fields against ERA5 data</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[da-healda] @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>This example requires the following components:</p>
+<ul class="simple">
+<li><p>Assimilation Model: HealDA <a class="reference internal" href="../modules/generated/models/da/earth2studio.models.da.HealDA.html#earth2studio.models.da.HealDA" title="earth2studio.models.da.HealDA"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.da.HealDA</span></code></a>.</p></li>
+<li><p>Datasource (conv): UFS conventional observations
+<a class="reference internal" href="../modules/generated/data/earth2studio.data.UFSObsConv.html#earth2studio.data.UFSObsConv" title="earth2studio.data.UFSObsConv"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.UFSObsConv</span></code></a>.</p></li>
+<li><p>Datasource (sat): UFS satellite observations
+<a class="reference internal" href="../modules/generated/data/earth2studio.data.UFSObsSat.html#earth2studio.data.UFSObsSat" title="earth2studio.data.UFSObsSat"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.UFSObsSat</span></code></a>.</p></li>
+</ul>
+<p>HealDA is a stateless neural-network-based data assimilation model that ingests
+conventional (radiosonde, surface station, GPS-RO, etc.) and satellite radiance
+observations and produces a single global weather analysis on a HEALPix level-6
+grid.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">NCAR_ERA5</span><span class="p">,</span> <span class="n">UFSObsConv</span><span class="p">,</span> <span class="n">UFSObsSat</span><span class="p">,</span> <span class="n">fetch_dataframe</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.da</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealDA</span>
+
+<span class="c1"># Load the default model package (downloads checkpoint from HuggingFace)</span>
+<span class="c1"># Setting lat_lon=True regrids the native HEALPix output to a regular lat-lon grid.</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">HealDA</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">HealDA</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">lat_lon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading config.json: 0%|          | 0.00/25.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 217B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 216B/s]
+
+Downloading healda_ufs_era5.mdlus: 0%|          | 0.00/1.22G [00:00&lt;?, ?B/s]
+Downloading healda_ufs_era5.mdlus: 1%|          | 10.0M/1.22G [00:00&lt;00:27, 47.9MB/s]
+Downloading healda_ufs_era5.mdlus: 2%|▏         | 30.0M/1.22G [00:00&lt;00:11, 111MB/s]
+Downloading healda_ufs_era5.mdlus: 5%|▍         | 60.0M/1.22G [00:00&lt;00:06, 182MB/s]
+Downloading healda_ufs_era5.mdlus: 7%|▋         | 90.0M/1.22G [00:00&lt;00:05, 222MB/s]
+Downloading healda_ufs_era5.mdlus: 10%|█         | 130M/1.22G [00:00&lt;00:04, 269MB/s]
+Downloading healda_ufs_era5.mdlus: 14%|█▎        | 170M/1.22G [00:00&lt;00:03, 295MB/s]
+Downloading healda_ufs_era5.mdlus: 17%|█▋        | 210M/1.22G [00:00&lt;00:03, 313MB/s]
+Downloading healda_ufs_era5.mdlus: 20%|██        | 250M/1.22G [00:01&lt;00:03, 325MB/s]
+Downloading healda_ufs_era5.mdlus: 23%|██▎       | 290M/1.22G [00:01&lt;00:03, 332MB/s]
+Downloading healda_ufs_era5.mdlus: 26%|██▋       | 330M/1.22G [00:01&lt;00:02, 337MB/s]
+Downloading healda_ufs_era5.mdlus: 30%|██▉       | 370M/1.22G [00:01&lt;00:02, 336MB/s]
+Downloading healda_ufs_era5.mdlus: 33%|███▎      | 410M/1.22G [00:01&lt;00:02, 330MB/s]
+Downloading healda_ufs_era5.mdlus: 36%|███▌      | 450M/1.22G [00:01&lt;00:02, 337MB/s]
+Downloading healda_ufs_era5.mdlus: 39%|███▉      | 490M/1.22G [00:01&lt;00:02, 340MB/s]
+Downloading healda_ufs_era5.mdlus: 42%|████▏     | 530M/1.22G [00:01&lt;00:02, 344MB/s]
+Downloading healda_ufs_era5.mdlus: 46%|████▌     | 570M/1.22G [00:01&lt;00:02, 346MB/s]
+Downloading healda_ufs_era5.mdlus: 49%|████▉     | 610M/1.22G [00:02&lt;00:01, 347MB/s]
+Downloading healda_ufs_era5.mdlus: 52%|█████▏    | 650M/1.22G [00:02&lt;00:01, 348MB/s]
+Downloading healda_ufs_era5.mdlus: 55%|█████▌    | 690M/1.22G [00:02&lt;00:01, 348MB/s]
+Downloading healda_ufs_era5.mdlus: 58%|█████▊    | 730M/1.22G [00:02&lt;00:01, 349MB/s]
+Downloading healda_ufs_era5.mdlus: 62%|██████▏   | 770M/1.22G [00:02&lt;00:01, 351MB/s]
+Downloading healda_ufs_era5.mdlus: 65%|██████▍   | 810M/1.22G [00:02&lt;00:01, 353MB/s]
+Downloading healda_ufs_era5.mdlus: 68%|██████▊   | 850M/1.22G [00:02&lt;00:01, 343MB/s]
+Downloading healda_ufs_era5.mdlus: 71%|███████▏  | 890M/1.22G [00:02&lt;00:01, 344MB/s]
+Downloading healda_ufs_era5.mdlus: 75%|███████▍  | 930M/1.22G [00:03&lt;00:00, 346MB/s]
+Downloading healda_ufs_era5.mdlus: 78%|███████▊  | 970M/1.22G [00:03&lt;00:00, 348MB/s]
+Downloading healda_ufs_era5.mdlus: 81%|████████  | 0.99G/1.22G [00:03&lt;00:00, 350MB/s]
+Downloading healda_ufs_era5.mdlus: 84%|████████▍ | 1.03G/1.22G [00:03&lt;00:00, 349MB/s]
+Downloading healda_ufs_era5.mdlus: 87%|████████▋ | 1.06G/1.22G [00:03&lt;00:00, 348MB/s]
+Downloading healda_ufs_era5.mdlus: 91%|█████████ | 1.10G/1.22G [00:03&lt;00:00, 349MB/s]
+Downloading healda_ufs_era5.mdlus: 94%|█████████▎| 1.14G/1.22G [00:03&lt;00:00, 350MB/s]
+Downloading healda_ufs_era5.mdlus: 97%|█████████▋| 1.18G/1.22G [00:03&lt;00:00, 351MB/s]
+Downloading healda_ufs_era5.mdlus: 100%|██████████| 1.22G/1.22G [00:04&lt;00:00, 352MB/s]
+Downloading healda_ufs_era5.mdlus: 100%|██████████| 1.22G/1.22G [00:04&lt;00:00, 325MB/s]
+
+Downloading condition_hpx6_padxy.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
+Downloading condition_hpx6_padxy.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 3.09MB/s]
+Downloading condition_hpx6_padxy.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 3.07MB/s]
+
+Downloading atms_normalizations.csv: 0%|          | 0.00/2.78k [00:00&lt;?, ?B/s]
+Downloading atms_normalizations.csv: 100%|██████████| 2.78k/2.78k [00:00&lt;00:00, 25.8kB/s]
+Downloading atms_normalizations.csv: 100%|██████████| 2.78k/2.78k [00:00&lt;00:00, 25.7kB/s]
+
+Downloading mhs_normalizations.csv: 0%|          | 0.00/1.28k [00:00&lt;?, ?B/s]
+Downloading mhs_normalizations.csv: 100%|██████████| 1.28k/1.28k [00:00&lt;00:00, 11.9kB/s]
+Downloading mhs_normalizations.csv: 100%|██████████| 1.28k/1.28k [00:00&lt;00:00, 11.8kB/s]
+
+Downloading amsua_normalizations.csv: 0%|          | 0.00/4.67k [00:00&lt;?, ?B/s]
+Downloading amsua_normalizations.csv: 100%|██████████| 4.67k/4.67k [00:00&lt;00:00, 42.6kB/s]
+Downloading amsua_normalizations.csv: 100%|██████████| 4.67k/4.67k [00:00&lt;00:00, 42.0kB/s]
+
+Downloading amsub_normalizations.csv: 0%|          | 0.00/675 [00:00&lt;?, ?B/s]
+Downloading amsub_normalizations.csv: 100%|██████████| 675/675 [00:00&lt;00:00, 5.95kB/s]
+Downloading amsub_normalizations.csv: 100%|██████████| 675/675 [00:00&lt;00:00, 5.89kB/s]
+
+Downloading conv_normalizations.csv: 0%|          | 0.00/632 [00:00&lt;?, ?B/s]
+Downloading conv_normalizations.csv: 100%|██████████| 632/632 [00:00&lt;00:00, 4.58kB/s]
+Downloading conv_normalizations.csv: 100%|██████████| 632/632 [00:00&lt;00:00, 4.54kB/s]
+
+Downloading era5_13_levels_stats.csv: 0%|          | 0.00/3.36k [00:00&lt;?, ?B/s]
+Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k/3.36k [00:00&lt;00:00, 32.9kB/s]
+Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k/3.36k [00:00&lt;00:00, 32.5kB/s]
+</pre></div>
+</div>
+</section>
+<section id="fetch-observations">
+<h2>Fetch Observations<a class="headerlink" href="#fetch-observations" title="Link to this heading">#</a></h2>
+<p>Pull conventional and satellite observation DataFrames for the analysis time.
+The UFS data sources return pandas DataFrames that match the schemas expected by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">HealDA.input_coords()</span></code>.  We use
+<code class="xref py py-func docutils literal notranslate"><span class="pre">earth2studio.data.fetch_dataframe()</span></code> which attaches <code class="docutils literal notranslate"><span class="pre">request_time</span></code>
+metadata required by the model.  The time_tolerance parameter defines a time
+window around the analysis time so that observations will be retrieved for.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">analysis_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2024-01-01T00:00&quot;</span><span class="p">)])</span>
+
+<span class="n">conv_source</span> <span class="o">=</span> <span class="n">UFSObsConv</span><span class="p">(</span><span class="n">time_tolerance</span><span class="o">=</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=-</span><span class="mi">21</span><span class="p">),</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">3</span><span class="p">)))</span>
+<span class="n">conv_schema</span><span class="p">,</span> <span class="n">sat_schema</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<span class="n">conv_df</span> <span class="o">=</span> <span class="n">fetch_dataframe</span><span class="p">(</span>
+    <span class="n">conv_source</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">analysis_time</span><span class="p">,</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">conv_schema</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
+    <span class="n">fields</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">conv_schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+<span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">conv_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> conventional observations&quot;</span><span class="p">)</span>
+
+<span class="n">sat_source</span> <span class="o">=</span> <span class="n">UFSObsSat</span><span class="p">(</span><span class="n">time_tolerance</span><span class="o">=</span><span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=-</span><span class="mi">21</span><span class="p">),</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">3</span><span class="p">)))</span>
+<span class="n">sat_df</span> <span class="o">=</span> <span class="n">fetch_dataframe</span><span class="p">(</span>
+    <span class="n">sat_source</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">=</span><span class="n">analysis_time</span><span class="p">,</span>
+    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">sat_schema</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
+    <span class="n">fields</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">sat_schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+<span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sat_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> satellite observations&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching GSI files:   0%|          | 0/25 [00:00&lt;?, ?it/s]
+Fetching GSI files:   4%|▍         | 1/25 [00:07&lt;02:52,  7.17s/it]
+Fetching GSI files:   8%|▊         | 2/25 [00:07&lt;01:10,  3.07s/it]
+Fetching GSI files:  12%|█▏        | 3/25 [00:07&lt;00:42,  1.94s/it]
+Fetching GSI files:  16%|█▌        | 4/25 [00:08&lt;00:25,  1.22s/it]
+Fetching GSI files:  24%|██▍       | 6/25 [00:08&lt;00:13,  1.44it/s]
+Fetching GSI files:  28%|██▊       | 7/25 [00:08&lt;00:10,  1.73it/s]
+Fetching GSI files:  32%|███▏      | 8/25 [00:09&lt;00:08,  1.95it/s]
+Fetching GSI files:  40%|████      | 10/25 [00:09&lt;00:06,  2.36it/s]
+Fetching GSI files:  44%|████▍     | 11/25 [00:10&lt;00:05,  2.57it/s]
+Fetching GSI files:  48%|████▊     | 12/25 [00:10&lt;00:04,  2.86it/s]
+Fetching GSI files:  60%|██████    | 15/25 [00:10&lt;00:02,  4.85it/s]
+Fetching GSI files:  64%|██████▍   | 16/25 [00:10&lt;00:01,  4.98it/s]
+Fetching GSI files:  72%|███████▏  | 18/25 [00:10&lt;00:01,  6.75it/s]
+Fetching GSI files:  76%|███████▌  | 19/25 [00:11&lt;00:01,  5.07it/s]
+Fetching GSI files:  84%|████████▍ | 21/25 [00:11&lt;00:00,  5.90it/s]
+Fetching GSI files:  92%|█████████▏| 23/25 [00:11&lt;00:00,  7.56it/s]
+Fetching GSI files: 100%|██████████| 25/25 [00:11&lt;00:00,  8.18it/s]
+Fetching GSI files: 100%|██████████| 25/25 [00:11&lt;00:00,  2.12it/s]
+2026-03-19 08:49:48.792 | INFO     | __main__:&lt;module&gt;:108 - Fetched 8515112 conventional observations
+
+Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
+
+2026-03-19 08:49:49.241 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   0%|          | 0/90 [00:00&lt;?, ?it/s]
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:33,  2.63it/s]
+
+2026-03-19 08:49:49.249 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:33,  2.63it/s]
+
+2026-03-19 08:49:49.272 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   1%|          | 1/90 [00:00&lt;00:33,  2.63it/s]
+Fetching GSI files:   4%|▍         | 4/90 [00:00&lt;00:17,  5.03it/s]
+
+2026-03-19 08:49:49.792 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   4%|▍         | 4/90 [00:00&lt;00:17,  5.03it/s]
+Fetching GSI files:   7%|▋         | 6/90 [00:00&lt;00:11,  7.41it/s]
+
+2026-03-19 08:49:49.874 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:   7%|▋         | 6/90 [00:01&lt;00:11,  7.41it/s]
+
+2026-03-19 08:49:49.905 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:   7%|▋         | 6/90 [00:01&lt;00:11,  7.41it/s]
+
+2026-03-19 08:49:49.910 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   7%|▋         | 6/90 [00:01&lt;00:11,  7.41it/s]
+
+2026-03-19 08:49:49.939 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:   7%|▋         | 6/90 [00:01&lt;00:11,  7.41it/s]
+Fetching GSI files:  17%|█▋        | 15/90 [00:01&lt;00:03, 21.90it/s]
+
+2026-03-19 08:49:49.957 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:  17%|█▋        | 15/90 [00:01&lt;00:03, 21.90it/s]
+
+2026-03-19 08:49:49.982 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:  17%|█▋        | 15/90 [00:01&lt;00:03, 21.90it/s]
+
+2026-03-19 08:49:50.102 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  17%|█▋        | 15/90 [00:01&lt;00:03, 21.90it/s]
+Fetching GSI files:  22%|██▏       | 20/90 [00:01&lt;00:02, 24.44it/s]
+
+2026-03-19 08:49:50.193 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  22%|██▏       | 20/90 [00:01&lt;00:02, 24.44it/s]
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+
+2026-03-19 08:49:50.228 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+
+2026-03-19 08:49:50.268 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+
+2026-03-19 08:49:50.275 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+
+2026-03-19 08:49:50.284 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+
+2026-03-19 08:49:50.285 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+
+2026-03-19 08:49:50.310 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  29%|██▉       | 26/90 [00:01&lt;00:02, 31.63it/s]
+Fetching GSI files:  37%|███▋      | 33/90 [00:01&lt;00:01, 39.70it/s]
+
+2026-03-19 08:49:50.360 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:  37%|███▋      | 33/90 [00:01&lt;00:01, 39.70it/s]
+
+2026-03-19 08:49:50.366 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  37%|███▋      | 33/90 [00:01&lt;00:01, 39.70it/s]
+
+2026-03-19 08:49:50.461 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  37%|███▋      | 33/90 [00:01&lt;00:01, 39.70it/s]
+
+2026-03-19 08:49:50.462 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  37%|███▋      | 33/90 [00:01&lt;00:01, 39.70it/s]
+Fetching GSI files:  42%|████▏     | 38/90 [00:01&lt;00:01, 37.39it/s]
+
+2026-03-19 08:49:50.548 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:  42%|████▏     | 38/90 [00:01&lt;00:01, 37.39it/s]
+Fetching GSI files:  48%|████▊     | 43/90 [00:01&lt;00:01, 36.73it/s]
+
+2026-03-19 08:49:50.694 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:  48%|████▊     | 43/90 [00:01&lt;00:01, 36.73it/s]
+Fetching GSI files:  53%|█████▎    | 48/90 [00:01&lt;00:01, 33.42it/s]
+
+2026-03-19 08:49:50.866 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  53%|█████▎    | 48/90 [00:02&lt;00:01, 33.42it/s]
+Fetching GSI files:  58%|█████▊    | 52/90 [00:02&lt;00:01, 32.61it/s]
+
+2026-03-19 08:49:51.011 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:  58%|█████▊    | 52/90 [00:02&lt;00:01, 32.61it/s]
+
+2026-03-19 08:49:51.013 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:  58%|█████▊    | 52/90 [00:02&lt;00:01, 32.61it/s]
+Fetching GSI files:  64%|██████▍   | 58/90 [00:02&lt;00:00, 37.81it/s]
+
+2026-03-19 08:49:51.090 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  64%|██████▍   | 58/90 [00:02&lt;00:00, 37.81it/s]
+
+2026-03-19 08:49:51.096 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  64%|██████▍   | 58/90 [00:02&lt;00:00, 37.81it/s]
+
+2026-03-19 08:49:51.135 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:  64%|██████▍   | 58/90 [00:02&lt;00:00, 37.81it/s]
+Fetching GSI files:  71%|███████   | 64/90 [00:02&lt;00:00, 42.78it/s]
+
+2026-03-19 08:49:51.171 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:  71%|███████   | 64/90 [00:02&lt;00:00, 42.78it/s]
+
+2026-03-19 08:49:51.176 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4 not found
+
+Fetching GSI files:  71%|███████   | 64/90 [00:02&lt;00:00, 42.78it/s]
+
+2026-03-19 08:49:51.180 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4 not found
+
+Fetching GSI files:  71%|███████   | 64/90 [00:02&lt;00:00, 42.78it/s]
+
+2026-03-19 08:49:51.214 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  71%|███████   | 64/90 [00:02&lt;00:00, 42.78it/s]
+Fetching GSI files:  79%|███████▉  | 71/90 [00:02&lt;00:00, 45.74it/s]
+
+2026-03-19 08:49:51.271 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:  79%|███████▉  | 71/90 [00:02&lt;00:00, 45.74it/s]
+
+2026-03-19 08:49:51.290 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:  79%|███████▉  | 71/90 [00:02&lt;00:00, 45.74it/s]
+
+2026-03-19 08:49:51.350 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4 not found
+
+Fetching GSI files:  79%|███████▉  | 71/90 [00:02&lt;00:00, 45.74it/s]
+
+2026-03-19 08:49:51.358 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4 not found
+
+Fetching GSI files:  79%|███████▉  | 71/90 [00:02&lt;00:00, 45.74it/s]
+
+2026-03-19 08:49:51.374 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  79%|███████▉  | 71/90 [00:02&lt;00:00, 45.74it/s]
+Fetching GSI files:  86%|████████▌ | 77/90 [00:02&lt;00:00, 48.40it/s]
+Fetching GSI files:  92%|█████████▏| 83/90 [00:02&lt;00:00, 34.86it/s]
+
+2026-03-19 08:49:51.672 | WARNING  | earth2studio.data.ufs:_handle_missing_file:726 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4 not found
+
+Fetching GSI files:  92%|█████████▏| 83/90 [00:02&lt;00:00, 34.86it/s]
+Fetching GSI files:  99%|█████████▉| 89/90 [00:03&lt;00:00, 28.10it/s]
+Fetching GSI files: 100%|██████████| 90/90 [00:03&lt;00:00, 28.79it/s]
+2026-03-19 08:49:54.606 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4
+2026-03-19 08:49:54.606 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4
+2026-03-19 08:49:54.606 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4
+2026-03-19 08:49:54.606 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4
+2026-03-19 08:49:54.606 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4
+2026-03-19 08:49:56.373 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4
+2026-03-19 08:49:56.373 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4
+2026-03-19 08:49:56.373 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4
+2026-03-19 08:49:56.374 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4
+2026-03-19 08:49:56.374 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4
+2026-03-19 08:49:57.228 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4
+2026-03-19 08:49:57.228 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4
+2026-03-19 08:49:57.229 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4
+2026-03-19 08:49:57.229 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4
+2026-03-19 08:49:57.229 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4
+2026-03-19 08:50:00.119 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4
+2026-03-19 08:50:00.119 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4
+2026-03-19 08:50:00.119 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4
+2026-03-19 08:50:00.119 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4
+2026-03-19 08:50:00.119 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4
+2026-03-19 08:50:00.119 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4
+2026-03-19 08:50:00.120 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4
+2026-03-19 08:50:00.120 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4
+2026-03-19 08:50:00.120 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4
+2026-03-19 08:50:00.120 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4
+2026-03-19 08:50:02.131 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4
+2026-03-19 08:50:02.131 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4
+2026-03-19 08:50:02.132 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4
+2026-03-19 08:50:02.133 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4
+2026-03-19 08:50:02.133 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4
+2026-03-19 08:50:02.133 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4
+2026-03-19 08:50:02.133 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4
+2026-03-19 08:50:02.133 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4
+2026-03-19 08:50:02.261 | INFO     | __main__:&lt;module&gt;:117 - Fetched 4378286 satellite observations
+</pre></div>
+</div>
+</section>
+<section id="observation-locations">
+<h2>Observation Locations<a class="headerlink" href="#observation-locations" title="Link to this heading">#</a></h2>
+<p>Plot the spatial distribution of conventional and satellite observations to
+visualise their coverage before running the assimilation. There are 12-14 million
+observations typically for the model’s 24-hour time window.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="mi">1</span><span class="p">,</span>
+    <span class="mi">2</span><span class="p">,</span>
+    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()},</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># Conventional observations</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_global</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">conv_df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+    <span class="n">conv_df</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+    <span class="n">s</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">c</span><span class="o">=</span><span class="s2">&quot;tab:blue&quot;</span><span class="p">,</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Conventional obs (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">conv_df</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+
+<span class="c1"># Satellite observations</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_global</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">sat_df</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+    <span class="n">sat_df</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">10</span><span class="p">],</span>
+    <span class="n">s</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">c</span><span class="o">=</span><span class="s2">&quot;tab:orange&quot;</span><span class="p">,</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Satellite obs (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sat_df</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+    <span class="sa">f</span><span class="s2">&quot;Observation Locations </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span>
+    <span class="n">fontsize</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_obs_locations.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_22_healda_001.png" srcset="../_images/sphx_glr_22_healda_001.png" alt="Observation Locations 2024-01-01T00:00 UTC, Conventional obs (n=8,515,112), Satellite obs (n=4,378,286)" class = "sphx-glr-single-img"/><p>DA models can be called directly for stateless inference or via
+<a class="reference internal" href="../modules/generated/models/da/earth2studio.models.da.HealDA.html#earth2studio.models.da.HealDA.create_generator" title="earth2studio.models.da.HealDA.create_generator"><code class="xref py py-meth docutils literal notranslate"><span class="pre">create_generator()</span></code></a> for stateful (iterative)
+assimilation workflows.  Here we use the direct call API to invoke the model.</p>
+<p>HealDA is designed to work with the (-21, 3) hour observation window from the UFS
+replay archive using both conventional and satellite observations. However, the DA
+model interface is flexible enough to accept different time windows and observation
+sources. Below we test three configurations - conventional only, satellite only, and
+proper combined - to illustrate the impact each observation type has on the analysis.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">result_both</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">conv_obs</span><span class="o">=</span><span class="n">conv_df</span><span class="p">,</span> <span class="n">sat_obs</span><span class="o">=</span><span class="n">sat_df</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combined analysis shape: </span><span class="si">{</span><span class="n">result_both</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-19 08:50:35.343 | INFO     | __main__:&lt;module&gt;:188 - Combined analysis shape: (1, 74, 181, 360)
+</pre></div>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">result_sat</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">sat_obs</span><span class="o">=</span><span class="n">sat_df</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sat-only analysis shape: </span><span class="si">{</span><span class="n">result_sat</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-19 08:50:38.766 | INFO     | __main__:&lt;module&gt;:193 - Sat-only analysis shape: (1, 74, 181, 360)
+</pre></div>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">result_conv</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">conv_obs</span><span class="o">=</span><span class="n">conv_df</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Conv-only analysis shape: </span><span class="si">{</span><span class="n">result_conv</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-19 08:50:42.970 | INFO     | __main__:&lt;module&gt;:198 - Conv-only analysis shape: (1, 74, 181, 360)
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>Because we loaded the model with <code class="docutils literal notranslate"><span class="pre">lat_lon=True</span></code> the output is already on a
+regular equiangular lat-lon grid, so no manual regridding is needed.
+Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
+(z500). Each row shows a different observation configuration.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">plot_vars</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;z500&quot;</span><span class="p">]</span>
+<span class="n">titles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Conv + Sat&quot;</span><span class="p">,</span> <span class="s2">&quot;Sat only&quot;</span><span class="p">,</span> <span class="s2">&quot;Conv only&quot;</span><span class="p">]</span>
+<span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">result_both</span><span class="p">,</span> <span class="n">result_sat</span><span class="p">,</span> <span class="n">result_conv</span><span class="p">]</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">),</span>
+    <span class="nb">len</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">),</span>
+    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">wspace</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+
+<span class="n">lat</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<span class="n">lon</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<span class="n">cmaps</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Spectral_r&quot;</span><span class="p">,</span> <span class="s2">&quot;PRGn&quot;</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">da</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">titles</span><span class="p">,</span> <span class="n">results</span><span class="p">)):</span>
+    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+        <span class="n">field</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>  <span class="c1"># [nlat, nlon] cupy -&gt; numpy</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+            <span class="n">lon</span><span class="p">,</span>
+            <span class="n">lat</span><span class="p">,</span>
+            <span class="n">field</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="n">cmaps</span><span class="p">[</span><span class="n">col</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.05</span><span class="p">,</span>
+                <span class="mf">0.5</span><span class="p">,</span>
+                <span class="n">title</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                <span class="n">va</span><span class="o">=</span><span class="s2">&quot;bottom&quot;</span><span class="p">,</span>
+                <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
+                <span class="n">rotation_mode</span><span class="o">=</span><span class="s2">&quot;anchor&quot;</span><span class="p">,</span>
+                <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;HealDA Analysis </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.97</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_analysis.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_22_healda_002.png" srcset="../_images/sphx_glr_22_healda_002.png" alt="HealDA Analysis 2024-01-01T00:00 UTC, t2m, z500" class = "sphx-glr-single-img"/></section>
+<section id="healda-vs-era5">
+<h2>HealDA vs ERA5<a class="headerlink" href="#healda-vs-era5" title="Link to this heading">#</a></h2>
+<p>Next fetch ERA5 reanalysis at 0.25° resolution from the NCAR archive to compare
+against the assimilated fields. HealDA outputs standard Earth2Studio variable
+names so we can query ERA5 with the same identifiers. We expect the runs that
+are missing an observation source to show larger errors, while the combined run
+yields the most accurate global prediction.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">era5_ds</span> <span class="o">=</span> <span class="n">NCAR_ERA5</span><span class="p">()</span>
+<span class="n">era5_da</span> <span class="o">=</span> <span class="n">era5_ds</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">,</span> <span class="n">plot_vars</span><span class="p">)</span>
+<span class="n">era5_interp</span> <span class="o">=</span> <span class="n">era5_da</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">lat</span><span class="o">=</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="o">=</span><span class="n">lon</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2026-03-19 08:51:14.934 | DEBUG    | earth2studio.data.ncar:fetch_array:398 - Fetching NCAR ERA5 variable: 2T in file s3://nsf-ncar-era5/e5.oper.an.sfc/202401/e5.oper.an.sfc.128_167_2t.ll025sc.2024010100_2024013123.nc
+
+Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2026-03-19 08:51:19.294 | DEBUG    | earth2studio.data.ncar:fetch_array:398 - Fetching NCAR ERA5 variable: Z in file s3://nsf-ncar-era5/e5.oper.an.pl/202401/e5.oper.an.pl.128_129_z.ll025sc.2024010100_2024010123.nc
+
+Fetching NCAR ERA5 data:   0%|          | 0/2 [00:04&lt;?, ?it/s]
+Fetching NCAR ERA5 data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.52s/it]
+Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:13&lt;00:00,  6.69s/it]
+Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:13&lt;00:00,  6.97s/it]
+</pre></div>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">diff_titles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Conv+Sat - ERA5&quot;</span><span class="p">,</span> <span class="s2">&quot;Sat - ERA5&quot;</span><span class="p">,</span> <span class="s2">&quot;Conv - ERA5&quot;</span><span class="p">]</span>
+<span class="n">diff_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">result_both</span><span class="p">,</span> <span class="n">result_sat</span><span class="p">,</span> <span class="n">result_conv</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">da_pred</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">diff_titles</span><span class="p">,</span> <span class="n">diff_results</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">plot_vars</span><span class="p">:</span>
+        <span class="n">field_pred</span> <span class="o">=</span> <span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">field_pred</span><span class="p">,</span> <span class="s2">&quot;get&quot;</span><span class="p">):</span>
+            <span class="n">field_pred</span> <span class="o">=</span> <span class="n">field_pred</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">mae</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> MAE: </span><span class="si">{</span><span class="n">mae</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-19 08:51:28.915 | INFO     | __main__:&lt;module&gt;:284 - Conv+Sat - ERA5 | t2m MAE: 0.7995
+2026-03-19 08:51:28.916 | INFO     | __main__:&lt;module&gt;:284 - Conv+Sat - ERA5 | z500 MAE: 51.1462
+2026-03-19 08:51:28.917 | INFO     | __main__:&lt;module&gt;:284 - Sat - ERA5 | t2m MAE: 0.8488
+2026-03-19 08:51:28.918 | INFO     | __main__:&lt;module&gt;:284 - Sat - ERA5 | z500 MAE: 164.9523
+2026-03-19 08:51:28.919 | INFO     | __main__:&lt;module&gt;:284 - Conv - ERA5 | t2m MAE: 4.3320
+2026-03-19 08:51:28.920 | INFO     | __main__:&lt;module&gt;:284 - Conv - ERA5 | z500 MAE: 570.9552
+</pre></div>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+
+<span class="n">diff_ranges</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="s2">&quot;z500&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">)}</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="nb">len</span><span class="p">(</span><span class="n">diff_results</span><span class="p">),</span>
+    <span class="nb">len</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">),</span>
+    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">wspace</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">da_pred</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">diff_titles</span><span class="p">,</span> <span class="n">diff_results</span><span class="p">)):</span>
+    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+        <span class="n">field_pred</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">da_pred</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="p">)</span>  <span class="c1"># [nlat, nlon] cupy -&gt; numpy</span>
+        <span class="n">field_era5</span> <span class="o">=</span> <span class="n">era5_interp</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># [nlat, nlon]</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">field_pred</span> <span class="o">-</span> <span class="n">field_era5</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+            <span class="n">lon</span><span class="p">,</span>
+            <span class="n">lat</span><span class="p">,</span>
+            <span class="n">diff</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+            <span class="n">vmin</span><span class="o">=</span><span class="n">diff_ranges</span><span class="p">[</span><span class="n">var</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">vmax</span><span class="o">=</span><span class="n">diff_ranges</span><span class="p">[</span><span class="n">var</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">bbox</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_position</span><span class="p">()</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.05</span><span class="p">,</span>
+                <span class="mf">0.5</span><span class="p">,</span>
+                <span class="n">title</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                <span class="n">va</span><span class="o">=</span><span class="s2">&quot;bottom&quot;</span><span class="p">,</span>
+                <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
+                <span class="n">rotation_mode</span><span class="o">=</span><span class="s2">&quot;anchor&quot;</span><span class="p">,</span>
+                <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+    <span class="sa">f</span><span class="s2">&quot;HealDA Analysis Error </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span>
+    <span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span>
+    <span class="n">y</span><span class="o">=</span><span class="mf">0.97</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/22_healda_differences.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_22_healda_003.png" srcset="../_images/sphx_glr_22_healda_003.png" alt="HealDA Analysis Error 2024-01-01T00:00 UTC, t2m, z500" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 39.560 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-22-healda-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/f6e784a27da95ef6af02820a8b7961de/22_healda.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">22_healda.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/60df98dba1a1af48e367498389bb146a/22_healda.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">22_healda.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/91e0f952f45330846c4b8b19b790e3ec/22_healda.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">22_healda.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="21_stormcast_sda.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">StormCast Score-Based Data Assimilation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="extend/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Extending Earth2Studio</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fetch-observations">Fetch Observations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#observation-locations">Observation Locations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#healda-vs-era5">HealDA vs ERA5</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/22_healda.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

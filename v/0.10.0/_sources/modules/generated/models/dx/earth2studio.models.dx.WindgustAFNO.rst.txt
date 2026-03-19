@@ -1,0 +1,22 @@
+﻿:mod:`earth2studio.models.dx`.WindgustAFNO
+=================================================
+
+.. currentmodule:: earth2studio.models.dx
+
+.. autoclass:: WindgustAFNO
+
+   
+    .. automethod:: __call__
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.dx.WindgustAFNO:
+
+.. minigallery:: earth2studio.models.dx.WindgustAFNO
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

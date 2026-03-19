@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.perturbation`.LaggedEnsemble
+======================================================
+
+.. currentmodule:: earth2studio.perturbation
+
+.. autoclass:: LaggedEnsemble
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.perturbation.LaggedEnsemble:
+
+.. minigallery:: earth2studio.perturbation.LaggedEnsemble
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

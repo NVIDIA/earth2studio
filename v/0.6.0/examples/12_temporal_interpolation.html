@@ -1,0 +1,1547 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Temporal Interpolation &#8212; Earth2Studio 0.6.0 documentation</title>
+
+
+
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+
+
+  <link href="../_static/vendor/fontawesome/6.5.1/css/all.min.css?digest=8d27b9dea8ad943066ae" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.1/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=94338acd" />
+
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae" />
+  <script src="../_static/vendor/fontawesome/6.5.1/js/all.min.js?digest=8d27b9dea8ad943066ae"></script>
+
+    <script src="../_static/documentation_options.js?v=8fa8b3e9"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/12_temporal_interpolation';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.2';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.6.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending Earth2Studio" href="extend/index.html" />
+    <link rel="prev" title="Running StormCast Ensemble Inference" href="10_stormcast_ensemble_example.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+
+
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+
+
+  <a id="pst-skip-link" class="skip-link" href="#main-content">Skip to main content</a>
+
+  <div id="pst-scroll-pixel-helper"></div>
+
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+    <header class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+
+
+  <div class="col-lg-3 navbar-header-items__start">
+
+      <div class="navbar-item">
+
+
+
+<a class="navbar-brand logo" href="../index.html">
+
+
+
+
+
+
+
+
+
+
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <script>document.write(`<img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark" alt=""/>`);</script>
+
+
+    <p class="title logo__title">Earth2Studio</p>
+
+</a></div>
+
+      <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+
+  </div>
+
+  <div class="col-lg-9 navbar-header-items">
+
+    <div class="me-auto navbar-header-items__center">
+
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../modules/index.html">
+                        API
+                      </a>
+                    </li>
+
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Examples
+                      </a>
+                    </li>
+
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+
+  </ul>
+</nav></div>
+
+    </div>
+
+
+    <div class="navbar-header-items__end">
+
+        <div class="navbar-item navbar-persistent--container">
+
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+
+
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+
+
+
+
+
+
+
+
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+
+    </div>
+
+  </div>
+
+
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+
+
+
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+
+</div>
+
+    </header>
+
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+
+
+
+      <div class="bd-sidebar-primary bd-sidebar">
+
+
+
+  <div class="sidebar-header-items sidebar-primary__section">
+
+
+      <div class="sidebar-header-items__center">
+
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../userguide/index.html">
+                        User Guide
+                      </a>
+                    </li>
+
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../modules/index.html">
+                        API
+                      </a>
+                    </li>
+
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Examples
+                      </a>
+                    </li>
+
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+                    Changelog
+                  </a>
+                </li>
+
+  </ul>
+</nav></div>
+
+      </div>
+
+
+
+      <div class="sidebar-header-items__end">
+
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+
+
+
+
+
+
+
+
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+
+      </div>
+
+  </div>
+
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Temporal Interpolation</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</nav></div>
+    </div>
+
+
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+
+      <main id="main-content" class="bd-main">
+
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+
+    <div class="header-article-items__start">
+
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+
+    <li class="breadcrumb-item active" aria-current="page">Temporal...</li>
+  </ul>
+</nav>
+</div>
+
+    </div>
+
+
+</div>
+</div>
+
+
+
+
+<div id="searchbox"></div>
+                <article class="bd-article">
+
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-12-temporal-interpolation-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="temporal-interpolation">
+<span id="sphx-glr-examples-12-temporal-interpolation-py"></span><h1>Temporal Interpolation<a class="headerlink" href="#temporal-interpolation" title="Link to this heading">#</a></h1>
+<p>This example demonstrates how to use the InterpModAFNO model to interpolate
+forecasts from a base model to a finer time resolution.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to load a base prognostic model (e.g., SFNO)</p></li>
+<li><p>How to load the InterpModAFNO model</p></li>
+<li><p>How to run the interpolation model to get forecasts at a finer time resolution</p></li>
+<li><p>How to visualize the results</p></li>
+</ul>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>First, let’s import the necessary modules and set up our environment.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">SFNO</span><span class="p">,</span> <span class="n">InterpModAFNO</span>
+
+<span class="c1"># Create output directory</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="load-models">
+<h2>Load Models<a class="headerlink" href="#load-models" title="Link to this heading">#</a></h2>
+<p>We’ll use SFNO as our base model and the InterpModAFNO model to
+interpolate its output to a finer time resolution.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load the base model (SFNO)</span>
+<span class="n">sfno_package</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">base_model</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">sfno_package</span><span class="p">)</span>
+
+<span class="c1"># Load the interpolation model</span>
+<span class="n">interp_package</span> <span class="o">=</span> <span class="n">InterpModAFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">interp_model</span> <span class="o">=</span> <span class="n">InterpModAFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">interp_package</span><span class="p">)</span>
+<span class="n">interp_model</span><span class="o">.</span><span class="n">px_model</span> <span class="o">=</span> <span class="n">base_model</span>  <span class="c1"># Set the base model</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading config.json: 0%|          | 0.00/17.5k [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 17.5k/17.5k [00:00&lt;00:00, 9.01MB/s]
+
+Downloading orography.nc: 0%|          | 0.00/2.50M [00:00&lt;?, ?B/s]
+Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 27.9MB/s]
+
+Downloading land_mask.nc: 0%|          | 0.00/748k [00:00&lt;?, ?B/s]
+Downloading land_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 135MB/s]
+
+Downloading best_ckpt_mp0.tar: 0%|          | 0.00/6.40G [00:00&lt;?, ?B/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 16.1M/6.40G [00:00&lt;00:40, 168MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 33.3M/6.40G [00:00&lt;00:38, 176MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 52.8M/6.40G [00:00&lt;00:36, 189MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 72.5M/6.40G [00:00&lt;00:34, 196MB/s]
+Downloading best_ckpt_mp0.tar: 1%|▏         | 92.3M/6.40G [00:00&lt;00:33, 200MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 112M/6.40G [00:00&lt;00:33, 202MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 131M/6.40G [00:00&lt;00:34, 195MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 150M/6.40G [00:00&lt;00:34, 196MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 170M/6.40G [00:00&lt;00:33, 199MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 189M/6.40G [00:01&lt;00:33, 199MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 209M/6.40G [00:01&lt;00:32, 202MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 229M/6.40G [00:01&lt;00:32, 203MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 248M/6.40G [00:01&lt;00:32, 203MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 268M/6.40G [00:01&lt;00:32, 204MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 287M/6.40G [00:01&lt;00:32, 203MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 307M/6.40G [00:01&lt;00:32, 204MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 326M/6.40G [00:01&lt;00:32, 203MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 346M/6.40G [00:01&lt;00:32, 203MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 365M/6.40G [00:01&lt;00:32, 201MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 385M/6.40G [00:02&lt;00:32, 202MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 404M/6.40G [00:02&lt;00:31, 202MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▋         | 424M/6.40G [00:02&lt;00:31, 203MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 443M/6.40G [00:02&lt;00:31, 203MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 463M/6.40G [00:02&lt;00:31, 203MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 483M/6.40G [00:02&lt;00:31, 204MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 502M/6.40G [00:02&lt;00:31, 204MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 522M/6.40G [00:02&lt;00:31, 204MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 542M/6.40G [00:02&lt;00:30, 206MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▊         | 561M/6.40G [00:02&lt;00:30, 205MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 581M/6.40G [00:03&lt;00:30, 205MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 601M/6.40G [00:03&lt;00:31, 199MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 620M/6.40G [00:03&lt;00:30, 201MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 640M/6.40G [00:03&lt;00:31, 199MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 658M/6.40G [00:03&lt;00:32, 193MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 677M/6.40G [00:03&lt;00:31, 194MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 697M/6.40G [00:03&lt;00:31, 197MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 717M/6.40G [00:03&lt;00:30, 200MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 736M/6.40G [00:03&lt;00:30, 201MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 756M/6.40G [00:03&lt;00:29, 203MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 776M/6.40G [00:04&lt;00:29, 204MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 795M/6.40G [00:04&lt;00:29, 204MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 815M/6.40G [00:04&lt;00:29, 205MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 835M/6.40G [00:04&lt;00:29, 207MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 855M/6.40G [00:04&lt;00:28, 206MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 875M/6.40G [00:04&lt;00:28, 207MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▎        | 895M/6.40G [00:04&lt;00:28, 207MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 915M/6.40G [00:04&lt;00:28, 208MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 934M/6.40G [00:04&lt;00:28, 207MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 954M/6.40G [00:04&lt;00:28, 208MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 974M/6.40G [00:05&lt;00:28, 207MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 994M/6.40G [00:05&lt;00:28, 207MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 0.99G/6.40G [00:05&lt;00:27, 208MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.01G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.03G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▋        | 1.05G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.07G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.09G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.11G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.13G/6.40G [00:05&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.14G/6.40G [00:06&lt;00:27, 207MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.16G/6.40G [00:06&lt;00:27, 203MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.18G/6.40G [00:06&lt;00:27, 204MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.20G/6.40G [00:06&lt;00:27, 205MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.22G/6.40G [00:06&lt;00:27, 205MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.24G/6.40G [00:06&lt;00:27, 205MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.26G/6.40G [00:06&lt;00:26, 206MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.28G/6.40G [00:06&lt;00:26, 207MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.30G/6.40G [00:06&lt;00:26, 207MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.32G/6.40G [00:06&lt;00:26, 207MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.34G/6.40G [00:07&lt;00:26, 207MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.36G/6.40G [00:07&lt;00:26, 207MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.38G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.40G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.42G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.43G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.45G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.47G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.49G/6.40G [00:07&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.51G/6.40G [00:07&lt;00:25, 206MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.53G/6.40G [00:08&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.55G/6.40G [00:08&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.57G/6.40G [00:08&lt;00:25, 207MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.59G/6.40G [00:08&lt;00:25, 206MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 1.61G/6.40G [00:08&lt;00:24, 206MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 1.63G/6.40G [00:08&lt;00:24, 206MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.65G/6.40G [00:08&lt;00:24, 207MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.67G/6.40G [00:08&lt;00:24, 207MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▋       | 1.69G/6.40G [00:08&lt;00:24, 206MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.71G/6.40G [00:08&lt;00:24, 206MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.72G/6.40G [00:09&lt;00:24, 206MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.74G/6.40G [00:09&lt;00:24, 206MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.76G/6.40G [00:09&lt;00:24, 207MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.78G/6.40G [00:09&lt;00:23, 207MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.80G/6.40G [00:09&lt;00:23, 207MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.82G/6.40G [00:09&lt;00:23, 207MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.84G/6.40G [00:09&lt;00:23, 207MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.86G/6.40G [00:09&lt;00:23, 208MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.88G/6.40G [00:09&lt;00:23, 207MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.90G/6.40G [00:09&lt;00:23, 206MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.92G/6.40G [00:10&lt;00:24, 199MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 1.94G/6.40G [00:10&lt;00:28, 169MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.96G/6.40G [00:10&lt;00:26, 178MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.98G/6.40G [00:10&lt;00:25, 186MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.99G/6.40G [00:10&lt;00:24, 192MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.01G/6.40G [00:10&lt;00:23, 197MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.03G/6.40G [00:10&lt;00:23, 199MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.05G/6.40G [00:10&lt;00:23, 202MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.07G/6.40G [00:10&lt;00:22, 203MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.09G/6.40G [00:11&lt;00:22, 205MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.11G/6.40G [00:11&lt;00:22, 205MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.13G/6.40G [00:11&lt;00:22, 206MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.15G/6.40G [00:11&lt;00:22, 207MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.17G/6.40G [00:11&lt;00:22, 201MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.19G/6.40G [00:11&lt;00:22, 202MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.21G/6.40G [00:11&lt;00:22, 202MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.23G/6.40G [00:11&lt;00:22, 203MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.25G/6.40G [00:11&lt;00:22, 202MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.26G/6.40G [00:11&lt;00:21, 202MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.28G/6.40G [00:12&lt;00:21, 201MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.30G/6.40G [00:12&lt;00:21, 200MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▋      | 2.32G/6.40G [00:12&lt;00:21, 200MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.34G/6.40G [00:12&lt;00:21, 200MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.36G/6.40G [00:12&lt;00:21, 200MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.38G/6.40G [00:12&lt;00:21, 200MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.40G/6.40G [00:12&lt;00:21, 201MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.41G/6.40G [00:12&lt;00:21, 200MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.43G/6.40G [00:12&lt;00:21, 201MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.45G/6.40G [00:12&lt;00:21, 201MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▊      | 2.47G/6.40G [00:13&lt;00:20, 201MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.49G/6.40G [00:13&lt;00:21, 199MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.51G/6.40G [00:13&lt;00:20, 201MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.53G/6.40G [00:13&lt;00:20, 201MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.55G/6.40G [00:13&lt;00:20, 201MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.56G/6.40G [00:13&lt;00:20, 201MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.58G/6.40G [00:13&lt;00:20, 201MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.60G/6.40G [00:13&lt;00:20, 202MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.62G/6.40G [00:13&lt;00:20, 203MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████▏     | 2.64G/6.40G [00:13&lt;00:20, 202MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.66G/6.40G [00:14&lt;00:19, 201MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.68G/6.40G [00:14&lt;00:19, 201MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.70G/6.40G [00:14&lt;00:19, 200MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.72G/6.40G [00:14&lt;00:19, 200MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.73G/6.40G [00:14&lt;00:19, 197MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.75G/6.40G [00:14&lt;00:20, 192MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.77G/6.40G [00:14&lt;00:19, 196MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▎     | 2.79G/6.40G [00:14&lt;00:21, 182MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.81G/6.40G [00:14&lt;00:20, 187MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.83G/6.40G [00:15&lt;00:20, 191MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.85G/6.40G [00:15&lt;00:19, 193MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.86G/6.40G [00:15&lt;00:19, 195MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.88G/6.40G [00:15&lt;00:19, 190MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.90G/6.40G [00:15&lt;00:24, 152MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.92G/6.40G [00:15&lt;00:23, 161MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.94G/6.40G [00:15&lt;00:21, 170MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.95G/6.40G [00:15&lt;00:20, 176MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▋     | 2.97G/6.40G [00:15&lt;00:20, 176MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 2.99G/6.40G [00:16&lt;00:20, 182MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.01G/6.40G [00:16&lt;00:19, 188MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.03G/6.40G [00:16&lt;00:18, 192MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.05G/6.40G [00:16&lt;00:18, 196MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.07G/6.40G [00:16&lt;00:18, 199MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.09G/6.40G [00:16&lt;00:17, 199MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▊     | 3.10G/6.40G [00:16&lt;00:17, 200MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.12G/6.40G [00:16&lt;00:17, 201MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.14G/6.40G [00:16&lt;00:17, 202MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.16G/6.40G [00:16&lt;00:17, 202MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.18G/6.40G [00:17&lt;00:17, 203MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 3.20G/6.40G [00:17&lt;00:17, 201MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 3.22G/6.40G [00:17&lt;00:16, 201MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.24G/6.40G [00:17&lt;00:16, 201MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.26G/6.40G [00:17&lt;00:16, 202MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.27G/6.40G [00:17&lt;00:16, 200MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████▏    | 3.29G/6.40G [00:17&lt;00:16, 200MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.31G/6.40G [00:17&lt;00:16, 200MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.33G/6.40G [00:17&lt;00:16, 200MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.35G/6.40G [00:17&lt;00:16, 201MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.37G/6.40G [00:18&lt;00:16, 202MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.39G/6.40G [00:18&lt;00:16, 201MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.41G/6.40G [00:18&lt;00:16, 201MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▎    | 3.43G/6.40G [00:18&lt;00:15, 201MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.44G/6.40G [00:18&lt;00:16, 198MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.46G/6.40G [00:18&lt;00:15, 198MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.48G/6.40G [00:18&lt;00:15, 201MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.50G/6.40G [00:18&lt;00:15, 201MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.52G/6.40G [00:18&lt;00:15, 202MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.54G/6.40G [00:18&lt;00:15, 202MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.56G/6.40G [00:19&lt;00:15, 203MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.58G/6.40G [00:19&lt;00:14, 202MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.60G/6.40G [00:19&lt;00:14, 202MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.62G/6.40G [00:19&lt;00:14, 203MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.63G/6.40G [00:19&lt;00:14, 201MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.65G/6.40G [00:19&lt;00:14, 202MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.67G/6.40G [00:19&lt;00:14, 202MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.69G/6.40G [00:19&lt;00:14, 199MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.71G/6.40G [00:19&lt;00:14, 199MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.73G/6.40G [00:19&lt;00:14, 200MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▊    | 3.75G/6.40G [00:20&lt;00:14, 200MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.77G/6.40G [00:20&lt;00:14, 201MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.78G/6.40G [00:20&lt;00:23, 119MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.80G/6.40G [00:20&lt;00:20, 136MB/s]
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.82G/6.40G [00:20&lt;00:18, 151MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 3.84G/6.40G [00:20&lt;00:16, 164MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 3.86G/6.40G [00:20&lt;00:15, 175MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.88G/6.40G [00:21&lt;00:14, 182MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.90G/6.40G [00:21&lt;00:14, 189MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.92G/6.40G [00:21&lt;00:13, 193MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.94G/6.40G [00:21&lt;00:13, 196MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.96G/6.40G [00:21&lt;00:13, 197MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.97G/6.40G [00:21&lt;00:13, 196MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.99G/6.40G [00:21&lt;00:12, 199MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.01G/6.40G [00:21&lt;00:12, 199MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.03G/6.40G [00:21&lt;00:12, 200MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.05G/6.40G [00:21&lt;00:12, 201MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▎   | 4.07G/6.40G [00:22&lt;00:12, 200MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.09G/6.40G [00:22&lt;00:12, 201MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.11G/6.40G [00:22&lt;00:12, 201MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.13G/6.40G [00:22&lt;00:12, 203MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.15G/6.40G [00:22&lt;00:11, 203MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.16G/6.40G [00:22&lt;00:11, 203MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.18G/6.40G [00:22&lt;00:11, 202MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.20G/6.40G [00:22&lt;00:11, 200MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.22G/6.40G [00:22&lt;00:11, 201MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▋   | 4.24G/6.40G [00:22&lt;00:11, 201MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.26G/6.40G [00:23&lt;00:11, 201MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.28G/6.40G [00:23&lt;00:11, 204MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.30G/6.40G [00:23&lt;00:11, 203MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.32G/6.40G [00:23&lt;00:10, 203MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.34G/6.40G [00:23&lt;00:10, 204MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.35G/6.40G [00:23&lt;00:10, 203MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.37G/6.40G [00:23&lt;00:10, 204MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▊   | 4.39G/6.40G [00:23&lt;00:10, 204MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.41G/6.40G [00:23&lt;00:10, 204MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.43G/6.40G [00:23&lt;00:10, 205MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.45G/6.40G [00:24&lt;00:10, 205MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.47G/6.40G [00:24&lt;00:10, 205MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.49G/6.40G [00:24&lt;00:09, 206MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.51G/6.40G [00:24&lt;00:09, 205MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.53G/6.40G [00:24&lt;00:09, 204MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.55G/6.40G [00:24&lt;00:09, 204MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████▏  | 4.57G/6.40G [00:24&lt;00:09, 204MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.58G/6.40G [00:24&lt;00:09, 203MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.60G/6.40G [00:24&lt;00:09, 204MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.62G/6.40G [00:24&lt;00:09, 202MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.64G/6.40G [00:25&lt;00:09, 202MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.66G/6.40G [00:25&lt;00:09, 204MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.68G/6.40G [00:25&lt;00:09, 203MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.70G/6.40G [00:25&lt;00:08, 203MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.72G/6.40G [00:25&lt;00:08, 205MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.74G/6.40G [00:25&lt;00:08, 203MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.76G/6.40G [00:25&lt;00:08, 203MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.78G/6.40G [00:25&lt;00:08, 204MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.80G/6.40G [00:25&lt;00:08, 204MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.81G/6.40G [00:25&lt;00:08, 204MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.83G/6.40G [00:26&lt;00:08, 204MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.85G/6.40G [00:26&lt;00:08, 203MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.87G/6.40G [00:26&lt;00:08, 203MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▋  | 4.89G/6.40G [00:26&lt;00:07, 203MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.91G/6.40G [00:26&lt;00:07, 203MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.93G/6.40G [00:26&lt;00:07, 205MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.95G/6.40G [00:26&lt;00:07, 204MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.97G/6.40G [00:26&lt;00:07, 203MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.99G/6.40G [00:26&lt;00:07, 203MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 5.01G/6.40G [00:26&lt;00:07, 203MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▊  | 5.02G/6.40G [00:27&lt;00:07, 205MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.04G/6.40G [00:27&lt;00:07, 204MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.06G/6.40G [00:27&lt;00:07, 203MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.08G/6.40G [00:27&lt;00:06, 205MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.10G/6.40G [00:27&lt;00:06, 204MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 5.12G/6.40G [00:27&lt;00:06, 204MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 5.14G/6.40G [00:27&lt;00:06, 205MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.16G/6.40G [00:27&lt;00:06, 204MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.18G/6.40G [00:27&lt;00:06, 204MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.20G/6.40G [00:27&lt;00:06, 205MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.22G/6.40G [00:28&lt;00:06, 205MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.24G/6.40G [00:28&lt;00:06, 205MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.26G/6.40G [00:28&lt;00:06, 204MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.27G/6.40G [00:28&lt;00:05, 205MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.29G/6.40G [00:28&lt;00:05, 204MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.31G/6.40G [00:28&lt;00:05, 204MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.33G/6.40G [00:28&lt;00:05, 203MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▎ | 5.35G/6.40G [00:28&lt;00:05, 203MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.37G/6.40G [00:28&lt;00:05, 204MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.39G/6.40G [00:28&lt;00:05, 204MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.41G/6.40G [00:29&lt;00:05, 204MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.43G/6.40G [00:29&lt;00:05, 203MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.45G/6.40G [00:29&lt;00:05, 201MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.47G/6.40G [00:29&lt;00:04, 203MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.48G/6.40G [00:29&lt;00:04, 203MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.50G/6.40G [00:29&lt;00:04, 203MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▋ | 5.52G/6.40G [00:29&lt;00:04, 203MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.54G/6.40G [00:29&lt;00:04, 204MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.56G/6.40G [00:29&lt;00:04, 204MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.58G/6.40G [00:29&lt;00:04, 204MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.60G/6.40G [00:30&lt;00:04, 205MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.62G/6.40G [00:30&lt;00:04, 204MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.64G/6.40G [00:30&lt;00:03, 204MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.66G/6.40G [00:30&lt;00:03, 204MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▊ | 5.68G/6.40G [00:30&lt;00:03, 205MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.70G/6.40G [00:30&lt;00:04, 179MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.71G/6.40G [00:30&lt;00:04, 171MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.73G/6.40G [00:30&lt;00:03, 180MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.75G/6.40G [00:30&lt;00:03, 188MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.77G/6.40G [00:31&lt;00:03, 192MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.79G/6.40G [00:31&lt;00:03, 195MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.81G/6.40G [00:31&lt;00:03, 199MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.83G/6.40G [00:31&lt;00:04, 131MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████▏| 5.85G/6.40G [00:31&lt;00:04, 146MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.86G/6.40G [00:31&lt;00:03, 160MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.88G/6.40G [00:31&lt;00:03, 171MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.90G/6.40G [00:31&lt;00:03, 165MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.92G/6.40G [00:32&lt;00:03, 158MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.94G/6.40G [00:32&lt;00:02, 169MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.96G/6.40G [00:32&lt;00:02, 179MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.97G/6.40G [00:32&lt;00:02, 186MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▎| 5.99G/6.40G [00:32&lt;00:02, 191MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.01G/6.40G [00:32&lt;00:02, 195MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.03G/6.40G [00:32&lt;00:01, 198MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.05G/6.40G [00:32&lt;00:01, 201MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.07G/6.40G [00:32&lt;00:01, 202MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.09G/6.40G [00:32&lt;00:01, 202MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.11G/6.40G [00:33&lt;00:01, 204MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.13G/6.40G [00:33&lt;00:01, 203MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.15G/6.40G [00:33&lt;00:01, 202MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▋| 6.17G/6.40G [00:33&lt;00:01, 204MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.19G/6.40G [00:33&lt;00:01, 203MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.20G/6.40G [00:33&lt;00:01, 204MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.22G/6.40G [00:33&lt;00:00, 205MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.24G/6.40G [00:33&lt;00:00, 204MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.26G/6.40G [00:33&lt;00:00, 205MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.28G/6.40G [00:33&lt;00:00, 205MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.30G/6.40G [00:34&lt;00:00, 205MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.32G/6.40G [00:34&lt;00:00, 205MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.34G/6.40G [00:34&lt;00:00, 206MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.36G/6.40G [00:34&lt;00:00, 204MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.38G/6.40G [00:34&lt;00:00, 204MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.40G/6.40G [00:34&lt;00:00, 205MB/s]
+Downloading best_ckpt_mp0.tar: 100%|██████████| 6.40G/6.40G [00:34&lt;00:00, 199MB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 350kB/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 312kB/s]
+
+Downloading fcinterp-modafno-2x2.mdlus: 0%|          | 0.00/0.98G [00:00&lt;?, ?B/s]
+Downloading fcinterp-modafno-2x2.mdlus: 0%|          | 1.37M/0.98G [00:00&lt;01:17, 13.6MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 0%|          | 2.76M/0.98G [00:00&lt;01:34, 11.1MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 2%|▏         | 19.1M/0.98G [00:00&lt;00:13, 73.6MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 4%|▎         | 37.2M/0.98G [00:00&lt;00:08, 115MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 6%|▌         | 56.6M/0.98G [00:00&lt;00:06, 145MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 8%|▊         | 75.8M/0.98G [00:00&lt;00:05, 163MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 9%|▉         | 94.7M/0.98G [00:00&lt;00:05, 174MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 11%|█▏        | 114M/0.98G [00:00&lt;00:05, 183MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 13%|█▎        | 134M/0.98G [00:00&lt;00:04, 190MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 15%|█▌        | 153M/0.98G [00:01&lt;00:04, 192MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 17%|█▋        | 172M/0.98G [00:01&lt;00:04, 194MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 19%|█▉        | 191M/0.98G [00:01&lt;00:04, 197MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 21%|██        | 211M/0.98G [00:01&lt;00:04, 200MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 23%|██▎       | 230M/0.98G [00:01&lt;00:04, 201MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 25%|██▍       | 250M/0.98G [00:01&lt;00:03, 202MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 27%|██▋       | 269M/0.98G [00:01&lt;00:03, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 29%|██▉       | 289M/0.98G [00:01&lt;00:03, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 31%|███       | 308M/0.98G [00:01&lt;00:03, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 33%|███▎      | 328M/0.98G [00:01&lt;00:03, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 35%|███▍      | 348M/0.98G [00:02&lt;00:03, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 37%|███▋      | 367M/0.98G [00:02&lt;00:03, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 39%|███▊      | 387M/0.98G [00:02&lt;00:03, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 41%|████      | 407M/0.98G [00:02&lt;00:03, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 43%|████▎     | 426M/0.98G [00:02&lt;00:02, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 45%|████▍     | 446M/0.98G [00:02&lt;00:02, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 47%|████▋     | 466M/0.98G [00:02&lt;00:02, 206MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 48%|████▊     | 485M/0.98G [00:02&lt;00:02, 202MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 51%|█████     | 505M/0.98G [00:02&lt;00:02, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 52%|█████▏    | 525M/0.98G [00:02&lt;00:02, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 54%|█████▍    | 545M/0.98G [00:03&lt;00:02, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 56%|█████▋    | 564M/0.98G [00:03&lt;00:02, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 58%|█████▊    | 584M/0.98G [00:03&lt;00:02, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 60%|██████    | 604M/0.98G [00:03&lt;00:02, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 62%|██████▏   | 623M/0.98G [00:03&lt;00:01, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 64%|██████▍   | 643M/0.98G [00:03&lt;00:01, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 66%|██████▌   | 663M/0.98G [00:03&lt;00:01, 198MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 68%|██████▊   | 683M/0.98G [00:03&lt;00:01, 201MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 70%|███████   | 702M/0.98G [00:03&lt;00:01, 202MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 72%|███████▏  | 722M/0.98G [00:03&lt;00:01, 202MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 74%|███████▍  | 742M/0.98G [00:04&lt;00:01, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 76%|███████▌  | 761M/0.98G [00:04&lt;00:01, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 78%|███████▊  | 780M/0.98G [00:04&lt;00:01, 202MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 80%|███████▉  | 801M/0.98G [00:04&lt;00:01, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 82%|████████▏ | 820M/0.98G [00:04&lt;00:00, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 84%|████████▍ | 840M/0.98G [00:04&lt;00:00, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 86%|████████▌ | 859M/0.98G [00:04&lt;00:00, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 88%|████████▊ | 879M/0.98G [00:04&lt;00:00, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 90%|████████▉ | 898M/0.98G [00:04&lt;00:00, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 92%|█████████▏| 918M/0.98G [00:04&lt;00:00, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 94%|█████████▎| 938M/0.98G [00:05&lt;00:00, 203MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 96%|█████████▌| 957M/0.98G [00:05&lt;00:00, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 98%|█████████▊| 977M/0.98G [00:05&lt;00:00, 204MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 100%|█████████▉| 996M/0.98G [00:05&lt;00:00, 205MB/s]
+Downloading fcinterp-modafno-2x2.mdlus: 100%|██████████| 0.98G/0.98G [00:05&lt;00:00, 193MB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 693kB/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 728kB/s]
+
+Downloading orography.nc: 0%|          | 0.00/2.50M [00:00&lt;?, ?B/s]
+Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 60.1MB/s]
+
+Downloading land_sea_mask.nc: 0%|          | 0.00/748k [00:00&lt;?, ?B/s]
+Downloading land_sea_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 123MB/s]
+</pre></div>
+</div>
+</section>
+<section id="run-the-interpolation-model">
+<h2>Run the Interpolation Model<a class="headerlink" href="#run-the-interpolation-model" title="Link to this heading">#</a></h2>
+<p>Now we’ll run the interpolation model to get forecasts at a finer time resolution.
+The base model (SFNO) produces forecasts at 6-hour intervals, and the
+interpolation model will interpolate to 1-hour intervals.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define forecast parameters</span>
+<span class="n">forecast_date</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
+<span class="n">nsteps</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Number of interpolated forecast steps</span>
+
+<span class="c1"># Run the model</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="kn">import</span> <span class="n">deterministic</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">deterministic</span><span class="p">([</span><span class="n">forecast_date</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">interp_model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-04-15 07:11:46.334 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+2025-04-15 07:11:46.335 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
+2025-04-15 07:11:47.000 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:213 - Fetching GFS index file: 2024-01-01 00:00:00 lead 0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-15 07:11:47.003 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u10m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-15 07:11:47.031 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v10m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-15 07:11:47.056 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u100m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2025-04-15 07:11:47.080 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v100m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS for 2024-01-01 00:00:00:   5%|▌         | 4/73 [00:00&lt;00:01, 39.13it/s]
+
+2025-04-15 07:11:47.106 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t2m at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   5%|▌         | 4/73 [00:00&lt;00:01, 39.13it/s]
+
+2025-04-15 07:11:47.131 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: sp at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   5%|▌         | 4/73 [00:00&lt;00:01, 39.13it/s]
+
+2025-04-15 07:11:47.156 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: msl at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   5%|▌         | 4/73 [00:00&lt;00:01, 39.13it/s]
+
+2025-04-15 07:11:47.181 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: tcwv at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:   5%|▌         | 4/73 [00:00&lt;00:01, 39.13it/s]
+Fetching GFS for 2024-01-01 00:00:00:  11%|█         | 8/73 [00:00&lt;00:01, 39.19it/s]
+
+2025-04-15 07:11:47.208 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u50 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  11%|█         | 8/73 [00:00&lt;00:01, 39.19it/s]
+
+2025-04-15 07:11:49.459 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u100 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  11%|█         | 8/73 [00:02&lt;00:01, 39.19it/s]
+
+2025-04-15 07:11:50.944 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u150 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  11%|█         | 8/73 [00:03&lt;00:01, 39.19it/s]
+
+2025-04-15 07:11:52.406 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u200 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  11%|█         | 8/73 [00:05&lt;00:01, 39.19it/s]
+Fetching GFS for 2024-01-01 00:00:00:  16%|█▋        | 12/73 [00:06&lt;00:47,  1.29it/s]
+
+2025-04-15 07:11:53.860 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u250 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  16%|█▋        | 12/73 [00:06&lt;00:47,  1.29it/s]
+
+2025-04-15 07:11:53.905 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u300 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  16%|█▋        | 12/73 [00:06&lt;00:47,  1.29it/s]
+
+2025-04-15 07:11:55.409 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u400 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  16%|█▋        | 12/73 [00:08&lt;00:47,  1.29it/s]
+Fetching GFS for 2024-01-01 00:00:00:  21%|██        | 15/73 [00:09&lt;00:49,  1.17it/s]
+
+2025-04-15 07:11:56.933 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u500 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  21%|██        | 15/73 [00:09&lt;00:49,  1.17it/s]
+
+2025-04-15 07:11:56.978 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u600 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  21%|██        | 15/73 [00:09&lt;00:49,  1.17it/s]
+Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 17/73 [00:11&lt;00:49,  1.13it/s]
+
+2025-04-15 07:11:58.893 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u700 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  23%|██▎       | 17/73 [00:11&lt;00:49,  1.13it/s]
+Fetching GFS for 2024-01-01 00:00:00:  25%|██▍       | 18/73 [00:13&lt;00:53,  1.03it/s]
+
+2025-04-15 07:12:00.380 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u850 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  25%|██▍       | 18/73 [00:13&lt;00:53,  1.03it/s]
+
+2025-04-15 07:12:00.422 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u925 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  25%|██▍       | 18/73 [00:13&lt;00:53,  1.03it/s]
+Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 20/73 [00:15&lt;00:49,  1.07it/s]
+
+2025-04-15 07:12:02.044 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: u1000 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 20/73 [00:15&lt;00:49,  1.07it/s]
+
+2025-04-15 07:12:02.088 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v50 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  27%|██▋       | 20/73 [00:15&lt;00:49,  1.07it/s]
+Fetching GFS for 2024-01-01 00:00:00:  30%|███       | 22/73 [00:16&lt;00:44,  1.14it/s]
+
+2025-04-15 07:12:03.562 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v100 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  30%|███       | 22/73 [00:16&lt;00:44,  1.14it/s]
+Fetching GFS for 2024-01-01 00:00:00:  32%|███▏      | 23/73 [00:18&lt;00:49,  1.02it/s]
+
+2025-04-15 07:12:05.035 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v150 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  32%|███▏      | 23/73 [00:18&lt;00:49,  1.02it/s]
+Fetching GFS for 2024-01-01 00:00:00:  33%|███▎      | 24/73 [00:19&lt;00:53,  1.09s/it]
+
+2025-04-15 07:12:06.542 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v200 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  33%|███▎      | 24/73 [00:19&lt;00:53,  1.09s/it]
+Fetching GFS for 2024-01-01 00:00:00:  34%|███▍      | 25/73 [00:21&lt;00:56,  1.18s/it]
+
+2025-04-15 07:12:08.048 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v250 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  34%|███▍      | 25/73 [00:21&lt;00:56,  1.18s/it]
+
+2025-04-15 07:12:08.090 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v300 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  34%|███▍      | 25/73 [00:21&lt;00:56,  1.18s/it]
+Fetching GFS for 2024-01-01 00:00:00:  37%|███▋      | 27/73 [00:22&lt;00:46,  1.02s/it]
+
+2025-04-15 07:12:09.584 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v400 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  37%|███▋      | 27/73 [00:22&lt;00:46,  1.02s/it]
+Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 28/73 [00:24&lt;00:50,  1.12s/it]
+
+2025-04-15 07:12:11.061 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v500 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 28/73 [00:24&lt;00:50,  1.12s/it]
+
+2025-04-15 07:12:11.104 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v600 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  38%|███▊      | 28/73 [00:24&lt;00:50,  1.12s/it]
+Fetching GFS for 2024-01-01 00:00:00:  41%|████      | 30/73 [00:25&lt;00:42,  1.02it/s]
+
+2025-04-15 07:12:12.582 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v700 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  41%|████      | 30/73 [00:25&lt;00:42,  1.02it/s]
+Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 31/73 [00:27&lt;00:45,  1.09s/it]
+
+2025-04-15 07:12:14.076 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v850 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 31/73 [00:27&lt;00:45,  1.09s/it]
+
+2025-04-15 07:12:14.119 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v925 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  42%|████▏     | 31/73 [00:27&lt;00:45,  1.09s/it]
+Fetching GFS for 2024-01-01 00:00:00:  45%|████▌     | 33/73 [00:28&lt;00:38,  1.03it/s]
+
+2025-04-15 07:12:15.607 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: v1000 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  45%|████▌     | 33/73 [00:28&lt;00:38,  1.03it/s]
+
+2025-04-15 07:12:15.649 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z50 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  45%|████▌     | 33/73 [00:28&lt;00:38,  1.03it/s]
+
+2025-04-15 07:12:15.687 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z100 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  45%|████▌     | 33/73 [00:28&lt;00:38,  1.03it/s]
+Fetching GFS for 2024-01-01 00:00:00:  49%|████▉     | 36/73 [00:30&lt;00:28,  1.31it/s]
+
+2025-04-15 07:12:17.160 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z150 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  49%|████▉     | 36/73 [00:30&lt;00:28,  1.31it/s]
+Fetching GFS for 2024-01-01 00:00:00:  51%|█████     | 37/73 [00:31&lt;00:32,  1.12it/s]
+
+2025-04-15 07:12:18.636 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z200 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  51%|█████     | 37/73 [00:31&lt;00:32,  1.12it/s]
+Fetching GFS for 2024-01-01 00:00:00:  52%|█████▏    | 38/73 [00:33&lt;00:35,  1.01s/it]
+
+2025-04-15 07:12:20.112 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z250 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  52%|█████▏    | 38/73 [00:33&lt;00:35,  1.01s/it]
+
+2025-04-15 07:12:20.156 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z300 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  52%|█████▏    | 38/73 [00:33&lt;00:35,  1.01s/it]
+
+2025-04-15 07:12:20.198 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z400 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  52%|█████▏    | 38/73 [00:33&lt;00:35,  1.01s/it]
+Fetching GFS for 2024-01-01 00:00:00:  56%|█████▌    | 41/73 [00:34&lt;00:24,  1.28it/s]
+
+2025-04-15 07:12:21.655 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z500 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  56%|█████▌    | 41/73 [00:34&lt;00:24,  1.28it/s]
+
+2025-04-15 07:12:21.698 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z600 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  56%|█████▌    | 41/73 [00:34&lt;00:24,  1.28it/s]
+Fetching GFS for 2024-01-01 00:00:00:  59%|█████▉    | 43/73 [00:36&lt;00:23,  1.29it/s]
+
+2025-04-15 07:12:23.186 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z700 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  59%|█████▉    | 43/73 [00:36&lt;00:23,  1.29it/s]
+
+2025-04-15 07:12:23.230 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z850 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  59%|█████▉    | 43/73 [00:36&lt;00:23,  1.29it/s]
+
+2025-04-15 07:12:23.272 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z925 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  59%|█████▉    | 43/73 [00:36&lt;00:23,  1.29it/s]
+Fetching GFS for 2024-01-01 00:00:00:  63%|██████▎   | 46/73 [00:37&lt;00:18,  1.47it/s]
+
+2025-04-15 07:12:24.784 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: z1000 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  63%|██████▎   | 46/73 [00:37&lt;00:18,  1.47it/s]
+
+2025-04-15 07:12:24.827 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t50 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  63%|██████▎   | 46/73 [00:37&lt;00:18,  1.47it/s]
+Fetching GFS for 2024-01-01 00:00:00:  66%|██████▌   | 48/73 [00:39&lt;00:17,  1.41it/s]
+
+2025-04-15 07:12:26.379 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t100 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  66%|██████▌   | 48/73 [00:39&lt;00:17,  1.41it/s]
+Fetching GFS for 2024-01-01 00:00:00:  67%|██████▋   | 49/73 [00:40&lt;00:20,  1.19it/s]
+
+2025-04-15 07:12:27.882 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t150 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  67%|██████▋   | 49/73 [00:40&lt;00:20,  1.19it/s]
+Fetching GFS for 2024-01-01 00:00:00:  68%|██████▊   | 50/73 [00:42&lt;00:22,  1.04it/s]
+
+2025-04-15 07:12:29.360 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t200 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  68%|██████▊   | 50/73 [00:42&lt;00:22,  1.04it/s]
+Fetching GFS for 2024-01-01 00:00:00:  70%|██████▉   | 51/73 [00:43&lt;00:23,  1.07s/it]
+
+2025-04-15 07:12:30.839 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t250 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  70%|██████▉   | 51/73 [00:43&lt;00:23,  1.07s/it]
+
+2025-04-15 07:12:30.883 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t300 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  70%|██████▉   | 51/73 [00:43&lt;00:23,  1.07s/it]
+Fetching GFS for 2024-01-01 00:00:00:  73%|███████▎  | 53/73 [00:45&lt;00:19,  1.04it/s]
+
+2025-04-15 07:12:32.379 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t400 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  73%|███████▎  | 53/73 [00:45&lt;00:19,  1.04it/s]
+Fetching GFS for 2024-01-01 00:00:00:  74%|███████▍  | 54/73 [00:46&lt;00:20,  1.07s/it]
+
+2025-04-15 07:12:33.848 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t500 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  74%|███████▍  | 54/73 [00:46&lt;00:20,  1.07s/it]
+
+2025-04-15 07:12:33.891 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t600 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  74%|███████▍  | 54/73 [00:46&lt;00:20,  1.07s/it]
+Fetching GFS for 2024-01-01 00:00:00:  77%|███████▋  | 56/73 [00:48&lt;00:16,  1.06it/s]
+
+2025-04-15 07:12:35.343 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t700 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  77%|███████▋  | 56/73 [00:48&lt;00:16,  1.06it/s]
+Fetching GFS for 2024-01-01 00:00:00:  78%|███████▊  | 57/73 [00:49&lt;00:16,  1.06s/it]
+
+2025-04-15 07:12:36.811 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t850 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  78%|███████▊  | 57/73 [00:49&lt;00:16,  1.06s/it]
+
+2025-04-15 07:12:36.855 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t925 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  78%|███████▊  | 57/73 [00:49&lt;00:16,  1.06s/it]
+Fetching GFS for 2024-01-01 00:00:00:  81%|████████  | 59/73 [00:51&lt;00:13,  1.06it/s]
+
+2025-04-15 07:12:38.322 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: t1000 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  81%|████████  | 59/73 [00:51&lt;00:13,  1.06it/s]
+Fetching GFS for 2024-01-01 00:00:00:  82%|████████▏ | 60/73 [00:52&lt;00:13,  1.05s/it]
+
+2025-04-15 07:12:39.777 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q50 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  82%|████████▏ | 60/73 [00:52&lt;00:13,  1.05s/it]
+Fetching GFS for 2024-01-01 00:00:00:  84%|████████▎ | 61/73 [00:54&lt;00:13,  1.15s/it]
+
+2025-04-15 07:12:41.254 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q100 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  84%|████████▎ | 61/73 [00:54&lt;00:13,  1.15s/it]
+Fetching GFS for 2024-01-01 00:00:00:  85%|████████▍ | 62/73 [00:55&lt;00:13,  1.23s/it]
+
+2025-04-15 07:12:42.735 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q150 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  85%|████████▍ | 62/73 [00:55&lt;00:13,  1.23s/it]
+Fetching GFS for 2024-01-01 00:00:00:  86%|████████▋ | 63/73 [00:57&lt;00:12,  1.30s/it]
+
+2025-04-15 07:12:44.204 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q200 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  86%|████████▋ | 63/73 [00:57&lt;00:12,  1.30s/it]
+Fetching GFS for 2024-01-01 00:00:00:  88%|████████▊ | 64/73 [00:58&lt;00:12,  1.35s/it]
+
+2025-04-15 07:12:45.691 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q250 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  88%|████████▊ | 64/73 [00:58&lt;00:12,  1.35s/it]
+Fetching GFS for 2024-01-01 00:00:00:  89%|████████▉ | 65/73 [01:00&lt;00:11,  1.38s/it]
+
+2025-04-15 07:12:47.166 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q300 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  89%|████████▉ | 65/73 [01:00&lt;00:11,  1.38s/it]
+Fetching GFS for 2024-01-01 00:00:00:  90%|█████████ | 66/73 [01:01&lt;00:09,  1.41s/it]
+
+2025-04-15 07:12:48.646 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q400 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  90%|█████████ | 66/73 [01:01&lt;00:09,  1.41s/it]
+Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 67/73 [01:03&lt;00:08,  1.43s/it]
+
+2025-04-15 07:12:50.109 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q500 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  92%|█████████▏| 67/73 [01:03&lt;00:08,  1.43s/it]
+Fetching GFS for 2024-01-01 00:00:00:  93%|█████████▎| 68/73 [01:04&lt;00:07,  1.44s/it]
+
+2025-04-15 07:12:51.569 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q600 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  93%|█████████▎| 68/73 [01:04&lt;00:07,  1.44s/it]
+Fetching GFS for 2024-01-01 00:00:00:  95%|█████████▍| 69/73 [01:06&lt;00:05,  1.44s/it]
+
+2025-04-15 07:12:53.029 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q700 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  95%|█████████▍| 69/73 [01:06&lt;00:05,  1.44s/it]
+Fetching GFS for 2024-01-01 00:00:00:  96%|█████████▌| 70/73 [01:07&lt;00:04,  1.45s/it]
+
+2025-04-15 07:12:54.484 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q850 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  96%|█████████▌| 70/73 [01:07&lt;00:04,  1.45s/it]
+Fetching GFS for 2024-01-01 00:00:00:  97%|█████████▋| 71/73 [01:08&lt;00:02,  1.45s/it]
+
+2025-04-15 07:12:55.958 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q925 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  97%|█████████▋| 71/73 [01:08&lt;00:02,  1.45s/it]
+Fetching GFS for 2024-01-01 00:00:00:  99%|█████████▊| 72/73 [01:10&lt;00:01,  1.46s/it]
+
+2025-04-15 07:12:57.434 | DEBUG    | earth2studio.data.gfs:_fetch_gfs_dataarray:259 - Fetching GFS grib file for variable: q1000 at 2024-01-01 00:00:00_0:00:00
+
+Fetching GFS for 2024-01-01 00:00:00:  99%|█████████▊| 72/73 [01:10&lt;00:01,  1.46s/it]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 73/73 [01:11&lt;00:00,  1.47s/it]
+Fetching GFS for 2024-01-01 00:00:00: 100%|██████████| 73/73 [01:11&lt;00:00,  1.02it/s]
+2025-04-15 07:12:59.578 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from GFS
+2025-04-15 07:12:59.579 | WARNING  | earth2studio.io.zarr:add_array:192 - Datetime64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-04-15 07:12:59.587 | WARNING  | earth2studio.io.zarr:add_array:198 - Timedelta64 not supported in zarr 3.0, converting to int64 nanoseconds since epoch
+2025-04-15 07:12:59.793 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+
+Running inference:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+Running inference:  17%|█▋        | 1/6 [00:13&lt;01:08, 13.74s/it]
+Running inference:  33%|███▎      | 2/6 [00:34&lt;01:11, 17.84s/it]
+Running inference:  50%|█████     | 3/6 [00:55&lt;00:57, 19.17s/it]
+Running inference:  67%|██████▋   | 4/6 [01:17&lt;00:40, 20.49s/it]
+Running inference:  83%|████████▎ | 5/6 [01:41&lt;00:21, 21.76s/it]
+Running inference: 100%|██████████| 6/6 [02:07&lt;00:00, 23.01s/it]
+Running inference: 100%|██████████| 6/6 [02:07&lt;00:00, 21.20s/it]
+2025-04-15 07:15:06.975 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+/
+├── lat (720,) float64
+├── lead_time (6,) int64
+├── lon (1440,) float64
+├── msl (1, 6, 720, 1440) float32
+├── q100 (1, 6, 720, 1440) float32
+├── q1000 (1, 6, 720, 1440) float32
+├── q150 (1, 6, 720, 1440) float32
+├── q200 (1, 6, 720, 1440) float32
+├── q250 (1, 6, 720, 1440) float32
+├── q300 (1, 6, 720, 1440) float32
+├── q400 (1, 6, 720, 1440) float32
+├── q50 (1, 6, 720, 1440) float32
+├── q500 (1, 6, 720, 1440) float32
+├── q600 (1, 6, 720, 1440) float32
+├── q700 (1, 6, 720, 1440) float32
+├── q850 (1, 6, 720, 1440) float32
+├── q925 (1, 6, 720, 1440) float32
+├── sp (1, 6, 720, 1440) float32
+├── t100 (1, 6, 720, 1440) float32
+├── t1000 (1, 6, 720, 1440) float32
+├── t150 (1, 6, 720, 1440) float32
+├── t200 (1, 6, 720, 1440) float32
+├── t250 (1, 6, 720, 1440) float32
+├── t2m (1, 6, 720, 1440) float32
+├── t300 (1, 6, 720, 1440) float32
+├── t400 (1, 6, 720, 1440) float32
+├── t50 (1, 6, 720, 1440) float32
+├── t500 (1, 6, 720, 1440) float32
+├── t600 (1, 6, 720, 1440) float32
+├── t700 (1, 6, 720, 1440) float32
+├── t850 (1, 6, 720, 1440) float32
+├── t925 (1, 6, 720, 1440) float32
+├── tcwv (1, 6, 720, 1440) float32
+├── time (1,) int64
+├── u100 (1, 6, 720, 1440) float32
+├── u1000 (1, 6, 720, 1440) float32
+├── u100m (1, 6, 720, 1440) float32
+├── u10m (1, 6, 720, 1440) float32
+├── u150 (1, 6, 720, 1440) float32
+├── u200 (1, 6, 720, 1440) float32
+├── u250 (1, 6, 720, 1440) float32
+├── u300 (1, 6, 720, 1440) float32
+├── u400 (1, 6, 720, 1440) float32
+├── u50 (1, 6, 720, 1440) float32
+├── u500 (1, 6, 720, 1440) float32
+├── u600 (1, 6, 720, 1440) float32
+├── u700 (1, 6, 720, 1440) float32
+├── u850 (1, 6, 720, 1440) float32
+├── u925 (1, 6, 720, 1440) float32
+├── v100 (1, 6, 720, 1440) float32
+├── v1000 (1, 6, 720, 1440) float32
+├── v100m (1, 6, 720, 1440) float32
+├── v10m (1, 6, 720, 1440) float32
+├── v150 (1, 6, 720, 1440) float32
+├── v200 (1, 6, 720, 1440) float32
+├── v250 (1, 6, 720, 1440) float32
+├── v300 (1, 6, 720, 1440) float32
+├── v400 (1, 6, 720, 1440) float32
+├── v50 (1, 6, 720, 1440) float32
+├── v500 (1, 6, 720, 1440) float32
+├── v600 (1, 6, 720, 1440) float32
+├── v700 (1, 6, 720, 1440) float32
+├── v850 (1, 6, 720, 1440) float32
+├── v925 (1, 6, 720, 1440) float32
+├── z100 (1, 6, 720, 1440) float32
+├── z1000 (1, 6, 720, 1440) float32
+├── z150 (1, 6, 720, 1440) float32
+├── z200 (1, 6, 720, 1440) float32
+├── z250 (1, 6, 720, 1440) float32
+├── z300 (1, 6, 720, 1440) float32
+├── z400 (1, 6, 720, 1440) float32
+├── z50 (1, 6, 720, 1440) float32
+├── z500 (1, 6, 720, 1440) float32
+├── z600 (1, 6, 720, 1440) float32
+├── z700 (1, 6, 720, 1440) float32
+├── z850 (1, 6, 720, 1440) float32
+└── z925 (1, 6, 720, 1440) float32
+</pre></div>
+</div>
+</section>
+<section id="visualize-results">
+<h2>Visualize Results<a class="headerlink" href="#visualize-results" title="Link to this heading">#</a></h2>
+<p>Let’s visualize the total column water vapour (tcwv) at each time step
+and save them as separate files.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get the number of time steps</span>
+<span class="n">n_steps</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="c1"># Create a single figure with subplots</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">axs</span> <span class="o">=</span> <span class="n">axs</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+<span class="c1"># Create plots for each time step</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">([</span><span class="n">n_steps</span><span class="p">,</span> <span class="mi">6</span><span class="p">])):</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+        <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;twilight_shifted&quot;</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">85</span>
+    <span class="p">)</span>
+    <span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Water Vapour - Step: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs&quot;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;kg/m^2&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="c1"># Save the figure</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/12_tcwv_steps.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_12_temporal_interpolation_001.png" srcset="../_images/sphx_glr_12_temporal_interpolation_001.png" alt="Water Vapour - Step: 0hrs, Water Vapour - Step: 1hrs, Water Vapour - Step: 2hrs, Water Vapour - Step: 3hrs, Water Vapour - Step: 4hrs, Water Vapour - Step: 5hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (4 minutes 23.345 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-12-temporal-interpolation-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/84869007fe1131107bb3af7d55eb3d55/12_temporal_interpolation.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">12_temporal_interpolation.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/cdcafb65b88e2b06b204db6b22a6adba/12_temporal_interpolation.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">12_temporal_interpolation.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/f4cf53fa58e9dcccbff07ee52d27abc2/12_temporal_interpolation.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">12_temporal_interpolation.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+
+
+
+
+
+                <footer class="prev-next-footer">
+
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="10_stormcast_ensemble_example.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Running StormCast Ensemble Inference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="extend/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Extending Earth2Studio</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+
+            </div>
+
+
+
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#load-models">Load Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-interpolation-model">Run the Interpolation Model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualize-results">Visualize Results</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/examples/12_temporal_interpolation.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+
+
+          </div>
+          <footer class="bd-footer-content">
+
+          </footer>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=8d27b9dea8ad943066ae"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=8d27b9dea8ad943066ae"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+
+    <div class="footer-items__start">
+
+        <div class="footer-item">
+
+  <p class="copyright">
+
+      © Copyright 2025, NVIDIA.
+      <br/>
+
+  </p>
+</div>
+
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+
+    </div>
+
+
+
+    <div class="footer-items__end">
+
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.2.
+</p></div>
+
+    </div>
+
+</div>
+
+  </footer>
+  </body>
+</html>

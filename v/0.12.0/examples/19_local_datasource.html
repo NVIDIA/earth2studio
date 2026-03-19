@@ -1,0 +1,1148 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Creating a Local Data Source &#8212; Earth2Studio 0.12.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=61ccb1f1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/19_local_datasource';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.12.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="StormScope Satellite and Radar Nowcasting" href="20_stormscope_goes_example.html" />
+    <link rel="prev" title="Ensemble Forecasting with Downscaling" href="18_ensemble_downscaling.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.12" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Creating a Local Data Source</a></li>
+<li class="toctree-l1"><a class="reference internal" href="20_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Creating a Local Data Source</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-19-local-datasource-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="creating-a-local-data-source">
+<span id="sphx-glr-examples-19-local-datasource-py"></span><h1>Creating a Local Data Source<a class="headerlink" href="#creating-a-local-data-source" title="Link to this heading">#</a></h1>
+<p>Create and save an offline dataset to use in an inference pipeline.</p>
+<p>This example demonstrates how to:</p>
+<ul class="simple">
+<li><p>Build a small offline dataset by fetching data and writing to a Zarr store</p></li>
+<li><p>Load the local store as a data source for an inference pipeline with the Microsoft Aurora model</p></li>
+<li><p>Run the deterministic workflow and plot results</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[aurora] @ git+https://github.com/NVIDIA/earth2studio.git@0.12.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>For this example, the following are needed:</p>
+<ul class="simple">
+<li><p>Prognostic Model: Use the built-in Aurora 6-hour model <a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.Aurora.html#earth2studio.models.px.Aurora" title="earth2studio.models.px.Aurora"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.Aurora</span></code></a>.</p></li>
+<li><p>Data source: Pull data from the WeatherBench2 data API <a class="reference internal" href="../modules/generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.WB2ERA5</span></code></a>.</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2ERA5</span><span class="p">,</span> <span class="n">fetch_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">Aurora</span>
+
+<span class="c1"># Load the default model package which downloads the checkpoint from GCP</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">Aurora</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Aurora</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+
+<span class="c1"># Create the data source, cache is false</span>
+<span class="n">wb2</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading aurora-0.25-static-z.npy: 0%|          | 0.00/3.96M [00:00&lt;?, ?B/s]
+Downloading aurora-0.25-static-z.npy: 100%|██████████| 3.96M/3.96M [00:00&lt;00:00, 20.4MB/s]
+Downloading aurora-0.25-static-z.npy: 100%|██████████| 3.96M/3.96M [00:00&lt;00:00, 19.7MB/s]
+
+Downloading aurora-0.25-static-slt.npy: 0%|          | 0.00/3.96M [00:00&lt;?, ?B/s]
+Downloading aurora-0.25-static-slt.npy: 100%|██████████| 3.96M/3.96M [00:00&lt;00:00, 21.0MB/s]
+Downloading aurora-0.25-static-slt.npy: 100%|██████████| 3.96M/3.96M [00:00&lt;00:00, 20.2MB/s]
+
+Downloading aurora-0.25-static-lsm.npy: 0%|          | 0.00/3.96M [00:00&lt;?, ?B/s]
+Downloading aurora-0.25-static-lsm.npy: 100%|██████████| 3.96M/3.96M [00:00&lt;00:00, 27.9MB/s]
+Downloading aurora-0.25-static-lsm.npy: 100%|██████████| 3.96M/3.96M [00:00&lt;00:00, 26.5MB/s]
+
+Downloading aurora-0.25-pretrained.ckpt: 0%|          | 0.00/4.68G [00:00&lt;?, ?B/s]
+Downloading aurora-0.25-pretrained.ckpt: 0%|          | 10.0M/4.68G [00:00&lt;01:45, 47.7MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 1%|          | 40.0M/4.68G [00:00&lt;00:35, 138MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 1%|▏         | 70.0M/4.68G [00:00&lt;00:25, 197MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 2%|▏         | 100M/4.68G [00:00&lt;00:21, 228MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 3%|▎         | 130M/4.68G [00:00&lt;00:21, 225MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 3%|▎         | 160M/4.68G [00:00&lt;00:20, 241MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 4%|▍         | 200M/4.68G [00:00&lt;00:17, 273MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 5%|▌         | 240M/4.68G [00:01&lt;00:16, 297MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 6%|▌         | 270M/4.68G [00:01&lt;00:16, 293MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 6%|▋         | 310M/4.68G [00:01&lt;00:15, 312MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 7%|▋         | 350M/4.68G [00:01&lt;00:15, 310MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 8%|▊         | 380M/4.68G [00:01&lt;00:16, 276MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 9%|▉         | 420M/4.68G [00:01&lt;00:15, 292MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 10%|▉         | 460M/4.68G [00:01&lt;00:14, 308MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 10%|█         | 500M/4.68G [00:01&lt;00:14, 317MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 11%|█▏        | 540M/4.68G [00:02&lt;00:13, 325MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 12%|█▏        | 580M/4.68G [00:02&lt;00:13, 338MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 13%|█▎        | 620M/4.68G [00:02&lt;00:12, 347MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 14%|█▍        | 660M/4.68G [00:02&lt;00:12, 353MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 15%|█▍        | 700M/4.68G [00:02&lt;00:12, 354MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 15%|█▌        | 740M/4.68G [00:02&lt;00:12, 353MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 16%|█▋        | 780M/4.68G [00:02&lt;00:11, 356MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 17%|█▋        | 820M/4.68G [00:02&lt;00:11, 357MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 18%|█▊        | 860M/4.68G [00:02&lt;00:11, 358MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 19%|█▉        | 900M/4.68G [00:03&lt;00:11, 360MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 20%|█▉        | 940M/4.68G [00:03&lt;00:11, 362MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 20%|██        | 980M/4.68G [00:03&lt;00:11, 359MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 21%|██▏       | 1.00G/4.68G [00:03&lt;00:10, 362MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 22%|██▏       | 1.04G/4.68G [00:03&lt;00:10, 363MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 23%|██▎       | 1.07G/4.68G [00:03&lt;00:10, 359MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 24%|██▍       | 1.11G/4.68G [00:03&lt;00:10, 358MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 25%|██▍       | 1.15G/4.68G [00:03&lt;00:10, 356MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 25%|██▌       | 1.19G/4.68G [00:04&lt;00:10, 353MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 26%|██▋       | 1.23G/4.68G [00:04&lt;00:10, 352MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 27%|██▋       | 1.27G/4.68G [00:04&lt;00:10, 346MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 28%|██▊       | 1.31G/4.68G [00:04&lt;00:10, 344MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 29%|██▉       | 1.35G/4.68G [00:04&lt;00:10, 339MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 30%|██▉       | 1.39G/4.68G [00:04&lt;00:10, 339MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 30%|███       | 1.43G/4.68G [00:04&lt;00:10, 341MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 31%|███▏      | 1.46G/4.68G [00:04&lt;00:10, 343MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 32%|███▏      | 1.50G/4.68G [00:05&lt;00:09, 344MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 33%|███▎      | 1.54G/4.68G [00:05&lt;00:09, 344MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 34%|███▍      | 1.58G/4.68G [00:05&lt;00:09, 345MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 35%|███▍      | 1.62G/4.68G [00:05&lt;00:09, 344MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 35%|███▌      | 1.66G/4.68G [00:05&lt;00:09, 341MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 36%|███▋      | 1.70G/4.68G [00:05&lt;00:09, 341MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 37%|███▋      | 1.74G/4.68G [00:05&lt;00:09, 325MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 38%|███▊      | 1.78G/4.68G [00:05&lt;00:09, 330MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 39%|███▉      | 1.82G/4.68G [00:06&lt;00:09, 333MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 40%|███▉      | 1.86G/4.68G [00:06&lt;00:09, 336MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 40%|████      | 1.89G/4.68G [00:06&lt;00:08, 338MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 41%|████▏     | 1.93G/4.68G [00:06&lt;00:09, 318MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 42%|████▏     | 1.97G/4.68G [00:06&lt;00:08, 325MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 43%|████▎     | 2.01G/4.68G [00:06&lt;00:08, 332MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 44%|████▍     | 2.05G/4.68G [00:06&lt;00:08, 336MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 45%|████▍     | 2.09G/4.68G [00:06&lt;00:08, 339MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 45%|████▌     | 2.13G/4.68G [00:07&lt;00:08, 338MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 46%|████▋     | 2.17G/4.68G [00:07&lt;00:07, 341MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 47%|████▋     | 2.21G/4.68G [00:07&lt;00:08, 308MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 48%|████▊     | 2.25G/4.68G [00:07&lt;00:08, 295MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 49%|████▊     | 2.28G/4.68G [00:07&lt;00:09, 279MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 49%|████▉     | 2.30G/4.68G [00:07&lt;00:09, 269MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 50%|████▉     | 2.33G/4.68G [00:07&lt;00:09, 253MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 50%|█████     | 2.36G/4.68G [00:08&lt;00:09, 251MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 51%|█████     | 2.39G/4.68G [00:08&lt;00:09, 256MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 52%|█████▏    | 2.42G/4.68G [00:08&lt;00:10, 231MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 52%|█████▏    | 2.45G/4.68G [00:08&lt;00:09, 244MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 53%|█████▎    | 2.48G/4.68G [00:08&lt;00:09, 254MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 54%|█████▎    | 2.51G/4.68G [00:08&lt;00:09, 257MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 54%|█████▍    | 2.54G/4.68G [00:08&lt;00:09, 254MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 55%|█████▍    | 2.57G/4.68G [00:08&lt;00:09, 251MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 56%|█████▌    | 2.60G/4.68G [00:09&lt;00:08, 263MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 56%|█████▌    | 2.63G/4.68G [00:09&lt;00:08, 271MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 57%|█████▋    | 2.66G/4.68G [00:09&lt;00:07, 282MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 57%|█████▋    | 2.69G/4.68G [00:09&lt;00:07, 288MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 58%|█████▊    | 2.71G/4.68G [00:09&lt;00:07, 291MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 59%|█████▊    | 2.74G/4.68G [00:09&lt;00:07, 291MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 59%|█████▉    | 2.77G/4.68G [00:09&lt;00:06, 296MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 60%|█████▉    | 2.80G/4.68G [00:09&lt;00:06, 294MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 61%|██████    | 2.83G/4.68G [00:09&lt;00:06, 297MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 61%|██████    | 2.86G/4.68G [00:09&lt;00:06, 297MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 62%|██████▏   | 2.89G/4.68G [00:10&lt;00:06, 299MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 62%|██████▏   | 2.92G/4.68G [00:10&lt;00:06, 298MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 63%|██████▎   | 2.95G/4.68G [00:10&lt;00:06, 300MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 64%|██████▎   | 2.98G/4.68G [00:10&lt;00:06, 299MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 64%|██████▍   | 3.01G/4.68G [00:10&lt;00:06, 282MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 65%|██████▍   | 3.04G/4.68G [00:10&lt;00:06, 274MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 66%|██████▌   | 3.07G/4.68G [00:10&lt;00:06, 281MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 66%|██████▌   | 3.10G/4.68G [00:10&lt;00:05, 287MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 67%|██████▋   | 3.13G/4.68G [00:10&lt;00:05, 295MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 68%|██████▊   | 3.16G/4.68G [00:11&lt;00:05, 299MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 68%|██████▊   | 3.19G/4.68G [00:11&lt;00:05, 300MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 69%|██████▉   | 3.22G/4.68G [00:11&lt;00:05, 302MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 69%|██████▉   | 3.25G/4.68G [00:11&lt;00:05, 299MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 70%|███████   | 3.28G/4.68G [00:11&lt;00:04, 302MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 71%|███████   | 3.31G/4.68G [00:11&lt;00:04, 305MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 72%|███████▏  | 3.35G/4.68G [00:11&lt;00:04, 316MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 72%|███████▏  | 3.39G/4.68G [00:11&lt;00:04, 323MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 73%|███████▎  | 3.43G/4.68G [00:11&lt;00:04, 328MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 74%|███████▍  | 3.47G/4.68G [00:12&lt;00:03, 332MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 75%|███████▍  | 3.51G/4.68G [00:12&lt;00:03, 334MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 76%|███████▌  | 3.54G/4.68G [00:12&lt;00:03, 335MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 77%|███████▋  | 3.58G/4.68G [00:12&lt;00:03, 333MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 77%|███████▋  | 3.62G/4.68G [00:12&lt;00:03, 322MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 78%|███████▊  | 3.66G/4.68G [00:12&lt;00:03, 325MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 79%|███████▉  | 3.70G/4.68G [00:12&lt;00:03, 320MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 80%|███████▉  | 3.74G/4.68G [00:12&lt;00:03, 325MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 81%|████████  | 3.78G/4.68G [00:13&lt;00:02, 328MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 82%|████████▏ | 3.82G/4.68G [00:13&lt;00:02, 327MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 82%|████████▏ | 3.86G/4.68G [00:13&lt;00:02, 329MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 83%|████████▎ | 3.90G/4.68G [00:13&lt;00:02, 333MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 84%|████████▍ | 3.94G/4.68G [00:13&lt;00:02, 335MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 85%|████████▍ | 3.97G/4.68G [00:13&lt;00:02, 337MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 86%|████████▌ | 4.01G/4.68G [00:13&lt;00:02, 340MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 87%|████████▋ | 4.05G/4.68G [00:13&lt;00:02, 336MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 87%|████████▋ | 4.09G/4.68G [00:14&lt;00:01, 333MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 88%|████████▊ | 4.13G/4.68G [00:14&lt;00:01, 329MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 89%|████████▉ | 4.17G/4.68G [00:14&lt;00:02, 216MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 90%|████████▉ | 4.21G/4.68G [00:14&lt;00:02, 242MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 91%|█████████ | 4.25G/4.68G [00:14&lt;00:01, 263MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 92%|█████████▏| 4.29G/4.68G [00:14&lt;00:01, 266MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 92%|█████████▏| 4.32G/4.68G [00:15&lt;00:01, 262MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 93%|█████████▎| 4.35G/4.68G [00:15&lt;00:01, 267MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 94%|█████████▎| 4.38G/4.68G [00:15&lt;00:01, 277MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 95%|█████████▍| 4.42G/4.68G [00:15&lt;00:00, 285MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 95%|█████████▌| 4.46G/4.68G [00:15&lt;00:00, 300MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 96%|█████████▌| 4.50G/4.68G [00:15&lt;00:00, 311MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 97%|█████████▋| 4.54G/4.68G [00:15&lt;00:00, 300MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 98%|█████████▊| 4.58G/4.68G [00:16&lt;00:00, 310MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 99%|█████████▊| 4.62G/4.68G [00:16&lt;00:00, 320MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 100%|█████████▉| 4.66G/4.68G [00:16&lt;00:00, 329MB/s]
+Downloading aurora-0.25-pretrained.ckpt: 100%|██████████| 4.68G/4.68G [00:16&lt;00:00, 307MB/s]
+</pre></div>
+</div>
+</section>
+<section id="creating-a-local-zarr-store-from-a-datasource">
+<h2>Creating a Local Zarr Store from a Datasource<a class="headerlink" href="#creating-a-local-zarr-store-from-a-datasource" title="Link to this heading">#</a></h2>
+<p>Start with creating a local dataset from the WeatherBench2 data store. Since data
+sources return in-memory data arrays, there are a variety of ways this could be done.
+The following is a simple method using Earth2Studio IO objects to pack the requested
+data into a single Zarr store.</p>
+<p>For this example, let’s download some data for a Microsoft aurora forecast.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">split_coords</span>
+
+<span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2022-01-01T00:00:00&quot;</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2022-01-01T06:00:00&quot;</span><span class="p">)]</span>
+<span class="p">)</span>
+<span class="n">variables</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span>
+<span class="n">zarr_path</span> <span class="o">=</span> <span class="s2">&quot;./outputs/19_wb2_dataset.zarr&quot;</span>
+<span class="c1"># Create Zarr store to pack data into</span>
+<span class="n">zb</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">(</span><span class="n">file_name</span><span class="o">=</span><span class="n">zarr_path</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;overwrite&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+<span class="n">full_coords</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">times</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)])),</span>
+        <span class="p">(</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">721</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">359.75</span><span class="p">,</span> <span class="mi">1440</span><span class="p">)),</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+<span class="n">zb</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">full_coords</span><span class="p">,</span> <span class="n">array_name</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">variables</span><span class="p">))</span>
+
+<span class="c1"># Loop over timestamps, fetch data and write slices into the pre-created arrays</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+        <span class="n">wb2</span><span class="p">,</span>
+        <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span><span class="p">]),</span>
+        <span class="n">variable</span><span class="o">=</span><span class="n">variables</span><span class="p">,</span>
+        <span class="n">lead_time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>
+        <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">xs</span><span class="p">,</span> <span class="n">reduced_coords</span><span class="p">,</span> <span class="n">var_names</span> <span class="o">=</span> <span class="n">split_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+    <span class="n">zb</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">reduced_coords</span><span class="p">,</span> <span class="n">array_name</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">var_names</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-01-27 23:16:15.552 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t200 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.553 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q100 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.553 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t1000 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.554 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.554 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v600 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.555 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v100 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.555 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t400 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.556 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z150 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.556 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q300 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.556 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t925 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.557 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z700 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.557 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v700 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.558 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.558 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z300 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.559 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t500 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.559 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u400 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.560 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v300 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.560 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u925 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.560 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z850 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.561 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q200 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.561 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-01-01T00:00:00
+2026-01-27 23:16:15.562 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t850 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.562 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t50 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.563 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z200 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.563 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u250 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.564 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u200 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.564 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q250 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.564 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v850 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.565 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u150 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.565 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q50 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.566 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z925 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.566 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q850 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.567 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z100 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.567 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t250 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.567 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v250 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.568 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q600 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.568 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.569 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.569 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t600 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.570 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t150 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.570 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v150 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.571 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.571 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.571 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t300 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.572 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u850 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.572 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q150 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.573 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q700 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.573 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-01-01T00:00:00
+2026-01-27 23:16:15.574 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q400 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.574 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-01-01T00:00:00
+2026-01-27 23:16:15.574 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t100 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.575 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q500 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.575 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v925 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.576 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v400 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.576 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.577 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v200 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.577 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-01-01T00:00:00
+2026-01-27 23:16:15.577 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q1000 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.578 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u300 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.578 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u600 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.579 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z400 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.579 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u100 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.580 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u700 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.580 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z600 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.580 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t700 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.580 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.581 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.581 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q925 at 2022-01-01T00:00:00
+2026-01-27 23:16:15.581 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z250 at 2022-01-01T00:00:00
+2026-01-27 23:16:25.585 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z150 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.585 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v50 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.586 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q150 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.587 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t1000 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.587 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u600 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.587 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z300 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.588 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u100 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.588 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t600 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.589 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v200 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.589 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q250 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.590 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t850 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.590 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z100 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.590 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: msl at 2022-01-01T06:00:00
+2026-01-27 23:16:25.591 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q500 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.591 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z50 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.592 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v500 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.592 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u200 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.593 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z500 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.593 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2022-01-01T06:00:00
+2026-01-27 23:16:25.594 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t700 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.594 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t2m at 2022-01-01T06:00:00
+2026-01-27 23:16:25.594 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z925 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.595 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z1000 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.595 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v1000 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.596 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q700 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.596 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v700 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.596 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t300 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.597 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v100 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.599 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q600 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.599 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z600 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.600 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q50 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.600 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q400 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.601 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t200 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.601 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u925 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.602 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q300 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.602 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t250 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.602 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u700 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.603 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v600 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.603 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u400 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.604 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q1000 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.604 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v250 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.605 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v150 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.605 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v850 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.605 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u1000 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.606 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v925 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.606 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z400 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.607 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z250 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.607 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t925 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.607 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t50 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.608 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u250 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.608 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t500 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.609 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u850 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.609 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z850 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.610 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u300 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.610 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t400 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.610 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q100 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.611 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q200 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.611 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u500 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.612 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u150 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.612 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t100 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.612 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v300 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.613 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q850 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.613 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z700 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.614 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u50 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.614 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2022-01-01T06:00:00
+2026-01-27 23:16:25.615 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: z200 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.615 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v400 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.615 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: q925 at 2022-01-01T06:00:00
+2026-01-27 23:16:25.616 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: t150 at 2022-01-01T06:00:00
+</pre></div>
+</div>
+<p>Note that the Zarr store we just created can be used for more than just Earth2Studio
+inference pipelines. Open it with zarr or xarray to explore/process what
+you just downloaded.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+<span class="n">zg</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">zarr</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">LocalStore</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">zg</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>/
+├── lat (721,) float64
+├── lead_time (1,) timedelta64
+├── lon (1440,) float64
+├── msl (2, 1, 721, 1440) float32
+├── q100 (2, 1, 721, 1440) float32
+├── q1000 (2, 1, 721, 1440) float32
+├── q150 (2, 1, 721, 1440) float32
+├── q200 (2, 1, 721, 1440) float32
+├── q250 (2, 1, 721, 1440) float32
+├── q300 (2, 1, 721, 1440) float32
+├── q400 (2, 1, 721, 1440) float32
+├── q50 (2, 1, 721, 1440) float32
+├── q500 (2, 1, 721, 1440) float32
+├── q600 (2, 1, 721, 1440) float32
+├── q700 (2, 1, 721, 1440) float32
+├── q850 (2, 1, 721, 1440) float32
+├── q925 (2, 1, 721, 1440) float32
+├── t100 (2, 1, 721, 1440) float32
+├── t1000 (2, 1, 721, 1440) float32
+├── t150 (2, 1, 721, 1440) float32
+├── t200 (2, 1, 721, 1440) float32
+├── t250 (2, 1, 721, 1440) float32
+├── t2m (2, 1, 721, 1440) float32
+├── t300 (2, 1, 721, 1440) float32
+├── t400 (2, 1, 721, 1440) float32
+├── t50 (2, 1, 721, 1440) float32
+├── t500 (2, 1, 721, 1440) float32
+├── t600 (2, 1, 721, 1440) float32
+├── t700 (2, 1, 721, 1440) float32
+├── t850 (2, 1, 721, 1440) float32
+├── t925 (2, 1, 721, 1440) float32
+├── time (2,) datetime64
+├── u100 (2, 1, 721, 1440) float32
+├── u1000 (2, 1, 721, 1440) float32
+├── u10m (2, 1, 721, 1440) float32
+├── u150 (2, 1, 721, 1440) float32
+├── u200 (2, 1, 721, 1440) float32
+├── u250 (2, 1, 721, 1440) float32
+├── u300 (2, 1, 721, 1440) float32
+├── u400 (2, 1, 721, 1440) float32
+├── u50 (2, 1, 721, 1440) float32
+├── u500 (2, 1, 721, 1440) float32
+├── u600 (2, 1, 721, 1440) float32
+├── u700 (2, 1, 721, 1440) float32
+├── u850 (2, 1, 721, 1440) float32
+├── u925 (2, 1, 721, 1440) float32
+├── v100 (2, 1, 721, 1440) float32
+├── v1000 (2, 1, 721, 1440) float32
+├── v10m (2, 1, 721, 1440) float32
+├── v150 (2, 1, 721, 1440) float32
+├── v200 (2, 1, 721, 1440) float32
+├── v250 (2, 1, 721, 1440) float32
+├── v300 (2, 1, 721, 1440) float32
+├── v400 (2, 1, 721, 1440) float32
+├── v50 (2, 1, 721, 1440) float32
+├── v500 (2, 1, 721, 1440) float32
+├── v600 (2, 1, 721, 1440) float32
+├── v700 (2, 1, 721, 1440) float32
+├── v850 (2, 1, 721, 1440) float32
+├── v925 (2, 1, 721, 1440) float32
+├── z100 (2, 1, 721, 1440) float32
+├── z1000 (2, 1, 721, 1440) float32
+├── z150 (2, 1, 721, 1440) float32
+├── z200 (2, 1, 721, 1440) float32
+├── z250 (2, 1, 721, 1440) float32
+├── z300 (2, 1, 721, 1440) float32
+├── z400 (2, 1, 721, 1440) float32
+├── z50 (2, 1, 721, 1440) float32
+├── z500 (2, 1, 721, 1440) float32
+├── z600 (2, 1, 721, 1440) float32
+├── z700 (2, 1, 721, 1440) float32
+├── z850 (2, 1, 721, 1440) float32
+└── z925 (2, 1, 721, 1440) float32
+</pre></div>
+</div>
+</section>
+<section id="execute-the-workflow">
+<h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
+<p>To use the saved dataset as a data source, we could create our own class that implements
+the interface required by <code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.base.DataSource</span></code>, which needs
+just a <code class="docutils literal notranslate"><span class="pre">__call__(time,</span> <span class="pre">variable)</span></code> method.</p>
+<p>However, since we used an IO backend from Earth2Studio we can use the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.xr.InferenceOutputSource</span></code> which is a convenience class
+that supports the output of inference pipelines.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">InferenceOutputSource</span>
+
+<span class="n">offline_source</span> <span class="o">=</span> <span class="n">InferenceOutputSource</span><span class="p">(</span><span class="n">zarr_path</span><span class="p">)</span>
+<span class="n">out_zarr_path</span> <span class="o">=</span> <span class="s2">&quot;./outputs/19_pangu_output.zarr&quot;</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">(</span><span class="n">file_name</span><span class="o">=</span><span class="n">out_zarr_path</span><span class="p">,</span> <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;overwrite&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">deterministic</span><span class="p">(</span>
+    <span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:],</span>
+    <span class="mi">4</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">offline_source</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">,</span>
+    <span class="n">output_coords</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;msl&quot;</span><span class="p">])}),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-01-27 23:16:38.560 | INFO     | earth2studio.run:deterministic:78 - Running simple workflow!
+2026-01-27 23:16:38.561 | INFO     | earth2studio.run:deterministic:85 - Inference device: cuda
+2026-01-27 23:16:39.632 | SUCCESS  | earth2studio.run:deterministic:109 - Fetched data from InferenceOutputSource
+2026-01-27 23:16:39.659 | INFO     | earth2studio.run:deterministic:139 - Inference starting!
+
+
+Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:03&lt;00:05,  1.89s/it]
+
+Running inference:  60%|██████    | 3/5 [00:07&lt;00:05,  2.63s/it]
+
+Running inference:  80%|████████  | 4/5 [00:11&lt;00:03,  3.02s/it]
+
+Running inference: 100%|██████████| 5/5 [00:14&lt;00:00,  3.25s/it]
+Running inference: 100%|██████████| 5/5 [00:14&lt;00:00,  2.96s/it]
+2026-01-27 23:16:54.462 | SUCCESS  | earth2studio.run:deterministic:151 -
+Inference complete
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>The last step is to post-process our results.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span>
+    <span class="mi">2</span><span class="p">,</span>
+    <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+    <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+<span class="n">lon</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:]</span>
+<span class="n">lat</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:]</span>
+<span class="n">lead_steps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>  <span class="c1"># 6h, 12h, 18h, 24h</span>
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">lead_steps</span><span class="p">):</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+        <span class="n">lon</span><span class="p">,</span>
+        <span class="n">lat</span><span class="p">,</span>
+        <span class="n">io</span><span class="p">[</span><span class="s2">&quot;msl&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;PiYG&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;msl - Lead time: </span><span class="si">{</span><span class="mi">6</span><span class="o">*</span><span class="n">step</span><span class="si">}</span><span class="s2">h&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">(</span><span class="n">draw_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span>
+    <span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">,</span> <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.07</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;msl&quot;</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/19_msl_1day.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_19_local_datasource_001.png" srcset="../_images/sphx_glr_19_local_datasource_001.png" alt="msl - Lead time: 6h, msl - Lead time: 12h, msl - Lead time: 18h, msl - Lead time: 24h" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (2 minutes 5.372 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-19-local-datasource-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/0e47bde02aeb8fa9c68555a48bb57642/19_local_datasource.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">19_local_datasource.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/9e54477ee4ae2e559e65d43d99fb0864/19_local_datasource.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">19_local_datasource.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/55da94cad67d773012898e40239e2bcc/19_local_datasource.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">19_local_datasource.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="18_ensemble_downscaling.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Ensemble Forecasting with Downscaling</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="20_stormscope_goes_example.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">StormScope Satellite and Radar Nowcasting</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-a-local-zarr-store-from-a-datasource">Creating a Local Zarr Store from a Datasource</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-the-workflow">Execute the Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/19_local_datasource.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

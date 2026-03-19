@@ -1,0 +1,22 @@
+﻿:mod:`earth2studio.models.dx`.DerivedTCWV
+================================================
+
+.. currentmodule:: earth2studio.models.dx
+
+.. autoclass:: DerivedTCWV
+
+   
+    .. automethod:: __call__
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+   
+
+.. _sphx_glr_backref_earth2studio.models.dx.DerivedTCWV:
+
+.. minigallery:: earth2studio.models.dx.DerivedTCWV
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

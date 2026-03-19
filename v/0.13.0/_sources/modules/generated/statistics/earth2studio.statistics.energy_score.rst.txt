@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.energy_score
+==================================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: energy_score
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.statistics.energy_score:
+
+.. minigallery:: earth2studio.statistics.energy_score
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

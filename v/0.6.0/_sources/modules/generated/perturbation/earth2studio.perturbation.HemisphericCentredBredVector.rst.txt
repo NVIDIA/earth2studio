@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.perturbation`.HemisphericCentredBredVector
+====================================================================
+
+.. currentmodule:: earth2studio.perturbation
+
+.. autoclass:: HemisphericCentredBredVector
+
+
+    .. automethod:: __call__
+
+
+.. _sphx_glr_backref_earth2studio.perturbation.HemisphericCentredBredVector:
+
+.. minigallery:: earth2studio.perturbation.HemisphericCentredBredVector
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

@@ -1,0 +1,45 @@
+
+
+stages:
+  - docs
+  - wheel-nightly
+
+pages:
+  tags:
+    - pages
+  stage: docs
+  script:
+  - echo "Publishing docs!"
+  - mkdir -p public
+  - ls | grep -v public | xargs mv -t public
+  publish: "public"
+  artifacts:
+    paths:
+    - "public"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "gl-pages"
+
+wheel-nightly:
+  image: python:3.11.8-slim-bookworm
+  tags:
+    - privileged
+  stage: wheel-nightly
+  needs: []
+  before_script:
+    - apt-get update && apt install -y wget gnupg2
+    - wget -qO - https://releases.jfrog.io/artifactory/jfrog-gpg-public/jfrog_public_gpg.key | apt-key add -
+    - echo "deb https://releases.jfrog.io/artifactory/jfrog-debs xenial contrib" | tee -a /etc/apt/sources.list && apt update
+    - apt install -y jfrog-cli-v2-jf
+    - jf intro
+  script:
+    - VERSION=$(grep -oP '__version__ = "\K[^"]+' earth2studio/__init__.py).dev$(date +%Y%m%d)
+    - sed -i "s/__version__.*/__version__ = \"$VERSION\"/" earth2studio/__init__.py
+    - rm -rf dist/
+    - python3 -m pip install --upgrade build
+    - python3 -m build
+    - jf c add nvidia-modulus-local --basic-auth-only --url=https://urm.nvidia.com --user=$ARTIFACTORY_USER --password=$ARTIFACTORY_PASS --interactive=false
+    - jf rt u --fail-no-op --server-id=nvidia-modulus-local --target-props "component_name=earth2studio-nightly;os=any;arch=any;version=$VERSION;" --flat "dist/*" sw-gpu-modulus-pypi-local/earth2studio-nightly/$VERSION/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual

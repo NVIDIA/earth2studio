@@ -1,0 +1,1670 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>CBottle Data Generation and Infilling &#8212; Earth2Studio 0.9.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/15_cbottle_generation';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.9.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CBottle Super Resolution" href="16_cbottle_super_resolution.html" />
+    <link rel="prev" title="Running DLESyM Inference" href="14_dlesym_example.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.9" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">CBottle Data Generation and Infilling</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-15-cbottle-generation-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="cbottle-data-generation-and-infilling">
+<span id="sphx-glr-examples-15-cbottle-generation-py"></span><h1>CBottle Data Generation and Infilling<a class="headerlink" href="#cbottle-data-generation-and-infilling" title="Link to this heading">#</a></h1>
+<p>Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.</p>
+<p>This example will demonstrate the cBottle diffusion model data source and infilling
+diagnostic model for generating global climate and weather data. Both the cBottle data
+source and infilling diagnostic use the same diffusion model but the sampling procedure
+is different enabling two unique modes of interaction.</p>
+<p>For more information on cBottle see:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://arxiv.org/abs/2505.06474v1">https://arxiv.org/abs/2505.06474v1</a></p></li>
+</ul>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>Generating synthetic climate data with cBottle data source</p></li>
+<li><p>Instantiating cBottle infill diagnostic model</p></li>
+<li><p>Creating a simple infilling inference workflow</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>For this example we will use the cBottle data source and infill diagnostic. Unlike
+other data sources the cBottle3D data source needs to be loaded similar to a
+prognostic or diagnostic model.</p>
+<p>Thus, we need the following:</p>
+<ul class="simple">
+<li><p>Datasource: Generate data from the CBottle3D data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.CBottle3D.html#earth2studio.data.CBottle3D" title="earth2studio.data.CBottle3D"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.CBottle3D</span></code></a>.</p></li>
+<li><p>Datasource: Pull data from the WeatherBench2 data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.WB2ERA5.html#earth2studio.data.WB2ERA5" title="earth2studio.data.WB2ERA5"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.WB2ERA5</span></code></a>.</p></li>
+<li><p>Diagnostic Model: Use the built in CBottle Infill Model <a class="reference internal" href="../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html#earth2studio.models.dx.CBottleInfill" title="earth2studio.models.dx.CBottleInfill"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.dx.CBottleInfill</span></code></a>.</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">WB2ERA5</span><span class="p">,</span> <span class="n">CBottle3D</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.dx</span><span class="w"> </span><span class="kn">import</span> <span class="n">CBottleInfill</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">CBottle3D</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">CBottle3D</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+<span class="c1"># This is an AI data source, so also move it to device</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">cbottle_ds</span> <span class="o">=</span> <span class="n">cbottle_ds</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+<span class="c1"># Create the ground truth data source</span>
+<span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading cBottle-3d.zip: 0%|          | 0.00/1.66G [00:00&lt;?, ?B/s]
+Downloading cBottle-3d.zip: 1%|▏         | 22.5M/1.66G [00:00&lt;00:07, 235MB/s]
+Downloading cBottle-3d.zip: 3%|▎         | 44.9M/1.66G [00:00&lt;00:08, 212MB/s]
+Downloading cBottle-3d.zip: 4%|▍         | 66.5M/1.66G [00:00&lt;00:07, 218MB/s]
+Downloading cBottle-3d.zip: 5%|▌         | 87.5M/1.66G [00:00&lt;00:07, 214MB/s]
+Downloading cBottle-3d.zip: 6%|▋         | 108M/1.66G [00:01&lt;00:21, 79.4MB/s]
+Downloading cBottle-3d.zip: 7%|▋         | 127M/1.66G [00:01&lt;00:16, 98.1MB/s]
+Downloading cBottle-3d.zip: 9%|▊         | 145M/1.66G [00:01&lt;00:14, 115MB/s]
+Downloading cBottle-3d.zip: 10%|▉         | 168M/1.66G [00:01&lt;00:11, 140MB/s]
+Downloading cBottle-3d.zip: 11%|█         | 187M/1.66G [00:01&lt;00:11, 143MB/s]
+Downloading cBottle-3d.zip: 12%|█▏        | 204M/1.66G [00:01&lt;00:10, 152MB/s]
+Downloading cBottle-3d.zip: 13%|█▎        | 223M/1.66G [00:01&lt;00:09, 163MB/s]
+Downloading cBottle-3d.zip: 14%|█▍        | 241M/1.66G [00:01&lt;00:10, 151MB/s]
+Downloading cBottle-3d.zip: 15%|█▌        | 257M/1.66G [00:02&lt;00:12, 117MB/s]
+Downloading cBottle-3d.zip: 17%|█▋        | 282M/1.66G [00:02&lt;00:10, 148MB/s]
+Downloading cBottle-3d.zip: 18%|█▊        | 299M/1.66G [00:02&lt;00:09, 153MB/s]
+Downloading cBottle-3d.zip: 19%|█▊        | 316M/1.66G [00:02&lt;00:09, 149MB/s]
+Downloading cBottle-3d.zip: 19%|█▉        | 332M/1.66G [00:02&lt;00:09, 146MB/s]
+Downloading cBottle-3d.zip: 20%|██        | 347M/1.66G [00:02&lt;00:09, 149MB/s]
+Downloading cBottle-3d.zip: 21%|██        | 362M/1.66G [00:02&lt;00:09, 143MB/s]
+Downloading cBottle-3d.zip: 22%|██▏       | 379M/1.66G [00:02&lt;00:09, 154MB/s]
+Downloading cBottle-3d.zip: 24%|██▍       | 407M/1.66G [00:02&lt;00:07, 191MB/s]
+Downloading cBottle-3d.zip: 25%|██▌       | 428M/1.66G [00:02&lt;00:06, 198MB/s]
+Downloading cBottle-3d.zip: 26%|██▋       | 447M/1.66G [00:03&lt;00:08, 157MB/s]
+Downloading cBottle-3d.zip: 27%|██▋       | 464M/1.66G [00:03&lt;00:11, 116MB/s]
+Downloading cBottle-3d.zip: 28%|██▊       | 477M/1.66G [00:03&lt;00:14, 91.1MB/s]
+Downloading cBottle-3d.zip: 29%|██▉       | 493M/1.66G [00:03&lt;00:12, 104MB/s]
+Downloading cBottle-3d.zip: 30%|██▉       | 508M/1.66G [00:03&lt;00:10, 114MB/s]
+Downloading cBottle-3d.zip: 31%|███       | 521M/1.66G [00:04&lt;00:10, 117MB/s]
+Downloading cBottle-3d.zip: 31%|███▏      | 536M/1.66G [00:04&lt;00:09, 127MB/s]
+Downloading cBottle-3d.zip: 32%|███▏      | 550M/1.66G [00:04&lt;00:09, 123MB/s]
+Downloading cBottle-3d.zip: 33%|███▎      | 563M/1.66G [00:04&lt;00:10, 116MB/s]
+Downloading cBottle-3d.zip: 34%|███▍      | 581M/1.66G [00:04&lt;00:08, 134MB/s]
+Downloading cBottle-3d.zip: 35%|███▍      | 594M/1.66G [00:04&lt;00:10, 114MB/s]
+Downloading cBottle-3d.zip: 36%|███▌      | 611M/1.66G [00:04&lt;00:08, 129MB/s]
+Downloading cBottle-3d.zip: 37%|███▋      | 627M/1.66G [00:04&lt;00:08, 138MB/s]
+Downloading cBottle-3d.zip: 38%|███▊      | 642M/1.66G [00:04&lt;00:07, 142MB/s]
+Downloading cBottle-3d.zip: 39%|███▉      | 661M/1.66G [00:05&lt;00:06, 159MB/s]
+Downloading cBottle-3d.zip: 40%|████      | 685M/1.66G [00:05&lt;00:05, 184MB/s]
+Downloading cBottle-3d.zip: 41%|████▏     | 704M/1.66G [00:05&lt;00:05, 189MB/s]
+Downloading cBottle-3d.zip: 42%|████▏     | 722M/1.66G [00:05&lt;00:05, 186MB/s]
+Downloading cBottle-3d.zip: 44%|████▎     | 741M/1.66G [00:05&lt;00:05, 190MB/s]
+Downloading cBottle-3d.zip: 45%|████▍     | 760M/1.66G [00:05&lt;00:05, 182MB/s]
+Downloading cBottle-3d.zip: 46%|████▌     | 777M/1.66G [00:05&lt;00:05, 173MB/s]
+Downloading cBottle-3d.zip: 47%|████▋     | 794M/1.66G [00:05&lt;00:05, 165MB/s]
+Downloading cBottle-3d.zip: 48%|████▊     | 810M/1.66G [00:06&lt;00:11, 83.9MB/s]
+Downloading cBottle-3d.zip: 48%|████▊     | 822M/1.66G [00:06&lt;00:10, 90.8MB/s]
+Downloading cBottle-3d.zip: 49%|████▉     | 841M/1.66G [00:06&lt;00:08, 112MB/s]
+Downloading cBottle-3d.zip: 50%|█████     | 860M/1.66G [00:06&lt;00:06, 129MB/s]
+Downloading cBottle-3d.zip: 52%|█████▏    | 882M/1.66G [00:06&lt;00:05, 152MB/s]
+Downloading cBottle-3d.zip: 53%|█████▎    | 899M/1.66G [00:06&lt;00:05, 158MB/s]
+Downloading cBottle-3d.zip: 54%|█████▍    | 916M/1.66G [00:07&lt;00:06, 127MB/s]
+Downloading cBottle-3d.zip: 55%|█████▍    | 930M/1.66G [00:07&lt;00:06, 122MB/s]
+Downloading cBottle-3d.zip: 55%|█████▌    | 945M/1.66G [00:07&lt;00:06, 128MB/s]
+Downloading cBottle-3d.zip: 56%|█████▌    | 958M/1.66G [00:07&lt;00:06, 122MB/s]
+Downloading cBottle-3d.zip: 57%|█████▋    | 974M/1.66G [00:07&lt;00:05, 132MB/s]
+Downloading cBottle-3d.zip: 58%|█████▊    | 989M/1.66G [00:07&lt;00:05, 141MB/s]
+Downloading cBottle-3d.zip: 59%|█████▉    | 0.98G/1.66G [00:07&lt;00:05, 136MB/s]
+Downloading cBottle-3d.zip: 60%|█████▉    | 1.00G/1.66G [00:07&lt;00:04, 151MB/s]
+Downloading cBottle-3d.zip: 61%|██████    | 1.01G/1.66G [00:07&lt;00:04, 153MB/s]
+Downloading cBottle-3d.zip: 62%|██████▏   | 1.03G/1.66G [00:07&lt;00:03, 172MB/s]
+Downloading cBottle-3d.zip: 63%|██████▎   | 1.05G/1.66G [00:08&lt;00:03, 185MB/s]
+Downloading cBottle-3d.zip: 65%|██████▍   | 1.08G/1.66G [00:08&lt;00:03, 200MB/s]
+Downloading cBottle-3d.zip: 66%|██████▌   | 1.10G/1.66G [00:08&lt;00:02, 207MB/s]
+Downloading cBottle-3d.zip: 67%|██████▋   | 1.12G/1.66G [00:08&lt;00:03, 173MB/s]
+Downloading cBottle-3d.zip: 68%|██████▊   | 1.13G/1.66G [00:08&lt;00:03, 150MB/s]
+Downloading cBottle-3d.zip: 69%|██████▉   | 1.15G/1.66G [00:08&lt;00:03, 163MB/s]
+Downloading cBottle-3d.zip: 70%|███████   | 1.17G/1.66G [00:08&lt;00:03, 170MB/s]
+Downloading cBottle-3d.zip: 72%|███████▏  | 1.19G/1.66G [00:08&lt;00:02, 192MB/s]
+Downloading cBottle-3d.zip: 73%|███████▎  | 1.22G/1.66G [00:09&lt;00:02, 207MB/s]
+Downloading cBottle-3d.zip: 74%|███████▍  | 1.24G/1.66G [00:09&lt;00:02, 200MB/s]
+Downloading cBottle-3d.zip: 76%|███████▌  | 1.26G/1.66G [00:09&lt;00:02, 205MB/s]
+Downloading cBottle-3d.zip: 77%|███████▋  | 1.28G/1.66G [00:09&lt;00:02, 198MB/s]
+Downloading cBottle-3d.zip: 78%|███████▊  | 1.30G/1.66G [00:09&lt;00:01, 204MB/s]
+Downloading cBottle-3d.zip: 79%|███████▉  | 1.32G/1.66G [00:09&lt;00:01, 213MB/s]
+Downloading cBottle-3d.zip: 81%|████████  | 1.34G/1.66G [00:09&lt;00:01, 196MB/s]
+Downloading cBottle-3d.zip: 82%|████████▏ | 1.36G/1.66G [00:09&lt;00:01, 166MB/s]
+Downloading cBottle-3d.zip: 83%|████████▎ | 1.38G/1.66G [00:09&lt;00:01, 174MB/s]
+Downloading cBottle-3d.zip: 84%|████████▍ | 1.39G/1.66G [00:10&lt;00:01, 161MB/s]
+Downloading cBottle-3d.zip: 85%|████████▍ | 1.41G/1.66G [00:10&lt;00:02, 102MB/s]
+Downloading cBottle-3d.zip: 85%|████████▌ | 1.42G/1.66G [00:10&lt;00:02, 100MB/s]
+Downloading cBottle-3d.zip: 86%|████████▌ | 1.43G/1.66G [00:10&lt;00:02, 107MB/s]
+Downloading cBottle-3d.zip: 87%|████████▋ | 1.45G/1.66G [00:10&lt;00:02, 109MB/s]
+Downloading cBottle-3d.zip: 88%|████████▊ | 1.46G/1.66G [00:10&lt;00:02, 110MB/s]
+Downloading cBottle-3d.zip: 88%|████████▊ | 1.47G/1.66G [00:11&lt;00:02, 75.5MB/s]
+Downloading cBottle-3d.zip: 89%|████████▉ | 1.48G/1.66G [00:11&lt;00:02, 78.9MB/s]
+Downloading cBottle-3d.zip: 89%|████████▉ | 1.49G/1.66G [00:11&lt;00:02, 65.0MB/s]
+Downloading cBottle-3d.zip: 90%|█████████ | 1.50G/1.66G [00:11&lt;00:02, 76.7MB/s]
+Downloading cBottle-3d.zip: 91%|█████████ | 1.51G/1.66G [00:11&lt;00:02, 61.7MB/s]
+Downloading cBottle-3d.zip: 91%|█████████ | 1.51G/1.66G [00:12&lt;00:03, 50.6MB/s]
+Downloading cBottle-3d.zip: 91%|█████████▏| 1.52G/1.66G [00:12&lt;00:03, 44.9MB/s]
+Downloading cBottle-3d.zip: 92%|█████████▏| 1.53G/1.66G [00:12&lt;00:03, 41.6MB/s]
+Downloading cBottle-3d.zip: 92%|█████████▏| 1.53G/1.66G [00:12&lt;00:03, 42.1MB/s]
+Downloading cBottle-3d.zip: 92%|█████████▏| 1.54G/1.66G [00:12&lt;00:02, 51.4MB/s]
+Downloading cBottle-3d.zip: 93%|█████████▎| 1.55G/1.66G [00:12&lt;00:02, 52.5MB/s]
+Downloading cBottle-3d.zip: 94%|█████████▎| 1.56G/1.66G [00:12&lt;00:01, 72.3MB/s]
+Downloading cBottle-3d.zip: 94%|█████████▍| 1.57G/1.66G [00:13&lt;00:01, 81.5MB/s]
+Downloading cBottle-3d.zip: 95%|█████████▍| 1.58G/1.66G [00:13&lt;00:01, 61.8MB/s]
+Downloading cBottle-3d.zip: 95%|█████████▌| 1.58G/1.66G [00:13&lt;00:01, 50.5MB/s]
+Downloading cBottle-3d.zip: 96%|█████████▌| 1.59G/1.66G [00:13&lt;00:01, 60.6MB/s]
+Downloading cBottle-3d.zip: 96%|█████████▋| 1.60G/1.66G [00:13&lt;00:01, 63.0MB/s]
+Downloading cBottle-3d.zip: 97%|█████████▋| 1.61G/1.66G [00:13&lt;00:00, 63.4MB/s]
+Downloading cBottle-3d.zip: 98%|█████████▊| 1.62G/1.66G [00:13&lt;00:00, 86.7MB/s]
+Downloading cBottle-3d.zip: 98%|█████████▊| 1.63G/1.66G [00:14&lt;00:00, 81.7MB/s]
+Downloading cBottle-3d.zip: 99%|█████████▉| 1.65G/1.66G [00:14&lt;00:00, 91.1MB/s]
+Downloading cBottle-3d.zip: 100%|█████████▉| 1.66G/1.66G [00:14&lt;00:00, 86.6MB/s]
+Downloading cBottle-3d.zip: 100%|██████████| 1.66G/1.66G [00:14&lt;00:00, 123MB/s]
+
+Downloading amip_midmonth_sst.nc: 0%|          | 0.00/454M [00:00&lt;?, ?B/s]
+Downloading amip_midmonth_sst.nc: 3%|▎         | 13.3M/454M [00:00&lt;00:03, 139MB/s]
+Downloading amip_midmonth_sst.nc: 8%|▊         | 34.7M/454M [00:00&lt;00:02, 189MB/s]
+Downloading amip_midmonth_sst.nc: 12%|█▏        | 55.0M/454M [00:00&lt;00:02, 200MB/s]
+Downloading amip_midmonth_sst.nc: 17%|█▋        | 76.4M/454M [00:00&lt;00:01, 209MB/s]
+Downloading amip_midmonth_sst.nc: 23%|██▎       | 102M/454M [00:00&lt;00:01, 231MB/s]
+Downloading amip_midmonth_sst.nc: 27%|██▋       | 124M/454M [00:00&lt;00:01, 209MB/s]
+Downloading amip_midmonth_sst.nc: 32%|███▏      | 145M/454M [00:00&lt;00:01, 204MB/s]
+Downloading amip_midmonth_sst.nc: 36%|███▌      | 164M/454M [00:00&lt;00:01, 197MB/s]
+Downloading amip_midmonth_sst.nc: 43%|████▎     | 194M/454M [00:00&lt;00:01, 227MB/s]
+Downloading amip_midmonth_sst.nc: 48%|████▊     | 218M/454M [00:01&lt;00:01, 235MB/s]
+Downloading amip_midmonth_sst.nc: 53%|█████▎    | 241M/454M [00:01&lt;00:00, 226MB/s]
+Downloading amip_midmonth_sst.nc: 58%|█████▊    | 263M/454M [00:01&lt;00:00, 224MB/s]
+Downloading amip_midmonth_sst.nc: 63%|██████▎   | 285M/454M [00:01&lt;00:00, 228MB/s]
+Downloading amip_midmonth_sst.nc: 68%|██████▊   | 307M/454M [00:01&lt;00:00, 207MB/s]
+Downloading amip_midmonth_sst.nc: 72%|███████▏  | 327M/454M [00:01&lt;00:00, 182MB/s]
+Downloading amip_midmonth_sst.nc: 76%|███████▌  | 346M/454M [00:01&lt;00:00, 177MB/s]
+Downloading amip_midmonth_sst.nc: 80%|███████▉  | 363M/454M [00:01&lt;00:00, 167MB/s]
+Downloading amip_midmonth_sst.nc: 85%|████████▌ | 386M/454M [00:02&lt;00:00, 186MB/s]
+Downloading amip_midmonth_sst.nc: 90%|████████▉ | 407M/454M [00:02&lt;00:00, 196MB/s]
+Downloading amip_midmonth_sst.nc: 94%|█████████▍| 426M/454M [00:02&lt;00:00, 194MB/s]
+Downloading amip_midmonth_sst.nc: 99%|█████████▉| 450M/454M [00:02&lt;00:00, 209MB/s]
+Downloading amip_midmonth_sst.nc: 100%|██████████| 454M/454M [00:02&lt;00:00, 204MB/s]
+</pre></div>
+</div>
+</section>
+<section id="generating-synthetic-weather-data">
+<h2>Generating Synthetic Weather Data<a class="headerlink" href="#generating-synthetic-weather-data" title="Link to this heading">#</a></h2>
+<p>Once loaded, generating data from cBottle is as easy as any other data source.
+Under the hood the model is conditioned on the timestamp requested as well as a
+mid-month SST field which is internally handle for users but limits the range of the
+data source to years between 1970 and 2022.</p>
+<p>Note that this diffusion model is stochastic, so querying the same timestamp will
+generate different fields that are reflective of the requested time and SST state.
+One can use <cite>set_seed</cite> for reproducibility.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="n">n_samples</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2022</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># Fetch the ground truth</span>
+<span class="n">era5_da</span> <span class="o">=</span> <span class="n">era5_ds</span><span class="p">([</span><span class="n">timestamp</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;msl&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])</span>
+<span class="c1"># Generate some samples from cBottle</span>
+<span class="n">cbottle_da</span> <span class="o">=</span> <span class="n">cbottle_ds</span><span class="p">([</span><span class="n">timestamp</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)],</span> <span class="p">[</span><span class="s2">&quot;msl&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">era5_da</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cbottle_da</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:21:37.085 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: tcwv at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:21:37.086 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:21:37.157 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/mean_sea_level_pressure/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:21:37.182 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/total_column_water_vapour/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.55it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.43it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.26it/s]
+
+Generating cBottle Data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Generating cBottle Data:  50%|█████     | 1/2 [00:14&lt;00:14, 14.82s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:17&lt;00:00,  7.74s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:17&lt;00:00,  8.80s/it]
+&lt;xarray.DataArray (time: 1, variable: 2, lat: 721, lon: 1440)&gt; Size: 17MB
+array([[[[1.01743422e+05, 1.01743422e+05, 1.01743422e+05, ...,
+          1.01743422e+05, 1.01743422e+05, 1.01743422e+05],
+         [1.01793445e+05, 1.01793289e+05, 1.01793289e+05, ...,
+          1.01794055e+05, 1.01793750e+05, 1.01793750e+05],
+         [1.01839055e+05, 1.01838445e+05, 1.01838297e+05, ...,
+          1.01839969e+05, 1.01839508e+05, 1.01839203e+05],
+         ...,
+         [1.00018555e+05, 1.00018555e+05, 1.00018555e+05, ...,
+          1.00017945e+05, 1.00017945e+05, 1.00018250e+05],
+         [9.98792891e+04, 9.98789844e+04, 9.98789844e+04, ...,
+          9.98786797e+04, 9.98789844e+04, 9.98789844e+04],
+         [9.98712266e+04, 9.98712266e+04, 9.98712266e+04, ...,
+          9.98712266e+04, 9.98712266e+04, 9.98712266e+04]],
+
+        [[1.33166103e+01, 1.33166103e+01, 1.33166103e+01, ...,
+          1.33166103e+01, 1.33166103e+01, 1.33166103e+01],
+         [1.31231613e+01, 1.31231613e+01, 1.31231613e+01, ...,
+          1.31190758e+01, 1.31217995e+01, 1.31217995e+01],
+         [1.28479767e+01, 1.28479767e+01, 1.28493385e+01, ...,
+          1.28357162e+01, 1.28384399e+01, 1.28425274e+01],
+         ...,
+         [2.75253296e-01, 2.75253296e-01, 2.75253296e-01, ...,
+          2.75253296e-01, 2.75253296e-01, 2.75253296e-01],
+         [2.75253296e-01, 2.75253296e-01, 2.75253296e-01, ...,
+          2.75253296e-01, 2.75253296e-01, 2.75253296e-01],
+         [2.73891449e-01, 2.73891449e-01, 2.73891449e-01, ...,
+          2.73891449e-01, 2.73891449e-01, 2.73891449e-01]]]])
+Coordinates:
+  * time      (time) datetime64[ns] 8B 2022-09-05
+  * variable  (variable) &lt;U4 32B &#39;msl&#39; &#39;tcwv&#39;
+  * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
+  * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
+&lt;xarray.DataArray (time: 5, variable: 2, lat: 721, lon: 1440)&gt; Size: 83MB
+array([[[[ 9.95229503e+04,  9.95229503e+04,  9.95229503e+04, ...,
+           9.95229503e+04,  9.95229503e+04,  9.95229503e+04],
+         [ 9.95467359e+04,  9.95467254e+04,  9.95467149e+04, ...,
+           9.95467674e+04,  9.95467569e+04,  9.95467464e+04],
+         [ 9.95705215e+04,  9.95705005e+04,  9.95704795e+04, ...,
+           9.95705845e+04,  9.95705635e+04,  9.95705425e+04],
+         ...,
+         [ 1.01367648e+05,  1.01366192e+05,  1.01364737e+05, ...,
+           1.01372014e+05,  1.01370558e+05,  1.01369103e+05],
+         [ 1.01389386e+05,  1.01388659e+05,  1.01387931e+05, ...,
+           1.01391569e+05,  1.01390842e+05,  1.01390114e+05],
+         [ 1.01411125e+05,  1.01411125e+05,  1.01411125e+05, ...,
+           1.01411125e+05,  1.01411125e+05,  1.01411125e+05]],
+
+        [[ 5.19111664e+00,  5.19111664e+00,  5.19111664e+00, ...,
+           5.19111664e+00,  5.19111664e+00,  5.19111664e+00],
+         [ 5.01230668e+00,  5.00957147e+00,  5.00683627e+00, ...,
+           5.02051230e+00,  5.01777709e+00,  5.01504189e+00],
+         [ 4.83349673e+00,  4.82802631e+00,  4.82255590e+00, ...,
+           4.84990796e+00,  4.84443755e+00,  4.83896714e+00],
+...
+         [ 1.01638628e+05,  1.01637768e+05,  1.01636907e+05, ...,
+           1.01641208e+05,  1.01640348e+05,  1.01639488e+05],
+         [ 1.01590151e+05,  1.01589721e+05,  1.01589291e+05, ...,
+           1.01591442e+05,  1.01591012e+05,  1.01590581e+05],
+         [ 1.01541675e+05,  1.01541675e+05,  1.01541675e+05, ...,
+           1.01541675e+05,  1.01541675e+05,  1.01541675e+05]],
+
+        [[ 1.18266818e+01,  1.18266818e+01,  1.18266818e+01, ...,
+           1.18266818e+01,  1.18266818e+01,  1.18266818e+01],
+         [ 1.16753217e+01,  1.16730877e+01,  1.16708536e+01, ...,
+           1.16820240e+01,  1.16797899e+01,  1.16775558e+01],
+         [ 1.15239616e+01,  1.15194935e+01,  1.15150254e+01, ...,
+           1.15373661e+01,  1.15328979e+01,  1.15284298e+01],
+         ...,
+         [ 3.19371847e+00,  3.19442046e+00,  3.19512245e+00, ...,
+           3.19161250e+00,  3.19231449e+00,  3.19301648e+00],
+         [ 3.13864929e+00,  3.13900029e+00,  3.13935129e+00, ...,
+           3.13759631e+00,  3.13794730e+00,  3.13829830e+00],
+         [ 3.08358012e+00,  3.08358012e+00,  3.08358012e+00, ...,
+           3.08358012e+00,  3.08358012e+00,  3.08358012e+00]]]])
+Coordinates:
+  * time      (time) datetime64[ns] 40B 2022-09-05 2022-09-05 ... 2022-09-05
+  * variable  (variable) &lt;U4 32B &#39;msl&#39; &#39;tcwv&#39;
+  * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.25 -89.5 -89.75
+  * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
+</pre></div>
+</div>
+</section>
+<section id="post-processing-cbottle-data">
+<h2>Post Processing CBottle Data<a class="headerlink" href="#post-processing-cbottle-data" title="Link to this heading">#</a></h2>
+<p>Let’s visualize this data to better understand what the cBottle data source is able to
+provide.
+It is clear that each sample is indeed unique, yet remains physically realizable.
+In other words the cBottle data source can be used to create climates that
+do not exist but could based on the conditional distribution learned from the training
+data.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;tcwv&quot;</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Orthographic</span><span class="p">(</span><span class="n">central_longitude</span><span class="o">=</span><span class="mf">300.0</span><span class="p">)</span>
+
+<span class="c1"># Create a figure and axes with the specified projection</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">era5_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+    <span class="n">era5_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+    <span class="n">era5_da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;cubehelix&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;ERA5&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_samples</span><span class="p">):</span>
+    <span class="n">ax</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+        <span class="n">cbottle_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+        <span class="n">cbottle_da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+        <span class="n">cbottle_da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">)</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">i</span><span class="p">),</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;cubehelix&quot;</span><span class="p">,</span>
+        <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">vmax</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CBottle Sample </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">ax0</span> <span class="ow">in</span> <span class="n">ax</span><span class="p">:</span>
+    <span class="n">ax0</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+    <span class="n">ax0</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/12_tcwv_cbottle_datasource.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_15_cbottle_generation_001.png" srcset="../_images/sphx_glr_15_cbottle_generation_001.png" alt="ERA5, CBottle Sample 0, CBottle Sample 1, CBottle Sample 2, CBottle Sample 3, CBottle Sample 4" class = "sphx-glr-single-img"/></section>
+<section id="variable-infilling-with-cbottleinfill-diagnostic">
+<h2>Variable Infilling with CBottleInfill Diagnostic<a class="headerlink" href="#variable-infilling-with-cbottleinfill-diagnostic" title="Link to this heading">#</a></h2>
+<p>Next lets look at using the same model but for variable infilling.
+CBottleInfill allows users to generate global weather fields like the data source but
+condition it on a set of input fields that can be configured.
+This means that this diagnostic is extremely flexible and can be used with all types
+of data sources and models.</p>
+<p>To demonstrate this lets consider two instances of the infilling diagnostic with a
+different set of inputs and then compare the resulting infilled variables.
+Note that the outputs of both configurations are the same size with the same
+variables.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span>
+
+<span class="c1"># Input variables</span>
+<span class="n">input_variables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;u10m&quot;</span><span class="p">,</span> <span class="s2">&quot;v10m&quot;</span><span class="p">]</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">input_variables</span><span class="o">=</span><span class="n">input_variables</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">set_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">timestamp</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">)</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span><span class="n">era5_ds</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">input_variables</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">output_0</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">output_0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.120 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.120 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.121 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.121 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.122 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.122 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.123 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.123 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.124 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.124 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.202 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.203 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.209 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.214 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.215 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.219 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_u_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.220 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.221 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.222 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:11.223 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/10m_v_component_of_wind/93032.0.0 to local cache
+
+Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  10%|█         | 1/10 [00:00&lt;00:01,  8.00it/s]
+Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 48.72it/s]
+torch.Size([5, 1, 45, 721, 1440])
+</pre></div>
+</div>
+<p>Now repeat the process above but with an expanded set of variables.
+In this instance we provide a lot more data to the model to condition it with more
+information.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">input_variables</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;u10m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v10m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;t2m&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;msl&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v50&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v500&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;z1000&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;u1000&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;v1000&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">CBottleInfill</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">input_variables</span><span class="o">=</span><span class="n">input_variables</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">set_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span><span class="n">era5_ds</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">input_variables</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+<span class="n">output_1</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">output_1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.079 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.080 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.080 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.081 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.081 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.082 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.082 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.083 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.083 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.084 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.084 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.085 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.085 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.086 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.086 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.087 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.087 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.088 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.088 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.089 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.089 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.090 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.090 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.091 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.091 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.092 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.092 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.093 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.093 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.094 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.094 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.095 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.095 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.096 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.096 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.097 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.097 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.098 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.098 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.099 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.099 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.099 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.100 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.100 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.101 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.101 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.102 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.102 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.103 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.103 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.104 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.104 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.105 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.105 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v1000 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.106 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.106 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.107 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.107 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.108 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z50 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.108 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: t2m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.109 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: msl at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.109 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: v500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.110 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.110 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: u10m at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:22:37.111 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: z500 at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.284 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.285 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.286 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.287 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.287 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.287 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.289 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.289 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.290 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.290 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.291 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.292 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.292 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.293 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.293 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.294 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.294 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.295 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.295 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.295 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.296 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.296 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.297 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.297 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.298 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.298 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.299 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.299 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.300 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/2m_temperature/93032.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.301 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.302 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.304 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.305 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.305 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.306 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.307 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.307 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.308 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.308 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.309 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.311 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.311 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.311 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.312 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.312 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.313 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.314 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.315 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/geopotential/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.316 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/u_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+
+2025-08-14 00:22:37.317 | DEBUG    | earth2studio.data.utils:_make_local_details:626 - Copying /weatherbench2/datasets/era5/1959-2023_01_10-wb13-6h-1440x721_with_derived_variables.zarr/v_component_of_wind/93032.0.0.0 to local cache
+
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:09,  6.44it/s]
+Fetching WB2 data:  25%|██▍       | 16/65 [00:00&lt;00:00, 72.30it/s]
+Fetching WB2 data:  38%|███▊      | 25/65 [00:02&lt;00:05,  7.77it/s]
+Fetching WB2 data:  55%|█████▌    | 36/65 [00:04&lt;00:04,  7.14it/s]
+Fetching WB2 data:  68%|██████▊   | 44/65 [00:04&lt;00:02,  9.96it/s]
+Fetching WB2 data:  75%|███████▌  | 49/65 [00:04&lt;00:01, 11.88it/s]
+Fetching WB2 data:  85%|████████▍ | 55/65 [00:04&lt;00:00, 14.55it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:04&lt;00:00, 13.41it/s]
+torch.Size([5, 1, 45, 721, 1440])
+</pre></div>
+</div>
+</section>
+<section id="post-processing-cbottleinfill">
+<h2>Post Processing CBottleInfill<a class="headerlink" href="#post-processing-cbottleinfill" title="Link to this heading">#</a></h2>
+<p>To post process the results, we take a look at a infilled variable, total column water
+vapour.
+Compared to the samples from the CBottle3D, the results are much more aligned with
+the ground truth since the infill model is sampling a conditional distribution.
+Additionally, the model provided more variables is better aligned with the ground
+truth due the additional information provided.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;tcwv&quot;</span>
+<span class="n">var_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">era5_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span><span class="n">era5_ds</span><span class="p">,</span> <span class="n">times</span><span class="p">[:</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="n">variable</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Mollweide</span><span class="p">(</span><span class="n">central_longitude</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># Create a figure and axes with the specified projection</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_contour</span><span class="p">(</span>
+    <span class="n">ax0</span><span class="p">:</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;jet&quot;</span><span class="p">,</span>
+    <span class="n">vrange</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">90</span><span class="p">),</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contour helper&quot;&quot;&quot;</span>
+    <span class="n">ax0</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span>
+        <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span>
+        <span class="n">vmin</span><span class="o">=</span><span class="n">vrange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">vmax</span><span class="o">=</span><span class="n">vrange</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ax0</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+    <span class="n">ax0</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+
+
+<span class="n">plot_contour</span><span class="p">(</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">era5_data</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">plot_contour</span><span class="p">(</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">output_0</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">var_idx</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<span class="n">plot_contour</span><span class="p">(</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">output_1</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">var_idx</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<span class="n">plot_contour</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">output_0</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">var_idx</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;inferno&quot;</span><span class="p">,</span> <span class="n">vrange</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">plot_contour</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">output_1</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">var_idx</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;inferno&quot;</span><span class="p">,</span> <span class="n">vrange</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;ERA5&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;3 Input Variables Mean&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;13 Input Variables Mean&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;3 Input Variables Std&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;13 Input Variables Std&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/12_tcwv_cbottle_infill.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_15_cbottle_generation_002.png" srcset="../_images/sphx_glr_15_cbottle_generation_002.png" alt="ERA5, 3 Input Variables Mean, 13 Input Variables Mean, 3 Input Variables Std, 13 Input Variables Std" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:23:04.868 | DEBUG    | earth2studio.data.wb2:fetch_array:253 - Fetching WB2 zarr array for variable: tcwv at 2022-09-05T00:00:00
+
+Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 79.37it/s]
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (3 minutes 1.056 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-15-cbottle-generation-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/73324f5954f9a6cb5a3d0a38669e4d9a/15_cbottle_generation.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">15_cbottle_generation.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/3ac3ee77625823c2e66616e12f308c2d/15_cbottle_generation.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">15_cbottle_generation.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/428fc4bcb5188094297b9ac4ffd74fdc/15_cbottle_generation.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">15_cbottle_generation.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="14_dlesym_example.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Running DLESyM Inference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="16_cbottle_super_resolution.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">CBottle Super Resolution</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generating-synthetic-weather-data">Generating Synthetic Weather Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing-cbottle-data">Post Processing CBottle Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variable-infilling-with-cbottleinfill-diagnostic">Variable Infilling with CBottleInfill Diagnostic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing-cbottleinfill">Post Processing CBottleInfill</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/15_cbottle_generation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+﻿:mod:`earth2studio.models.dx`.CorrDiffTaiwan
+===================================================
+
+.. currentmodule:: earth2studio.models.dx
+
+.. autoclass:: CorrDiffTaiwan
+
+
+    .. automethod:: __call__
+    .. automethod:: load_default_package
+    .. automethod:: load_model
+
+
+.. _sphx_glr_backref_earth2studio.models.dx.CorrDiffTaiwan:
+
+.. minigallery:: earth2studio.models.dx.CorrDiffTaiwan
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

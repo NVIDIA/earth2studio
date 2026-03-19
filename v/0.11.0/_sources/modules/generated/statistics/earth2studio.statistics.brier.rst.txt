@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.brier
+===========================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: brier
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.statistics.brier:
+
+.. minigallery:: earth2studio.statistics.brier
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

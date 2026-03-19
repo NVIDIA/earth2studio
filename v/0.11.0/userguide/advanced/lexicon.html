@@ -1,0 +1,772 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Lexicon &#8212; Earth2Studio 0.11.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=f3b36f1a"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'userguide/advanced/lexicon';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Overview" href="../developer/overview.html" />
+    <link rel="prev" title="AutoModels" href="auto.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.11" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">About</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="../about/intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about/data.html">Data Movement</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Core Components</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/io.html">Output Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../components/statistics.html">Statistics</a></li>
+
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced Usage</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="batch.html">Batch Dimension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto.html">AutoModels</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Lexicon</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../developer/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/style.html">Style Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/documentation.html">Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/build.html">Build Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/recipes.html">Recipe Guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Support</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Lexicon</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="lexicon">
+<span id="lexicon-userguide"></span><h1>Lexicon<a class="headerlink" href="#lexicon" title="Link to this heading">#</a></h1>
+<p>As discussed in detail in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, Earth2Studio tracks the
+geo-physical representation of tensor data inside workflows.
+This includes the name of the variable / parameter / property the data represents, which
+is tracked explicitly via Earth2Studios lexicon.
+Similar to ECMWF’s <a class="reference external" href="https://codes.ecmwf.int/grib/param-db/">parameter database</a>,
+Earth2Studio’s lexicon aims to provide an opinioned and explicit list of short variables
+names that is used across the package found in <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.E2STUDIO_VOCAB</span></code>.
+Many of these names are based on ECMWF’s parameter database but not all.</p>
+<p>Below are a few examples:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">t2m</span></code>: Temperature in Kelvin at 2 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u10m</span></code>: u-component (eastward/zonal) of winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v10m</span></code>: v-component (northward/meridional) of winds at 10 meters</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">u200</span></code>: u-component of winds at 200 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">z250</span></code>: Geo-potential at 250 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">z500</span></code>: Geo-potential at 500 hPa</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tcwv</span></code>: Total column water vapor</p></li>
+</ul>
+<p>Additionally, the lexicon may also be used to track various metadata / coordinate
+fields.
+This is particularly relevant for <code class="xref py py-obj docutils literal notranslate"><span class="pre">earth2studio.data.base.DataFrameSource</span></code> where
+tabular data is used and variables map to the columns of a data frame.
+Earth2Studio takes a best-effort approach to make these metadata fields standardized
+across the package.</p>
+<p>Some examples include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lat</span></code>: Latitude coordinate of data / observation / sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lon</span></code>: Longitude coordinate of data / observation / sensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">elev</span></code>: Elevation (meters) relative to mean sea level of data / observation / sensor</p></li>
+</ul>
+<section id="altitude-pressure-levels">
+<h2>Altitude / Pressure Levels<a class="headerlink" href="#altitude-pressure-levels" title="Link to this heading">#</a></h2>
+<p>Note that there are a variety of ways to represent the vertical coordinates for 3D
+atmospheric variables. The most common method is to slice variables along pressure
+levels (surfaces of constant pressure), and this is considered the “default” in terms
+of variable names within the lexicon (e.g., <code class="docutils literal notranslate"><span class="pre">z500</span></code> is the geo-potential) at the 500 hPa
+pressure level. Variables which are represented based on altitude above the surface
+contain an “m” at the end, to denote height in meters, such as <code class="docutils literal notranslate"><span class="pre">u10m</span></code>.</p>
+<p>Some models or workflows, however, require using their own custom vertical coordinate
+which is neither pressure-level nor terrain-following. These are typically referred to
+as “native” or “hybrid” vertical levels, and are defined differently for different
+use-cases. The lexicon supports these custom levels by indexing the vertical level and
+appending a suffix to the variable name to denote it is a custom vertical level, as in
+<code class="docutils literal notranslate"><span class="pre">u100k</span></code> to indicate the u-component of winds at the custom vertical level with index
+100 (indexed by <code class="docutils literal notranslate"><span class="pre">k</span></code>). We leave the choice of suffix up to each use-case, and reserve
+the following special-case suffixes:</p>
+<ul class="simple">
+<li><p>No suffix: assumed to be pressure-level, as in <code class="docutils literal notranslate"><span class="pre">z500</span></code> for geo-potential at 500 hPa level</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m</span></code>: altitude in meters above the surface</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Only use custom vertical level data with caution. The definition of these vertical
+levels changes with each data source, model, or use-case, and thus they are not
+necessarily interoperable. Transforming between different custom vertical levels will
+likely require custom interpolation schemes, possibly using pressure-levels as an
+intermediate step.</p>
+</div>
+</section>
+<section id="datasource-lexicon">
+<h2>Datasource Lexicon<a class="headerlink" href="#datasource-lexicon" title="Link to this heading">#</a></h2>
+<p>A common challenge when working with different sources of weather/climate data is that
+variables used may be named / denoted in different ways.
+The Lexicon is also used to track the translation between Earth2Studios naming scheme
+and the scheme needed to parse the remote data source.
+Each remote data store has its own lexicon, which is a dictionary that has the
+Earth2Studio variable name as the keys and a string used to parse the remote data store.
+Typically, this value is a string that corresponds to the variable name inside the remote
+data store.</p>
+<p>The following snippet is part of the lexicon for the GFS dataset.
+Note that the class has a <code class="docutils literal notranslate"><span class="pre">metaclass=LexiconType</span></code> which is present in
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.lexicon.base.py</span></code> used for type checking.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GFSLexicon</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">LexiconType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Global Forecast System Lexicon</span>
+<span class="sd">    GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    Some variables are only present for lead time greater than 0</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Additional resources:</span>
+<span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f000.shtml</span>
+<span class="sd">    https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">VOCAB</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;u10m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v10m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::10 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u100m&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v100m&quot;</span><span class="p">:</span> <span class="s2">&quot;VGRD::100 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;t2m&quot;</span><span class="p">:</span> <span class="s2">&quot;TMP::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;d2m&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;r2m&quot;</span><span class="p">:</span> <span class="s2">&quot;RH::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;q2m&quot;</span><span class="p">:</span> <span class="s2">&quot;SPFH::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sp&quot;</span><span class="p">:</span> <span class="s2">&quot;PRES::surface&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;msl&quot;</span><span class="p">:</span> <span class="s2">&quot;PRMSL::mean sea level&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcwv&quot;</span><span class="p">:</span> <span class="s2">&quot;PWAT::entire atmosphere (considered as a single layer)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tp&quot;</span><span class="p">:</span> <span class="s2">&quot;596::APCP::surface&quot;</span><span class="p">,</span>  <span class="c1"># 3 hour acc</span>
+        <span class="s2">&quot;2d&quot;</span><span class="p">:</span> <span class="s2">&quot;DPT::2 m above ground&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fg10m&quot;</span><span class="p">:</span> <span class="s2">&quot;GUST::surface&quot;</span><span class="p">,</span>  <span class="c1"># Surface</span>
+        <span class="s2">&quot;u1&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::1 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u2&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::2 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u3&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::3 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u5&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::5 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u7&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::7 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u10&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::10 mb&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;u15&quot;</span><span class="p">:</span> <span class="s2">&quot;UGRD::15 mb&quot;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Values of each variable is left up the the data source.
+The present pattern is to split by the string based on the separator <code class="docutils literal notranslate"><span class="pre">::</span></code>, and then used
+to access the required data.
+For example, the variable <code class="docutils literal notranslate"><span class="pre">u100</span></code>, zonal winds at 100 hPa, the value <code class="docutils literal notranslate"><span class="pre">UGRD::100</span> <span class="pre">mb</span></code> is
+split into <code class="docutils literal notranslate"><span class="pre">UGRD</span></code> and <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">mb</span></code> which are then used with the remote Grib index file to
+fetch the correct data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">gfs_name</span><span class="p">,</span> <span class="n">modifier</span> <span class="o">=</span> <span class="n">GFSLexicon</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;variable id </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in GFS lexicon, good luck&quot;</span>
+                        <span class="p">)</span>
+                        <span class="n">gfs_name</span> <span class="o">=</span> <span class="n">v</span>
+
+                        <span class="k">def</span><span class="w"> </span><span class="nf">modifier</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                            </span><span class="sd">&quot;&quot;&quot;Modify data (if necessary).&quot;&quot;&quot;</span>
+                            <span class="k">return</span> <span class="n">x</span>
+
+                    <span class="n">byte_offset</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">byte_length</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">index_file</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">gfs_name</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+                            <span class="n">byte_offset</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="n">byte_length</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="k">break</span>
+
+                    <span class="k">if</span> <span class="n">byte_length</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">byte_offset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> not found in index file for time </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">lt</span><span class="si">}</span><span class="s2">, values will be unset&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">continue</span>
+</pre></div>
+</div>
+<p>It is a common pattern for data source lexicons to contain a modifier function that is
+used to apply adjustments to align data more uniformly with the package.
+A good example of this is the GFS dataset which uses the modifier function to transform
+the GFS supplied the geo-potential height to geo-potential to better align with other
+sources inside Earth2Studio.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_item</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get item from GFS vocabulary.&quot;&quot;&quot;</span>
+        <span class="n">gfs_key</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">VOCAB</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">gfs_key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;::&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;HGT&quot;</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">9.81</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">mod</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Modify data value (if necessary).&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">x</span>
+
+        <span class="k">return</span> <span class="n">gfs_key</span><span class="p">,</span> <span class="n">mod</span>
+
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The lexicon does not necessarily contain every variable inside the remote data store.
+Rather it explicitly lists what is available inside Earth2Studio. See some variable
+missing you would like to add? Open an issue!</p>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="auto.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">AutoModels</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../developer/overview.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Overview</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#altitude-pressure-levels">Altitude / Pressure Levels</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#datasource-lexicon">Datasource Lexicon</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/userguide/advanced/lexicon.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

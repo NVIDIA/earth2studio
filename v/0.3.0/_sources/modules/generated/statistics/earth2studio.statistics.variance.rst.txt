@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.variance
+==============================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: variance
+
+
+    .. automethod:: __call__
+
+
+.. _sphx_glr_backref_earth2studio.statistics.variance:
+
+.. minigallery:: earth2studio.statistics.variance
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

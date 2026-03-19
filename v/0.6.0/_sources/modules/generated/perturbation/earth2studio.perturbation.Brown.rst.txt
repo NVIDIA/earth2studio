@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.perturbation`.Brown
+=============================================
+
+.. currentmodule:: earth2studio.perturbation
+
+.. autoclass:: Brown
+
+
+    .. automethod:: __call__
+
+
+.. _sphx_glr_backref_earth2studio.perturbation.Brown:
+
+.. minigallery:: earth2studio.perturbation.Brown
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

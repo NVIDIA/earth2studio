@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.perturbation`.BredVector
+==================================================
+
+.. currentmodule:: earth2studio.perturbation
+
+.. autoclass:: BredVector
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.perturbation.BredVector:
+
+.. minigallery:: earth2studio.perturbation.BredVector
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

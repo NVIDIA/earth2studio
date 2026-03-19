@@ -1,0 +1,21 @@
+﻿..
+    The empty line below should not be removed. It is added such that the `rst_prolog`
+    is added before the :mod: directive. Otherwise, the rendering will show as a
+    paragraph instead of a header.
+
+:mod:`earth2studio.statistics`.utils
+=================================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autofunction:: utils
+
+.. _sphx_glr_backref_earth2studio.statistics.utils:
+
+.. minigallery:: earth2studio.statistics.utils
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

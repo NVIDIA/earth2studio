@@ -1,0 +1,2259 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Running StormCast Inference &#8212; Earth2Studio 0.9.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/09_stormcast_example';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.9.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Running StormCast Ensemble Inference" href="10_stormcast_ensemble_example.html" />
+    <link rel="prev" title="Distributed Manager Inference" href="08_distributed_manager.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.9" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Running StormCast Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="14_dlesym_example.html">Running DLESyM Inference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="17_io_performance.html">IO Backend Performance</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Examples</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Running StormCast Inference</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-09-stormcast-example-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="running-stormcast-inference">
+<span id="sphx-glr-examples-09-stormcast-example-py"></span><h1>Running StormCast Inference<a class="headerlink" href="#running-stormcast-inference" title="Link to this heading">#</a></h1>
+<p>Basic StormCast inference workflow.</p>
+<p>This example will demonstrate how to run a simple inference workflow to generate a
+basic determinstic forecast using StormCast. For details about the stormcast model,
+see</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a></p></li>
+</ul>
+</div></blockquote>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[data,stormcast] @ git+https://github.com/NVIDIA/earth2studio.git@0.9.0&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>All workflows inside Earth2Studio require constructed components to be
+handed to them. In this example, let’s take a look at the most basic:
+<a class="reference internal" href="../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-meth docutils literal notranslate"><span class="pre">earth2studio.run.deterministic()</span></code></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">deterministic</span><span class="p">(</span>
+    <span class="n">time</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">],</span>
+    <span class="n">nsteps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">prognostic</span><span class="p">:</span> <span class="n">PrognosticModel</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">DataSource</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">:</span> <span class="n">IOBackend</span><span class="p">,</span>
+    <span class="n">output_coords</span><span class="p">:</span> <span class="n">CoordSystem</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({}),</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IOBackend</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Built in deterministic workflow.</span>
+<span class="sd">    This workflow creates a determinstic inference pipeline to produce a forecast</span>
+<span class="sd">    prediction using a prognostic model.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    time : list[str] | list[datetime] | list[np.datetime64]</span>
+<span class="sd">        List of string, datetimes or np.datetime64</span>
+<span class="sd">    nsteps : int</span>
+<span class="sd">        Number of forecast steps</span>
+<span class="sd">    prognostic : PrognosticModel</span>
+<span class="sd">        Prognostic model</span>
+<span class="sd">    data : DataSource</span>
+<span class="sd">        Data source</span>
+<span class="sd">    io : IOBackend</span>
+<span class="sd">        IO object</span>
+<span class="sd">    output_coords: CoordSystem, optional</span>
+<span class="sd">        IO output coordinate system override, by default OrderedDict({})</span>
+<span class="sd">    device : torch.device, optional</span>
+<span class="sd">        Device to run inference on, by default None</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    IOBackend</span>
+<span class="sd">        Output IO object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>Thus, we need the following:</p>
+<ul class="simple">
+<li><p>Prognostic Model: Use the built in StormCast Model <a class="reference internal" href="../modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast" title="earth2studio.models.px.StormCast"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.StormCast</span></code></a>.</p></li>
+<li><p>Datasource: Pull data from the HRRR data api <a class="reference internal" href="../modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.HRRR</span></code></a>.</p></li>
+<li><p>IO Backend: Let’s save the outputs into a Zarr store <a class="reference internal" href="../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
+</ul>
+<p>StormCast also requires a conditioning data source. We use a forecast data source here,
+GFS_FX <a class="reference internal" href="../modules/generated/data/earth2studio.data.GFS_FX.html#earth2studio.data.GFS_FX" title="earth2studio.data.GFS_FX"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS_FX</span></code></a> which is the default, but a non-forecast
+data source such as ARCO could also be used with appropriate time stamps.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">HRRR</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">StormCast</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="c1"># Use the default conditioning data source GFS_FX</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">StormCast</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">StormCast</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">HRRR</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler, store in memory</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Downloading model.yaml: 0%|          | 0.00/2.64k [00:00&lt;?, ?B/s]
+Downloading model.yaml: 100%|██████████| 2.64k/2.64k [00:00&lt;00:00, 2.46MB/s]
+
+Downloading StormCastUNet.0.0.mdlus: 0%|          | 0.00/300M [00:00&lt;?, ?B/s]
+Downloading StormCastUNet.0.0.mdlus: 4%|▍         | 11.4M/300M [00:00&lt;00:02, 120MB/s]
+Downloading StormCastUNet.0.0.mdlus: 8%|▊         | 24.3M/300M [00:00&lt;00:02, 129MB/s]
+Downloading StormCastUNet.0.0.mdlus: 12%|█▏        | 36.7M/300M [00:00&lt;00:06, 42.3MB/s]
+Downloading StormCastUNet.0.0.mdlus: 18%|█▊        | 53.9M/300M [00:01&lt;00:06, 42.3MB/s]
+Downloading StormCastUNet.0.0.mdlus: 26%|██▌       | 77.2M/300M [00:01&lt;00:03, 70.0MB/s]
+Downloading StormCastUNet.0.0.mdlus: 30%|██▉       | 89.7M/300M [00:01&lt;00:03, 57.8MB/s]
+Downloading StormCastUNet.0.0.mdlus: 36%|███▌      | 108M/300M [00:01&lt;00:03, 57.5MB/s]
+Downloading StormCastUNet.0.0.mdlus: 43%|████▎     | 128M/300M [00:02&lt;00:02, 78.5MB/s]
+Downloading StormCastUNet.0.0.mdlus: 47%|████▋     | 140M/300M [00:02&lt;00:03, 54.4MB/s]
+Downloading StormCastUNet.0.0.mdlus: 52%|█████▏    | 155M/300M [00:02&lt;00:02, 67.0MB/s]
+Downloading StormCastUNet.0.0.mdlus: 55%|█████▌    | 166M/300M [00:03&lt;00:02, 51.5MB/s]
+Downloading StormCastUNet.0.0.mdlus: 63%|██████▎   | 188M/300M [00:03&lt;00:01, 73.3MB/s]
+Downloading StormCastUNet.0.0.mdlus: 67%|██████▋   | 200M/300M [00:03&lt;00:01, 62.7MB/s]
+Downloading StormCastUNet.0.0.mdlus: 72%|███████▏  | 216M/300M [00:03&lt;00:01, 51.7MB/s]
+Downloading StormCastUNet.0.0.mdlus: 80%|████████  | 241M/300M [00:03&lt;00:00, 77.2MB/s]
+Downloading StormCastUNet.0.0.mdlus: 85%|████████▍ | 254M/300M [00:04&lt;00:01, 44.6MB/s]
+Downloading StormCastUNet.0.0.mdlus: 90%|████████▉ | 270M/300M [00:05&lt;00:01, 31.3MB/s]
+Downloading StormCastUNet.0.0.mdlus: 98%|█████████▊| 295M/300M [00:05&lt;00:00, 48.2MB/s]
+Downloading StormCastUNet.0.0.mdlus: 100%|██████████| 300M/300M [00:05&lt;00:00, 53.1MB/s]
+
+Downloading EDMPrecond.0.0.mdlus: 0%|          | 0.00/462M [00:00&lt;?, ?B/s]
+Downloading EDMPrecond.0.0.mdlus: 1%|          | 5.24M/462M [00:00&lt;00:08, 54.6MB/s]
+Downloading EDMPrecond.0.0.mdlus: 5%|▌         | 25.2M/462M [00:00&lt;00:03, 145MB/s]
+Downloading EDMPrecond.0.0.mdlus: 8%|▊         | 39.1M/462M [00:00&lt;00:05, 74.1MB/s]
+Downloading EDMPrecond.0.0.mdlus: 12%|█▏        | 53.7M/462M [00:00&lt;00:05, 84.7MB/s]
+Downloading EDMPrecond.0.0.mdlus: 14%|█▍        | 63.6M/462M [00:01&lt;00:08, 49.4MB/s]
+Downloading EDMPrecond.0.0.mdlus: 17%|█▋        | 80.6M/462M [00:01&lt;00:06, 59.4MB/s]
+Downloading EDMPrecond.0.0.mdlus: 19%|█▉        | 88.1M/462M [00:01&lt;00:08, 46.0MB/s]
+Downloading EDMPrecond.0.0.mdlus: 21%|██        | 97.2M/462M [00:01&lt;00:07, 53.3MB/s]
+Downloading EDMPrecond.0.0.mdlus: 23%|██▎       | 107M/462M [00:01&lt;00:06, 56.5MB/s]
+Downloading EDMPrecond.0.0.mdlus: 25%|██▍       | 114M/462M [00:02&lt;00:07, 46.2MB/s]
+Downloading EDMPrecond.0.0.mdlus: 29%|██▊       | 132M/462M [00:02&lt;00:04, 69.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 31%|███       | 141M/462M [00:02&lt;00:06, 52.3MB/s]
+Downloading EDMPrecond.0.0.mdlus: 35%|███▍      | 161M/462M [00:02&lt;00:04, 64.2MB/s]
+Downloading EDMPrecond.0.0.mdlus: 37%|███▋      | 169M/462M [00:03&lt;00:06, 48.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 41%|████      | 188M/462M [00:03&lt;00:04, 64.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 42%|████▏     | 196M/462M [00:03&lt;00:04, 57.5MB/s]
+Downloading EDMPrecond.0.0.mdlus: 47%|████▋     | 215M/462M [00:03&lt;00:03, 68.0MB/s]
+Downloading EDMPrecond.0.0.mdlus: 48%|████▊     | 222M/462M [00:04&lt;00:05, 45.7MB/s]
+Downloading EDMPrecond.0.0.mdlus: 52%|█████▏    | 242M/462M [00:04&lt;00:04, 56.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 54%|█████▍    | 248M/462M [00:04&lt;00:04, 54.1MB/s]
+Downloading EDMPrecond.0.0.mdlus: 58%|█████▊    | 269M/462M [00:04&lt;00:03, 61.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 60%|█████▉    | 275M/462M [00:04&lt;00:03, 60.6MB/s]
+Downloading EDMPrecond.0.0.mdlus: 64%|██████▍   | 296M/462M [00:05&lt;00:02, 78.3MB/s]
+Downloading EDMPrecond.0.0.mdlus: 66%|██████▌   | 303M/462M [00:05&lt;00:03, 51.1MB/s]
+Downloading EDMPrecond.0.0.mdlus: 69%|██████▉   | 320M/462M [00:05&lt;00:02, 68.2MB/s]
+Downloading EDMPrecond.0.0.mdlus: 71%|███████   | 329M/462M [00:05&lt;00:02, 53.9MB/s]
+Downloading EDMPrecond.0.0.mdlus: 76%|███████▌  | 349M/462M [00:06&lt;00:02, 46.9MB/s]
+Downloading EDMPrecond.0.0.mdlus: 77%|███████▋  | 356M/462M [00:06&lt;00:02, 48.2MB/s]
+Downloading EDMPrecond.0.0.mdlus: 80%|███████▉  | 367M/462M [00:06&lt;00:01, 58.6MB/s]
+Downloading EDMPrecond.0.0.mdlus: 81%|████████▏ | 376M/462M [00:06&lt;00:01, 63.3MB/s]
+Downloading EDMPrecond.0.0.mdlus: 83%|████████▎ | 384M/462M [00:07&lt;00:01, 40.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 87%|████████▋ | 403M/462M [00:07&lt;00:01, 51.2MB/s]
+Downloading EDMPrecond.0.0.mdlus: 89%|████████▊ | 410M/462M [00:07&lt;00:01, 48.4MB/s]
+Downloading EDMPrecond.0.0.mdlus: 93%|█████████▎| 428M/462M [00:07&lt;00:00, 60.6MB/s]
+Downloading EDMPrecond.0.0.mdlus: 94%|█████████▍| 435M/462M [00:08&lt;00:00, 34.4MB/s]
+Downloading EDMPrecond.0.0.mdlus: 99%|█████████▊| 455M/462M [00:08&lt;00:00, 52.8MB/s]
+Downloading EDMPrecond.0.0.mdlus: 100%|██████████| 462M/462M [00:08&lt;00:00, 55.3MB/s]
+
+Downloading metadata.zarr.zip: 0%|          | 0.00/1.71M [00:00&lt;?, ?B/s]
+Downloading metadata.zarr.zip: 100%|██████████| 1.71M/1.71M [00:00&lt;00:00, 41.7MB/s]
+</pre></div>
+</div>
+</section>
+<section id="execute-the-workflow">
+<h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
+<p>With all components initialized, running the workflow is a single line of Python code.
+Workflow will return the provided IO object back to the user, which can be used to
+then post process. Some have additional APIs that can be handy for post-processing or
+saving to file. Check the API docs for more information.</p>
+<p>For the forecast we will predict for 4 hours</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
+
+<span class="n">nsteps</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">()</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">date</span> <span class="o">=</span> <span class="n">today</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">deterministic</span><span class="p">([</span><span class="n">date</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2025-08-14 00:06:16.802 | INFO     | earth2studio.run:deterministic:75 - Running simple workflow!
+2025-08-14 00:06:16.802 | INFO     | earth2studio.run:deterministic:82 - Inference device: cuda
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.000 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 365351172-830755
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.001 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 257312119-2194523
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.002 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 76096413-1106301
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.002 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 31530843-2383267
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.003 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 260328069-1679550
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.004 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfsfcf00.grib2 36223744-1245813
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 4118233-2287055
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 200656956-913760
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.006 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 47663620-1117881
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.007 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 310117592-1859982
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.008 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 27282695-2213708
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.008 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfsfcf00.grib2 25556817-623008
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.009 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 97275596-2221303
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.010 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 78777064-1024232
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.010 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 174312744-941917
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.011 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 13560743-2213795
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.011 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 33914110-1127667
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.013 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 50339265-1097998
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.013 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 23994156-1121267
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.014 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 9179436-1139651
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.015 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 366181927-826566
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.015 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 142530818-2485075
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.016 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 195902625-2434192
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.017 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 116171569-2484063
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.017 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 36611984-1132999
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.018 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 134375856-971459
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.019 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 259506642-821427
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.019 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfsfcf00.grib2 43731350-2381615
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.020 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 65600420-1068526
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.020 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 73650866-2445547
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.021 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 6405288-1158564
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.022 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 59451027-2421454
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.022 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 164651614-2349723
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.023 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 121266076-979582
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.024 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 94152794-1043861
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.024 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 102065662-2475906
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.025 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 363974575-1376597
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.025 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 147492910-962125
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.026 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 175254661-964987
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.027 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 172901803-1410941
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.027 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 111371936-2199724
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.028 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 37744983-1111750
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.029 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 107187387-991409
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.029 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 77202714-1574350
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.030 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 138442322-2159124
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.031 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 20133330-1137053
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.031 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 22847042-1147114
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.032 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 262842558-836988
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.032 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 361905006-1453419
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.033 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 7563852-1615584
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.034 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 125250378-2174202
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.034 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 79801296-1052922
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.035 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 21270383-1576659
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.036 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 132889773-1486083
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.036 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 35041777-1570207
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.037 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 91572952-1576857
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.038 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 61872481-1111769
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.038 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 169433289-2468493
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.039 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 62984250-1560443
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.039 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 105623492-1563895
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.040 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 64544693-1055727
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.041 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 198336817-957991
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.041 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 313833699-817722
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.042 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 0-2214577
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.043 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 191207193-2278884
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.043 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfsfcf00.grib2 46112965-2381615
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.044 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 10319087-1097673
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.044 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 83245887-2221390
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.045 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 17766577-2366753
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.046 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 131842761-1047012
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.046 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 51437263-1090932
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.047 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 311977574-683420
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.048 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 68917423-2216834
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.048 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 363358425-616150
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.049 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 54636852-2215564
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.050 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 135347315-1004904
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.050 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 122245658-1015943
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.051 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 104541568-1081924
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.051 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 40994236-2215141
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.052 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 253526591-2207414
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.053 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 262007619-834939
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.053 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 93149809-1002985
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.054 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 145015893-1028922
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.055 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 199294808-1362148
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.055 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 118655632-1067803
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.056 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 146044815-1448095
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.056 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 88010463-2464242
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.057 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 312660994-1172705
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.058 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 119723435-1542641
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.058 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 314651421-822769
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.059 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 48781501-1557764
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.060 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 171901782-1000021
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.060 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 129355986-2486775
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.061 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfsfcf00.grib2 0-309923
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.062 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 90474705-1098247
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.062 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 108178796-1026056
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.063 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 148455035-991639
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.063 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 201570716-930868
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2025-08-14 00:06:18.064 | DEBUG    | earth2studio.data.hrrr:fetch_array:482 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20250813/conus/hrrr.t00z.wrfnatf00.grib2 45265056-2398564
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;01:26,  1.14it/s]
+Fetching HRRR data:   2%|▏         | 2/99 [00:01&lt;00:42,  2.29it/s]
+Fetching HRRR data:   6%|▌         | 6/99 [00:01&lt;00:12,  7.48it/s]
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:07, 12.38it/s]
+Fetching HRRR data:  14%|█▍        | 14/99 [00:01&lt;00:05, 14.78it/s]
+Fetching HRRR data:  17%|█▋        | 17/99 [00:01&lt;00:04, 16.88it/s]
+Fetching HRRR data:  20%|██        | 20/99 [00:01&lt;00:04, 18.36it/s]
+Fetching HRRR data:  23%|██▎       | 23/99 [00:01&lt;00:03, 19.73it/s]
+Fetching HRRR data:  27%|██▋       | 27/99 [00:02&lt;00:03, 22.41it/s]
+Fetching HRRR data:  30%|███       | 30/99 [00:02&lt;00:03, 21.44it/s]
+Fetching HRRR data:  35%|███▌      | 35/99 [00:02&lt;00:02, 23.78it/s]
+Fetching HRRR data:  38%|███▊      | 38/99 [00:02&lt;00:03, 20.33it/s]
+Fetching HRRR data:  44%|████▍     | 44/99 [00:02&lt;00:02, 24.31it/s]
+Fetching HRRR data:  47%|████▋     | 47/99 [00:02&lt;00:02, 24.16it/s]
+Fetching HRRR data:  51%|█████     | 50/99 [00:03&lt;00:02, 23.95it/s]
+Fetching HRRR data:  54%|█████▎    | 53/99 [00:03&lt;00:01, 23.55it/s]
+Fetching HRRR data:  58%|█████▊    | 57/99 [00:03&lt;00:02, 18.91it/s]
+Fetching HRRR data:  65%|██████▍   | 64/99 [00:03&lt;00:01, 20.65it/s]
+Fetching HRRR data:  71%|███████   | 70/99 [00:03&lt;00:01, 24.37it/s]
+Fetching HRRR data:  74%|███████▎  | 73/99 [00:04&lt;00:01, 24.22it/s]
+Fetching HRRR data:  78%|███████▊  | 77/99 [00:04&lt;00:01, 19.58it/s]
+Fetching HRRR data:  84%|████████▍ | 83/99 [00:04&lt;00:00, 24.70it/s]
+Fetching HRRR data:  87%|████████▋ | 86/99 [00:04&lt;00:00, 22.80it/s]
+Fetching HRRR data:  91%|█████████ | 90/99 [00:04&lt;00:00, 22.79it/s]
+Fetching HRRR data:  95%|█████████▍| 94/99 [00:05&lt;00:00, 21.66it/s]
+Fetching HRRR data: 100%|██████████| 99/99 [00:05&lt;00:00, 19.49it/s]
+2025-08-14 00:06:23.592 | SUCCESS  | earth2studio.run:deterministic:106 - Fetched data from HRRR
+2025-08-14 00:06:23.710 | INFO     | earth2studio.run:deterministic:136 - Inference starting!
+
+
+Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:01&lt;00:07,  1.88s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+2025-08-14 00:06:25.923 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 384552228-871180
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.926 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 329784456-846741
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.928 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 409217115-954281
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.930 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 253934817-726986
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.932 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 207006716-604194
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.935 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 331948222-1265717
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.937 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 336178339-579806
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.939 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 386436401-1124957
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.941 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 206416326-590390
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.943 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 416184663-1226090
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.945 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 404628090-511606
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.947 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-993898
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.949 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 203169116-1077617
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.951 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 328887157-897299
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.953 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 255908170-1189083
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.955 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 396911355-830223
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.957 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 408244138-972977
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.959 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 253132481-802336
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.961 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 389454691-972816
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.963 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 260271043-934531
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.964 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 201114874-739529
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.966 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 394829456-991837
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.967 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 200389847-725027
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.968 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 259307599-963444
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.970 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 390427507-960832
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+
+
+
+2025-08-14 00:06:25.971 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f000 335612142-566197
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  20%|██        | 1/5 [00:02&lt;00:07,  1.88s/it]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:14,  1.72it/s]
+Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:04,  5.14it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  8.24it/s]
+Fetching GFS data:  38%|███▊      | 10/26 [00:00&lt;00:00, 17.65it/s]
+Fetching GFS data:  50%|█████     | 13/26 [00:01&lt;00:00, 20.44it/s]
+Fetching GFS data:  69%|██████▉   | 18/26 [00:01&lt;00:00, 24.38it/s]
+Fetching GFS data:  85%|████████▍ | 22/26 [00:01&lt;00:00, 28.16it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.02it/s]
+
+
+Running inference:  40%|████      | 2/5 [00:15&lt;00:26,  8.94s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+2025-08-14 00:06:39.812 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 386785437-870518
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.814 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 331969565-851422
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.817 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 254824982-726574
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.819 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 334137031-1266039
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.821 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 388668760-1125259
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.823 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 337800824-569083
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.825 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 0-991940
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.827 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 392656066-960208
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.830 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 427032191-1221745
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.832 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 207340418-589342
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.834 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 391684115-971951
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.836 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 412029561-975724
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.837 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 331073140-896425
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.839 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 204139298-1033581
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.841 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 407401231-511130
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.843 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 256798116-1188419
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.845 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 413005285-953728
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.847 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 254022619-802363
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.849 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 261123031-934313
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.851 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 202081132-738767
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.852 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 201356321-724811
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.854 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 338369907-582748
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.855 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 260199138-923893
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.856 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 207929760-604257
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.858 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 399147220-830530
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+
+
+
+2025-08-14 00:06:39.859 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f001 397061272-989944
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  40%|████      | 2/5 [00:16&lt;00:26,  8.94s/it]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  2.06it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:07,  3.34it/s]
+Fetching GFS data:  12%|█▏        | 3/26 [00:00&lt;00:04,  4.70it/s]
+Fetching GFS data:  27%|██▋       | 7/26 [00:00&lt;00:01, 12.70it/s]
+Fetching GFS data:  46%|████▌     | 12/26 [00:01&lt;00:00, 20.20it/s]
+Fetching GFS data:  62%|██████▏   | 16/26 [00:01&lt;00:00, 24.82it/s]
+Fetching GFS data:  85%|████████▍ | 22/26 [00:01&lt;00:00, 30.15it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.20it/s]
+
+
+Running inference:  60%|██████    | 3/5 [00:29&lt;00:22, 11.22s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+2025-08-14 00:06:53.760 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 328705100-851211
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.763 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 254605011-725374
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.766 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 201556101-738889
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.768 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 256576908-1184021
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.770 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 330875624-1265904
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.772 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 260092934-549778
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.774 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 334538627-563291
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.776 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 335101918-581702
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.778 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 409645787-953448
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.780 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 389300908-959715
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.782 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 0-991721
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.784 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 423873620-1224791
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.786 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 404049026-512132
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.788 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 253803587-801424
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.790 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 203610114-1077504
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.792 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 200832137-723964
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.794 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 207434138-604085
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.796 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 385314766-1125290
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.798 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 388329994-970914
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.800 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 395792115-830403
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.801 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 383431042-869904
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.802 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 260642712-556238
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.804 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 206845263-588875
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.805 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 408674882-970905
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.806 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 393703610-990044
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+
+
+
+2025-08-14 00:06:53.807 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f002 327808668-896432
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  60%|██████    | 3/5 [00:30&lt;00:22, 11.22s/it]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:10,  2.34it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.58it/s]
+Fetching GFS data:  23%|██▎       | 6/26 [00:00&lt;00:01, 10.35it/s]
+Fetching GFS data:  38%|███▊      | 10/26 [00:00&lt;00:00, 16.57it/s]
+Fetching GFS data:  50%|█████     | 13/26 [00:00&lt;00:00, 19.40it/s]
+Fetching GFS data:  73%|███████▎  | 19/26 [00:01&lt;00:00, 29.01it/s]
+Fetching GFS data:  88%|████████▊ | 23/26 [00:01&lt;00:00, 28.46it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.92it/s]
+
+
+Running inference:  80%|████████  | 4/5 [00:43&lt;00:12, 12.35s/it]
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+2025-08-14 00:07:07.812 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 257349438-725548
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.815 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 204414780-738543
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.818 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 389688335-1253081
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.820 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 206468443-1077066
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.822 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 259318005-1179967
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.824 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 209704783-588657
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.826 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 262827724-549683
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.828 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 263377407-555438
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.830 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 413204658-970543
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.832 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 408583010-512079
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.834 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 339416689-581056
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.836 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 428499320-1221190
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.838 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 338846344-570345
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.840 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 203690943-723837
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.842 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 387802673-870588
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.844 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 398225400-989632
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.846 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 335183264-1266119
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.848 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 392841068-970159
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.850 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 400320573-831814
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.852 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 333009333-851917
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.853 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 210293440-603943
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.854 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 393811227-959923
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.856 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 414175201-953476
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.857 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 0-992760
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.858 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 332112320-897013
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+
+
+
+2025-08-14 00:07:07.859 | DEBUG    | earth2studio.data.gfs:fetch_array:380 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20250813/00/atmos/gfs.t00z.pgrb2.0p25.f003 256549105-800333
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running inference:  80%|████████  | 4/5 [00:44&lt;00:12, 12.35s/it]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  1.97it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.43it/s]
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  9.26it/s]
+Fetching GFS data:  27%|██▋       | 7/26 [00:00&lt;00:01, 11.70it/s]
+Fetching GFS data:  50%|█████     | 13/26 [00:00&lt;00:00, 23.25it/s]
+Fetching GFS data:  65%|██████▌   | 17/26 [00:01&lt;00:00, 23.96it/s]
+Fetching GFS data:  92%|█████████▏| 24/26 [00:01&lt;00:00, 31.18it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.29it/s]
+
+
+Running inference: 100%|██████████| 5/5 [00:57&lt;00:00, 12.89s/it]
+Running inference: 100%|██████████| 5/5 [00:57&lt;00:00, 11.53s/it]
+2025-08-14 00:07:21.337 | SUCCESS  | earth2studio.run:deterministic:146 - Inference complete
+/
+├── Z10hl (1, 5, 512, 640) float32
+├── Z11hl (1, 5, 512, 640) float32
+├── Z13hl (1, 5, 512, 640) float32
+├── Z15hl (1, 5, 512, 640) float32
+├── Z1hl (1, 5, 512, 640) float32
+├── Z20hl (1, 5, 512, 640) float32
+├── Z25hl (1, 5, 512, 640) float32
+├── Z2hl (1, 5, 512, 640) float32
+├── Z30hl (1, 5, 512, 640) float32
+├── Z3hl (1, 5, 512, 640) float32
+├── Z4hl (1, 5, 512, 640) float32
+├── Z5hl (1, 5, 512, 640) float32
+├── Z6hl (1, 5, 512, 640) float32
+├── Z7hl (1, 5, 512, 640) float32
+├── Z8hl (1, 5, 512, 640) float32
+├── Z9hl (1, 5, 512, 640) float32
+├── hrrr_x (640,) int64
+├── hrrr_y (512,) int64
+├── lead_time (5,) timedelta64
+├── mslp (1, 5, 512, 640) float32
+├── p10hl (1, 5, 512, 640) float32
+├── p11hl (1, 5, 512, 640) float32
+├── p13hl (1, 5, 512, 640) float32
+├── p15hl (1, 5, 512, 640) float32
+├── p1hl (1, 5, 512, 640) float32
+├── p20hl (1, 5, 512, 640) float32
+├── p2hl (1, 5, 512, 640) float32
+├── p3hl (1, 5, 512, 640) float32
+├── p4hl (1, 5, 512, 640) float32
+├── p5hl (1, 5, 512, 640) float32
+├── p6hl (1, 5, 512, 640) float32
+├── p7hl (1, 5, 512, 640) float32
+├── p8hl (1, 5, 512, 640) float32
+├── p9hl (1, 5, 512, 640) float32
+├── q10hl (1, 5, 512, 640) float32
+├── q11hl (1, 5, 512, 640) float32
+├── q13hl (1, 5, 512, 640) float32
+├── q15hl (1, 5, 512, 640) float32
+├── q1hl (1, 5, 512, 640) float32
+├── q20hl (1, 5, 512, 640) float32
+├── q25hl (1, 5, 512, 640) float32
+├── q2hl (1, 5, 512, 640) float32
+├── q30hl (1, 5, 512, 640) float32
+├── q3hl (1, 5, 512, 640) float32
+├── q4hl (1, 5, 512, 640) float32
+├── q5hl (1, 5, 512, 640) float32
+├── q6hl (1, 5, 512, 640) float32
+├── q7hl (1, 5, 512, 640) float32
+├── q8hl (1, 5, 512, 640) float32
+├── q9hl (1, 5, 512, 640) float32
+├── refc (1, 5, 512, 640) float32
+├── t10hl (1, 5, 512, 640) float32
+├── t11hl (1, 5, 512, 640) float32
+├── t13hl (1, 5, 512, 640) float32
+├── t15hl (1, 5, 512, 640) float32
+├── t1hl (1, 5, 512, 640) float32
+├── t20hl (1, 5, 512, 640) float32
+├── t25hl (1, 5, 512, 640) float32
+├── t2hl (1, 5, 512, 640) float32
+├── t2m (1, 5, 512, 640) float32
+├── t30hl (1, 5, 512, 640) float32
+├── t3hl (1, 5, 512, 640) float32
+├── t4hl (1, 5, 512, 640) float32
+├── t5hl (1, 5, 512, 640) float32
+├── t6hl (1, 5, 512, 640) float32
+├── t7hl (1, 5, 512, 640) float32
+├── t8hl (1, 5, 512, 640) float32
+├── t9hl (1, 5, 512, 640) float32
+├── time (1,) datetime64
+├── u10hl (1, 5, 512, 640) float32
+├── u10m (1, 5, 512, 640) float32
+├── u11hl (1, 5, 512, 640) float32
+├── u13hl (1, 5, 512, 640) float32
+├── u15hl (1, 5, 512, 640) float32
+├── u1hl (1, 5, 512, 640) float32
+├── u20hl (1, 5, 512, 640) float32
+├── u25hl (1, 5, 512, 640) float32
+├── u2hl (1, 5, 512, 640) float32
+├── u30hl (1, 5, 512, 640) float32
+├── u3hl (1, 5, 512, 640) float32
+├── u4hl (1, 5, 512, 640) float32
+├── u5hl (1, 5, 512, 640) float32
+├── u6hl (1, 5, 512, 640) float32
+├── u7hl (1, 5, 512, 640) float32
+├── u8hl (1, 5, 512, 640) float32
+├── u9hl (1, 5, 512, 640) float32
+├── v10hl (1, 5, 512, 640) float32
+├── v10m (1, 5, 512, 640) float32
+├── v11hl (1, 5, 512, 640) float32
+├── v13hl (1, 5, 512, 640) float32
+├── v15hl (1, 5, 512, 640) float32
+├── v1hl (1, 5, 512, 640) float32
+├── v20hl (1, 5, 512, 640) float32
+├── v25hl (1, 5, 512, 640) float32
+├── v2hl (1, 5, 512, 640) float32
+├── v30hl (1, 5, 512, 640) float32
+├── v3hl (1, 5, 512, 640) float32
+├── v4hl (1, 5, 512, 640) float32
+├── v5hl (1, 5, 512, 640) float32
+├── v6hl (1, 5, 512, 640) float32
+├── v7hl (1, 5, 512, 640) float32
+├── v8hl (1, 5, 512, 640) float32
+└── v9hl (1, 5, 512, 640) float32
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>The last step is to post process our results. Cartopy is a great library for plotting
+fields on projections of a sphere. Here we will just plot the temperature at 2 meters
+(t2m) 4 hours into the forecast.</p>
+<p>Notice that the Zarr IO function has additional APIs to interact with the stored data.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">forecast</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;t2m&quot;</span>
+<span class="n">step</span> <span class="o">=</span> <span class="mi">4</span>  <span class="c1"># lead time = 1 hr</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create a correct Lambert Conformal projection</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">LambertConformal</span><span class="p">(</span>
+    <span class="n">central_longitude</span><span class="o">=</span><span class="mf">262.5</span><span class="p">,</span>
+    <span class="n">central_latitude</span><span class="o">=</span><span class="mf">38.5</span><span class="p">,</span>
+    <span class="n">standard_parallels</span><span class="o">=</span><span class="p">(</span><span class="mf">38.5</span><span class="p">,</span> <span class="mf">38.5</span><span class="p">),</span>
+    <span class="n">globe</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">Globe</span><span class="p">(</span><span class="n">semimajor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">,</span> <span class="n">semiminor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a figure and axes with the specified projection</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+
+<span class="c1"># Plot the field using pcolormesh</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+    <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Spectral_r&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Set state lines</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span>
+    <span class="n">cartopy</span><span class="o">.</span><span class="n">feature</span><span class="o">.</span><span class="n">STATES</span><span class="o">.</span><span class="n">with_scale</span><span class="p">(</span><span class="s2">&quot;50m&quot;</span><span class="p">),</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">2</span>
+<span class="p">)</span>
+
+<span class="c1"># Set title</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs&quot;</span><span class="p">)</span>
+
+<span class="c1"># Add coastlines and gridlines</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/09_</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">_t2m_prediction.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../_images/sphx_glr_09_stormcast_example_001.png" srcset="../_images/sphx_glr_09_stormcast_example_001.png" alt="2025-08-13 - Lead time: 4hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 26.831 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-09-stormcast-example-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/49e2d9e4494abc70bda87a20cb4b69a7/09_stormcast_example.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">09_stormcast_example.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/7d6df65eb885158c089101ac0826b063/09_stormcast_example.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">09_stormcast_example.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/8e0fb1ae371045a04425c5c08d4fff43/09_stormcast_example.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">09_stormcast_example.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="08_distributed_manager.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Distributed Manager Inference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="10_stormcast_ensemble_example.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Running StormCast Ensemble Inference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-the-workflow">Execute the Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/09_stormcast_example.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

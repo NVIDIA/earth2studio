@@ -1,0 +1,21 @@
+﻿:mod:`earth2studio.io`.ZarrBackend
+=========================================
+
+.. currentmodule:: earth2studio.io
+
+.. autoclass:: ZarrBackend
+
+
+    .. automethod:: add_array
+    .. automethod:: write
+
+
+.. _sphx_glr_backref_earth2studio.io.ZarrBackend:
+
+.. minigallery:: earth2studio.io.ZarrBackend
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>

@@ -1,0 +1,20 @@
+﻿:mod:`earth2studio.statistics`.fss
+=========================================
+
+.. currentmodule:: earth2studio.statistics
+
+.. autoclass:: fss
+
+   
+    .. automethod:: __call__
+   
+
+.. _sphx_glr_backref_earth2studio.statistics.fss:
+
+.. minigallery:: earth2studio.statistics.fss
+      :add-heading:
+      :heading-level: ^
+
+.. raw:: html
+
+    <div class="clearer"></div>
