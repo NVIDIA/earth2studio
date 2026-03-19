@@ -200,6 +200,7 @@ def run_inference(
             print_te_output=cfg.cyclone_tracking.print_te_output,
             use_ram=cfg.cyclone_tracking.use_ram,
             timeout=cfg.cyclone_tracking.task_timeout_seconds,
+            max_workers_per_rank=cfg.cyclone_tracking.get("max_workers_per_rank", None),
         )
 
     stability_check = None

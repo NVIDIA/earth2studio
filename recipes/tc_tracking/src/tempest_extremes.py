@@ -603,24 +603,24 @@ class TempestExtremes:
         # set up TE helper files
         insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
 
-        for ins, outs, node_file, track_file in zip(
-            insies, outsies, node_files, self.track_files
-        ):
-            # detect nodes
-            self.run_te(
-                command=self.detect_cmd
-                + ["--in_data_list", ins, "--out_file_list", outs],
-                print_output=self.print_te_output,
-            )
+        try:
+            for ins, outs, node_file, track_file in zip(
+                insies, outsies, node_files, self.track_files
+            ):
+                # detect nodes
+                self.run_te(
+                    command=self.detect_cmd
+                    + ["--in_data_list", ins, "--out_file_list", outs],
+                    print_output=self.print_te_output,
+                )
 
-            # stitch them together
-            self.run_te(
-                command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
-                print_output=self.print_te_output,
-            )
-
-        # remove helper files
-        self.tidy_up(insies, outsies)
+                # stitch them together
+                self.run_te(
+                    command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
+                    print_output=self.print_te_output,
+                )
+        finally:
+            self.tidy_up(insies, outsies)
 
         print(f"took {(time.time() - then):.1f}s to track cyclones")
 
@@ -650,27 +650,33 @@ class TempestExtremes:
             Paths to output file lists
         """
         for ins, outs in zip(insies, outsies):
-            with open(ins) as fl:
-                raw_dat = fl.read().strip()
+            # Read the raw data path from the input file list (may not exist on failure)
+            raw_dat = None
+            if os.path.exists(ins):
+                with open(ins) as fl:
+                    raw_dat = fl.read().strip()
 
-            if self.keep_raw:  # move field data to disk
-                out_path = os.path.join(self.store_dir, "raw_data")
-                raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
-                if raw_dat != raw_dest:  # nothing to do if use_ram=False
-                    if os.path.exists(raw_dest):
-                        os.remove(raw_dest)
-                    shutil.move(raw_dat, out_path)
-            else:  # delete field data
-                os.remove(raw_dat)
+            if raw_dat and os.path.exists(raw_dat):
+                if self.keep_raw:  # move field data to disk
+                    out_path = os.path.join(self.store_dir, "raw_data")
+                    raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
+                    if raw_dat != raw_dest:  # nothing to do if use_ram=False
+                        if os.path.exists(raw_dest):
+                            os.remove(raw_dest)
+                        shutil.move(raw_dat, out_path)
+                else:  # delete field data
+                    os.remove(raw_dat)
 
             # delete TE helper files
             files = [ins, outs]
-            with open(outs) as fl:
-                _files = [line.strip() for line in fl]
-            files.extend(_files)
+            if os.path.exists(outs):
+                with open(outs) as fl:
+                    _files = [line.strip() for line in fl]
+                files.extend(_files)
 
             for file in files:
-                os.remove(file)
+                if os.path.exists(file):
+                    os.remove(file)
 
         return
 
@@ -679,6 +685,23 @@ class TempestExtremes:
 _tempest_executor: ThreadPoolExecutor | None = None
 _tempest_background_tasks: list[Future] = []
 _tempest_executor_lock: threading.Lock = threading.Lock()
+
+# Global semaphore that caps the total number of concurrent TE subprocesses per rank.
+# Defaults to cpu_count / local_ranks (i.e. a fair share of CPUs for this rank).
+_local_ranks = torch.cuda.device_count() or 1
+_te_semaphore = threading.Semaphore(max(1, (os.cpu_count() or 1) // _local_ranks))
+
+
+def set_te_concurrency_limit(limit: int) -> None:
+    """Override the per-rank TE concurrency limit.
+
+    Parameters
+    ----------
+    limit : int
+        Maximum number of concurrent TempestExtremes subprocesses for this rank.
+    """
+    global _te_semaphore
+    _te_semaphore = threading.Semaphore(max(1, limit))
 
 
 def get_tempest_executor() -> ThreadPoolExecutor:
@@ -755,19 +778,22 @@ class AsyncTempestExtremes(TempestExtremes):
         Special parameters:
         - timeout : int, optional
             Timeout in seconds for operations, by default 60
-        - max_workers : int, optional
-            Maximum number of worker threads for parallel ensemble member processing.
-            If None (default), uses min(n_members, cpu_count). If provided, caps
-            the number of workers to this value, by default None
+        - max_workers_per_rank : int, optional
+            Hard cap on the total number of concurrent TempestExtremes subprocesses
+            for this rank, across all thread pools. If None (default), uses
+            cpu_count // local_gpu_count. Overrides the module-level default.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Extract async-specific parameters with default values
         self.timeout = kwargs.pop("timeout", 60)
-        self.max_workers = kwargs.pop("max_workers", None)
+        max_workers_per_rank = kwargs.pop("max_workers_per_rank", None)
 
         # Initialize the parent class
         super().__init__(*args, **kwargs)
+
+        if max_workers_per_rank is not None:
+            set_te_concurrency_limit(max_workers_per_rank)
 
         # Track background tasks for this instance
         self._instance_tasks: list[Future] = []
@@ -1037,22 +1063,26 @@ class AsyncTempestExtremes(TempestExtremes):
         ChildProcessError
             If TempestExtremes detect or stitch operations fail
         """
-        then = time.time()
+        with _te_semaphore:
+            then = time.time()
 
-        # detect nodes
-        self.run_te(
-            command=self.detect_cmd + ["--in_data_list", ins, "--out_file_list", outs],
-            print_output=self.print_te_output,
-        )
+            # detect nodes
+            self.run_te(
+                command=self.detect_cmd
+                + ["--in_data_list", ins, "--out_file_list", outs],
+                print_output=self.print_te_output,
+            )
 
-        # stitch them together
-        self.run_te(
-            command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
-            print_output=self.print_te_output,
-        )
+            # stitch them together
+            self.run_te(
+                command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
+                print_output=self.print_te_output,
+            )
 
-        if self.print_te_output:
-            print(f"took {(time.time() - then):.1f}s to track cyclones for one member")
+            if self.print_te_output:
+                print(
+                    f"took {(time.time() - then):.1f}s to track cyclones for one member"
+                )
 
     def _run_te_and_cleanup(
         self,
@@ -1084,44 +1114,40 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         then = time.time()
 
-        # Create a dedicated local thread pool for member processing
+        # Actual concurrency is bounded by _te_semaphore, so pool sizing
+        # only controls how many tasks are queued, not how many run at once.
         n_members = len(insies)
         max_workers = min(n_members, os.cpu_count() or 1)
-        if self.max_workers is not None:
-            max_workers = min(self.max_workers, max_workers)
 
-        with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="te_members"
-        ) as executor:
-            # Submit one task per member to process in parallel
-            member_futures = []
+        try:
+            with ThreadPoolExecutor(
+                max_workers=max_workers, thread_name_prefix="te_members"
+            ) as executor:
+                member_futures = []
 
-            for ins, outs, node_file, track_file in zip(
-                insies, outsies, node_files, track_files
-            ):
-                future = executor.submit(
-                    self._process_single_member, ins, outs, node_file, track_file
+                for ins, outs, node_file, track_file in zip(
+                    insies, outsies, node_files, track_files
+                ):
+                    future = executor.submit(
+                        self._process_single_member, ins, outs, node_file, track_file
+                    )
+                    member_futures.append(future)
+
+                exceptions = []
+                for i, future in enumerate(member_futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"Member {i+1} processing failed: {e}")
+                        exceptions.append((i, e))
+
+            if exceptions:
+                error_msg = (
+                    f"Processing failed for {len(exceptions)} member(s): {exceptions}"
                 )
-                member_futures.append(future)
-
-            # Wait for all members to complete
-            exceptions = []
-            for i, future in enumerate(member_futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    print(f"Member {i+1} processing failed: {e}")
-                    exceptions.append((i, e))
-
-        # Raise if any failed
-        if exceptions:
-            error_msg = (
-                f"Processing failed for {len(exceptions)} member(s): {exceptions}"
-            )
-            raise ChildProcessError(error_msg)
-
-        # Clean up after all are done
-        self.tidy_up(insies, outsies)
+                raise ChildProcessError(error_msg)
+        finally:
+            self.tidy_up(insies, outsies)
 
         print(
             f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"
@@ -1153,45 +1179,42 @@ class AsyncTempestExtremes(TempestExtremes):
         # Dump data and setup files (synchronous within this thread to avoid race conditions)
         insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
 
-        # Create a dedicated local thread pool for member processing
-        # This avoids conflicts with the global executor during shutdown
+        # Actual concurrency is bounded by _te_semaphore, so pool sizing
+        # only controls how many tasks are queued, not how many run at once.
         n_members = len(insies)
         max_workers = min(n_members, os.cpu_count() or 1)
-        if self.max_workers is not None:
-            max_workers = min(self.max_workers, max_workers)
 
-        with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="te_members"
-        ) as executor:
-            # Submit one task per member to process in parallel
-            member_futures = []
+        try:
+            with ThreadPoolExecutor(
+                max_workers=max_workers, thread_name_prefix="te_members"
+            ) as executor:
+                # Submit one task per member to process in parallel
+                member_futures = []
 
-            for ins, outs, node_file, track_file in zip(
-                insies, outsies, node_files, self.track_files
-            ):
-                future = executor.submit(
-                    self._process_single_member, ins, outs, node_file, track_file
+                for ins, outs, node_file, track_file in zip(
+                    insies, outsies, node_files, self.track_files
+                ):
+                    future = executor.submit(
+                        self._process_single_member, ins, outs, node_file, track_file
+                    )
+                    member_futures.append(future)
+
+                # Wait for all members to complete
+                exceptions = []
+                for i, future in enumerate(member_futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"Member {i+1} processing failed: {e}")
+                        exceptions.append((i, e))
+
+            if exceptions:
+                error_msg = (
+                    f"Processing failed for {len(exceptions)} member(s): {exceptions}"
                 )
-                member_futures.append(future)
-
-            # Wait for all members to complete
-            exceptions = []
-            for i, future in enumerate(member_futures):
-                try:
-                    future.result()  # This will raise if the task failed
-                except Exception as e:
-                    print(f"Member {i+1} processing failed: {e}")
-                    exceptions.append((i, e))
-
-        # Raise if any failed
-        if exceptions:
-            error_msg = (
-                f"Processing failed for {len(exceptions)} member(s): {exceptions}"
-            )
-            raise ChildProcessError(error_msg)
-
-        # Clean up after all are done
-        self.tidy_up(insies, outsies)
+                raise ChildProcessError(error_msg)
+        finally:
+            self.tidy_up(insies, outsies)
 
         print(
             f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"

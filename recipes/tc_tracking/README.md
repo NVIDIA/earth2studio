@@ -269,6 +269,7 @@ cyclone_tracking:
     use_ram: True
     task_timeout_seconds: 120   # timeout for tracking tasks
     print_te_output: False      # print TE output to terminal
+    max_workers_per_rank: 8     # max concurrent TE subprocesses per rank
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -602,6 +603,13 @@ enabling tracking with virtually no overhead.
   prediction time scales approximately linearly with batch
   size, while the time for a single CPU thread to process
   one member remains constant.
+- **Concurrency control**: On multi-GPU nodes, multiple
+  ranks share the same CPUs. Use `max_workers_per_rank` to
+  limit the number of concurrent TempestExtremes
+  subprocesses per rank. A good default is
+  `cpu_count / gpus_per_node` (e.g. 8 on a 64-core node
+  with 8 GPUs). If omitted, the value is derived
+  automatically from `cpu_count / gpu_count`.
 - If you encounter issues, first verify whether they also
   occur with asynchronous mode disabled before debugging
   further.

@@ -24,6 +24,7 @@ cyclone_tracking:
     use_ram: True
     task_timeout_seconds: 120
     print_te_output: False
+    max_workers_per_rank: 8
 
 stability_check:
     variables: ['t1000', 'u250', 'v850']
