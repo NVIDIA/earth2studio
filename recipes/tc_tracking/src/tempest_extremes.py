@@ -463,17 +463,22 @@ class TempestExtremes:
                     f"{len(out_file_names)} passed for {len(mems)} ensemble members"
                 )
 
+        # IC string from the raw filename to make list files unique across ICs
+        ic_str = os.path.basename(raw_files[0]).split("_mem_")[0]
+
         ins, outs, node_files, track_files = [], [], [], []
         for ii, (mem, raw_dat) in enumerate(zip(mems, raw_files)):
             # in_files to file
             _ins = os.path.join(
-                self.ram_dir, f"input_files_{self.rank:04d}_mem_{mem:05d}.txt"
+                self.ram_dir,
+                f"input_files_{self.rank:04d}_{ic_str}_mem_{mem:05d}.txt",
             )
             with open(_ins, "w") as fl:
                 fl.write(raw_dat + "\n")
 
             _outs = os.path.join(
-                self.ram_dir, f"output_files_{self.rank:04d}_mem_{mem:05d}.txt"
+                self.ram_dir,
+                f"output_files_{self.rank:04d}_{ic_str}_mem_{mem:05d}.txt",
             )
             base_name = os.path.basename(raw_dat)
             base_name = base_name.rsplit(".", 1)[0]
