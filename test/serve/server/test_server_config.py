@@ -16,33 +16,25 @@
 
 import logging
 import os
-import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-# Mock hydra and omegaconf modules before importing config to avoid import errors
-# if these dependencies are not installed in the test environment
-mock_hydra = MagicMock()
-mock_global_hydra = MagicMock()
-mock_global_hydra_instance = MagicMock()
-mock_global_hydra.instance.return_value = mock_global_hydra_instance
+import pytest
 
-# TODO: This leaks into other test envs. Danger!
-sys.modules["hydra"] = mock_hydra
-sys.modules["hydra.core"] = MagicMock()
-sys.modules["hydra.core.global_hydra"] = mock_global_hydra
-mock_hydra.compose = MagicMock()
-mock_hydra.initialize_config_dir = MagicMock()
+_SERVE_AVAILABLE = False
+try:
+    import hydra  # noqa: F401
+    import omegaconf  # noqa: F401
 
-# Mock omegaconf
-mock_omegaconf = MagicMock()
-sys.modules["omegaconf"] = mock_omegaconf
-mock_omegaconf.OmegaConf = MagicMock()
-mock_omegaconf.OmegaConf.to_container = MagicMock(return_value={})
+    _SERVE_AVAILABLE = True
+except ImportError:
+    pass
 
-# Import config after mocking dependencies (noqa: E402 - import after mocks is intentional)
-# Note: serve/server path is added by conftest.py
+pytestmark = pytest.mark.skipif(
+    not _SERVE_AVAILABLE, reason="hydra / omegaconf not available"
+)
+
 from earth2studio.serve.server.config import (  # noqa: E402
     AppConfig,
     ConfigManager,
