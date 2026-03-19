@@ -162,9 +162,8 @@ def run_inference(
     ZarrBackend | NetCDF4Backend | None
         The output store after all data has been written
     """
-    dist = DistributedManager()
 
-    # data_source = hydra.utils.instantiate(cfg.data_source)
+    dist = DistributedManager()
     data_source_mngr = DataSourceManager(cfg)
 
     # iterate over initial conditions
@@ -233,8 +232,6 @@ def run_inference(
 
         if stability_check:
             stability_check.reset(deepcopy(coords))
-        # print(stability_check.input_coords)
-        # exit()
 
         # set random state or apply perturbation
         if ("model" not in cfg) or (cfg.model == "fcn3"):
@@ -385,7 +382,6 @@ def generate_ensemble(cfg: DictConfig) -> None:
 
     model = load_model(cfg)
 
-    # store, out_coords = setup_output(cfg, model, add_arrays=DistributedManager().rank == 0)
     store, out_coords = (
         run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
             setup_output,
