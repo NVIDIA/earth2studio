@@ -21,36 +21,39 @@ Thus are typically used to generate forecast predictions.
 
 .. currentmodule:: earth2studio.models.px
 
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/models/px/
-   :template: prognostic.rst
+.. badge-filter:: region:global region:na class:nwc class:ds class:mrf class:s2s class:da year:2021 year:2022 year:2023 year:2024 year:2025 domain:wind domain:precip domain:temp domain:atmos domain:ocean gpu:96gb gpu:80gb gpu:48gb gpu:40gb gpu:24gb
+   :filter-mode: or
 
-   ACE2ERA5
-   AIFS
-   AIFSENS
-   Atlas
-   Aurora
-   CBottleVideo
-   DiagnosticWrapper
-   DLESyM
-   DLESyMLatLon
-   DLWP
-   FCN
-   FCN3
-   FengWu
-   FuXi
-   GraphCastOperational
-   GraphCastSmall
-   InterpModAFNO
-   Pangu24
-   Pangu6
-   Pangu3
-   Persistence
-   SFNO
-   StormCast
-   StormScopeGOES
-   StormScopeMRMS
+   .. autosummary::
+      :nosignatures:
+      :toctree: generated/models/px/
+      :template: prognostic.rst
+
+      ACE2ERA5
+      AIFS
+      AIFSENS
+      Atlas
+      Aurora
+      CBottleVideo
+      DiagnosticWrapper
+      DLESyM
+      DLESyMLatLon
+      DLWP
+      FCN
+      FCN3
+      FengWu
+      FuXi
+      GraphCastOperational
+      GraphCastSmall
+      InterpModAFNO
+      Pangu24
+      Pangu6
+      Pangu3
+      Persistence
+      SFNO
+      StormCast
+      StormScopeGOES
+      StormScopeMRMS
 
 .. _earth2studio.models.dx:
 
@@ -70,31 +73,34 @@ etc.
 
 .. currentmodule:: earth2studio.models.dx
 
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/models/dx/
-   :template: diagnostic.rst
+.. badge-filter:: region:global region:us application:nowcasting application:downscaling application:medium-range application:seasonal application:data-assimilation year:2021 year:2022 year:2023 year:2024 year:2025 field:winds field:precipitation field:temperature field:ocean gpu:96gb gpu:80gb gpu:48gb gpu:40gb gpu:24gb
+   :filter-mode: or
 
-   CBottleInfill
-   CBottleSR
-   CBottleTCGuidance
-   CorrDiffCMIP6
-   CorrDiffTaiwan
-   ClimateNet
-   DerivedRH
-   DerivedRHDewpoint
-   DerivedSurfacePressure
-   DerivedTCWV
-   DerivedVPD
-   DerivedWS
-   PrecipitationAFNO
-   PrecipitationAFNOv2
-   SolarRadiationAFNO1H
-   SolarRadiationAFNO6H
-   TCTrackerWuDuan
-   TCTrackerVitart
-   WindgustAFNO
-   Identity
+   .. autosummary::
+      :nosignatures:
+      :toctree: generated/models/dx/
+      :template: diagnostic.rst
+
+      CBottleInfill
+      CBottleSR
+      CBottleTCGuidance
+      CorrDiffCMIP6
+      CorrDiffTaiwan
+      ClimateNet
+      DerivedRH
+      DerivedRHDewpoint
+      DerivedSurfacePressure
+      DerivedTCWV
+      DerivedVPD
+      DerivedWS
+      PrecipitationAFNO
+      PrecipitationAFNOv2
+      SolarRadiationAFNO1H
+      SolarRadiationAFNO6H
+      TCTrackerWuDuan
+      TCTrackerVitart
+      WindgustAFNO
+      Identity
 
 :mod:`earth2studio.models.da`: Data Assimilation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -113,14 +119,17 @@ or maintain internal state across time steps.
 
 .. currentmodule:: earth2studio.models.da
 
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/models/da/
-   :template: dataassim.rst
+.. badge-filter:: region:global region:us application:nowcasting application:downscaling application:medium-range application:seasonal application:data-assimilation year:2021 year:2022 year:2023 year:2024 year:2025 field:winds field:precipitation field:temperature field:ocean gpu:96gb gpu:80gb gpu:48gb gpu:40gb gpu:24gb
+   :filter-mode: or
 
-   HealDA
-   InterpEquirectangular
-   StormCastSDA
+   .. autosummary::
+      :nosignatures:
+      :toctree: generated/models/da/
+      :template: dataassim.rst
+
+      HealDA
+      InterpEquirectangular
+      StormCastSDA
 
 :mod:`earth2studio.models`: Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

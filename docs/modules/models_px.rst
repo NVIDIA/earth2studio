@@ -1,0 +1,53 @@
+.. _earth2studio.models.px:
+
+:mod:`earth2studio.models.px`: Prognostics
+------------------------------------------
+
+.. automodule:: earth2studio.models.px
+    :no-members:
+    :no-inherited-members:
+
+Prognostic models are a class of models that perform time-integration.
+Thus are typically used to generate forecast predictions.
+
+.. warning ::
+
+   Pre-trained prognostic models provided in Earth2Studio may be provided
+   under different licenses. We encourage users to familiarize themselves with each
+   prior to use.
+
+.. currentmodule:: earth2studio.models.px
+
+.. badge-filter:: region:global region:na class:nwc class:ds class:mrf class:s2s class:da year:2021 year:2022 year:2023 year:2024 year:2025 domain:wind domain:precip domain:temp domain:atmos domain:ocean gpu:96gb gpu:80gb gpu:48gb gpu:40gb gpu:24gb
+   :filter-mode: or
+
+   .. autosummary::
+      :nosignatures:
+      :toctree: generated/models/px/
+      :template: prognostic.rst
+
+      ACE2ERA5
+      AIFS
+      AIFSENS
+      Atlas
+      Aurora
+      CBottleVideo
+      DiagnosticWrapper
+      DLESyM
+      DLESyMLatLon
+      DLWP
+      FCN
+      FCN3
+      FengWu
+      FuXi
+      GraphCastOperational
+      GraphCastSmall
+      InterpModAFNO
+      Pangu24
+      Pangu6
+      Pangu3
+      Persistence
+      SFNO
+      StormCast
+      StormScopeGOES
+      StormScopeMRMS

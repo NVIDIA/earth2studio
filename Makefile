@@ -96,6 +96,11 @@ docs-dev:
 	@echo "Make sure you synced your uv environment with needed extras and --group docs..."
 	PLOT_GALLERY=True RUN_STALE_EXAMPLES=True FILENAME_PATTERN=$(FILENAME) uv run $(MAKE) -j 4 -C docs html
 
+PORT ?= 8001
+.PHONY: serve
+doc-serve:
+	uv run python -m http.server $(PORT) --cgi --directory docs/_build/html
+
 .PHONY: container-service
 # Example DOCKER_REPO?=nvcr.io/dycvht5ows21
 E2S_RELEASE_TAG?=0.12.0

@@ -1,4 +1,4 @@
-.. _earth2studio.data:
+.. _earth2studio.data.analysis:
 
 :mod:`earth2studio.data`: Data Sources
 --------------------------------------
@@ -49,49 +49,11 @@ Used for fetching initial conditions for inference and validation data for scori
    data.DataSetFile
    data.DataArrayPathList
 
-Forecast Sources
-~~~~~~~~~~~~~~~~
+:mod:`earth2studio.data`: AI Sources
+-------------------------------------
 
-Extended data sources that allow users to download forecast data, these are not
-interchangable with standard data sources.
-Typically used in intercomparison workflows.
-
-.. currentmodule:: earth2studio
-
-.. autosummary::
-   :toctree: generated/data/
-   :template: datasource.rst
-
-   data.AIFS_FX
-   data.AIFS_ENS_FX
-   data.GFS_FX
-   data.GEFS_FX
-   data.GEFS_FX_721x1440
-   data.HRRR_FX
-   data.IFS_FX
-   data.IFS_ENS_FX
-
-DataFrame Sources
-~~~~~~~~~~~~~~~~~
-
-Data sources that provide tabular data.
-
-.. currentmodule:: earth2studio
-
-.. autosummary::
-   :toctree: generated/data/
-   :template: datasource.rst
-
-   data.ISD
-   data.RandomDataFrame
-   data.UFSObsConv
-   data.UFSObsSat
-
-AI Sources
-~~~~~~~~~~
-
-Data sources that leverage an AI model to generate weather / climate data at that can be
-used for downstream tasks real time.
+Data sources that leverage an AI model to generate weather / climate data that can be
+used for downstream tasks in real time.
 Unlike prognostic or diagnostic models, these sources do not require any input state
 for subsequent predictions.
 
@@ -102,15 +64,3 @@ for subsequent predictions.
    :template: diagnostic.rst
 
    data.CBottle3D
-
-Functions
-~~~~~~~~~
-.. currentmodule:: earth2studio
-
-.. autosummary::
-   :toctree: generated/data/
-   :template: function.rst
-
-   data.datasource_to_file
-   data.fetch_data
-   data.prep_data_array

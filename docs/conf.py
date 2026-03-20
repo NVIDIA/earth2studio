@@ -66,6 +66,7 @@ extensions = [
     "sphinx_design",
     "sphinx_togglebutton",
     "sphinx_gallery.gen_gallery",
+    "sphinx_badges",
 ]
 
 source_suffix = [".rst", ".md"]
@@ -77,23 +78,25 @@ autodoc_typehints = "description"
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "nvidia_sphinx_theme"
 html_static_path = ["_static"]
 html_css_files = [
-    "css/nvidia-sphinx-theme.css",
+    "css/custom.css",
 ]
 html_theme_options = {
-    "public_docs_features": True,
-    "logo": {
-        "text": "Earth2Studio",
-        "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
-        "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
-    },
+    "public_docs_features": False,
+    # "logo": {
+    #     "text": "Earth2Studio",
+    #     "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
+    #     "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
+    # },
     "navbar_align": "content",
-    "navbar_start": [
-        "navbar-logo",
-        "version-switcher",
-    ],
+    # "navbar_start": [
+    #     "navbar-logo",
+    #     "version-switcher",
+    # ],
+    "navbar_start": ["navbar-logo", "version-switcher", "navbar-nav"],
+    "navbar_center": [],
     "switcher": {
         "json_url": "https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json",
         "version_match": doc_version,  # Set DOC_VERSION env variable to change
@@ -146,4 +149,188 @@ sphinx_gallery_conf = {
     "show_memory": False,
     "exclude_implicit_doc": {r"load_model", r"load_default_package"},
     "log_level": {"backreference_missing": "warning", "gallery_examples": "debug"},
+}
+
+# -- sphinx-badges configuration ----------------------------------------------
+# https://nickgeneva.github.io/sphinx-badges/
+
+badges_position = "top"
+badges_style = "square"
+
+badges_group_labels = {
+    "region": "Region",
+    "class": "Class",
+    "year": "Release",
+    "domain": "Domain",
+    "gpu": "GPU Memory",
+}
+
+badges_definitions = {
+    # ── Region ───────────────────────────────────────────────────────────────
+    "region:global": {
+        "label": "Global",
+        "icon": '<i class="fa-solid fa-globe"></i>',
+        "color": "#0d47a1",
+        "text_color": "#fff",
+    },
+    "region:na": {
+        "label": "NA",
+        "icon": '<i class="fa-solid fa-earth-americas"></i>',
+        "color": "#1565c0",
+        "text_color": "#fff",
+        "tooltip": "North America",
+    },
+    "region:sa": {
+        "label": "SA",
+        "icon": '<i class="fa-solid fa-earth-americas"></i>',
+        "color": "#1976d2",
+        "text_color": "#fff",
+        "tooltip": "South America",
+    },
+    "region:eu": {
+        "label": "EU",
+        "icon": '<i class="fa-solid fa-earth-europe"></i>',
+        "color": "#1e88e5",
+        "text_color": "#fff",
+        "tooltip": "Europe",
+    },
+    "region:as": {
+        "label": "AS",
+        "icon": '<i class="fa-solid fa-earth-asia"></i>',
+        "color": "#42a5f5",
+        "text_color": "#000",
+        "tooltip": "Asia",
+    },
+    "region:af": {
+        "label": "AF",
+        "icon": '<i class="fa-solid fa-earth-africa"></i>',
+        "color": "#64b5f6",
+        "text_color": "#000",
+        "tooltip": "Africa",
+    },
+    "region:au": {
+        "label": "AU",
+        "icon": '<i class="fa-solid fa-earth-oceania"></i>',
+        "color": "#90caf9",
+        "text_color": "#000",
+        "tooltip": "Australia",
+    },
+    # ── Application ──────────────────────────────────────────────────────────
+    "class:nwc": {
+        "label": "NWC",
+        "color": "#198754",
+        "text_color": "#fff",
+        "tooltip": "Nowcasting",
+    },
+    "class:ds": {
+        "label": "DS",
+        "color": "#20c997",
+        "text_color": "#000",
+        "tooltip": "Downscaling",
+    },
+    "class:mrf": {
+        "label": "MRF",
+        "color": "#0dcaf0",
+        "text_color": "#000",
+        "tooltip": "Medium Range",
+    },
+    "class:s2s": {
+        "label": "S2S",
+        "color": "#6610f2",
+        "text_color": "#fff",
+        "tooltip": "Sub-Seasonal to Seasonal",
+    },
+    "class:da": {
+        "label": "DA",
+        "color": "#d63384",
+        "text_color": "#fff",
+        "tooltip": "Data Assimilation",
+    },
+    # ── Publication year ─────────────────────────────────────────────────────
+    "year:2021": {"label": "2021", "color": "#adb5bd", "text_color": "#000"},
+    "year:2022": {"label": "2022", "color": "#868e96", "text_color": "#fff"},
+    "year:2023": {"label": "2023", "color": "#495057", "text_color": "#fff"},
+    "year:2024": {"label": "2024", "color": "#343a40", "text_color": "#fff"},
+    "year:2025": {"label": "2025", "color": "#212529", "text_color": "#fff"},
+    # ── Applications (fields───────────────────────────────────────────────────
+    "domain:wind": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-wind"></i>',
+        "color": "#4dabf7",
+        "text_color": "#fff",
+        "tooltip": "Surface Winds",
+    },
+    "domain:precip": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-cloud-rain"></i>',
+        "color": "#339af0",
+        "text_color": "#fff",
+        "tooltip": "Surface Precipitation",
+    },
+    "domain:temp": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-temperature-half"></i>',
+        "color": "#fd7e14",
+        "text_color": "#fff",
+        "tooltip": "Surface Temperature",
+    },
+    "domain:atmos": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-cloud"></i>',
+        "color": "#74c0fc",
+        "text_color": "#fff",
+        "tooltip": "Atmosphere",
+    },
+    "domain:ocean": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-water"></i>',
+        "color": "#1098ad",
+        "text_color": "#fff",
+        "tooltip": "Ocean",
+    },
+    "domain:soil": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-mound"></i>',
+        "color": "#a0522d",
+        "text_color": "#fff",
+        "tooltip": "Soil",
+    },
+    "domain:solar": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-sun"></i>',
+        "color": "#f59f00",
+        "text_color": "#fff",
+        "tooltip": "Solar",
+    },
+    # ── Minimum GPU memory requirement ───────────────────────────────────────
+    "gpu:96gb": {
+        "label": "96 GB",
+        "color": "#76b900",
+        "text_color": "#fff",
+        "tooltip": "Min. 96 GB GPU memory (GH200, H200, B40, B100, B200)",
+    },
+    "gpu:80gb": {
+        "label": "80 GB",
+        "color": "#5aac44",
+        "text_color": "#fff",
+        "tooltip": "Min. 80 GB GPU memory (A100 80GB, H100, GH200, H200, B40, B100, B200)",
+    },
+    "gpu:48gb": {
+        "label": "48 GB",
+        "color": "#4b9934",
+        "text_color": "#fff",
+        "tooltip": "Min. 48 GB GPU memory (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)",
+    },
+    "gpu:40gb": {
+        "label": "40 GB",
+        "color": "#3d7a26",
+        "text_color": "#fff",
+        "tooltip": "Min. 40 GB GPU memory (A100, L40S, H100, GH200, H200, B40, B100, B200)",
+    },
+    "gpu:24gb": {
+        "label": "24 GB",
+        "color": "#2d5c1e",
+        "text_color": "#fff",
+        "tooltip": "Min. 24 GB GPU memory (A30, A100, L40S, H100, GH200, H200, B40, B100, B200)",
+    },
 }

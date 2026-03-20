@@ -353,7 +353,8 @@ docs = [
     "sphinx-togglebutton>=0.3.0",
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
-    "nvidia-sphinx-theme"
+    "nvidia-sphinx-theme",
+    "sphinx-badges",
 ]
 
 [tool.hatch.version]

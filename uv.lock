@@ -1890,6 +1890,7 @@ docs = [
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx-autodoc-typehints", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx-autodoc-typehints", version = "3.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx-badges" },
     { name = "sphinx-design" },
     { name = "sphinx-favicon" },
     { name = "sphinx-gallery" },
@@ -2133,6 +2134,7 @@ docs = [
     { name = "scipy" },
     { name = "sphinx", specifier = ">=6.0.0" },
     { name = "sphinx-autodoc-typehints", specifier = ">=1.24.0" },
+    { name = "sphinx-badges" },
     { name = "sphinx-design" },
     { name = "sphinx-favicon", specifier = ">=1.0.1" },
     { name = "sphinx-gallery", specifier = ">=0.12.0" },
@@ -7652,6 +7654,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b9/54/319628e24e98102e6f73cf6e5f345324a94d9adc18d456193b84f2ac1608/sphinx_autodoc_typehints-3.7.0.tar.gz", hash = "sha256:f7c536f4c0a729324cfebfaa3787c80ca14d08817952153e6da4e971c5306c20", size = 41344, upload-time = "2026-02-23T20:54:58.529Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/2c/ded433effc5943195a64e18404fd46c195aca559cd9bede1ae73f8bbf67f/sphinx_autodoc_typehints-3.7.0-py3-none-any.whl", hash = "sha256:ad0c9759bac0c7462768003bb57e7bb853c75b74d603e818511c56c10931e72f", size = 21558, upload-time = "2026-02-23T20:54:57.015Z" },
+]
+
+[[package]]
+name = "sphinx-badges"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6d/e6/8b01a5052c17fca192dd632160a1df3db9a595098d763817ee7540305009/sphinx_badges-0.1.1.tar.gz", hash = "sha256:9d61d81fd82aab5c60efc71aaeacac6b7c1fcb983d4ae94f8cb803bf8cadc11b", size = 90274, upload-time = "2026-03-20T19:07:27.735Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/56/f1f6c6444b9b6a5d395556da124c2f0c43f7e3a8e0a740095932e0f49a9a/sphinx_badges-0.1.1-py3-none-any.whl", hash = "sha256:8c7a89cc809ef266934dd58885a4b55b29fe9161527b2ff301d399cd66c2d8af", size = 17054, upload-time = "2026-03-20T19:07:26.398Z" },
 ]
 
 [[package]]
