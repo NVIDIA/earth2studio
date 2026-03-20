@@ -48,4 +48,16 @@ uv run pytest test/path/to/test_file.py -v
 uv run pytest test/path/to/test_file.py -k "test_name" -v
 ```
 
+## Slow tests
+
+Many tests are marked `@pytest.mark.slow` and skipped by default (network calls, large
+downloads). To include them, pass `--slow`:
+
+```bash
+uv run pytest test/path/to/test_file.py -v --slow
+```
+
+Slow tests are often also marked `@pytest.mark.xfail` — an `XPASS` result (unexpected
+pass) is fine and means the test succeeded against live data.
+
 Report the test results, including any failures with their tracebacks.

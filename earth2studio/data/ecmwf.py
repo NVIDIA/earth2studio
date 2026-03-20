@@ -177,13 +177,14 @@ class _ECMWFOpenDataSource(ABC):
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
-                self.fetch(time, lead_time, variable), timeout=self.async_timeout
+                self._ecmwf_fetch(time, lead_time, variable),
+                timeout=self.async_timeout,
             )
         )
 
         return xr_array
 
-    async def fetch(
+    async def _ecmwf_fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -518,6 +519,29 @@ class IFS(_ECMWFOpenDataSource):
         da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
         return da.isel(lead_time=0).drop_vars("lead_time")
 
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async method to retrieve IFS analysis data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS analysis data array.
+        """
+        da = await super()._ecmwf_fetch(time, timedelta(hours=0), variable)
+        return da.isel(lead_time=0).drop_vars("lead_time")
+
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
 
@@ -607,6 +631,31 @@ class IFS_FX(_ECMWFOpenDataSource):
             IFS forecast data array
         """
         return self._call(time, lead_time, variable)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async method to retrieve IFS forecast data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS forecast data array.
+        """
+        return await super()._ecmwf_fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -720,6 +769,31 @@ class IFS_ENS(_ECMWFOpenDataSource):
             IFS ENS initial state data array.
         """
         da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da.isel(lead_time=0).drop_vars("lead_time")
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async method to retrieve IFS ENS initial state data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS ENS initial state data array.
+        """
+        da = await super()._ecmwf_fetch(time, timedelta(hours=0), variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da.isel(lead_time=0).drop_vars("lead_time")
@@ -843,6 +917,34 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async method to retrieve IFS ENS forecast data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            IFS ENS forecast data array.
+        """
+        da = await super()._ecmwf_fetch(time, lead_time, variable)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da
+
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2024, 3, 1)
@@ -946,6 +1048,31 @@ class AIFS_FX(_ECMWFOpenDataSource):
         """
         return self._call(time, lead_time, variable)
 
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async method to retrieve AIFS forecast data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            AIFS forecast data array.
+        """
+        return await super()._ecmwf_fetch(time, lead_time, variable)
+
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
             self._model, self.client.source, times, min_time=datetime(2025, 7, 1, 6)
@@ -1047,6 +1174,34 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
             AIFS ENS forecast data array
         """
         da = self._call(time, lead_time, variable)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async method to retrieve AIFS ENS forecast data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        lead_time: timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return. Must be in the data lexicon.
+
+        Returns
+        -------
+        xr.DataArray
+            AIFS ENS forecast data array
+        """
+        da = await super()._ecmwf_fetch(time, lead_time, variable)
         if "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
