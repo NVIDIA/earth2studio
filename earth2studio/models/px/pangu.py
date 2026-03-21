@@ -359,6 +359,10 @@ class Pangu24(PanguBase):
     ----------
     ort_24hr : str
         Path to Pangu 24 hour onnx file
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
     """
 
     def __init__(
@@ -460,6 +464,10 @@ class Pangu6(PanguBase):
         Path to Pangu 24 hour onnx file
     ort_6hr : str
         Path to Pangu 6 hour onnx file
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40g
     """
 
     def __init__(
@@ -578,6 +586,10 @@ class Pangu3(PanguBase):
         Path to Pangu 6 hour onnx file
     ort_3hr : str
         Path to Pangu 3 hour onnx file
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40g
     """
 
     def __init__(

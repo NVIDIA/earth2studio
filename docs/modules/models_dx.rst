@@ -20,7 +20,7 @@ etc.
 
 .. currentmodule:: earth2studio.models.dx
 
-.. badge-filter:: region:global region:na class:nwc class:ds class:mrf class:s2s class:da year:2021 year:2022 year:2023 year:2024 year:2025 domain:wind domain:precip domain:temp domain:atmos domain:ocean domain:soil domain:solar gpu:96gb gpu:80gb gpu:48gb gpu:40gb gpu:24gb
+.. badge-filter:: region:global region:na class:nwc class:ds class:mrf class:s2s class:da year:2021 year:2022 year:2023 year:2024 year:2025 product:wind product:precip product:temp product:atmos product:ocean product:land product:solar gpu:96gb gpu:80gb gpu:48gb gpu:40gb gpu:24gb
    :filter-mode: or
 
    .. autosummary::

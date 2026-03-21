@@ -161,7 +161,7 @@ badges_group_labels = {
     "region": "Region",
     "class": "Class",
     "year": "Release",
-    "domain": "Domain",
+    "product": "Product",
     "gpu": "GPU Memory",
 }
 
@@ -246,61 +246,95 @@ badges_definitions = {
         "text_color": "#fff",
         "tooltip": "Data Assimilation",
     },
+    "class:cm": {
+        "label": "CM",
+        "color": "#ccff00",
+        "text_color": "#000",
+        "tooltip": "Climate Model",
+    },
     # ── Publication year ─────────────────────────────────────────────────────
     "year:2021": {"label": "2021", "color": "#adb5bd", "text_color": "#000"},
     "year:2022": {"label": "2022", "color": "#868e96", "text_color": "#fff"},
     "year:2023": {"label": "2023", "color": "#495057", "text_color": "#fff"},
     "year:2024": {"label": "2024", "color": "#343a40", "text_color": "#fff"},
     "year:2025": {"label": "2025", "color": "#212529", "text_color": "#fff"},
-    # ── Applications (fields───────────────────────────────────────────────────
-    "domain:wind": {
+    # ── Product (fields) ──────────────────────────────────────────────────────
+    "product:wind": {
         "label": "",
         "icon": '<i class="fa-solid fa-wind"></i>',
         "color": "#4dabf7",
         "text_color": "#fff",
         "tooltip": "Surface Winds",
     },
-    "domain:precip": {
+    "product:precip": {
         "label": "",
         "icon": '<i class="fa-solid fa-cloud-rain"></i>',
         "color": "#339af0",
         "text_color": "#fff",
         "tooltip": "Surface Precipitation",
     },
-    "domain:temp": {
+    "product:temp": {
         "label": "",
         "icon": '<i class="fa-solid fa-temperature-half"></i>',
         "color": "#fd7e14",
         "text_color": "#fff",
         "tooltip": "Surface Temperature",
     },
-    "domain:atmos": {
+    "product:atmos": {
         "label": "",
         "icon": '<i class="fa-solid fa-cloud"></i>',
         "color": "#74c0fc",
         "text_color": "#fff",
         "tooltip": "Atmosphere",
     },
-    "domain:ocean": {
+    "product:ocean": {
         "label": "",
         "icon": '<i class="fa-solid fa-water"></i>',
         "color": "#1098ad",
         "text_color": "#fff",
         "tooltip": "Ocean",
     },
-    "domain:soil": {
+    "product:land": {
         "label": "",
         "icon": '<i class="fa-solid fa-mound"></i>',
         "color": "#a0522d",
         "text_color": "#fff",
-        "tooltip": "Soil",
+        "tooltip": "Land/Soil",
     },
-    "domain:solar": {
+    "product:veg": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-seedling"></i>',
+        "color": "#40c057",
+        "text_color": "#fff",
+        "tooltip": "Vegetation",
+    },
+    "product:solar": {
         "label": "",
         "icon": '<i class="fa-solid fa-sun"></i>',
         "color": "#f59f00",
         "text_color": "#fff",
         "tooltip": "Solar",
+    },
+    "product:radar": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-satellite-dish"></i>',
+        "color": "#7048e8",
+        "text_color": "#fff",
+        "tooltip": "Radar",
+    },
+    "product:sat": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-satellite"></i>',
+        "color": "#1c7ed6",
+        "text_color": "#fff",
+        "tooltip": "Satellite",
+    },
+    "product:insitu": {
+        "label": "",
+        "icon": '<i class="fa-solid fa-tower-observation"></i>',
+        "color": "#2f9e44",
+        "text_color": "#fff",
+        "tooltip": "In-Situ Observations",
     },
     # ── Minimum GPU memory requirement ───────────────────────────────────────
     "gpu:96gb": {
