@@ -118,7 +118,7 @@ class CMIP6:
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos product:ocean
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean
     """
 
     def __init__(
@@ -644,7 +644,7 @@ class CMIP6MultiRealm:
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos product:ocean
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean
     """
 
     def __init__(self, cmip6_source_list: list[CMIP6]):

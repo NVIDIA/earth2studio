@@ -358,7 +358,7 @@ class WB2ERA5(_WB2Base):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     WB2_ERA5_LAT = np.linspace(90, -90, 721)
@@ -408,7 +408,7 @@ class WB2ERA5_121x240(_WB2Base):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     WB2_ERA5_LAT = np.linspace(90, -90, 121)
@@ -458,7 +458,7 @@ class WB2ERA5_32x64(_WB2Base):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     WB2_ERA5_LAT = np.linspace(-87.1875, 87.1875, 32)
@@ -537,7 +537,7 @@ class WB2Climatology(_WB2Base):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     def __init__(

@@ -586,7 +586,7 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
 
     Badges
     ------
-    region:global product:ocean
+    region:global dataclass:observation product:ocean
     """
 
     COLLECTION_ID = "noaa-cdr-sea-surface-temperature-optimum-interpolation"
@@ -675,7 +675,7 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
 
     Badges
     ------
-    region:global product:atmos product:sat
+    region:global dataclass:observation product:atmos product:sat
     """
 
     COLLECTION_ID = "sentinel-3-synergy-aod-l2-netcdf"
@@ -784,7 +784,7 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
 
     Badges
     ------
-    region:global product:land product:sat
+    region:global dataclass:observation product:land product:sat
     """
 
     COLLECTION_ID = "modis-14A1-061"
@@ -952,7 +952,7 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     COLLECTION_ID = "ecmwf-forecast"
@@ -1097,7 +1097,7 @@ class PlanetaryComputerGOES(_PlanetaryComputerData):
 
     Badges
     ------
-    region:na product:sat
+    region:na dataclass:observation product:sat
     """
 
     COLLECTION_ID = "goes-cmi"

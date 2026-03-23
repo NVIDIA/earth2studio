@@ -159,6 +159,7 @@ badges_style = "square"
 badges_group_labels = {
     "region": "Region",
     "class": "Class",
+    "dataclass": "Data Class",
     "year": "Release",
     "product": "Product",
     "gpu": "GPU Memory",
@@ -214,7 +215,7 @@ badges_definitions = {
         "text_color": "#000",
         "tooltip": "Australia",
     },
-    # ── Application ──────────────────────────────────────────────────────────
+    # ── Class ──────────────────────────────────────────────────────────
     "class:nwc": {
         "label": "NWC",
         "color": "#198754",
@@ -250,6 +251,35 @@ badges_definitions = {
         "color": "#ccff00",
         "text_color": "#000",
         "tooltip": "Climate Model",
+    },
+    # ── Data Class ───────────────────────────────────────────────────────────
+    "dataclass:analysis": {
+        "label": "Analysis",
+        "icon": '<i class="fa-solid fa-chart-line"></i>',
+        "color": "#0891b2",
+        "text_color": "#fff",
+        "tooltip": "NWP Analysis / Initial Conditions",
+    },
+    "dataclass:reanalysis": {
+        "label": "Re-Analysis",
+        "icon": '<i class="fa-solid fa-rotate"></i>',
+        "color": "#1d4ed8",
+        "text_color": "#fff",
+        "tooltip": "Atmospheric Re-Analysis",
+    },
+    "dataclass:observation": {
+        "label": "Observation",
+        "icon": '<i class="fa-solid fa-eye"></i>',
+        "color": "#15803d",
+        "text_color": "#fff",
+        "tooltip": "Direct Observations",
+    },
+    "dataclass:simulation": {
+        "label": "Simulation",
+        "icon": '<i class="fa-solid fa-computer"></i>',
+        "color": "#7c3aed",
+        "text_color": "#fff",
+        "tooltip": "Numerical / AI Simulation",
     },
     # ── Publication year ─────────────────────────────────────────────────────
     "year:2021": {"label": "2021", "color": "#adb5bd", "text_color": "#000"},

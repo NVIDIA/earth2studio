@@ -87,7 +87,7 @@ class CDS:
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     MAX_BYTE_SIZE = 20000000

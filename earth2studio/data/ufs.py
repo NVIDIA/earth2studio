@@ -449,7 +449,7 @@ class UFSObsConv(_UFSObsBase):
 
     Badges
     ------
-    region:global product:atmos product:insitu
+    region:global dataclass:observation product:atmos product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsConv"
@@ -599,7 +599,7 @@ class UFSObsSat(_UFSObsBase):
 
     Badges
     ------
-    region:global product:atmos product:sat
+    region:global dataclass:observation product:atmos product:sat
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsSat"

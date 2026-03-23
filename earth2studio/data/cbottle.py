@@ -107,7 +107,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos product:ocean
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))

@@ -82,7 +82,7 @@ class GOES:
 
     Badges
     ------
-    region:na product:sat
+    region:na dataclass:observation product:sat
     """
 
     SCAN_TIME_FREQUENCY = {

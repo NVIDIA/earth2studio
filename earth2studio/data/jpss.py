@@ -68,7 +68,7 @@ class JPSS:
 
     Badges
     ------
-    region:global product:sat
+    region:global dataclass:observation product:sat
     """
 
     BASE_URL = "s3://{bucket}/{product}/{year:04d}/{month:02d}/{day:02d}/"

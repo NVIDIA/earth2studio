@@ -102,7 +102,7 @@ class ISD:
 
     Badges
     ------
-    region:global product:insitu
+    region:global dataclass:observation product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.isd"

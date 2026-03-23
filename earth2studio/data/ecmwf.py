@@ -480,7 +480,7 @@ class IFS(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -595,7 +595,7 @@ class IFS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -729,7 +729,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -874,7 +874,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -1023,7 +1023,7 @@ class AIFS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = AIFSLexicon
@@ -1143,7 +1143,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = AIFSLexicon

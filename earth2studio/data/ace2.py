@@ -77,7 +77,7 @@ class ACE2ERA5Data:
 
     Badges
     ------
-    region:global product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     _IC_ALLOWED_YEARS = [1940, 1950, 1979, 2001, 2020]
