@@ -75,57 +75,11 @@ run(["2024-01-01"], 10, model, ds, io)
 - [Frequently Asked Questions](support/faq)
 
 ```{toctree}
-:caption: About
-:maxdepth: 1
+:maxdepth: 2
 :hidden:
 
-about/install
-about/intro
-about/data
-
-```
-
-```{toctree}
-:caption: Core Components
-:maxdepth: 1
-:hidden:
-
-components/prognostic
-components/diagnostic
-components/datasources
-components/perturbation
-components/io
-components/statistics
-```
-
-```{toctree}
-:caption: Advanced Usage
-:maxdepth: 1
-:hidden:
-
-advanced/batch
-advanced/auto
-advanced/lexicon
-```
-
-```{toctree}
-:caption: Developer Guide
-:maxdepth: 1
-:hidden:
-
-developer/overview
-developer/dependency
-developer/style
-developer/documentation
-developer/testing
-developer/build
-developer/recipes
-```
-
-```{toctree}
-:caption: Support
-:maxdepth: 1
-:hidden:
-support/troubleshooting
-support/faq
+components/index
+advanced/index
+developer/index
+support/index
 ```
