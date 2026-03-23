@@ -71,6 +71,10 @@ class InterpEquirectangular(torch.nn.Module):
     ------
     ValueError
         If interp_method is not one of the supported methods
+
+    Badges
+    ------
+    region:na class:da product:atmos product:insitu
     """
 
     # Acceptable variables for this model
