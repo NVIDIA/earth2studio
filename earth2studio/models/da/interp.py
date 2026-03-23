@@ -74,7 +74,7 @@ class InterpEquirectangular(torch.nn.Module):
 
     Badges
     ------
-    region:na class:da product:atmos product:insitu
+    region:global region:na class:da product:atmos product:insitu
     """
 
     # Acceptable variables for this model

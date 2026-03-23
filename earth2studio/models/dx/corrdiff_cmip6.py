@@ -166,7 +166,7 @@ class CorrDiffCMIP6(CorrDiff):
     Badges
     ------
     region:global class:ds class:cm product:wind product:precip product:temp
-    product:atmos year:2024 gpu:80gb
+    product:atmos year:2026 gpu:80gb
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)
