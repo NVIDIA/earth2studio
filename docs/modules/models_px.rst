@@ -24,6 +24,7 @@ Thus are typically used to generate forecast predictions.
    year:2021 year:2022 year:2023 year:2024 year:2025 year:2026
    gpu:96gb gpu:80gb gpu:48gb gpu:40gb
    :filter-mode: or
+   :badge-order-fixed:
 
    .. autosummary::
       :nosignatures:
