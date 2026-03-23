@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Install &#8212; Earth2Studio 0.13.0a0 documentation</title>
+    <title>Install &#8212; Earth2Studio 0.14.0a0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=e36bfde7"></script>
+    <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>let toggleHintShow = 'Click to show';</script>
@@ -68,7 +68,7 @@
     <link rel="prev" title="User Guide" href="../index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.13" />
+  <meta name="docsearch:version" content="0.14" />
   </head>
   
   
@@ -496,7 +496,7 @@ To get the latest release of Earth2Studio, install from the Python index.</p>
 and it’s recommended that users use an uv project for the best install experience:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
 uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1&quot;</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -937,7 +937,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.</p>
 pip</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>hatchling
 pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3&quot;</span>
-pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;cbottle @ git+https://github.com/NVlabs/cBottle.git@1d4435abe730d6b966e983633b466b345d60ac78&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;cbottle @ git+https://github.com/NVlabs/cBottle.git@8b8b358466e6b2f50d1779009790002ceb596e72&quot;</span>
 pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>cbottle<span class="o">]</span>
 </pre></div>
 </div>
@@ -1145,7 +1145,9 @@ HealDA</label><div class="sd-tab-content docutils">
 <input checked="checked" id="sd-tab-item-78" name="sd-tab-set-28" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-78">
 pip</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>da-healda<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>hatchling
+pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span><span class="s2">&quot;earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>da-healda<span class="o">]</span>
 </pre></div>
 </div>
 </div>
@@ -1305,12 +1307,12 @@ Assuming <a class="reference external" href="https://docs.astral.sh/uv/getting-s
 the following commands:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
 uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1&quot;</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 <p>or if you are already inside an existing uv project:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
-uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1&quot;</span>
+uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 </section>
@@ -1330,7 +1332,7 @@ interpreter:</p>
 <span class="w">    </span>libeccodes-tools<span class="w"> </span>libeccodes-dev
 &gt;&gt;&gt;<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>PIP_CONSTRAINT
 &gt;&gt;&gt;<span class="w"> </span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span><span class="nv">$HOME</span>/.local/bin/env
-&gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.1&quot;</span>
+&gt;&gt;&gt;<span class="w"> </span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 <!-- markdownlint-disable MD013 -->
@@ -1340,7 +1342,7 @@ interpreter:</p>
 do with pip, for example:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--break-system-packages<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="s2">&quot;earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.12.1&quot;</span>
+<span class="w">    </span><span class="s2">&quot;earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -1364,7 +1366,7 @@ package tooling.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.12
 conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
 
-uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.1&quot;</span>
+uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 </section>
