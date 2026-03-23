@@ -25,7 +25,7 @@ from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
     [
         ["t2m"],
         ["u10m", "v200"],
-        ["u80m", "z500", "q700"],
+        ["u80m", "u100m", "z500", "q700"],
         ["u1hl", "v4hl", "t20hl", "p30hl"],
     ],
 )
@@ -47,7 +47,7 @@ def test_hrrr_lexicon(variable, device):
     [
         ["t2m"],
         ["u10m", "v500"],
-        ["u80m", "tp", "tcwv"],
+        ["u80m", "u100m", "tp", "tcwv"],
         ["u1hl", "v4hl", "t20hl", "p30hl"],
     ],
 )
