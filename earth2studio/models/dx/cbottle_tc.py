@@ -105,6 +105,11 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
+
+    Badges
+    ------
+    region:global class:cm product:wind product:precip product:temp product:atmos
+    year:2025 gpu:80gb
     """
 
     output_variables = VARIABLES
