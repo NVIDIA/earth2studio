@@ -152,7 +152,6 @@ sphinx_gallery_conf = {
 }
 
 # -- sphinx-badges configuration ----------------------------------------------
-# https://nickgeneva.github.io/sphinx-badges/
 
 badges_position = "top"
 badges_style = "square"

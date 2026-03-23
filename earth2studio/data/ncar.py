@@ -86,6 +86,10 @@ class NCAR_ERA5:
     ----
     Additional resources:
     https://registry.opendata.aws/nsf-ncar-era5/
+
+    Badges
+    ------
+    region:global product:wind product:precip product:temp product:atmos
     """
 
     NCAR_EAR5_LAT = np.linspace(90, -90, 721)

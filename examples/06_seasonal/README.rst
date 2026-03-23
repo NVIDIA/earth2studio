@@ -1,6 +1,7 @@
 .. _seasonal_examples:
 
-Seasonal
---------
+Subseasonal to Seasonal
+-----------------------
 
-Examples demonstrating seasonal and long-range statistical inference workflows.
+Examples demonstrating subseasonal to seasonal (s2s) inference workflows with typical
+prediction timescales of two weeks to two years.

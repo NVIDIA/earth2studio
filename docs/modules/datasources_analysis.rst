@@ -19,35 +19,40 @@ Used for fetching initial conditions for inference and validation data for scori
 
 .. currentmodule:: earth2studio
 
-.. autosummary::
-   :toctree: generated/data/
-   :template: datasource.rst
+.. badge-filter:: region:global region:na region:as
+   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
+   :filter-mode: or
+   :badge-order-fixed:
 
-   data.ARCO
-   data.CDS
-   data.CMIP6
-   data.CMIP6MultiRealm
-   data.GFS
-   data.GOES
-   data.HRRR
-   data.IFS
-   data.IFS_ENS
-   data.JPSS
-   data.MRMS
-   data.NCAR_ERA5
-   data.PlanetaryComputerECMWFOpenDataIFS
-   data.PlanetaryComputerGOES
-   data.PlanetaryComputerMODISFire
-   data.PlanetaryComputerOISST
-   data.PlanetaryComputerSentinel3AOD
-   data.Random
-   data.WB2ERA5
-   data.WB2ERA5_121x240
-   data.WB2ERA5_32x64
-   data.WB2Climatology
-   data.DataArrayFile
-   data.DataSetFile
-   data.DataArrayPathList
+   .. autosummary::
+      :toctree: generated/data/
+      :template: datasource.rst
+
+      data.ARCO
+      data.CDS
+      data.CMIP6
+      data.CMIP6MultiRealm
+      data.GFS
+      data.GOES
+      data.HRRR
+      data.IFS
+      data.IFS_ENS
+      data.JPSS
+      data.MRMS
+      data.NCAR_ERA5
+      data.PlanetaryComputerECMWFOpenDataIFS
+      data.PlanetaryComputerGOES
+      data.PlanetaryComputerMODISFire
+      data.PlanetaryComputerOISST
+      data.PlanetaryComputerSentinel3AOD
+      data.Random
+      data.WB2ERA5
+      data.WB2ERA5_121x240
+      data.WB2ERA5_32x64
+      data.WB2Climatology
+      data.DataArrayFile
+      data.DataSetFile
+      data.DataArrayPathList
 
 :mod:`earth2studio.data`: AI Sources
 -------------------------------------
@@ -59,8 +64,12 @@ for subsequent predictions.
 
 .. currentmodule:: earth2studio
 
-.. autosummary::
-   :toctree: generated/data/
-   :template: diagnostic.rst
+.. badge-filter:: region:global region:na region:as
+   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
+   :filter-mode: or
 
-   data.CBottle3D
+   .. autosummary::
+      :toctree: generated/data/
+      :template: diagnostic.rst
+
+      data.CBottle3D

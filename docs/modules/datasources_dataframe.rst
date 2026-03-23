@@ -7,11 +7,16 @@ Data sources that provide tabular data as DataFrames.
 
 .. currentmodule:: earth2studio
 
-.. autosummary::
-   :toctree: generated/data/
-   :template: datasource.rst
+.. badge-filter:: region:global region:na region:as
+   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
+   :filter-mode: or
+   :badge-order-fixed:
 
-   data.ISD
-   data.RandomDataFrame
-   data.UFSObsConv
-   data.UFSObsSat
+   .. autosummary::
+      :toctree: generated/data/
+      :template: datasource.rst
+
+      data.ISD
+      data.RandomDataFrame
+      data.UFSObsConv
+      data.UFSObsSat

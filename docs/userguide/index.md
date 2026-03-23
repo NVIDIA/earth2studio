@@ -38,7 +38,7 @@ io = NetCDF4Backend("output.nc")
 run(["2024-01-01"], 10, model, ds, io)
 ```
 
-## About
+## Getting Started
 
 - [Install](about/install)
 - [Introduction](about/intro)
@@ -78,6 +78,7 @@ run(["2024-01-01"], 10, model, ds, io)
 :maxdepth: 2
 :hidden:
 
+about/index
 components/index
 advanced/index
 developer/index

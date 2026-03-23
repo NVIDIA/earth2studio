@@ -74,6 +74,10 @@ class ACE2ERA5Data:
     References
     ----------
     - ACE2-ERA5 paper: https://arxiv.org/html/2411.11268v1
+
+    Badges
+    ------
+    region:global product:wind product:precip product:temp product:atmos
     """
 
     _IC_ALLOWED_YEARS = [1940, 1950, 1979, 2001, 2020]

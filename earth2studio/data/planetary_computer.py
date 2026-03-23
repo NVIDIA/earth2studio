@@ -583,6 +583,10 @@ class PlanetaryComputerOISST(_PlanetaryComputerData):
     Additional information on the data repository can be referenced here:
 
     - https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation
+
+    Badges
+    ------
+    region:global product:ocean
     """
 
     COLLECTION_ID = "noaa-cdr-sea-surface-temperature-optimum-interpolation"
@@ -668,6 +672,10 @@ class PlanetaryComputerSentinel3AOD(_PlanetaryComputerData):
     Additional information on the data repository can be referenced here:
 
     - https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf
+
+    Badges
+    ------
+    region:global product:atmos product:sat
     """
 
     COLLECTION_ID = "sentinel-3-synergy-aod-l2-netcdf"
@@ -773,6 +781,10 @@ class PlanetaryComputerMODISFire(_PlanetaryComputerData):
     -------
     Tile searches are best-effort. If no tile identifiers are provided (the default),
     the first available tile returned by the Planetary Computer search is used.
+
+    Badges
+    ------
+    region:global product:land product:sat
     """
 
     COLLECTION_ID = "modis-14A1-061"
@@ -937,6 +949,10 @@ class PlanetaryComputerECMWFOpenDataIFS(_PlanetaryComputerData):
     Additional information on the data repository can be referenced here:
 
     - https://planetarycomputer.microsoft.com/dataset/ecmwf-forecast
+
+    Badges
+    ------
+    region:global product:wind product:precip product:temp product:atmos
     """
 
     COLLECTION_ID = "ecmwf-forecast"
@@ -1078,6 +1094,10 @@ class PlanetaryComputerGOES(_PlanetaryComputerData):
     Additional information on the data repository can be referenced here:
 
     - https://planetarycomputer.microsoft.com/dataset/goes-cmi
+
+    Badges
+    ------
+    region:na product:sat
     """
 
     COLLECTION_ID = "goes-cmi"

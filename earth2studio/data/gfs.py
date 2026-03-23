@@ -91,6 +91,10 @@ class GFS:
 
     - https://registry.opendata.aws/noaa-gfs-bdp-pds/
     - https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php
+
+    Badges
+    ------
+    region:global product:wind product:precip product:temp product:atmos
     """
 
     GFS_BUCKET_NAME = "noaa-gfs-bdp-pds"
@@ -583,6 +587,10 @@ class GFS_FX(GFS):
 
     - https://registry.opendata.aws/noaa-gfs-bdp-pds/
     - https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php
+
+    Badges
+    ------
+    region:global product:wind product:precip product:temp product:atmos
     """
 
     def __call__(  # type: ignore[override]

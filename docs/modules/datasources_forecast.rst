@@ -9,15 +9,20 @@ Typically used in intercomparison workflows.
 
 .. currentmodule:: earth2studio
 
-.. autosummary::
-   :toctree: generated/data/
-   :template: datasource.rst
+.. badge-filter:: region:global region:na region:as
+   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
+   :filter-mode: or
+   :badge-order-fixed:
 
-   data.AIFS_FX
-   data.AIFS_ENS_FX
-   data.GFS_FX
-   data.GEFS_FX
-   data.GEFS_FX_721x1440
-   data.HRRR_FX
-   data.IFS_FX
-   data.IFS_ENS_FX
+   .. autosummary::
+      :toctree: generated/data/
+      :template: datasource.rst
+
+      data.AIFS_FX
+      data.AIFS_ENS_FX
+      data.GFS_FX
+      data.GEFS_FX
+      data.GEFS_FX_721x1440
+      data.HRRR_FX
+      data.IFS_FX
+      data.IFS_ENS_FX

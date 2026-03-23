@@ -104,6 +104,10 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         Does nothing at the moment, by default False
     verbose : bool, optional
         Print generation progress, by default True
+
+    Badges
+    ------
+    region:global product:wind product:precip product:temp product:atmos product:ocean
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))

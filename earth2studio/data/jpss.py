@@ -65,6 +65,10 @@ class JPSS:
     - Surface Reflectance, Active Fire Detection
     - Cloud properties (mask, phase, height, optical thickness)
     - Aerosol detection and Volcanic ash products
+
+    Badges
+    ------
+    region:global product:sat
     """
 
     BASE_URL = "s3://{bucket}/{product}/{year:04d}/{month:02d}/{day:02d}/"
