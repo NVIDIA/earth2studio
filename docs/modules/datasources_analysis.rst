@@ -24,8 +24,11 @@ Used for fetching initial conditions for inference and validation data for scori
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
    :badge-order-fixed:
+   :group-visibility-toggle:
+   :group-hidden: product
 
    .. autosummary::
+      :nosignatures:
       :toctree: generated/data/
       :template: datasource.rst
 
@@ -69,6 +72,9 @@ for subsequent predictions.
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
+   :badge-order-fixed:
+   :group-visibility-toggle:
+   :group-hidden: product
 
    .. autosummary::
       :toctree: generated/data/

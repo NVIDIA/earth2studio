@@ -1030,7 +1030,7 @@ class StormScopeGOES(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:sat year:2026 gpu:80g
+    region:na class:nwc product:sat year:2026 gpu:80gb
     """
 
     def __init__(
@@ -1362,7 +1362,7 @@ class StormScopeMRMS(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:radar year:2026 gpu:80g
+    region:na class:nwc product:radar year:2026 gpu:80gb
     """
 
     _STATE_FIRST = False

@@ -25,6 +25,8 @@ Thus are typically used to generate forecast predictions.
    gpu:96gb gpu:80gb gpu:48gb gpu:40gb
    :filter-mode: or
    :badge-order-fixed:
+   :group-visibility-toggle:
+   :group-hidden: product year
 
    .. autosummary::
       :nosignatures:

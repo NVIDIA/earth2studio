@@ -467,7 +467,7 @@ class Pangu6(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40g
+    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
     """
 
     def __init__(
@@ -589,7 +589,7 @@ class Pangu3(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40g
+    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
     """
 
     def __init__(

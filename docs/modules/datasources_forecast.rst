@@ -14,8 +14,11 @@ Typically used in intercomparison workflows.
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
    :badge-order-fixed:
+   :group-visibility-toggle:
+   :group-hidden: product
 
    .. autosummary::
+      :nosignatures:
       :toctree: generated/data/
       :template: datasource.rst
 

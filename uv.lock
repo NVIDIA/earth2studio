@@ -7658,15 +7658,15 @@ wheels = [
 
 [[package]]
 name = "sphinx-badges"
-version = "0.1.5"
+version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/95/08/eeb19cad55332074750e040b895399ae257f7864772214a8116058f9ccc8/sphinx_badges-0.1.5.tar.gz", hash = "sha256:563c2ea0fd67751e21b2f8dcfc3ca45f2a6385364c0336b81e6f40e2f6c568d9", size = 96473, upload-time = "2026-03-23T06:53:54.69Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/7f/5e47edaa1b67e7206814e1259ee81c0f285678a4f8f13e4f2a45a76b8639/sphinx_badges-0.1.6.tar.gz", hash = "sha256:1e66f84d6a24e10d6205e796c1eb1a8cf05d35c7412bd58cc43b3a1199cb8b7c", size = 98458, upload-time = "2026-03-24T02:15:54.417Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/a1/8063c6cee4105f7796eaeecbd17fba7de90fd93e78b7485a005ee5587f8d/sphinx_badges-0.1.5-py3-none-any.whl", hash = "sha256:3da2e768f2cee1c203e12cc657932a1a659a516219c7bcb0344d4e45564801e2", size = 19808, upload-time = "2026-03-23T06:53:52.981Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/51/c87f2b3d4d1fb62abbfef7fdfda8c2d59f3c87396de9e6993d3059b14dbd/sphinx_badges-0.1.6-py3-none-any.whl", hash = "sha256:534a67ddd088fee2d34fbcee1d460509d949d784ef269a6aa9130eb1df2b08d8", size = 21063, upload-time = "2026-03-24T02:15:52.976Z" },
 ]
 
 [[package]]

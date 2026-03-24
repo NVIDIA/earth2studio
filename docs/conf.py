@@ -162,7 +162,7 @@ badges_group_labels = {
     "dataclass": "Data Class",
     "year": "Release",
     "product": "Product",
-    "gpu": "GPU Memory",
+    "gpu": {"label": "Rec VRAM", "tooltip": "Recommended GPU Memory"},
 }
 
 badges_definitions = {
@@ -254,39 +254,40 @@ badges_definitions = {
     },
     # ── Data Class ───────────────────────────────────────────────────────────
     "dataclass:analysis": {
-        "label": "Analysis",
+        "label": "",
         "icon": '<i class="fa-solid fa-chart-line"></i>',
         "color": "#0891b2",
         "text_color": "#fff",
-        "tooltip": "NWP Analysis / Initial Conditions",
+        "tooltip": "Analysis / Initial Conditions",
     },
     "dataclass:reanalysis": {
-        "label": "Re-Analysis",
+        "label": "",
         "icon": '<i class="fa-solid fa-rotate"></i>',
         "color": "#1d4ed8",
         "text_color": "#fff",
-        "tooltip": "Atmospheric Re-Analysis",
+        "tooltip": "Reanalysis",
     },
     "dataclass:observation": {
-        "label": "Observation",
-        "icon": '<i class="fa-solid fa-eye"></i>',
+        "label": "",
+        "icon": '<i class="fa-solid fa-binoculars"></i>',
         "color": "#15803d",
         "text_color": "#fff",
         "tooltip": "Direct Observations",
     },
     "dataclass:simulation": {
-        "label": "Simulation",
-        "icon": '<i class="fa-solid fa-computer"></i>',
-        "color": "#7c3aed",
+        "label": "",
+        "icon": '<i class="fa-solid fa-microchip"></i>',
+        "color": "#b451ed",
         "text_color": "#fff",
         "tooltip": "Numerical / AI Simulation",
     },
     # ── Publication year ─────────────────────────────────────────────────────
-    "year:2021": {"label": "2021", "color": "#adb5bd", "text_color": "#000"},
-    "year:2022": {"label": "2022", "color": "#868e96", "text_color": "#fff"},
-    "year:2023": {"label": "2023", "color": "#495057", "text_color": "#fff"},
-    "year:2024": {"label": "2024", "color": "#343a40", "text_color": "#fff"},
-    "year:2025": {"label": "2025", "color": "#212529", "text_color": "#fff"},
+    "year:2021": {"label": "2021", "color": "#F2F2F2", "text_color": "#111"},
+    "year:2022": {"label": "2022", "color": "#D9D9D9", "text_color": "#111"},
+    "year:2023": {"label": "2023", "color": "#BDBDBD", "text_color": "#111"},
+    "year:2024": {"label": "2024", "color": "#828282", "text_color": "#fff"},
+    "year:2025": {"label": "2025", "color": "#4F4F4F", "text_color": "#fff"},
+    "year:2026": {"label": "2026", "color": "#1A1A1A", "text_color": "#fff"},
     # ── Product (fields) ──────────────────────────────────────────────────────
     "product:wind": {
         "label": "",
@@ -365,35 +366,35 @@ badges_definitions = {
         "text_color": "#fff",
         "tooltip": "In-Situ Observations",
     },
-    # ── Minimum GPU memory requirement ───────────────────────────────────────
+    # ── Minimum VRAM requirement ───────────────────────────────────────
     "gpu:96gb": {
         "label": "96 GB",
         "color": "#76b900",
         "text_color": "#fff",
-        "tooltip": "Min. 96 GB GPU memory (GH200, H200, B40, B100, B200)",
+        "tooltip": "96 GB VRAM (GH200, H200, B40, B100, B200)",
     },
     "gpu:80gb": {
         "label": "80 GB",
         "color": "#5aac44",
         "text_color": "#fff",
-        "tooltip": "Min. 80 GB GPU memory (A100 80GB, H100, GH200, H200, B40, B100, B200)",
+        "tooltip": "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)",
     },
     "gpu:48gb": {
         "label": "48 GB",
         "color": "#4b9934",
         "text_color": "#fff",
-        "tooltip": "Min. 48 GB GPU memory (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)",
+        "tooltip": "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)",
     },
     "gpu:40gb": {
         "label": "40 GB",
         "color": "#3d7a26",
         "text_color": "#fff",
-        "tooltip": "Min. 40 GB GPU memory (A100, L40S, H100, GH200, H200, B40, B100, B200)",
+        "tooltip": "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)",
     },
     "gpu:24gb": {
         "label": "24 GB",
         "color": "#2d5c1e",
         "text_color": "#fff",
-        "tooltip": "Min. 24 GB GPU memory (A30, A100, L40S, H100, GH200, H200, B40, B100, B200)",
+        "tooltip": "24 GB VRAM (A30, A100, L40S, H100, GH200, H200, B40, B100, B200)",
     },
 }

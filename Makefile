@@ -98,7 +98,7 @@ docs-dev:
 
 PORT ?= 8001
 .PHONY: serve
-doc-serve:
+docs-serve:
 	uv run python -m http.server $(PORT) --cgi --directory docs/_build/html
 
 .PHONY: container-service
