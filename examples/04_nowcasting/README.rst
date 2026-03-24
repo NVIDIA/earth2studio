@@ -1,7 +1,7 @@
-.. _now_casting_examples:
+.. _nowcasting_examples:
 
-Now Casting
------------
+Nowcasting
+----------
 
 Examples demonstrating high-resolution nowcasting and short-range forecasting
 with models such as StormCast and StormScope.
