@@ -202,6 +202,8 @@ Examples should always have at least one or more graphics.
 The first will always be the thumbnail.
 Animations are not supported.
 
+(building_documentation)=
+
 ## Building Documentation
 
 To build the core documentation without executing examples use:
