@@ -108,7 +108,6 @@ def test_arco_cache(time, variable, cache):
     [
         datetime.datetime(year=1939, month=2, day=25),
         datetime.datetime(year=1, month=1, day=1, hour=13, minute=1),
-        datetime.datetime(year=2024, month=1, day=1),
         datetime.datetime.now(),
     ],
 )

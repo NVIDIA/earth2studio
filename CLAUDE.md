@@ -44,3 +44,4 @@ Use these slash commands (defined in `.claude/commands/`) to run common tasks:
 | `/test-full` | Run the full test suite with coverage |
 | `/docs` | Build docs — fast, full (with examples), or targeted single example |
 | `/docs-serve` | Build docs then serve locally at <http://localhost:8000> |
+| `/release` | Bump version, update changelog, strip example tags, open release PR |
