@@ -6,11 +6,32 @@ Datasources are objects that offer a simple API to access a "dataset" of weather
 data at a certain index.
 Many implemented in the package provide access to data generated from numerical models,
 data assimilation results or even generative AI models.
-These are typically as an initial state for inference of an AI model or some other
+These typically serve as an initial state for inference of an AI model or some other
 downstream task or target data to evaluate the accuracy of a particular model.
-Data sources may be remote cloud based data stores or files on your local machine.
+Data sources may be remote cloud-based data stores or files on your local machine.
 The list of data sources that are already built into Earth2Studio can be found in
 the API documentation {ref}`earth2studio.data`.
+
+```{list-table} Quick Reference
+:widths: 25 45 30
+:header-rows: 1
+
+* - Source type
+  - Interface
+  - Return type
+* - Data source
+  - ``(time, variable)``
+  - ``xr.DataArray``
+* - Forecast source
+  - ``(time, lead_time, variable)``
+  - ``xr.DataArray``
+* - DataFrame source
+  - ``(time, variable)``
+  - ``pd.DataFrame``
+* - ForecastFrame source
+  - ``(time, lead_time, variable)``
+  - ``pd.DataFrame``
+```
 
 :::{note}
 Earth2Studio has data and forecast sources. The only difference being the latter
@@ -30,8 +51,8 @@ The full requirements for a standard diagnostic model are defined explicitly in 
 ```
 
 :::{note}
-While not a requirement, built in remote data sources offer local caching when fetching
-data which is stored in the Earth2Studio cache. See {ref}`configuration_userguide` for
+While not a requirement, built-in remote data sources offer local caching when fetching
+data which is stored in the Earth2Studio cache. Refer to {ref}`configuration_userguide` for
 details on how to customize this location.
 :::
 
@@ -57,7 +78,7 @@ Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
 discussed in more detail in the {ref}`lexicon_userguide` section.
 
-This data array can then be used on the CPU for post process and saving to file.
+This data array can then be used on the CPU for postprocessing and saving to file.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern
 of Earth2Studio detailed in the {ref}`data_userguide` section.
@@ -76,6 +97,8 @@ that is available.
 In these data sources, the {func}`__call__` function is just a synchronous wrapper
 around the async function.
 The functionality is identical between the two.
+Use the synchronous `__call__` for most workflows; use async `fetch` when batching
+many requests or optimizing download performance.
 Not all data sources have an async implementation, reference {ref}`earth2studio.data`
 for more information.
 Async-based data sources provide extremely fast download speeds compared to others,
