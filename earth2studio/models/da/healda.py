@@ -174,6 +174,11 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ``lat_lon=True``, by default ``(181, 360)`` (1° resolution)
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations, by default (-21 hours, 3 hours)
+
+    Badges
+    ------
+    region:global class:da product:wind product:temp product:atmos product:sat
+    product:insitu year:2026 gpu:40gb
     """
 
     def __init__(

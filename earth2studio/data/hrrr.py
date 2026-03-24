@@ -118,6 +118,10 @@ class HRRR:
     - https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources
     - https://hrrrzarr.s3.amazonaws.com/index.html
     - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
+
+    Badges
+    ------
+    region:na dataclass:analysis product:wind product:precip product:temp product:atmos product:radar
     """
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
@@ -764,6 +768,10 @@ class HRRR_FX(HRRR):
     - https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
     - https://rapidrefresh.noaa.gov/hrrr/
     - https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
+
+    Badges
+    ------
+    region:na dataclass:simulation product:wind product:precip product:temp product:atmos product:radar
     """
 
     def __init__(

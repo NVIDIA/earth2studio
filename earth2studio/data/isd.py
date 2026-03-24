@@ -99,6 +99,11 @@ class ISD:
         stations = ISD.get_stations_bbox((36, -124, 40, -120))
         ds = ISD(stations, time_tolerance=timedelta(hours=2))
         df = ds(datetime(2024, 1, 1, 20), ["t2m", "ws10m"])
+
+    Badges
+    ------
+    region:na dataclass:observation product:wind product:precip product:temp
+    product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.isd"

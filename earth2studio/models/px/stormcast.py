@@ -133,6 +133,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default {}
+
+    Badges
+    ------
+    region:na class:nwc product:wind product:temp product:radar product:atmos year:2024
+    gpu:40gb
     """
 
     def __init__(

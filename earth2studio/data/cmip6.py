@@ -115,6 +115,10 @@ class CMIP6:
     neighbor matching. Depending on the experiment and temporal resolution, this may be
     significantly different than what was requested. Set `exact_time_match=True` to
     enforce exact time matching if precise timestamps are critical.
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean
     """
 
     def __init__(
@@ -637,6 +641,10 @@ class CMIP6MultiRealm:
 
     All CMIP6 sources must be initialized with the same `exact_time_match` setting
     to ensure consistent time matching behavior across realms.
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean
     """
 
     def __init__(self, cmip6_source_list: list[CMIP6]):

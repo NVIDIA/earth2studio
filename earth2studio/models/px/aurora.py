@@ -148,6 +148,10 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Soil type
     lsm : torch.Tensor
         Land sea mask
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:48gb
     """
 
     def __init__(

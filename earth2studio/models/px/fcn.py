@@ -89,6 +89,10 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Model center normalization tensor of size [26]
     scale : torch.Tensor
         Model scale normalization tensor of size [26]
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2022 gpu:40gb
     """
 
     def __init__(
