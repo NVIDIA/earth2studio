@@ -31,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 :::{dropdown} uv Install
@@ -466,7 +466,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@1d4435abe730d6b966e983633b466b345d60ac78"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@8b8b358466e6b2f50d1779009790002ceb596e72"
 pip install earth2studio[cbottle]
 ```
 
@@ -666,6 +666,8 @@ If your system uses a different CUDA version, you may need to adjust the depende
 :::{tab-item} pip
 
 ```bash
+pip install hatchling
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
 pip install earth2studio[da-healda]
 ```
 
@@ -821,14 +823,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 (pytorch_container_environment)=
@@ -851,7 +853,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -864,7 +866,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 :::
@@ -893,7 +895,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 # System Recommendations
