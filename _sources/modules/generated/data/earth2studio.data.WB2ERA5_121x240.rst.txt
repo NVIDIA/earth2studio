@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.WB2ERA5_121x240
+﻿WB2ERA5_121x240
 ===============================================
 
 .. currentmodule:: earth2studio.data

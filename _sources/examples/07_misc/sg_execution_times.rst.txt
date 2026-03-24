@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**05:18.420** total execution time for 3 files **from examples/07_misc**:
+**05:01.706** total execution time for 4 files **from examples/07_misc**:
 
 .. container::
 
@@ -32,12 +32,15 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_07_misc_15_cbottle_generation.py` (``15_cbottle_generation.py``)
-     - 02:10.273
+   * - :ref:`sphx_glr_examples_07_misc_04_local_datasource.py` (``04_local_datasource.py``)
+     - 01:59.476
      - 0.0
-   * - :ref:`sphx_glr_examples_07_misc_19_local_datasource.py` (``19_local_datasource.py``)
-     - 02:01.128
+   * - :ref:`sphx_glr_examples_07_misc_02_cbottle_generation.py` (``02_cbottle_generation.py``)
+     - 01:52.005
      - 0.0
-   * - :ref:`sphx_glr_examples_07_misc_17_io_performance.py` (``17_io_performance.py``)
-     - 01:07.020
+   * - :ref:`sphx_glr_examples_07_misc_03_io_performance.py` (``03_io_performance.py``)
+     - 01:01.822
+     - 0.0
+   * - :ref:`sphx_glr_examples_07_misc_01_distributed_manager.py` (``01_distributed_manager.py``)
+     - 00:08.404
      - 0.0

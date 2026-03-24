@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**01:35.660** total execution time for 3 files **from examples/01_getting_started**:
+**01:36.674** total execution time for 3 files **from examples/01_getting_started**:
 
 .. container::
 
@@ -33,11 +33,11 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_examples_01_getting_started_03_ensemble_workflow.py` (``03_ensemble_workflow.py``)
-     - 00:56.371
+     - 00:57.519
      - 0.0
    * - :ref:`sphx_glr_examples_01_getting_started_01_deterministic_workflow.py` (``01_deterministic_workflow.py``)
-     - 00:26.259
+     - 00:25.931
      - 0.0
    * - :ref:`sphx_glr_examples_01_getting_started_02_diagnostic_workflow.py` (``02_diagnostic_workflow.py``)
-     - 00:13.030
+     - 00:13.224
      - 0.0

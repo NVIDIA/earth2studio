@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.perturbation`.HemisphericCentredBredVector
+﻿HemisphericCentredBredVector
 ====================================================================
 
 .. currentmodule:: earth2studio.perturbation

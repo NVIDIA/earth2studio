@@ -24,10 +24,10 @@ producing high-resolution outputs from global model forecasts.
 
 .. only:: html
 
-  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_01_corrdiff_inference_thumb.png
     :alt:
 
-  :doc:`/examples/03_downscaling/04_corrdiff_inference`
+  :doc:`/examples/03_downscaling/01_corrdiff_inference`
 
 .. raw:: html
 
@@ -41,10 +41,10 @@ producing high-resolution outputs from global model forecasts.
 
 .. only:: html
 
-  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_02_cbottle_super_resolution_thumb.png
     :alt:
 
-  :doc:`/examples/03_downscaling/16_cbottle_super_resolution`
+  :doc:`/examples/03_downscaling/02_cbottle_super_resolution`
 
 .. raw:: html
 
@@ -58,10 +58,10 @@ producing high-resolution outputs from global model forecasts.
 
 .. only:: html
 
-  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_18_ensemble_downscaling_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_03_ensemble_downscaling_thumb.png
     :alt:
 
-  :doc:`/examples/03_downscaling/18_ensemble_downscaling`
+  :doc:`/examples/03_downscaling/03_ensemble_downscaling`
 
 .. raw:: html
 
@@ -79,7 +79,7 @@ producing high-resolution outputs from global model forecasts.
 .. toctree::
    :hidden:
 
-   /examples/03_downscaling/04_corrdiff_inference
-   /examples/03_downscaling/16_cbottle_super_resolution
-   /examples/03_downscaling/18_ensemble_downscaling
+   /examples/03_downscaling/01_corrdiff_inference
+   /examples/03_downscaling/02_cbottle_super_resolution
+   /examples/03_downscaling/03_ensemble_downscaling
 

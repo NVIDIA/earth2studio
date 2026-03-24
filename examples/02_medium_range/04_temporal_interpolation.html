@@ -1,0 +1,1365 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Temporal Interpolation &#8212; Earth2Studio</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx_badges.css?v=4a657082" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=bba532a7" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+
+
+    <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/02_medium_range/04_temporal_interpolation';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+
+    <link rel="icon" href="../../_static/favicon.png"/>
+
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Tropical Cyclone Tracking" href="05_cyclone_tracking.html" />
+    <link rel="prev" title="Huge Ensembles (HENS) Checkpoints" href="03_huge_ensembles.html" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.14" />
+
+
+  </head>
+
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+
+
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+      <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../userguide/index.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/about/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/data.html">Data Movement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/components/index.html">Core Components</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/io.html">Output Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics</a></li>
+
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/lexicon.html">Lexicon</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/developer/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/overview.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/style.html">Style Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/documentation.html">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/build.html">Build Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/recipes.html">Recipe Guide</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules/index.html">API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_px.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.ACE2ERA5.html">ACE2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS.html">AIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html">AIFSENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Atlas.html">Atlas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Aurora.html">Aurora</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.CBottleVideo.html">CBottleVideo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html">DiagnosticWrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyM.html">DLESyM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMLatLon.html">DLESyMLatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLWP.html">DLWP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN.html">FCN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu24.html">Pangu24</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu6.html">Pangu6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu3.html">Pangu3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Persistence.html">Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.SFNO.html">SFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormCast.html">StormCast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html">StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeMRMS.html">StormScopeMRMS</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_dx.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>: Diagnostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html">CBottleInfill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html">CBottleSR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.html">CBottleTCGuidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html">CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html">CorrDiffTaiwan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html">ClimateNet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html">DerivedRH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html">DerivedRHDewpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html">DerivedSurfacePressure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html">SolarRadiationAFNO6H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html">TCTrackerWuDuan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html">TCTrackerVitart</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.WindgustAFNO.html">WindgustAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.Identity.html">Identity</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_da.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>: Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.HealDA.html">HealDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html">InterpEquirectangular</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.StormCastSDA.html">StormCastSDA</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html">ARCO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CDS.html">CDS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6.html">CMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerMODISFire.html">PlanetaryComputerMODISFire</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerOISST.html">PlanetaryComputerOISST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html">PlanetaryComputerSentinel3AOD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.Random.html">Random</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5.html">WB2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_121x240.html">WB2ERA5_121x240</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_32x64.html">WB2ERA5_32x64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2Climatology.html">WB2Climatology</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayFile.html">DataArrayFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataSetFile.html">DataSetFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayPathList.html">DataArrayPathList</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CBottle3D.html">CBottle3D</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html">GEFS_FX_721x1440</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR_FX.html">HRRR_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_FX.html">IFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.AsyncZarrBackend.html">AsyncZarrBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.KVBackend.html">KVBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.NetCDF4Backend.html">NetCDF4Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.XarrayBackend.html">XarrayBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html">ZarrBackend</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Brown.html">Brown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.BredVector.html">BredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html">CorrelatedSphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Gaussian.html">Gaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html">HemisphericCentredBredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html">LaggedEnsemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html">SphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Zero.html">Zero</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.acc.html">acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.brier.html">brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.crps.html">crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.energy_score.html">energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.fss.html">fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.lsd.html">lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mae.html">mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rmse.html">rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.std.html">std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.variance.html">variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html">deterministic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.diagnostic.html">diagnostic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.ensemble.html">ensemble</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.map_coords.html">map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html">split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html">Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.batch.batch_func.html">batch_func</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Examples</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../01_getting_started/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Medium Range</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="01_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="02_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Temporal Interpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="05_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../03_downscaling/index.html">Downscaling</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../04_nowcasting/index.html">Nowcasting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/01_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/02_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04_nowcasting/03_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../05_data_assimilation/index.html">Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/01_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/02_healda.html">HealDA Global Data Assimilation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../06_seasonal/index.html">Subseasonal to Seasonal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/01_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/02_dlesym_example.html">Running DLESyM Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../07_misc/index.html">Miscellaneous</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/01_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/03_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Examples</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Medium Range</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Temporal Interpolation</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-02-medium-range-04-temporal-interpolation-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="temporal-interpolation">
+<span id="sphx-glr-examples-02-medium-range-04-temporal-interpolation-py"></span><h1>Temporal Interpolation<a class="headerlink" href="#temporal-interpolation" title="Link to this heading">#</a></h1>
+<p>Temporal Interpolation inference using InterpModAFNO model.</p>
+<p>This example demonstrates how to use the InterpModAFNO model to interpolate
+forecasts from a base model to a finer time resolution.
+Many of the existing prognostic models have a step size of 6 hours which may prove
+insufficient for some applications.
+InterpModAFNO provides a AI driven method for getting hourly resolution given 6 hour
+predictions.</p>
+<p>In this example you will learn:</p>
+<ul class="simple">
+<li><p>How to load a base prognostic model</p></li>
+<li><p>How to load the InterpModAFNO model</p></li>
+<li><p>How to run the interpolation model</p></li>
+<li><p>How to visualize the results</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;torch==2.9.1&quot;, # Match lock file to avoid torch-harmonics issue</span>
+<span class="c1">#   &quot;earth2studio[sfno,interp-modafno] @ git+https://github.com/NVIDIA/earth2studio.git&quot;,</span>
+<span class="c1">#   &quot;matplotlib&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>First, import the necessary modules and set up our environment and load the models.
+We will use SFNO as the base prognostic model and the InterpModAFNO model to
+interpolate its output to a finer time resolution.
+The prognostic model must predict the needed variables in the interpolation model.</p>
+<p>This example needs the following:</p>
+<ul class="simple">
+<li><p>Interpolation Model: <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html#earth2studio.models.px.InterpModAFNO" title="earth2studio.models.px.InterpModAFNO"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.InterpModAFNO</span></code></a>.</p></li>
+<li><p>Prognostic Base Model: Use SFNO model <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.SFNO.html#earth2studio.models.px.SFNO" title="earth2studio.models.px.SFNO"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.SFNO</span></code></a>.</p></li>
+<li><p>Datasource: Pull data from the GFS data api <a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html#earth2studio.data.GFS" title="earth2studio.data.GFS"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.GFS</span></code></a>.</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">SFNO</span><span class="p">,</span> <span class="n">InterpModAFNO</span>
+
+<span class="c1"># Create output directory</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">sfno_package</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">px_model</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">sfno_package</span><span class="p">)</span>
+
+<span class="c1"># Load the interpolation model</span>
+<span class="n">interp_package</span> <span class="o">=</span> <span class="n">InterpModAFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">interp_model</span> <span class="o">=</span> <span class="n">InterpModAFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">interp_package</span><span class="p">,</span> <span class="n">px_model</span><span class="o">=</span><span class="n">px_model</span><span class="p">)</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="run-the-interpolation-model">
+<h2>Run the Interpolation Model<a class="headerlink" href="#run-the-interpolation-model" title="Link to this heading">#</a></h2>
+<p>Now run the interpolation model to get forecasts at a finer time resolution.
+The base model (SFNO) produces forecasts at 6-hour intervals, and the
+interpolation model will interpolate to 1-hour intervals.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define forecast parameters</span>
+<span class="n">forecast_date</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
+<span class="n">nsteps</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Number of interpolated forecast steps</span>
+
+<span class="c1"># Run the model</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="kn">import</span> <span class="n">deterministic</span>
+
+<span class="n">io</span> <span class="o">=</span> <span class="n">deterministic</span><span class="p">([</span><span class="n">forecast_date</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">interp_model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:12:44.426 | INFO     | earth2studio.run:deterministic:78 - Running simple workflow!
+2026-03-24 22:12:44.426 | INFO     | earth2studio.run:deterministic:85 - Inference device: cuda
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:44.978 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 329739828-930772
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:44.990 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 225640684-816551
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.001 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174160271-736006
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.013 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 292088625-1244938
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.024 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 226457235-723507
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.035 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 144283406-743766
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.046 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 353619033-939943
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.057 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.068 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.079 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 330670600-938837
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.090 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 169090127-920171
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.102 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 381424372-852801
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.113 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 189450163-577835
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.124 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.135 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 149106074-462399
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.145 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184050412-731750
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.156 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 249098202-1262404
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.168 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 275180657-890286
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.179 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 145318799-1019625
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.190 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210217024-602993
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.201 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210820017-615282
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.212 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268878207-724790
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.223 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323061199-895080
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.234 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184782162-755841
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.246 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 290159183-752827
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.256 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 350072351-1232650
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.268 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 194463909-743465
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.279 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 386359113-963363
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.290 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 190027998-577814
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.300 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204839116-753955
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.311 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268038708-839499
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.322 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 232400432-586007
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.333 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 179198897-973788
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.343 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 170010298-904882
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.354 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 326166249-1225442
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.365 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 148613430-492644
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.376 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 452597070-961302
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.387 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199934883-595444
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.397 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 176434139-1041731
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.408 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 354558976-950206
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.419 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 180172685-913532
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.430 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 387322476-948106
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.441 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 270785488-1177846
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.452 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 393705863-838502
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.463 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199346060-588823
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.474 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.485 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 186591756-1053680
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.496 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 296555652-890544
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.507 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 231827443-572989
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.518 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 143527711-755695
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.529 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.540 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 347812101-849637
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.550 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.562 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 252556659-958137
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.572 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 193737151-726758
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.584 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 253514796-920355
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.595 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 228474082-1138597
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.606 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174896277-746582
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.617 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 206944850-1065961
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.628 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 165935718-1138677
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.639 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 451628742-968328
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.650 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 196462617-1008822
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.661 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 274285343-895314
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.672 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.683 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 346879212-932889
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.694 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 164520517-765194
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.704 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.716 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 247139652-717479
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.726 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 295659093-896559
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.738 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.749 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 163781343-739174
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.760 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 383286081-1212507
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:12:45.771 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-993995
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:57,  1.24it/s]
+Fetching GFS data: 100%|██████████| 73/73 [00:00&lt;00:00, 90.65it/s]
+2026-03-24 22:12:45.905 | SUCCESS  | earth2studio.run:deterministic:109 - Fetched data from GFS
+2026-03-24 22:12:45.954 | INFO     | earth2studio.run:deterministic:139 - Inference starting!
+
+
+Running inference:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+
+Running inference:  17%|█▋        | 1/6 [00:02&lt;00:11,  2.29s/it]
+
+Running inference:  33%|███▎      | 2/6 [00:05&lt;00:11,  2.91s/it]
+
+Running inference:  50%|█████     | 3/6 [00:08&lt;00:09,  3.03s/it]
+
+Running inference:  67%|██████▋   | 4/6 [00:11&lt;00:06,  3.06s/it]
+
+Running inference:  83%|████████▎ | 5/6 [00:14&lt;00:03,  3.06s/it]
+
+Running inference: 100%|██████████| 6/6 [00:18&lt;00:00,  3.08s/it]
+Running inference: 100%|██████████| 6/6 [00:18&lt;00:00,  3.01s/it]
+2026-03-24 22:13:04.032 | SUCCESS  | earth2studio.run:deterministic:151 -
+Inference complete
+/
+├── lat (720,) float64
+├── lead_time (6,) timedelta64
+├── lon (1440,) float64
+├── msl (1, 6, 720, 1440) float32
+├── q100 (1, 6, 720, 1440) float32
+├── q1000 (1, 6, 720, 1440) float32
+├── q150 (1, 6, 720, 1440) float32
+├── q200 (1, 6, 720, 1440) float32
+├── q250 (1, 6, 720, 1440) float32
+├── q300 (1, 6, 720, 1440) float32
+├── q400 (1, 6, 720, 1440) float32
+├── q50 (1, 6, 720, 1440) float32
+├── q500 (1, 6, 720, 1440) float32
+├── q600 (1, 6, 720, 1440) float32
+├── q700 (1, 6, 720, 1440) float32
+├── q850 (1, 6, 720, 1440) float32
+├── q925 (1, 6, 720, 1440) float32
+├── sp (1, 6, 720, 1440) float32
+├── t100 (1, 6, 720, 1440) float32
+├── t1000 (1, 6, 720, 1440) float32
+├── t150 (1, 6, 720, 1440) float32
+├── t200 (1, 6, 720, 1440) float32
+├── t250 (1, 6, 720, 1440) float32
+├── t2m (1, 6, 720, 1440) float32
+├── t300 (1, 6, 720, 1440) float32
+├── t400 (1, 6, 720, 1440) float32
+├── t50 (1, 6, 720, 1440) float32
+├── t500 (1, 6, 720, 1440) float32
+├── t600 (1, 6, 720, 1440) float32
+├── t700 (1, 6, 720, 1440) float32
+├── t850 (1, 6, 720, 1440) float32
+├── t925 (1, 6, 720, 1440) float32
+├── tcwv (1, 6, 720, 1440) float32
+├── time (1,) datetime64
+├── u100 (1, 6, 720, 1440) float32
+├── u1000 (1, 6, 720, 1440) float32
+├── u100m (1, 6, 720, 1440) float32
+├── u10m (1, 6, 720, 1440) float32
+├── u150 (1, 6, 720, 1440) float32
+├── u200 (1, 6, 720, 1440) float32
+├── u250 (1, 6, 720, 1440) float32
+├── u300 (1, 6, 720, 1440) float32
+├── u400 (1, 6, 720, 1440) float32
+├── u50 (1, 6, 720, 1440) float32
+├── u500 (1, 6, 720, 1440) float32
+├── u600 (1, 6, 720, 1440) float32
+├── u700 (1, 6, 720, 1440) float32
+├── u850 (1, 6, 720, 1440) float32
+├── u925 (1, 6, 720, 1440) float32
+├── v100 (1, 6, 720, 1440) float32
+├── v1000 (1, 6, 720, 1440) float32
+├── v100m (1, 6, 720, 1440) float32
+├── v10m (1, 6, 720, 1440) float32
+├── v150 (1, 6, 720, 1440) float32
+├── v200 (1, 6, 720, 1440) float32
+├── v250 (1, 6, 720, 1440) float32
+├── v300 (1, 6, 720, 1440) float32
+├── v400 (1, 6, 720, 1440) float32
+├── v50 (1, 6, 720, 1440) float32
+├── v500 (1, 6, 720, 1440) float32
+├── v600 (1, 6, 720, 1440) float32
+├── v700 (1, 6, 720, 1440) float32
+├── v850 (1, 6, 720, 1440) float32
+├── v925 (1, 6, 720, 1440) float32
+├── z100 (1, 6, 720, 1440) float32
+├── z1000 (1, 6, 720, 1440) float32
+├── z150 (1, 6, 720, 1440) float32
+├── z200 (1, 6, 720, 1440) float32
+├── z250 (1, 6, 720, 1440) float32
+├── z300 (1, 6, 720, 1440) float32
+├── z400 (1, 6, 720, 1440) float32
+├── z50 (1, 6, 720, 1440) float32
+├── z500 (1, 6, 720, 1440) float32
+├── z600 (1, 6, 720, 1440) float32
+├── z700 (1, 6, 720, 1440) float32
+├── z850 (1, 6, 720, 1440) float32
+└── z925 (1, 6, 720, 1440) float32
+</pre></div>
+</div>
+</section>
+<section id="visualize-results">
+<h2>Visualize Results<a class="headerlink" href="#visualize-results" title="Link to this heading">#</a></h2>
+<p>Let’s visualize the total column water vapour (tcwv) at each time step
+and save them as separate files.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get the number of time steps</span>
+<span class="n">n_steps</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="c1"># Create a single figure with subplots</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">axs</span> <span class="o">=</span> <span class="n">axs</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+<span class="c1"># Create plots for each time step</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">([</span><span class="n">n_steps</span><span class="p">,</span> <span class="mi">6</span><span class="p">])):</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+        <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;twilight_shifted&quot;</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">85</span>
+    <span class="p">)</span>
+    <span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Water Vapour - Step: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2"> hrs&quot;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;kg/m^2&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="c1"># Save the figure</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/12_tcwv_steps.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_04_temporal_interpolation_001.png" srcset="../../_images/sphx_glr_04_temporal_interpolation_001.png" alt="Water Vapour - Step: 0 hrs, Water Vapour - Step: 1 hrs, Water Vapour - Step: 2 hrs, Water Vapour - Step: 3 hrs, Water Vapour - Step: 4 hrs, Water Vapour - Step: 5 hrs" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 37.545 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-02-medium-range-04-temporal-interpolation-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/dee683e716286eb64569496cf891a335/04_temporal_interpolation.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">04_temporal_interpolation.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/65a3441e4b51148f1a573add93d9a888/04_temporal_interpolation.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">04_temporal_interpolation.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/fd46bee458cc53e5c77f2662ffb16289/04_temporal_interpolation.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">04_temporal_interpolation.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="03_huge_ensembles.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Huge Ensembles (HENS) Checkpoints</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="05_cyclone_tracking.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Tropical Cyclone Tracking</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-interpolation-model">Run the Interpolation Model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#visualize-results">Visualize Results</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2026, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

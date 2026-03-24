@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**08:57.095** total execution time for 2 files **from examples/05_data_assimilation**:
+**08:53.845** total execution time for 2 files **from examples/05_data_assimilation**:
 
 .. container::
 
@@ -32,9 +32,9 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_05_data_assimilation_21_stormcast_sda.py` (``21_stormcast_sda.py``)
-     - 06:36.873
+   * - :ref:`sphx_glr_examples_05_data_assimilation_01_stormcast_sda.py` (``01_stormcast_sda.py``)
+     - 06:37.315
      - 0.0
-   * - :ref:`sphx_glr_examples_05_data_assimilation_22_healda.py` (``22_healda.py``)
-     - 02:20.222
+   * - :ref:`sphx_glr_examples_05_data_assimilation_02_healda.py` (``02_healda.py``)
+     - 02:16.531
      - 0.0

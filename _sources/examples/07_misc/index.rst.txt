@@ -20,14 +20,31 @@ utility workflows.
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_01_distributed_manager_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/01_distributed_manager`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.">
 
 .. only:: html
 
-  .. image:: /examples/07_misc/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_02_cbottle_generation_thumb.png
     :alt:
 
-  :doc:`/examples/07_misc/15_cbottle_generation`
+  :doc:`/examples/07_misc/02_cbottle_generation`
 
 .. raw:: html
 
@@ -41,10 +58,10 @@ utility workflows.
 
 .. only:: html
 
-  .. image:: /examples/07_misc/images/thumb/sphx_glr_17_io_performance_thumb.png
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_03_io_performance_thumb.png
     :alt:
 
-  :doc:`/examples/07_misc/17_io_performance`
+  :doc:`/examples/07_misc/03_io_performance`
 
 .. raw:: html
 
@@ -58,10 +75,10 @@ utility workflows.
 
 .. only:: html
 
-  .. image:: /examples/07_misc/images/thumb/sphx_glr_19_local_datasource_thumb.png
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_04_local_datasource_thumb.png
     :alt:
 
-  :doc:`/examples/07_misc/19_local_datasource`
+  :doc:`/examples/07_misc/04_local_datasource`
 
 .. raw:: html
 
@@ -79,7 +96,8 @@ utility workflows.
 .. toctree::
    :hidden:
 
-   /examples/07_misc/15_cbottle_generation
-   /examples/07_misc/17_io_performance
-   /examples/07_misc/19_local_datasource
+   /examples/07_misc/01_distributed_manager
+   /examples/07_misc/02_cbottle_generation
+   /examples/07_misc/03_io_performance
+   /examples/07_misc/04_local_datasource
 

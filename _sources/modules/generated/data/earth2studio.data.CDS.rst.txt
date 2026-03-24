@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.CDS
+﻿CDS
 ===================================
 
 .. currentmodule:: earth2studio.data

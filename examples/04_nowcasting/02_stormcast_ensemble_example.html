@@ -1,0 +1,4722 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
+    <title>Running StormCast Ensemble Inference &#8212; Earth2Studio</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx_badges.css?v=4a657082" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=bba532a7" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+
+
+    <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/04_nowcasting/02_stormcast_ensemble_example';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+
+    <link rel="icon" href="../../_static/favicon.png"/>
+
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="StormScope Satellite and Radar Nowcasting" href="03_stormscope_goes_example.html" />
+    <link rel="prev" title="Running StormCast Inference" href="01_stormcast_example.html" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.14" />
+
+
+  </head>
+
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a></div>
+    
+      <div class="navbar-item">
+
+
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+      <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../userguide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../modules/index.html">
+    API
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
+    Recipes
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/NVIDIA/earth2studio" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../userguide/index.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/about/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/about/data.html">Data Movement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/components/index.html">Core Components</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/io.html">Output Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/components/statistics.html">Statistics</a></li>
+
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/advanced/lexicon.html">Lexicon</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/developer/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/overview.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/style.html">Style Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/documentation.html">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/build.html">Build Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/developer/recipes.html">Recipe Guide</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../userguide/support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../userguide/support/faq.html">Frequently Asked Questions</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules/index.html">API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_px.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.ACE2ERA5.html">ACE2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFS.html">AIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.AIFSENS.html">AIFSENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Atlas.html">Atlas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Aurora.html">Aurora</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.CBottleVideo.html">CBottleVideo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DiagnosticWrapper.html">DiagnosticWrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyM.html">DLESyM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLESyMLatLon.html">DLESyMLatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.DLWP.html">DLWP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN.html">FCN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FCN3.html">FCN3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FengWu.html">FengWu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.FuXi.html">FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastOperational.html">GraphCastOperational</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.GraphCastSmall.html">GraphCastSmall</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.InterpModAFNO.html">InterpModAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu24.html">Pangu24</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu6.html">Pangu6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Pangu3.html">Pangu3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.Persistence.html">Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.SFNO.html">SFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormCast.html">StormCast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html">StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormScopeMRMS.html">StormScopeMRMS</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_dx.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>: Diagnostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleInfill.html">CBottleInfill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleSR.html">CBottleSR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CBottleTCGuidance.html">CBottleTCGuidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html">CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.CorrDiffTaiwan.html">CorrDiffTaiwan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.ClimateNet.html">ClimateNet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRH.html">DerivedRH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedRHDewpoint.html">DerivedRHDewpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedSurfacePressure.html">DerivedSurfacePressure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedTCWV.html">DerivedTCWV</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedVPD.html">DerivedVPD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.DerivedWS.html">DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNO.html">PrecipitationAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.PrecipitationAFNOv2.html">PrecipitationAFNOv2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO1H.html">SolarRadiationAFNO1H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.SolarRadiationAFNO6H.html">SolarRadiationAFNO6H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerWuDuan.html">TCTrackerWuDuan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.TCTrackerVitart.html">TCTrackerVitart</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.WindgustAFNO.html">WindgustAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/dx/earth2studio.models.dx.Identity.html">Identity</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/models_da.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>: Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.HealDA.html">HealDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.InterpEquirectangular.html">InterpEquirectangular</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/da/earth2studio.models.da.StormCastSDA.html">StormCastSDA</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html">ARCO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CDS.html">CDS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6.html">CMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CMIP6MultiRealm.html">CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS.html">GFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GOES.html">GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html">HRRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS.html">IFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS.html">IFS_ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.JPSS.html">JPSS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.MRMS.html">MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.NCAR_ERA5.html">NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html">PlanetaryComputerECMWFOpenDataIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerGOES.html">PlanetaryComputerGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerMODISFire.html">PlanetaryComputerMODISFire</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerOISST.html">PlanetaryComputerOISST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.PlanetaryComputerSentinel3AOD.html">PlanetaryComputerSentinel3AOD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.Random.html">Random</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5.html">WB2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_121x240.html">WB2ERA5_121x240</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2ERA5_32x64.html">WB2ERA5_32x64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.WB2Climatology.html">WB2Climatology</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayFile.html">DataArrayFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataSetFile.html">DataSetFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.DataArrayPathList.html">DataArrayPathList</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.CBottle3D.html">CBottle3D</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GFS_FX.html">GFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX.html">GEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.GEFS_FX_721x1440.html">GEFS_FX_721x1440</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR_FX.html">HRRR_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_FX.html">IFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.ISD.html">ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.AsyncZarrBackend.html">AsyncZarrBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.KVBackend.html">KVBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.NetCDF4Backend.html">NetCDF4Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.XarrayBackend.html">XarrayBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html">ZarrBackend</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Brown.html">Brown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.BredVector.html">BredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html">CorrelatedSphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Gaussian.html">Gaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html">HemisphericCentredBredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.LaggedEnsemble.html">LaggedEnsemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.SphericalGaussian.html">SphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Zero.html">Zero</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.acc.html">acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.brier.html">brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.crps.html">crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.energy_score.html">energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.fss.html">fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.lsd.html">lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mae.html">mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rank_histogram.html">rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.rmse.html">rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.spread_skill_ratio.html">spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.std.html">std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.variance.html">variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/statistics/earth2studio.statistics.weights.lat_weight.html">lat_weight</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html">deterministic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.diagnostic.html">diagnostic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.ensemble.html">ensemble</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../modules/utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_dim.html">handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_coords.html">handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.handshake_size.html">handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.map_coords.html">map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.coords.split_coords.html">split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.interp.LatLonInterpolation.html">LatLonInterpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.timearray_to_datetime.html">timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/utils/earth2studio.utils.time.to_time_array.html">to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.datasource_to_file.html">datasource_to_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.fetch_data.html">fetch_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/data/earth2studio.data.prep_data_array.html">prep_data_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.auto.Package.html">Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../modules/generated/models/earth2studio.models.batch.batch_func.html">batch_func</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Examples</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../01_getting_started/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/01_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/02_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/03_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/04_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02_medium_range/05_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../03_downscaling/index.html">Downscaling</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/01_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/02_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03_downscaling/03_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Nowcasting</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="01_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="03_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../05_data_assimilation/index.html">Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/01_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05_data_assimilation/02_healda.html">HealDA Global Data Assimilation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../06_seasonal/index.html">Subseasonal to Seasonal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/01_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../06_seasonal/02_dlesym_example.html">Running DLESyM Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../07_misc/index.html">Miscellaneous</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/01_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/02_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/03_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../07_misc/04_local_datasource.html">Creating a Local Data Source</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../08_extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Examples</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Nowcasting</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Running StormCast Ensemble Inference</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-examples-04-nowcasting-02-stormcast-ensemble-example-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="running-stormcast-ensemble-inference">
+<span id="sphx-glr-examples-04-nowcasting-02-stormcast-ensemble-example-py"></span><h1>Running StormCast Ensemble Inference<a class="headerlink" href="#running-stormcast-ensemble-inference" title="Link to this heading">#</a></h1>
+<p>Ensemble StormCast inference workflow.</p>
+<p>This example will demonstrate how to run a simple inference workflow to generate a
+ensemble forecast using StormCast. For details about the stormcast model,
+see</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference external" href="https://arxiv.org/abs/2408.10958">https://arxiv.org/abs/2408.10958</a></p></li>
+</ul>
+</div></blockquote>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># /// script</span>
+<span class="c1"># dependencies = [</span>
+<span class="c1">#   &quot;earth2studio[data,stormcast] @ git+https://github.com/NVIDIA/earth2studio.git&quot;,</span>
+<span class="c1">#   &quot;cartopy&quot;,</span>
+<span class="c1"># ]</span>
+<span class="c1"># ///</span>
+</pre></div>
+</div>
+<section id="set-up">
+<h2>Set Up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
+<p>All workflows inside Earth2Studio require constructed components to be
+handed to them. In this example, let’s take a look at the most basic ensemble workflow:
+<a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.ensemble.html#earth2studio.run.ensemble" title="earth2studio.run.ensemble"><code class="xref py py-meth docutils literal notranslate"><span class="pre">earth2studio.run.ensemble()</span></code></a>.</p>
+<p>Thus, we need the following:</p>
+<ul class="simple">
+<li><p>Prognostic Model: Use the built in StormCast Model <a class="reference internal" href="../../modules/generated/models/px/earth2studio.models.px.StormCast.html#earth2studio.models.px.StormCast" title="earth2studio.models.px.StormCast"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.StormCast</span></code></a>.</p></li>
+<li><dl class="simple">
+<dt>perturbation_method: Use the Zero Method <a class="reference internal" href="../../modules/generated/perturbation/earth2studio.perturbation.Zero.html#earth2studio.perturbation.Zero" title="earth2studio.perturbation.Zero"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.perturbation.Zero</span></code></a>. We will not</dt><dd><p>perturb the initial data because StormCast has stochastic generation of  ensemble members.</p>
+</dd>
+</dl>
+</li>
+<li><p>Datasource: Pull data from the HRRR data api <a class="reference internal" href="../../modules/generated/data/earth2studio.data.HRRR.html#earth2studio.data.HRRR" title="earth2studio.data.HRRR"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.HRRR</span></code></a>.</p></li>
+<li><p>IO Backend: Let’s save the outputs into a Zarr store <a class="reference internal" href="../../modules/generated/io/earth2studio.io.ZarrBackend.html#earth2studio.io.ZarrBackend" title="earth2studio.io.ZarrBackend"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.io.ZarrBackend</span></code></a>.</p></li>
+</ul>
+<p>StormCast also requires a conditioning data source. We use a forecast data source here,
+ARCO <a class="reference internal" href="../../modules/generated/data/earth2studio.data.ARCO.html#earth2studio.data.ARCO" title="earth2studio.data.ARCO"><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.data.ARCO</span></code></a>, but a forecast data source such as GFS_FX
+could also be used with appropriate time stamps.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>  <span class="c1"># TODO: make common example prep function</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span><span class="p">,</span> <span class="n">HRRR</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">StormCast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.perturbation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Zero</span>
+
+<span class="c1"># Create and set the conditioning data source</span>
+<span class="n">conditioning_data_source</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">()</span>
+
+<span class="c1"># Load the default model package which downloads the check point from NGC</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">StormCast</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">StormCast</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">conditioning_data_source</span><span class="o">=</span><span class="n">conditioning_data_source</span><span class="p">)</span>
+
+<span class="c1"># Instantiate the (Zero) perturbation method</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">Zero</span><span class="p">()</span>
+
+<span class="c1"># Create the data source</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">HRRR</span><span class="p">()</span>
+
+<span class="c1"># Create the IO handler, store in memory</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="execute-the-workflow">
+<h2>Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Link to this heading">#</a></h2>
+<p>With all components initialized, running the workflow is a single line of Python code.
+Workflow will return the provided IO object back to the user, which can be used to
+then post process. Some have additional APIs that can be handy for post-processing or
+saving to file. Check the API docs for more information.</p>
+<p>For the forecast we will predict for 4 hours</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
+
+<span class="n">nsteps</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">nensemble</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">2</span>
+
+<span class="n">date</span> <span class="o">=</span> <span class="s2">&quot;2022-11-04T21:00:00&quot;</span>
+<span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">ensemble</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">date</span><span class="p">],</span>
+    <span class="n">nsteps</span><span class="p">,</span>
+    <span class="n">nensemble</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">,</span>
+    <span class="n">z</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;refc&quot;</span><span class="p">])},</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>2026-03-24 22:18:44.927 | INFO     | earth2studio.run:ensemble:328 - Running ensemble inference!
+2026-03-24 22:18:44.927 | INFO     | earth2studio.run:ensemble:336 - Inference device: cuda
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.837 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 32136730-2372973
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.862 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 147409055-2156223
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.886 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 46644493-2385282
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.911 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 200679562-2278041
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.936 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 182184021-948798
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.957 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 322588408-1852146
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:45.981 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 264613752-2200924
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.005 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 155299266-988079
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.027 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 81200635-1030458
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.050 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 20625909-1106011
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.072 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 179710999-2473022
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.097 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 141697242-1428027
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.121 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 107171888-2466878
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.147 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 63743189-1076580
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.169 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 66163006-1064784
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.192 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 76303760-2433694
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.217 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 377553539-821527
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.238 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 174769676-2107905
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.263 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 78737454-1073805
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.285 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 4489181-2280672
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.309 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 0-2231725
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.334 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 128968781-1071219
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.357 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 373523984-1454073
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.380 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 140679865-1017377
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.402 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfsfcf00.grib2 47584002-2381615
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.416 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 82231093-1051859
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.437 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 270819986-821284
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.459 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 101085038-2218218
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.483 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 209908515-907176
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.505 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 125408221-1046332
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.527 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 36954032-1147529
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.549 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 185297690-989387
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.572 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 95113691-1458220
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.596 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 327527983-852819
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.617 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 116871633-2212091
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.642 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 158633887-1042140
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.665 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 35605910-1348122
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.689 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfsfcf00.grib2 0-448058
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.706 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 184356620-941070
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.727 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 34509703-1096207
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.750 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 127936406-1032375
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.773 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 183132819-1223801
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.796 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 85717411-2221322
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.821 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 79811259-1389376
+
+Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+
+2026-03-24 22:18:46.845 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 49029775-1084487
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:46.867 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 132393030-2187238
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:46.892 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 18260220-2365689
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:46.916 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 55982755-2226204
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:46.941 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 50114262-1325963
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:46.964 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 70750032-2224001
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:46.989 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 51440225-1104055
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.011 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 138196216-2483649
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.037 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 94042130-1071561
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.059 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 271641270-1257960
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.082 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 9291302-1136339
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.105 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 67227790-1067111
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.127 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 126454553-1481853
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.152 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 273737963-828554
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.173 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 374978057-640885
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.194 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 64819769-1343237
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.217 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 326696508-831475
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.238 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 41469037-2228135
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.263 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 375618942-1101032
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.285 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 143125269-1011715
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.308 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 376719974-833565
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.329 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 324440554-680731
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.349 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 210815691-935709
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.371 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 6769853-1127971
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.394 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 268628273-2191713
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.418 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 52544280-1090181
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.441 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 156287345-1360622
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.464 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 272899230-838733
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.485 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 207926438-920722
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.507 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 10427641-1136665
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.529 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfsfcf00.grib2 45202387-2381615
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.542 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 122930506-2477715
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.567 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 24253280-1129901
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.589 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 21731920-1363066
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.612 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 113233995-1065344
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.634 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 27612133-2229964
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.658 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 157647967-985920
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.680 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 325121285-1575223
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.703 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfsfcf00.grib2 26658825-637820
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.724 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 38101561-1112473
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.746 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 7897824-1393478
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.769 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 205490191-2436247
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.794 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 112200557-1033438
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.816 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 97594444-1053062
+
+Fetching HRRR data:   0%|          | 0/99 [00:01&lt;?, ?it/s]
+
+2026-03-24 22:18:47.839 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 110702395-1498162
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:47.863 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfsfcf00.grib2 38185540-1172707
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:47.885 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 91590172-2451958
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:47.910 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 144136984-1061844
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:47.933 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 96571911-1022533
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:47.954 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 61334638-2408551
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:47.980 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 208847160-1061355
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:48.004 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 23094986-1158294
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:48.026 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 109638766-1063629
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:48.049 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 152813467-2485799
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+
+2026-03-24 22:18:48.074 | DEBUG    | earth2studio.data.hrrr:fetch_array:509 - Fetching HRRR grib file: noaa-hrrr-bdp-pds/hrrr.20221104/conus/hrrr.t21z.wrfnatf00.grib2 13759195-2231917
+
+Fetching HRRR data:   0%|          | 0/99 [00:02&lt;?, ?it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:02&lt;03:41,  2.26s/it]
+Fetching HRRR data: 100%|██████████| 99/99 [00:02&lt;00:00, 43.75it/s]
+2026-03-24 22:18:48.405 | SUCCESS  | earth2studio.run:ensemble:358 - Fetched data from HRRR
+2026-03-24 22:18:48.413 | INFO     | earth2studio.run:ensemble:386 - Starting 4 Member Ensemble Inference with             2 number of batches.
+
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+2026-03-24 22:18:48.456 | DEBUG    | earth2studio.data.arco:_async_init:131 - Using Multi-Storage Client for ARCO data access
+
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:00, 23.80it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.079 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.50it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.080 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.50it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.082 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.50it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.083 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.49it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.085 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.49it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.086 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.49it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.087 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.48it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.089 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.48it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.090 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.48it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.092 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.47it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.093 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.47it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.095 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.47it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.095 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.47it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.096 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.47it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.097 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.46it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.097 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.46it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.098 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.46it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.099 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.46it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.099 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.46it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.100 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.46it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.101 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.45it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.103 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.45it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.104 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.45it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.106 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.45it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.107 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.44it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:18:49.108 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  20%|██        | 1/5 [00:00&lt;00:02,  1.44it/s]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   4%|▍         | 1/26 [00:01&lt;00:26,  1.05s/it]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:01&lt;00:02,  7.74it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:01&lt;00:01,  9.54it/s]
+Fetching ARCO data:  54%|█████▍    | 14/26 [00:01&lt;00:00, 13.64it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 17.17it/s]
+
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.323 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.324 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.325 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.325 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.326 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.329 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.330 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.331 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.331 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.332 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.332 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.333 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.333 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.334 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.335 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.335 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.336 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.336 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.337 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.337 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.338 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.338 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.339 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.340 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.340 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:02.341 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  40%|████      | 2/5 [00:13&lt;00:20,  6.95s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:13&lt;?, ?it/s]
+Fetching ARCO data:   4%|▍         | 1/26 [00:01&lt;00:25,  1.00s/it]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:01&lt;00:02,  8.08it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:01&lt;00:01,  9.65it/s]
+Fetching ARCO data:  58%|█████▊    | 15/26 [00:01&lt;00:00, 15.43it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 17.71it/s]
+
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.531 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.532 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.533 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.533 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.534 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.534 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.535 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.536 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.536 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.537 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.538 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.538 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.539 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.539 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.540 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.540 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.541 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.541 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.542 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.543 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.543 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.544 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.544 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.545 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.545 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:15.546 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  60%|██████    | 3/5 [00:27&lt;00:19,  9.56s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:27&lt;?, ?it/s]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:24,  1.03it/s]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:01&lt;00:02,  7.19it/s]
+Fetching ARCO data:  35%|███▍      | 9/26 [00:01&lt;00:02,  7.75it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 18.14it/s]
+
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.702 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.703 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.704 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.704 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.705 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.705 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.706 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.706 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.707 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.708 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.708 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.709 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.709 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.710 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.711 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.711 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.712 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.712 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.713 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.713 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.714 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.714 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.715 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.716 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.716 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:28.717 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 0 inference:  80%|████████  | 4/5 [00:40&lt;00:10, 10.91s/it]
+
+
+Total Ensemble Batches:   0%|          | 0/2 [00:40&lt;?, ?it/s]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:24,  1.03it/s]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:01&lt;00:02,  8.06it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:01&lt;00:01, 10.57it/s]
+Fetching ARCO data:  65%|██████▌   | 17/26 [00:01&lt;00:00, 18.60it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 18.24it/s]
+
+
+Running batch 0 inference: 100%|██████████| 5/5 [00:53&lt;00:00, 11.69s/it]
+
+
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+Running batch 2 inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.917 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 17.53it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.918 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 17.32it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.918 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 17.13it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.919 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 16.96it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.919 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 16.79it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.920 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 16.63it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.921 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 16.47it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.921 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 16.29it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.922 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 16.13it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.923 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.98it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.923 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.84it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.924 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.70it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.924 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.56it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.925 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.42it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.925 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.28it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.926 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.15it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.927 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 15.02it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.927 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.89it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.928 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.77it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.928 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.63it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.929 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.51it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.929 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.39it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.930 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.27it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.931 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.16it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.931 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 14.05it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:41.932 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T21:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  20%|██        | 1/5 [00:00&lt;00:00, 13.94it/s]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [00:53&lt;00:53, 53.45s/it]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:20,  1.22it/s]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:00&lt;00:02,  9.26it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:01&lt;00:01,  9.56it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.33it/s]
+
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.928 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.928 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.929 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.930 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.930 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.931 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.931 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.932 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.933 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.933 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.934 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.934 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.935 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.935 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.936 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.937 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.937 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.938 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.938 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.939 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.939 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.940 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.941 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.941 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.942 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:19:54.942 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T22:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  40%|████      | 2/5 [00:13&lt;00:19,  6.53s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:06&lt;00:53, 53.45s/it]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:20,  1.24it/s]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:00&lt;00:01,  9.68it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:01&lt;00:01, 10.40it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.56it/s]
+
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.919 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.920 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.921 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.921 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.922 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.922 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.923 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.924 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.924 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.925 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.925 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.926 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.927 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.927 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.928 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.928 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.929 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.929 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.930 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.931 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.931 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.932 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.932 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.933 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.933 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:07.934 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-04T23:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  60%|██████    | 3/5 [00:26&lt;00:18,  9.22s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:19&lt;00:53, 53.45s/it]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.26it/s]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:00&lt;00:01,  9.95it/s]
+Fetching ARCO data:  42%|████▏     | 11/26 [00:01&lt;00:01, 13.19it/s]
+Fetching ARCO data:  54%|█████▍    | 14/26 [00:01&lt;00:00, 15.20it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.91it/s]
+
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.877 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.878 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.879 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: tcwv at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.879 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.880 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.880 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: sp at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.881 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.882 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: msl at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.882 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.883 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v10m at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.883 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.884 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.885 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.885 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.886 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u10m at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.886 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.887 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t2m at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.887 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.888 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: q1000 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.889 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.889 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: t250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.890 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.890 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: v850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.891 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: z250 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.891 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u850 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+
+
+
+
+
+
+
+2026-03-24 22:20:20.892 | DEBUG    | earth2studio.data.arco:fetch_array:301 - Fetching ARCO zarr array for variable: u500 at 2022-11-05T00:00:00
+
+Fetching ARCO data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Running batch 2 inference:  80%|████████  | 4/5 [00:39&lt;00:10, 10.62s/it]
+
+
+Total Ensemble Batches:  50%|█████     | 1/2 [01:32&lt;00:53, 53.45s/it]
+Fetching ARCO data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.28it/s]
+Fetching ARCO data:  27%|██▋       | 7/26 [00:00&lt;00:01,  9.68it/s]
+Fetching ARCO data:  38%|███▊      | 10/26 [00:01&lt;00:01, 11.15it/s]
+Fetching ARCO data:  65%|██████▌   | 17/26 [00:01&lt;00:00, 20.87it/s]
+Fetching ARCO data: 100%|██████████| 26/26 [00:01&lt;00:00, 20.92it/s]
+
+
+Running batch 2 inference: 100%|██████████| 5/5 [00:51&lt;00:00, 11.43s/it]
+
+
+
+
+Total Ensemble Batches: 100%|██████████| 2/2 [01:45&lt;00:00, 52.59s/it]
+Total Ensemble Batches: 100%|██████████| 2/2 [01:45&lt;00:00, 52.72s/it]
+2026-03-24 22:20:33.844 | SUCCESS  | earth2studio.run:ensemble:439 -
+Inference complete
+/
+├── ensemble (4,) int64
+├── hrrr_x (640,) float64
+├── hrrr_y (512,) float64
+├── lead_time (5,) timedelta64
+├── refc (4, 1, 5, 512, 640) float32
+├── t2m (4, 1, 5, 512, 640) float32
+└── time (1,) datetime64
+</pre></div>
+</div>
+</section>
+<section id="post-processing">
+<h2>Post Processing<a class="headerlink" href="#post-processing" title="Link to this heading">#</a></h2>
+<p>The last step is to post process our results. Cartopy is a great library for plotting
+fields on projections of a sphere. Start with plotting the reflectivity.</p>
+<p>Notice that the Zarr IO function has additional APIs to interact with the stored data.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">forecast</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="n">step</span> <span class="o">=</span> <span class="n">nsteps</span>  <span class="c1"># 4 hours, since lead_time = 1 hr</span>
+
+<span class="c1"># Create a correct Lambert Conformal projection</span>
+<span class="n">projection</span> <span class="o">=</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">LambertConformal</span><span class="p">(</span>
+    <span class="n">central_longitude</span><span class="o">=</span><span class="mf">262.5</span><span class="p">,</span>
+    <span class="n">central_latitude</span><span class="o">=</span><span class="mf">38.5</span><span class="p">,</span>
+    <span class="n">standard_parallels</span><span class="o">=</span><span class="p">(</span><span class="mf">38.5</span><span class="p">,</span> <span class="mf">38.5</span><span class="p">),</span>
+    <span class="n">globe</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">Globe</span><span class="p">(</span><span class="n">semimajor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">,</span> <span class="n">semiminor_axis</span><span class="o">=</span><span class="mi">6371229</span><span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="c1"># Get the lat lon arrays from the model</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_</span><span class="p">(</span><span class="n">axi</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convenience function for plotting pcolormesh.&quot;&quot;&quot;</span>
+    <span class="c1"># Plot the field using pcolormesh</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">axi</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">lat</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+        <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span>
+        <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axi</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">)</span>
+    <span class="c1"># Set title</span>
+    <span class="n">axi</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+
+    <span class="c1"># Add coastlines and gridlines</span>
+    <span class="n">axi</span><span class="o">.</span><span class="n">coastlines</span><span class="p">()</span>
+    <span class="n">axi</span><span class="o">.</span><span class="n">gridlines</span><span class="p">()</span>
+
+    <span class="c1"># Set state lines</span>
+    <span class="n">axi</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span>
+        <span class="n">cartopy</span><span class="o">.</span><span class="n">feature</span><span class="o">.</span><span class="n">STATES</span><span class="o">.</span><span class="n">with_scale</span><span class="p">(</span><span class="s2">&quot;50m&quot;</span><span class="p">),</span>
+        <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+        <span class="n">zorder</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="c1"># Plot refc</span>
+<span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;refc&quot;</span>
+<span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;gist_ncar&quot;</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">ax3</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="n">nrows</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">plot_</span><span class="p">(</span>
+    <span class="n">ax1</span><span class="p">,</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">),</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs - Member: </span><span class="si">{</span><span class="mi">0</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plot_</span><span class="p">(</span>
+    <span class="n">ax2</span><span class="p">,</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">),</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs - Member: </span><span class="si">{</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plot_</span><span class="p">(</span>
+    <span class="n">ax3</span><span class="p">,</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">),</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs - Std&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/10_</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">_ensemble.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_02_stormcast_ensemble_example_001.png" srcset="../../_images/sphx_glr_02_stormcast_ensemble_example_001.png" alt="2022-11-04T21:00:00 - Lead time: 4hrs - Member: 0, 2022-11-04T21:00:00 - Lead time: 4hrs - Member: 1, 2022-11-04T21:00:00 - Lead time: 4hrs - Std" class = "sphx-glr-single-img"/><p>Lets also plot the surface temperature field.</p>
+<p>Plot 2-meter temperature</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">variable</span> <span class="o">=</span> <span class="s2">&quot;t2m&quot;</span>
+<span class="n">cmap</span> <span class="o">=</span> <span class="s2">&quot;Spectral_r&quot;</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">ax3</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="n">nrows</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">projection</span><span class="p">},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">plot_</span><span class="p">(</span>
+    <span class="n">ax1</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs - Member: </span><span class="si">{</span><span class="mi">0</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plot_</span><span class="p">(</span>
+    <span class="n">ax2</span><span class="p">,</span>
+    <span class="n">io</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs - Member: </span><span class="si">{</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plot_</span><span class="p">(</span>
+    <span class="n">ax3</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">forecast</span><span class="si">}</span><span class="s2"> - Lead time: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">hrs - Std&quot;</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/10_</span><span class="si">{</span><span class="n">date</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">_ensemble.jpg&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_02_stormcast_ensemble_example_002.png" srcset="../../_images/sphx_glr_02_stormcast_ensemble_example_002.png" alt="2022-11-04T21:00:00 - Lead time: 4hrs - Member: 0, 2022-11-04T21:00:00 - Lead time: 4hrs - Member: 1, 2022-11-04T21:00:00 - Lead time: 4hrs - Std" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 56.785 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-examples-04-nowcasting-02-stormcast-ensemble-example-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/e7a0381ce79e98656aea305d59968c3c/02_stormcast_ensemble_example.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">02_stormcast_ensemble_example.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/d8a672dc56ce80d7a1d2de7deb3229cc/02_stormcast_ensemble_example.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">02_stormcast_ensemble_example.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/8e30050c42b92b46bdbd722ef974ca67/02_stormcast_ensemble_example.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">02_stormcast_ensemble_example.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="01_stormcast_example.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Running StormCast Inference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="03_stormscope_goes_example.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">StormScope Satellite and Radar Nowcasting</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set Up</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#execute-the-workflow">Execute the Workflow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing">Post Processing</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2026, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.ACE2ERA5
+﻿ACE2ERA5
 =============================================
 
 .. currentmodule:: earth2studio.models.px

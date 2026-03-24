@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.StormScopeMRMS
+﻿StormScopeMRMS
 ===================================================
 
 .. currentmodule:: earth2studio.models.px

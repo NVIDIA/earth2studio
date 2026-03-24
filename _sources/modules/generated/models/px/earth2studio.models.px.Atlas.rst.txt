@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.Atlas
+﻿Atlas
 ==========================================
 
 .. currentmodule:: earth2studio.models.px

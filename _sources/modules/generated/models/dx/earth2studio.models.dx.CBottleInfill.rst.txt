@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.dx`.CBottleInfill
+﻿CBottleInfill
 ==================================================
 
 .. currentmodule:: earth2studio.models.dx

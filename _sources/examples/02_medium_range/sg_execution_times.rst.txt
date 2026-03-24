@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**03:43.423** total execution time for 6 files **from examples/02_medium_range**:
+**03:43.553** total execution time for 5 files **from examples/02_medium_range**:
 
 .. container::
 
@@ -32,21 +32,18 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_02_medium_range_11_huge_ensembles.py` (``11_huge_ensembles.py``)
-     - 01:39.822
+   * - :ref:`sphx_glr_examples_02_medium_range_03_huge_ensembles.py` (``03_huge_ensembles.py``)
+     - 01:45.755
      - 0.0
-   * - :ref:`sphx_glr_examples_02_medium_range_12_temporal_interpolation.py` (``12_temporal_interpolation.py``)
-     - 00:35.828
+   * - :ref:`sphx_glr_examples_02_medium_range_04_temporal_interpolation.py` (``04_temporal_interpolation.py``)
+     - 00:37.545
      - 0.0
-   * - :ref:`sphx_glr_examples_02_medium_range_13_cyclone_tracking.py` (``13_cyclone_tracking.py``)
-     - 00:34.059
+   * - :ref:`sphx_glr_examples_02_medium_range_05_cyclone_tracking.py` (``05_cyclone_tracking.py``)
+     - 00:35.498
      - 0.0
-   * - :ref:`sphx_glr_examples_02_medium_range_06_model_perturbation_hook.py` (``06_model_perturbation_hook.py``)
-     - 00:33.153
+   * - :ref:`sphx_glr_examples_02_medium_range_02_model_perturbation_hook.py` (``02_model_perturbation_hook.py``)
+     - 00:33.293
      - 0.0
-   * - :ref:`sphx_glr_examples_02_medium_range_05_ensemble_workflow_extend.py` (``05_ensemble_workflow_extend.py``)
-     - 00:11.296
-     - 0.0
-   * - :ref:`sphx_glr_examples_02_medium_range_08_distributed_manager.py` (``08_distributed_manager.py``)
-     - 00:09.265
+   * - :ref:`sphx_glr_examples_02_medium_range_01_ensemble_workflow_extend.py` (``01_ensemble_workflow_extend.py``)
+     - 00:11.462
      - 0.0

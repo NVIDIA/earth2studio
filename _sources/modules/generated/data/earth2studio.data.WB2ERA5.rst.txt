@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.WB2ERA5
+﻿WB2ERA5
 =======================================
 
 .. currentmodule:: earth2studio.data

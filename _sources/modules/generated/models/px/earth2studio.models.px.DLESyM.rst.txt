@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.DLESyM
+﻿DLESyM
 ===========================================
 
 .. currentmodule:: earth2studio.models.px

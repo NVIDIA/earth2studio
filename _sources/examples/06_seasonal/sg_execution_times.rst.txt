@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**02:25.697** total execution time for 2 files **from examples/06_seasonal**:
+**02:05.569** total execution time for 2 files **from examples/06_seasonal**:
 
 .. container::
 
@@ -32,9 +32,9 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_06_seasonal_14_dlesym_example.py` (``14_dlesym_example.py``)
-     - 01:22.966
+   * - :ref:`sphx_glr_examples_06_seasonal_02_dlesym_example.py` (``02_dlesym_example.py``)
+     - 01:06.333
      - 0.0
-   * - :ref:`sphx_glr_examples_06_seasonal_07_seasonal_statistics.py` (``07_seasonal_statistics.py``)
-     - 01:02.731
+   * - :ref:`sphx_glr_examples_06_seasonal_01_seasonal_statistics.py` (``01_seasonal_statistics.py``)
+     - 00:59.236
      - 0.0

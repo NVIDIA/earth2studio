@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.Pangu3
+﻿Pangu3
 ===========================================
 
 .. currentmodule:: earth2studio.models.px

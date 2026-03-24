@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.dx`.Identity
+﻿Identity
 =============================================
 
 .. currentmodule:: earth2studio.models.dx

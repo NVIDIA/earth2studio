@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.DataArrayPathList
+﻿DataArrayPathList
 =================================================
 
 .. currentmodule:: earth2studio.data

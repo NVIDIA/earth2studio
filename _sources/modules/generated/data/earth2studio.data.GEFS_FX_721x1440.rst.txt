@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.GEFS_FX_721x1440
+﻿GEFS_FX_721x1440
 ================================================
 
 .. currentmodule:: earth2studio.data

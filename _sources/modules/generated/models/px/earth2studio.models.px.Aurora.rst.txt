@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.Aurora
+﻿Aurora
 ===========================================
 
 .. currentmodule:: earth2studio.models.px

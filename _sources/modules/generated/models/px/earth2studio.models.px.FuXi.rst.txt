@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.px`.FuXi
+﻿FuXi
 =========================================
 
 .. currentmodule:: earth2studio.models.px

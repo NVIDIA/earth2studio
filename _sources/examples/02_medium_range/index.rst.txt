@@ -24,10 +24,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_01_ensemble_workflow_extend_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/05_ensemble_workflow_extend`
+  :doc:`/examples/02_medium_range/01_ensemble_workflow_extend`
 
 .. raw:: html
 
@@ -41,10 +41,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_02_model_perturbation_hook_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/06_model_perturbation_hook`
+  :doc:`/examples/02_medium_range/02_model_perturbation_hook`
 
 .. raw:: html
 
@@ -54,31 +54,14 @@ and post-processing workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
-
-.. only:: html
-
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_08_distributed_manager_thumb.png
-    :alt:
-
-  :doc:`/examples/02_medium_range/08_distributed_manager`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow.">
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_03_huge_ensembles_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/11_huge_ensembles`
+  :doc:`/examples/02_medium_range/03_huge_ensembles`
 
 .. raw:: html
 
@@ -92,10 +75,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_04_temporal_interpolation_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/12_temporal_interpolation`
+  :doc:`/examples/02_medium_range/04_temporal_interpolation`
 
 .. raw:: html
 
@@ -109,10 +92,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_05_cyclone_tracking_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/13_cyclone_tracking`
+  :doc:`/examples/02_medium_range/05_cyclone_tracking`
 
 .. raw:: html
 
@@ -130,10 +113,9 @@ and post-processing workflows.
 .. toctree::
    :hidden:
 
-   /examples/02_medium_range/05_ensemble_workflow_extend
-   /examples/02_medium_range/06_model_perturbation_hook
-   /examples/02_medium_range/08_distributed_manager
-   /examples/02_medium_range/11_huge_ensembles
-   /examples/02_medium_range/12_temporal_interpolation
-   /examples/02_medium_range/13_cyclone_tracking
+   /examples/02_medium_range/01_ensemble_workflow_extend
+   /examples/02_medium_range/02_model_perturbation_hook
+   /examples/02_medium_range/03_huge_ensembles
+   /examples/02_medium_range/04_temporal_interpolation
+   /examples/02_medium_range/05_cyclone_tracking
 

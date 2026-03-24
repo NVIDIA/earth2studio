@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.statistics`.crps
+﻿crps
 ==========================================
 
 .. currentmodule:: earth2studio.statistics

@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.PlanetaryComputerOISST
+﻿PlanetaryComputerOISST
 ======================================================
 
 .. currentmodule:: earth2studio.data

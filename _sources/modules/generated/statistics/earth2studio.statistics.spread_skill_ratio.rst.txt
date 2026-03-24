@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.statistics`.spread_skill_ratio
+﻿spread_skill_ratio
 ========================================================
 
 .. currentmodule:: earth2studio.statistics

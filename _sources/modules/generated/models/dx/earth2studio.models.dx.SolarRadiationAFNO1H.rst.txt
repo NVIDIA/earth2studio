@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.dx`.SolarRadiationAFNO1H
+﻿SolarRadiationAFNO1H
 =========================================================
 
 .. currentmodule:: earth2studio.models.dx

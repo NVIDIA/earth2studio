@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.CBottle3D
+﻿CBottle3D
 =========================================
 
 .. currentmodule:: earth2studio.data

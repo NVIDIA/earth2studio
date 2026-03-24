@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.PlanetaryComputerMODISFire
+﻿PlanetaryComputerMODISFire
 ==========================================================
 
 .. currentmodule:: earth2studio.data

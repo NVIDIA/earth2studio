@@ -344,28 +344,28 @@ just like any other model.
 
  .. code-block:: none
 
-    2026-03-23 21:02:52.893 | INFO     | earth2studio.run:deterministic:78 - Running simple workflow!
-    2026-03-23 21:02:52.893 | INFO     | earth2studio.run:deterministic:85 - Inference device: cuda
-    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2026-03-23 21:02:52.963 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
-    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2026-03-23 21:02:52.975 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
-    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]    Fetching GFS data: 100%|██████████| 2/2 [00:00<00:00, 82.28it/s]
-    2026-03-23 21:02:52.994 | SUCCESS  | earth2studio.run:deterministic:109 - Fetched data from GFS
-    2026-03-23 21:02:53.004 | INFO     | earth2studio.run:deterministic:139 - Inference starting!
+    2026-03-24 22:42:52.332 | INFO     | earth2studio.run:deterministic:78 - Running simple workflow!
+    2026-03-24 22:42:52.332 | INFO     | earth2studio.run:deterministic:85 - Inference device: cuda
+    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2026-03-24 22:42:52.401 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
+    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2026-03-24 22:42:52.413 | DEBUG    | earth2studio.data.gfs:fetch_array:386 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
+    Fetching GFS data:   0%|          | 0/2 [00:00<?, ?it/s]    Fetching GFS data: 100%|██████████| 2/2 [00:00<00:00, 87.22it/s]
+    2026-03-24 22:42:52.430 | SUCCESS  | earth2studio.run:deterministic:109 - Fetched data from GFS
+    2026-03-24 22:42:52.441 | INFO     | earth2studio.run:deterministic:139 - Inference starting!
 
     Running inference:   0%|          | 0/25 [00:00<?, ?it/s]
-    Running inference:   8%|▊         | 2/25 [00:00<00:01, 17.96it/s]
-    Running inference:  16%|█▌        | 4/25 [00:00<00:01, 18.09it/s]
-    Running inference:  24%|██▍       | 6/25 [00:00<00:01, 16.93it/s]
-    Running inference:  32%|███▏      | 8/25 [00:00<00:01, 16.71it/s]
-    Running inference:  40%|████      | 10/25 [00:00<00:00, 16.31it/s]
-    Running inference:  48%|████▊     | 12/25 [00:00<00:00, 16.05it/s]
-    Running inference:  56%|█████▌    | 14/25 [00:00<00:00, 16.12it/s]
-    Running inference:  64%|██████▍   | 16/25 [00:00<00:00, 16.09it/s]
-    Running inference:  72%|███████▏  | 18/25 [00:01<00:00, 16.00it/s]
-    Running inference:  80%|████████  | 20/25 [00:01<00:00, 15.82it/s]
-    Running inference:  88%|████████▊ | 22/25 [00:01<00:00, 15.58it/s]
-    Running inference:  96%|█████████▌| 24/25 [00:01<00:00, 15.52it/s]    Running inference: 100%|██████████| 25/25 [00:01<00:00, 16.11it/s]
-    2026-03-23 21:02:54.556 | SUCCESS  | earth2studio.run:deterministic:151 - 
+    Running inference:   8%|▊         | 2/25 [00:00<00:01, 14.19it/s]
+    Running inference:  16%|█▌        | 4/25 [00:00<00:01, 15.27it/s]
+    Running inference:  24%|██▍       | 6/25 [00:00<00:01, 15.89it/s]
+    Running inference:  32%|███▏      | 8/25 [00:00<00:01, 15.93it/s]
+    Running inference:  40%|████      | 10/25 [00:00<00:00, 15.98it/s]
+    Running inference:  48%|████▊     | 12/25 [00:00<00:00, 15.83it/s]
+    Running inference:  56%|█████▌    | 14/25 [00:00<00:00, 15.88it/s]
+    Running inference:  64%|██████▍   | 16/25 [00:01<00:00, 15.74it/s]
+    Running inference:  72%|███████▏  | 18/25 [00:01<00:00, 15.78it/s]
+    Running inference:  80%|████████  | 20/25 [00:01<00:00, 15.46it/s]
+    Running inference:  88%|████████▊ | 22/25 [00:01<00:00, 16.07it/s]
+    Running inference:  96%|█████████▌| 24/25 [00:01<00:00, 16.21it/s]    Running inference: 100%|██████████| 25/25 [00:01<00:00, 15.86it/s]
+    2026-03-24 22:42:54.018 | SUCCESS  | earth2studio.run:deterministic:151 - 
     Inference complete
     /
     ├── lat (721,) float64
@@ -433,7 +433,7 @@ become progressively more noisy as time progresses.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 2.556 seconds)
+   **Total running time of the script:** (0 minutes 2.575 seconds)
 
 
 .. _sphx_glr_download_examples_08_extend_01_custom_prognostic.py:

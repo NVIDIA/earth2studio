@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.statistics`.fss
+﻿fss
 =========================================
 
 .. currentmodule:: earth2studio.statistics

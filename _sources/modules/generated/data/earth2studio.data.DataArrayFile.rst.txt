@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.DataArrayFile
+﻿DataArrayFile
 =============================================
 
 .. currentmodule:: earth2studio.data

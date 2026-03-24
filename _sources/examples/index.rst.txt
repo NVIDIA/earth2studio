@@ -141,10 +141,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_01_ensemble_workflow_extend_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/05_ensemble_workflow_extend`
+  :doc:`/examples/02_medium_range/01_ensemble_workflow_extend`
 
 .. raw:: html
 
@@ -158,10 +158,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_02_model_perturbation_hook_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/06_model_perturbation_hook`
+  :doc:`/examples/02_medium_range/02_model_perturbation_hook`
 
 .. raw:: html
 
@@ -171,31 +171,14 @@ and post-processing workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
-
-.. only:: html
-
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_08_distributed_manager_thumb.png
-    :alt:
-
-  :doc:`/examples/02_medium_range/08_distributed_manager`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow.">
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_03_huge_ensembles_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/11_huge_ensembles`
+  :doc:`/examples/02_medium_range/03_huge_ensembles`
 
 .. raw:: html
 
@@ -209,10 +192,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_04_temporal_interpolation_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/12_temporal_interpolation`
+  :doc:`/examples/02_medium_range/04_temporal_interpolation`
 
 .. raw:: html
 
@@ -226,10 +209,10 @@ and post-processing workflows.
 
 .. only:: html
 
-  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_05_cyclone_tracking_thumb.png
     :alt:
 
-  :doc:`/examples/02_medium_range/13_cyclone_tracking`
+  :doc:`/examples/02_medium_range/05_cyclone_tracking`
 
 .. raw:: html
 
@@ -264,10 +247,10 @@ producing high-resolution outputs from global model forecasts.
 
 .. only:: html
 
-  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_01_corrdiff_inference_thumb.png
     :alt:
 
-  :doc:`/examples/03_downscaling/04_corrdiff_inference`
+  :doc:`/examples/03_downscaling/01_corrdiff_inference`
 
 .. raw:: html
 
@@ -281,10 +264,10 @@ producing high-resolution outputs from global model forecasts.
 
 .. only:: html
 
-  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_02_cbottle_super_resolution_thumb.png
     :alt:
 
-  :doc:`/examples/03_downscaling/16_cbottle_super_resolution`
+  :doc:`/examples/03_downscaling/02_cbottle_super_resolution`
 
 .. raw:: html
 
@@ -298,10 +281,10 @@ producing high-resolution outputs from global model forecasts.
 
 .. only:: html
 
-  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_18_ensemble_downscaling_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_03_ensemble_downscaling_thumb.png
     :alt:
 
-  :doc:`/examples/03_downscaling/18_ensemble_downscaling`
+  :doc:`/examples/03_downscaling/03_ensemble_downscaling`
 
 .. raw:: html
 
@@ -316,8 +299,8 @@ producing high-resolution outputs from global model forecasts.
     </div>
 
 
-Now Casting
------------
+Nowcasting
+----------
 
 Examples demonstrating high-resolution nowcasting and short-range forecasting
 with models such as StormCast and StormScope.
@@ -336,10 +319,10 @@ with models such as StormCast and StormScope.
 
 .. only:: html
 
-  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_09_stormcast_example_thumb.png
+  .. image:: /examples/04_nowcasting/images/thumb/sphx_glr_01_stormcast_example_thumb.png
     :alt:
 
-  :doc:`/examples/04_now_casting/09_stormcast_example`
+  :doc:`/examples/04_nowcasting/01_stormcast_example`
 
 .. raw:: html
 
@@ -353,10 +336,10 @@ with models such as StormCast and StormScope.
 
 .. only:: html
 
-  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_10_stormcast_ensemble_example_thumb.png
+  .. image:: /examples/04_nowcasting/images/thumb/sphx_glr_02_stormcast_ensemble_example_thumb.png
     :alt:
 
-  :doc:`/examples/04_now_casting/10_stormcast_ensemble_example`
+  :doc:`/examples/04_nowcasting/02_stormcast_ensemble_example`
 
 .. raw:: html
 
@@ -370,10 +353,10 @@ with models such as StormCast and StormScope.
 
 .. only:: html
 
-  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_20_stormscope_goes_example_thumb.png
+  .. image:: /examples/04_nowcasting/images/thumb/sphx_glr_03_stormscope_goes_example_thumb.png
     :alt:
 
-  :doc:`/examples/04_now_casting/20_stormscope_goes_example`
+  :doc:`/examples/04_nowcasting/03_stormscope_goes_example`
 
 .. raw:: html
 
@@ -407,10 +390,10 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 
 .. only:: html
 
-  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_21_stormcast_sda_thumb.png
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_01_stormcast_sda_thumb.png
     :alt:
 
-  :doc:`/examples/05_data_assimilation/21_stormcast_sda`
+  :doc:`/examples/05_data_assimilation/01_stormcast_sda`
 
 .. raw:: html
 
@@ -424,10 +407,10 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 
 .. only:: html
 
-  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_22_healda_thumb.png
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_02_healda_thumb.png
     :alt:
 
-  :doc:`/examples/05_data_assimilation/22_healda`
+  :doc:`/examples/05_data_assimilation/02_healda`
 
 .. raw:: html
 
@@ -462,10 +445,10 @@ prediction timescales of two weeks to two years.
 
 .. only:: html
 
-  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_01_seasonal_statistics_thumb.png
     :alt:
 
-  :doc:`/examples/06_seasonal/07_seasonal_statistics`
+  :doc:`/examples/06_seasonal/01_seasonal_statistics`
 
 .. raw:: html
 
@@ -479,10 +462,10 @@ prediction timescales of two weeks to two years.
 
 .. only:: html
 
-  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_14_dlesym_example_thumb.png
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_02_dlesym_example_thumb.png
     :alt:
 
-  :doc:`/examples/06_seasonal/14_dlesym_example`
+  :doc:`/examples/06_seasonal/02_dlesym_example`
 
 .. raw:: html
 
@@ -513,14 +496,31 @@ utility workflows.
 
 .. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_01_distributed_manager_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/01_distributed_manager`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
+    </div>
+
+
+.. raw:: html
+
     <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.">
 
 .. only:: html
 
-  .. image:: /examples/07_misc/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_02_cbottle_generation_thumb.png
     :alt:
 
-  :doc:`/examples/07_misc/15_cbottle_generation`
+  :doc:`/examples/07_misc/02_cbottle_generation`
 
 .. raw:: html
 
@@ -534,10 +534,10 @@ utility workflows.
 
 .. only:: html
 
-  .. image:: /examples/07_misc/images/thumb/sphx_glr_17_io_performance_thumb.png
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_03_io_performance_thumb.png
     :alt:
 
-  :doc:`/examples/07_misc/17_io_performance`
+  :doc:`/examples/07_misc/03_io_performance`
 
 .. raw:: html
 
@@ -551,10 +551,10 @@ utility workflows.
 
 .. only:: html
 
-  .. image:: /examples/07_misc/images/thumb/sphx_glr_19_local_datasource_thumb.png
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_04_local_datasource_thumb.png
     :alt:
 
-  :doc:`/examples/07_misc/19_local_datasource`
+  :doc:`/examples/07_misc/04_local_datasource`
 
 .. raw:: html
 
@@ -649,7 +649,7 @@ components.
    /examples/01_getting_started/index.rst
    /examples/02_medium_range/index.rst
    /examples/03_downscaling/index.rst
-   /examples/04_now_casting/index.rst
+   /examples/04_nowcasting/index.rst
    /examples/05_data_assimilation/index.rst
    /examples/06_seasonal/index.rst
    /examples/07_misc/index.rst

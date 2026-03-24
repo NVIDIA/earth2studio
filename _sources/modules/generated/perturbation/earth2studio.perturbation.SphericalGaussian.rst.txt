@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.perturbation`.SphericalGaussian
+﻿SphericalGaussian
 =========================================================
 
 .. currentmodule:: earth2studio.perturbation

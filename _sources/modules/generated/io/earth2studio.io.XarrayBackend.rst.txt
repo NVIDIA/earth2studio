@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.io`.XarrayBackend
+﻿XarrayBackend
 ===========================================
 
 .. currentmodule:: earth2studio.io

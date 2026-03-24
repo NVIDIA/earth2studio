@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.dx`.ClimateNet
+﻿ClimateNet
 ===============================================
 
 .. currentmodule:: earth2studio.models.dx

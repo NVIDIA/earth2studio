@@ -24,10 +24,10 @@ prediction timescales of two weeks to two years.
 
 .. only:: html
 
-  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_01_seasonal_statistics_thumb.png
     :alt:
 
-  :doc:`/examples/06_seasonal/07_seasonal_statistics`
+  :doc:`/examples/06_seasonal/01_seasonal_statistics`
 
 .. raw:: html
 
@@ -41,10 +41,10 @@ prediction timescales of two weeks to two years.
 
 .. only:: html
 
-  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_14_dlesym_example_thumb.png
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_02_dlesym_example_thumb.png
     :alt:
 
-  :doc:`/examples/06_seasonal/14_dlesym_example`
+  :doc:`/examples/06_seasonal/02_dlesym_example`
 
 .. raw:: html
 
@@ -62,6 +62,6 @@ prediction timescales of two weeks to two years.
 .. toctree::
    :hidden:
 
-   /examples/06_seasonal/07_seasonal_statistics
-   /examples/06_seasonal/14_dlesym_example
+   /examples/06_seasonal/01_seasonal_statistics
+   /examples/06_seasonal/02_dlesym_example
 

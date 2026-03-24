@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.statistics`.rmse
+﻿rmse
 ==========================================
 
 .. currentmodule:: earth2studio.statistics

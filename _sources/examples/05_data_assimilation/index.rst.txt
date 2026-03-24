@@ -23,10 +23,10 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 
 .. only:: html
 
-  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_21_stormcast_sda_thumb.png
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_01_stormcast_sda_thumb.png
     :alt:
 
-  :doc:`/examples/05_data_assimilation/21_stormcast_sda`
+  :doc:`/examples/05_data_assimilation/01_stormcast_sda`
 
 .. raw:: html
 
@@ -40,10 +40,10 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 
 .. only:: html
 
-  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_22_healda_thumb.png
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_02_healda_thumb.png
     :alt:
 
-  :doc:`/examples/05_data_assimilation/22_healda`
+  :doc:`/examples/05_data_assimilation/02_healda`
 
 .. raw:: html
 
@@ -61,6 +61,6 @@ Examples demonstrating data assimilation workflows in Earth2Studio.
 .. toctree::
    :hidden:
 
-   /examples/05_data_assimilation/21_stormcast_sda
-   /examples/05_data_assimilation/22_healda
+   /examples/05_data_assimilation/01_stormcast_sda
+   /examples/05_data_assimilation/02_healda
 

@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.CMIP6
+﻿CMIP6
 =====================================
 
 .. currentmodule:: earth2studio.data

@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.AIFS_FX
+﻿AIFS_FX
 =======================================
 
 .. currentmodule:: earth2studio.data

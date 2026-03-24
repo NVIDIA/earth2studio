@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.data`.MRMS
+﻿MRMS
 ====================================
 
 .. currentmodule:: earth2studio.data

@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.io`.KVBackend
+﻿KVBackend
 =======================================
 
 .. currentmodule:: earth2studio.io

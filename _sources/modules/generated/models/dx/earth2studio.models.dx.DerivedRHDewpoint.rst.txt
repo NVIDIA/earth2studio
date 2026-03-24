@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.dx`.DerivedRHDewpoint
+﻿DerivedRHDewpoint
 ======================================================
 
 .. currentmodule:: earth2studio.models.dx

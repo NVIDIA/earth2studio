@@ -1,4 +1,4 @@
-﻿:mod:`earth2studio.models.dx`.PrecipitationAFNOv2
+﻿PrecipitationAFNOv2
 ========================================================
 
 .. currentmodule:: earth2studio.models.dx
