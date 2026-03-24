@@ -9,7 +9,7 @@ such as Bred Vector.
 
 The list of perturbation methods that are already built into Earth2Studio can be found
 in the API documentation {ref}`earth2studio.perturbation`.
-For complete workflows that use perturbations, refer to, for example, `03_ensemble_workflow` and `05_ensemble_workflow_extend`.
+For complete workflows that use perturbations refer to examples `03_ensemble_workflow` and `05_ensemble_workflow_extend`.
 
 ## Perturbation Interface
 
