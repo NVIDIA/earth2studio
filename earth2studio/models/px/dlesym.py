@@ -955,6 +955,11 @@ class DLESyMLatLon(DLESyM):
         Arguments for :class:`DLESyM`
     **kwargs
         Keyword arguments for :class:`DLESyM`
+
+    Badges
+    ------
+    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2025
+    gpu:40gb
     """
 
     @check_optional_dependencies()
