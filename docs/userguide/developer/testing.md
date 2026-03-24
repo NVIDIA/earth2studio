@@ -146,7 +146,7 @@ We expect all contributors to also provide unit tests for their feature.
 Tests are always evolving based on new errors discovered and features added.
 Right now the best way to contribute unit tests for a new feature is to modify the tests
 for a feature of a similar type.
-For example, for a new data source, copy, and modify the tests for say GFS or ARCO.
+For example, for a new data source, copy and modify the tests for say GFS or ARCO.
 For additional information about the tests, open an issue and the developers can
 provide more information.
 
