@@ -59,7 +59,7 @@ Used for fetching initial conditions for inference and validation data for scori
       data.DataArrayPathList
 
 :mod:`earth2studio.data`: AI Sources
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Data sources that leverage an AI model to generate weather / climate data that can be
 used for downstream tasks in real time.
