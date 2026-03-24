@@ -46,9 +46,9 @@ and the store.
 The {mod}`earth2studio.io.kv` backend has the option for storing data on the GPU, which
 can be done asynchronously.
 
-Most stores make a conversion from PyTorch to numpy in this process, and offer several additional utilities such as `__contains__`,
-`__getitem__`, `__len__`, and `__iter__`. Refer to the implementation in
-{mod}`earth2studio.io.ZarrBackend`:
+Most stores make a conversion from PyTorch to numpy in this process, and offer several
+additional utilities such as `__contains__`, `__getitem__`, `__len__`, and `__iter__`.
+Refer to the implementation in {mod}`earth2studio.io.ZarrBackend`:
 
 ```{literalinclude} ../../../earth2studio/io/zarr.py
     :language: python
@@ -56,7 +56,8 @@ Most stores make a conversion from PyTorch to numpy in this process, and offer s
     :end-before: sphinx - io zarr end
 ```
 
-Common backends include {class}`earth2studio.io.ZarrBackend`, {class}`earth2studio.io.NetCDF4Backend`, and
+Common backends include {class}`earth2studio.io.ZarrBackend`,
+{class}`earth2studio.io.NetCDF4Backend`, and
 {class}`earth2studio.io.AsyncZarrBackend`.
 Because of `datetime` compatibility, we recommend using the `ZarrBackend` as a default.
 
