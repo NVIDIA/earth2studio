@@ -1,0 +1,85 @@
+
+
+.. _sphx_glr_examples_04_now_casting:
+
+.. _now_casting_examples:
+
+Now Casting
+-----------
+
+Examples demonstrating high-resolution nowcasting and short-range forecasting
+with models such as StormCast and StormScope.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_09_stormcast_example_thumb.png
+    :alt:
+
+  :doc:`/examples/04_now_casting/09_stormcast_example`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_10_stormcast_ensemble_example_thumb.png
+    :alt:
+
+  :doc:`/examples/04_now_casting/10_stormcast_ensemble_example`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="StormScope inference workflow with GOES satellite imagery and MRMS radar data.">
+
+.. only:: html
+
+  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_20_stormscope_goes_example_thumb.png
+    :alt:
+
+  :doc:`/examples/04_now_casting/20_stormscope_goes_example`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">StormScope Satellite and Radar Nowcasting</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/04_now_casting/09_stormcast_example
+   /examples/04_now_casting/10_stormcast_ensemble_example
+   /examples/04_now_casting/20_stormscope_goes_example
+

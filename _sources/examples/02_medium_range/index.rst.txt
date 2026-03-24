@@ -1,0 +1,139 @@
+
+
+.. _sphx_glr_examples_02_medium_range:
+
+.. _medium_range_examples:
+
+Medium Range
+------------
+
+Examples focused on medium-range global weather forecasting, ensemble methods,
+and post-processing workflows.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Intermediate ensemble inference using a custom perturbation method.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/05_ensemble_workflow_extend`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Single Variable Perturbation Method</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Adding model noise by using custom hooks.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/06_model_perturbation_hook`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Model Hook Injection: Perturbation</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_08_distributed_manager_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/08_distributed_manager`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Distributed Manager Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/11_huge_ensembles`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Huge Ensembles (HENS) Checkpoints</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Temporal Interpolation inference using InterpModAFNO model.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/12_temporal_interpolation`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Temporal Interpolation</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Tropical cyclone tracking with tracker diagnostic models.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/13_cyclone_tracking`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Tropical Cyclone Tracking</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/02_medium_range/05_ensemble_workflow_extend
+   /examples/02_medium_range/06_model_perturbation_hook
+   /examples/02_medium_range/08_distributed_manager
+   /examples/02_medium_range/11_huge_ensembles
+   /examples/02_medium_range/12_temporal_interpolation
+   /examples/02_medium_range/13_cyclone_tracking
+

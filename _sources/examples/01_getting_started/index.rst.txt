@@ -1,0 +1,84 @@
+
+
+.. _sphx_glr_examples_01_getting_started:
+
+.. _getting_started_examples:
+
+Getting Started
+---------------
+
+Introductory examples demonstrating the core inference workflows in Earth2Studio.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_01_deterministic_workflow_thumb.png
+    :alt:
+
+  :doc:`/examples/01_getting_started/01_deterministic_workflow`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Deterministic Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic prognostic + diagnostic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_02_diagnostic_workflow_thumb.png
+    :alt:
+
+  :doc:`/examples/01_getting_started/02_diagnostic_workflow`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Diagnostic Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Simple ensemble inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_03_ensemble_workflow_thumb.png
+    :alt:
+
+  :doc:`/examples/01_getting_started/03_ensemble_workflow`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Ensemble Inference</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/01_getting_started/01_deterministic_workflow
+   /examples/01_getting_started/02_diagnostic_workflow
+   /examples/01_getting_started/03_ensemble_workflow
+

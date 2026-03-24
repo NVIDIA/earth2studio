@@ -1,0 +1,52 @@
+
+:orphan:
+
+.. _sphx_glr_examples_02_medium_range_sg_execution_times:
+
+
+Computation times
+=================
+**03:43.423** total execution time for 6 files **from examples/02_medium_range**:
+
+.. container::
+
+  .. raw:: html
+
+    <style scoped>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    </style>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" class="init">
+    $(document).ready( function () {
+        $('table.sg-datatable').DataTable({order: [[1, 'desc']]});
+    } );
+    </script>
+
+  .. list-table::
+   :header-rows: 1
+   :class: table table-striped sg-datatable
+
+   * - Example
+     - Time
+     - Mem (MB)
+   * - :ref:`sphx_glr_examples_02_medium_range_11_huge_ensembles.py` (``11_huge_ensembles.py``)
+     - 01:39.822
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_medium_range_12_temporal_interpolation.py` (``12_temporal_interpolation.py``)
+     - 00:35.828
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_medium_range_13_cyclone_tracking.py` (``13_cyclone_tracking.py``)
+     - 00:34.059
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_medium_range_06_model_perturbation_hook.py` (``06_model_perturbation_hook.py``)
+     - 00:33.153
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_medium_range_05_ensemble_workflow_extend.py` (``05_ensemble_workflow_extend.py``)
+     - 00:11.296
+     - 0.0
+   * - :ref:`sphx_glr_examples_02_medium_range_08_distributed_manager.py` (``08_distributed_manager.py``)
+     - 00:09.265
+     - 0.0

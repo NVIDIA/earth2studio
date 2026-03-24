@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 
 
@@ -8,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>earth2studio.models.px.AIFSENS &#8212; Earth2Studio 0.14.0a0 documentation</title>
+    <title>earth2studio.models.px.AIFSENS &#8212; Earth2Studio</title>
   
   
   
@@ -31,13 +32,15 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx_badges.css?v=4a657082" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/css/nvidia-sphinx-theme.css?v=a9229f12" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=bba532a7" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -45,9 +48,13 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=7ca84bf6"></script>
+
+
+    <script src="../../../../_static/documentation_options.js?v=e36bfde7"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../_static/badge-data.js"></script>
+    <script src="../../../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
@@ -62,14 +69,22 @@
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
         </script>
+
+    <link rel="icon" href="../../../../_static/favicon.png"/>
+
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
     <link rel="next" title="earth2studio.models.px.Atlas" href="earth2studio.models.px.Atlas.html" />
     <link rel="prev" title="earth2studio.models.px.AIFS" href="earth2studio.models.px.AIFS.html" />
+
+
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.14" />
+  <meta name="docsearch:version" content="0.13" />
+
+
   </head>
+
   
   
   <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
@@ -77,6 +92,8 @@
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+
   
   <div id="pst-scroll-pixel-helper"></div>
   
@@ -134,8 +151,8 @@
       
     
     
-    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png" class="logo__image only-light" alt=""/>
-    <img src="../../../../_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png" class="logo__image only-dark pst-js-only" alt=""/>
+    <img src="../../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
   
   
     <p class="title logo__title">Earth2Studio</p>
@@ -143,6 +160,8 @@
 </a></div>
     
       <div class="navbar-item">
+
+
 <div class="version-switcher__container dropdown pst-js-only">
   <button id="pst-version-switcher-button-2"
     type="button"
@@ -162,13 +181,7 @@
   </div>
 </div></div>
     
-  </div>
-  
-  <div class="col-lg-9 navbar-header-items">
-    
-    <div class="me-auto navbar-header-items__center">
-      
-        <div class="navbar-item">
+      <div class="navbar-item">
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
@@ -208,8 +221,10 @@
 
   </ul>
 </nav></div>
-      
-    </div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
     
     
     <div class="navbar-header-items__end">
@@ -283,57 +298,35 @@
       <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="Earth2Studio - Home"/>
+    <img src="../../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="Earth2Studio - Home"/>
+  
+  
+    <p class="title logo__title">Earth2Studio</p>
+  
+</a>
+
+
   
   <div class="sidebar-header-items sidebar-primary__section">
     
-    
-      <div class="sidebar-header-items__center">
-        
-          
-          
-            <div class="navbar-item">
-<nav>
-  <ul class="bd-navbar-elements navbar-nav">
-    
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../userguide/index.html">
-    User Guide
-  </a>
-</li>
-
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="../../../index.html">
-    API
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../examples/index.html">
-    Examples
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/tree/main/recipes">
-    Recipes
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-external" href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md">
-    Changelog
-  </a>
-</li>
-
-  </ul>
-</nav></div>
-          
-        
-      </div>
     
     
     
@@ -369,158 +362,275 @@
   
     <div class="sidebar-primary-items__start sidebar-primary__section">
         <div class="sidebar-primary-item">
+
+
+
 <nav class="bd-docs-nav bd-links"
-     aria-label="Section Navigation">
-  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
-  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../models.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.ACE2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.ACE2ERA5</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.AIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Atlas.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Atlas</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.CBottleVideo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.CBottleVideo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DiagnosticWrapper.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DiagnosticWrapper</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLESyM.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyM</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLESyMLatLon.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyMLatLon</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FCN3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN3</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.FuXi.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.GraphCastOperational.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastOperational</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.GraphCastSmall.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.InterpModAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.StormScopeGOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormScopeGOES</a></li>
-<li class="toctree-l2"><a class="reference internal" href="earth2studio.models.px.StormScopeMRMS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormScopeMRMS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CBottleInfill.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleInfill</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CBottleSR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleSR</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CBottleTCGuidance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffCMIP6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffCMIP6</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedRH.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedRHDewpoint.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedSurfacePressure.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedSurfacePressure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedTCWV.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedTCWV</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedVPD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedWS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.PrecipitationAFNOv2.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNOv2</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.SolarRadiationAFNO1H.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.SolarRadiationAFNO1H</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.SolarRadiationAFNO6H.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.SolarRadiationAFNO6H</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.TCTrackerWuDuan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.TCTrackerWuDuan</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.TCTrackerVitart.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.TCTrackerVitart</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.WindgustAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.WindgustAFNO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../dx/earth2studio.models.dx.Identity.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../da/earth2studio.models.da.HealDA.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>.HealDA</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../da/earth2studio.models.da.InterpEquirectangular.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>.InterpEquirectangular</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../da/earth2studio.models.da.StormCastSDA.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>.StormCastSDA</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../earth2studio.models.auto.Package.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../earth2studio.models.batch.batch_func.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.batch</span></code>.batch_func</a></li>
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../userguide/index.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../userguide/about/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/about/install.html">Install</a></li>
+
+
+
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/about/intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/about/data.html">Data Movement</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../datasources.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.CMIP6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.CMIP6MultiRealm.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6MultiRealm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GOES</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.IFS_ENS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_ENS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.JPSS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.JPSS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.MRMS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.MRMS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.NCAR_ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.NCAR_ERA5</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerECMWFOpenDataIFS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerGOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerGOES</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerMODISFire.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerMODISFire</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerOISST.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerOISST</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerSentinel3AOD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerSentinel3AOD</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.WB2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.WB2ERA5_121x240.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_121x240</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.WB2ERA5_32x64.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_32x64</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.WB2Climatology.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2Climatology</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.DataArrayFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.DataSetFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.DataArrayPathList.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayPathList</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.AIFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.AIFS_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.AIFS_ENS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.AIFS_ENS_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GEFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GEFS_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.GEFS_FX_721x1440.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GEFS_FX_721x1440</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.HRRR_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.IFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.IFS_ENS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_ENS_FX</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.ISD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ISD</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.RandomDataFrame.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.RandomDataFrame</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.UFSObsConv.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.UFSObsSat.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsSat</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.CBottle3D.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CBottle3D</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../userguide/components/index.html">Core Components</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/components/prognostic.html">Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/components/diagnostic.html">Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/components/datasources.html">Data and Forecast Sources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/components/perturbation.html">Perturbations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/components/io.html">Output Handling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/components/statistics.html">Statistics</a></li>
+
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../io/earth2studio.io.AsyncZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.AsyncZarrBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../userguide/advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/batch.html">Batch Dimension</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/auto.html">AutoModels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/advanced/lexicon.html">Lexicon</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.Brown.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Brown</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.BredVector.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.BredVector</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.CorrelatedSphericalGaussian</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.Gaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Gaussian</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.HemisphericCentredBredVector</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.LaggedEnsemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.LaggedEnsemble</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.SphericalGaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.SphericalGaussian</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.Zero.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Zero</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../userguide/developer/index.html">Developer Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/overview.html">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/dependency.html">Dependency Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/style.html">Style Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/documentation.html">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/testing.html">Testing Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/build.html">Build Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/developer/recipes.html">Recipe Guide</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.brier.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.brier</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.energy_score.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.energy_score</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.fss.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.fss</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.lsd.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.lsd</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.mae.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mae</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../statistics/earth2studio.statistics.weights.lat_weight.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../userguide/support/index.html">Support</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/support/troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../userguide/support/faq.html">Frequently Asked Questions</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../utils.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils</span></code>: Utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.coords.handshake_dim.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_dim</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.interp.LatLonInterpolation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.interp</span></code>.LatLonInterpolation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../workflows/earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../workflows/earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../workflows/earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../index.html">API</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../../models_px.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.ACE2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.ACE2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.AIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFS</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Atlas.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Atlas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Aurora.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Aurora</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.CBottleVideo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.CBottleVideo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DiagnosticWrapper.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DiagnosticWrapper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DLESyM.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DLESyMLatLon.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLESyMLatLon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.DLWP.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.DLWP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.FCN.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.FCN3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FCN3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.FengWu.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FengWu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.FuXi.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.FuXi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.GraphCastOperational.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastOperational</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.GraphCastSmall.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.GraphCastSmall</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.InterpModAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.InterpModAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Pangu24.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu24</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Pangu6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Pangu3.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Pangu3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.Persistence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.SFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.SFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormCast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormCast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormScopeGOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormScopeGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.models.px.StormScopeMRMS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.StormScopeMRMS</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../models_dx.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>: Diagnostics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.CBottleInfill.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleInfill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.CBottleSR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleSR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.CBottleTCGuidance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CBottleTCGuidance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffCMIP6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffCMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.CorrDiffTaiwan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.CorrDiffTaiwan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.ClimateNet.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.ClimateNet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedRH.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedRHDewpoint.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedRHDewpoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedSurfacePressure.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedSurfacePressure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedTCWV.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedTCWV</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedVPD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedVPD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.DerivedWS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.DerivedWS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.PrecipitationAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.PrecipitationAFNOv2.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.PrecipitationAFNOv2</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.SolarRadiationAFNO1H.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.SolarRadiationAFNO1H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.SolarRadiationAFNO6H.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.SolarRadiationAFNO6H</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.TCTrackerWuDuan.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.TCTrackerWuDuan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.TCTrackerVitart.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.TCTrackerVitart</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.WindgustAFNO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.WindgustAFNO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dx/earth2studio.models.dx.Identity.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.dx</span></code>.Identity</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../models_da.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>: Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../da/earth2studio.models.da.HealDA.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>.HealDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../da/earth2studio.models.da.InterpEquirectangular.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>.InterpEquirectangular</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../da/earth2studio.models.da.StormCastSDA.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.da</span></code>.StormCastSDA</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../datasources_analysis.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Data Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.ARCO.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ARCO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.CDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CDS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.CMIP6.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.CMIP6MultiRealm.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.CMIP6MultiRealm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.HRRR.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.IFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.IFS_ENS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_ENS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.JPSS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.JPSS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.MRMS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.MRMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.NCAR_ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.NCAR_ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerECMWFOpenDataIFS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerECMWFOpenDataIFS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerGOES.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerGOES</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerMODISFire.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerMODISFire</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerOISST.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerOISST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.PlanetaryComputerSentinel3AOD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.PlanetaryComputerSentinel3AOD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.Random.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.Random</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.WB2ERA5.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.WB2ERA5_121x240.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_121x240</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.WB2ERA5_32x64.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2ERA5_32x64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.WB2Climatology.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.WB2Climatology</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.DataArrayFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.DataSetFile.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataSetFile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.DataArrayPathList.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.DataArrayPathList</a></li>
+</ul>
+</details></li>
+
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.AIFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.AIFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.AIFS_ENS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.AIFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GEFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GEFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.GEFS_FX_721x1440.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.GEFS_FX_721x1440</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.HRRR_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.HRRR_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.IFS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.IFS_ENS_FX.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.IFS_ENS_FX</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.ISD.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.ISD</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.RandomDataFrame.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.RandomDataFrame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.UFSObsConv.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsConv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.UFSObsSat.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.UFSObsSat</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../io.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>: IO Backends</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../io/earth2studio.io.AsyncZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.AsyncZarrBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../io/earth2studio.io.KVBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.KVBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../io/earth2studio.io.NetCDF4Backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.NetCDF4Backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../io/earth2studio.io.XarrayBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.XarrayBackend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../io/earth2studio.io.ZarrBackend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.io</span></code>.ZarrBackend</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../perturbation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>: Perturbations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.Brown.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Brown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.BredVector.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.BredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.CorrelatedSphericalGaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.CorrelatedSphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.Gaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Gaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.HemisphericCentredBredVector.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.HemisphericCentredBredVector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.LaggedEnsemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.LaggedEnsemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.SphericalGaussian.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.SphericalGaussian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../perturbation/earth2studio.perturbation.Zero.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.perturbation</span></code>.Zero</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../statistics.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>: Statistics</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.acc.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.acc</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.brier.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.brier</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.crps.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.crps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.energy_score.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.energy_score</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.fss.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.fss</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.lsd.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.lsd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.mae.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mae</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.mean.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.rank_histogram.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rank_histogram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.rmse.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.rmse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.spread_skill_ratio.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.spread_skill_ratio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.std.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.variance.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics</span></code>.variance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../statistics/earth2studio.statistics.weights.lat_weight.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.weights</span></code>.lat_weight</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../workflows.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>: Workflows</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../workflows/earth2studio.run.deterministic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.deterministic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../workflows/earth2studio.run.diagnostic.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.diagnostic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../workflows/earth2studio.run.ensemble.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.run</span></code>.ensemble</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../utils_all.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio</span></code>: Utilities</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.coords.handshake_dim.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.coords.handshake_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.coords.handshake_size.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.handshake_size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.coords.map_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.map_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.coords.split_coords.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.coords</span></code>.split_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.interp.LatLonInterpolation.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.interp</span></code>.LatLonInterpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.time.timearray_to_datetime.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.timearray_to_datetime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../utils/earth2studio.utils.time.to_time_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.utils.time</span></code>.to_time_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.datasource_to_file.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.datasource_to_file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.fetch_data.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.fetch_data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../data/earth2studio.data.prep_data_array.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>.prep_data_array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../earth2studio.models.auto.Package.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.auto</span></code>.Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../earth2studio.models.batch.batch_func.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.batch</span></code>.batch_func</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../examples/index.html">Examples</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/01_getting_started/index.html">Getting Started</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/01_deterministic_workflow.html">Running Deterministic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/02_diagnostic_workflow.html">Running Diagnostic Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/01_getting_started/03_ensemble_workflow.html">Running Ensemble Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/02_medium_range/index.html">Medium Range</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/02_medium_range/05_ensemble_workflow_extend.html">Single Variable Perturbation Method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/02_medium_range/06_model_perturbation_hook.html">Model Hook Injection: Perturbation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/02_medium_range/08_distributed_manager.html">Distributed Manager Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/02_medium_range/11_huge_ensembles.html">Huge Ensembles (HENS) Checkpoints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/02_medium_range/12_temporal_interpolation.html">Temporal Interpolation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/02_medium_range/13_cyclone_tracking.html">Tropical Cyclone Tracking</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/03_downscaling/index.html">Downscaling</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/04_corrdiff_inference.html">Generative Downscaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/16_cbottle_super_resolution.html">CBottle Super Resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/03_downscaling/18_ensemble_downscaling.html">Ensemble Forecasting with Downscaling</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/04_now_casting/index.html">Now Casting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/04_now_casting/09_stormcast_example.html">Running StormCast Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/04_now_casting/10_stormcast_ensemble_example.html">Running StormCast Ensemble Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/04_now_casting/20_stormscope_goes_example.html">StormScope Satellite and Radar Nowcasting</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/05_data_assimilation/index.html">Data Assimilation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/05_data_assimilation/21_stormcast_sda.html">StormCast Score-Based Data Assimilation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/05_data_assimilation/22_healda.html">HealDA Global Data Assimilation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/06_seasonal/index.html">Subseasonal to Seasonal</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/06_seasonal/07_seasonal_statistics.html">Statistical Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/06_seasonal/14_dlesym_example.html">Running DLESyM Inference</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/07_misc/index.html">Miscellaneous</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/07_misc/15_cbottle_generation.html">CBottle Data Generation and Infilling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/07_misc/17_io_performance.html">IO Backend Performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/07_misc/19_local_datasource.html">Creating a Local Data Source</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../examples/08_extend/index.html">Extending Earth2Studio</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/08_extend/01_custom_prognostic.html">Extending Prognostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/08_extend/02_custom_diagnostic.html">Extending Diagnostic Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../examples/08_extend/03_custom_datasource.html">Extending Data Sources</a></li>
+</ul>
+</details></li>
 </ul>
 </details></li>
 </ul>
@@ -530,14 +640,8 @@
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
-      <div class="sidebar-primary-item">
-<div id="ethical-ad-placement"
-      class="flat"
-      data-ea-publisher="readthedocs"
-      data-ea-type="readthedocs-sidebar"
-      data-ea-manual="true">
-</div></div>
   </div>
+
 
 
       </div>
@@ -567,7 +671,7 @@
     <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../../models.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models</span></code>: Models</a></li>
+    <li class="breadcrumb-item"><a href="../../../models_px.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>: Prognostics</a></li>
     
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS</span></li>
   </ul>
@@ -587,11 +691,22 @@
                 <article class="bd-article">
                   
   <section id="earth2studio-models-px-aifsens">
-<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code>.AIFSENS<a class="headerlink" href="#earth2studio-models-px-aifsens" title="Link to this heading">#</a></h1>
+<h1><a class="reference internal" href="../../../models_px.html#module-earth2studio.models.px" title="earth2studio.models.px"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.models.px</span></code></a>.AIFSENS<a class="headerlink" href="#earth2studio-models-px-aifsens" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="earth2studio.models.px.AIFSENS">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">AIFSENS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">latitudes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">longitudes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interpolation_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverse_interpolation_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invariants</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifsens.html#AIFSENS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFSENS" title="Link to this definition">#</a></dt>
-<dd><p>Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.models.px.</span></span><span class="sig-name descname"><span class="pre">AIFSENS</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">latitudes</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">longitudes</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">interpolation_matrix</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">inverse_interpolation_matrix</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">invariants</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/aifsens.html#AIFSENS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.AIFSENS" title="Link to this definition">#</a></dt>
+<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:mrf" style="background-color:#0dcaf0;color:#000;" title="Medium Range">MRF</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:land" style="background-color:#a0522d;color:#fff;" title="Land/Soil"><i class="fa-solid fa-mound"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:solar" style="background-color:#f59f00;color:#fff;" title="Solar"><i class="fa-solid fa-sun"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="year:2025" style="background-color:#4F4F4F;color:#fff;">2025</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="gpu:48gb" style="background-color:#4b9934;color:#fff;" title="48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)">48 GB</span></span><p>Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
 probabilistic, ensemble-based forecast model from the European Centre for
 Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a
 sliding-window transformer processor, trained on ERA5 reanalysis and operational NWP
@@ -738,6 +853,8 @@ output data tensor and coordinate system dictionary.</p>
             </div>
             
             
+
+
               
                 <dialog id="pst-secondary-sidebar-modal"></dialog>
                 <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
@@ -752,27 +869,19 @@ output data tensor and coordinate system dictionary.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS"><code class="docutils literal notranslate"><span class="pre">AIFSENS</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.__call__"><code class="docutils literal notranslate"><span class="pre">AIFSENS.__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.create_iterator"><code class="docutils literal notranslate"><span class="pre">AIFSENS.create_iterator()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.load_default_package"><code class="docutils literal notranslate"><span class="pre">AIFSENS.load_default_package()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.load_model"><code class="docutils literal notranslate"><span class="pre">AIFSENS.load_model()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.create_iterator"><code class="docutils literal notranslate"><span class="pre">create_iterator()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.load_default_package"><code class="docutils literal notranslate"><span class="pre">load_default_package()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.models.px.AIFSENS.load_model"><code class="docutils literal notranslate"><span class="pre">load_model()</span></code></a></li>
 </ul>
 </li>
 </ul>
   </nav></div>
 
-  <div class="sidebar-secondary-item">
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="../../../../_sources/modules/generated/models/px/earth2studio.models.px.AIFSENS.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div></div>
-
 </div></div>
               
             
+
           </div>
           <footer class="bd-footer-content">
             
@@ -782,9 +891,11 @@ output data tensor and coordinate system dictionary.</p>
     </div>
   </div>
   
+
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
   <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
 <script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -792,36 +903,69 @@ output data tensor and coordinate system dictionary.</p>
     <div class="footer-items__start">
       
         <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
 
   <p class="copyright">
     
-      © Copyright 2026, NVIDIA.
+      Copyright © 2026, NVIDIA.
       <br/>
     
   </p>
 </div>
       
-        <div class="footer-item">
-
-  <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
-    <br/>
-  </p>
-</div>
-      
     </div>
   
   
-  
-    <div class="footer-items__end">
-      
-        <div class="footer-item">
-<p class="theme-version">
-  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
-</p></div>
-      
-    </div>
   
 </div>
 

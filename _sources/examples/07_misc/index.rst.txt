@@ -1,0 +1,85 @@
+
+
+.. _sphx_glr_examples_07_misc:
+
+.. _misc_examples:
+
+Miscellaneous
+-------------
+
+Miscellaneous examples covering IO performance, custom data sources, and other
+utility workflows.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/15_cbottle_generation`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Data Generation and Infilling</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Leverage different IO backends for storing inference results.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_17_io_performance_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/17_io_performance`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">IO Backend Performance</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Create and save an offline dataset to use in an inference pipeline.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_19_local_datasource_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/19_local_datasource`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Creating a Local Data Source</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/07_misc/15_cbottle_generation
+   /examples/07_misc/17_io_performance
+   /examples/07_misc/19_local_datasource
+

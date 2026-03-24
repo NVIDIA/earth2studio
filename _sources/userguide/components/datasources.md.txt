@@ -10,7 +10,7 @@ These are typically as an initial state for inference of an AI model or some oth
 downstream task or target data to evaluate the accuracy of a particular model.
 Data sources may be remote cloud based data stores or files on your local machine.
 The list of data sources that are already built into Earth2Studio can be found in
-the API documentation {ref}`earth2studio.data`.
+the API documentation {ref}`earth2studio.data.analysis`.
 
 :::{note}
 Earth2Studio has data and forecast sources. The only difference being the latter
@@ -76,7 +76,7 @@ that is available.
 In these data sources, the {func}`__call__` function is just a synchronous wrapper
 around the async function.
 The functionality is identical between the two.
-Not all data sources have an async implementation, reference {ref}`earth2studio.data`
+Not all data sources have an async implementation, reference {ref}`earth2studio.data.analysis`
 for more information.
 Async-based data sources provide extremely fast download speeds compared to others,
 so users should explore and test different ones if possible.

@@ -1,0 +1,66 @@
+
+
+.. _sphx_glr_examples_05_data_assimilation:
+
+.. _data_assimilation_examples:
+
+Data Assimilation
+-----------------
+
+Examples demonstrating data assimilation workflows in Earth2Studio.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Running StormCast with guided diffusion posterior sampling to assimilate observations.">
+
+.. only:: html
+
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_21_stormcast_sda_thumb.png
+    :alt:
+
+  :doc:`/examples/05_data_assimilation/21_stormcast_sda`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">StormCast Score-Based Data Assimilation</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Producing a global weather analysis from satellite and in-situ observations.">
+
+.. only:: html
+
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_22_healda_thumb.png
+    :alt:
+
+  :doc:`/examples/05_data_assimilation/22_healda`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">HealDA Global Data Assimilation</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/05_data_assimilation/21_stormcast_sda
+   /examples/05_data_assimilation/22_healda
+

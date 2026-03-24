@@ -1,0 +1,252 @@
+/* sphinx-badges — structural styles (colours come from inline style attrs) */
+
+/* ── Single badge ─────────────────────────────────────────────────────────── */
+.sphinx-badge {
+    display: inline-block;
+    padding: 0.2em 0.55em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.375rem;   /* rounded (default) */
+    margin: 0 0.15em;
+    cursor: default;
+    user-select: none;
+    text-decoration: none;
+}
+
+/* Gap between an icon and its following text label */
+.sphinx-badge-icon + .sphinx-badge-label {
+    margin-left: 0.3em;
+}
+
+/* ── Style variants ───────────────────────────────────────────────────────── */
+
+/* Square / Material Design — no rounded corners */
+.sphinx-badge-square {
+    border-radius: 0 !important;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-size: 0.7em;
+    padding: 0.25em 0.6em;
+}
+
+/* Pill — fully rounded */
+.sphinx-badge-pill {
+    border-radius: 9999px !important;
+    padding: 0.2em 0.7em;
+}
+
+/* ── Badge group (produced by .. badges:: directive) ──────────────────────── */
+.sphinx-badge-list {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25em;
+    vertical-align: middle;
+    margin-left: 0;
+}
+
+/* ── Badge-filter widget ──────────────────────────────────────────────────── */
+.sphinx-badge-filter {
+    margin: 0.75rem 0 1rem;
+}
+
+/* Flat layout — single flex row */
+.sphinx-badge-filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* ── Grouped layout rows ──────────────────────────────────────────────────── */
+
+/* Grouped mode overrides the outer controls to a column stack */
+[data-grouped="true"] .sphinx-badge-filter-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* Last tag-group row sits just above the (possibly hidden) reset row */
+[data-grouped="true"] .sphinx-badge-filter-row:nth-last-child(2) {
+    border-bottom: none;
+}
+
+.sphinx-badge-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.sphinx-badge-filter-row:last-child {
+    border-bottom: none;
+}
+
+.sphinx-badge-filter-group-label {
+    font-size: 0.78em;
+    font-weight: 600;
+    color: #6c757d;
+    min-width: 7em;
+    white-space: nowrap;
+    cursor: default;
+    user-select: none;
+}
+
+/* "Clear filters" button row — right-aligned, minimal */
+.sphinx-badge-filter-reset-row {
+    justify-content: flex-end;
+    padding-top: 0.4rem;
+}
+
+.sphinx-badge-filter-clear {
+    font-size: 0.75em;
+    font-weight: 500;
+    color: #6c757d;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.1em 0.3em;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.sphinx-badge-filter-clear:hover {
+    color: #212529;
+}
+
+.sphinx-badge-filter-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #6c757d;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+}
+
+/* Filter buttons — outlined, transparent background */
+.sphinx-badge-filter-btn {
+    display: inline-block;
+    padding: 0.2em 0.65em;
+    font-size: 0.78em;
+    font-weight: 600;
+    line-height: 1.4;
+    border-radius: 0.375rem;
+    border: 1.5px solid #ced4da;
+    cursor: pointer;
+    background: transparent;
+    color: #495057;
+    transition: opacity 0.12s, background 0.12s, border-color 0.12s;
+    user-select: none;
+}
+
+/* "All" button — neutral, no fill */
+.sphinx-badge-filter-btn[data-badge-id="__all__"] {
+    background: transparent;
+    color: #495057;
+    border-color: #ced4da;
+}
+
+/* "All" active — subtle fill */
+.sphinx-badge-filter-btn[data-badge-id="__all__"][aria-pressed="true"] {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    color: #212529;
+}
+
+/* Badge buttons inactive — dim only when another badge is selected */
+.sphinx-badge-has-active .sphinx-badge-filter-btn[aria-pressed="false"]:not([data-badge-id="__all__"]) {
+    opacity: 0.45;
+}
+
+/* Badge buttons active — full opacity, add a subtle inset ring */
+.sphinx-badge-filter-btn[aria-pressed="true"]:not([data-badge-id="__all__"]) {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.25);
+}
+
+.sphinx-badge-filter-btn:hover {
+    opacity: 1;
+}
+
+/* ── Group visibility toggle (eye icon button) ───────────────────────────── */
+
+.sphinx-badge-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4em;
+    height: 1.4em;
+    padding: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6c757d;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+    transition: color 0.12s;
+}
+
+.sphinx-badge-group-toggle:hover {
+    color: #212529;
+}
+
+/* Show open-eye by default; swap to closed-eye when aria-pressed="true" */
+.sphinx-badge-group-toggle .sphinx-badge-group-toggle-eye-closed {
+    display: none;
+}
+
+.sphinx-badge-group-toggle[aria-pressed="true"] .sphinx-badge-group-toggle-eye-open {
+    display: none;
+}
+
+.sphinx-badge-group-toggle[aria-pressed="true"] .sphinx-badge-group-toggle-eye-closed {
+    display: inline-flex;
+}
+
+.sphinx-badge-group-toggle[aria-pressed="true"] {
+    color: #adb5bd;
+}
+
+/* Badge chips hidden by the group visibility toggle */
+.sphinx-badge-group-hidden {
+    display: none !important;
+}
+
+/* ── Items hidden by the filter (toctree li, autosummary tr, autodoc dl) ───── */
+.sphinx-badge-filter-content li.sphinx-badge-hidden,
+.sphinx-badge-filter-content tr.sphinx-badge-hidden,
+.sphinx-badge-filter-content dl.sphinx-badge-hidden {
+    display: none;
+}
+
+/* ── Badges appended to toctree / autosummary entries by JS ──────────────── */
+
+/* Wrapper injected by JS — allows badges to wrap across lines */
+.sphinx-entry-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25em;
+    white-space: normal;
+    margin-top: 0.3em;
+}
+
+.sphinx-entry-badge {
+    margin: 0;
+    vertical-align: middle;
+}
+
+/* Remove the <p> bottom margin in autosummary cells so badges sit flush */
+.sphinx-badge-filter-content table.autosummary td p {
+    margin-bottom: 0;
+}

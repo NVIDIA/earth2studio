@@ -43,16 +43,36 @@ and commonly used workflows.
 
 .. thumbnail-parent-div-open
 
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+Getting Started
+---------------
+
+Introductory examples demonstrating the core inference workflows in Earth2Studio.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
 .. raw:: html
 
     <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_01_deterministic_workflow_thumb.png
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_01_deterministic_workflow_thumb.png
     :alt:
 
-  :doc:`/examples/01_deterministic_workflow`
+  :doc:`/examples/01_getting_started/01_deterministic_workflow`
 
 .. raw:: html
 
@@ -66,10 +86,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_02_diagnostic_workflow_thumb.png
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_02_diagnostic_workflow_thumb.png
     :alt:
 
-  :doc:`/examples/02_diagnostic_workflow`
+  :doc:`/examples/01_getting_started/02_diagnostic_workflow`
 
 .. raw:: html
 
@@ -83,10 +103,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_03_ensemble_workflow_thumb.png
+  .. image:: /examples/01_getting_started/images/thumb/sphx_glr_03_ensemble_workflow_thumb.png
     :alt:
 
-  :doc:`/examples/03_ensemble_workflow`
+  :doc:`/examples/01_getting_started/03_ensemble_workflow`
 
 .. raw:: html
 
@@ -94,22 +114,26 @@ and commonly used workflows.
     </div>
 
 
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model.">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
-    :alt:
-
-  :doc:`/examples/04_corrdiff_inference`
+.. thumbnail-parent-div-close
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
     </div>
 
+
+Medium Range
+------------
+
+Examples focused on medium-range global weather forecasting, ensemble methods,
+and post-processing workflows.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
 
 .. raw:: html
 
@@ -117,10 +141,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_05_ensemble_workflow_extend_thumb.png
     :alt:
 
-  :doc:`/examples/05_ensemble_workflow_extend`
+  :doc:`/examples/02_medium_range/05_ensemble_workflow_extend`
 
 .. raw:: html
 
@@ -134,10 +158,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_06_model_perturbation_hook_thumb.png
     :alt:
 
-  :doc:`/examples/06_model_perturbation_hook`
+  :doc:`/examples/02_medium_range/06_model_perturbation_hook`
 
 .. raw:: html
 
@@ -147,31 +171,14 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Simple seasonal statistic inference workflow.">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
-    :alt:
-
-  :doc:`/examples/07_seasonal_statistics`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="Setting up distributed manager for parallel inference.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_08_distributed_manager_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_08_distributed_manager_thumb.png
     :alt:
 
-  :doc:`/examples/08_distributed_manager`
+  :doc:`/examples/02_medium_range/08_distributed_manager`
 
 .. raw:: html
 
@@ -181,48 +188,14 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow.">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_09_stormcast_example_thumb.png
-    :alt:
-
-  :doc:`/examples/09_stormcast_example`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow.">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_10_stormcast_ensemble_example_thumb.png
-    :alt:
-
-  :doc:`/examples/10_stormcast_ensemble_example`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="Basic multi-checkpoint Huge Ensembles (HENS) inference workflow.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_11_huge_ensembles_thumb.png
     :alt:
 
-  :doc:`/examples/11_huge_ensembles`
+  :doc:`/examples/02_medium_range/11_huge_ensembles`
 
 .. raw:: html
 
@@ -236,10 +209,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_12_temporal_interpolation_thumb.png
     :alt:
 
-  :doc:`/examples/12_temporal_interpolation`
+  :doc:`/examples/02_medium_range/12_temporal_interpolation`
 
 .. raw:: html
 
@@ -253,10 +226,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_13_cyclone_tracking_thumb.png
     :alt:
 
-  :doc:`/examples/13_cyclone_tracking`
+  :doc:`/examples/02_medium_range/13_cyclone_tracking`
 
 .. raw:: html
 
@@ -264,37 +237,41 @@ and commonly used workflows.
     </div>
 
 
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow for the DLESyM model.">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_14_dlesym_example_thumb.png
-    :alt:
-
-  :doc:`/examples/14_dlesym_example`
+.. thumbnail-parent-div-close
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Running DLESyM Inference</div>
     </div>
 
 
+Downscaling
+-----------
+
+Examples demonstrating generative and ensemble downscaling workflows for
+producing high-resolution outputs from global model forecasts.
+
+
+
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.">
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Generative downscaling over Taiwan using CorrDiff diffusion model.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_04_corrdiff_inference_thumb.png
     :alt:
 
-  :doc:`/examples/15_cbottle_generation`
+  :doc:`/examples/03_downscaling/04_corrdiff_inference`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">CBottle Data Generation and Infilling</div>
+      <div class="sphx-glr-thumbnail-title">Generative Downscaling</div>
     </div>
 
 
@@ -304,10 +281,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_16_cbottle_super_resolution_thumb.png
     :alt:
 
-  :doc:`/examples/16_cbottle_super_resolution`
+  :doc:`/examples/03_downscaling/16_cbottle_super_resolution`
 
 .. raw:: html
 
@@ -317,31 +294,14 @@ and commonly used workflows.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Leverage different IO backends for storing inference results.">
-
-.. only:: html
-
-  .. image:: /examples/images/thumb/sphx_glr_17_io_performance_thumb.png
-    :alt:
-
-  :doc:`/examples/17_io_performance`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">IO Backend Performance</div>
-    </div>
-
-
-.. raw:: html
-
     <div class="sphx-glr-thumbcontainer" tooltip="Custom ensembling workflow with generative downscaling using CorrDiff.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_18_ensemble_downscaling_thumb.png
+  .. image:: /examples/03_downscaling/images/thumb/sphx_glr_18_ensemble_downscaling_thumb.png
     :alt:
 
-  :doc:`/examples/18_ensemble_downscaling`
+  :doc:`/examples/03_downscaling/18_ensemble_downscaling`
 
 .. raw:: html
 
@@ -349,20 +309,58 @@ and commonly used workflows.
     </div>
 
 
+.. thumbnail-parent-div-close
+
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Create and save an offline dataset to use in an inference pipeline.">
+    </div>
+
+
+Now Casting
+-----------
+
+Examples demonstrating high-resolution nowcasting and short-range forecasting
+with models such as StormCast and StormScope.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic StormCast inference workflow.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_19_local_datasource_thumb.png
+  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_09_stormcast_example_thumb.png
     :alt:
 
-  :doc:`/examples/19_local_datasource`
+  :doc:`/examples/04_now_casting/09_stormcast_example`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Creating a Local Data Source</div>
+      <div class="sphx-glr-thumbnail-title">Running StormCast Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Ensemble StormCast inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_10_stormcast_ensemble_example_thumb.png
+    :alt:
+
+  :doc:`/examples/04_now_casting/10_stormcast_ensemble_example`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running StormCast Ensemble Inference</div>
     </div>
 
 
@@ -372,10 +370,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_20_stormscope_goes_example_thumb.png
+  .. image:: /examples/04_now_casting/images/thumb/sphx_glr_20_stormscope_goes_example_thumb.png
     :alt:
 
-  :doc:`/examples/20_stormscope_goes_example`
+  :doc:`/examples/04_now_casting/20_stormscope_goes_example`
 
 .. raw:: html
 
@@ -383,16 +381,36 @@ and commonly used workflows.
     </div>
 
 
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+Data Assimilation
+-----------------
+
+Examples demonstrating data assimilation workflows in Earth2Studio.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
 .. raw:: html
 
     <div class="sphx-glr-thumbcontainer" tooltip="Running StormCast with guided diffusion posterior sampling to assimilate observations.">
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_21_stormcast_sda_thumb.png
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_21_stormcast_sda_thumb.png
     :alt:
 
-  :doc:`/examples/21_stormcast_sda`
+  :doc:`/examples/05_data_assimilation/21_stormcast_sda`
 
 .. raw:: html
 
@@ -406,10 +424,10 @@ and commonly used workflows.
 
 .. only:: html
 
-  .. image:: /examples/images/thumb/sphx_glr_22_healda_thumb.png
+  .. image:: /examples/05_data_assimilation/images/thumb/sphx_glr_22_healda_thumb.png
     :alt:
 
-  :doc:`/examples/22_healda`
+  :doc:`/examples/05_data_assimilation/22_healda`
 
 .. raw:: html
 
@@ -424,31 +442,131 @@ and commonly used workflows.
     </div>
 
 
-.. toctree::
-   :hidden:
+Subseasonal to Seasonal
+-----------------------
 
-   /examples/01_deterministic_workflow
-   /examples/02_diagnostic_workflow
-   /examples/03_ensemble_workflow
-   /examples/04_corrdiff_inference
-   /examples/05_ensemble_workflow_extend
-   /examples/06_model_perturbation_hook
-   /examples/07_seasonal_statistics
-   /examples/08_distributed_manager
-   /examples/09_stormcast_example
-   /examples/10_stormcast_ensemble_example
-   /examples/11_huge_ensembles
-   /examples/12_temporal_interpolation
-   /examples/13_cyclone_tracking
-   /examples/14_dlesym_example
-   /examples/15_cbottle_generation
-   /examples/16_cbottle_super_resolution
-   /examples/17_io_performance
-   /examples/18_ensemble_downscaling
-   /examples/19_local_datasource
-   /examples/20_stormscope_goes_example
-   /examples/21_stormcast_sda
-   /examples/22_healda
+Examples demonstrating subseasonal to seasonal (s2s) inference workflows with typical
+prediction timescales of two weeks to two years.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Simple seasonal statistic inference workflow.">
+
+.. only:: html
+
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_07_seasonal_statistics_thumb.png
+    :alt:
+
+  :doc:`/examples/06_seasonal/07_seasonal_statistics`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Statistical Inference</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Basic deterministic inference workflow for the DLESyM model.">
+
+.. only:: html
+
+  .. image:: /examples/06_seasonal/images/thumb/sphx_glr_14_dlesym_example_thumb.png
+    :alt:
+
+  :doc:`/examples/06_seasonal/14_dlesym_example`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running DLESyM Inference</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+Miscellaneous
+-------------
+
+Miscellaneous examples covering IO performance, custom data sources, and other
+utility workflows.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Climate in a Bottle (cBottle) inference workflows for global weather data synthesis.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_15_cbottle_generation_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/15_cbottle_generation`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">CBottle Data Generation and Infilling</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Leverage different IO backends for storing inference results.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_17_io_performance_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/17_io_performance`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">IO Backend Performance</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Create and save an offline dataset to use in an inference pipeline.">
+
+.. only:: html
+
+  .. image:: /examples/07_misc/images/thumb/sphx_glr_19_local_datasource_thumb.png
+    :alt:
+
+  :doc:`/examples/07_misc/19_local_datasource`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Creating a Local Data Source</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
 
 
 Extending Earth2Studio
@@ -471,10 +589,10 @@ components.
 
 .. only:: html
 
-  .. image:: /examples/extend/images/thumb/sphx_glr_01_custom_prognostic_thumb.png
+  .. image:: /examples/08_extend/images/thumb/sphx_glr_01_custom_prognostic_thumb.png
     :alt:
 
-  :doc:`/examples/extend/01_custom_prognostic`
+  :doc:`/examples/08_extend/01_custom_prognostic`
 
 .. raw:: html
 
@@ -488,10 +606,10 @@ components.
 
 .. only:: html
 
-  .. image:: /examples/extend/images/thumb/sphx_glr_02_custom_diagnostic_thumb.png
+  .. image:: /examples/08_extend/images/thumb/sphx_glr_02_custom_diagnostic_thumb.png
     :alt:
 
-  :doc:`/examples/extend/02_custom_diagnostic`
+  :doc:`/examples/08_extend/02_custom_diagnostic`
 
 .. raw:: html
 
@@ -505,10 +623,10 @@ components.
 
 .. only:: html
 
-  .. image:: /examples/extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
+  .. image:: /examples/08_extend/images/thumb/sphx_glr_03_custom_datasource_thumb.png
     :alt:
 
-  :doc:`/examples/extend/03_custom_datasource`
+  :doc:`/examples/08_extend/03_custom_datasource`
 
 .. raw:: html
 
@@ -528,7 +646,14 @@ components.
    :includehidden:
 
 
-   /examples/extend/index.rst
+   /examples/01_getting_started/index.rst
+   /examples/02_medium_range/index.rst
+   /examples/03_downscaling/index.rst
+   /examples/04_now_casting/index.rst
+   /examples/05_data_assimilation/index.rst
+   /examples/06_seasonal/index.rst
+   /examples/07_misc/index.rst
+   /examples/08_extend/index.rst
 
 
 .. only:: html
