@@ -163,6 +163,10 @@ class CorrDiffCMIP6(CorrDiff):
     >>> out, out_coords = model(x, coords)
     >>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
 
+    Badges
+    ------
+    region:global class:ds class:cm product:wind product:precip product:temp
+    product:atmos year:2026 gpu:80gb
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)

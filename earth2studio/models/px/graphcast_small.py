@@ -204,6 +204,11 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         One degree resolution [181x360] land sea mask on lat-lon grid
     geopotential_at_surface : np.array
         One degree resolution [181x360] geopotential at surface on lat-lon grid
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos year:2022
+    gpu:40gb
     """
 
     def __init__(

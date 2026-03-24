@@ -84,6 +84,10 @@ class CDS:
     be referenced here:
 
     - https://cds.climate.copernicus.eu/how-to-api
+
+    Badges
+    ------
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     MAX_BYTE_SIZE = 20000000
