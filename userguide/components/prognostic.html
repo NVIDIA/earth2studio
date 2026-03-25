@@ -53,7 +53,7 @@
     <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -385,8 +385,7 @@
 <li class="toctree-l3"><a class="reference internal" href="datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l3"><a class="reference internal" href="perturbation.html">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="io.html">Output Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics</a></li>
-
+<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -692,17 +691,20 @@
                   
   <section id="prognostic-models">
 <span id="prognostic-model-userguide"></span><h1>Prognostic Models<a class="headerlink" href="#prognostic-models" title="Link to this heading">#</a></h1>
-<p>Prognostic models in Earth2Studio provide a set of models designed to perform time
+<p>Prognostic models forecast future atmospheric states from initial conditions.
+In Earth2Studio they provide a set of models designed to perform time
 integration. For example, given a set of atmospheric fields at a particular time,
-the model auto-regressively predicts the same fields 6 hours into the future.</p>
-<p>The usage of prognostic models falls into two categories which are commonly achieved
+the model auto-regressively predicts the same fields (typically six hours for many models)
+into the future.</p>
+<p>The usage of prognostic models falls into two categories, which are commonly achieved
 through two different APIs:</p>
-<ol class="arabic simple">
+<ul class="simple">
 <li><p>Single time-step predictions</p></li>
 <li><p>Time-series predictions</p></li>
-</ol>
+</ul>
 <p>The list of prognostic models that are already built into Earth2Studio can be found in
-the API documentation <a class="reference internal" href="../../modules/models_px.html#earth2studio-models-px"><span class="std std-ref">earth2studio.models.px: Prognostics</span></a>.</p>
+the API documentation <a class="reference internal" href="../../modules/models_px.html#earth2studio-models-px"><span class="std std-ref">earth2studio.models.px: Prognostics</span></a>.
+For a complete workflow example, refer to <a class="reference internal" href="../../modules/generated/workflows/earth2studio.run.deterministic.html#earth2studio.run.deterministic" title="earth2studio.run.deterministic"><code class="xref py py-func docutils literal notranslate"><span class="pre">earth2studio.run.deterministic()</span></code></a>.</p>
 <section id="prognostic-interface">
 <h2>Prognostic Interface<a class="headerlink" href="#prognostic-interface" title="Link to this heading">#</a></h2>
 <p>The full requirements for a standard prognostic model are defined explicitly in the
@@ -805,19 +807,19 @@ the API documentation <a class="reference internal" href="../../modules/models_p
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Prognostic models do not need to inherit this protocol, this is simply used to define
+<p>Prognostic models do not need to inherit this protocol, this is used to define
 the required APIs. Prognostic models can maintain their internal state when using the
 iterator if necessary.</p>
 </div>
 <p>Prognostic models also tend to extend two classes:</p>
-<ol class="arabic simple">
+<ul class="simple">
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.px.utils.PrognosticMixin</span></code>: A utility class that
 defines iterator hooks used in all the built-in models. These provide a finer level
 of control over the time-series prediction of models.</p></li>
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModel</span></code>: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a>
-guide for additional details.</p></li>
-</ol>
+checkpoints that can be auto-downloaded and cached. Refer to <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a> for
+additional details.</p></li>
+</ul>
 </section>
 <section id="prognostic-usage">
 <h2>Prognostic Usage<a class="headerlink" href="#prognostic-usage" title="Link to this heading">#</a></h2>
@@ -836,7 +838,9 @@ More information on automatic downloading of checkpoints can be found in the
 </section>
 <section id="single-step-prediction">
 <h3>Single Step Prediction<a class="headerlink" href="#single-step-prediction" title="Link to this heading">#</a></h3>
-<p>A prognostic model can be called for single time-step using the call function.</p>
+<p>A prognostic model can be called for a single time-step using the call function.
+The function takes a data tensor and coordinate system (refer to <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a>
+for the structure) and returns the predicted output.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a PrognosticModel</span>
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
 <span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
@@ -846,7 +850,7 @@ More information on automatic downloading of checkpoints can be found in the
 </section>
 <section id="time-series-prediction">
 <h3>Time-series Prediction<a class="headerlink" href="#time-series-prediction" title="Link to this heading">#</a></h3>
-<p>To predict a time-series, the create generator API can be used to create an iterable
+<p>To predict a time-series, the <code class="docutils literal notranslate"><span class="pre">create_iterator</span></code> method can be used to create an iterable
 data source to generate time-series data as the model rolls out.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a PrognosticModel</span>
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
@@ -861,16 +865,15 @@ data source to generate time-series data as the model rolls out.</p>
 </section>
 <section id="custom-prognostic-models">
 <h2>Custom Prognostic Models<a class="headerlink" href="#custom-prognostic-models" title="Link to this heading">#</a></h2>
-<p>Integrating your own prognostic is easy, just satisfy the interface above.
-We recommend users have a look at the custom prognostic example which will step users
-through the simple process of implementing their own prognostic model for their personal
-needs in the <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples.</p>
+<p>To integrate your own prognostic, satisfy the interface above.
+We recommend that you review the <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which walk you
+through implementing a custom prognostic.</p>
 </section>
 <section id="contributing-a-prognostic-model">
 <h2>Contributing a Prognostic Model<a class="headerlink" href="#contributing-a-prognostic-model" title="Link to this heading">#</a></h2>
-<p>Want to add your prognostic to the package? Great, we will be happy to work with you.
-At the minimum we expect the model to abide by the defined interface as well as meet
-the requirements set forth in our contribution guide. Typically, users are expected
+<p>Want to add your prognostic to the package? We are happy to work with you.
+At the minimum we expect the model to abide by the defined interface and meet
+the requirements set forth in our contribution guide. Typically, you are expected
 to provide the weights of the model in a downloadable location that can be fetched.</p>
 <p>Open an issue when you have an initial implementation you would like us to review.</p>
 </section>

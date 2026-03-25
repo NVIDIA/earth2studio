@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**10:30.250** total execution time for 3 files **from examples/04_nowcasting**:
+**00:00.000** total execution time for 3 files **from examples/04_nowcasting**:
 
 .. container::
 
@@ -32,12 +32,12 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_examples_04_nowcasting_03_stormscope_goes_example.py` (``03_stormscope_goes_example.py``)
-     - 06:05.936
-     - 0.0
    * - :ref:`sphx_glr_examples_04_nowcasting_01_stormcast_example.py` (``01_stormcast_example.py``)
-     - 02:27.529
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_04_nowcasting_02_stormcast_ensemble_example.py` (``02_stormcast_ensemble_example.py``)
-     - 01:56.785
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_examples_04_nowcasting_03_stormscope_goes_example.py` (``03_stormscope_goes_example.py``)
+     - 00:00.000
      - 0.0

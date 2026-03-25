@@ -48,12 +48,6 @@ In this example you will learn:
     # ///
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 45-59
 
 Set Up
@@ -102,12 +96,6 @@ grid.
     model = model.to("cuda:0")
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 88-96
 
 Fetch Observations
@@ -143,101 +131,6 @@ window around the analysis time so that observations will be retrieved for.
         fields=np.array(list(sat_schema.keys())),
     )
     logger.info(f"Fetched {len(sat_df)} satellite observations")
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Fetching GSI files:   0%|          | 0/25 [00:00<?, ?it/s]    Fetching GSI files: 100%|██████████| 25/25 [00:00<00:00, 21691.68it/s]
-    2026-03-24 22:33:35.706 | INFO     | __main__:<module>:108 - Fetched 8515112 conventional observations
-    Fetching GSI files:   0%|          | 0/90 [00:00<?, ?it/s]                                                              2026-03-24 22:33:40.205 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4 not found
-    Fetching GSI files:   0%|          | 0/90 [00:04<?, ?it/s]    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.224 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.234 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.237 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.261 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.267 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.277 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.282 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.295 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.302 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]                                                                       2026-03-24 22:33:40.306 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  57%|█████▋    | 51/90 [00:04<00:03, 11.48it/s]    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.308 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.312 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.337 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.339 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.343 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.349 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.357 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.366 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.374 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.380 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.391 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.394 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]                                                                       2026-03-24 22:33:40.409 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  68%|██████▊   | 61/90 [00:04<00:02, 14.23it/s]    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.415 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.417 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.422 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.433 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.434 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.444 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.452 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.464 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.473 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.490 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.495 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.503 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.505 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]                                                                       2026-03-24 22:33:40.509 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  82%|████████▏ | 74/90 [00:04<00:00, 19.14it/s]    Fetching GSI files:  98%|█████████▊| 88/90 [00:04<00:00, 26.06it/s]                                                                       2026-03-24 22:33:40.517 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4 not found
-    Fetching GSI files:  98%|█████████▊| 88/90 [00:04<00:00, 26.06it/s]                                                                       2026-03-24 22:33:40.518 | WARNING  | earth2studio.data.ufs:_handle_missing_file:734 - File s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4 not found
-    Fetching GSI files:  98%|█████████▊| 88/90 [00:04<00:00, 26.06it/s]    Fetching GSI files: 100%|██████████| 90/90 [00:04<00:00, 18.92it/s]
-    2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_metop-a_ges.2023123100_control.nc4
-    2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_metop-a_ges.2023123106_control.nc4
-    2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_metop-a_ges.2023123112_control.nc4
-    2026-03-24 22:33:43.043 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_metop-a_ges.2023123118_control.nc4
-    2026-03-24 22:33:43.044 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_metop-a_ges.2024010100_control.nc4
-    2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_mhs_n18_ges.2023123100_control.nc4
-    2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_mhs_n18_ges.2023123106_control.nc4
-    2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_mhs_n18_ges.2023123112_control.nc4
-    2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_mhs_n18_ges.2023123118_control.nc4
-    2026-03-24 22:33:44.658 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_mhs_n18_ges.2024010100_control.nc4
-    2026-03-24 22:33:45.440 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_metop-a_ges.2023123100_control.nc4
-    2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_metop-a_ges.2023123106_control.nc4
-    2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_metop-a_ges.2023123112_control.nc4
-    2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_metop-a_ges.2023123118_control.nc4
-    2026-03-24 22:33:45.441 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_metop-a_ges.2024010100_control.nc4
-    2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n16_ges.2023123100_control.nc4
-    2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n16_ges.2023123106_control.nc4
-    2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n16_ges.2023123112_control.nc4
-    2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n16_ges.2023123118_control.nc4
-    2026-03-24 22:33:48.110 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n16_ges.2024010100_control.nc4
-    2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsua_n17_ges.2023123100_control.nc4
-    2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsua_n17_ges.2023123106_control.nc4
-    2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsua_n17_ges.2023123112_control.nc4
-    2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsua_n17_ges.2023123118_control.nc4
-    2026-03-24 22:33:48.111 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsua_n17_ges.2024010100_control.nc4
-    2026-03-24 22:33:49.948 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n15_ges.2023123100_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n15_ges.2023123106_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n15_ges.2023123112_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n15_ges.2023123118_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n15_ges.2024010100_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n16_ges.2023123100_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n16_ges.2023123106_control.nc4
-    2026-03-24 22:33:49.949 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n16_ges.2023123112_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n16_ges.2023123118_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n16_ges.2024010100_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123100/gsi/diag_amsub_n17_ges.2023123100_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123106/gsi/diag_amsub_n17_ges.2023123106_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123112/gsi/diag_amsub_n17_ges.2023123112_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2023/12/2023123118/gsi/diag_amsub_n17_ges.2023123118_control.nc4
-    2026-03-24 22:33:49.950 | WARNING  | earth2studio.data.ufs:_compile_dataframe:233 - Cached file missing for s3://noaa-ufs-gefsv13replay-pds/2024/01/2024010100/gsi/diag_amsub_n17_ges.2024010100_control.nc4
-    2026-03-24 22:33:50.075 | INFO     | __main__:<module>:117 - Fetched 4378286 satellite observations
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 120-125
@@ -300,17 +193,6 @@ observations typically for the model's 24-hour time window.
     plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 
 
-
-
-.. image-sg:: /examples/05_data_assimilation/images/sphx_glr_02_healda_001.png
-   :alt: Observation Locations 2024-01-01T00:00 UTC, Conventional obs (n=8,515,112), Satellite obs (n=4,378,286)
-   :srcset: /examples/05_data_assimilation/images/sphx_glr_02_healda_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 175-184
 
 DA models can be called directly for stateless inference or via
@@ -332,18 +214,6 @@ proper combined - to illustrate the impact each observation type has on the anal
     logger.info(f"Combined analysis shape: {result_both.shape}")
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-03-24 22:34:26.520 | INFO     | __main__:<module>:188 - Combined analysis shape: (1, 74, 181, 360)
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 191-195
 
 .. code-block:: Python
@@ -353,18 +223,6 @@ proper combined - to illustrate the impact each observation type has on the anal
     logger.info(f"Sat-only analysis shape: {result_sat.shape}")
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-03-24 22:34:29.984 | INFO     | __main__:<module>:193 - Sat-only analysis shape: (1, 74, 181, 360)
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 196-200
 
 .. code-block:: Python
@@ -372,18 +230,6 @@ proper combined - to illustrate the impact each observation type has on the anal
     torch.manual_seed(42)
     result_conv = model(conv_obs=conv_df)
     logger.info(f"Conv-only analysis shape: {result_conv.shape}")
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-03-24 22:34:36.949 | INFO     | __main__:<module>:198 - Conv-only analysis shape: (1, 74, 181, 360)
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 201-207
@@ -451,17 +297,6 @@ Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
     plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 
 
-
-
-.. image-sg:: /examples/05_data_assimilation/images/sphx_glr_02_healda_002.png
-   :alt: HealDA Analysis 2024-01-01T00:00 UTC, t2m, z500
-   :srcset: /examples/05_data_assimilation/images/sphx_glr_02_healda_002.png
-   :class: sphx-glr-single-img
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 261-268
 
 HealDA vs ERA5
@@ -481,20 +316,6 @@ yields the most accurate global prediction.
     era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                                  2026-03-24 22:35:09.049 | DEBUG    | earth2studio.data.ncar:fetch_array:402 - Fetching NCAR ERA5 variable: 2T in file s3://nsf-ncar-era5/e5.oper.an.sfc/202401/e5.oper.an.sfc.128_167_2t.ll025sc.2024010100_2024013123.nc
-    Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                                  2026-03-24 22:35:09.049 | DEBUG    | earth2studio.data.ncar:fetch_array:402 - Fetching NCAR ERA5 variable: Z in file s3://nsf-ncar-era5/e5.oper.an.pl/202401/e5.oper.an.pl.128_129_z.ll025sc.2024010100_2024010123.nc
-    Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00<?, ?it/s]    Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:00<00:00, 23.60it/s]
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 275-286
 
 .. code-block:: Python
@@ -509,23 +330,6 @@ yields the most accurate global prediction.
             field_era5 = era5_interp.sel(variable=var).data[0]
             mae = float(np.abs(field_pred - field_era5).mean())
             logger.info(f"{title} | {var} MAE: {mae:.4f}")
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    2026-03-24 22:35:09.195 | INFO     | __main__:<module>:284 - Conv+Sat - ERA5 | t2m MAE: 0.7994
-    2026-03-24 22:35:09.196 | INFO     | __main__:<module>:284 - Conv+Sat - ERA5 | z500 MAE: 51.2045
-    2026-03-24 22:35:09.196 | INFO     | __main__:<module>:284 - Sat - ERA5 | t2m MAE: 0.8488
-    2026-03-24 22:35:09.197 | INFO     | __main__:<module>:284 - Sat - ERA5 | z500 MAE: 164.9523
-    2026-03-24 22:35:09.198 | INFO     | __main__:<module>:284 - Conv - ERA5 | t2m MAE: 4.3312
-    2026-03-24 22:35:09.198 | INFO     | __main__:<module>:284 - Conv - ERA5 | z500 MAE: 571.0181
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 287-340
@@ -585,22 +389,6 @@ yields the most accurate global prediction.
         y=0.97,
     )
     plt.savefig("outputs/22_healda_differences.jpg", dpi=150, bbox_inches="tight")
-
-
-
-.. image-sg:: /examples/05_data_assimilation/images/sphx_glr_02_healda_003.png
-   :alt: HealDA Analysis Error 2024-01-01T00:00 UTC, t2m, z500
-   :srcset: /examples/05_data_assimilation/images/sphx_glr_02_healda_003.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (2 minutes 16.531 seconds)
 
 
 .. _sphx_glr_download_examples_05_data_assimilation_02_healda.py:

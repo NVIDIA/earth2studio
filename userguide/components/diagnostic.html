@@ -53,7 +53,7 @@
     <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -385,8 +385,7 @@
 <li class="toctree-l3"><a class="reference internal" href="datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l3"><a class="reference internal" href="perturbation.html">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="io.html">Output Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics</a></li>
-
+<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -697,11 +696,11 @@ focused on predicting new or modified values.
 For example, given an instantaneous set of atmospheric fields, a diagnostic model can
 predict a new field, such as precipitation.
 These models differ from <a class="reference internal" href="prognostic.html#prognostic-model-userguide"><span class="std std-ref">Prognostic Models</span></a> because they do not perform
-time integration.
-Calculations such as statistics or metrics could fall into a diagnostic classification,
-but we distinguish that diagnostic models are in fact models (numerical, AI) used
-to predict and calculate derived physical processes or quantities.
-They are not standard mathematical calculations or reductions for the purpose of analysis.</p>
+time integration (stepping a model forward through multiple time steps).
+Although statistics and metrics could be considered diagnostic in a broad sense,
+Earth2Studio reserves the term for models (numerical or AI) that predict or
+calculate derived physical quantities.
+The term is not for standard mathematical reductions used in analysis.</p>
 <p>The list of diagnostic models that are already built into Earth2Studio can be found in
 the API documentation <a class="reference internal" href="../../modules/models_dx.html#earth2studio-models-dx"><span class="std std-ref">earth2studio.models.dx: Diagnostics</span></a>.</p>
 <section id="diagnostic-interface">
@@ -787,11 +786,11 @@ the API documentation <a class="reference internal" href="../../modules/models_d
 the required APIs.</p>
 </div>
 <p>Diagnostic models also tend to extend one class:</p>
-<ol class="arabic simple">
+<ul class="simple">
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">earth2studio.models.auto.AutoModel</span></code>: Defines APIs for models that have
-checkpoints that can be auto downloaded and cached. See the <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a>
+checkpoints that can be auto-downloaded and cached. Refer to the <a class="reference internal" href="../advanced/auto.html#automodel-userguide"><span class="std std-ref">AutoModels</span></a>
 guide for additional details.</p></li>
-</ol>
+</ul>
 </section>
 <section id="diagnostic-usage">
 <h2>Diagnostic Usage<a class="headerlink" href="#diagnostic-usage" title="Link to this heading">#</a></h2>
@@ -811,7 +810,8 @@ More information on automatic downloading of checkpoints can be found in the
 <section id="prediction">
 <h3>Prediction<a class="headerlink" href="#prediction" title="Link to this heading">#</a></h3>
 <p>The main work of diagnostic models is the <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function, which takes in
-a data tensor with coordinate system and returns the primary output.</p>
+a data tensor and coordinate system (refer to <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> for the structure)
+and returns the primary output.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume model is an instance of a DiagnosticModel</span>
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
 <span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
@@ -822,18 +822,18 @@ a data tensor with coordinate system and returns the primary output.</p>
 </section>
 <section id="custom-diagnostic-models">
 <h2>Custom Diagnostic Models<a class="headerlink" href="#custom-diagnostic-models" title="Link to this heading">#</a></h2>
-<p>Integrating your own diagnostic is easy, just satisfy the interface above.
-We recommend that you review the <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
-step you through the process of implementing your own diagnostic model.</p>
+<p>To integrate your own diagnostic, satisfy the interface above.
+We recommend reviewing the <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which walk you through
+implementing a custom diagnostic model.</p>
 </section>
 <section id="contributing-a-diagnostic-model">
 <h2>Contributing a Diagnostic Model<a class="headerlink" href="#contributing-a-diagnostic-model" title="Link to this heading">#</a></h2>
-<p>Want to add your diagnostic to the package? Great, we will be happy to work with you.
-At the minimum we expect the model to abide by the defined interface and meet
+<p>Want to add your diagnostic to the package? We are happy to work with you.
+We expect the model to abide by the defined interface and meet
 the requirements set forth in our contribution guide. Typically, you are expected
-to provide the weights of the model in a downloadable location that can fetched.</p>
+to provide the weights of the model in a downloadable location that can be fetched.</p>
 <p>Open an issue when you have an initial implementation you would like us to review. If
-you’re aware of an existing model and want us to implement it, open a feature request
+you are aware of an existing model and want us to implement it, open a feature request
 and we will get it triaged.</p>
 </section>
 </section>

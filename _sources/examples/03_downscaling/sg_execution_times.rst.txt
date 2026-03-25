@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**02:29.162** total execution time for 3 files **from examples/03_downscaling**:
+**00:00.000** total execution time for 3 files **from examples/03_downscaling**:
 
 .. container::
 
@@ -32,12 +32,12 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
+   * - :ref:`sphx_glr_examples_03_downscaling_01_corrdiff_inference.py` (``01_corrdiff_inference.py``)
+     - 00:00.000
+     - 0.0
    * - :ref:`sphx_glr_examples_03_downscaling_02_cbottle_super_resolution.py` (``02_cbottle_super_resolution.py``)
-     - 01:12.217
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_examples_03_downscaling_03_ensemble_downscaling.py` (``03_ensemble_downscaling.py``)
-     - 01:05.914
-     - 0.0
-   * - :ref:`sphx_glr_examples_03_downscaling_01_corrdiff_inference.py` (``01_corrdiff_inference.py``)
-     - 00:11.032
+     - 00:00.000
      - 0.0

@@ -53,7 +53,7 @@
     <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -385,8 +385,7 @@
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">Data and Forecast Sources</a></li>
 <li class="toctree-l3"><a class="reference internal" href="perturbation.html">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="io.html">Output Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics</a></li>
-
+<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -696,11 +695,44 @@
 data at a certain index.
 Many implemented in the package provide access to data generated from numerical models,
 data assimilation results or even generative AI models.
-These are typically as an initial state for inference of an AI model or some other
+These typically serve as an initial state for inference of an AI model or some other
 downstream task or target data to evaluate the accuracy of a particular model.
-Data sources may be remote cloud based data stores or files on your local machine.
+Data sources may be remote cloud-based data stores or files on your local machine.
 The list of data sources that are already built into Earth2Studio can be found in
 the API documentation <a class="reference internal" href="../../modules/datasources_analysis.html#earth2studio-data-analysis"><span class="std std-ref">earth2studio.data: Data Sources</span></a>.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">Quick Reference</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 45.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Source type</p></th>
+<th class="head"><p>Interface</p></th>
+<th class="head"><p>Return type</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Data source</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(time,</span> <span class="pre">variable)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">xr.DataArray</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Forecast source</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(time,</span> <span class="pre">lead_time,</span> <span class="pre">variable)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">xr.DataArray</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>DataFrame source</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(time,</span> <span class="pre">variable)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pd.DataFrame</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>ForecastFrame source</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(time,</span> <span class="pre">lead_time,</span> <span class="pre">variable)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pd.DataFrame</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Earth2Studio has data and forecast sources. The only difference being the latter
@@ -769,8 +801,8 @@ results from a predictive model.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>While not a requirement, built in remote data sources offer local caching when fetching
-data which is stored in the Earth2Studio cache. See <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">Configuration</span></a> for
+<p>While not a requirement, built-in remote data sources offer local caching when fetching
+data which is stored in the Earth2Studio cache. Refer to <a class="reference internal" href="../about/install.html#configuration-userguide"><span class="std std-ref">Configuration</span></a> for
 details on how to customize this location.</p>
 </div>
 <section id="beyond-n-d-array-data">
@@ -795,7 +827,7 @@ You must provide both the times and variables for the data source to fetch.
 Variables can differ between data-sources and models.
 The package lexicon is used as the source of truth and translator for data sources
 discussed in more detail in the <a class="reference internal" href="../advanced/lexicon.html#lexicon-userguide"><span class="std std-ref">Lexicon</span></a> section.</p>
-<p>This data array can then be used on the CPU for post process and saving to file.
+<p>This data array can then be used on the CPU for postprocessing and saving to file.
 However, to use this as an initial state for inference with a model this Xarray data
 array will need to get moved to the GPU and follow the standard data movement pattern
 of Earth2Studio detailed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section.
@@ -813,6 +845,8 @@ that is available.
 In these data sources, the <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function is just a synchronous wrapper
 around the async function.
 The functionality is identical between the two.
+Use the synchronous <code class="docutils literal notranslate"><span class="pre">__call__</span></code> for most workflows; use async <code class="docutils literal notranslate"><span class="pre">fetch</span></code> when batching
+many requests or optimizing download performance.
 Not all data sources have an async implementation, reference <a class="reference internal" href="../../modules/datasources_analysis.html#earth2studio-data-analysis"><span class="std std-ref">earth2studio.data: Data Sources</span></a>
 for more information.
 Async-based data sources provide extremely fast download speeds compared to others,

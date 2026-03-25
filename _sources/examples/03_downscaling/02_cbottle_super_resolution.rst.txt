@@ -49,12 +49,6 @@ In this example you will learn:
     # ///
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 46-53
 
 Set Up
@@ -124,12 +118,6 @@ We need the following components:
     era5_ds = WB2ERA5()
 
 
-
-
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 109-114
 
 Super Resolution on Synthetic Data
@@ -167,18 +155,6 @@ pipeline from data generation to super-resolution enhancement.
     sr_synth_x, sr_synth_coords = cbottle_sr(synth_x, synth_coords)
 
 
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Generating cBottle Data:   0%|          | 0/1 [00:00<?, ?it/s]    Generating cBottle Data: 100%|██████████| 1/1 [00:05<00:00,  5.31s/it]    Generating cBottle Data: 100%|██████████| 1/1 [00:05<00:00,  5.31s/it]
-
-
-
-
 .. GENERATED FROM PYTHON SOURCE LINES 141-146
 
 Super Resolution on ERA5 Data
@@ -208,20 +184,6 @@ model to predict the missing variables, then perform super resolution.
     # Select the required variables and reshape for super resolution
     infill_x, infill_coords = map_coords(infill_x, infill_coords, cbottle_sr.input_coords())
     sr_infill_x, sr_infill_coords = cbottle_sr(infill_x, infill_coords)
-
-
-
-
-
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2026-03-24 22:14:48.114 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: u10m at 2020-01-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]                                                            2026-03-24 22:14:48.114 | DEBUG    | earth2studio.data.wb2:fetch_array:241 - Fetching WB2 zarr array for variable: v10m at 2020-01-01T00:00:00
-    Fetching WB2 data:   0%|          | 0/2 [00:00<?, ?it/s]    Fetching WB2 data: 100%|██████████| 2/2 [00:00<00:00, 153.19it/s]
-
-
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 167-172
@@ -321,22 +283,6 @@ water (tclw) variable as an example.
 
     plt.tight_layout()
     plt.savefig("outputs/16_cbottle_super_resolution.jpg", dpi=150, bbox_inches="tight")
-
-
-
-.. image-sg:: /examples/03_downscaling/images/sphx_glr_02_cbottle_super_resolution_001.png
-   :alt: Synthetic Data (cBottle3D, low resolution), Synthetic Data Super Resolution (cBottle3D → CBottleSR), ERA5 Data (low resolution), ERA5 Infilled Super Resolution (ERA5 → CBottleInfill → CBottleSR)
-   :srcset: /examples/03_downscaling/images/sphx_glr_02_cbottle_super_resolution_001.png
-   :class: sphx-glr-single-img
-
-
-
-
-
-
-.. rst-class:: sphx-glr-timing
-
-   **Total running time of the script:** (1 minutes 12.217 seconds)
 
 
 .. _sphx_glr_download_examples_03_downscaling_02_cbottle_super_resolution.py:

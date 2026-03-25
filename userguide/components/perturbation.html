@@ -53,7 +53,7 @@
     <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -385,8 +385,7 @@
 <li class="toctree-l3"><a class="reference internal" href="datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="io.html">Output Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics</a></li>
-
+<li class="toctree-l3"><a class="reference internal" href="statistics.html">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -692,11 +691,13 @@
                   
   <section id="perturbations">
 <span id="perturbation-userguide"></span><h1>Perturbations<a class="headerlink" href="#perturbations" title="Link to this heading">#</a></h1>
-<p>Perturbations are an integral part of ensembling workflows and a variety are built into
+<p>Perturbations add controlled noise to initial conditions for ensemble generation.
+They are an integral part of ensembling workflows and a variety are built into
 Earth2Studio. These can range from standard noise perturbations to more complex methods
 such as Bred Vector.</p>
 <p>The list of perturbation methods that are already built into Earth2Studio can be found
-in the API documentation <a class="reference internal" href="../../modules/perturbation.html#earth2studio-perturbation"><span class="std std-ref">earth2studio.perturbation: Perturbations</span></a>.</p>
+in the API documentation <a class="reference internal" href="../../modules/perturbation.html#earth2studio-perturbation"><span class="std std-ref">earth2studio.perturbation: Perturbations</span></a>.
+For complete workflows that use perturbations refer to examples <code class="docutils literal notranslate"><span class="pre">03_ensemble_workflow</span></code> and <code class="docutils literal notranslate"><span class="pre">05_ensemble_workflow_extend</span></code>.</p>
 <section id="perturbation-interface">
 <h2>Perturbation Interface<a class="headerlink" href="#perturbation-interface" title="Link to this heading">#</a></h2>
 <p>The full requirements for a perturbation method are defined explicitly in the
@@ -736,12 +737,12 @@ generate noise.</p>
 </section>
 <section id="perturbation-usage">
 <h2>Perturbation Usage<a class="headerlink" href="#perturbation-usage" title="Link to this heading">#</a></h2>
-<p>All perturbation methods provide a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function which takes in
+<p>All perturbation methods provide a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> function, which takes in
 a data tensor with coordinate system and returns the perturbed output.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume perturb is an instance of a Perturbation</span>
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
 <span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
-<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturb</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Predict a single time-step</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">perturb</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Apply perturbation</span>
 </pre></div>
 </div>
 </section>
@@ -750,15 +751,15 @@ a data tensor with coordinate system and returns the perturbed output.</p>
 <p>As discussed in the <a class="reference internal" href="../about/data.html#data-userguide"><span class="std std-ref">Data Movement</span></a> section, data is always moved between
 components with physical units.
 This implies that all perturbation methods will apply noise onto unnormalized data.
-Naturally this is not ideal for many perturbation methods and it’s recommended users
+This is not ideal for many perturbation methods and it is recommended that you
 extend the perturbation methods to include the normalization (and subsequent
 denormalization).</p>
 </section>
 <section id="custom-perturbation-methods">
 <h2>Custom Perturbation Methods<a class="headerlink" href="#custom-perturbation-methods" title="Link to this heading">#</a></h2>
 <p>Integrating your own perturbation only requires implementing the interface above.
-We recommend users have a look at the <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples, which will
-step users through the simple process of implementing their own perturbation method.</p>
+We recommend that you review <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a>, which will
+step you through the basic process of implementing your own perturbation method.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>TODO: 🚧 Under construction 🚧</p>
@@ -766,8 +767,8 @@ step users through the simple process of implementing their own perturbation met
 </section>
 <section id="contributing-a-perturbation-method">
 <h2>Contributing a Perturbation Method<a class="headerlink" href="#contributing-a-perturbation-method" title="Link to this heading">#</a></h2>
-<p>Want to add your perturbation to the package? Great, we will be happy to work with you.
-At the minimum we expect the model to abide by the defined interface as well as meet
+<p>Want to add your perturbation to the package? We are happy to work with you.
+At a minimum, we expect the perturbation to abide by the defined interface and to meet
 the requirements set forth in our contribution guide.</p>
 <p>Open an issue when you have an initial implementation you would like us to review.</p>
 </section>

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Statistics &#8212; Earth2Studio</title>
+    <title>Statistics and Metrics &#8212; Earth2Studio</title>
   
   
   
@@ -53,7 +53,7 @@
     <script src="../../_static/documentation_options.js?v=7ca84bf6"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../_static/badge-data.js?v=826a09cc"></script>
+    <script src="../../_static/badge-data.js"></script>
     <script src="../../_static/badge-filter.js?v=bda7ac9e"></script>
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
@@ -385,8 +385,7 @@
 <li class="toctree-l3"><a class="reference internal" href="datasources.html">Data and Forecast Sources</a></li>
 <li class="toctree-l3"><a class="reference internal" href="perturbation.html">Perturbations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="io.html">Output Handling</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">Statistics</a></li>
-
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">Statistics and Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../advanced/index.html">Advanced Usage</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -673,7 +672,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Core Components</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Statistics</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Statistics and Metrics</span></li>
   </ul>
 </nav>
 </div>
@@ -690,14 +689,21 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="statistics">
-<span id="statistics-model-userguide"></span><h1>Statistics<a class="headerlink" href="#statistics" title="Link to this heading">#</a></h1>
+  <section id="statistics-and-metrics">
+<span id="statistics-model-userguide"></span><h1>Statistics and Metrics<a class="headerlink" href="#statistics-and-metrics" title="Link to this heading">#</a></h1>
+<p>Use statistics to reduce data over dimensions (for example, computing means or variances).
+Use metrics to compare two inputs (for example, correlation or bias between forecast and
+observation).</p>
+<section id="statistics">
+<h2>Statistics<a class="headerlink" href="#statistics" title="Link to this heading">#</a></h2>
 <p>Statistics are distinct from prognostic and diagnostic models in principle because
 we assume that statistics reduce existing coordinates so that the output tensors
 have a coordinate system that is a subset of the input coordinate system. This
-makes statistics less flexible than diagnostic models but have fewer API requirements.</p>
+makes statistics less flexible than diagnostic models while having fewer API requirements.</p>
+<p>In this section, “statistic” refers to a single reduction operation; “statistics” refers
+to the class of such operations.</p>
 <section id="statistics-interface">
-<h2>Statistics Interface<a class="headerlink" href="#statistics-interface" title="Link to this heading">#</a></h2>
+<h3>Statistics Interface<a class="headerlink" href="#statistics-interface" title="Link to this heading">#</a></h3>
 <p>Statistics API only specifies a <code class="xref py py-func docutils literal notranslate"><span class="pre">__call__()</span></code> method that matches similar methods
 across the package.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@runtime_checkable</span>
@@ -723,7 +729,7 @@ across the package.</p>
 </pre></div>
 </div>
 <p>The base API hints at, and inspection of the <code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.statistics.moments</span></code>
-examples, the use of a few properties to make statistic handling easier:</p>
+examples reveals, the use of a few properties to make statistic handling easier:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code>, which are a list of dimensions that will be reduced over</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">weights</span></code>, which must be broadcastable with <code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code></p></li>
@@ -733,18 +739,18 @@ examples, the use of a few properties to make statistic handling easier:</p>
 coordinates passed in the call method.</p>
 </section>
 <section id="custom-statistics">
-<h2>Custom Statistics<a class="headerlink" href="#custom-statistics" title="Link to this heading">#</a></h2>
-<p>Integrating your own statistics is easy, just satisfy the interface above. We recommend
-users look at the custom statistic example in the <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a> examples.</p>
+<h3>Custom Statistics<a class="headerlink" href="#custom-statistics" title="Link to this heading">#</a></h3>
+<p>To integrate your own statistic, satisfy the interface above. We recommend
+that you review the custom statistic example in <a class="reference internal" href="../../examples/08_extend/index.html#extension-examples"><span class="std std-ref">Extending Earth2Studio</span></a>.</p>
 </section>
 </section>
 <section id="metrics">
-<h1>Metrics<a class="headerlink" href="#metrics" title="Link to this heading">#</a></h1>
+<h2>Metrics<a class="headerlink" href="#metrics" title="Link to this heading">#</a></h2>
 <p>Like statistics, metrics are reductions across existing dimensions. Unlike statistics,
 which are usually defined over a single input, we define metrics to take a pair of
 inputs. Otherwise, the API and requirements are similar to the statistics requirements.</p>
 <section id="metrics-interface">
-<h2>Metrics Interface<a class="headerlink" href="#metrics-interface" title="Link to this heading">#</a></h2>
+<h3>Metrics Interface<a class="headerlink" href="#metrics-interface" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply statistic to data `x`, with coordinates `coords` and reduce</span>
 <span class="sd">        over dimensions `reduction_dimensions`.</span>
@@ -812,12 +818,13 @@ inputs. Otherwise, the API and requirements are similar to the statistics requir
 </pre></div>
 </div>
 </section>
+</section>
 <section id="contributing-statistics-and-metrics">
 <h2>Contributing Statistics and Metrics<a class="headerlink" href="#contributing-statistics-and-metrics" title="Link to this heading">#</a></h2>
-<p>Want to add your own statistics or metrics to the package? Great, we will be happy to
-work with you. At the minimum we expect the model to abide by the interfaces defined
-above. We may also work with the user to ensure that there are <code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code>
-applicable and, if possible, weight and batching support possible.</p>
+<p>Want to add your own statistics or metrics to the package? We are happy to
+work with you. At the minimum we expect the statistic or metric to abide by the interfaces defined
+above. We can also work with you to ensure that there are <code class="docutils literal notranslate"><span class="pre">reduction_dimensions</span></code>
+applicable and, if possible, weight and batching support.</p>
 </section>
 </section>
 
@@ -870,18 +877,17 @@ applicable and, if possible, weight and batching support possible.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Statistics</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#statistics-interface">Statistics Interface</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-statistics">Custom Statistics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#statistics">Statistics</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#statistics-interface">Statistics Interface</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-statistics">Custom Statistics</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics">Metrics</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics-interface">Metrics Interface</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics">Metrics</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#metrics-interface">Metrics Interface</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing-statistics-and-metrics">Contributing Statistics and Metrics</a></li>
 </ul>
-</li>
-</ul>
-
   </nav></div>
 
 </div></div>
