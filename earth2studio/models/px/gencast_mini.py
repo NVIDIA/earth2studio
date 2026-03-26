@@ -181,7 +181,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Badges
     ------
     region:global class:mrf product:wind product:precip product:temp product:atmos
-    year:2024 gpu:40gb
+    product:ocean year:2024 gpu:40gb
     """
 
     def __init__(
@@ -489,7 +489,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 mean_by_level=self.mean_by_level,
                 stddev_by_level=self.stddev_by_level,
             )
-
+            # Applies ERA5 NaN masking to SST fields for consistency
             predictor = nan_cleaning.NaNCleaner(
                 predictor=predictor,
                 reintroduce_nans=True,
@@ -635,52 +635,40 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield predictions
             del predictions
 
-            # Recompute forcings for the NEXT step.
-            # GenCast only uses generated forcings (year/day progress)
-            # which are derived from datetime coordinates.
-            # Forcings must be at the TARGET time (not input time).
-            # The next step (index+1) targets T0 + (index+2)*12h,
-            # so we build a two-frame window at
-            # [T0 + (index+1)*12h, T0 + (index+2)*12h]
-            # and extract the last frame for the target-time forcing.
-            step_datetimes = np.array(
-                [
-                    init_datetime + np.timedelta64((index + 1) * 12, "h"),
-                    init_datetime + np.timedelta64((index + 2) * 12, "h"),
-                ]
-            )
+            # Compute forcings for the NEXT step directly from
+            # datetime, matching the notebook's precomputed approach.
+            # The next step (index+1) targets T0 + (index+2)*12h.
+            next_target_dt = init_datetime + np.timedelta64((index + 2) * 12, "h")
+            next_dt = np.atleast_1d(next_target_dt)
+            seconds = next_dt.astype("datetime64[s]").astype(np.int64)
+            lon = current_inputs.coords["lon"].data
 
-            # Build minimal batch for forcing computation
-            batch = current_inputs.copy()
-            if step_datetimes.ndim == 1 and "batch" in batch.dims:
-                step_datetimes_2d = np.expand_dims(step_datetimes, axis=0)
-            else:
-                step_datetimes_2d = step_datetimes
-            batch = batch.assign_coords(
-                datetime=(
-                    (("batch", "time"), step_datetimes_2d)
-                    if "batch" in batch.dims
-                    else ("time", step_datetimes)
-                )
-            )
+            has_batch = "batch" in current_inputs.dims
+            batch_dim = ("batch",) if has_batch else ()
 
-            # Drop old forcing vars if present
-            force_vars = list(GENERATED_FORCING_VARS) + [
-                "year_progress",
+            year_progress = data_utils.get_year_progress(seconds)
+            day_progress = data_utils.get_day_progress(seconds, lon)
+
+            if has_batch:
+                year_progress = year_progress[np.newaxis]
+                day_progress = day_progress[np.newaxis]
+
+            year_feats = data_utils.featurize_progress(
+                "year_progress", batch_dim + ("time",), year_progress
+            )
+            day_feats = data_utils.featurize_progress(
                 "day_progress",
-            ]
-            for fvar in force_vars:
-                if fvar in batch:
-                    batch = batch.drop_vars(fvar)
+                batch_dim + ("time",) + current_inputs.coords["lon"].dims,
+                day_progress,
+            )
 
-            # Recompute derived forcing variables
-            data_utils.add_derived_vars(batch)
-            batch = batch.compute()
-
-            # Extract new forcings
-            forcings = batch.isel(time=slice(-1, None))[list(GENERATED_FORCING_VARS)]
-            forcings = forcings.reset_coords("datetime", drop=True)
-            forcings = forcings.compute()
+            forcings = xr.Dataset(
+                {
+                    k: v
+                    for k, v in {**year_feats, **day_feats}.items()
+                    if k in GENERATED_FORCING_VARS
+                }
+            )
 
             index += 1
 
