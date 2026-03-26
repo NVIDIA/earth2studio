@@ -787,10 +787,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
         # 2nd date is center (t=0)
-        if len(data.time.values) == 1:
-            start_date = (data.time.values + data.lead_time.values)[1]
-        else:
-            start_date = data.time.values[1]
+        start_date = data.time.values[1]
         all_datetimes = [start_date + time_delta for time_delta in time_deltas]
 
         data = data.to_dataset(dim="variable")
@@ -959,6 +956,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
+        iterators: list[Generator[xr.Dataset, None, None]] | None = None,
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         """Default generator for time-stepping through iterator results.
 
@@ -968,12 +966,16 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Input tensor
         coords : CoordSystem
             Input coordinate system
+        iterators : list[Generator[xr.Dataset, None, None]] | None, optional
+            List of per-time autoregressive prediction generators, by default None
 
         Yields
         ------
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system at each time step
         """
+        if iterators is None:
+            iterators = []
         coords = coords.copy()
         coords_out = self.output_coords(coords)
 
@@ -1000,9 +1002,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coords = self.output_coords(coords)
 
             # Get next prediction from all time iterators
-            results = [
-                self.iterator_result_to_tensor(next(it)) for it in self.iterators
-            ]
+            results = [self.iterator_result_to_tensor(next(it)) for it in iterators]
             x = torch.cat(results, dim=1) if len(results) > 1 else results[0]
 
             x, coords = self.rear_hook(x, coords)
@@ -1034,7 +1034,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             time_dim = list(coords.keys()).index("time")
             n_times = len(coords["time"])
-            self.iterators = []
+            iterators = []
 
             for t in range(n_times):
                 x_t = x.narrow(time_dim, t, 1)
@@ -1057,7 +1057,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     iter_rng = jax.random.fold_in(jax.random.PRNGKey(self.seed), t)
                 else:
                     iter_rng = jax.random.PRNGKey(np.random.randint(0, 2**31))
-                self.iterators.append(
+                iterators.append(
                     self._chunked_prediction_generator(
                         predictor_fn=self.run_forward,
                         rng=iter_rng,
@@ -1068,4 +1068,4 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     )
                 )
 
-            yield from self._default_generator(x, coords)
+            yield from self._default_generator(x, coords, iterators)
