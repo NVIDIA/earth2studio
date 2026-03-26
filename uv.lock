@@ -1787,6 +1787,13 @@ fuxi = [
     { name = "onnxruntime-gpu" },
     { name = "onnxscript" },
 ]
+gencast = [
+    { name = "dm-haiku" },
+    { name = "dm-tree" },
+    { name = "flax" },
+    { name = "graphcast" },
+    { name = "jax", extra = ["cuda12"] },
+]
 graphcast = [
     { name = "dm-haiku" },
     { name = "dm-tree" },
@@ -1936,8 +1943,10 @@ requires-dist = [
     { name = "cupy-cuda12x", marker = "extra == 'da-interp'", specifier = "<14.0.0" },
     { name = "cupy-cuda12x", marker = "extra == 'da-stormcast'", specifier = "<14.0.0" },
     { name = "dm-haiku", marker = "extra == 'all'", specifier = ">=0.0.14" },
+    { name = "dm-haiku", marker = "extra == 'gencast'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = ">=0.0.14" },
     { name = "dm-tree", marker = "extra == 'all'", specifier = ">=0.1.9" },
+    { name = "dm-tree", marker = "extra == 'gencast'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'graphcast'", specifier = ">=0.1.9" },
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
@@ -1968,6 +1977,7 @@ requires-dist = [
     { name = "flash-attn", marker = "extra == 'aifsens'" },
     { name = "flash-attn", marker = "extra == 'all'" },
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
+    { name = "flax", marker = "extra == 'gencast'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
     { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" },
     { name = "fsspec", specifier = ">=2024.2.0" },
@@ -1975,6 +1985,7 @@ requires-dist = [
     { name = "globus-sdk", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "globus-sdk", marker = "extra == 'data'", specifier = "<4.0.0" },
     { name = "graphcast", marker = "extra == 'all'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
+    { name = "graphcast", marker = "extra == 'gencast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "graphcast", marker = "extra == 'graphcast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
@@ -1994,6 +2005,7 @@ requires-dist = [
     { name = "intake-esgf", marker = "extra == 'all'", specifier = ">=2025.9.26" },
     { name = "intake-esgf", marker = "extra == 'data'", specifier = ">=2025.9.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'all'", specifier = ">=0.4.26" },
+    { name = "jax", extras = ["cuda12"], marker = "extra == 'gencast'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'graphcast'", specifier = ">=0.4.26" },
     { name = "loguru" },
     { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
@@ -2125,7 +2137,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.0" },
 ]
-provides-extras = ["ace2", "aifs", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "utils", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [

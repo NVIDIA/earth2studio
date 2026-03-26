@@ -7,7 +7,13 @@ argument-hint: URL or local path to reference inference script/repo (optional �
 # Create Prognostic Model Wrapper
 
 Create a new Earth2Studio prognostic model wrapper by following every step below in order.
-Each confirmation gate marked **[CONFIRM]** requires explicit user approval before proceeding.
+Each confirmation gate marked by starting with:
+
+```markdown
+### **[CONFIRM — <Title>]**
+```
+
+requires explicit user approval before proceeding.
 
 ---
 
@@ -118,7 +124,30 @@ implementations. Every `.py` file in `earth2studio/`
 # limitations under the License.
 ```
 
-The skeleton must use **triple inheritance** and follow this exact structure:
+The skeleton must use **triple inheritance** and follow this exact structure.
+
+**Method ordering** — methods in the class must appear in
+this canonical order:
+
+1. `__init__` — constructor
+2. `input_coords` — input coordinate system
+3. `output_coords` — output coordinate system (decorated
+   `@batch_coords()`)
+4. `load_default_package` — classmethod returning default
+   `Package`
+5. `load_model` — classmethod loading model from package
+6. `to` — device management (optional for pure
+   `torch.nn.Module` wrappers where `super().to()` is
+   sufficient; only needed for ONNX, JAX, or other
+   non-PyTorch state)
+7. Any private/support methods (e.g., helper functions for
+   data conversion, JAX setup, normalization, etc.)
+8. `__call__` — single-step forward (decorated
+   `@batch_func()`)
+9. `_default_generator` — batch-decorated generator used
+   by `create_iterator` (decorated `@batch_func()`)
+10. `create_iterator` — public time-integration entry point
+    that delegates to `_default_generator`
 
 ```python
 from collections import OrderedDict
@@ -150,7 +179,8 @@ VARIABLES = [...]  # List of variable names from E2STUDIO_VOCAB
 class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """One-line description.
 
-    Extended description of the model, its source, and any relevant details.
+    Extended description of the model, its source,
+    and any relevant details.
 
     Parameters
     ----------
@@ -163,48 +193,81 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     For more information see: <link to paper/repo>
     """
 
+    # 1. Constructor
     def __init__(self, core_model, ...):
         super().__init__()
         # TODO: Initialize model
-        self.register_buffer("device_buffer", torch.empty(0))
+        self.register_buffer(
+            "device_buffer", torch.empty(0)
+        )
         pass
 
+    # 2. Input coordinates
     def input_coords(self) -> CoordSystem:
         # TODO: Define input coordinates
         pass
 
+    # 3. Output coordinates
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: CoordSystem,
+    ) -> CoordSystem:
         # TODO: Define output coordinates
         pass
 
-    @batch_func()
-    def __call__(self, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
-        # TODO: Single step forward
-        pass
-
-    @batch_func()
-    def create_iterator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        # TODO: Time integration iterator
-        pass
-
-    def to(self, device: torch.device | str) -> PrognosticModel:
-        # TODO: Device management
-        pass
-
+    # 4. Default package location
     @classmethod
     def load_default_package(cls) -> Package:
         # TODO: Default checkpoint location
         pass
 
+    # 5. Load model from package
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package) -> PrognosticModel:
+    def load_model(
+        cls, package: Package,
+    ) -> PrognosticModel:
         # TODO: Load model from package
+        pass
+
+    # 6. Device management (optional — see note below)
+    def to(
+        self, device: torch.device | str,
+    ) -> PrognosticModel:
+        # TODO: Device management
+        pass
+
+    # 7. Private/support methods go here
+    # e.g., _load_checkpoint(), _prepare_input(), etc.
+
+    # 8. Single step forward
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        # TODO: Single step forward
+        pass
+
+    # 9. Batch-decorated generator
+    @batch_func()
+    def _default_generator(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        # TODO: Yield initial condition, then loop
+        pass
+
+    # 10. Public iterator entry point
+    def create_iterator(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        # TODO: Setup, then yield from
+        #       self._default_generator(x, coords)
         pass
 ```
 
@@ -510,6 +573,15 @@ def load_model(
   has optional deps
 
 ### 6c. Implement .to()
+
+> **Note:** When the wrapper inherits from `torch.nn.Module`,
+> `super().to(device)` already handles moving all registered
+> parameters, buffers, and sub-modules. A custom `to()`
+> override is only needed when there is non-PyTorch state to
+> manage (e.g., ONNX Runtime sessions that must be destroyed
+> and recreated on a new device, or JAX device placement).
+> If `super().to(device)` is sufficient, you can omit the
+> override entirely.
 
 ```python
 def to(self, device: torch.device | str) -> PrognosticModel:
@@ -858,6 +930,54 @@ def test_model_package():
 Adapt the dummy model (`PhooModelName`) to match the
 actual model's input/output interface so the wrapper's
 reshaping logic is exercised.
+
+---
+
+## Step 11b — Run Tests
+
+### 11b-i. Run mock tests (no package flag)
+
+First, run the unit tests that use mocked / dummy models.
+These do **not** require downloading real checkpoints and
+should run quickly on any machine:
+
+```bash
+uv run python -m pytest test/models/px/test_<filename>.py \
+    -m "not package" -v
+```
+
+All mock tests must pass before proceeding. Fix any
+failures and re-run until green.
+
+### 11b-ii. Run the package integration test
+
+Once the mock tests pass, run the `@pytest.mark.package`
+test which exercises `from_pretrained()` with real model
+weights:
+
+```bash
+uv run python -m pytest test/models/px/test_<filename>.py \
+    -m "package" -v
+```
+
+### **[CONFIRM — Package Test]**
+
+Before executing the package test, warn the user:
+
+> The package / integration test will:
+>
+> - **Download the model checkpoint** (may be several GB)
+>   to the local cache
+> - **Require GPU compute** for models that need CUDA
+>   (the test will skip on CPU-only machines if
+>   `torch.cuda.is_available()` is `False`)
+> - Take significantly longer than the mock tests
+>
+> Do you want to proceed with the package test?
+
+Only run the package test after the user confirms. Report
+the results back to the user. If the package test fails,
+debug and fix the wrapper or test, then re-run.
 
 ---
 
