@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import dataclasses
 import functools
+import io
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
 from typing import Any
@@ -167,8 +169,14 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Geopotential at surface on lat-lon grid
     sst_nan_mask : np.ndarray
         Boolean mask indicating where SST values are NaN (ocean vs land)
-    seed : int, optional
-        Random seed for JAX PRNG key used in stochastic sampling, by default 0
+    seed : int | None, optional
+        Random seed for JAX PRNG key used in stochastic sampling, by default 0.
+        If None, a random seed is generated each time the model is called,
+        producing fully non-reproducible stochastic forecasts.
+    jit_compile : bool, optional
+        JIT-compile the model forward pass, requires 24GB of host RAM. JIT compilation
+        adds a one-time cost (several minutes for the first call) but makes subsequent
+        calls significantly faster, by default True.
 
     Badges
     ------
@@ -186,7 +194,8 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         land_sea_mask: np.ndarray,
         geopotential_at_surface: np.ndarray,
         sst_nan_mask: np.ndarray,
-        seed: int = 0,
+        seed: int | None = 0,
+        jit_compile: bool = True,
     ):
         super().__init__()
 
@@ -198,9 +207,11 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.land_sea_mask = land_sea_mask
         self.geopotential_at_surface = geopotential_at_surface
         self.sst_nan_mask = sst_nan_mask
-        self.prng_key = jax.random.PRNGKey(seed)
+        self.seed = seed
 
-        self.run_forward = self._load_run_forward_from_checkpoint()
+        self.run_forward = self._load_run_forward_from_checkpoint(
+            jit_compile=jit_compile
+        )
 
         n_lat = land_sea_mask.shape[0]
         n_lon = land_sea_mask.shape[1]
@@ -294,6 +305,8 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
+        jit_compile: bool = True,
+        seed: int | None = 0,
     ) -> PrognosticModel:
         """Load prognostic model from package.
 
@@ -301,6 +314,11 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
+        jit_compile : bool, optional
+            JIT-compile the model forward pass with, by default True.
+        seed : int | None, optional
+            Random seed for stochastic sampling, by default 0. If None,
+            produces fully non-reproducible forecasts.
 
         Returns
         -------
@@ -346,13 +364,15 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             land_sea_mask,
             geopotential_at_surface,
             sst_nan_mask,
+            seed=seed,
+            jit_compile=jit_compile,
         )
 
     # -------------------------------------------------------------------------
     # Private / support methods
     # -------------------------------------------------------------------------
 
-    def _load_run_forward_from_checkpoint(self) -> Callable:
+    def _load_run_forward_from_checkpoint(self, jit_compile: bool = True) -> Callable:
         """Build GenCast inference function from checkpoint.
 
         This function is based on the inference pipeline from:
@@ -517,7 +537,10 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         def drop_state(fn: Callable) -> Callable:
             return lambda **kw: fn(**kw)[0]
 
-        return drop_state(with_params(with_configs(run_forward.apply)))
+        fn = drop_state(with_params(with_configs(run_forward.apply)))
+        if jit_compile:
+            fn = jax.jit(fn)
+        return fn
 
     def _chunked_prediction_generator(
         self,
@@ -526,6 +549,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         inputs: xr.Dataset,
         targets_template: xr.Dataset,
         forcings: xr.Dataset,
+        init_datetime: np.ndarray,
     ) -> Generator[xr.Dataset, None, None]:
         """Autoregressive prediction generator for GenCast.
 
@@ -560,6 +584,9 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Template for target predictions (NaN-filled)
         forcings : xr.Dataset
             Forcing variables dataset
+        init_datetime : np.ndarray
+            Absolute datetime(s) for the initial condition (t=0 reference).
+            Used to compute correct forcing variables (day/year progress) at each step.
 
         Yields
         ------
@@ -585,14 +612,15 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             forcings = forcings.assign_coords(time=targets_chunk_time)
             forcings = forcings.compute()
 
-            # Make prediction for this step
+            # Make prediction for this step (suppress graphcast debug prints)
             rng, this_rng = split_rng_fn(rng)
-            predictions = predictor_fn(
-                rng=this_rng,
-                inputs=current_inputs,
-                targets_template=targets_template,
-                forcings=forcings,
-            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                predictions = predictor_fn(
+                    rng=this_rng,
+                    inputs=current_inputs,
+                    targets_template=targets_template,
+                    forcings=forcings,
+                )
             next_frame = xr.merge([predictions, forcings])
 
             # Update inputs for next step
@@ -607,25 +635,32 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield predictions
             del predictions
 
-            # Recompute forcings for next step
+            # Recompute forcings for the NEXT step.
             # GenCast only uses generated forcings (year/day progress)
-            # which are derived from datetime coordinates
-            datetime_offset = np.timedelta64((index + 1) * 12, "h")
-            current_datetime = current_inputs.coords.get(
-                "datetime", current_inputs.coords["time"]
+            # which are derived from datetime coordinates.
+            # Forcings must be at the TARGET time (not input time).
+            # The next step (index+1) targets T0 + (index+2)*12h,
+            # so we build a two-frame window at
+            # [T0 + (index+1)*12h, T0 + (index+2)*12h]
+            # and extract the last frame for the target-time forcing.
+            step_datetimes = np.array(
+                [
+                    init_datetime + np.timedelta64((index + 1) * 12, "h"),
+                    init_datetime + np.timedelta64((index + 2) * 12, "h"),
+                ]
             )
 
             # Build minimal batch for forcing computation
             batch = current_inputs.copy()
-            # Ensure datetime has (batch, time) dims for add_derived_vars
-            new_datetime = current_datetime.values + datetime_offset
-            if new_datetime.ndim == 1 and "batch" in batch.dims:
-                new_datetime = np.expand_dims(new_datetime, axis=0)
+            if step_datetimes.ndim == 1 and "batch" in batch.dims:
+                step_datetimes_2d = np.expand_dims(step_datetimes, axis=0)
+            else:
+                step_datetimes_2d = step_datetimes
             batch = batch.assign_coords(
                 datetime=(
-                    (("batch", "time"), new_datetime)
+                    (("batch", "time"), step_datetimes_2d)
                     if "batch" in batch.dims
-                    else current_datetime + datetime_offset
+                    else ("time", step_datetimes)
                 )
             )
 
@@ -908,13 +943,20 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     **dataclasses.asdict(self.ckpt.task_config),
                 )
 
-                predictions = rollout.chunked_prediction(
-                    self.run_forward,
-                    rng=self.prng_key,
-                    inputs=inputs,
-                    targets_template=targets * np.nan,
-                    forcings=forcings,
-                )
+                # Create a fresh PRNG key for each time step
+                if self.seed is not None:
+                    step_rng = jax.random.fold_in(jax.random.PRNGKey(self.seed), t)
+                else:
+                    step_rng = jax.random.PRNGKey(np.random.randint(0, 2**31))
+                # Silence print out from graphcast package for this model
+                with contextlib.redirect_stdout(io.StringIO()):
+                    predictions = rollout.chunked_prediction(
+                        self.run_forward,
+                        rng=step_rng,
+                        inputs=inputs,
+                        targets_template=targets * np.nan,
+                        forcings=forcings,
+                    )
                 results.append(self.iterator_result_to_tensor(predictions))
 
             out = torch.cat(results, dim=1) if n_times > 1 else results[0]
@@ -1014,20 +1056,27 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 batch, target_lead_times = self.from_dataarray_to_dataset(
                     xr.DataArray(x_t.cpu(), coords=coords_t), 12
                 )
-
+                init_datetime = batch.coords["datetime"].values[0, 1]
                 inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
                     batch,
                     target_lead_times=target_lead_times,
                     **dataclasses.asdict(self.ckpt.task_config),
                 )
 
+                # Create a fresh PRNG key for each time iterator.
+                # If seed is set, use fold_in for reproducible per-iterator keys.
+                if self.seed is not None:
+                    iter_rng = jax.random.fold_in(jax.random.PRNGKey(self.seed), t)
+                else:
+                    iter_rng = jax.random.PRNGKey(np.random.randint(0, 2**31))
                 self.iterators.append(
                     self._chunked_prediction_generator(
                         predictor_fn=self.run_forward,
-                        rng=self.prng_key,
+                        rng=iter_rng,
                         inputs=inputs,
                         targets_template=targets * np.nan,
                         forcings=forcings,
+                        init_datetime=init_datetime,
                     )
                 )
 

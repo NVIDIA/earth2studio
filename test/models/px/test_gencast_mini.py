@@ -76,6 +76,7 @@ def mocked_chunked_prediction_generator(
     inputs,
     targets_template,
     forcings,
+    init_datetime=None,
 ):
     yield targets_template.isel(time=[0])
     while True:
@@ -189,6 +190,7 @@ def mock_GenCastMini_model():
         np.ones((n_lat, n_lon), dtype=np.float32),
         np.ones((n_lat, n_lon), dtype=np.float32),
         np.ones((n_lat, n_lon), dtype=bool),
+        jit_compile=False,
     )
 
     # Mock the iterator to avoid needing real JAX inference

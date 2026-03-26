@@ -39,3 +39,7 @@ from earth2studio.models.px.persistence import Persistence
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
+
+# Silence warning spam from various models
+warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=FutureWarning)
