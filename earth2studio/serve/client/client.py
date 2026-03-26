@@ -69,8 +69,6 @@ class Earth2StudioClient:
     --------
     >>> client = Earth2StudioClient(base_url="http://localhost:8000")
     >>> health = client.health_check()
-    >>> print(health.status)
-    healthy
 
     With authentication:
 
