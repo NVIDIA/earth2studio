@@ -96,6 +96,8 @@ def test_cams_time_validation():
 def test_cams_available():
     assert CAMS.available(datetime.datetime(2024, 1, 1))
     assert not CAMS.available(datetime.datetime(2015, 1, 1))
+    # timezone-aware datetimes must not raise TypeError
+    assert CAMS.available(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))
 
 
 # ---- CAMS_FX tests ----
@@ -134,3 +136,5 @@ def test_cams_fx_fetch(variable, lead_time):
 def test_cams_fx_available():
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1))
     assert not CAMS_FX.available(datetime.datetime(2010, 1, 1))
+    # timezone-aware datetimes must not raise TypeError
+    assert CAMS_FX.available(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))

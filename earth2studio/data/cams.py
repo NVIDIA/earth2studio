@@ -16,8 +16,10 @@
 
 import asyncio
 import hashlib
+import os
 import pathlib
 import shutil
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import sleep
@@ -104,12 +106,22 @@ def _download_cams_netcdf(
             )
         else:
             sleep(2.0)
-    r.download(str(cache_path))
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=cache_path.parent, suffix=".nc.tmp")
+    try:
+        os.close(tmp_fd)
+        r.download(tmp_name)
+        os.replace(tmp_name, cache_path)
+    except Exception:
+        pathlib.Path(tmp_name).unlink(missing_ok=True)
+        raise
     return cache_path
 
 
 def _extract_field(
-    ds: xr.Dataset, nc_key: str, level: str = "0", time_index: int = 0
+    ds: xr.Dataset,
+    nc_key: str,
+    level: str = "0",
+    lead_time_hours: int | None = None,
 ) -> np.ndarray:
     if nc_key not in ds:
         raise ValueError(
@@ -118,21 +130,22 @@ def _extract_field(
         )
     field = ds[nc_key]
     non_spatial = [d for d in field.dims if d not in ("latitude", "longitude")]
-    sel: dict[str, int] = {}
+    isel: dict[str, int] = {}
     for d in non_spatial:
         if d == "level" and level:
             level_val = float(level) if level else 0.0
             level_coords = field.coords["level"].values
             nearest_idx = int(np.argmin(np.abs(level_coords - level_val)))
-            sel[d] = nearest_idx
-        elif d in ("time", "forecast_period", "forecast_reference_time"):
-            sel[d] = time_index
-        elif field.sizes[d] > 1:
-            sel[d] = 0
+            isel[d] = nearest_idx
+        elif d == "forecast_period" and lead_time_hours is not None:
+            fp_vals = field.coords["forecast_period"].values.astype(float)
+            target = float(lead_time_hours)
+            nearest_idx = int(np.argmin(np.abs(fp_vals - target)))
+            isel[d] = nearest_idx
         else:
-            sel[d] = 0
-    if sel:
-        field = field.isel(sel)
+            isel[d] = 0
+    if isel:
+        field = field.isel(isel)
     return field.values
 
 
@@ -288,7 +301,10 @@ class CAMS:
         """
         if isinstance(time, datetime):
             time = [time]
-        return all(t >= _CAMS_EU_MIN_TIME for t in time)
+        return all(
+            (t.replace(tzinfo=None) if t.tzinfo else t) >= _CAMS_EU_MIN_TIME
+            for t in time
+        )
 
     @staticmethod
     def _validate_time(times: list[datetime]) -> None:
@@ -509,7 +525,10 @@ class CAMS_FX:
         """
         if isinstance(time, datetime):
             time = [time]
-        return all(t >= _CAMS_GLOBAL_MIN_TIME for t in time)
+        return all(
+            (t.replace(tzinfo=None) if t.tzinfo else t) >= _CAMS_GLOBAL_MIN_TIME
+            for t in time
+        )
 
     @staticmethod
     def _validate_time(times: list[datetime]) -> None:
@@ -568,12 +587,13 @@ class CAMS_FX:
             },
         )
 
-        for lt_idx in range(len(lead_hours)):
+        for lt_idx, lt_h in enumerate(lead_hours):
             for info in var_infos:
                 _, modifier = CAMSLexicon[info.e2s_name]
                 da[0, lt_idx, info.index] = modifier(
                     _extract_field(
-                        ds, info.nc_key, level=info.level, time_index=lt_idx
+                        ds, info.nc_key, level=info.level,
+                        lead_time_hours=int(lt_h),
                     )
                 )
 
