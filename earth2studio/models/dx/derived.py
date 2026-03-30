@@ -38,6 +38,10 @@ class DerivedWS(torch.nn.Module):
         Pressure / height levels to compute WS for. The resulting expected input fields
         are u and v wind components pairs for each level. E.g. for level 100 the input
         fields should be [u100, v100], by default [100]
+
+    Badges
+    ------
+    region:global product:wind product:atmos
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -125,6 +129,10 @@ class DerivedRH(torch.nn.Module):
         hPa Pressure levels to compute RH. The resulting expected input fields
         are specific humidity and temperature pairs for each pressure level. E.g. for
         level 100 hPa the input fields should be [t100, q100], by default [100]
+
+    Badges
+    ------
+    region:global product:atmos
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -221,6 +229,10 @@ class DerivedRHDewpoint(torch.nn.Module):
     - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)
     - https://doi.org/10.1175/1520-0450(1996)035<0601:IMFAOS>2.0.CO;2 (Eq. 21)
     - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
+
+    Badges
+    ------
+    region:global product:atmos
     """
 
     def __init__(self) -> None:
@@ -322,6 +334,10 @@ class DerivedVPD(torch.nn.Module):
         Pressure / height levels to compute VPD for. The resulting expected input fields
         are temperature and relative humidity pairs for each level. E.g. for level 100
         the input fields should be [t100, r100], by default [100]
+
+    Badges
+    ------
+    region:global product:veg product:atmos
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -421,6 +437,10 @@ class DerivedSurfacePressure(torch.nn.Module):
         value was derived empirically optimizing the prediction of surface pressure in
         ERA5 data. The adjustment can be effectively disabled by passing
         `corr_adjustment=(0.0, 1.0)`.
+
+    Badges
+    ------
+    region:global product:atmos
     """
 
     Rs = 287.053  # gas constant for dry air (J/kg/K)
@@ -642,6 +662,10 @@ class DerivedTCWV(torch.nn.Module):
         Pressure levels (hPa) to use for the integration. They will be sorted
         internally from highest to lowest pressure. Default is
         [1000, 850, 700, 500, 300, 200, 100].
+
+    Badges
+    ------
+    region:global product:atmos
     """
 
     g = 9.8067  # Earth's gravitational constant (m/s**2)

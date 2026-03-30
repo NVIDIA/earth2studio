@@ -477,6 +477,10 @@ class IFS(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -588,6 +592,10 @@ class IFS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -718,6 +726,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -859,6 +871,10 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -1004,6 +1020,10 @@ class AIFS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = AIFSLexicon
@@ -1120,6 +1140,10 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = AIFSLexicon

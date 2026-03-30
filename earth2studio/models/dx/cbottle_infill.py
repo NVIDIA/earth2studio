@@ -98,6 +98,11 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables (no
         effect), by default None
+
+    Badges
+    ------
+    region:global class:cm product:wind product:precip product:temp
+    product:atmos product:ocean year:2025 gpu:80gb
     """
 
     output_variables = VARIABLES
