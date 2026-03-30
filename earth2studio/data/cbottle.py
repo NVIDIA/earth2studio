@@ -442,7 +442,7 @@ class CBottle3D(torch.nn.Module, AutoModelMixin):
         # The following code is left here for reference of how to access the AMIP SST
         # data from the original data store. NGC is faster and cleaner so it is also
         # provided there.
-        # sst_url = "https://esgf.ceda.ac.uk/thredds/dodsC/esg_cmip6/input4MIPs/CMIP6Plus/CMIP/PCMDI/PCMDI-AMIP-1-1-9/ocean/mon/tosbcs/gn/v20230512/"
+        # sst_url = "https://esgf.ceda.ac.uk/thredds/catalog/esg_cmip6/input4MIPs/CMIP6Plus/CMIP/PCMDI/PCMDI-AMIP-1-1-9/ocean/mon/tosbcs/gn/v20230512/catalog.html"
         # sst_file = (
         #     "tosbcs_input4MIPs_SSTsAndSeaIce_CMIP_PCMDI-AMIP-1-1-9_gn_187001-202212.nc"
         # )
