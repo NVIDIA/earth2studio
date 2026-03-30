@@ -19,9 +19,9 @@ Used for fetching initial conditions for inference and validation data for scori
 
 .. currentmodule:: earth2studio
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:as region:europe
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
-   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
+   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu product:airquality
    :filter-mode: or
    :badge-order-fixed:
    :group-visibility-toggle:
@@ -33,6 +33,7 @@ Used for fetching initial conditions for inference and validation data for scori
       :template: datasource.rst
 
       data.ARCO
+      data.CAMS
       data.CDS
       data.CMIP6
       data.CMIP6MultiRealm

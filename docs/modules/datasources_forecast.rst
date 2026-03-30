@@ -9,9 +9,9 @@ Typically used in intercomparison workflows.
 
 .. currentmodule:: earth2studio
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:as region:europe
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
-   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
+   product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu product:airquality
    :filter-mode: or
    :badge-order-fixed:
    :group-visibility-toggle:
@@ -23,6 +23,7 @@ Typically used in intercomparison workflows.
       :template: datasource.rst
 
       data.AIFS_FX
+      data.CAMS_FX
       data.AIFS_ENS_FX
       data.GFS_FX
       data.GEFS_FX
