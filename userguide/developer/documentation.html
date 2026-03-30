@@ -718,12 +718,12 @@ doc-strings are used in all Python files.</p></li>
 default value is provided by adding “, by default [default value]” to the end of the
 doc string.</p></li>
 <li><p>Periods should be used at the end of complete sentences, but are not required at the
-end of “by default [default value]” or incomplete sentences</p></li>
+end of “by default [default value]” or incomplete sentences.</p></li>
 </ul>
 <p>For VSCode users, the
 <a class="reference external" href="https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring">autoDocstring extension</a>
 is highly encouraged.
-See the following doc-string samples for guidance.</p>
+Refer to the following doc-string samples for guidance:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">timearray_to_datetime</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n">TimeArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple converter from numpy datetime64 array into a list of datetimes.</span>
 
@@ -771,7 +771,7 @@ See the following doc-string samples for guidance.</p>
 <section id="example-documentation">
 <span id="examples-userguide"></span><h2>Example Documentation<a class="headerlink" href="#example-documentation" title="Link to this heading">#</a></h2>
 <p>Examples in Earth2Studio are created with the intent to teach or demonstrate a specific
-feature/workflow/concept/use case to users.
+feature, workflow, concept, or use case to users.
 If you are interested in contributing an example, reach out to us in a Github
 issue to discuss further.
 The example scripts used to populate the documentation are placed in the
@@ -781,23 +781,23 @@ generated using <a class="reference external" href="https://sphinx-gallery.githu
 <section id="definition">
 <h3>Definition<a class="headerlink" href="#definition" title="Link to this heading">#</a></h3>
 <p>Examples demonstrate how to use Earth2Studio APIs.
-Examples should be short and concise, designed to be ran in a short wall-clock time of
+Examples should be short and concise, designed to be run in a short wall-clock time of
 under 10 minutes on a typical data-center level GPU.
 The script must be runnable on a single 32Gb A100 GPU using minimal extra dependencies.
-Additional requirements may be required for running the example inside the CD pipeline,
+Additional requirements might be required for running the example inside the CD pipeline,
 which will be addressed on a case-by-case basis.</p>
 </section>
 <section id="creating-a-new-example">
 <h3>Creating a New Example<a class="headerlink" href="#creating-a-new-example" title="Link to this heading">#</a></h3>
-<p>In Earth2Studio, vanilla Jupyter lab notebooks are not used to avoid bloat in the commit
+<p>In Earth2Studio, Jupyter lab notebooks are not used to avoid bloat in the commit
 history.
 Instead, <a class="reference external" href="https://sphinx-gallery.github.io/stable/index.html">Sphinx Gallery</a> is used to
 represent notebooks as code.
 Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
 These comments are automatically rendered as formatted text on the documentation web
 pages and as markdown cells in the converted Jupyter notebooks.
-For more details on the syntax, see the <a class="reference external" href="https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files">embedded reST documentation</a>.</p>
-<p>To specify required dependencies, use <a class="reference external" href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies%3E">uv inline metadata</a>
+For more details on the syntax, refer to the <a class="reference external" href="https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files">embedded reST documentation</a>.</p>
+<p>To specify required dependencies, use <a class="reference external" href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies%3E">uv inline metadata</a>,
 which allows each example to use different dependency groups or packages not shipped
 with Earth2Studio.
 To create an example, the best method is to copy an existing example and follow the
@@ -807,10 +807,10 @@ structure:</p>
 <span class="sd">Example Title</span>
 <span class="sd">==============</span>
 
-<span class="sd">Brief one-liner of what this will do (used on hover of thumbnail in docs)</span>
+<span class="sd">Brief one-liner of what this will do (used on hover of thumbnail in docs).</span>
 
 <span class="sd">Then add a more verbose description on a new line here.</span>
-<span class="sd">This can be multiply lines with references if needed</span>
+<span class="sd">This can be multiply lines with references if needed.</span>
 <span class="sd">Include a list of the specific unique items this example includes, for example:</span>
 
 <span class="sd">In this example you will learn:</span>
@@ -880,7 +880,7 @@ Animations are not supported.</p>
 </section>
 </section>
 <section id="building-documentation">
-<h2>Building Documentation<a class="headerlink" href="#building-documentation" title="Link to this heading">#</a></h2>
+<span id="id1"></span><h2>Building Documentation<a class="headerlink" href="#building-documentation" title="Link to this heading">#</a></h2>
 <p>To build the core documentation without executing examples use:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>docs
 
@@ -889,7 +889,7 @@ Animations are not supported.</p>
 <span class="nv">SPHINXBUILD</span><span class="o">=</span><span class="s2">&quot;python -m sphinx.cmd.build&quot;</span><span class="w"> </span>make<span class="w"> </span>docs
 </pre></div>
 </div>
-<p>For full docs, where all examples are ran, use:</p>
+<p>For full docs, where all examples are run, use:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>docs-full
 </pre></div>
 </div>
@@ -903,7 +903,7 @@ make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FIL
 </pre></div>
 </div>
 <p>Build files will always be in <code class="docutils literal notranslate"><span class="pre">docs/_build/html</span></code>.
-Since the docs are static, Python can be used to host them <a class="reference external" href="http://localhost:8000">locally</a>:</p>
+Because the docs are static, Python can be used to host them <a class="reference external" href="http://localhost:8000">locally</a>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docs/_build/html
 
 python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span><span class="m">8000</span>

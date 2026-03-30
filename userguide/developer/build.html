@@ -691,27 +691,32 @@
                   
   <section id="build-process">
 <h1>Build Process<a class="headerlink" href="#build-process" title="Link to this heading">#</a></h1>
-<section id="setting-version">
-<h2>Setting Version<a class="headerlink" href="#setting-version" title="Link to this heading">#</a></h2>
+<p>This page describes how to set the package version and build a wheel for Earth2Studio
+from a local clone. It is intended for contributors and maintainers.</p>
+<p><strong>Prerequisites</strong>: <a class="reference external" href="https://docs.astral.sh/uv/">uv</a> installed, a clone of the repository,
+and a synced development environment (for example, <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> as described in the
+<a class="reference internal" href="overview.html#developer-overview"><span class="std std-ref">Overview</span></a>). Run all commands below from the repository root (the directory
+that contains <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>).</p>
+<section id="setting-the-version">
+<h2>Setting the Version<a class="headerlink" href="#setting-the-version" title="Link to this heading">#</a></h2>
 <p>To check the version of the current package:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>hatch<span class="w"> </span>version
 </pre></div>
 </div>
-<p>To bump the version automatically the follow <a class="reference external" href="https://hatch.pypa.io/1.9/version/">hatch commands</a>
-can be used:</p>
+<p>To bump the version automatically, use the following <a class="reference external" href="https://hatch.pypa.io/1.9/version/">hatch commands</a>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># To bump to next pre-release</span>
 uv<span class="w"> </span>run<span class="w"> </span>hatch<span class="w"> </span>version<span class="w"> </span>minor,a
 
 <span class="c1"># To bump to release candidate version</span>
 uv<span class="w"> </span>run<span class="w"> </span>hatch<span class="w"> </span>version<span class="w"> </span>rc
 
-<span class="c1"># To bump to release candidate version</span>
+<span class="c1"># To bump to final release version</span>
 uv<span class="w"> </span>run<span class="w"> </span>hatch<span class="w"> </span>version<span class="w"> </span>release
 </pre></div>
 </div>
 </section>
-<section id="building-wheel">
-<h2>Building Wheel<a class="headerlink" href="#building-wheel" title="Link to this heading">#</a></h2>
+<section id="building-a-wheel">
+<h2>Building a Wheel<a class="headerlink" href="#building-a-wheel" title="Link to this heading">#</a></h2>
 <p>To build the wheel, use the <a class="reference external" href="https://docs.astral.sh/uv/guides/package/">uv build</a>
 command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>build
@@ -769,8 +774,8 @@ command:</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setting-version">Setting Version</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-wheel">Building Wheel</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setting-the-version">Setting the Version</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-a-wheel">Building a Wheel</a></li>
 </ul>
   </nav></div>
 

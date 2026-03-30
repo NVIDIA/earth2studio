@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>Surface pressure interpolation &#8212; Earth2Studio</title>
+    <title>Surface Pressure Interpolation &#8212; Earth2Studio</title>
   
   
   
@@ -665,7 +665,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Surface pressure interpolation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Surface Pressure Interpolation</span></li>
   </ul>
 </nav>
 </div>
@@ -683,8 +683,11 @@
                 <article class="bd-article">
                   
   <section id="surface-pressure-interpolation">
-<h1>Surface pressure interpolation<a class="headerlink" href="#surface-pressure-interpolation" title="Link to this heading">#</a></h1>
-<p>This documentation describes the surface pressure interpolation provided by <code class="docutils literal notranslate"><span class="pre">earth2studio.models.dx.derived.DerivedSurfacePressure</span></code>.</p>
+<h1>Surface Pressure Interpolation<a class="headerlink" href="#surface-pressure-interpolation" title="Link to this heading">#</a></h1>
+<p>This documentation explains how surface pressure is estimated from pressure-level geopotential (and
+optionally temperature) by log-pressure interpolation, plus second-order lapse-rate and
+empirical corrections. Familiarity with the
+hydrostatic equation and ideal gas law is helpful.</p>
 <section id="variables">
 <h2>Variables<a class="headerlink" href="#variables" title="Link to this heading">#</a></h2>
 <p>The following variables are used below:</p>
@@ -741,49 +744,50 @@
 </div>
 </section>
 <section id="physical-basis">
-<h2>Physical basis<a class="headerlink" href="#physical-basis" title="Link to this heading">#</a></h2>
-<p>The rate of pressure change by altitude is given by the hydrostatic equation, which can be written as</p>
+<h2>Physical Basis<a class="headerlink" href="#physical-basis" title="Link to this heading">#</a></h2>
+<p>The rate of pressure change by altitude is given by the hydrostatic equation, which can be written as:</p>
 <div class="math notranslate nohighlight">
-\[    \mathrm{d}p = -g \rho \, \mathrm{d}h = -\rho \, d\Phi.\]</div>
-<p>When combined with the ideal gas law</p>
+\[    \mathrm{d}p = -g \rho \, \mathrm{d}h = -\rho \, \mathrm{d}\Phi.\]</div>
+<p>When combined with the ideal gas law:</p>
 <div class="math notranslate nohighlight">
 \[p = \rho R_\mathrm{s} T\]</div>
-<p>we get</p>
+<p>We get:</p>
 <div class="math notranslate nohighlight">
 \[\frac{\mathrm{d}p}{\mathrm{d}\Phi} = -\frac{p}{R_\mathrm{s}T}\]</div>
-<p>which is equivalent to</p>
+<p>Which is equivalent to:</p>
 <div class="math notranslate nohighlight" id="equation-eq-log-p-deriv">
 <span class="eqno">(1)<a class="headerlink" href="#equation-eq-log-p-deriv" title="Link to this equation">#</a></span>\[\frac{\mathrm{d}\log p}{\mathrm{d}\Phi} = -\frac{1}{R_\mathrm{s}T}\]</div>
 </section>
 <section id="log-linear-interpolation">
-<h2>Log-linear interpolation<a class="headerlink" href="#log-linear-interpolation" title="Link to this heading">#</a></h2>
+<h2>Log-linear Interpolation<a class="headerlink" href="#log-linear-interpolation" title="Link to this heading">#</a></h2>
 <p>The relative change of temperature by altitude, when expressed as absolute temperature
-(that is, in Kelvin), is rather slow: for example, a <span class="math notranslate nohighlight">\(10~\mathrm{K}\)</span> change in
+(that is, in Kelvin), is rather slow.</p>
+<p>For example, a <span class="math notranslate nohighlight">\(10~\mathrm{K}\)</span> change in
 temperature is only <span class="math notranslate nohighlight">\(\approx 3.6\%\)</span> at <span class="math notranslate nohighlight">\(273.15 K = 0~°\mathrm{C}\)</span>.
 Therefore, a reasonable first-order approximation is to assume that <span class="math notranslate nohighlight">\(T\)</span> is
-constant over a short interval and thus, by Eq. <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a>, so is
+constant over a short interval and thus, by equation <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a>, so is
 <span class="math notranslate nohighlight">\(\frac{\mathrm{d}\log p}{\mathrm{d}\Phi}\)</span>. Under this approximation,
-<span class="math notranslate nohighlight">\(\log p\)</span> has constant slope with respect to <span class="math notranslate nohighlight">\(\Phi\)</span> and the integral</p>
+<span class="math notranslate nohighlight">\(\log p\)</span> has constant slope with respect to <span class="math notranslate nohighlight">\(\Phi\)</span> and the integral:</p>
 <div class="math notranslate nohighlight">
 \[\int_{\Phi_0}^{\Phi}\frac{\mathrm{d}\log p}{\mathrm{d}\Phi} \, \mathrm{d}\Phi\]</div>
-<p>in the interval <span class="math notranslate nohighlight">\(\Phi_0 \leq \Phi \leq \Phi_1\)</span> can be computed by linear interpolation as</p>
+<p>In the interval <span class="math notranslate nohighlight">\(\Phi_0 \leq \Phi \leq \Phi_1\)</span> can be computed by linear interpolation as:</p>
 <div class="math notranslate nohighlight" id="equation-eq-log-linear-interp">
 <span class="eqno">(2)<a class="headerlink" href="#equation-eq-log-linear-interp" title="Link to this equation">#</a></span>\[\log p(\Phi) = \log p_0 + \frac{\Phi - \Phi_0}{\Phi_1 - \Phi_0} (\log p_1 - \log p_0)\]</div>
-<p>where <span class="math notranslate nohighlight">\(p_0 = p(\Phi_0)\)</span> and <span class="math notranslate nohighlight">\(p_1 = p(\Phi_1)\)</span> are the known values of
+<p>Where <span class="math notranslate nohighlight">\(p_0 = p(\Phi_0)\)</span> and <span class="math notranslate nohighlight">\(p_1 = p(\Phi_1)\)</span> are the known values of
 pressure at the ends of the interval.</p>
 </section>
 <section id="second-order-correction-for-temperature-lapse-rate">
-<h2>Second-order correction for temperature lapse rate<a class="headerlink" href="#second-order-correction-for-temperature-lapse-rate" title="Link to this heading">#</a></h2>
+<h2>Second-order Correction for Temperature Lapse Rate<a class="headerlink" href="#second-order-correction-for-temperature-lapse-rate" title="Link to this heading">#</a></h2>
 <p>Typically, the temperature locally changes at an approximately linear rate as a function
 of altitude, and thus the slope of <span class="math notranslate nohighlight">\(\log p\)</span> is not exactly constant. We can model
-the temperature around <span class="math notranslate nohighlight">\(\Phi_\mathrm{m} = \frac{1}{2}(\Phi_0+\Phi_1)\)</span> as</p>
+the temperature around <span class="math notranslate nohighlight">\(\Phi_\mathrm{m} = \frac{1}{2}(\Phi_0+\Phi_1)\)</span> as:</p>
 <div class="math notranslate nohighlight" id="equation-eq-lapse-rate">
 <span class="eqno">(3)<a class="headerlink" href="#equation-eq-lapse-rate" title="Link to this equation">#</a></span>\[T(\Phi) = T_\mathrm{m} + \frac{L}{g}(\Phi-\Phi_\mathrm{m}) = T_\mathrm{m} + L_\Phi(\Phi-\Phi_\mathrm{m})\]</div>
-<p>where <span class="math notranslate nohighlight">\(T_\mathrm{m} = T(\Phi_m)\)</span>. Plugging this into Eq. <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a>
+<p>Where <span class="math notranslate nohighlight">\(T_\mathrm{m} = T(\Phi_\mathrm{m})\)</span>. Plugging this into equation <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a>
 makes it complicated to solve as <span class="math notranslate nohighlight">\(T\)</span> is in the denominator. However, we can
 instead use the inverse temperature <span class="math notranslate nohighlight">\(\beta = T^{-1}\)</span>, which can also be
 approximated to have a linear relationship with <span class="math notranslate nohighlight">\(\Phi\)</span>. This can be justified with
-the Taylor series of the inverse of Eq. <a class="reference internal" href="#equation-eq-lapse-rate">(3)</a> at <span class="math notranslate nohighlight">\(\Phi_\mathrm{m}\)</span>:</p>
+the Taylor series of the inverse of equation <a class="reference internal" href="#equation-eq-lapse-rate">(3)</a> at <span class="math notranslate nohighlight">\(\Phi_\mathrm{m}\)</span>:</p>
 <div class="math notranslate nohighlight">
 \[\beta(\Phi) =
 \frac{1}{T_\mathrm{m}}\left (1 - \frac{L_\Phi (\Phi-\Phi_\mathrm{m})}{T_\mathrm{m}} +
@@ -792,49 +796,50 @@ O\left ( \left (\frac{L_\Phi (\Phi-\Phi_\mathrm{m})}{T_\mathrm{m}} \right )^2
 <p>Thus for small relative variations of temperature we can model <span class="math notranslate nohighlight">\(\beta\)</span> as:</p>
 <div class="math notranslate nohighlight">
 \[\beta(\Phi) = \frac{1}{T} = \frac{1}{T_\mathrm{m}} - \frac{L_\Phi (\Phi-\Phi_\mathrm{m})}{T_\mathrm{m}^2}\]</div>
-<p>Equation <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a> then becomes</p>
+<p>Equation <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a> then becomes:</p>
 <div class="math notranslate nohighlight" id="equation-log-p-deriv-corr">
 <span class="eqno">(4)<a class="headerlink" href="#equation-log-p-deriv-corr" title="Link to this equation">#</a></span>\[\frac{\mathrm{d}\log p}{\mathrm{d}\Phi} = -\frac{1}{R_\mathrm{s}T_\mathrm{m}} + \frac{L_\Phi(\Phi-\Phi_\mathrm{m})}{R_\mathrm{s}T_\mathrm{m}^2}\]</div>
-<p>The first term on the right-hand side is identical to Eq. <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a>, so we
-can compute it using the log-linear interpolation of Eq. <a class="reference internal" href="#equation-eq-log-linear-interp">(2)</a> and
-consider the second term as a correction</p>
+<p>The first term on the right-hand side is identical to equation <a class="reference internal" href="#equation-eq-log-p-deriv">(1)</a>, so we
+can compute it using the log-linear interpolation of equation <a class="reference internal" href="#equation-eq-log-linear-interp">(2)</a> and
+consider the second term as a correction:</p>
 <div class="math notranslate nohighlight" id="equation-log-p-corr">
 <span class="eqno">(5)<a class="headerlink" href="#equation-log-p-corr" title="Link to this equation">#</a></span>\[\Delta \log p = \frac{L_\Phi(\Phi-\Phi_\mathrm{m})}{R_\mathrm{s}T_\mathrm{m}^2}\]</div>
 <p>Within an interval <span class="math notranslate nohighlight">\(\Phi_0 \leq \Phi \leq \Phi_1\)</span> where the pressure is known at
 the endpoints <span class="math notranslate nohighlight">\((\Phi_0, \Phi_1)\)</span>, we know that the correction should be zero at
 those endpoints. Also, the integration of a linear relationship will give a quadratic
-function. The only function that satisfies those constraints is of the form</p>
+function. The only function that satisfies those constraints is of the form:</p>
 <div class="math notranslate nohighlight">
 \[\Delta \log p = c(\Phi-\Phi_0)(\Phi-\Phi_1)\]</div>
-<p>and the derivative of this is</p>
+<p>And the derivative of this is:</p>
 <div class="math notranslate nohighlight">
 \[\frac{\mathrm{d}\Delta \log p}{\mathrm{d}\Phi} =
-c((\Phi-\Phi_0) + (\Phi-\Phi_1)) = 2c(\Phi - \Phi_m)\]</div>
-<p>Comparing this to Eq. <a class="reference internal" href="#equation-log-p-deriv-corr">(4)</a> shows that we should have</p>
+c((\Phi-\Phi_0) + (\Phi-\Phi_1)) = 2c(\Phi - \Phi_\mathrm{m})\]</div>
+<p>Comparing this to equation <a class="reference internal" href="#equation-log-p-deriv-corr">(4)</a> shows that we should have:</p>
 <div class="math notranslate nohighlight">
 \[c = \frac{L_\Phi}{2R_\mathrm{s}T_\mathrm{m}^2} = \frac{L}{2gR_\mathrm{s}T_\mathrm{m}^2}\]</div>
 </section>
 <section id="empirical-correction">
-<h2>Empirical correction<a class="headerlink" href="#empirical-correction" title="Link to this heading">#</a></h2>
+<h2>Empirical Correction<a class="headerlink" href="#empirical-correction" title="Link to this heading">#</a></h2>
 <p>In principle, we could compute the lapse rate <span class="math notranslate nohighlight">\(L_\Phi\)</span> from the temperature of the
 endpoints of the interpolation interval. However, this does not seem to yield good
 results in practice. This may be because differences like this (similar to numerical
 derivatives) tend to be sensitive to noise, or because the near-surface temperature is
 often affected by the surface. We get better results by using the average lapse rate of
-<span class="math notranslate nohighlight">\(-6.5 \times 10^3\ \mathrm{K\,m^{-1}}\)</span>.</p>
-<p>Applying the correction from Eq.~(\ref{eq:correction_approx}) using the average lapse
+<span class="math notranslate nohighlight">\(-6.5 \times 10^{-3}\ \mathrm{K\,m^{-1}}\)</span>.</p>
+<p>Applying the correction from equation <a class="reference internal" href="#equation-log-p-corr">(5)</a> using the average lapse
 rate improves the approximation result but leaves some remaining bias and room for
 improvement in the mean square error (MSE). To reduce this, we apply a further linear
-correction</p>
+correction:</p>
 <div class="math notranslate nohighlight">
 \[    (\Delta \log_p)_\mathrm{adj} = a + b\Delta \log_p\]</div>
-<p>where <span class="math notranslate nohighlight">\(a\)</span> and <span class="math notranslate nohighlight">\(b\)</span> are chosen empirically to minimize the MSE of the
+<p>Where <span class="math notranslate nohighlight">\(a\)</span> and <span class="math notranslate nohighlight">\(b\)</span> are chosen empirically to minimize the MSE of the
 approximated surface pressure over one year of ERA5 data. This analysis gives
 <span class="math notranslate nohighlight">\(a = 3.4257 \times 10^{-5}\)</span> and <span class="math notranslate nohighlight">\(b = 1.5224\)</span>. Equivalently, the value of <span class="math notranslate nohighlight">\(b\)</span>
 indicates that the optimal assumed lapse rate is
-<span class="math notranslate nohighlight">\(-9.9 \times 10^3\ \mathrm{K\,m^{-1}}\)</span>. This is within the physical range of variability but corresponds
-to a highly unstable atmosphere. Therefore it seems that the correction also compensates
-some other errors besides that due to varying temperature.</p>
+<span class="math notranslate nohighlight">\(-9.9 \times 10^{-3}\ \mathrm{K\,m^{-1}}\)</span>. This is within the physical range of
+variability but corresponds to a highly unstable atmosphere. Therefore it seems that
+the correction also compensates some other errors besides that due to varying
+temperature.</p>
 </section>
 </section>
 
@@ -870,10 +875,10 @@ some other errors besides that due to varying temperature.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variables">Variables</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#physical-basis">Physical basis</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#log-linear-interpolation">Log-linear interpolation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#second-order-correction-for-temperature-lapse-rate">Second-order correction for temperature lapse rate</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#empirical-correction">Empirical correction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#physical-basis">Physical Basis</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#log-linear-interpolation">Log-linear Interpolation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#second-order-correction-for-temperature-lapse-rate">Second-order Correction for Temperature Lapse Rate</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#empirical-correction">Empirical Correction</a></li>
 </ul>
   </nav></div>
 

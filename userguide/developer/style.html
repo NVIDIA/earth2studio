@@ -691,41 +691,40 @@
                   
   <section id="style-guide">
 <h1>Style Guide<a class="headerlink" href="#style-guide" title="Link to this heading">#</a></h1>
-<p>The Earth2Studio style guide is set of conventions we have adopted detailing how to
+<p>The Earth2Studio style guide is a set of conventions we have adopted detailing how to
 write code for this project. A consistent style and process makes the package much
-easier to understand for users and ensure compliance requirements are met.</p>
+easier to understand for users and ensures compliance requirements are met.</p>
 <section id="code-formatting">
 <h2>Code Formatting<a class="headerlink" href="#code-formatting" title="Link to this heading">#</a></h2>
 <p>Earth2Studio uses <a class="reference external" href="https://github.com/psf/black">black</a> as the code formatter.
 All committed code is expected to be compliant with the version of black specified in
 the <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
-Pre-commit will format your code for you or one can run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">format</span></code> to run black on
+Pre-commit will format your code for you or you can run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">format</span></code> to run black on
 all files.</p>
-<p>Additional Code formatting principles:</p>
+<p>Additional code formatting principles:</p>
 <ul class="simple">
-<li><p>Files are always lower-case reflecting, use shortened name of component they hold</p></li>
-<li><p>Class names are capitalized using pascal-case</p></li>
-<li><p>Function names are lower case using snake-case</p></li>
+<li><p>File names are always lower case and use a shortened name for the component they contain</p></li>
+<li><p>Class names are capitalized using Pascal case</p></li>
+<li><p>Function names are lower case using snake case</p></li>
 </ul>
 </section>
 <section id="linting">
 <h2>Linting<a class="headerlink" href="#linting" title="Link to this heading">#</a></h2>
-<p>Linting is performed by <a class="reference external" href="https://github.com/astral-sh/ruff">ruff</a> which includes many
+<p>Linting is performed by <a class="reference external" href="https://github.com/astral-sh/ruff">ruff</a>, which includes many
 processes to ensure code between files is as consistent as possible.
-Ruff is configured in the projects <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
-Pre-commit will run linting for you or one can run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">lint</span></code> to run ruff on all files.</p>
+Ruff is configured in the project’s <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
+Pre-commit will run linting for you or you can run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">lint</span></code> to run ruff on all files.</p>
 </section>
 <section id="type-hints">
 <h2>Type Hints<a class="headerlink" href="#type-hints" title="Link to this heading">#</a></h2>
 <p>Earth2Studio is a <a class="reference external" href="https://mypy-lang.org/">MyPy</a> compliant package, meaning type hints
-are required for all functions (parameters and return object).
-MyPy is configured in the packages <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
+are required for all functions (parameters and return type).
+MyPy is configured in the package’s <a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
 On top of requiring type hints, the following guidelines should be used:</p>
-<ul class="simple">
-<li><p>To help keep APIs a concise, several of the common types used through out
-the package are defined in <code class="docutils literal notranslate"><span class="pre">earth2studio/utils/type.py</span></code> which should be
-used when applicable.</p></li>
-</ul>
+<ul>
+<li><p>To help keep APIs concise, several of the common types used throughout
+the package are defined in <code class="docutils literal notranslate"><span class="pre">earth2studio/utils/type.py</span></code>, which should be
+used when applicable.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
 
@@ -748,12 +747,12 @@ used when applicable.</p></li>
 <span class="p">)</span>
 </pre></div>
 </div>
-<ul class="simple">
+</li>
 <li><p>Earth2Studio is Python 3.10+, thus type hinting using generic objects should be used
-instead of the <code class="docutils literal notranslate"><span class="pre">typing</span></code> package. See <a class="reference external" href="https://peps.python.org/pep-0585/">PEP 585</a>
+instead of the <code class="docutils literal notranslate"><span class="pre">typing</span></code> package. Refer to <a class="reference external" href="https://peps.python.org/pep-0585/">PEP 585</a>
 for details.</p></li>
 <li><p>Earth2Studio is Python 3.10+, thus the <code class="docutils literal notranslate"><span class="pre">|</span></code> operator should be used instead of <code class="docutils literal notranslate"><span class="pre">Union</span></code>
-and <code class="docutils literal notranslate"><span class="pre">Optional</span></code> type operators. See <a class="reference external" href="https://peps.python.org/pep-0604/">PEP 604</a> for
+and <code class="docutils literal notranslate"><span class="pre">Optional</span></code> type operators. Refer to <a class="reference external" href="https://peps.python.org/pep-0604/">PEP 604</a> for
 details.</p></li>
 </ul>
 <div class="admonition note">
@@ -789,7 +788,7 @@ Python 3.10 type styles automatically.</p>
 the contribution is your original work, or you have rights to submit it under the same
 license, or a compatible license. Any contribution which contains commits that are not
 Signed-Off will not be accepted.</p>
-<p>To sign off on a commit you simply use the <code class="docutils literal notranslate"><span class="pre">--signoff</span></code> (or <code class="docutils literal notranslate"><span class="pre">-s</span></code>) option when
+<p>To sign off on a commit, use the <code class="docutils literal notranslate"><span class="pre">--signoff</span></code> (or <code class="docutils literal notranslate"><span class="pre">-s</span></code>) option when
 committing your changes:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>commit<span class="w"> </span>-s<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Adding a cool feature.&quot;</span>
 </pre></div>

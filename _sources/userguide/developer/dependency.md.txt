@@ -1,3 +1,5 @@
+(developer_dependency)=
+
 # Dependency Management
 
 Earth2Studio uses [uv](https://github.com/astral-sh/uv) as its primary package manager
@@ -12,7 +14,7 @@ The base installation provides core functionality that is focused on the relativ
 ecosystem surrounding the following four packages:
 
 - `torch`: Deep learning framework
-- `xarray`: N-D labeled arrays and datasets
+- `xarray`: Multi-dimensional (N-D) labeled arrays and datasets
 - `zarr`: Array storage format
 - `fsspec`: Filesystem interfaces
 
@@ -66,18 +68,19 @@ updated accordingly.
 ### Handling Optional Imports
 
 When developing features that require optional dependencies, always use graceful error
-handling for the user to communicate that additional dependency group needs to be
+handling for the user to communicate if an additional dependency group needs to be
 installed.
-A good sanity check if things have properly been caught, is by building the API docs
-with `make docs`.
+A good sanity check is to run `make docs` from the repository root to build the API
+documentation and verify that optional imports are handled correctly. For targets and
+setup, refer to {ref}`building_documentation`.
 
-It is important to handle the absence of optional dependencies in a standardize way for
+It is important to handle the absence of optional dependencies in a standardized way for
 the user.
 Earth2Studio has some utilities to provide informative errors to users that should be
 used when some optional dependency group is needed to be installed:
 
-1. Use a try or except in the optional import for ImportErrors. Set respective package
-    objects to None if not installed. The file should **not** error on import, rather
+1. Use a `try` or `except` around the optional import for `ImportError`. Set respective
+    package objects to `None` if not installed. The file should **not** error on import;
     optional imports should be evaluated lazily when needed.
 2. In the catch of the import try catch, instantiate a `OptionalDependencyFailure`. The
     only parameter needed is the name of the dependency group that needs to be
@@ -116,10 +119,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ...
 ```
 
-In this example, the resulting behavior is the FCN model is able to be imported without
-any issues.
-Only when the user attempts to use FCN without the required extra packages, the
-following error will be printed:
+In this example, you can import the FCN module without errors. Only when you use FCN
+without the required extra packages installed will the following error appear:
 
 ```text
 uv run python
@@ -201,7 +202,7 @@ dev = [
 ```
 
 These dependencies are not included in the distributed package wheel.
-For more information on dependency management with uv, see:
+For more information on dependency management with uv, refer to the following:
 
 - [uv Dependency Documentation](https://docs.astral.sh/uv/concepts/projects/dependencies/)
 - [uv Conflict Resolution](https://docs.astral.sh/uv/reference/settings/#conflicts)

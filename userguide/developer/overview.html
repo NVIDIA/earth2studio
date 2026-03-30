@@ -692,15 +692,18 @@
   <!-- markdownlint-disable MD025 -->
 <section id="overview">
 <span id="developer-overview"></span><h1>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h1>
-<p>This guide assumes you have reviewed the repository and are familiar with the majority
+<p>This page describes how to set up a local development environment with
+<a class="reference external" href="https://docs.astral.sh/uv/">uv</a>, optional documentation dependencies, and pre-commit
+hooks.
+It assumes you have reviewed the repository and are familiar with the majority of the
 information found in the <a class="reference internal" href="../index.html#userguide"><span class="std std-ref">User Guide</span></a>.</p>
 <section id="environment-setup">
 <h2>Environment Setup<a class="headerlink" href="#environment-setup" title="Link to this heading">#</a></h2>
-<p>When developing Earth2Studio, using uv virtual environment is suggested and will be used
-in the documentation.
-To create a local development environment with a git repo and uv, follow the steps
-below.
-Clone the repo and use uv to create a Python 3.12 virtual environment and sync it with
+<p>When developing Earth2Studio, using a uv virtual environment is suggested and will be
+used in the documentation.
+To create a local development environment with a git repo and uv:</p>
+<ol class="arabic">
+<li><p>Clone the repo and use uv to create a Python 3.12 virtual environment and sync it with
 the <code class="docutils literal notranslate"><span class="pre">dev</span></code> dependency group:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replace with your fork</span>
 git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/earth2studio.git<span class="w"> </span>--single-branch
@@ -712,17 +715,20 @@ uv<span class="w"> </span>sync<span class="w"> </span><span class="c1"># This wi
 </pre></div>
 </div>
 <p>This should create a Python virtual environment inside of the local Earth2Studio git
-repository.
-To install the base, developer, documentation dependencies, use:</p>
+repository.</p>
+</li>
+<li><p>To install the base, developer, documentation dependencies, use:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="o">={</span>docs<span class="o">}</span>
 </pre></div>
 </div>
+</li>
+</ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>When working with models, additional optional dependencies may be required.
-See the <a class="reference internal" href="../about/install.html#model-dependencies"><span class="std std-ref">model dependencies</span></a> section for details on the optional
-dependencies inside the package.
-Use the <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span> <span class="pre">--extra</span> <span class="pre">&lt;optional</span> <span class="pre">dep&gt;</span></code> command instead of the pip install.
+<p>When working with models, additional optional dependencies might be required.
+Refer to the <a class="reference internal" href="../about/install.html#model-dependencies"><span class="std std-ref">Model Dependencies</span></a> section for details on the optional dependencies
+inside the package.
+Use the <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span> <span class="pre">--extra</span> <span class="pre">&lt;optional</span> <span class="pre">dep&gt;</span></code> command instead of <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>.
 Take note of the difference between the optional dependency groups used here and the
 extra dependencies when using specific models.</p>
 </div>

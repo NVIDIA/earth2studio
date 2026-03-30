@@ -690,7 +690,7 @@
                 <article class="bd-article">
                   
   <section id="dependency-management">
-<h1>Dependency Management<a class="headerlink" href="#dependency-management" title="Link to this heading">#</a></h1>
+<span id="developer-dependency"></span><h1>Dependency Management<a class="headerlink" href="#dependency-management" title="Link to this heading">#</a></h1>
 <p>Earth2Studio uses <a class="reference external" href="https://github.com/astral-sh/uv">uv</a> as its primary package manager
 to handle complex dependency relationships between different models, data sources, and
 utilities.
@@ -702,7 +702,7 @@ conflicts and bloat.</p>
 ecosystem surrounding the following four packages:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">torch</span></code>: Deep learning framework</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">xarray</span></code>: N-D labeled arrays and datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xarray</span></code>: Multi-dimensional (N-D) labeled arrays and datasets</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">zarr</span></code>: Array storage format</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">fsspec</span></code>: Filesystem interfaces</p></li>
 </ul>
@@ -752,17 +752,18 @@ updated accordingly.</p>
 <section id="handling-optional-imports">
 <h3>Handling Optional Imports<a class="headerlink" href="#handling-optional-imports" title="Link to this heading">#</a></h3>
 <p>When developing features that require optional dependencies, always use graceful error
-handling for the user to communicate that additional dependency group needs to be
+handling for the user to communicate if an additional dependency group needs to be
 installed.
-A good sanity check if things have properly been caught, is by building the API docs
-with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code>.</p>
-<p>It is important to handle the absence of optional dependencies in a standardize way for
+A good sanity check is to run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docs</span></code> from the repository root to build the API
+documentation and verify that optional imports are handled correctly. For targets and
+setup, refer to <a class="reference internal" href="documentation.html#building-documentation"><span class="std std-ref">Building Documentation</span></a>.</p>
+<p>It is important to handle the absence of optional dependencies in a standardized way for
 the user.
 Earth2Studio has some utilities to provide informative errors to users that should be
 used when some optional dependency group is needed to be installed:</p>
 <ol class="arabic simple">
-<li><p>Use a try or except in the optional import for ImportErrors. Set respective package
-objects to None if not installed. The file should <strong>not</strong> error on import, rather
+<li><p>Use a <code class="docutils literal notranslate"><span class="pre">try</span></code> or <code class="docutils literal notranslate"><span class="pre">except</span></code> around the optional import for <code class="docutils literal notranslate"><span class="pre">ImportError</span></code>. Set respective
+package objects to <code class="docutils literal notranslate"><span class="pre">None</span></code> if not installed. The file should <strong>not</strong> error on import;
 optional imports should be evaluated lazily when needed.</p></li>
 <li><p>In the catch of the import try catch, instantiate a <code class="docutils literal notranslate"><span class="pre">OptionalDependencyFailure</span></code>. The
 only parameter needed is the name of the dependency group that needs to be
@@ -799,10 +800,8 @@ attempts to use the respective feature.</p></li>
     <span class="o">...</span>
 </pre></div>
 </div>
-<p>In this example, the resulting behavior is the FCN model is able to be imported without
-any issues.
-Only when the user attempts to use FCN without the required extra packages, the
-following error will be printed:</p>
+<p>In this example, you can import the FCN module without errors. Only when you use FCN
+without the required extra packages installed will the following error appear:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>uv run python
 Python 3.12.3 (main, Jun 18 2025, 17:59:45) [GCC 13.3.0] on linux
 Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
@@ -880,7 +879,7 @@ reproducible environments.</p>
 </pre></div>
 </div>
 <p>These dependencies are not included in the distributed package wheel.
-For more information on dependency management with uv, see:</p>
+For more information on dependency management with uv, refer to the following:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://docs.astral.sh/uv/concepts/projects/dependencies/">uv Dependency Documentation</a></p></li>
 <li><p><a class="reference external" href="https://docs.astral.sh/uv/reference/settings/#conflicts">uv Conflict Resolution</a></p></li>

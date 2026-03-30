@@ -696,26 +696,23 @@ Recipes provide more complex implementations that may require deeper domain know
 and familiarity with the codebase.</p>
 <div class="warning admonition">
 <p class="admonition-title">Warning</p>
-<p>Earth2Studio recipes are in beta, thus may dramatically change or get moved.</p>
+<p>Earth2Studio recipes are in beta and can change dramatically or be moved.</p>
 </div>
 <section id="what-is-a-recipe">
 <h2>What is a Recipe?<a class="headerlink" href="#what-is-a-recipe" title="Link to this heading">#</a></h2>
 <p>While examples demonstrate how to use features, recipes focus on how to solve specific
 problems.
-Recipes are not intended to be turnkey solutions with every potential option; rather
-reference or boilerplate projects for different common use cases.
-Here’s how they differ:</p>
-<section id="examples">
-<h3>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h3>
+Recipes are not intended to be turnkey solutions with every potential option; rather,
+they are reference or boilerplate projects for different common use cases.</p>
+<p>Here’s how examples differ:</p>
 <ul class="simple">
-<li><p>Self-contained <a class="reference external" href="https://jupytext.readthedocs.io/en/latest/">JupyText</a> format</p></li>
+<li><p>Self-contained <a class="reference external" href="https://jupytext.readthedocs.io/en/latest/">Jupytext</a> format</p></li>
 <li><p>Focus on demonstrating specific features</p></li>
-<li><p>Include graphical output for sphinx gallery</p></li>
-<li><p>Requirements must be part of earth2studio + docs dep group</p></li>
+<li><p>Include graphical output for Sphinx Gallery</p></li>
+<li><p>Required to be part of earth2studio + docs dep group</p></li>
 <li><p>Single GPU, A100 (40G) max resource requirement</p></li>
-<li><p>Runs in less than 10 minutes</p></li>
+<li><p>Run in less than 10 minutes</p></li>
 </ul>
-</section>
 <section id="recipes">
 <h3>Recipes<a class="headerlink" href="#recipes" title="Link to this heading">#</a></h3>
 <ul class="simple">
@@ -726,14 +723,14 @@ Here’s how they differ:</p>
 <li><p>Requirements provided in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code></p></li>
 <li><p>May require more specific hardware or system dependencies</p></li>
 </ul>
-<p>See <a class="reference internal" href="documentation.html#examples-userguide"><span class="std std-ref">Example Documentation</span></a> for more information on creating an example.</p>
+<p>Refer to <a class="reference internal" href="documentation.html#examples-userguide"><span class="std std-ref">Example Documentation</span></a> for more information on creating an example.</p>
 </section>
 </section>
 <section id="recipe-structure">
 <h2>Recipe Structure<a class="headerlink" href="#recipe-structure" title="Link to this heading">#</a></h2>
-<p>The <a class="reference external" href="https://github.com/NVIDIA/earth2studio/recipes/template/">recipe template</a>,
-defines what a recipe should contain and look like including folders, README sections,
-support files.
+<p>The <a class="reference external" href="https://github.com/NVIDIA/earth2studio/recipes/template/">recipe template</a>
+defines what a recipe should contain and look like, including folders, README sections,
+and support files.
 Recipes have the following structure:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>recipes/
  |- recipe-name/
@@ -755,43 +752,43 @@ Recipes have the following structure:</p>
 <ol class="arabic simple">
 <li><p><strong>Code Standards</strong></p>
 <ul class="simple">
-<li><p>Must follow all pre-commit standards and code practices</p></li>
-<li><p>Must include end-to-end tests validating functionality</p></li>
-<li><p><strong>No</strong> images, data files, or other file formats allowed in the repo, can link to
-externally hosted. Earth2Studio has a <a class="reference external" href="https://huggingface.co/datasets/nvidia/earth2studio-assets">HuggingFace assets dataset</a>
+<li><p>Must follow all pre-commit standards and code practices.</p></li>
+<li><p>Must include end-to-end tests validating functionality.</p></li>
+<li><p><strong>No</strong> images, data files, or other file formats are allowed in the repo; link
+to assets that are hosted externally instead. Earth2Studio has a <a class="reference external" href="https://huggingface.co/datasets/nvidia/earth2studio-assets">HuggingFace assets dataset</a>
 that can be used.</p></li>
 <li><p>Implementation or re-implementation of components that exist in Earth2Studio
-package is not encouraged. Upstreaming is a priority</p></li>
+package is not encouraged. Upstreaming is a priority.</p></li>
 </ul>
 </li>
 <li><p><strong>Testing</strong></p>
 <ul class="simple">
-<li><p>Should include end-to-end tests with expected results to verify functionality</p></li>
-<li><p>Not included in the main <code class="docutils literal notranslate"><span class="pre">pytest</span></code> suite</p></li>
-<li><p>Tested following major release cycles</p></li>
+<li><p>Should include end-to-end tests with expected results to verify functionality.</p></li>
+<li><p>Not included in the main <code class="docutils literal notranslate"><span class="pre">pytest</span></code> suite.</p></li>
+<li><p>Tested following major release cycles.</p></li>
 </ul>
 </li>
 <li><p><strong>Ownership</strong></p>
 <ul class="simple">
-<li><p>Must have designated owners (listed as authors in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>)</p></li>
-<li><p>Owners responsible for fixing bugs and updates</p></li>
-<li><p>Recipes can and may be removed based on their use or relevance</p></li>
+<li><p>Must have designated owners (listed as authors in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>).</p></li>
+<li><p>Owners are responsible for fixing bugs and updates.</p></li>
+<li><p>Recipes can and may be removed based on their use or relevance.</p></li>
 </ul>
 </li>
 <li><p><strong>Dependencies</strong></p>
 <ul class="simple">
-<li><p>Must use shipped versions of Earth2Studio (not main branch)</p></li>
-<li><p>Dependencies managed through <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a></p></li>
-<li><p>A <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> should also be provided for pip install</p></li>
+<li><p>Must use shipped versions of Earth2Studio (not the main branch).</p></li>
+<li><p>Dependencies are managed through <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> should also be provided for <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>.</p></li>
 </ul>
 </li>
 <li><p><strong>Documentation</strong></p>
 <ul class="simple">
-<li><p>Clear README.md explaining purpose and usage</p></li>
-<li><p>Can include JuPyText notebooks for interactive documentation</p></li>
-<li><p>Should reference related examples when applicable</p></li>
-<li><p>Links to the recipes should be added to the recipe index</p></li>
-<li><p>Recipes can provide related plotting functionality</p></li>
+<li><p>Clear README.md explaining purpose and usage.</p></li>
+<li><p>Can include Jupytext notebooks for interactive documentation.</p></li>
+<li><p>Should reference related examples when applicable.</p></li>
+<li><p>Links to the recipes should be added to the recipe index.</p></li>
+<li><p>Recipes can provide related plotting functionality.</p></li>
 </ul>
 </li>
 </ol>
@@ -880,7 +877,6 @@ Making iterative updates expanding functionality is preferred.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-a-recipe">What is a Recipe?</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#recipes">Recipes</a></li>
 </ul>
 </li>
