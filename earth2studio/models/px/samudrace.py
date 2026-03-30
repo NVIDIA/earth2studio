@@ -480,8 +480,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         day: int,
         hour: int,
         n_flat: int,
-        lat_len: int,
-        lon_len: int,
     ) -> torch.Tensor:
         """Extract a single forcing field from the forcing NetCDF for a given time.
 
@@ -497,10 +495,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Target hour (0, 6, 12, 18).
         n_flat : int
             Flattened batch size.
-        lat_len : int
-            Latitude dimension size.
-        lon_len : int
-            Longitude dimension size.
 
         Returns
         -------
@@ -625,7 +619,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 for abs_t in abs_times:
                     ts = pd.Timestamp(abs_t)
                     val = self._get_forcing_slice(
-                        fme_name, ts.month, ts.day, ts.hour, n_flat, lat_len, lon_len
+                        fme_name, ts.month, ts.day, ts.hour, n_flat
                     )
                     slices.append(val)
                 atm_forcing_data[fme_name] = torch.stack(slices, dim=1)
@@ -776,11 +770,9 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             nan_pad = torch.full_like(val, float("nan"))
             ocean_forcing_data[key] = torch.cat([nan_pad, val], dim=1)
 
-        # Add static fields if needed (land_fraction from atmosphere state)
-        atm_bd = atm_state.as_batch_data()
-        if "land_fraction" in atm_bd.data:
-            lf_val = atm_bd.data["land_fraction"][:, -1:, ...]
-            ocean_forcing_data["land_fraction"] = lf_val.expand(-1, 2, -1, -1)
+        # Add land_fraction from forcing file (static field needed by ocean stepper)
+        lf_val = self._get_forcing_slice("land_fraction", 1, 1, 0, n_flat)
+        ocean_forcing_data["land_fraction"] = lf_val.unsqueeze(1).expand(-1, 2, -1, -1)
 
         # Build time array for ocean forcing (2 timesteps spanning the 5-day window)
         ocean_dt = np.timedelta64(5, "D")
