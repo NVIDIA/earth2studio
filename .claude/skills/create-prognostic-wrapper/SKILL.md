@@ -1043,7 +1043,7 @@ print(f"Results saved to {OUTPUT_FILE}")
   write) is exercised
 - Output to a **NetCDF file** with all model variables
 
-### 12b. Native-framework reference script (`fme_reference.py`)
+### 12b. Native-framework reference script (`native_reference.py`)
 
 A self-contained script that runs inference using the
 model's **original framework** (not Earth2Studio).
@@ -1116,7 +1116,7 @@ from earth2studio.lexicon.<model_lexicon> import ModelLexicon
 VARIABLES = {
     "var_key": {
         "e2s_name": "...",
-        "fme_name": "...",       # Native framework name
+        "native_name": "...",    # Native framework name
         "component": "...",      # If applicable (e.g., "atmosphere", "ocean")
         "label": "Description [units]",
         "cmap": "RdYlBu_r",
@@ -1205,7 +1205,7 @@ Attach the following to the pull request:
 | File | Purpose |
 |------|---------|
 | `e2s_reference.py` | E2S inference script |
-| `fme_reference.py` (or `<framework>_reference.py`) | Native-framework inference script |
+| `native_reference.py` (or `<framework>_reference.py`) | Native-framework inference script |
 | `compare.py` | Comparison and plotting script |
 | `compare_timeseries.png` | Global-mean timeseries plot |
 | `compare_<var>.png` | Per-variable spatial map plots |
