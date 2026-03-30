@@ -114,7 +114,12 @@ class PhooStepper(torch.nn.Module):
         self.prognostic_names = prognostic_names
         self._input_only_names = input_only_names
         self.out_names = out_names
+        self.n_ic_timesteps = 1
         self.register_buffer("device_buffer", torch.empty(0))
+
+    def prescribe_sst(self, mask_data, gen_data, target_data):
+        """Mock SST prescription that returns gen_data unchanged."""
+        return dict(gen_data)
 
     def predict_paired(self, ic, forcing_batch):
         first_key = self.prognostic_names[0]
@@ -165,6 +170,13 @@ class PhooCoupledConfig:
     ocean_fraction_prediction = PhooCoupledOceanFractionConfig()
 
 
+class PhooMaskProvider:
+    """Mock ocean mask provider that returns no masks (no-op)."""
+
+    def get_mask_tensor_for(self, name):
+        return None
+
+
 class PhooCoupledStepper:
     """Mock CoupledStepper matching the interface used by SamudrACE wrapper."""
 
@@ -172,6 +184,7 @@ class PhooCoupledStepper:
         self.atmosphere = PhooStepper(ATM_PROGNOSTIC, ATM_INPUT_ONLY, ATM_OUT)
         self.ocean = PhooStepper(OCEAN_PROGNOSTIC, OCEAN_INPUT_ONLY, OCEAN_OUT)
         self._config = PhooCoupledConfig()
+        self._ocean_mask_provider = PhooMaskProvider()
 
     def to(self, device):
         self.atmosphere = self.atmosphere.to(device)
