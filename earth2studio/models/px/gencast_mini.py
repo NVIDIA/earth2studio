@@ -166,9 +166,9 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     sst_nan_mask : np.ndarray
         Boolean mask indicating where SST values are NaN (ocean vs land)
     seed : int | None, optional
-        Random seed for JAX PRNG key used in stochastic sampling, by default 0.
-        If None, a random seed is generated each time the model is called,
-        producing fully non-reproducible stochastic forecasts.
+        Random seed for JAX PRNG key used in stochastic sampling. If None, a random seed
+        is generated each time the model is called, producing stochastic forecasts. By
+        default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, requires 24GB of host RAM. JIT compilation
         adds a one-time cost (several minutes for the first call) but makes subsequent
@@ -313,8 +313,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         jit_compile : bool, optional
             JIT-compile the model forward pass with, by default True.
         seed : int | None, optional
-            Random seed for stochastic sampling, by default 0. If None,
-            produces fully non-reproducible forecasts.
+            Random seed for JAX PRNG key used in stochastic sampling, by default 0.
 
         Returns
         -------
