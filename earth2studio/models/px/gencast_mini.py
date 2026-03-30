@@ -124,22 +124,18 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GenCast Mini diffusion-based weather prediction model.
 
     A stochastic weather prediction model based on conditional diffusion that predicts
-    in 12-hour time steps. GenCast uses a denoiser architecture with a Sparse
-    Transformer processor and DPM-Solver++ 2S sampling. This mini variant operates at
-    1.0-degree (181x360) resolution with 13 pressure levels.
+    in 12-hour time steps. This mini variant operates at 1.0-degree (181x360) resolution
+    with 13 pressure levels. The model takes 2 input frames (t-12h and t) and predicts
+    12 hours ahead.
 
-    Unlike deterministic models such as GraphCast, GenCast produces stochastic
-    predictions (different random seeds yield different ensemble members). The model
-    takes 2 input frames (t-12h and t) and predicts 12 hours ahead.
-
-    This is the mini variant trained on ERA5 reanalysis data (pre-2019), offering
+    The mini variant trained on ERA5 reanalysis data (pre-2019), offering
     significantly lower memory requirements (~16 GB vRAM) compared to the full
     0.25-degree operational model. This wrapper runs the model with operational inputs
     which includes a zero 12hr total precipitation input.
 
     Note
     ----
-    This model and checkpoint are based on the GenCast architecture from DeepMind.
+    This model is provided by DeepMind.
     For more information see the following references:
 
     - https://arxiv.org/abs/2312.15796
