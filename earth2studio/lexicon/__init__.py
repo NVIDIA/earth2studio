@@ -35,5 +35,6 @@ from .planetary_computer import (
     PlanetaryComputerOISSTLexicon,
     PlanetaryComputerSentinel3AODLexicon,
 )
+from .samudrace import SamudrACELexicon
 from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

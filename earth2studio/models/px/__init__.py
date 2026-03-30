@@ -36,6 +36,7 @@ from earth2studio.models.px.graphcast_small import GraphCastSmall
 from earth2studio.models.px.interpmodafno import InterpModAFNO
 from earth2studio.models.px.pangu import Pangu3, Pangu6, Pangu24
 from earth2studio.models.px.persistence import Persistence
+from earth2studio.models.px.samudrace import SamudrACE
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS

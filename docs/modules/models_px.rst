@@ -55,6 +55,7 @@ Thus are typically used to generate forecast predictions.
       Pangu6
       Pangu3
       Persistence
+      SamudrACE
       SFNO
       StormCast
       StormScopeGOES

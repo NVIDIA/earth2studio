@@ -39,6 +39,7 @@ from .planetary_computer import (
 )
 from .rand import Random, Random_FX, RandomDataFrame
 from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
+from .samudrace import SamudrACEData
 from .time_window import TimeWindow
 from .ufs import UFSObsConv, UFSObsSat
 from .utils import datasource_to_file, fetch_data, fetch_dataframe, prep_data_array

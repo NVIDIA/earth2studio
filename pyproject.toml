@@ -187,6 +187,11 @@ pangu = [
     "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
+samudrace = [
+    "fme>=2025.10.0",
+    "pandas>=2.3.2",
+    "scipy>=1.15.2",
+]
 sfno = [
     "makani",
     "pynvml>=12.0.0",
@@ -280,6 +285,22 @@ conflicts = [
   ],
   [
     { extra = "ace2" },
+    { extra = "sfno" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "atlas" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "fcn3" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "perturbation" },
+  ],
+  [
+    { extra = "samudrace" },
     { extra = "sfno" },
   ]
 ]

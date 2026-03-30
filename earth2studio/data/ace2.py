@@ -50,8 +50,9 @@ except ImportError:
 @check_optional_dependencies("ace2")
 class ACE2ERA5Data:
     """ACE2-ERA5 data source providing forcing or initial-conditions data.
-    Files are downloaded on-demand and cached automatically. Data are served as-is; no transformations are applied,
-    with the exception of global mean CO2 concentration, which may be overridden by a user-supplied function.
+    Files are downloaded on-demand and cached automatically. Data are served as-is; no
+    transformations are applied, with the exception of global mean CO2 concentration,
+    which may be overridden by a user-supplied function.
 
     Provides all input variables described in the ACE2-ERA5 paper.
 
