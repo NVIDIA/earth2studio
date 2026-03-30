@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from loguru import logger
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from earth2studio.utils.imports import (
@@ -729,7 +730,9 @@ class StochasticInterpolant(torch.nn.Module):
                     kept_samples += 1
 
             if verbose:
-                print(f"Sampling step: {j+1}. Time: {default_timer() - physical_time}")
+                logger.debug(
+                    f"Sampling step: {j+1}. Time: {default_timer() - physical_time}"
+                )
 
         if keep_every is not None:
             return out
