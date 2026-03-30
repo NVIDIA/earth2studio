@@ -124,22 +124,18 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GenCast Mini diffusion-based weather prediction model.
 
     A stochastic weather prediction model based on conditional diffusion that predicts
-    in 12-hour time steps. GenCast uses a denoiser architecture with a Sparse
-    Transformer processor and DPM-Solver++ 2S sampling. This mini variant operates at
-    1.0-degree (181x360) resolution with 13 pressure levels.
+    in 12-hour time steps. This mini variant operates at 1.0-degree (181x360) resolution
+    with 13 pressure levels. The model takes 2 input frames (t-12h and t) and predicts
+    12 hours ahead.
 
-    Unlike deterministic models such as GraphCast, GenCast produces stochastic
-    predictions (different random seeds yield different ensemble members). The model
-    takes 2 input frames (t-12h and t) and predicts 12 hours ahead.
-
-    This is the mini variant trained on ERA5 reanalysis data (pre-2019), offering
+    The mini variant trained on ERA5 reanalysis data (pre-2019), offering
     significantly lower memory requirements (~16 GB vRAM) compared to the full
     0.25-degree operational model. This wrapper runs the model with operational inputs
     which includes a zero 12hr total precipitation input.
 
     Note
     ----
-    This model and checkpoint are based on the GenCast architecture from DeepMind.
+    This model is provided by DeepMind.
     For more information see the following references:
 
     - https://arxiv.org/abs/2312.15796
@@ -170,9 +166,9 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     sst_nan_mask : np.ndarray
         Boolean mask indicating where SST values are NaN (ocean vs land)
     seed : int | None, optional
-        Random seed for JAX PRNG key used in stochastic sampling, by default 0.
-        If None, a random seed is generated each time the model is called,
-        producing fully non-reproducible stochastic forecasts.
+        Random seed for JAX PRNG key used in stochastic sampling. If None, a random seed
+        is generated each time the model is called, producing stochastic forecasts. By
+        default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, requires 24GB of host RAM. JIT compilation
         adds a one-time cost (several minutes for the first call) but makes subsequent
@@ -317,8 +313,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         jit_compile : bool, optional
             JIT-compile the model forward pass with, by default True.
         seed : int | None, optional
-            Random seed for stochastic sampling, by default 0. If None,
-            produces fully non-reproducible forecasts.
+            Random seed for JAX PRNG key used in stochastic sampling, by default 0.
 
         Returns
         -------
