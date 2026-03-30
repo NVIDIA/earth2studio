@@ -32,8 +32,6 @@ Earth2Studio organizes tests into separate tox environments based on functionali
 - **`test-px-models`** - Prognostic model tests (requires `all` extra)
 - **`test-dx-models`** - Diagnostic model tests (requires `all` extra)
 - **`test-da-models`** - Data assimilation model tests (requires `all` extra)
-- **`test-px-models-ace2`** - Prognostic model tests in the ACE2 conflict environment
-  (requires `ace2` extra)
 - **`test-serve`** - Serve/API tests (requires `serve` extra)
 
 ### Running Tests with Tox
@@ -51,7 +49,6 @@ make pytest TOX_ENV=test-data
 make pytest TOX_ENV=test-px-models
 make pytest TOX_ENV=test-dx-models
 make pytest TOX_ENV=test-da-models
-make pytest TOX_ENV=test-px-models-ace2
 ```
 
 You can also run tox directly:
@@ -94,31 +91,12 @@ debugging and allows parallel execution. Each job only runs when relevant files 
 - **`test-perturb`** - Runs when perturbation code or tests change
 - **`test-stats`** - Runs when statistics code or tests change
 - **`test-px-models`** - Runs when prognostic model code or tests change
-- **`test-px-ace2`** - Runs when prognostic model code or tests change (ACE2 conflict tox environment)
 - **`test-dx-models`** - Runs when diagnostic model code or tests change
 - **`test-da-models`** - Runs when data assimilation model code or tests change
 - **`test-serve`** - Runs when serve, API code, or tests change
 
 To force all tests to run regardless of changes, set the `CI_PYTEST_ALL` environment variable
 to `1`, `true`, `yes`, or `on`.
-
-#### CI Model Package Cache
-
-In the CI pipeline an NFS (Network File System) mounted folder is used as a pre-cached store of all
-pre-trained model checkpoint files (automodels) so each pipeline does not need to rerun
-the download.
-The cache folder is managed internally by the developers.
-This should reflect a local cache if a user was to fetch and load all possible models.
-The source of truth for generating this cache of model checkpoints must always be
-`test/models/test_auto_models.py`.
-That test file runs all listed auto-models and creates a `./cache` folder with the following
-command:
-
-```bash
-uv run pytest --model-download -s test/models/test_auto_models.py
-
-ls -l ./cache
-```
 
 ## Coverage
 

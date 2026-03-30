@@ -16,7 +16,6 @@ When developing Earth2Studio, using a uv virtual environment is suggested and wi
 used in the documentation.
 To create a local development environment with a git repo and uv:
 
-
 1. Clone the repo and use uv to create a Python 3.12 virtual environment and sync it with
     the `dev` dependency group:
 
