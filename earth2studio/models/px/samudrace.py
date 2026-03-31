@@ -54,6 +54,9 @@ except ImportError:
 # Number of atmosphere 6h steps in one coupled (ocean) 5-day cycle
 N_INNER_STEPS = 20
 
+# Valid forcing scenario identifiers
+_VALID_FORCING_SCENARIOS = {"0151", "0311"}
+
 
 def _npdatetime64_to_cftime(dt64_array: np.ndarray) -> np.ndarray:
     """Convert np.datetime64 array to cftime.DatetimeProlepticGregorian array.
@@ -168,6 +171,12 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ):
         super().__init__()
+
+        if forcing_scenario not in _VALID_FORCING_SCENARIOS:
+            raise ValueError(
+                f"forcing_scenario must be one of {sorted(_VALID_FORCING_SCENARIOS)}, "
+                f"got {forcing_scenario!r}"
+            )
 
         self.coupled_stepper = coupled_stepper
         self._dt = dt

@@ -245,6 +245,9 @@ class SamudrACEData:
         result = result.transpose("time", "variable", "lat", "lon")
 
         if not self._cache:
+            result = result.load()  # Materialise before files are deleted
             shutil.rmtree(self.cache, ignore_errors=True)
+            self._atm_ds = None  # Reset so re-download works on next call
+            self._ocean_ds = None
 
         return result
