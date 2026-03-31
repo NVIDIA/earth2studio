@@ -179,7 +179,8 @@ class SamudrACEData:
         if not os.path.exists(local_path):
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             hf_path = f"{self._HF_REPO_ID}/{filename}"
-            logger.info("Downloading SamudrACE {} IC: {}", component, hf_path)
+            if self._verbose:
+                logger.info("Downloading SamudrACE {} IC: {}", component, hf_path)
             self._hf_fs.get_file(hf_path, local_path)
         return local_path
 

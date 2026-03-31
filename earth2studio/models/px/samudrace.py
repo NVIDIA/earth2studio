@@ -358,7 +358,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             SamudrACE prognostic model
         """
         checkpoint_path = package.resolve("samudrACE_CM4_piControl_ckpt.tar")
-        logger.info("Loading SamudrACE coupled stepper from {}", checkpoint_path)
         coupled_stepper = load_coupled_stepper(checkpoint_path)
         return cls(
             coupled_stepper=coupled_stepper,
@@ -487,7 +486,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             hf_path = (
                 f"{self._HF_REPO_ID}/forcing_data/forcing_{self._forcing_scenario}.nc"
             )
-            logger.info("Downloading SamudrACE forcing: {}", hf_path)
             hf_fs = HfFileSystem()
             hf_fs.get_file(hf_path, local_path)
         return local_path
