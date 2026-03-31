@@ -1042,6 +1042,12 @@ print(f"Results saved to {OUTPUT_FILE}")
   full E2S pipeline (data fetch, coord alignment, IO
   write) is exercised
 - Output to a **NetCDF file** with all model variables
+- Pin random seeds if the model has any stochastic
+  components (`torch.manual_seed(0)`,
+  `np.random.seed(0)`) and enable torch deterministic
+  mode when possible (`torch.use_deterministic_algorithms(True)`,
+  `torch.backends.cudnn.deterministic = True`,
+  `torch.backends.cudnn.benchmark = False`)
 
 ### 12b. Native-framework reference script (`native_reference.py`)
 
@@ -1080,7 +1086,10 @@ print("Done.")
   predictable file names
 - Pin random seeds if the model has any stochastic
   components (`torch.manual_seed(0)`,
-  `np.random.seed(0)`)
+  `np.random.seed(0)`) and enable torch deterministic
+  mode when possible (`torch.use_deterministic_algorithms(True)`,
+  `torch.backends.cudnn.deterministic = True`,
+  `torch.backends.cudnn.benchmark = False`)
 
 ### 12c. Comparison script (`compare.py`)
 
