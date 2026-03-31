@@ -158,8 +158,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:cm product:temp product:atmos product:ocean year:2025
-    gpu:40gb
+    region:global class:cm product:wind product:precip  product:temp product:atmos
+    product:ocean product:solar year:2025 gpu:40gb
     """
 
     _HF_REPO_ID = "allenai/SamudrACE-CM4-piControl"

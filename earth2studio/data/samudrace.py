@@ -72,7 +72,7 @@ class SamudrACEData:
 
     Badges
     ------
-    region:global dataclass:reanalysis product:temp product:atmos product:ocean
+    region:global dataclass:simulation product:temp product:atmos product:ocean
     """
 
     _HF_REPO_ID = "allenai/SamudrACE-CM4-piControl"
