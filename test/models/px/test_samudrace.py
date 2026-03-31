@@ -104,6 +104,8 @@ class PhooOutput:
 class PhooStepper(torch.nn.Module):
     """Mock single-component stepper matching the FME Stepper interface."""
 
+    TIME_DIM = 1
+
     def __init__(
         self,
         prognostic_names: list,
@@ -120,6 +122,22 @@ class PhooStepper(torch.nn.Module):
     def prescribe_sst(self, mask_data, gen_data, target_data):
         """Mock SST prescription that returns gen_data unchanged."""
         return dict(gen_data)
+
+    def get_prediction_generator(self, ic, forcing_batch, n_forward_steps, optimizer):
+        """Mock get_prediction_generator matching FME Stepper interface.
+
+        Yields one TensorDict per step with tensors of shape [batch, lat, lon]
+        (no time dimension), matching the real Stepper.predict_generator output.
+        """
+        first_key = self.prognostic_names[0]
+        batch, _, lat, lon = ic._data.data[first_key].shape
+        device = self.device_buffer.device
+        for _ in range(n_forward_steps):
+            step_data = {
+                key: torch.randn(batch, lat, lon, device=device)
+                for key in self.out_names
+            }
+            yield step_data
 
     def predict_paired(self, ic, forcing_batch):
         first_key = self.prognostic_names[0]
@@ -167,6 +185,8 @@ class PhooCoupledConfig:
     """Mock coupled stepper config."""
 
     sst_name = "sst"
+    surface_temperature_name = "surface_temperature"
+    ocean_fraction_name = "ocean_fraction"
     ocean_fraction_prediction = PhooCoupledOceanFractionConfig()
 
 
@@ -185,6 +205,58 @@ class PhooCoupledStepper:
         self.ocean = PhooStepper(OCEAN_PROGNOSTIC, OCEAN_INPUT_ONLY, OCEAN_OUT)
         self._config = PhooCoupledConfig()
         self._ocean_mask_provider = PhooMaskProvider()
+        # Ocean-to-atmosphere forcing names: SST + sea ice (from ofp config)
+        self._ocean_to_atmosphere_forcing_names = [
+            "sst",
+            "ocean_sea_ice_fraction",
+        ]
+
+    def _forcings_from_ocean_with_ocean_fraction(
+        self, forcings_from_ocean, atmos_forcing_data
+    ):
+        """Mock: compute ocean/sea-ice fraction and apply ocean mask zeroing."""
+        forcings_from_ocean = dict(forcings_from_ocean)
+        ofrac_config = self._config.ocean_fraction_prediction
+        if ofrac_config is not None:
+            sic_name = ofrac_config.sea_ice_fraction_name
+            land_name = ofrac_config.land_fraction_name
+            atm_sic_name = ofrac_config.sea_ice_fraction_name_in_atmosphere or sic_name
+            if sic_name in forcings_from_ocean:
+                sic = torch.nan_to_num(forcings_from_ocean[sic_name])
+                land = atmos_forcing_data[land_name][:, :1, ...]
+                sic_atm = sic * (1.0 - land)
+                forcings_from_ocean[atm_sic_name] = sic_atm.expand(
+                    -1, sic.shape[1], -1, -1
+                )
+                forcings_from_ocean[self._config.ocean_fraction_name] = torch.clip(
+                    1.0 - land - sic_atm, min=0
+                ).expand(-1, sic.shape[1], -1, -1)
+        # Ocean mask zeroing (no-op with PhooMaskProvider)
+        for name, tensor in forcings_from_ocean.items():
+            mask = self._ocean_mask_provider.get_mask_tensor_for(name)
+            if mask is not None:
+                mask = mask.expand(tensor.shape)
+                forcings_from_ocean[name] = tensor.where(mask != 0, 0)
+        return forcings_from_ocean
+
+    def _prescribe_ic_sst(self, atmos_ic_state, forcing_ic_batch):
+        """Mock: delegate to atmosphere's prescribe_sst."""
+        from fme.ace.data_loading.batch_data import BatchData, PrognosticState
+
+        atmos_ic_data = atmos_ic_state.as_batch_data().data
+        forcing_ic_data = forcing_ic_batch.data
+        prescribed = self.atmosphere.prescribe_sst(
+            mask_data=forcing_ic_data,
+            gen_data=atmos_ic_data,
+            target_data=forcing_ic_data,
+        )
+        return PrognosticState(
+            BatchData(
+                data=prescribed,
+                time=forcing_ic_batch.time,
+                labels=forcing_ic_batch.labels,
+            )
+        )
 
     def to(self, device):
         self.atmosphere = self.atmosphere.to(device)
@@ -196,17 +268,17 @@ class PhooCoupledStepper:
 def dummy_forcing_ds(tmp_path_factory):
     """Create a minimal forcing xarray Dataset for mock tests.
 
-    Contains DSWRFtoa (time-varying, 3 days of 6h steps) plus static fields
+    Contains DSWRFtoa (time-varying, 7 days of 6h steps) plus static fields
     HGTsfc, land_fraction, and lake_fraction.
     """
     n_lat = len(ACE_GRID_LAT)
     n_lon = len(ACE_GRID_LON)
-    # 12 time steps covering 3 days at 6h cadence
+    # 28 time steps covering 7 days at 6h cadence (enough for ocean step test)
     import cftime
 
     times = [
         cftime.DatetimeNoLeap(2001, 1, d + 1, h)
-        for d in range(3)
+        for d in range(7)
         for h in (0, 6, 12, 18)
     ]
 
@@ -315,6 +387,48 @@ def test_samudrace_iter(dummy_forcing_ds, batch, device):
         np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
         if i > 2:
             break
+
+
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_samudrace_iter_ocean_step(dummy_forcing_ds, device):
+    """Test that ocean step is triggered after N_INNER_STEPS (20 atm steps = 5 days)."""
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("2001-01-01T00:00")])
+
+    coupled = PhooCoupledStepper().to(device)
+    p = SamudrACE(coupled).to(device)
+    # Inject dummy forcing dataset to bypass HuggingFace download
+    p._forcing_ds = dummy_forcing_ds
+
+    dc = p.input_coords()
+    del dc["batch"]
+    del dc["time"]
+    del dc["lead_time"]
+    del dc["variable"]
+    r = Random(dc)
+
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    p_iter = p.create_iterator(x, coords)
+
+    # First yield returns IC
+    out, out_coords = next(p_iter)
+    assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
+
+    # Run 21 iterations to trigger the ocean step (occurs at step 20)
+    # N_INNER_STEPS = 20, so ocean step triggers after 20 atmosphere steps
+    for i, (out, out_coords) in enumerate(p_iter):
+        assert len(out.shape) == 5
+        expected_lead = np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lead_time"][0] == expected_lead
+        if i >= 20:
+            # After 21 iterations we've completed one full ocean cycle
+            break
+
+    # Verify we reached the expected lead time (21 * 6h = 126h = 5.25 days)
+    assert out_coords["lead_time"][0] == np.timedelta64(126, "h")
 
 
 @pytest.mark.package

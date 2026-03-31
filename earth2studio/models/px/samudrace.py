@@ -173,6 +173,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._dt = dt
         self._forcing_scenario = forcing_scenario
         self._forcing_ds: xr.Dataset | None = None
+        self._hf_fs: HfFileSystem | None = None
         self.lexicon = SamudrACELexicon
 
         # Register a buffer for device tracking
@@ -216,18 +217,12 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._prog_e2s = self._atm_prog_e2s + self._ocean_prog_e2s
         self._all_out_e2s = self._atm_out_e2s + self._ocean_out_e2s
 
-        # Identify atmosphere forcing variables that must come from external
-        # data rather than from inter-component coupling.  The coupled stepper
-        # handles ocean↔atmosphere exchange internally; we only need to feed
-        # the *exogenous* forcings that neither component produces.
+        # Forcing vars not produced by ocean (excludes ocean→atm coupled fields)
         ocean_out_set = set(ocean_out_fme)
         self._exogenous_forcing_fme = sorted(
             v for v in atm_forcing_fme if v not in ocean_out_set
         )
-        # The coupled ocean→atmosphere exchange supplies surface_temperature,
-        # sea_ice_fraction, and ocean_fraction — everything else must come
-        # from external data (including time-varying forcings like DSWRFtoa
-        # AND static fields like HGTsfc, land_fraction, lake_fraction).
+        # External forcing: exogenous vars minus coupled fields (ocean_fraction, etc.)
         _coupled_fields = {"ocean_fraction", "sea_ice_fraction"}
         self._external_forcing_fme: list[str] = []
         for v in self._exogenous_forcing_fme:
@@ -293,8 +288,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lon": self.lon,
             }
         )
-        if input_coords is None:
-            return output_coords
 
         test_coords = input_coords.copy()
         test_coords["lead_time"] = (
@@ -401,11 +394,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         atmos_ic_state: PrognosticState,
         atmos_forcing: BatchData,
     ) -> PrognosticState:
-        """This mirrors CoupledStepper._prescribe_ic_sst in FME which blends
-        the ocean-sourced ``surface_temperature`` into the atmosphere initial
-        condition using ``ocean_fraction`` as a mask (interpolation mode).
-        """
-        # Extract the IC-timestep slice from forcing (n_ic_timesteps == 1)
+        """Blend ocean SST into atmosphere IC using ocean_fraction mask."""
         forcing_ic = atmos_forcing.select_time_slice(
             slice(None, self.coupled_stepper.atmosphere.n_ic_timesteps)
         )
@@ -486,8 +475,9 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             hf_path = (
                 f"{self._HF_REPO_ID}/forcing_data/forcing_{self._forcing_scenario}.nc"
             )
-            hf_fs = HfFileSystem()
-            hf_fs.get_file(hf_path, local_path)
+            if self._hf_fs is None:
+                self._hf_fs = HfFileSystem()
+            self._hf_fs.get_file(hf_path, local_path)
         return local_path
 
     def _open_forcing_ds(self) -> xr.Dataset:
@@ -634,7 +624,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ]
         time_array = np.array(abs_times)
 
-        # Fetch external forcing for this single step (IC + 1 forward = 2 timesteps)
         atm_forcing_data: dict[str, torch.Tensor] = {}
 
         if self._external_forcing_fme:
@@ -648,45 +637,34 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     slices.append(val)
                 atm_forcing_data[fme_name] = torch.stack(slices, dim=1)
 
-        # Add ocean-sourced forcing: SST, ocean_fraction, sea_ice_fraction
-        # These are held constant for all inner atmosphere steps.
-        # This mirrors CoupledStepper._get_atmosphere_forcings and
-        # _forcings_from_ocean_with_ocean_fraction in FME.
+        # Ocean-sourced forcing: SST, ocean_fraction, sea_ice_fraction
         ocean_bd = ocean_state.as_batch_data()
         coupled_config = self.coupled_stepper._config
 
-        # SST → atmosphere surface_temperature
+        # SST → surface_temperature
         sst_name = coupled_config.sst_name
         if sst_name in ocean_bd.data:
-            sst_val = ocean_bd.data[sst_name][:, -1:, ...]  # last timestep
+            sst_val = ocean_bd.data[sst_name][:, -1:, ...]
             atm_forcing_data["surface_temperature"] = sst_val.expand(-1, 2, -1, -1)
 
-        # Sea ice fraction and ocean fraction — derived from ocean's
-        # ocean_sea_ice_fraction via the CoupledOceanFractionConfig when
-        # available, otherwise look for direct sea_ice_fraction/ocean_fraction.
-        # Track which names are ocean-sourced for mask zeroing below.
+        # Derive sea_ice_fraction and ocean_fraction from ocean state
         ocean_sourced_names: list[str] = ["surface_temperature"]
         ofp = coupled_config.ocean_fraction_prediction
         if ofp is not None:
-            sic_name = ofp.sea_ice_fraction_name  # e.g. "ocean_sea_ice_fraction"
-            land_name = ofp.land_fraction_name  # e.g. "land_fraction"
-            atm_sic_name = ofp.sea_ice_fraction_name_in_atmosphere  # "sea_ice_fraction"
+            sic_name = ofp.sea_ice_fraction_name
+            land_name = ofp.land_fraction_name
+            atm_sic_name = ofp.sea_ice_fraction_name_in_atmosphere
 
-            # Compute atmosphere-facing sea_ice and ocean_fraction from ocean.
             if sic_name in ocean_bd.data:
-                # FME: nan_to_num on ocean sea-ice before deriving fractions
                 osic = torch.nan_to_num(ocean_bd.data[sic_name][:, -1:, ...])
-                # land_fraction comes from external forcing, not atmosphere
-                # prognostic state (which never contains it).
                 land_frac = atm_forcing_data[land_name][:, :1, ...]
-                # sea_ice_fraction = ocean_sea_ice_fraction * (1 - land_fraction)
                 sic_atm = osic * (1.0 - land_frac)
                 atm_forcing_data[atm_sic_name] = sic_atm.expand(-1, 2, -1, -1)
-                # ocean_fraction = clip(1 - land - sea_ice, min=0)
                 ocean_frac = torch.clip(1.0 - land_frac - sic_atm, min=0)
                 atm_forcing_data["ocean_fraction"] = ocean_frac.expand(-1, 2, -1, -1)
             ocean_sourced_names += [atm_sic_name, "ocean_fraction"]
         else:
+            # Fallback: use direct sea_ice_fraction/ocean_fraction if available
             if "sea_ice_fraction" in ocean_bd.data:
                 sic_val = ocean_bd.data["sea_ice_fraction"][:, -1:, ...]
                 atm_forcing_data["sea_ice_fraction"] = sic_val.expand(-1, 2, -1, -1)
@@ -697,9 +675,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 atm_forcing_data["ocean_fraction"] = of_val.expand(-1, 2, -1, -1)
                 ocean_sourced_names.append("ocean_fraction")
 
-        # Apply ocean mask zeroing: set ocean-invalid grid points to 0.
-        # This mirrors CoupledStepper._forcings_from_ocean_with_ocean_fraction
-        # (FME lines 979-984) which uses _ocean_mask_provider.
+        # Zero ocean-invalid grid points using mask provider
         ocean_mask_provider = self.coupled_stepper._ocean_mask_provider
         for oname in ocean_sourced_names:
             if oname in atm_forcing_data:
@@ -711,19 +687,9 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                         mask != 0, 0
                     )
 
-        # Fallback: static fields from atmosphere state if not already provided
-        # by the external data source above.
-        atm_bd = atm_state.as_batch_data()
-        for static_name in ["land_fraction", "lake_fraction", "HGTsfc"]:
-            if static_name not in atm_forcing_data and static_name in atm_bd.data:
-                static_val = atm_bd.data[static_name][:, -1:, ...]
-                atm_forcing_data[static_name] = static_val.expand(-1, 2, -1, -1)
-
         atm_forcing = self._build_batch_data(atm_forcing_data, time_array, n_flat)
 
-        # Prescribe ocean SST onto the atmosphere IC surface_temperature.
-        # This mirrors FME's CoupledStepper._prescribe_ic_sst which blends
-        # ocean SST into the atmosphere IC at the start of each coupled cycle.
+        # Prescribe ocean SST onto atmosphere IC at start of each coupled cycle
         if step_in_cycle == 0:
             atm_state = self._prescribe_ic_sst(atm_state, atm_forcing)
 
@@ -810,19 +776,18 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             stacked = torch.stack([f[key] for f in flux_accum], dim=1)
             avg_forcing[key] = stacked.mean(dim=1, keepdim=True)
 
-        # Ocean expects 2 timesteps: IC + 1 forward step
-        # Expand forcing to 2 timesteps (IC has NaN, forward step has averaged flux)
+        # Build 2-timestep forcing: IC (NaN) + forward step (averaged flux)
         ocean_forcing_data: dict[str, torch.Tensor] = {}
         n_flat = list(avg_forcing.values())[0].shape[0]
         for key, val in avg_forcing.items():
             nan_pad = torch.full_like(val, float("nan"))
             ocean_forcing_data[key] = torch.cat([nan_pad, val], dim=1)
 
-        # Add land_fraction from forcing file (static field needed by ocean stepper)
+        # Add land_fraction (static field needed by ocean stepper)
         lf_val = self._get_forcing_slice("land_fraction", 1, 1, 0, n_flat)
         ocean_forcing_data["land_fraction"] = lf_val.unsqueeze(1).expand(-1, 2, -1, -1)
 
-        # Build time array for ocean forcing (2 timesteps spanning the 5-day window)
+        # Build time array for ocean forcing (2 timesteps over 5-day window)
         ocean_dt = np.timedelta64(5, "D")
         time_array = np.array(
             (
