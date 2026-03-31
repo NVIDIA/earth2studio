@@ -159,6 +159,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     gpu:40gb
     """
 
+    _HF_REPO_ID = "allenai/SamudrACE-CM4-piControl"
+
     def __init__(
         self,
         coupled_stepper: CoupledStepper,
@@ -465,9 +467,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ocean_bd = self._build_batch_data(ocean_data, time_array, b * t)
 
         return PrognosticState(atm_bd), PrognosticState(ocean_bd)
-
-    # HuggingFace repository for forcing data
-    _HF_REPO_ID = "allenai/SamudrACE-CM4-piControl"
 
     def _ensure_forcing_file(self) -> str:
         """Download the forcing NetCDF from HuggingFace if not already cached.
