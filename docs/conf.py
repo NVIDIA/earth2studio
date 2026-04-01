@@ -33,10 +33,11 @@ from sphinx_gallery.sorting import ExplicitOrder, FileNameSortKey
 # Defaults will build API docs for
 dotenv.load_dotenv()
 doc_version = os.getenv("DOC_VERSION", "main")
-plot_gallery = os.getenv("PLOT_GALLERY", False)
-run_stale_examples = os.getenv("RUN_STALE_EXAMPLES", False)
+doc_public_build = os.getenv("DOC_PUBLIC_BUILD", "").lower() in ("1", "true", "yes")
+plot_gallery = os.getenv("PLOT_GALLERY", "").lower() in ("1", "true", "yes")
+run_stale_examples = os.getenv("RUN_STALE_EXAMPLES", "").lower() in ("1", "true", "yes")
 filename_pattern = os.getenv("FILENAME_PATTERN", r"/[0-9]+.*\.py")
-logging.info(doc_version, plot_gallery, run_stale_examples)
+logging.info(doc_version, doc_public_build, plot_gallery, run_stale_examples)
 
 root = pathlib.Path(__file__).parent
 physicsnemo = root.parent / "third_party" / "physicsnemo"
@@ -84,17 +85,13 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "public_docs_features": True,
+    "public_docs_features": doc_public_build,
     # "logo": {
     #     "text": "Earth2Studio",
     #     "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
     #     "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     # },
     "navbar_align": "content",
-    # "navbar_start": [
-    #     "navbar-logo",
-    #     "version-switcher",
-    # ],
     "navbar_start": ["navbar-logo", "version-switcher", "navbar-nav"],
     "navbar_center": [],
     "switcher": {
