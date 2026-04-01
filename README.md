@@ -96,7 +96,7 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 - [**StormCast SDA**](https://nvidia.github.io/earth2studio/modules/generated/models/da/earth2studio.models.da.StormCastSDA.html),
     NVIDIA's stochastic data assimilation model for high-resolution regional weather
     prediction, is now available alongside new data assimilation model utilities.
-- [**Data Assimilation Models**], a new model class for data assimilation including
+- **Data Assimilation Models**, a new model class for data assimilation including
     equirectangular interpolation and [HealDA](https://nvidia.github.io/earth2studio/examples/05_data_assimilation/02_healda.html).
 - [**NOAA UFS Observation Data Sources**](https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html),
     for satellite and conventional observation dataframes now available with the new
