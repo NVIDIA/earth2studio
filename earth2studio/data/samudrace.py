@@ -46,7 +46,8 @@ class SamudrACEData:
     the SamudrACE HuggingFace repository.  Each initial condition has separate
     atmosphere and ocean NetCDF files that are downloaded, merged, and served
     as a single ``xr.DataArray`` with all 118 prognostic variables (38
-    atmosphere + 80 ocean).
+    atmosphere + 80 ocean).  Ocean variables use depth-based names (e.g.,
+    ``thetao2p5m``, ``so250m``) matching the Samudra paper.
 
     The SamudrACE checkpoint was trained on a GFDL CM4 preindustrial-control
     run.  Initial conditions are identified by their CM4 model-year timestamp
@@ -125,7 +126,7 @@ class SamudrACEData:
 
         # Map E2S → FME variable names
         try:
-            var_list_fme = [SamudrACELexicon[v][0] for v in var_list_e2s]
+            var_list_fme = [SamudrACELexicon[v][0] for v in var_list_e2s]  # type: ignore[misc]
         except KeyError as e:
             raise KeyError(f"Unknown SamudrACE variable id: {e}") from e
 

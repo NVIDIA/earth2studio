@@ -22,6 +22,36 @@ import numpy as np
 
 from .base import LexiconType
 
+# Ocean depth levels from Samudra paper (metres)
+# See: https://arxiv.org/abs/2412.03795
+OCEAN_DEPTHS = [
+    2.5,
+    10,
+    22.5,
+    40,
+    65,
+    105,
+    165,
+    250,
+    375,
+    550,
+    775,
+    1050,
+    1400,
+    1850,
+    2400,
+    3100,
+    4000,
+    5000,
+    6000,
+]
+
+
+def _depth_to_str(depth: float) -> str:
+    """Convert depth to string format, replacing '.' with 'p' for variable names."""
+    s = f"{depth:g}"
+    return s.replace(".", "p")
+
 
 def _build_variable_mappings() -> tuple[dict[str, str], dict[str, str]]:
     """Build bidirectional mappings between Earth2Studio and FME variable names
@@ -82,12 +112,13 @@ def _build_variable_mappings() -> tuple[dict[str, str], dict[str, str]]:
         mapping[f"t{k}k"] = f"air_temperature_{k}"
         mapping[f"qtot{k}k"] = f"specific_total_water_{k}"
 
-    # ---- Ocean: depth-level variables (19 levels, 0..18) ----
-    for d in range(19):
-        mapping[f"thetao_{d}"] = f"thetao_{d}"
-        mapping[f"so_{d}"] = f"so_{d}"
-        mapping[f"uo_{d}"] = f"uo_{d}"
-        mapping[f"vo_{d}"] = f"vo_{d}"
+    # ---- Ocean: depth-level variables (19 depths in metres) ----
+    for d, depth in enumerate(OCEAN_DEPTHS):
+        depth_str = f"{_depth_to_str(depth)}m"  # "2p5m", "10m", "22p5m", etc.
+        mapping[f"thetao{depth_str}"] = f"thetao_{d}"
+        mapping[f"so{depth_str}"] = f"so_{d}"
+        mapping[f"uo{depth_str}"] = f"uo_{d}"
+        mapping[f"vo{depth_str}"] = f"vo_{d}"
 
     fme_to_e2s = {v: k for k, v in mapping.items()}
     return mapping, fme_to_e2s
@@ -102,13 +133,18 @@ class SamudrACELexicon(metaclass=LexiconType):
 
     Maps Earth2Studio variable names to the variable labels used by the FME
     CoupledStepper for the SamudrACE coupled atmosphere-ocean model. Covers
-    both atmosphere (CM4 model levels) and ocean (CMIP6 naming) variables.
+    both atmosphere (CM4 model levels) and ocean (depth-based naming) variables.
+
+    Ocean variables use depth-based names with 'p' replacing decimal points
+    (e.g., ``thetao2p5m`` for 2.5m depth, ``so250m`` for 250m depth).
 
     Examples
     --------
     >>> from earth2studio.lexicon.samudrace import SamudrACELexicon
     >>> SamudrACELexicon["u10m"]
     ("UGRD10m", <function mod at 0x...>)
+    >>> SamudrACELexicon["thetao2p5m"]
+    ("thetao_0", <function mod at 0x...>)
     >>> SamudrACELexicon.get_e2s_from_fme("sst")
     "sst"
     """
@@ -132,7 +168,7 @@ class SamudrACELexicon(metaclass=LexiconType):
         """
         fme_key = cls.VOCAB[val]
 
-        def mod(x: np.array) -> np.array:
+        def mod(x: np.ndarray) -> np.ndarray:
             return x
 
         return fme_key, mod

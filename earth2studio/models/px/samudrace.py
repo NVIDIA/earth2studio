@@ -134,11 +134,21 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     8     0         1.000
     ====  ========  =======
 
-    The ocean component uses 19 layers defined by 20 interface (half-level)
-    depths from the GFDL CM4 ocean grid.  The interface depths in metres are:
+    The ocean component uses 19 fixed-depth layers from the GFDL CM4 ocean
+    grid.  Ocean variables use depth-based names (e.g., ``thetao2p5m``,
+    ``so250m``).  Layer index to depth (metres):
 
-    ``[0, 5, 15, 30, 50, 80, 130, 200, 300, 450, 650, 900, 1200, 1600,
-    2100, 2700, 3500, 4500, 5500, 6500]``
+    ====  =======  ====  =======  ====  =======
+    k     depth    k     depth    k     depth
+    ====  =======  ====  =======  ====  =======
+    0     2.5      7     250      14    2400
+    1     10       8     375      15    3100
+    2     22.5     9     550      16    4000
+    3     40       10    775      17    5000
+    4     65       11    1050     18    6000
+    5     105      12    1400
+    6     165      13    1850
+    ====  =======  ====  =======  ====  =======
 
     Parameters
     ----------
@@ -154,6 +164,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     References
     ----------
     - SamudrACE paper: https://arxiv.org/abs/2509.12490
+    - Samudra: https://arxiv.org/pdf/2412.03795
     - ACE2 code: https://github.com/ai2cm/ace
 
     Badges
