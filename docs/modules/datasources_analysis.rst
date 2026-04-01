@@ -33,7 +33,6 @@ Used for fetching initial conditions for inference and validation data for scori
       :template: datasource.rst
 
       data.ARCO
-      data.CAMS
       data.CDS
       data.CMIP6
       data.CMIP6MultiRealm

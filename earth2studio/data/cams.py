@@ -30,7 +30,6 @@ from loguru import logger
 
 from earth2studio.data.utils import (
     datasource_cache_root,
-    prep_data_inputs,
     prep_forecast_inputs,
 )
 from earth2studio.lexicon import CAMSLexicon
@@ -46,12 +45,10 @@ except ImportError:
     OptionalDependencyFailure("data")
     cdsapi = None
 
-# CAMS EU analysis available from 2019-07-01 onward
-_CAMS_EU_MIN_TIME = datetime(2019, 7, 1)
 # CAMS Global forecast available from 2015-01-01 onward
 _CAMS_GLOBAL_MIN_TIME = datetime(2015, 1, 1)
 
-EU_DATASET = "cams-europe-air-quality-forecasts"
+_GLOBAL_DATASET = "cams-global-atmospheric-composition-forecasts"
 
 
 @dataclass
@@ -118,7 +115,6 @@ def _download_cams_netcdf(
 def _extract_field(
     ds: xr.Dataset,
     nc_key: str,
-    level: str = "0",
     lead_time_hours: int | None = None,
 ) -> np.ndarray:
     if nc_key not in ds:
@@ -129,12 +125,7 @@ def _extract_field(
     non_spatial = [d for d in field.dims if d not in ("latitude", "longitude")]
     isel: dict[str, int] = {}
     for d in non_spatial:
-        if d == "level" and level:
-            level_val = float(level) if level else 0.0
-            level_coords = field.coords["level"].values
-            nearest_idx = int(np.argmin(np.abs(level_coords - level_val)))
-            isel[d] = nearest_idx
-        elif d == "forecast_period" and lead_time_hours is not None:
+        if d == "forecast_period" and lead_time_hours is not None:
             fp_vals = field.coords["forecast_period"].values.astype(float)
             target = float(lead_time_hours)
             nearest_idx = int(np.argmin(np.abs(fp_vals - target)))
@@ -170,224 +161,11 @@ def _validate_cams_leadtime(lead_times: list[timedelta], max_hours: int) -> None
 
 
 @check_optional_dependencies()
-class CAMS:
-    """CAMS European Air Quality analysis data source.
-
-    Uses the ``cams-europe-air-quality-forecasts`` dataset with ``type=analysis``.
-    Grid is 0.1 deg over Europe, read dynamically from the downloaded NetCDF.
-
-    Parameters
-    ----------
-    cache : bool, optional
-        Cache data source on local memory, by default True
-    verbose : bool, optional
-        Print download progress, by default True
-
-    Warning
-    -------
-    This is a remote data source and can potentially download a large amount of data
-    to your local machine for large requests.
-
-    Note
-    ----
-    Additional information on the data repository, registration, and authentication can
-    be referenced here:
-
-    - https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts
-    - https://cds.climate.copernicus.eu/how-to-api
-
-    Badges
-    ------
-    region:europe dataclass:analysis product:airquality
-    """
-
-    def __init__(self, cache: bool = True, verbose: bool = True):
-        self._cache = cache
-        self._verbose = verbose
-        self._cds_client: "cdsapi.Client | None" = None
-
-    @property
-    def _client(self) -> "cdsapi.Client":
-        if self._cds_client is None:
-            if cdsapi is None:
-                raise ImportError(
-                    "cdsapi is required for CAMS. "
-                    "Install with: pip install 'earth2studio[data]'"
-                )
-            self._cds_client = cdsapi.Client(
-                debug=False, quiet=True, wait_until_complete=False
-            )
-        return self._cds_client
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve CAMS EU analysis data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            Variables to return. Must be in CAMSLexicon with EU dataset.
-
-        Returns
-        -------
-        xr.DataArray
-            CAMS data array with dims [time, variable, lat, lon]
-        """
-        time, variable = prep_data_inputs(time, variable)
-        self._validate_time(time)
-        self.cache.mkdir(parents=True, exist_ok=True)
-
-        data_arrays = []
-        for t0 in time:
-            da = self._fetch_analysis(t0, variable)
-            data_arrays.append(da)
-
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
-        return xr.concat(data_arrays, dim="time")
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async retrieval of CAMS EU analysis data.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for (UTC).
-        variable : str | list[str] | VariableArray
-            Variables to return. Must be in CAMSLexicon with EU dataset.
-
-        Returns
-        -------
-        xr.DataArray
-            CAMS data array with dims [time, variable, lat, lon]
-        """
-        return await asyncio.to_thread(self.__call__, time, variable)
-
-    @classmethod
-    def available(
-        cls,
-        time: datetime | list[datetime],
-    ) -> bool:
-        """Check if CAMS EU analysis data is available for the requested times.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime]
-            Timestamps to check availability for.
-
-        Returns
-        -------
-        bool
-            True if all requested times are within the valid range.
-        """
-        if isinstance(time, datetime):
-            time = [time]
-        return all(
-            (t.replace(tzinfo=None) if t.tzinfo else t) >= _CAMS_EU_MIN_TIME
-            for t in time
-        )
-
-    @staticmethod
-    def _validate_time(times: list[datetime]) -> None:
-        _validate_cams_time(times, _CAMS_EU_MIN_TIME, "CAMS EU analysis")
-
-    def _fetch_analysis(self, time: datetime, variables: list[str]) -> xr.DataArray:
-        var_infos = []
-        for i, v in enumerate(variables):
-            info = _resolve_variable(v, i)
-            if info.dataset != EU_DATASET:
-                raise ValueError(
-                    f"CAMS analysis only supports EU dataset, got '{info.dataset}' "
-                    f"for variable '{v}'. Use CAMS_FX for global forecast variables."
-                )
-            var_infos.append(info)
-
-        api_vars = list(dict.fromkeys(vi.api_name for vi in var_infos))
-        levels = sorted(set(vi.level for vi in var_infos if vi.level))
-        if not levels:
-            levels = ["0"]
-        nc_path = self._download_cached(time, api_vars, levels)
-
-        ds = xr.open_dataset(nc_path, decode_timedelta=False)
-        lat = ds.latitude.values
-        lon = ds.longitude.values
-
-        da = xr.DataArray(
-            data=np.empty((1, len(variables), len(lat), len(lon))),
-            dims=["time", "variable", "lat", "lon"],
-            coords={
-                "time": [time],
-                "variable": variables,
-                "lat": lat,
-                "lon": lon,
-            },
-        )
-
-        for info in var_infos:
-            _, modifier = CAMSLexicon[info.e2s_name]
-            da[0, info.index] = modifier(
-                _extract_field(ds, info.nc_key, level=info.level)
-            )
-
-        ds.close()
-        return da
-
-    def _download_cached(
-        self, time: datetime, api_vars: list[str], levels: list[str]
-    ) -> pathlib.Path:
-        date_str = time.strftime("%Y-%m-%d")
-        sha = hashlib.sha256(
-            f"cams_eu_{'_'.join(sorted(api_vars))}"
-            f"_{'_'.join(sorted(levels))}_{date_str}_{time.hour:02d}".encode()
-        )
-        cache_path = self.cache / (sha.hexdigest() + ".nc")
-
-        request_body = {
-            "variable": api_vars,
-            "model": ["ensemble"],
-            "level": levels,
-            "date": [f"{date_str}/{date_str}"],
-            "type": ["analysis"],
-            "time": [f"{time.hour:02d}:00"],
-            "leadtime_hour": ["0"],
-            "data_format": "netcdf",
-        }
-
-        if self._verbose:
-            logger.info(
-                f"Fetching CAMS EU analysis for {date_str} {time.hour:02d}:00 "
-                f"vars={api_vars}"
-            )
-        return _download_cams_netcdf(
-            self._client, EU_DATASET, request_body, cache_path, self._verbose
-        )
-
-    @property
-    def cache(self) -> pathlib.Path:
-        """Cache location."""
-        cache_location = pathlib.Path(datasource_cache_root()) / "cams"
-        if not self._cache:
-            cache_location = cache_location / "tmp_cams"
-        return cache_location
-
-
-@check_optional_dependencies()
 class CAMS_FX:
-    """CAMS forecast data source.
+    """CAMS Global atmospheric composition forecast data source.
 
-    Supports both EU (``cams-europe-air-quality-forecasts``) and Global
-    (``cams-global-atmospheric-composition-forecasts``) forecast datasets.
-    The dataset is determined automatically from the requested variables via CAMSLexicon.
+    Uses the ``cams-global-atmospheric-composition-forecasts`` dataset.
+    Grid is 0.4 deg global, read dynamically from the downloaded NetCDF.
 
     Parameters
     ----------
@@ -406,18 +184,15 @@ class CAMS_FX:
     Additional information on the data repository, registration, and authentication can
     be referenced here:
 
-    - https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts
     - https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts
     - https://cds.climate.copernicus.eu/how-to-api
 
     Badges
     ------
-    region:europe region:global dataclass:simulation product:airquality
+    region:global dataclass:simulation product:airquality
     """
 
-    # EU forecasts go up to 96h, Global up to 120h
-    MAX_EU_LEAD_HOURS = 96
-    MAX_GLOBAL_LEAD_HOURS = 120
+    MAX_LEAD_HOURS = 120
 
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
@@ -443,7 +218,7 @@ class CAMS_FX:
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Retrieve CAMS forecast data.
+        """Retrieve CAMS Global forecast data.
 
         Parameters
         ----------
@@ -479,7 +254,7 @@ class CAMS_FX:
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async retrieval of CAMS forecast data.
+        """Async retrieval of CAMS Global forecast data.
 
         Parameters
         ----------
@@ -502,7 +277,7 @@ class CAMS_FX:
         cls,
         time: datetime | list[datetime],
     ) -> bool:
-        """Check if CAMS forecast data is available for the requested times.
+        """Check if CAMS Global forecast data is available for the requested times.
 
         Parameters
         ----------
@@ -522,14 +297,8 @@ class CAMS_FX:
         )
 
     @staticmethod
-    def _validate_time(times: list[datetime], dataset: str | None = None) -> None:
-        if dataset == EU_DATASET:
-            min_time = _CAMS_EU_MIN_TIME
-            name = "CAMS EU forecast"
-        else:
-            min_time = _CAMS_GLOBAL_MIN_TIME
-            name = "CAMS global forecast"
-        _validate_cams_time(times, min_time, name)
+    def _validate_time(times: list[datetime]) -> None:
+        _validate_cams_time(times, _CAMS_GLOBAL_MIN_TIME, "CAMS Global forecast")
 
     def _fetch_forecast(
         self,
@@ -537,35 +306,26 @@ class CAMS_FX:
         lead_times: np.ndarray,
         variables: list[str],
     ) -> xr.DataArray:
-        datasets: dict[str, list[_CAMSVarInfo]] = {}
+        var_infos = []
         for i, v in enumerate(variables):
             info = _resolve_variable(v, i)
-            datasets.setdefault(info.dataset, []).append(info)
+            if info.dataset != _GLOBAL_DATASET:
+                raise ValueError(
+                    f"CAMS_FX only supports Global dataset, got '{info.dataset}' "
+                    f"for variable '{v}'."
+                )
+            var_infos.append(info)
 
-        if len(datasets) > 1:
-            raise ValueError(
-                "Cannot mix EU and Global CAMS variables in a single CAMS_FX call. "
-                f"Got datasets: {list(datasets.keys())}"
-            )
-
-        dataset_name = next(iter(datasets))
-        self._validate_time([time], dataset=dataset_name)
-        var_infos = datasets[dataset_name]
         api_vars = list(dict.fromkeys(vi.api_name for vi in var_infos))
-        levels = sorted(set(vi.level for vi in var_infos if vi.level))
         lead_hours = [
             str(int(np.timedelta64(lt, "h").astype(int))) for lt in lead_times
         ]
 
-        is_eu = dataset_name == EU_DATASET
-        max_hours = self.MAX_EU_LEAD_HOURS if is_eu else self.MAX_GLOBAL_LEAD_HOURS
         _validate_cams_leadtime(
-            [timedelta(hours=int(h)) for h in lead_hours], max_hours
+            [timedelta(hours=int(h)) for h in lead_hours], self.MAX_LEAD_HOURS
         )
 
-        nc_path = self._download_cached(
-            time, dataset_name, api_vars, lead_hours, levels
-        )
+        nc_path = self._download_cached(time, api_vars, lead_hours)
 
         ds = xr.open_dataset(nc_path, decode_timedelta=False)
         lat = ds.latitude.values
@@ -590,7 +350,6 @@ class CAMS_FX:
                     _extract_field(
                         ds,
                         info.nc_key,
-                        level=info.level,
                         lead_time_hours=int(lt_h),
                     )
                 )
@@ -601,21 +360,16 @@ class CAMS_FX:
     def _download_cached(
         self,
         time: datetime,
-        dataset: str,
         api_vars: list[str],
         lead_hours: list[str],
-        levels: list[str] | None = None,
     ) -> pathlib.Path:
         date_str = time.strftime("%Y-%m-%d")
-        level_str = "_".join(sorted(levels)) if levels else "none"
         sha = hashlib.sha256(
-            f"cams_fx_{dataset}_{'_'.join(sorted(api_vars))}"
-            f"_{'_'.join(sorted(lead_hours, key=int))}_{level_str}"
+            f"cams_fx_{'_'.join(sorted(api_vars))}"
+            f"_{'_'.join(sorted(lead_hours, key=int))}"
             f"_{date_str}_{time.hour:02d}".encode()
         )
         cache_path = self.cache / (sha.hexdigest() + ".nc")
-
-        is_eu = dataset == EU_DATASET
 
         request_body: dict = {
             "variable": api_vars,
@@ -625,17 +379,14 @@ class CAMS_FX:
             "leadtime_hour": lead_hours,
             "data_format": "netcdf",
         }
-        if is_eu:
-            request_body["model"] = ["ensemble"]
-            request_body["level"] = levels if levels else ["0"]
 
         if self._verbose:
             logger.info(
-                f"Fetching CAMS forecast ({dataset.split('-')[1]}) for {date_str} "
+                f"Fetching CAMS Global forecast for {date_str} "
                 f"{time.hour:02d}:00 lead_hours={lead_hours} vars={api_vars}"
             )
         return _download_cams_netcdf(
-            self._client, dataset, request_body, cache_path, self._verbose
+            self._client, _GLOBAL_DATASET, request_body, cache_path, self._verbose
         )
 
     @property

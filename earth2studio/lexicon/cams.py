@@ -20,33 +20,7 @@ import numpy as np
 
 from .base import LexiconType
 
-_EU = "cams-europe-air-quality-forecasts"
 _GLOBAL = "cams-global-atmospheric-composition-forecasts"
-
-# All EU levels available in the CAMS API (meters above ground)
-_EU_LEVELS = [50, 100, 250, 500, 750, 1000, 2000, 3000, 5000]
-
-# short_name -> (api_request_name, netcdf_key, surface_e2s_name)
-_EU_POLLUTANTS = {
-    "dust": ("dust", "dust", "dust"),
-    "pm2p5": ("particulate_matter_2.5um", "pm2p5_conc", "pm2p5"),
-    "pm10": ("particulate_matter_10um", "pm10_conc", "pm10"),
-    "so2": ("sulphur_dioxide", "so2_conc", "so2sfc"),
-    "no2": ("nitrogen_dioxide", "no2_conc", "no2sfc"),
-    "o3": ("ozone", "o3_conc", "o3sfc"),
-    "co": ("carbon_monoxide", "co_conc", "cosfc"),
-    "nh3": ("ammonia", "nh3_conc", "nh3sfc"),
-    "no": ("nitrogen_monoxide", "no_conc", "nosfc"),
-}
-
-
-def _build_eu_vocab() -> dict[str, str]:
-    vocab: dict[str, str] = {}
-    for short, (api, nc, sfc_name) in _EU_POLLUTANTS.items():
-        vocab[sfc_name] = f"{_EU}::{api}::{nc}::0"
-        for level in _EU_LEVELS:
-            vocab[f"{short}_{level}m"] = f"{_EU}::{api}::{nc}::{level}"
-    return vocab
 
 
 class CAMSLexicon(metaclass=LexiconType):
@@ -59,18 +33,11 @@ class CAMSLexicon(metaclass=LexiconType):
 
     Note
     ----
-    EU multi-level variables are available at: 0 (surface), 50, 100, 250, 500,
-    750, 1000, 2000, 3000, 5000 m. All pollutants are mapped at all available
-    levels.
-
     Additional resources:
-    https://ads.atmosphere.copernicus.eu/datasets/cams-europe-air-quality-forecasts
     https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts
     """
 
     VOCAB = {
-        **_build_eu_vocab(),
-        # ---- CAMS Global (column/AOD, 0.4 deg grid) ----
         "aod550": f"{_GLOBAL}::total_aerosol_optical_depth_550nm::aod550::",
         "duaod550": f"{_GLOBAL}::dust_aerosol_optical_depth_550nm::duaod550::",
         "omaod550": f"{_GLOBAL}::organic_matter_aerosol_optical_depth_550nm::omaod550::",

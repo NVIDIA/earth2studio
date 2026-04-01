@@ -17,7 +17,7 @@
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO
 from .base import DataSource, ForecastSource
-from .cams import CAMS, CAMS_FX
+from .cams import CAMS_FX
 from .cbottle import CBottle3D
 from .cds import CDS
 from .cmip6 import CMIP6, CMIP6MultiRealm

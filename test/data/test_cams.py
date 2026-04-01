@@ -15,13 +15,14 @@
 # limitations under the License.
 
 import datetime
+import hashlib
 import pathlib
 import shutil
 
 import numpy as np
 import pytest
 
-from earth2studio.data import CAMS, CAMS_FX
+from earth2studio.data import CAMS_FX
 
 YESTERDAY = datetime.datetime.now(datetime.UTC).replace(
     hour=0, minute=0, second=0, microsecond=0
@@ -31,94 +32,7 @@ YESTERDAY = datetime.datetime.now(datetime.UTC).replace(
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize(
-    "time",
-    [
-        [YESTERDAY],
-        np.array([np.datetime64(YESTERDAY.strftime("%Y-%m-%dT%H:%M"))]),
-    ],
-)
-@pytest.mark.parametrize("variable", ["dust", ["dust", "pm2p5"]])
-def test_cams_fetch(time, variable):
-    ds = CAMS(cache=False)
-    data = ds(time, variable)
-    shape = data.shape
-
-    if isinstance(variable, str):
-        variable = [variable]
-
-    assert shape[0] == 1
-    assert shape[1] == len(variable)
-    assert len(data.coords["lat"]) > 0
-    assert len(data.coords["lon"]) > 0
-    assert not np.isnan(data.values).all()
-    assert np.array_equal(data.coords["variable"].values, np.array(variable))
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
-@pytest.mark.parametrize("variable", [["dust", "so2sfc"]])
-@pytest.mark.parametrize("cache", [True, False])
-def test_cams_cache(variable, cache):
-    time = np.array([np.datetime64(YESTERDAY.strftime("%Y-%m-%dT%H:%M"))])
-    ds = CAMS(cache=cache)
-    data = ds(time, variable)
-    shape = data.shape
-
-    assert shape[0] == 1
-    assert shape[1] == 2
-    assert not np.isnan(data.values).all()
-    assert pathlib.Path(ds.cache).is_dir() == cache
-
-    data = ds(time, variable[0])
-    assert data.shape[1] == 1
-
-    try:
-        shutil.rmtree(ds.cache)
-    except FileNotFoundError:
-        pass
-
-
-@pytest.mark.timeout(30)
-def test_cams_invalid():
-    with pytest.raises((ValueError, KeyError)):
-        ds = CAMS()
-        ds(YESTERDAY, "nonexistent_var")
-
-
-def test_cams_time_validation():
-    with pytest.raises(ValueError):
-        ds = CAMS()
-        ds(datetime.datetime(2018, 1, 1), "dust")
-
-    # CAMS_FX must reject EU variables before 2019-07-01
-    with pytest.raises(ValueError, match="CAMS EU forecast"):
-        CAMS_FX._validate_time(
-            [datetime.datetime(2018, 1, 1)],
-            dataset="cams-europe-air-quality-forecasts",
-        )
-    # but accept global variables at the same date
-    CAMS_FX._validate_time(
-        [datetime.datetime(2018, 1, 1)],
-        dataset="cams-global-atmospheric-composition-forecasts",
-    )
-
-
-def test_cams_available():
-    assert CAMS.available(datetime.datetime(2024, 1, 1))
-    assert not CAMS.available(datetime.datetime(2015, 1, 1))
-    # timezone-aware datetimes must not raise TypeError
-    assert CAMS.available(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))
-
-
-# ---- CAMS_FX tests ----
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
-@pytest.mark.parametrize("variable", ["dust", ["dust", "pm2p5"]])
+@pytest.mark.parametrize("variable", ["aod550", ["aod550", "tcco"]])
 @pytest.mark.parametrize(
     "lead_time",
     [
@@ -145,6 +59,43 @@ def test_cams_fx_fetch(variable, lead_time):
     assert not np.isnan(data.values).all()
 
 
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(120)
+@pytest.mark.parametrize("cache", [True, False])
+def test_cams_fx_cache(cache):
+    time = np.array([np.datetime64(YESTERDAY.strftime("%Y-%m-%dT%H:%M"))])
+    lead_time = datetime.timedelta(hours=0)
+    ds = CAMS_FX(cache=cache)
+    data = ds(time, lead_time, ["aod550", "tcco"])
+    shape = data.shape
+
+    assert shape[0] == 1
+    assert shape[2] == 2
+    assert not np.isnan(data.values).all()
+    assert pathlib.Path(ds.cache).is_dir() == cache
+
+    data = ds(time, lead_time, "aod550")
+    assert data.shape[2] == 1
+
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
+
+
+@pytest.mark.timeout(30)
+def test_cams_fx_invalid():
+    with pytest.raises((ValueError, KeyError)):
+        ds = CAMS_FX()
+        ds(YESTERDAY, datetime.timedelta(hours=0), "nonexistent_var")
+
+
+def test_cams_fx_time_validation():
+    with pytest.raises(ValueError, match="CAMS Global forecast"):
+        CAMS_FX._validate_time([datetime.datetime(2014, 1, 1)])
+
+
 def test_cams_fx_available():
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1))
     assert not CAMS_FX.available(datetime.datetime(2010, 1, 1))
@@ -154,25 +105,22 @@ def test_cams_fx_available():
 
 def test_cams_fx_cache_key_lead_hours_order():
     """lead_hours in different order must produce the same cache key."""
-    # Mirrors the cache key construction in CAMS_FX._download_cached
-    import hashlib
 
     def _make_cache_key(lead_hours):
         return hashlib.sha256(
-            f"cams_fx_eu_dust_{'_'.join(sorted(lead_hours, key=int))}"
-            f"_0_2024-06-01_00".encode()
+            f"cams_fx_aod550_{'_'.join(sorted(lead_hours, key=int))}"
+            f"_2024-06-01_00".encode()
         ).hexdigest()
 
     assert _make_cache_key(["0", "24", "48"]) == _make_cache_key(["48", "0", "24"])
     assert _make_cache_key(["12", "6"]) == _make_cache_key(["6", "12"])
 
 
-def test_cams_api_vars_dedup():
+def test_cams_fx_api_vars_dedup():
     """Variables sharing the same API name must not produce duplicate requests."""
     from earth2studio.data.cams import _resolve_variable
 
-    # dust and dust_50m both resolve to api_name "dust"
-    info_a = _resolve_variable("dust", 0)
-    info_b = _resolve_variable("dust_50m", 1)
+    info_a = _resolve_variable("aod550", 0)
+    info_b = _resolve_variable("aod550", 1)
     api_vars = list(dict.fromkeys([info_a.api_name, info_b.api_name]))
-    assert api_vars == ["dust"], f"Expected deduplicated list, got {api_vars}"
+    assert len(api_vars) == 1

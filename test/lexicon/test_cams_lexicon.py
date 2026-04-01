@@ -23,12 +23,11 @@ from earth2studio.lexicon import CAMSLexicon
 @pytest.mark.parametrize(
     "variable",
     [
-        ["dust"],
-        ["so2sfc", "pm2p5"],
-        ["no2sfc", "o3sfc", "cosfc"],
         ["aod550"],
         ["duaod550", "tcno2"],
-        ["dust_500m", "pm2p5_1000m"],
+        ["bcaod550", "ssaod550", "suaod550"],
+        ["tcco", "tco3", "tcso2"],
+        ["gtco3", "omaod550"],
     ],
 )
 def test_cams_lexicon(variable):
@@ -49,20 +48,27 @@ def test_cams_lexicon_vocab_format():
     for key, value in CAMSLexicon.VOCAB.items():
         parts = value.split("::")
         assert len(parts) == 4, (
-            f"VOCAB entry '{key}' must have format "
-            "'dataset::api_var::nc_key::level'"
+            f"VOCAB entry '{key}' must have format 'dataset::api_var::nc_key::level'"
         )
-        dataset = parts[0]
-        assert dataset in (
-            "cams-europe-air-quality-forecasts",
-            "cams-global-atmospheric-composition-forecasts",
-        ), f"Unknown dataset in VOCAB entry '{key}': {dataset}"
+        assert parts[0] == "cams-global-atmospheric-composition-forecasts", (
+            f"Expected global dataset in VOCAB entry '{key}', got '{parts[0]}'"
+        )
 
 
-def test_cams_lexicon_all_levels_covered():
-    levels = [50, 100, 250, 500, 750, 1000, 2000, 3000, 5000]
-    pollutants = ["dust", "pm2p5", "pm10", "so2", "no2", "o3", "co", "nh3", "no"]
-    for p in pollutants:
-        for lev in levels:
-            key = f"{p}_{lev}m"
-            assert key in CAMSLexicon.VOCAB, f"Missing level entry: {key}"
+def test_cams_lexicon_all_global_vars():
+    expected = [
+        "aod550",
+        "duaod550",
+        "omaod550",
+        "bcaod550",
+        "ssaod550",
+        "suaod550",
+        "tcco",
+        "tcno2",
+        "tco3",
+        "tcso2",
+        "gtco3",
+    ]
+    for var in expected:
+        assert var in CAMSLexicon.VOCAB, f"Missing global variable: {var}"
+    assert len(CAMSLexicon.VOCAB) == len(expected)
