@@ -142,7 +142,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             core_model,
             sigma_max=sigma_max,
             num_steps=sampler_steps,
-            separate_classifier=classifier_model
+            separate_classifier=classifier_model,
         )
 
         # Set up SST Lat Lon to HPX regridder
