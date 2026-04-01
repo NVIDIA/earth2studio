@@ -98,7 +98,7 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
     prediction, is now available alongside new data assimilation model utilities.
 - [**Data Assimilation Models**](https://nvidia.github.io/earth2studio/userguide/components/models_da.html),
     a new model class for data assimilation including equirectangular interpolation
-    and HealPix-based approaches ([HealDA](https://nvidia.github.io/earth2studio/examples/05_data_assimilation/02_healda.html)).
+    and [HealDA](https://nvidia.github.io/earth2studio/examples/05_data_assimilation/02_healda.html).
 - **NOAA UFS Observation Data Sources** for satellite and conventional observation
     dataframes now available with the new Earth2Studio base schema.
 - **Planetary Computer Data Sources** added for ECMWF IFS analysis data and GOES
