@@ -36,11 +36,13 @@ worker:
   num_workers: 1    # The number of RQ inference workers to create by default
   zip_num_workers: 1  # The number of RQ workers for result_zip queue
   objstore_num_workers: 1  # The number of RQ workers for object_storage queue
+  geocatalog_num_workers: 1  # The number of RQ workers for geocatalog_ingestion queue (used when AZURE_GEOCATALOG_URL is set)
   finalize_num_workers: 1  # The number of RQ workers for finalize_metadata queue
 
 paths:
   default_output_dir: /outputs
   results_zip_dir: /workspace/earth2studio-project/examples/outputs
+  output_format: zarr  # Output format: "zarr" or "netcdf4"
   result_zip_enabled: false
 
 logging:
@@ -86,5 +88,18 @@ object_storage:
   cloudfront_domain: null
   cloudfront_key_pair_id: null
   cloudfront_private_key: null  # PEM private key content
-  # Signed URL settings
+  # Signed URL settings (S3 + CloudFront only; not used for Azure blob)
   signed_url_expires_in: 86400  # 24 hours
+  # Azure Blob Storage (uploads use managed identity; no server-side SAS/signed URLs)
+  azure_account_name: null
+  azure_container_name: null
+  azure_geocatalog_url: null  # When set, triggers Planetary Computer ingestion after Azure upload
+
+workflow_exposure:
+  # List of workflow names to expose via API endpoints
+  # Empty list means all workflows are exposed
+  exposed_workflows: []
+  # Workflows accessible for warmup even if not in exposed_workflows
+  # These workflows can be called via API for warmup purposes
+  warmup_workflows:
+    - example_user_workflow

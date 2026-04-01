@@ -140,7 +140,7 @@ class TestMSCObjectStorage:
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "f1.txt").write_text("hello")
             storage = MSCObjectStorage(bucket="b", region="us-east-1")
-            storage._s3_client.sync_from.return_value = None
+            storage._storage_client.sync_from.return_value = None
 
             result = storage.upload_directory(
                 local_directory=tmpdir,
@@ -159,7 +159,7 @@ class TestMSCObjectStorage:
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "f1.txt").write_text("x")
             storage = MSCObjectStorage(bucket="b", region="us-east-1")
-            storage._s3_client.sync_from.side_effect = Exception("sync failed")
+            storage._storage_client.sync_from.side_effect = Exception("sync failed")
 
             result = storage.upload_directory(
                 local_directory=tmpdir,
@@ -196,7 +196,7 @@ class TestMSCObjectStorage:
                 remote_key="key.txt",
             )
             assert result is True
-            storage._s3_client.upload_file.assert_called_once()
+            storage._storage_client.upload_file.assert_called_once()
         finally:
             Path(path).unlink(missing_ok=True)
 
@@ -206,7 +206,7 @@ class TestMSCObjectStorage:
             path = f.name
         try:
             storage = MSCObjectStorage(bucket="b", region="us-east-1")
-            storage._s3_client.upload_file.side_effect = Exception("upload failed")
+            storage._storage_client.upload_file.side_effect = Exception("upload failed")
 
             result = storage.upload_file(
                 local_file=path,
@@ -219,14 +219,14 @@ class TestMSCObjectStorage:
     def test_file_exists_returns_true_when_info_succeeds(self, mock_msc):
         """file_exists returns True when info() does not raise."""
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
-        storage._s3_client.info.return_value = None
+        storage._storage_client.info.return_value = None
 
         assert storage.file_exists("my/key") is True
 
     def test_file_exists_returns_false_when_file_not_found(self, mock_msc):
         """file_exists returns False when info() raises FileNotFoundError."""
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
-        storage._s3_client.info.side_effect = FileNotFoundError()
+        storage._storage_client.info.side_effect = FileNotFoundError()
 
         assert storage.file_exists("my/key") is False
 
@@ -235,12 +235,12 @@ class TestMSCObjectStorage:
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
 
         assert storage.delete_file("my/key") is True
-        storage._s3_client.delete.assert_called_once()
+        storage._storage_client.delete.assert_called_once()
 
     def test_delete_file_returns_false_when_file_not_found(self, mock_msc):
         """delete_file returns False when delete raises FileNotFoundError."""
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
-        storage._s3_client.delete.side_effect = FileNotFoundError()
+        storage._storage_client.delete.side_effect = FileNotFoundError()
 
         assert storage.delete_file("my/key") is False
 
@@ -292,3 +292,208 @@ class TestMSCObjectStorage:
         assert "Policy=" in url
         assert "Signature=" in url
         assert "Key-Pair-Id=KP123" in url
+
+
+class TestMSCObjectStorageS3Additional:
+    """Additional tests to cover S3 init branches and other uncovered S3 paths."""
+
+    @pytest.fixture
+    def mock_msc(self):
+        mock_module = MagicMock()
+        mock_module.StorageClientConfig.from_dict.side_effect = [
+            MagicMock(),
+            MagicMock(),
+        ]
+        mock_module.StorageClient.return_value = MagicMock()
+        with patch.dict(sys.modules, {"multistorageclient": mock_module}):
+            yield mock_module
+
+    def test_init_s3_transfer_acceleration(self, mock_msc):
+        """S3 init with use_transfer_acceleration sets accelerate endpoint URL."""
+        storage = MSCObjectStorage(bucket="my-bucket", use_transfer_acceleration=True)
+        assert storage.endpoint_url == "https://my-bucket.s3-accelerate.amazonaws.com"
+
+    def test_init_s3_with_credentials(self, mock_msc):
+        """S3 init with credentials sets AWS environment variables."""
+        import os
+
+        MSCObjectStorage(
+            bucket="b",
+            access_key_id="AKID",
+            secret_access_key="SECRET",  # noqa: S106
+            session_token="TOKEN",  # noqa: S106
+        )
+        assert os.environ.get("AWS_ACCESS_KEY_ID") == "AKID"
+        assert os.environ.get("AWS_SECRET_ACCESS_KEY") == "SECRET"
+        assert os.environ.get("AWS_SESSION_TOKEN") == "TOKEN"
+
+    def test_init_s3_with_endpoint_url(self, mock_msc):
+        """S3 init with endpoint_url stores it and includes it in provider options."""
+        storage = MSCObjectStorage(bucket="b", endpoint_url="http://minio:9000")
+        assert storage.endpoint_url == "http://minio:9000"
+
+    def test_init_s3_with_rust_client(self, mock_msc):
+        """S3 init with use_rust_client=True adds rust_client section to config."""
+        storage = MSCObjectStorage(bucket="b", use_rust_client=True)
+        assert storage.use_rust_client is True
+
+    def test_init_unsupported_storage_type(self, mock_msc):
+        """__init__ raises ValueError for unsupported storage_type."""
+        with pytest.raises(ValueError, match="Unsupported storage_type"):
+            MSCObjectStorage(bucket="b", storage_type="gcs")
+
+    def test_upload_directory_non_recursive(self, mock_msc):
+        """upload_directory with recursive=False only counts top-level files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "top.txt").write_text("hello")
+            subdir = Path(tmpdir) / "sub"
+            subdir.mkdir()
+            (subdir / "deep.txt").write_text("world")
+
+            storage = MSCObjectStorage(bucket="b", region="us-east-1")
+            storage._storage_client.sync_from.return_value = None
+
+            result = storage.upload_directory(
+                local_directory=tmpdir,
+                remote_prefix="prefix",
+                recursive=False,
+            )
+            assert result.success is True
+            assert result.files_uploaded == 1  # only top-level file
+
+    def test_upload_file_path_is_directory(self, mock_msc):
+        """upload_file returns False when local_file path is a directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = MSCObjectStorage(bucket="b", region="us-east-1")
+            result = storage.upload_file(local_file=tmpdir, remote_key="key.txt")
+            assert result is False
+
+    def test_delete_file_generic_exception(self, mock_msc):
+        """delete_file returns False on an unexpected (non-FileNotFoundError) exception."""
+        storage = MSCObjectStorage(bucket="b", region="us-east-1")
+        storage._storage_client.delete.side_effect = RuntimeError("unexpected")
+        assert storage.delete_file("my/key") is False
+
+    def test_rsa_signer_no_key_raises(self, mock_msc):
+        """_rsa_signer raises ObjectStorageError when cloudfront_private_key is None."""
+        storage = MSCObjectStorage(bucket="b", region="us-east-1")
+        storage.cloudfront_private_key = None
+        with pytest.raises(ObjectStorageError, match="No CloudFront private key"):
+            storage._rsa_signer(b"message")
+
+    def test_rsa_signer_with_mocked_key(self, mock_msc):
+        """_rsa_signer signs message using the configured private key."""
+        storage = MSCObjectStorage(bucket="b", region="us-east-1")
+        storage.cloudfront_private_key = (
+            "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+        )
+
+        mock_private_key = MagicMock()
+        mock_private_key.sign.return_value = b"fake_signature"
+        mock_serialization = MagicMock()
+        mock_serialization.load_pem_private_key.return_value = mock_private_key
+
+        crypto_mocks = {
+            "cryptography": MagicMock(),
+            "cryptography.hazmat": MagicMock(),
+            "cryptography.hazmat.primitives": MagicMock(),
+            "cryptography.hazmat.primitives.hashes": MagicMock(),
+            "cryptography.hazmat.primitives.asymmetric": MagicMock(),
+            "cryptography.hazmat.primitives.asymmetric.padding": MagicMock(),
+            "cryptography.hazmat.primitives.serialization": mock_serialization,
+        }
+        with patch.dict(sys.modules, crypto_mocks):
+            result = storage._rsa_signer(b"message")
+
+        assert result == b"fake_signature"
+
+    def test_generate_signed_url_unsupported_type(self, mock_msc):
+        """generate_signed_url raises ObjectStorageError for unsupported storage_type."""
+        storage = MSCObjectStorage(bucket="b", region="us-east-1")
+        storage.storage_type = "unsupported"
+        with pytest.raises(ObjectStorageError, match="Unsupported storage_type"):
+            storage.generate_signed_url("key.txt")
+
+
+class TestMSCObjectStorageAzure:
+    """Tests for MSCObjectStorage with Azure storage type."""
+
+    @pytest.fixture
+    def mock_msc(self):
+        mock_module = MagicMock()
+        mock_module.StorageClientConfig.from_dict.side_effect = [
+            MagicMock(),
+            MagicMock(),
+        ]
+        mock_module.StorageClient.return_value = MagicMock()
+        with patch.dict(sys.modules, {"multistorageclient": mock_module}):
+            yield mock_module
+
+    def _make_azure_storage(self, mock_msc, **kwargs):
+        """Helper to reset mock side_effect for multiple instantiations."""
+        mock_msc.StorageClientConfig.from_dict.side_effect = [
+            MagicMock(),
+            MagicMock(),
+        ]
+        return MSCObjectStorage(**kwargs)
+
+    def test_init_azure_managed_identity_with_account_name(self, mock_msc):
+        """Azure init with managed identity uses DefaultAzureCredentials."""
+        storage = MSCObjectStorage(
+            bucket="mycontainer",
+            storage_type="azure",
+            azure_account_name="myaccount",
+        )
+        assert storage.use_managed_identity is True
+        assert storage.azure_account_name == "myaccount"
+        assert storage.storage_type == "azure"
+
+    def test_init_azure_managed_identity_with_endpoint_url(self, mock_msc):
+        """Azure init with managed identity and explicit endpoint_url succeeds."""
+        storage = MSCObjectStorage(
+            bucket="mycontainer",
+            storage_type="azure",
+            endpoint_url="https://myaccount.blob.core.windows.net",
+        )
+        assert storage.use_managed_identity is True
+
+    def test_init_azure_no_account_name_no_endpoint_raises(self, mock_msc):
+        """Azure managed identity raises ObjectStorageError when neither account name nor endpoint_url is given."""
+        with pytest.raises(
+            ObjectStorageError, match="Azure endpoint_url cannot be determined"
+        ):
+            MSCObjectStorage(
+                bucket="mycontainer",
+                storage_type="azure",
+            )
+
+    def test_upload_directory_azure_destination(self, mock_msc):
+        """upload_directory for azure uses azure:// in the destination."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "f.txt").write_text("hi")
+            storage = MSCObjectStorage(
+                bucket="mycontainer",
+                storage_type="azure",
+                azure_account_name="acct",
+                endpoint_url="https://acct.blob.core.windows.net",
+            )
+            storage._storage_client.sync_from.return_value = None
+
+            result = storage.upload_directory(
+                local_directory=tmpdir,
+                remote_prefix="prefix",
+            )
+            assert result.success is True
+            assert "azure://" in result.destination
+            assert "mycontainer" in result.destination
+
+    def test_generate_signed_url_azure_not_supported(self, mock_msc):
+        """generate_signed_url for Azure raises; clients use tokens to read blobs."""
+        storage = MSCObjectStorage(
+            bucket="mycontainer",
+            storage_type="azure",
+            azure_account_name="acct",
+            endpoint_url="https://acct.blob.core.windows.net",
+        )
+        with pytest.raises(ObjectStorageError, match="not generated by the server"):
+            storage.generate_signed_url("key.txt")

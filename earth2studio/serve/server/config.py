@@ -61,6 +61,7 @@ class QueueConfig:
     name: str = "inference"
     result_zip_queue_name: str = "result_zip"
     object_storage_queue_name: str = "object_storage"
+    geocatalog_ingestion_queue_name: str = "geocatalog_ingestion"
     finalize_metadata_queue_name: str = "finalize_metadata"
     max_size: int = 10
     default_timeout: str = "1h"
@@ -115,9 +116,10 @@ class CORSConfig:
 
 @dataclass
 class ObjectStorageConfig:
-    """Object storage configuration for S3/CloudFront"""
+    """Object storage configuration for S3/CloudFront and Azure Blob Storage"""
 
     enabled: bool = False
+    storage_type: Literal["s3", "azure"] = "s3"  # Storage provider type
     # S3 configuration
     bucket: str | None = None
     region: str = "us-east-1"
@@ -137,6 +139,27 @@ class ObjectStorageConfig:
     cloudfront_private_key: str | None = None  # PEM private key content
     # Signed URL settings
     signed_url_expires_in: int = 86400  # Default 24 hours
+    # Azure Blob Storage configuration
+    azure_account_name: str | None = None  # Azure storage account name
+    azure_container_name: str | None = (
+        None  # Azure container name (falls back to bucket if not set)
+    )
+    # Azure Planetary Computer / GeoCatalog ingestion (optional)
+    azure_geocatalog_url: str | None = (
+        None  # When set, triggers PC ingestion after upload
+    )
+
+
+@dataclass
+class WorkflowExposureConfig:
+    """Configuration for controlling which workflows are exposed via API endpoints"""
+
+    exposed_workflows: list[str] = field(
+        default_factory=lambda: []
+    )  # Empty list means all workflows are exposed
+    warmup_workflows: list[str] = field(
+        default_factory=lambda: ["example_user_workflow"]
+    )  # Workflows accessible for warmup even if not exposed
 
 
 @dataclass
@@ -150,6 +173,9 @@ class AppConfig:
     server: ServerConfig = field(default_factory=ServerConfig)
     cors: CORSConfig = field(default_factory=CORSConfig)
     object_storage: ObjectStorageConfig = field(default_factory=ObjectStorageConfig)
+    workflow_exposure: WorkflowExposureConfig = field(
+        default_factory=WorkflowExposureConfig
+    )
 
 
 class ConfigManager:
@@ -232,6 +258,9 @@ class ConfigManager:
             server=ServerConfig(**cfg_dict.get("server", {})),
             cors=CORSConfig(**cfg_dict.get("cors", {})),
             object_storage=ObjectStorageConfig(**cfg_dict.get("object_storage", {})),
+            workflow_exposure=WorkflowExposureConfig(
+                **cfg_dict.get("workflow_exposure", {})
+            ),
         )
 
     def _create_default_config_object(self) -> AppConfig:
@@ -244,6 +273,7 @@ class ConfigManager:
             server=ServerConfig(),
             cors=CORSConfig(),
             object_storage=ObjectStorageConfig(),
+            workflow_exposure=WorkflowExposureConfig(),
         )
 
     def _apply_env_overrides(self) -> None:
@@ -288,6 +318,12 @@ class ConfigManager:
             self._config.paths.results_zip_dir = os.getenv(
                 "RESULTS_ZIP_DIR", default=self._config.paths.results_zip_dir
             )
+        if os.getenv("OUTPUT_FORMAT"):
+            output_format = os.getenv("OUTPUT_FORMAT", "").lower()
+            if output_format in ["zarr", "netcdf4"]:
+                self._config.paths.output_format = cast(
+                    Literal["zarr", "netcdf4"], output_format
+                )
 
         # Logging overrides
         if os.getenv("LOG_LEVEL"):
@@ -319,6 +355,13 @@ class ConfigManager:
             self._config.object_storage.enabled = (
                 os.getenv("OBJECT_STORAGE_ENABLED", "").lower() == "true"
             )
+        if os.getenv("OBJECT_STORAGE_TYPE"):
+            storage_type = os.getenv("OBJECT_STORAGE_TYPE", "").lower()
+            if storage_type in ["s3", "azure"]:
+                self._config.object_storage.storage_type = cast(
+                    Literal["s3", "azure"], storage_type
+                )
+
         if os.getenv("OBJECT_STORAGE_BUCKET"):
             self._config.object_storage.bucket = os.getenv("OBJECT_STORAGE_BUCKET")
         if os.getenv("OBJECT_STORAGE_REGION"):
@@ -386,6 +429,31 @@ class ConfigManager:
                     default=self._config.object_storage.signed_url_expires_in,
                 )
             )
+
+        # Azure Blob Storage overrides
+        if os.getenv("AZURE_STORAGE_ACCOUNT_NAME"):
+            self._config.object_storage.azure_account_name = os.getenv(
+                "AZURE_STORAGE_ACCOUNT_NAME"
+            )
+        if os.getenv("AZURE_CONTAINER_NAME"):
+            self._config.object_storage.azure_container_name = os.getenv(
+                "AZURE_CONTAINER_NAME"
+            )
+        # Support AZURE_ENDPOINT_URL for managed identity scenarios
+        if os.getenv("AZURE_ENDPOINT_URL"):
+            self._config.object_storage.endpoint_url = os.getenv("AZURE_ENDPOINT_URL")
+        if os.getenv("AZURE_GEOCATALOG_URL"):
+            self._config.object_storage.azure_geocatalog_url = os.getenv(
+                "AZURE_GEOCATALOG_URL"
+            )
+
+        # Workflow exposure overrides
+        if os.getenv("EXPOSED_WORKFLOWS"):
+            # Parse comma-separated list of workflow names
+            exposed_workflows_str = os.getenv("EXPOSED_WORKFLOWS", "")
+            self._config.workflow_exposure.exposed_workflows = [
+                w.strip() for w in exposed_workflows_str.split(",") if w.strip()
+            ]
 
         logger.debug("Environment variable overrides applied")
 

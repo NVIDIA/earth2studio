@@ -1422,6 +1422,7 @@ class TestAdmissionControl:
             mock_config.queue.name = "inference"
             mock_config.queue.result_zip_queue_name = "result_zip"
             mock_config.queue.object_storage_queue_name = "object_storage"
+            mock_config.queue.geocatalog_ingestion_queue_name = "geocatalog_ingestion"
             mock_config.queue.finalize_metadata_queue_name = "finalize_metadata"
             response = client.post(
                 "/v1/infer/admit_wf",
@@ -1541,8 +1542,8 @@ class TestExecuteWorkflowBranches:
     def test_execute_workflow_llen_raises_after_enqueue_500(self, client_exec):
         """When llen raises after enqueue (queue position lookup), returns 500."""
         client, mock_redis, mock_queue = client_exec
-        # First 4 calls: admission (4 queues); 5th: position lookup. Make 5th raise.
-        mock_redis.llen.side_effect = [0, 0, 0, 0, RuntimeError("redis error")]
+        # 5 queue checks in admission control + 1 for queue position lookup
+        mock_redis.llen.side_effect = [0, 0, 0, 0, 0, RuntimeError("redis error")]
         with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
             response = client.post(
                 "/v1/infer/exec_wf",
@@ -2111,6 +2112,496 @@ class TestGetWorkflowResultFileBranches:
                 response = client.get("/v1/infer/file_wf/exec_1/results/data.txt")
         assert response.status_code == 200
         assert response.text == "hello world"
+
+
+class TestLifespanBranches:
+    """Tests for lifespan startup exception branches (lines 236-242)."""
+
+    def test_lifespan_workflow_registration_generic_exception_continues(self):
+        """When register_all_workflows raises non-ImportError, app still starts."""
+        with (
+            patch("redis.asyncio.Redis") as mock_async_redis,
+            patch("redis.Redis") as mock_sync_redis,
+            patch("rq.Queue"),
+            patch(
+                "earth2studio.serve.server.workflow.register_all_workflows",
+                side_effect=RuntimeError("unexpected registration error"),
+            ),
+        ):
+            mock_async_instance = MagicMock()
+            mock_async_instance.ping = AsyncMock(return_value=True)
+            mock_async_instance.close = AsyncMock()
+            mock_async_redis.return_value = mock_async_instance
+            mock_sync_instance = MagicMock()
+            mock_sync_instance.ping = MagicMock(return_value=True)
+            mock_sync_instance.close = MagicMock()
+            mock_sync_redis.return_value = mock_sync_instance
+
+            from earth2studio.serve.server.main import app
+
+            with TestClient(app, raise_server_exceptions=False) as c:
+                response = c.get("/liveness")
+            assert response.status_code == 200
+
+    def test_lifespan_redis_ping_failure_raises(self):
+        """When Redis ping fails, lifespan raises and app fails to start."""
+        with (
+            patch("redis.asyncio.Redis") as mock_async_redis,
+            patch("redis.Redis") as mock_sync_redis,
+            patch("rq.Queue"),
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
+        ):
+            mock_async_instance = MagicMock()
+            mock_async_instance.ping = AsyncMock(
+                side_effect=ConnectionError("Redis unavailable")
+            )
+            mock_async_instance.close = AsyncMock()
+            mock_async_redis.return_value = mock_async_instance
+            mock_sync_instance = MagicMock()
+            mock_sync_instance.ping = MagicMock(return_value=True)
+            mock_sync_redis.return_value = mock_sync_instance
+
+            from earth2studio.serve.server.main import app
+
+            with pytest.raises(Exception):
+                with TestClient(app):
+                    pass
+
+
+class TestHealthCheckWithoutScriptDir:
+    """Tests health endpoint when SCRIPT_DIR env var is absent (lines 304-305)."""
+
+    @pytest.fixture
+    def client_probes(self):
+        """Client for probe endpoints."""
+        with (
+            patch("redis.asyncio.Redis") as mock_async_redis,
+            patch("redis.Redis") as mock_sync_redis,
+            patch("rq.Queue"),
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
+        ):
+            mock_async_instance = MagicMock()
+            mock_async_instance.ping = AsyncMock(return_value=True)
+            mock_async_instance.close = AsyncMock()
+            mock_async_redis.return_value = mock_async_instance
+            mock_sync_instance = MagicMock()
+            mock_sync_instance.ping = MagicMock(return_value=True)
+            mock_sync_instance.close = MagicMock()
+            mock_sync_redis.return_value = mock_sync_instance
+
+            from earth2studio.serve.server.main import app
+
+            with TestClient(app, raise_server_exceptions=False) as c:
+                yield c
+
+    def test_health_follows_repo_relative_path_when_script_dir_empty(
+        self, client_probes
+    ):
+        """Health check uses repo-relative script path when SCRIPT_DIR is empty/unset."""
+        with patch.dict(os.environ, {"SCRIPT_DIR": ""}):
+            with patch(
+                "earth2studio.serve.server.main.asyncio.create_subprocess_exec"
+            ) as mock_exec:
+                mock_proc = MagicMock()
+                mock_proc.returncode = 0
+                mock_proc.communicate = AsyncMock(return_value=(b"", b""))
+                mock_exec.return_value = mock_proc
+
+                response = client_probes.get("/health")
+        assert response.status_code == 200
+        assert response.json()["status"] == "healthy"
+
+
+class TestNotExposedWorkflowEndpoints:
+    """Tests for 404 when workflow is registered but not exposed (lines 427, 539, 671, 743, 876)."""
+
+    @pytest.fixture
+    def client_with_workflow(self):
+        """Standard client with a registered workflow."""
+        with (
+            patch("redis.asyncio.Redis") as mock_async_redis,
+            patch("redis.Redis") as mock_sync_redis,
+            patch("rq.Queue"),
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
+        ):
+            mock_async_instance = MagicMock()
+            mock_async_instance.ping = AsyncMock(return_value=True)
+            mock_async_instance.close = AsyncMock()
+            mock_async_redis.return_value = mock_async_instance
+            mock_sync_instance = MagicMock()
+            mock_sync_instance.ping = MagicMock(return_value=True)
+            mock_sync_instance.close = MagicMock()
+            mock_sync_redis.return_value = mock_sync_instance
+
+            from earth2studio.serve.server.main import app
+            from earth2studio.serve.server.workflow import (
+                Workflow,
+                WorkflowParameters,
+                workflow_registry,
+            )
+
+            class TestEndpointsParams(WorkflowParameters):
+                x: int = Field(default=1)
+
+            class TestEndpointsWf(Workflow):
+                name = "test_endpoints_wf"
+                description = "Test"
+                Parameters = TestEndpointsParams
+
+                @classmethod
+                def validate_parameters(cls, parameters):
+                    return TestEndpointsParams.validate(parameters)
+
+                def run(self, parameters, execution_id):
+                    return {"status": "ok"}
+
+            workflow_registry._workflows["test_endpoints_wf"] = TestEndpointsWf
+
+            with TestClient(app, raise_server_exceptions=False) as c:
+                yield c
+
+            if "test_endpoints_wf" in workflow_registry._workflows:
+                del workflow_registry._workflows["test_endpoints_wf"]
+
+    def test_schema_not_exposed_404(self, client_with_workflow):
+        """get_workflow_schema returns 404 when workflow is not exposed."""
+        with patch(
+            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            return_value=False,
+        ):
+            response = client_with_workflow.get(
+                "/v1/workflows/test_endpoints_wf/schema"
+            )
+        assert response.status_code == 404
+        assert "not exposed" in response.json().get("detail", "").lower()
+
+    def test_execute_not_exposed_404(self, client_with_workflow):
+        """execute_workflow returns 404 when workflow is not exposed."""
+        with patch(
+            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            return_value=False,
+        ):
+            response = client_with_workflow.post(
+                "/v1/infer/test_endpoints_wf", json={"parameters": {}}
+            )
+        assert response.status_code == 404
+
+    def test_get_status_workflow_not_found_404(self, client_with_workflow):
+        """get_workflow_status returns 404 when workflow not found."""
+        response = client_with_workflow.get("/v1/infer/nonexistent_wf/exec_1/status")
+        assert response.status_code == 404
+        assert "not found" in response.json().get("detail", "").lower()
+
+    def test_get_status_not_exposed_404(self, client_with_workflow):
+        """get_workflow_status returns 404 when workflow is not exposed."""
+        with patch(
+            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            return_value=False,
+        ):
+            response = client_with_workflow.get(
+                "/v1/infer/test_endpoints_wf/exec_1/status"
+            )
+        assert response.status_code == 404
+
+    def test_get_results_workflow_not_found_404(self, client_with_workflow):
+        """get_workflow_results returns 404 when workflow not found."""
+        response = client_with_workflow.get("/v1/infer/nonexistent_wf/exec_1/results")
+        assert response.status_code == 404
+
+    def test_get_results_not_exposed_404(self, client_with_workflow):
+        """get_workflow_results returns 404 when workflow is not exposed."""
+        with patch(
+            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            return_value=False,
+        ):
+            response = client_with_workflow.get(
+                "/v1/infer/test_endpoints_wf/exec_1/results"
+            )
+        assert response.status_code == 404
+
+    def test_get_result_file_not_exposed_404(self, client_with_workflow):
+        """get_workflow_result_file returns 404 when workflow is not exposed."""
+        with patch(
+            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            return_value=False,
+        ):
+            response = client_with_workflow.get(
+                "/v1/infer/test_endpoints_wf/exec_1/results/file.nc"
+            )
+        assert response.status_code == 404
+
+
+class TestExecuteWorkflowAdditionalBranches:
+    """Additional coverage for execute_workflow (lines 598, 605-609)."""
+
+    @pytest.fixture
+    def client_exec2(self):
+        """Client with workflow for additional execute branch tests."""
+        from earth2studio.serve.server.workflow import Workflow, WorkflowParameters
+
+        with (
+            patch("redis.asyncio.Redis") as mock_async_redis,
+            patch("redis.Redis") as mock_sync_redis,
+            patch("rq.Queue") as mock_queue_class,
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
+        ):
+            mock_async_instance = MagicMock()
+            mock_async_instance.ping = AsyncMock(return_value=True)
+            mock_async_instance.close = AsyncMock()
+            mock_async_instance.get = AsyncMock(return_value=None)
+            mock_async_redis.return_value = mock_async_instance
+
+            mock_sync_instance = MagicMock()
+            mock_sync_instance.ping = MagicMock(return_value=True)
+            mock_sync_instance.close = MagicMock()
+            mock_sync_instance.setex = MagicMock()
+            mock_sync_instance.llen = MagicMock(return_value=0)
+            mock_sync_redis.return_value = mock_sync_instance
+
+            mock_queue = MagicMock()
+            mock_job = MagicMock()
+            mock_job.id = "exec2_wf_exec_123"
+            mock_queue.enqueue = MagicMock(return_value=mock_job)
+            mock_queue_class.return_value = mock_queue
+
+            class Exec2Params(WorkflowParameters):
+                x: int = Field(default=1)
+
+            class Exec2Workflow(Workflow):
+                name = "exec2_wf"
+                description = "For additional execute tests"
+                Parameters = Exec2Params
+
+                @classmethod
+                def validate_parameters(cls, parameters):
+                    return Exec2Params.validate(parameters)
+
+                def run(self, parameters, execution_id):
+                    return {"status": "ok"}
+
+            from earth2studio.serve.server.main import app
+            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry._workflows["exec2_wf"] = Exec2Workflow
+            with TestClient(app, raise_server_exceptions=False) as c:
+                yield c, mock_sync_instance, mock_queue, Exec2Workflow
+            if "exec2_wf" in workflow_registry._workflows:
+                del workflow_registry._workflows["exec2_wf"]
+
+    def test_execute_llen_raises_after_enqueue_500(self, client_exec2):
+        """When llen raises during queue position lookup, returns 500."""
+        client, mock_redis, mock_queue, _ = client_exec2
+        # 5 queue checks in admission control + 1 for queue position lookup
+        mock_redis.llen.side_effect = [0, 0, 0, 0, 0, RuntimeError("redis error")]
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
+            response = client.post(
+                "/v1/infer/exec2_wf",
+                json={"parameters": {}},
+            )
+        assert response.status_code == 500
+
+    def test_execute_redis_none_during_queue_position_503(self, client_exec2):
+        """When redis_sync_client is None at queue position check, returns 503."""
+        client, mock_redis, mock_queue, wf_class = client_exec2
+        with patch("earth2studio.serve.server.main.check_admission_control"):
+            with patch.object(wf_class, "_save_execution_data"):
+                with patch("earth2studio.serve.server.main.redis_sync_client", None):
+                    with patch(
+                        "earth2studio.serve.server.main.inference_queue", mock_queue
+                    ):
+                        response = client.post(
+                            "/v1/infer/exec2_wf",
+                            json={"parameters": {}},
+                        )
+        assert response.status_code == 503
+        assert "Redis" in response.json().get("detail", "")
+
+
+class TestGetWorkflowResultFileAdditionalBranches:
+    """Additional tests for get_workflow_result_file (lines 895, 903, 919-952, 986, 1035, 1052, 1062-1066)."""
+
+    @pytest.fixture
+    def client_file2(self, tmp_path):
+        """Client and tmp dir for additional result file tests."""
+        with (
+            patch("redis.asyncio.Redis") as mock_async_redis,
+            patch("redis.Redis") as mock_sync_redis,
+            patch("rq.Queue") as mock_queue_class,
+            patch("earth2studio.serve.server.workflow.register_all_workflows"),
+        ):
+            mock_async_instance = MagicMock()
+            mock_async_instance.ping = AsyncMock(return_value=True)
+            mock_async_instance.close = AsyncMock()
+            mock_async_instance.get = AsyncMock(return_value=None)
+            mock_async_redis.return_value = mock_async_instance
+            mock_sync_instance = MagicMock()
+            mock_sync_instance.ping = MagicMock(return_value=True)
+            mock_sync_instance.close = MagicMock()
+            mock_sync_redis.return_value = mock_sync_instance
+            mock_queue_class.return_value = MagicMock()
+
+            from earth2studio.serve.server.main import app
+            from earth2studio.serve.server.workflow import (
+                Workflow,
+                WorkflowParameters,
+                WorkflowStatus,
+                workflow_registry,
+            )
+
+            class File2Params(WorkflowParameters):
+                x: int = Field(default=1)
+
+            class File2Workflow(Workflow):
+                name = "file2_wf"
+                description = "File2 test"
+                Parameters = File2Params
+
+                @classmethod
+                def validate_parameters(cls, parameters):
+                    return File2Params.validate(parameters)
+
+                def run(self, parameters, execution_id):
+                    return {"status": "ok"}
+
+            workflow_registry._workflows["file2_wf"] = File2Workflow
+            with TestClient(app, raise_server_exceptions=False) as c:
+                yield c, mock_async_instance, tmp_path, WorkflowStatus
+            if "file2_wf" in workflow_registry._workflows:
+                del workflow_registry._workflows["file2_wf"]
+
+    def _completed_exec_data(self):
+        from earth2studio.serve.server.workflow import WorkflowResult, WorkflowStatus
+
+        return WorkflowResult(
+            workflow_name="file2_wf",
+            execution_id="exec_1",
+            status=WorkflowStatus.COMPLETED,
+            start_time=datetime.now(timezone.utc).isoformat(),
+            end_time=datetime.now(timezone.utc).isoformat(),
+        )
+
+    def test_get_result_file_value_error_in_exec_data_404(self, client_file2):
+        """When _get_execution_data raises ValueError, returns 404."""
+        client, *_ = client_file2
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(
+                side_effect=ValueError("Execution not found")
+            )
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file2_wf/exec_1/results/file.nc")
+        assert response.status_code == 404
+        assert "Execution not found" in response.json().get("detail", "")
+
+    def test_get_result_file_redis_none_for_zip_path_503(self, client_file2):
+        """When filepath == request_id but redis_client is None, returns 503."""
+        client, mock_async, tmp_path, _ = client_file2
+        exec_data = self._completed_exec_data()
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", None):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                response = client.get(
+                    "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
+                )
+        assert response.status_code == 503
+
+    def test_get_result_file_zip_not_on_disk_404(self, client_file2):
+        """When zip key in Redis but zip file missing from disk, returns 404."""
+        client, mock_async, tmp_path, _ = client_file2
+        exec_data = self._completed_exec_data()
+        mock_async.get = AsyncMock(return_value="missing_zip.zip")
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", mock_async):
+                with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
+                    mock_wf = MagicMock()
+                    mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                    mock_reg.get_workflow_class.return_value = mock_wf
+                    response = client.get(
+                        "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
+                    )
+        assert response.status_code == 404
+        assert "disk" in response.json().get("detail", {}).get("error", "").lower()
+
+    def test_get_result_file_zip_stream_success(self, client_file2):
+        """When zip file exists on disk, returns 200 with streamed content."""
+        client, mock_async, tmp_path, _ = client_file2
+        exec_data = self._completed_exec_data()
+        zip_file = tmp_path / "results.zip"
+        zip_file.write_bytes(b"PK\x03\x04fake_zip_content")
+        mock_async.get = AsyncMock(return_value="results.zip")
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", mock_async):
+                with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
+                    mock_wf = MagicMock()
+                    mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                    mock_reg.get_workflow_class.return_value = mock_wf
+                    response = client.get(
+                        "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
+                    )
+        assert response.status_code == 200
+        assert 'results.zip"' in response.headers.get("content-disposition", "")
+
+    def test_get_result_file_filepath_with_output_dir_prefix(self, client_file2):
+        """When filepath starts with output dir name, the prefix is stripped."""
+        client, mock_async, tmp_path, _ = client_file2
+        exec_data = self._completed_exec_data()
+        output_dir = tmp_path / "exec_1"
+        output_dir.mkdir()
+        data_file = output_dir / "data.txt"
+        data_file.write_text("contents")
+        mock_async.get = AsyncMock(return_value=str(output_dir))
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", mock_async):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                # filepath starts with output dir name (exec_1/data.txt)
+                response = client.get(
+                    "/v1/infer/file2_wf/exec_1/results/exec_1/data.txt"
+                )
+        assert response.status_code == 200
+        assert response.text == "contents"
+
+    def test_get_result_file_no_mime_type_uses_octet_stream(self, client_file2):
+        """Files with no recognized MIME type use application/octet-stream."""
+        client, mock_async, tmp_path, _ = client_file2
+        exec_data = self._completed_exec_data()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        unknown_file = output_dir / "data.unknownext99999"
+        unknown_file.write_bytes(b"\x00\x01\x02\x03")
+        mock_async.get = AsyncMock(return_value=str(output_dir))
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", mock_async):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                with patch("mimetypes.guess_type", return_value=(None, None)):
+                    response = client.get(
+                        "/v1/infer/file2_wf/exec_1/results/data.unknownext99999"
+                    )
+        assert response.status_code == 200
+        assert "octet-stream" in response.headers.get("content-type", "")
+
+    def test_get_result_file_generic_exception_500(self, client_file2):
+        """When an unexpected exception occurs in the file handler, returns 500."""
+        client, mock_async, tmp_path, _ = client_file2
+        exec_data = self._completed_exec_data()
+        mock_async.get = AsyncMock(side_effect=RuntimeError("unexpected redis error"))
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", mock_async):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                response = client.get(
+                    "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
+                )
+        assert response.status_code == 500
+        assert "Failed to retrieve file" in response.json().get("detail", {}).get(
+            "error", ""
+        )
 
 
 class TestMainEntrypoint:
