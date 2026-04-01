@@ -21,9 +21,21 @@ from logging import LogRecord
 from pathlib import Path
 from typing import Any, Literal, Optional, cast
 
-from hydra import compose, initialize_config_dir
-from hydra.core.global_hydra import GlobalHydra
-from omegaconf import OmegaConf
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from hydra import compose, initialize_config_dir
+    from hydra.core.global_hydra import GlobalHydra
+    from omegaconf import OmegaConf
+except ImportError:
+    OptionalDependencyFailure("serve")
+    compose = None
+    initialize_config_dir = None
+    GlobalHydra = None
+    OmegaConf = None
 
 logger = logging.getLogger(__name__)
 
@@ -438,12 +450,6 @@ def get_config() -> AppConfig:
 
     Returns:
         AppConfig: The application configuration
-
-    Example:
-        >>> from earth2studio.serve.server.config import get_config
-        >>> config = get_config()
-        >>> print(config.redis.host)
-        'localhost'
     """
     return get_config_manager().config
 
@@ -464,6 +470,7 @@ def get_config_manager() -> ConfigManager:
 
 
 # Convenience function to reset config (mainly for testing)
+@check_optional_dependencies()
 def reset_config() -> None:
     """Reset the configuration manager singleton (mainly for testing)."""
     ConfigManager._instance = None
@@ -476,11 +483,5 @@ def get_workflow_config(name: str) -> dict[str, Any]:
 
     Returns:
         dict[str, Any]: The workflow configuration
-
-    Example:
-        >>> from earth2studio.serve.server.config import get_workflow_config
-        >>> config = get_workflow_config("deterministic_earth2_workflow")
-        >>> print(config["model_type"])
-        'fcn'
     """
     return get_config_manager().workflow_config.get(name, {})

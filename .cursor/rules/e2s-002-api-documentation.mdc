@@ -226,6 +226,46 @@ class CorrelatedSphericalGaussian:
     """
 ```
 
+## Badges for Models and Data Sources
+
+Classes in `earth2studio.models.px`, `earth2studio.models.dx`, `earth2studio.models.da`, and `earth2studio.data` that appear in the API docs should include a `Badges` section in their docstring if applicable.
+This drives the filterable badge system on the API reference pages.
+If the model or data source is more focused for testing purposes then badges might not
+be needed.
+
+### Badges Section
+
+Add a `Badges` section as the **last section** of the class docstring (after `Parameters`, `Raises`, `Warning`, etc.).
+List all applicable badge IDs on a single line separated by spaces.
+
+```python
+class MyModel:
+    """Brief description.
+
+    Parameters
+    ----------
+    ...
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:40gb
+    """
+```
+
+### Available Badge IDs
+
+The source of truth for possible bagdges that will be supported in the docs are listed
+in the `docs/conf.py`
+
+### Rules
+
+- ✅ **DO**: Add a `Badges` section to nearly all public models and data source class
+- ✅ **DO**: Place `Badges` as the last section of the docstring
+- ✅ **DO**: List all applicable badge IDs on a single line
+- ✅ **DO**: Use `class:` badges for models; use `dataclass:` badges for data sources
+- ❌ **DON'T**: Add `gpu:` badges to data sources (GPU VRAM is for models only)
+- ❌ **DON'T**: Skip the `Badges` section — entries without badges will not appear in filtered views
+
 ## Reminders
 
 - All **public** classes and functions MUST have docstrings

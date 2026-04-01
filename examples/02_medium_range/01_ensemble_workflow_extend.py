@@ -35,6 +35,7 @@ In this example you will learn:
 """
 # /// script
 # dependencies = [
+#   "torch==2.9.1", # Match lock file to avoid torch-harmonics issue
 #   "earth2studio[dlwp,perturbation] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "matplotlib",
 # ]
@@ -87,9 +88,10 @@ model = DLWP.load_model(package)
 data = GFS()
 
 # %%
-# The perturbation method in :ref:`sphx_glr_examples_03_ensemble_workflow.py` is naive because it
-# applies the same noise amplitude to every variable. We can create a custom wrapper
-# that only applies the perturbation method to a particular variable instead.
+# The perturbation method in :ref:`sphx_glr_examples_01_getting_started_03_ensemble_workflow.py`
+# is naive because it applies the same noise amplitude to every variable. We can create
+# a custom wrapper that only applies the perturbation method to a particular variable
+# instead.
 
 
 # %%

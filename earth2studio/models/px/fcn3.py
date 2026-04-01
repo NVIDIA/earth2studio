@@ -159,9 +159,9 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     seed : int, optional
         Seed of the underlying FCN3 model's random generators, by default 333
 
-    Warning
-    -------
-    This model requires at least 60 GB of GPU memory to run.
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2025 gpu:80gb
     """
 
     def __init__(

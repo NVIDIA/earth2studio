@@ -161,6 +161,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ``prep_next_input`` methods will not produce correct results, since the model
     performs autoregressive timestepping using a full-resolution physical state
     and an internal low-resolution latent state.
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos year:2026
+    gpu:80gb
     """
 
     DT = np.timedelta64(6, "h")

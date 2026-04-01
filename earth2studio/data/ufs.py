@@ -446,6 +446,10 @@ class UFSObsConv(_UFSObsBase):
 
         ds = UFSObsConv(tolerance=timedelta(hours=2))
         df = ds(datetime(2024, 1, 1, 20), ["u"])
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsConv"
@@ -592,6 +596,10 @@ class UFSObsSat(_UFSObsBase):
         # Use specific satellite
         ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
         df = ds(datetime(2024, 1, 1, 20), ["atms"])
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:sat
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsSat"
