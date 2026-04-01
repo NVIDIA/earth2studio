@@ -92,6 +92,18 @@ def test_cams_time_validation():
         ds = CAMS()
         ds(datetime.datetime(2018, 1, 1), "dust")
 
+    # CAMS_FX must reject EU variables before 2019-07-01
+    with pytest.raises(ValueError, match="CAMS EU forecast"):
+        CAMS_FX._validate_time(
+            [datetime.datetime(2018, 1, 1)],
+            dataset="cams-europe-air-quality-forecasts",
+        )
+    # but accept global variables at the same date
+    CAMS_FX._validate_time(
+        [datetime.datetime(2018, 1, 1)],
+        dataset="cams-global-atmospheric-composition-forecasts",
+    )
+
 
 def test_cams_available():
     assert CAMS.available(datetime.datetime(2024, 1, 1))
@@ -138,3 +150,29 @@ def test_cams_fx_available():
     assert not CAMS_FX.available(datetime.datetime(2010, 1, 1))
     # timezone-aware datetimes must not raise TypeError
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))
+
+
+def test_cams_fx_cache_key_lead_hours_order():
+    """lead_hours in different order must produce the same cache key."""
+    # Mirrors the cache key construction in CAMS_FX._download_cached
+    import hashlib
+
+    def _make_cache_key(lead_hours):
+        return hashlib.sha256(
+            f"cams_fx_eu_dust_{'_'.join(sorted(lead_hours, key=int))}"
+            f"_0_2024-06-01_00".encode()
+        ).hexdigest()
+
+    assert _make_cache_key(["0", "24", "48"]) == _make_cache_key(["48", "0", "24"])
+    assert _make_cache_key(["12", "6"]) == _make_cache_key(["6", "12"])
+
+
+def test_cams_api_vars_dedup():
+    """Variables sharing the same API name must not produce duplicate requests."""
+    from earth2studio.data.cams import _resolve_variable
+
+    # dust and dust_50m both resolve to api_name "dust"
+    info_a = _resolve_variable("dust", 0)
+    info_b = _resolve_variable("dust_50m", 1)
+    api_vars = list(dict.fromkeys([info_a.api_name, info_b.api_name]))
+    assert api_vars == ["dust"], f"Expected deduplicated list, got {api_vars}"

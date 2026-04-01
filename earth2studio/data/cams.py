@@ -92,9 +92,7 @@ def _download_cams_netcdf(
         r.update()
         reply = r.reply
         if verbose:
-            logger.debug(
-                f"Request ID:{reply['request_id']}, state: {reply['state']}"
-            )
+            logger.debug(f"Request ID:{reply['request_id']}, state: {reply['state']}")
         if reply["state"] == "completed":
             break
         elif reply["state"] in ("queued", "running"):
@@ -125,8 +123,7 @@ def _extract_field(
 ) -> np.ndarray:
     if nc_key not in ds:
         raise ValueError(
-            f"Variable '{nc_key}' not found in NetCDF. "
-            f"Available: {list(ds.data_vars)}"
+            f"Variable '{nc_key}' not found in NetCDF. Available: {list(ds.data_vars)}"
         )
     field = ds[nc_key]
     non_spatial = [d for d in field.dims if d not in ("latitude", "longitude")]
@@ -149,9 +146,7 @@ def _extract_field(
     return field.values
 
 
-def _validate_cams_time(
-    times: list[datetime], min_time: datetime, name: str
-) -> None:
+def _validate_cams_time(times: list[datetime], min_time: datetime, name: str) -> None:
     for t in times:
         t_naive = t.replace(tzinfo=None) if t.tzinfo else t
         if t_naive < min_time:
@@ -160,18 +155,14 @@ def _validate_cams_time(
                 f"(earliest: {min_time})"
             )
         if t_naive.minute != 0 or t_naive.second != 0:
-            raise ValueError(
-                f"Requested time {t} must be on the hour for {name}"
-            )
+            raise ValueError(f"Requested time {t} must be on the hour for {name}")
 
 
 def _validate_cams_leadtime(lead_times: list[timedelta], max_hours: int) -> None:
     for lt in lead_times:
         hours = int(lt.total_seconds() // 3600)
         if lt.total_seconds() % 3600 != 0:
-            raise ValueError(
-                f"Lead time {lt} must be a whole number of hours"
-            )
+            raise ValueError(f"Lead time {lt} must be a whole number of hours")
         if hours < 0 or hours > max_hours:
             raise ValueError(
                 f"Lead time {lt} ({hours}h) outside valid range [0, {max_hours}]h"
@@ -321,7 +312,7 @@ class CAMS:
                 )
             var_infos.append(info)
 
-        api_vars = [vi.api_name for vi in var_infos]
+        api_vars = list(dict.fromkeys(vi.api_name for vi in var_infos))
         levels = sorted(set(vi.level for vi in var_infos if vi.level))
         if not levels:
             levels = ["0"]
@@ -531,8 +522,14 @@ class CAMS_FX:
         )
 
     @staticmethod
-    def _validate_time(times: list[datetime]) -> None:
-        _validate_cams_time(times, _CAMS_GLOBAL_MIN_TIME, "CAMS forecast")
+    def _validate_time(times: list[datetime], dataset: str | None = None) -> None:
+        if dataset == EU_DATASET:
+            min_time = _CAMS_EU_MIN_TIME
+            name = "CAMS EU forecast"
+        else:
+            min_time = _CAMS_GLOBAL_MIN_TIME
+            name = "CAMS global forecast"
+        _validate_cams_time(times, min_time, name)
 
     def _fetch_forecast(
         self,
@@ -552,8 +549,9 @@ class CAMS_FX:
             )
 
         dataset_name = next(iter(datasets))
+        self._validate_time([time], dataset=dataset_name)
         var_infos = datasets[dataset_name]
-        api_vars = [vi.api_name for vi in var_infos]
+        api_vars = list(dict.fromkeys(vi.api_name for vi in var_infos))
         levels = sorted(set(vi.level for vi in var_infos if vi.level))
         lead_hours = [
             str(int(np.timedelta64(lt, "h").astype(int))) for lt in lead_times
@@ -574,9 +572,7 @@ class CAMS_FX:
         lon = ds.longitude.values
 
         da = xr.DataArray(
-            data=np.empty(
-                (1, len(lead_times), len(variables), len(lat), len(lon))
-            ),
+            data=np.empty((1, len(lead_times), len(variables), len(lat), len(lon))),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
                 "time": [time],
@@ -592,7 +588,9 @@ class CAMS_FX:
                 _, modifier = CAMSLexicon[info.e2s_name]
                 da[0, lt_idx, info.index] = modifier(
                     _extract_field(
-                        ds, info.nc_key, level=info.level,
+                        ds,
+                        info.nc_key,
+                        level=info.level,
                         lead_time_hours=int(lt_h),
                     )
                 )
@@ -612,7 +610,7 @@ class CAMS_FX:
         level_str = "_".join(sorted(levels)) if levels else "none"
         sha = hashlib.sha256(
             f"cams_fx_{dataset}_{'_'.join(sorted(api_vars))}"
-            f"_{'_'.join(lead_hours)}_{level_str}"
+            f"_{'_'.join(sorted(lead_hours, key=int))}_{level_str}"
             f"_{date_str}_{time.hour:02d}".encode()
         )
         cache_path = self.cache / (sha.hexdigest() + ".nc")
