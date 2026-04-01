@@ -241,7 +241,7 @@ regular equiangular lat-lon grid, so no manual regridding is needed.
 Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
 (z500). Each row shows a different observation configuration.
 
-.. GENERATED FROM PYTHON SOURCE LINES 209-260
+.. GENERATED FROM PYTHON SOURCE LINES 209-266
 
 .. code-block:: Python
 
@@ -263,10 +263,16 @@ Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
     lon = results[0].coords["lon"].values
     cmaps = ["Spectral_r", "PRGn"]
 
+
+    def to_numpy(arr):
+        """CuPy / Numpy helper function"""
+        return arr.get() if hasattr(arr, "get") else arr
+
+
     for row, (title, da) in enumerate(zip(titles, results)):
         for col, var in enumerate(plot_vars):
             ax = axes[row, col]
-            field = da.sel(variable=var).data[0].get()  # [nlat, nlon] cupy -> numpy
+            field = to_numpy(da.sel(variable=var).data[0])
             im = ax.pcolormesh(
                 lon,
                 lat,
@@ -297,7 +303,7 @@ Compare the three runs for surface temperature (t2m) and geopotential 500 hPa
     plt.savefig("outputs/22_healda_analysis.jpg", dpi=150)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 261-268
+.. GENERATED FROM PYTHON SOURCE LINES 267-274
 
 HealDA vs ERA5
 --------------
@@ -307,7 +313,7 @@ names so we can query ERA5 with the same identifiers. We expect the runs that
 are missing an observation source to show larger errors, while the combined run
 yields the most accurate global prediction.
 
-.. GENERATED FROM PYTHON SOURCE LINES 270-274
+.. GENERATED FROM PYTHON SOURCE LINES 276-280
 
 .. code-block:: Python
 
@@ -316,7 +322,7 @@ yields the most accurate global prediction.
     era5_interp = era5_da.interp(lat=lat, lon=lon, method="nearest")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 275-286
+.. GENERATED FROM PYTHON SOURCE LINES 281-290
 
 .. code-block:: Python
 
@@ -324,15 +330,13 @@ yields the most accurate global prediction.
     diff_results = [result_both, result_sat, result_conv]
     for title, da_pred in zip(diff_titles, diff_results):
         for var in plot_vars:
-            field_pred = da_pred.sel(variable=var).data[0]
-            if hasattr(field_pred, "get"):
-                field_pred = field_pred.get()
-            field_era5 = era5_interp.sel(variable=var).data[0]
+            field_pred = to_numpy(da_pred.sel(variable=var).data[0])
+            field_era5 = to_numpy(era5_interp.sel(variable=var).data[0])
             mae = float(np.abs(field_pred - field_era5).mean())
             logger.info(f"{title} | {var} MAE: {mae:.4f}")
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 287-340
+.. GENERATED FROM PYTHON SOURCE LINES 291-342
 
 .. code-block:: Python
 
@@ -350,10 +354,8 @@ yields the most accurate global prediction.
     for row, (title, da_pred) in enumerate(zip(diff_titles, diff_results)):
         for col, var in enumerate(plot_vars):
             ax = axes[row, col]
-            field_pred = (
-                da_pred.sel(variable=var).data[0].get()
-            )  # [nlat, nlon] cupy -> numpy
-            field_era5 = era5_interp.sel(variable=var).data[0]  # [nlat, nlon]
+            field_pred = to_numpy(da_pred.sel(variable=var).data[0])
+            field_era5 = to_numpy(era5_interp.sel(variable=var).data[0])
             diff = field_pred - field_era5
             im = ax.pcolormesh(
                 lon,
