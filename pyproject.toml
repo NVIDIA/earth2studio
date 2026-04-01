@@ -165,6 +165,13 @@ fuxi = [
     "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
+gencast = [
+    "graphcast",
+    "dm-haiku>=0.0.14",
+    "jax[cuda12]>=0.4.26",
+    "flax>=0.10.6",
+    "dm-tree>=0.1.9",
+]
 graphcast = [
     "graphcast",
     "dm-haiku>=0.0.14",
@@ -251,7 +258,7 @@ da-stormcast = [
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
+    "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
