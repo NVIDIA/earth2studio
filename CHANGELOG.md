@@ -7,7 +7,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0a0] - 2026-03-xx
+## [0.14.0a0] - 2026-04-xx
+
+### Added
+
+- Added GenCast 1 degree Mini model
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.13.0] - 2026-03-20
 
 ### Added
 
@@ -39,8 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated GraphCast models to support multiple time inputs, multiple times will be looped not batched
 - Renamed `tolerance` parameter in ISD data source to `time_tolerance`
 
-### Deprecated
-
 ### Removed
 
 - Removed device from cbottle SR load_model api
@@ -51,8 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug in cbottle datasource resulting identical samples for multiple samples
 - Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
 - Bug in spherical perturbations which did not use lmax from the SHT transform
-
-### Security
 
 ### Dependencies
 

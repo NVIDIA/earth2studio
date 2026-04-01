@@ -155,6 +155,10 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Model scale normalization tensor
     variables : np.array, optional
         Variables associated with model, by default 73 variable model.
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
     """
 
     def __init__(

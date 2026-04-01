@@ -146,6 +146,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Path to FuXi medium model onnx file
     ort_long : str
         Path to FuXi long model onnx file
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos year:2023
+    gpu:40gb
     """
 
     def __init__(

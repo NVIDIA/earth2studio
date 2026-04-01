@@ -140,17 +140,7 @@ class _ECMWFOpenDataSource(ABC):
         """Retrieve ECMWF data. The child class should override this"""
         pass
 
-    @abstractmethod
-    async def fetch(  # type: ignore[override]
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async function to get data, the child class should over ride this and call/"""
-        pass
-
-    def _call(  # type: ignore[override]
+    def _call(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -171,7 +161,7 @@ class _ECMWFOpenDataSource(ABC):
         Note
         ----
         For peturbed data from ensemble models, the returned data array will have an
-        extra `sample` dimension added to it.
+        extra `ensemble` dimension added to it.
 
         Returns
         -------
@@ -187,13 +177,14 @@ class _ECMWFOpenDataSource(ABC):
 
         xr_array = loop.run_until_complete(
             asyncio.wait_for(
-                self._fetch(time, lead_time, variable), timeout=self.async_timeout
+                self._ecmwf_fetch(time, lead_time, variable),
+                timeout=self.async_timeout,
             )
         )
 
         return xr_array
 
-    async def _fetch(  # type: ignore[override]
+    async def _ecmwf_fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
@@ -241,12 +232,12 @@ class _ECMWFOpenDataSource(ABC):
                         len(self.LON),
                     )
                 ),
-                dims=["time", "lead_time", "variable", "sample", "lat", "lon"],
+                dims=["time", "lead_time", "variable", "ensemble", "lat", "lon"],
                 coords={
                     "time": time,
                     "lead_time": lead_time,
                     "variable": variable,
-                    "sample": np.array(self._members),
+                    "ensemble": np.array(self._members),
                     "lat": self.LAT,
                     "lon": self.LON,
                 },
@@ -254,7 +245,7 @@ class _ECMWFOpenDataSource(ABC):
 
         async_tasks = await self._create_tasks(time, lead_time, variable)
         func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
+            functools.partial(self._download_wrapper, xr_array=xr_array), async_tasks
         )
 
         await tqdm.gather(
@@ -317,7 +308,7 @@ class _ECMWFOpenDataSource(ABC):
                     )
         return tasks
 
-    async def fetch_wrapper(
+    async def _download_wrapper(
         self,
         task: ECMWFOpenDataAsyncTask,
         xr_array: xr.DataArray,
@@ -347,7 +338,7 @@ class _ECMWFOpenDataSource(ABC):
                             f"No GRIB messages found for ensemble member {m} in {grib_file}"
                         )
                     member_arrays.append(msgs[0].values)
-                values = np.stack(member_arrays, axis=0)  # [sample, y, x]
+                values = np.stack(member_arrays, axis=0)  # [ensemble, y, x]
             else:
                 values = grbs[1].values  # [y, x]
             # Provided [-180, 180], roll to [0, 360] along x dimension
@@ -486,6 +477,10 @@ class IFS(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -526,14 +521,14 @@ class IFS(_ECMWFOpenDataSource):
             IFS analysis data array
         """
         da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
-        return da.isel(lead_time=0)
+        return da.isel(lead_time=0).drop_vars("lead_time")
 
     async def fetch(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
+        """Async method to retrieve IFS analysis data.
 
         Parameters
         ----------
@@ -548,8 +543,8 @@ class IFS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS analysis data array.
         """
-        da = await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
-        return da.isel(lead_time=0)
+        da = await super()._ecmwf_fetch(time, timedelta(hours=0), variable)
+        return da.isel(lead_time=0).drop_vars("lead_time")
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify all times are valid based on offline knowledge.
@@ -597,6 +592,10 @@ class IFS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -641,13 +640,13 @@ class IFS_FX(_ECMWFOpenDataSource):
         """
         return self._call(time, lead_time, variable)
 
-    async def fetch(  # type: ignore[override]
+    async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
+        """Async method to retrieve IFS forecast data.
 
         Parameters
         ----------
@@ -664,7 +663,7 @@ class IFS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS forecast data array.
         """
-        return await self._fetch(time, lead_time, variable)
+        return await super()._ecmwf_fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -727,6 +726,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -778,16 +781,16 @@ class IFS_ENS(_ECMWFOpenDataSource):
             IFS ENS initial state data array.
         """
         da = self._call(time, np.array([0], dtype="datetime64[h]"), variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
-        return da.isel(lead_time=0)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da.isel(lead_time=0).drop_vars("lead_time")
 
     async def fetch(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
+        """Async method to retrieve IFS ENS initial state data.
 
         Parameters
         ----------
@@ -802,10 +805,10 @@ class IFS_ENS(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS initial state data array.
         """
-        da = await self._fetch(time, np.array([0], dtype="datetime64[h]"), variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
-        return da.isel(lead_time=0)
+        da = await super()._ecmwf_fetch(time, timedelta(hours=0), variable)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da.isel(lead_time=0).drop_vars("lead_time")
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -868,6 +871,10 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = IFSLexicon
@@ -922,8 +929,8 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
             IFS ENS forecast data array
         """
         da = self._call(time, lead_time, variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
     async def fetch(
@@ -932,7 +939,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
+        """Async method to retrieve IFS ENS forecast data.
 
         Parameters
         ----------
@@ -949,9 +956,9 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             IFS ENS forecast data array.
         """
-        da = await self._fetch(time, lead_time, variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
+        da = await super()._ecmwf_fetch(time, lead_time, variable)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -1013,6 +1020,10 @@ class AIFS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = AIFSLexicon
@@ -1057,13 +1068,13 @@ class AIFS_FX(_ECMWFOpenDataSource):
         """
         return self._call(time, lead_time, variable)
 
-    async def fetch(  # type: ignore[override]
+    async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
+        """Async method to retrieve AIFS forecast data.
 
         Parameters
         ----------
@@ -1080,7 +1091,7 @@ class AIFS_FX(_ECMWFOpenDataSource):
         xr.DataArray
             AIFS forecast data array.
         """
-        return await self._fetch(time, lead_time, variable)
+        return await super()._ecmwf_fetch(time, lead_time, variable)
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(
@@ -1129,6 +1140,10 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     LEXICON = AIFSLexicon
@@ -1183,17 +1198,17 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
             AIFS ENS forecast data array
         """
         da = self._call(time, lead_time, variable)
-        if "sample" in da.dims:
-            da = da.isel(sample=0)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
-    async def fetch(  # type: ignore[override]
+    async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Async function to get data.
+        """Async method to retrieve AIFS ENS forecast data.
 
         Parameters
         ----------
@@ -1208,10 +1223,12 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         Returns
         -------
         xr.DataArray
-            ECMWF weather data array.
+            AIFS ENS forecast data array
         """
-        da = await self._fetch(time, lead_time, variable)
-        return da.isel(sample=0)
+        da = await super()._ecmwf_fetch(time, lead_time, variable)
+        if "ensemble" in da.dims:
+            da = da.isel(ensemble=0).drop_vars("ensemble")
+        return da
 
     def _validate_time(self, times: list[datetime]) -> None:
         validate_time(

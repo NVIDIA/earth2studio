@@ -79,6 +79,10 @@ class GOES:
 
         - Full Disk (F): Entire Earth view
         - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
+
+    Badges
+    ------
+    region:na dataclass:observation product:sat
     """
 
     SCAN_TIME_FREQUENCY = {

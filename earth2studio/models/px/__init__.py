@@ -30,6 +30,7 @@ from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.fcn3 import FCN3
 from earth2studio.models.px.fengwu import FengWu
 from earth2studio.models.px.fuxi import FuXi
+from earth2studio.models.px.gencast_mini import GenCastMini
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
 from earth2studio.models.px.graphcast_small import GraphCastSmall
 from earth2studio.models.px.interpmodafno import InterpModAFNO
@@ -39,9 +40,6 @@ from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
 
-# TODO: Remove upon physics-nemo update...
-# package turned on logging of warnings in 1.1.0, this is silencing them
+# Silence warning spam from various models
 warnings.filterwarnings("ignore")
-warnings.filterwarnings("ignore", category=SyntaxWarning)
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
