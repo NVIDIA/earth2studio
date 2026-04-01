@@ -177,7 +177,7 @@ class FoundryFCN3Workflow(Earth2Workflow):
         n_steps: int = 20,
         n_samples: int = 16,
         seeds: Sequence[int] | None = None,
-        variables: Sequence[str] | None = None,
+        variables: Sequence[str] | None = ("t2m", "u10m", "v10m"),
         collection_id: str | None = None,
     ) -> None:
         self.validate_start_time(start_time)

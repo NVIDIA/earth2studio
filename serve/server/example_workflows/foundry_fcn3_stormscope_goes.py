@@ -436,7 +436,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         n_samples_stormscope: int = 16,
         seeds_fcn3: Sequence[int] | None = None,
         seeds_stormscope: Sequence[int] | None = None,
-        variables: Sequence[str] | None = None,
+        variables: Sequence[str] | None = ("abi01c", "abi02c", "abi03c"),
         collection_id: str | None = None,
     ) -> None:
         self.validate_start_times(start_time_stormscope, start_time_fcn3)
