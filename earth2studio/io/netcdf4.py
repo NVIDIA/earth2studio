@@ -28,10 +28,13 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 units_map = {
-    "h": "hours",
-    "D": "days",
+    "ns": "nanoseconds",
+    "us": "microseconds",
+    "ms": "milliseconds",
     "s": "seconds",
     "m": "minutes",
+    "h": "hours",
+    "D": "days",
     "Y": "years",
 }
 rev_units_map = {v: k for k, v in units_map.items()}
@@ -133,7 +136,6 @@ class NetCDF4Backend:
 
             # Check if data is datetime64
             if np.issubdtype(data.dtype, np.datetime64):
-
                 var = self.root.createVariable(name, "f8", (name,))
                 var.units = "hours since 0001-01-01 00:00:00.0"
                 var.calendar = "proleptic_gregorian"

@@ -279,6 +279,16 @@ E2STUDIO_VOCAB = {
     "strd06": "surface long-wave (thermal) radiation downwards (J m-2) past 6 hours",
     "sf": "snowfall water equivalent (kg m-2)",
     "ro": "runoff water equivalent (surface plus subsurface) (kg m-2)",
+    "ewss": "eastward turbulent surface stress (N m-2 s)",
+    "nsss": "northward turbulent surface stress (N m-2 s)",
+    "sithick": "sea ice thickness (m)",
+    "siconc": "sea ice area fraction as seen by the ocean (0-1)",
+    "zos": "sea surface height above geoid (m)",
+    "mttwp": "tendency of total water path due to advection (kg m-2 s-1)",
+    "thetao": "sea water potential temperature (K)",
+    "so": "sea water salinity (PSU)",
+    "uo": "sea water x (eastward) velocity (m s-1)",
+    "vo": "sea water y (northward) velocity (m s-1)",
 }
 
 
