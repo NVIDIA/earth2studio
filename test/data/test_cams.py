@@ -25,6 +25,15 @@ import xarray as xr
 
 from earth2studio.data import CAMS_FX
 
+CAMS_ADS_URL = "https://ads.atmosphere.copernicus.eu/api"
+
+
+@pytest.fixture(autouse=True)
+def _set_cdsapi_url(monkeypatch):
+    """Point cdsapi at the ADS endpoint for all tests in this module."""
+    monkeypatch.setenv("CDSAPI_URL", CAMS_ADS_URL)
+
+
 YESTERDAY = datetime.datetime.now(datetime.UTC).replace(
     hour=0, minute=0, second=0, microsecond=0
 ) - datetime.timedelta(days=1)
