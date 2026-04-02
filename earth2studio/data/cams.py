@@ -368,8 +368,7 @@ class CAMS_FX:
             pressure_ds = xr.open_dataset(nc_path, decode_timedelta=False)
 
         # Use whichever dataset is available to read grid coordinates
-        ref_ds = surface_ds if surface_ds is not None else pressure_ds
-        if ref_ds is None:
+        if surface_ds is None and pressure_ds is None:
             raise ValueError(
                 "No variables to fetch – both surface and pressure lists are empty."
             )
