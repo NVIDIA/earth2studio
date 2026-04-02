@@ -266,15 +266,16 @@ class CAMS_FX:
 
         Parameters
         ----------
-        time : datetime | list[datetime]
-            Timestamps to check availability for.
+        data_arrays = []
+        try:
+            for t0 in time:
+                da = self._fetch_forecast(t0, lead_time, variable)
+                data_arrays.append(da)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
-        Returns
-        -------
-        bool
-            True if all requested times are within the valid range.
-        """
-        if isinstance(time, datetime):
+        return xr.concat(data_arrays, dim="time")
             time = [time]
         return all(
             (t.replace(tzinfo=None) if t.tzinfo else t) >= cls.CAMS_MIN_TIME
