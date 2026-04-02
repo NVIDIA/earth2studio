@@ -279,6 +279,16 @@ E2STUDIO_VOCAB = {
     "strd06": "surface long-wave (thermal) radiation downwards (J m-2) past 6 hours",
     "sf": "snowfall water equivalent (kg m-2)",
     "ro": "runoff water equivalent (surface plus subsurface) (kg m-2)",
+    "aod550": "total aerosol optical depth at 550 nm (dimensionless)",
+    "duaod550": "dust aerosol optical depth at 550 nm (dimensionless)",
+    "omaod550": "organic matter aerosol optical depth at 550 nm (dimensionless)",
+    "bcaod550": "black carbon aerosol optical depth at 550 nm (dimensionless)",
+    "ssaod550": "sea salt aerosol optical depth at 550 nm (dimensionless)",
+    "suaod550": "sulphate aerosol optical depth at 550 nm (dimensionless)",
+    "tcco": "total column carbon monoxide (kg m-2)",
+    "tcno2": "total column nitrogen dioxide (kg m-2)",
+    "tco3": "total column ozone (kg m-2)",
+    "tcso2": "total column sulphur dioxide (kg m-2)",
 }
 
 
