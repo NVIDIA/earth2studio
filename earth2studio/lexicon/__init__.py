@@ -16,7 +16,7 @@
 
 from .ace import ACELexicon
 from .arco import ARCOLexicon
-from .cams import CAMSLexicon
+from .cams import CAMSGlobalLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDSLexicon
 from .cmip6 import CMIP6Lexicon

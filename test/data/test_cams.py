@@ -15,12 +15,13 @@
 # limitations under the License.
 
 import datetime
-import hashlib
 import pathlib
 import shutil
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import CAMS_FX
 
@@ -99,21 +100,7 @@ def test_cams_fx_time_validation():
 def test_cams_fx_available():
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1))
     assert not CAMS_FX.available(datetime.datetime(2010, 1, 1))
-    # timezone-aware datetimes must not raise TypeError
     assert CAMS_FX.available(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))
-
-
-def test_cams_fx_cache_key_lead_hours_order():
-    """lead_hours in different order must produce the same cache key."""
-
-    def _make_cache_key(lead_hours):
-        return hashlib.sha256(
-            f"cams_fx_aod550_{'_'.join(sorted(lead_hours, key=int))}"
-            f"_2024-06-01_00".encode()
-        ).hexdigest()
-
-    assert _make_cache_key(["0", "24", "48"]) == _make_cache_key(["48", "0", "24"])
-    assert _make_cache_key(["12", "6"]) == _make_cache_key(["6", "12"])
 
 
 def test_cams_fx_api_vars_dedup():
@@ -124,3 +111,110 @@ def test_cams_fx_api_vars_dedup():
     info_b = _resolve_variable("aod550", 1)
     api_vars = list(dict.fromkeys([info_a.api_name, info_b.api_name]))
     assert len(api_vars) == 1
+
+
+def test_cams_fx_call_mock(tmp_path: pathlib.Path):
+    """Test CAMS_FX __call__ with surface and pressure-level variables (mocked)."""
+    lat = CAMS_FX.CAMS_LAT
+    lon = CAMS_FX.CAMS_LON
+    forecast_period = np.array([0, 3, 6], dtype=np.float64)
+    pressure_level = np.array([500.0, 850.0])
+
+    # Surface NetCDF
+    mock_surface_ds = xr.Dataset(
+        {
+            "aod550": (
+                ["forecast_period", "latitude", "longitude"],
+                np.random.rand(len(forecast_period), len(lat), len(lon)),
+            ),
+            "tcco": (
+                ["forecast_period", "latitude", "longitude"],
+                np.random.rand(len(forecast_period), len(lat), len(lon)),
+            ),
+        },
+        coords={
+            "forecast_period": forecast_period,
+            "latitude": lat,
+            "longitude": lon,
+        },
+    )
+    surface_path = tmp_path / "mock_surface.nc"
+    mock_surface_ds.to_netcdf(surface_path)
+
+    # Pressure-level NetCDF
+    mock_pressure_ds = xr.Dataset(
+        {
+            "u": (
+                ["forecast_period", "pressure_level", "latitude", "longitude"],
+                np.random.rand(
+                    len(forecast_period), len(pressure_level), len(lat), len(lon)
+                ),
+            ),
+            "t": (
+                ["forecast_period", "pressure_level", "latitude", "longitude"],
+                np.random.rand(
+                    len(forecast_period), len(pressure_level), len(lat), len(lon)
+                ),
+            ),
+        },
+        coords={
+            "forecast_period": forecast_period,
+            "pressure_level": pressure_level,
+            "latitude": lat,
+            "longitude": lon,
+        },
+    )
+    pressure_path = tmp_path / "mock_pressure.nc"
+    mock_pressure_ds.to_netcdf(pressure_path)
+
+    with patch("earth2studio.data.cams.cdsapi") as mock_cdsapi:
+        mock_cdsapi.Client = MagicMock()
+        time = datetime.datetime(2024, 6, 1, 0, 0)
+        lead_time = [datetime.timedelta(hours=0), datetime.timedelta(hours=6)]
+
+        # --- surface-only fetch: single download ---
+        with patch("earth2studio.data.cams._download_cams_netcdf") as mock_dl:
+            mock_dl.return_value = surface_path
+            data = CAMS_FX(cache=False)(time, lead_time, ["aod550", "tcco"])
+
+            assert data.shape == (1, 2, 2, len(lat), len(lon))
+            assert list(data.coords["variable"].values) == ["aod550", "tcco"]
+            mock_dl.assert_called_once()
+
+        # --- pressure-level-only fetch: single download ---
+        with patch("earth2studio.data.cams._download_cams_netcdf") as mock_dl:
+            mock_dl.return_value = pressure_path
+            data = CAMS_FX(cache=False)(time, lead_time, ["u500", "t850"])
+
+            assert data.shape == (1, 2, 2, len(lat), len(lon))
+            assert list(data.coords["variable"].values) == ["u500", "t850"]
+            mock_dl.assert_called_once()
+
+        # --- mixed fetch: two separate downloads ---
+        call_count = 0
+
+        def _side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return surface_path if call_count == 1 else pressure_path
+
+        with patch("earth2studio.data.cams._download_cams_netcdf") as mock_dl:
+            mock_dl.side_effect = _side_effect
+            data = CAMS_FX(cache=False)(time, lead_time, ["aod550", "u500"])
+
+            assert data.shape == (1, 2, 2, len(lat), len(lon))
+            assert list(data.coords["variable"].values) == ["aod550", "u500"]
+            assert mock_dl.call_count == 2
+
+
+def test_cams_fx_pressure_level_leadtime_validation():
+    """Pressure-level vars at non-3h lead times must raise ValueError."""
+    with patch("earth2studio.data.cams.cdsapi") as mock_cdsapi:
+        mock_cdsapi.Client = MagicMock()
+        ds = CAMS_FX(cache=False)
+        with pytest.raises(ValueError, match="multiple of 3 hours"):
+            ds(
+                datetime.datetime(2024, 6, 1, 0, 0),
+                datetime.timedelta(hours=1),
+                "u500",
+            )

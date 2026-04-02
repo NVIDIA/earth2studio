@@ -32,7 +32,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_forecast_inputs,
 )
-from earth2studio.lexicon import CAMSLexicon
+from earth2studio.lexicon import CAMSGlobalLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -44,11 +44,6 @@ try:
 except ImportError:
     OptionalDependencyFailure("data")
     cdsapi = None
-
-# CAMS Global forecast available from 2015-01-01 onward
-_CAMS_GLOBAL_MIN_TIME = datetime(2015, 1, 1)
-
-_GLOBAL_DATASET = "cams-global-atmospheric-composition-forecasts"
 
 
 @dataclass
@@ -62,7 +57,7 @@ class _CAMSVarInfo:
 
 
 def _resolve_variable(e2s_name: str, index: int) -> _CAMSVarInfo:
-    cams_key, _ = CAMSLexicon[e2s_name]
+    cams_key, _ = CAMSGlobalLexicon[e2s_name]
     dataset, api_name, nc_key, level = cams_key.split("::")
     return _CAMSVarInfo(
         e2s_name=e2s_name,
@@ -116,6 +111,7 @@ def _extract_field(
     ds: xr.Dataset,
     nc_key: str,
     lead_time_hours: int | None = None,
+    pressure_level: int | None = None,
 ) -> np.ndarray:
     if nc_key not in ds:
         raise ValueError(
@@ -130,6 +126,11 @@ def _extract_field(
             target = float(lead_time_hours)
             nearest_idx = int(np.argmin(np.abs(fp_vals - target)))
             isel[d] = nearest_idx
+        elif d in ("pressure_level", "isobaricInhPa") and pressure_level is not None:
+            pl_vals = field.coords[d].values.astype(float)
+            target_pl = float(pressure_level)
+            nearest_idx = int(np.argmin(np.abs(pl_vals - target_pl)))
+            isel[d] = nearest_idx
         else:
             isel[d] = 0
     if isel:
@@ -137,35 +138,12 @@ def _extract_field(
     return field.values
 
 
-def _validate_cams_time(times: list[datetime], min_time: datetime, name: str) -> None:
-    for t in times:
-        t_naive = t.replace(tzinfo=None) if t.tzinfo else t
-        if t_naive < min_time:
-            raise ValueError(
-                f"Requested time {t} is before {name} availability "
-                f"(earliest: {min_time})"
-            )
-        if t_naive.minute != 0 or t_naive.second != 0:
-            raise ValueError(f"Requested time {t} must be on the hour for {name}")
-
-
-def _validate_cams_leadtime(lead_times: list[timedelta], max_hours: int) -> None:
-    for lt in lead_times:
-        hours = int(lt.total_seconds() // 3600)
-        if lt.total_seconds() % 3600 != 0:
-            raise ValueError(f"Lead time {lt} must be a whole number of hours")
-        if hours < 0 or hours > max_hours:
-            raise ValueError(
-                f"Lead time {lt} ({hours}h) outside valid range [0, {max_hours}]h"
-            )
-
-
 @check_optional_dependencies()
 class CAMS_FX:
     """CAMS Global atmospheric composition forecast data source.
 
     Uses the ``cams-global-atmospheric-composition-forecasts`` dataset.
-    Grid is 0.4 deg global, read dynamically from the downloaded NetCDF.
+    Grid is 0.4 deg global (451 x 900).
 
     Parameters
     ----------
@@ -185,14 +163,21 @@ class CAMS_FX:
     be referenced here:
 
     - https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts
-    - https://cds.climate.copernicus.eu/how-to-api
+    - https://ads.atmosphere.copernicus.eu/how-to-api
+
+        The API endpoint for this data source varies from the Climate Data Store (CDS), be
+        sure your api config has the correct url.
 
     Badges
     ------
-    region:global dataclass:simulation product:airquality
+    region:global dataclass:simulation product:wind product:temp product:atmos
     """
 
     MAX_LEAD_HOURS = 120
+    CAMS_MIN_TIME = datetime(2015, 1, 1)
+    CAMS_DATASET_URI = "cams-global-atmospheric-composition-forecasts"
+    CAMS_LAT = np.linspace(90, -90, 451)
+    CAMS_LON = np.linspace(0, 359.6, 900)
 
     def __init__(self, cache: bool = True, verbose: bool = True):
         self._cache = cache
@@ -227,7 +212,7 @@ class CAMS_FX:
         lead_time : timedelta | list[timedelta] | LeadTimeArray
             Forecast lead times.
         variable : str | list[str] | VariableArray
-            Variables to return. Must be in CAMSLexicon.
+            Variables to return. Must be in CAMSGlobalLexicon.
 
         Returns
         -------
@@ -263,7 +248,7 @@ class CAMS_FX:
         lead_time : timedelta | list[timedelta] | LeadTimeArray
             Forecast lead times.
         variable : str | list[str] | VariableArray
-            Variables to return. Must be in CAMSLexicon.
+            Variables to return. Must be in CAMSGlobalLexicon.
 
         Returns
         -------
@@ -292,13 +277,36 @@ class CAMS_FX:
         if isinstance(time, datetime):
             time = [time]
         return all(
-            (t.replace(tzinfo=None) if t.tzinfo else t) >= _CAMS_GLOBAL_MIN_TIME
+            (t.replace(tzinfo=None) if t.tzinfo else t) >= cls.CAMS_MIN_TIME
             for t in time
         )
 
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Validate that requested times are valid for CAMS Global forecast."""
+        for t in times:
+            t_naive = t.replace(tzinfo=None) if t.tzinfo else t
+            if t_naive < cls.CAMS_MIN_TIME:
+                raise ValueError(
+                    f"Requested time {t} is before CAMS Global forecast availability "
+                    f"(earliest: {cls.CAMS_MIN_TIME})"
+                )
+            if t_naive.minute != 0 or t_naive.second != 0:
+                raise ValueError(
+                    f"Requested time {t} must be on the hour for CAMS Global forecast"
+                )
+
     @staticmethod
-    def _validate_time(times: list[datetime]) -> None:
-        _validate_cams_time(times, _CAMS_GLOBAL_MIN_TIME, "CAMS Global forecast")
+    def _validate_leadtime(lead_times: list[timedelta], max_hours: int) -> None:
+        """Validate that requested lead times are valid."""
+        for lt in lead_times:
+            hours = int(lt.total_seconds() // 3600)
+            if lt.total_seconds() % 3600 != 0:
+                raise ValueError(f"Lead time {lt} must be a whole number of hours")
+            if hours < 0 or hours > max_hours:
+                raise ValueError(
+                    f"Lead time {lt} ({hours}h) outside valid range [0, {max_hours}]h"
+                )
 
     def _fetch_forecast(
         self,
@@ -309,52 +317,99 @@ class CAMS_FX:
         var_infos = []
         for i, v in enumerate(variables):
             info = _resolve_variable(v, i)
-            if info.dataset != _GLOBAL_DATASET:
-                raise ValueError(
-                    f"CAMS_FX only supports Global dataset, got '{info.dataset}' "
-                    f"for variable '{v}'."
-                )
             var_infos.append(info)
 
-        api_vars = list(dict.fromkeys(vi.api_name for vi in var_infos))
         lead_hours = [
             str(int(np.timedelta64(lt, "h").astype(int))) for lt in lead_times
         ]
 
-        _validate_cams_leadtime(
+        self._validate_leadtime(
             [timedelta(hours=int(h)) for h in lead_hours], self.MAX_LEAD_HOURS
         )
 
-        nc_path = self._download_cached(time, api_vars, lead_hours)
+        # Separate surface and pressure-level variables; they need different
+        # API requests because pressure-level vars require the pressure_level
+        # parameter and are only available at 3-hourly lead times.
+        surface_infos = [vi for vi in var_infos if not vi.level]
+        pressure_infos = [vi for vi in var_infos if vi.level]
 
-        ds = xr.open_dataset(nc_path, decode_timedelta=False)
-        lat = ds.latitude.values
-        lon = ds.longitude.values
+        # Validate that pressure-level lead times are multiples of 3 hours
+        if pressure_infos:
+            for lt_h in lead_hours:
+                if int(lt_h) % 3 != 0:
+                    raise ValueError(
+                        f"Lead time {lt_h}h is not a multiple of 3 hours. "
+                        "Pressure-level variables in CAMS Global forecasts "
+                        "are only available at 3-hourly intervals (0, 3, 6, ...)."
+                    )
+
+        # Download surface variables
+        surface_ds: xr.Dataset | None = None
+        if surface_infos:
+            surface_api_vars = list(dict.fromkeys(vi.api_name for vi in surface_infos))
+            nc_path = self._download_cached(time, surface_api_vars, lead_hours)
+            surface_ds = xr.open_dataset(nc_path, decode_timedelta=False)
+
+        # Download pressure-level variables (grouped by unique levels)
+        pressure_ds: xr.Dataset | None = None
+        if pressure_infos:
+            pressure_api_vars = list(
+                dict.fromkeys(vi.api_name for vi in pressure_infos)
+            )
+            pressure_levels = sorted({vi.level for vi in pressure_infos}, key=int)
+            nc_path = self._download_cached(
+                time, pressure_api_vars, lead_hours, pressure_levels
+            )
+            pressure_ds = xr.open_dataset(nc_path, decode_timedelta=False)
+
+        # Use whichever dataset is available to read grid coordinates
+        ref_ds = surface_ds if surface_ds is not None else pressure_ds
+        if ref_ds is None:
+            raise ValueError(
+                "No variables to fetch – both surface and pressure lists are empty."
+            )
 
         da = xr.DataArray(
-            data=np.empty((1, len(lead_times), len(variables), len(lat), len(lon))),
+            data=np.empty(
+                (
+                    1,
+                    len(lead_times),
+                    len(variables),
+                    len(self.CAMS_LAT),
+                    len(self.CAMS_LON),
+                )
+            ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
                 "time": [time],
                 "lead_time": lead_times,
                 "variable": variables,
-                "lat": lat,
-                "lon": lon,
+                "lat": self.CAMS_LAT,
+                "lon": self.CAMS_LON,
             },
         )
 
         for lt_idx, lt_h in enumerate(lead_hours):
             for info in var_infos:
-                _, modifier = CAMSLexicon[info.e2s_name]
+                _, modifier = CAMSGlobalLexicon[info.e2s_name]
+                ds = pressure_ds if info.level else surface_ds
+                if ds is None:  # pragma: no cover
+                    raise RuntimeError(
+                        f"Dataset for variable {info.e2s_name} is unexpectedly None"
+                    )
                 da[0, lt_idx, info.index] = modifier(
                     _extract_field(
                         ds,
                         info.nc_key,
                         lead_time_hours=int(lt_h),
+                        pressure_level=int(info.level) if info.level else None,
                     )
                 )
 
-        ds.close()
+        if surface_ds is not None:
+            surface_ds.close()
+        if pressure_ds is not None:
+            pressure_ds.close()
         return da
 
     def _download_cached(
@@ -362,11 +417,18 @@ class CAMS_FX:
         time: datetime,
         api_vars: list[str],
         lead_hours: list[str],
+        pressure_levels: list[str] | None = None,
     ) -> pathlib.Path:
         date_str = time.strftime("%Y-%m-%d")
+        pl_part = (
+            f"_pl{'_'.join(sorted(pressure_levels, key=int))}"
+            if pressure_levels
+            else ""
+        )
         sha = hashlib.sha256(
             f"cams_fx_{'_'.join(sorted(api_vars))}"
             f"_{'_'.join(sorted(lead_hours, key=int))}"
+            f"{pl_part}"
             f"_{date_str}_{time.hour:02d}".encode()
         )
         cache_path = self.cache / (sha.hexdigest() + ".nc")
@@ -379,14 +441,17 @@ class CAMS_FX:
             "leadtime_hour": lead_hours,
             "data_format": "netcdf",
         }
+        if pressure_levels:
+            request_body["pressure_level"] = pressure_levels
 
         if self._verbose:
             logger.info(
                 f"Fetching CAMS Global forecast for {date_str} "
                 f"{time.hour:02d}:00 lead_hours={lead_hours} vars={api_vars}"
+                + (f" pressure_levels={pressure_levels}" if pressure_levels else "")
             )
         return _download_cams_netcdf(
-            self._client, _GLOBAL_DATASET, request_body, cache_path, self._verbose
+            self._client, self.CAMS_DATASET_URI, request_body, cache_path, self._verbose
         )
 
     @property
