@@ -295,6 +295,11 @@ class CAMS_FX:
                 raise ValueError(
                     f"Requested time {t} must be on the hour for CAMS Global forecast"
                 )
+            if t_naive.hour not in (0, 12):
+                raise ValueError(
+                    f"Requested time {t} has hour={t_naive.hour}; CAMS Global forecasts "
+                    "are only initialized at 00:00 and 12:00 UTC"
+                )
 
     @staticmethod
     def _validate_leadtime(lead_times: list[timedelta], max_hours: int) -> None:
