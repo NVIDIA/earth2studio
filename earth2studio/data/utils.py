@@ -480,6 +480,269 @@ def datasource_cache_root() -> str:
     return default_cache
 
 
+# =============================================================================
+# Async Utilities for Data Sources
+# =============================================================================
+# These utilities provide standardized patterns for async data fetching with
+# proper error handling, concurrency control, and resource cleanup.
+# IMPORTANT: Pure async operations are ALWAYS preferred over asyncio.to_thread.
+# Only use to_thread as a last resort when no async alternative exists.
+# =============================================================================
+
+
+def ensure_utc(time: datetime) -> datetime:
+    """Normalize a datetime to naive UTC.
+
+    If timezone-aware, convert to UTC then strip tzinfo.
+    If naive, assume UTC and return unchanged.
+
+    Parameters
+    ----------
+    time : datetime
+        Input datetime (naive or tz-aware)
+
+    Returns
+    -------
+    datetime
+        Naive datetime in UTC
+    """
+    from datetime import timezone
+
+    if time.tzinfo is not None:
+        time = time.astimezone(timezone.utc).replace(tzinfo=None)
+    return time
+
+
+async def async_retry(
+    coro_func: Callable[..., Any],
+    *args: Any,
+    retries: int = 3,
+    backoff: float = 1.0,
+    task_timeout: float | None = None,
+    exceptions: tuple[type[BaseException], ...] = (OSError, IOError, TimeoutError),
+    **kwargs: Any,
+) -> Any:
+    """Retry an async callable with exponential backoff and jitter.
+
+    Parameters
+    ----------
+    coro_func : Callable[..., Awaitable[T]]
+        Async function to call
+    *args : Any
+        Positional arguments for coro_func
+    retries : int, optional
+        Maximum number of retry attempts, by default 3
+    backoff : float, optional
+        Base delay in seconds (doubled each retry), by default 1.0
+    task_timeout : float | None, optional
+        Timeout in seconds for each attempt, by default None (no timeout)
+    exceptions : tuple, optional
+        Exception types to catch and retry on. Should be scoped to transient
+        I/O errors (OSError, IOError, TimeoutError, ConnectionError), not
+        broad Exception which would mask programming errors.
+    **kwargs : Any
+        Keyword arguments for coro_func
+
+    Returns
+    -------
+    T
+        Return value of coro_func
+
+    Raises
+    ------
+    Exception
+        The last exception if all retries are exhausted
+    asyncio.TimeoutError
+        If task_timeout is exceeded on the final attempt
+    """
+    import asyncio
+    import random
+
+    last_exc: BaseException | None = None
+    for attempt in range(retries + 1):
+        try:
+            coro = coro_func(*args, **kwargs)
+            if task_timeout is not None:
+                return await asyncio.wait_for(coro, timeout=task_timeout)
+            return await coro
+        except asyncio.TimeoutError:
+            # Always re-raise TimeoutError - don't mask it
+            if attempt >= retries:
+                raise
+            last_exc = asyncio.TimeoutError(
+                f"Attempt {attempt + 1}/{retries + 1} timed out after {task_timeout}s"
+            )
+        except exceptions as e:
+            last_exc = e
+        if attempt < retries:
+            delay = backoff * (2**attempt) + random.uniform(0, 0.5)
+            logger.warning(
+                f"Retry {attempt + 1}/{retries} after error: {last_exc}. "
+                f"Waiting {delay:.1f}s"
+            )
+            await asyncio.sleep(delay)
+    raise last_exc  # type: ignore[misc]
+
+
+async def managed_session(fs: Any) -> Any:
+    """Context manager for fsspec async sessions.
+
+    Ensures the aiohttp session is properly closed even if an exception or
+    timeout occurs during fetching. Use this instead of bare set_session/close
+    to prevent session leaks.
+
+    Parameters
+    ----------
+    fs : Any
+        An fsspec filesystem instance (s3fs, gcsfs, etc.)
+
+    Returns
+    -------
+    AsyncContextManager
+        Yields the aiohttp client session (or None for non-session fs)
+
+    Example
+    -------
+    .. code-block:: python
+
+        async with managed_session(self.fs) as session:
+            # fetch data here - session will be closed even on error
+            await gather_with_concurrency(coros, ...)
+    """
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _managed_session_impl() -> Any:
+        session = None
+        try:
+            if hasattr(fs, "set_session"):
+                session = await fs.set_session(refresh=True)
+            yield session
+        finally:
+            if session is not None:
+                await session.close()
+
+    return _managed_session_impl()
+
+
+async def gather_with_concurrency(
+    coros: list[Any],
+    max_workers: int = 16,
+    task_timeout: float | None = None,
+    desc: str = "Fetching",
+    disable: bool = False,
+) -> list[Any]:
+    """Run coroutines with bounded concurrency and progress bar.
+
+    This prevents resource exhaustion (connections, memory) when fetching
+    hundreds of items by limiting concurrent tasks via an asyncio.Semaphore.
+
+    Parameters
+    ----------
+    coros : list[Coroutine]
+        Coroutines to execute
+    max_workers : int, optional
+        Maximum concurrent tasks (semaphore bound), by default 16.
+        This limits how many coroutines run simultaneously, NOT thread pool size.
+    task_timeout : float | None, optional
+        Timeout in seconds for each individual task, by default None.
+        If a task exceeds this timeout, it raises asyncio.TimeoutError.
+    desc : str, optional
+        Progress bar description
+    disable : bool, optional
+        Disable the progress bar
+
+    Returns
+    -------
+    list[Any]
+        Results from all coroutines in the same order as input
+
+    Raises
+    ------
+    asyncio.TimeoutError
+        If any task exceeds task_timeout
+    Exception
+        Any exception raised by a coroutine is propagated
+    """
+    import asyncio
+
+    from tqdm.asyncio import tqdm
+
+    semaphore = asyncio.Semaphore(max_workers)
+
+    async def _bounded(coro: Any) -> Any:
+        async with semaphore:
+            if task_timeout is not None:
+                return await asyncio.wait_for(coro, timeout=task_timeout)
+            return await coro
+
+    bounded = [_bounded(c) for c in coros]
+    return await tqdm.gather(*bounded, desc=desc, disable=disable)
+
+
+async def cancellable_to_thread(
+    func: Callable[..., T],
+    *args: Any,
+    timeout: float = 30.0,
+    **kwargs: Any,
+) -> T:
+    """Run a blocking function in a thread with timeout support.
+
+    WARNING: This should be a LAST RESORT. Pure async operations are ALWAYS
+    preferred because:
+    1. Threads cannot be forcibly cancelled in Python - when timeout fires,
+       the coroutine is abandoned but the thread continues running
+    2. This causes issues with pytest --timeout where tests hang
+    3. Thread pool exhaustion can occur with many concurrent tasks
+
+    PREFER these async alternatives:
+    - fs._cat_file() for byte-range reads from s3fs/gcsfs
+    - async zarr for zarr stores
+    - httpx.AsyncClient for HTTP requests
+    - aiofiles for file I/O
+
+    Only use this for unavoidably synchronous operations like:
+    - pygrib GRIB parsing (no async alternative)
+    - Legacy libraries without async support
+
+    Parameters
+    ----------
+    func : Callable[..., T]
+        Blocking function to run in thread
+    *args : Any
+        Positional arguments for func
+    timeout : float, optional
+        Timeout in seconds, by default 30.0. After timeout, the coroutine
+        raises TimeoutError but the thread continues (cannot be killed).
+    **kwargs : Any
+        Keyword arguments for func
+
+    Returns
+    -------
+    T
+        Return value of func
+
+    Raises
+    ------
+    asyncio.TimeoutError
+        If the operation exceeds timeout. Note: the underlying thread
+        continues running - it cannot be force-killed in Python.
+    """
+    import asyncio
+
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(func, *args, **kwargs),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"Blocking operation {func.__name__} timed out after {timeout}s. "
+            "Note: underlying thread may still be running."
+        )
+        raise
+
+
 def get_msc_filesystem() -> filesystem | None:
     """This helper function checks if Multi-Storage Client is available and sets up
     the MSC configuration if needed.
