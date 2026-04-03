@@ -633,7 +633,7 @@ async def gather_with_concurrency(
     max_workers: int = 16,
     task_timeout: float | None = None,
     desc: str = "Fetching",
-    disable: bool = False,
+    verbose: bool = False,
 ) -> list[Any]:
     """Run coroutines with bounded concurrency and progress bar.
 
@@ -652,7 +652,7 @@ async def gather_with_concurrency(
         If a task exceeds this timeout, it raises asyncio.TimeoutError.
     desc : str, optional
         Progress bar description
-    disable : bool, optional
+    verbose : bool, optional
         Disable the progress bar
 
     Returns
@@ -676,7 +676,7 @@ async def gather_with_concurrency(
             return await coro
 
     bounded = [_bounded(c) for c in coros]
-    return await tqdm.gather(*bounded, desc=desc, disable=disable)
+    return await tqdm.gather(*bounded, desc=desc, disable=verbose)
 
 
 async def cancellable_to_thread(

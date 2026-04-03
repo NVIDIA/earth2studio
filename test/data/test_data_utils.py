@@ -771,7 +771,7 @@ async def test_gather_with_concurrency():
         return i * 2
 
     coros = [task(i) for i in range(5)]
-    out = await gather_with_concurrency(coros, max_workers=2, disable=True)
+    out = await gather_with_concurrency(coros, max_workers=2, verbose=True)
     assert out == [0, 2, 4, 6, 8]
 
 
