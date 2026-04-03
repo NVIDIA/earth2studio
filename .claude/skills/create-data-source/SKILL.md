@@ -1489,7 +1489,44 @@ def test_source_exceptions():
         ds(np.array([np.datetime64("2025-01-01T12:00:00")]), ["invalid"])
 ```
 
-### 12d. Test guidelines
+### 12d. Mock test (REQUIRED)
+
+Every data source **must** have at least one mock test that exercises
+the full `__call__` path without requiring network access, timeouts,
+or `xfail`. This ensures the data source can be tested in CI
+environments without credentials or network connectivity.
+
+Mock the download/fetch layer (e.g., `_download_products`) using
+`unittest.mock.patch` to return synthetic data files, then verify
+the DataFrame/DataArray output has the correct schema, shape, and
+content.
+
+Example pattern (for DataFrameSource):
+
+```python
+from unittest.mock import patch
+
+def test_source_call_mock(tmp_path):
+    """Mock the download layer to test __call__ without network."""
+    # Create a synthetic data file in tmp_path
+    # ...write minimal valid data to tmp_path / "mock_data.file"...
+
+    with patch(
+        "earth2studio.data.<module>.<ClassName>._download_products"
+    ) as mock_dl:
+        mock_dl.return_value = [str(tmp_path / "mock_data.file")]
+        ds = SourceName(cache=False)
+        df = ds(datetime(2025, 1, 1), ["var1"])
+
+        assert list(df.columns) == ds.SCHEMA.names
+        assert not df.empty
+        mock_dl.assert_called_once()
+```
+
+For DataSource / ForecastSource, write a synthetic NetCDF, GRIB, or
+Zarr file and mock `fetch_array` or the filesystem layer.
+
+### 12e. Test guidelines
 
 - **No docstrings** on test functions
 - Use **strategic parameterization** — minimize combinations
@@ -1499,6 +1536,8 @@ def test_source_exceptions():
 - Test both **single and list inputs** for time/variable
 - Test **cache=True and cache=False**
 - Test **availability / error handling**
+- **At least one mock test** per source (see 12d) — no network,
+  no timeout, no xfail
 - Run via: `make pytest TOX_ENV=test-data` or
   `pytest test/data/test_<filename>.py -v`
 
@@ -1521,7 +1560,8 @@ When pytest timeout fires:
 - If unavoidable, set test timeout **higher** than task timeouts
   (e.g., `@pytest.mark.timeout(60)` with 30s task timeout)
 - Use `@pytest.mark.xfail` for tests that might hang
-- Consider mocking blocking operations in unit tests
+- **Always include at least one mock test** (see 12d) that exercises
+  `__call__` without network, ensuring CI can validate the source
 
 ### **[CONFIRM — Tests]**
 
