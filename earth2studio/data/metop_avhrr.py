@@ -17,9 +17,11 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import pathlib
 import shutil
+import struct
 import uuid
 import zipfile
 from datetime import datetime, timedelta
@@ -42,13 +44,91 @@ from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 try:
     import eumdac
-    from satpy import Scene
 except ImportError:
     OptionalDependencyFailure("data")
     eumdac = None  # type: ignore[assignment]
-    Scene = None  # type: ignore[assignment,misc]
 
-# Spacecraft ID mapping
+# ---------------------------------------------------------------------------
+# AVHRR EPS native binary format constants
+# ---------------------------------------------------------------------------
+_GRH_SIZE = 20  # Generic Record Header
+
+# Record class identifiers
+_MPHR_RECORD_CLASS = 1
+_SPHR_RECORD_CLASS = 2
+_GIADR_RECORD_CLASS = 5
+_MDR_RECORD_CLASS = 8
+
+# Record subclass identifiers
+_GIADR_RADIANCE_SUBCLASS = 1
+_MDR_SUBCLASS = 2
+
+# Number of channels and navigation points
+_NUM_CHANNELS = 5  # Channels 1, 2, 3(a/b), 4, 5
+_DEFAULT_EARTH_VIEWS = 2048  # Pixels per scan line
+_NAV_NUM_POINTS = 103  # Tie-point navigation positions per scan line
+
+# Radiance scale factors per channel (raw_value * scale = physical radiance)
+# Derived from EPS PFS: Ch1,2,4,5 have SF=10^2, Ch3 has SF=10^4
+# Formula: scale = 10 / float("10e" + N) where SF = "10^N"
+_RADIANCE_SCALES = np.array([0.01, 0.01, 0.0001, 0.01, 0.01], dtype=np.float64)
+
+# Geolocation and angular scale factors
+_EARTH_LOCATION_SCALE = 0.0001  # 10^4 → degrees
+_ANGULAR_RELATION_SCALE = 0.01  # 10^2 → degrees
+
+# GIADR-radiance calibration field offsets (relative to payload start, after GRH)
+# Solar irradiance for visible channels (integer2, scale 0.1 → W/m²)
+_GIADR_CH1_SOLAR_IRRAD_OFFSET = 62  # 2 bytes
+_GIADR_CH2_SOLAR_IRRAD_OFFSET = 66  # 2 bytes
+_GIADR_CH3A_SOLAR_IRRAD_OFFSET = 70  # 2 bytes
+# Thermal channel calibration (integer4)
+_GIADR_CH3B_WAVENUMBER_OFFSET = 74  # scale 0.01 cm⁻¹
+_GIADR_CH3B_CONSTANT1_OFFSET = 78  # scale 0.00001 K
+_GIADR_CH3B_CONSTANT2_OFFSET = 82  # scale 0.000001 K/K
+_GIADR_CH4_WAVENUMBER_OFFSET = 86  # scale 0.001 cm⁻¹
+_GIADR_CH4_CONSTANT1_OFFSET = 90  # scale 0.00001 K
+_GIADR_CH4_CONSTANT2_OFFSET = 94  # scale 0.000001 K/K
+_GIADR_CH5_WAVENUMBER_OFFSET = 98  # scale 0.001 cm⁻¹
+_GIADR_CH5_CONSTANT1_OFFSET = 102  # scale 0.00001 K
+_GIADR_CH5_CONSTANT2_OFFSET = 106  # scale 0.000001 K/K
+
+# MDR field offsets (relative to start of MDR record, including GRH)
+# Computed from EPS PFS Annex: GRH(20) + DEGRADED(2) + EARTH_VIEWS(2)
+_MDR_SCENE_RADIANCES_OFFSET = 24  # integer2, (5, 2048)
+_MDR_SCENE_RADIANCES_SIZE = _NUM_CHANNELS * _DEFAULT_EARTH_VIEWS * 2  # 20480 bytes
+
+# After SCENE_RADIANCES: TIME_ATTITUDE(4) + EULER(6) + NAV_STATUS(4) + ALT(4)
+_MDR_ANG_REL_FIRST_OFFSET = (
+    _MDR_SCENE_RADIANCES_OFFSET + _MDR_SCENE_RADIANCES_SIZE + 18
+)  # integer2, (4,)
+_MDR_ANG_REL_LAST_OFFSET = _MDR_ANG_REL_FIRST_OFFSET + 8  # integer2, (4,)
+_MDR_EARTH_LOC_FIRST_OFFSET = _MDR_ANG_REL_LAST_OFFSET + 8  # integer4, (2,)
+_MDR_EARTH_LOC_LAST_OFFSET = _MDR_EARTH_LOC_FIRST_OFFSET + 8  # integer4, (2,)
+_MDR_NUM_NAV_POINTS_OFFSET = _MDR_EARTH_LOC_LAST_OFFSET + 8  # integer2
+_MDR_ANG_REL_OFFSET = _MDR_NUM_NAV_POINTS_OFFSET + 2  # integer2, (103, 4)
+_MDR_ANG_REL_SIZE = _NAV_NUM_POINTS * 4 * 2  # 824 bytes
+_MDR_EARTH_LOC_OFFSET = _MDR_ANG_REL_OFFSET + _MDR_ANG_REL_SIZE  # integer4, (103, 2)
+_MDR_EARTH_LOC_SIZE = _NAV_NUM_POINTS * 2 * 4  # 824 bytes
+
+# FRAME_INDICATOR offset: after EARTH_LOCATIONS + quality + calibration + cloud + frame_sync
+# This is deep in the record; we compute it relative to known fields
+# Quality(4) + ScanLine(4) + CalQuality(6) + CountError(2) +
+# vis calib (15*12=180) + ir calib (9*12=108) +
+# CLOUD_INFORMATION(2048*2=4096) + FRAME_SYNC(12)
+_MDR_QUALITY_OFFSET = _MDR_EARTH_LOC_OFFSET + _MDR_EARTH_LOC_SIZE  # u4
+_MDR_CLOUD_INFO_OFFSET = _MDR_QUALITY_OFFSET + 4 + 4 + 6 + 2 + 180 + 108  # u2, (2048,)
+_MDR_FRAME_SYNC_OFFSET = _MDR_CLOUD_INFO_OFFSET + 4096  # u2, (6,)
+_MDR_FRAME_INDICATOR_OFFSET = _MDR_FRAME_SYNC_OFFSET + 12  # u4
+
+# FRAME_INDICATOR bit 16: 0=channel 3b, 1=channel 3a
+_FRAME_IND_3A_MASK = 1 << 16
+
+# Planck constants for brightness temperature conversion
+_C1 = 1.191062e-05  # mW/(m²·sr·cm⁻⁴)
+_C2 = 1.4387863  # K·cm
+
+# Spacecraft ID mapping (from MPHR)
 _SPACECRAFT_MAP = {
     "1": "Metop-B",
     "2": "Metop-A",
@@ -59,171 +139,471 @@ _SPACECRAFT_MAP = {
     "M03": "Metop-C",
 }
 
-# Subsampling factor for AVHRR (2048 pixels/line is very dense)
+# Default subsampling factor for scan lines
 _DEFAULT_SUBSAMPLE = 16
 
-# AVHRR EPS native navigation constants
-_NAV_SAMPLE_RATE = 20  # pixels between navigation tie points
-_NAV_NUM_POINTS = 103  # number of tie-point positions per scan line
-_NAV_FIRST_PIXEL = 4  # 0-based pixel index of first tie point
+
+# ---------------------------------------------------------------------------
+# Calibration data class
+# ---------------------------------------------------------------------------
+class _AVHRRCalibration:
+    """Calibration coefficients parsed from GIADR-radiance record."""
+
+    __slots__ = (
+        "ch1_solar_irrad",
+        "ch2_solar_irrad",
+        "ch3a_solar_irrad",
+        "ch3b_wavenumber",
+        "ch3b_a",
+        "ch3b_b",
+        "ch4_wavenumber",
+        "ch4_a",
+        "ch4_b",
+        "ch5_wavenumber",
+        "ch5_a",
+        "ch5_b",
+    )
+
+    def __init__(self) -> None:
+        # Visible channel solar irradiances (W/m²)
+        self.ch1_solar_irrad: float = 0.0
+        self.ch2_solar_irrad: float = 0.0
+        self.ch3a_solar_irrad: float = 0.0
+        # Thermal channel calibration: wavenumber (cm⁻¹), A (K), B (K/K)
+        self.ch3b_wavenumber: float = 0.0
+        self.ch3b_a: float = 0.0
+        self.ch3b_b: float = 1.0
+        self.ch4_wavenumber: float = 0.0
+        self.ch4_a: float = 0.0
+        self.ch4_b: float = 1.0
+        self.ch5_wavenumber: float = 0.0
+        self.ch5_a: float = 0.0
+        self.ch5_b: float = 1.0
 
 
-def _parse_avhrr_with_satpy(
-    nat_file: str,
-    variables: list[str],
-    subsample: int = _DEFAULT_SUBSAMPLE,
-) -> pd.DataFrame:
-    """Parse an AVHRR Level 1B EPS native file using satpy.
+# ---------------------------------------------------------------------------
+# Binary format parsing functions
+# ---------------------------------------------------------------------------
+def _parse_grh(data: bytes, offset: int = 0) -> tuple[int, int, int, int]:
+    """Parse a Generic Record Header at the given offset.
 
-    Uses an optimized approach that loads only calibrated channel data through
-    satpy (avoiding expensive geolocation interpolation) and reads raw
-    navigation tie points directly from the EPS MDR records. This is ~12x
-    faster than loading full-resolution lat/lon through satpy.
+    Returns
+    -------
+    tuple
+        (record_class, instrument_group, record_subclass, record_size)
+    """
+    record_class = data[offset]
+    instrument_group = data[offset + 1]
+    record_subclass = data[offset + 2]
+    record_size = struct.unpack_from(">I", data, offset + 4)[0]
+    return record_class, instrument_group, record_subclass, record_size
+
+
+def _parse_mphr(data: bytes, rec_size: int) -> dict[str, str]:
+    """Parse the Main Product Header Record (ASCII key=value pairs).
 
     Parameters
     ----------
-    nat_file : str
-        Path to the .nat format AVHRR file
+    data : bytes
+        Raw MPHR record bytes (including GRH)
+    rec_size : int
+        Total record size in bytes
+
+    Returns
+    -------
+    dict[str, str]
+        Key-value pairs from the header
+    """
+    text = data[_GRH_SIZE:rec_size].decode("ascii", errors="replace")
+    result: dict[str, str] = {}
+    for line in text.split("\n"):
+        line = line.strip()
+        if "=" in line:
+            key, _, val = line.partition("=")
+            result[key.strip()] = val.strip()
+    return result
+
+
+def _parse_sensing_time(mphr: dict[str, str]) -> tuple[datetime, datetime]:
+    """Extract sensing start/end times from MPHR.
+
+    Parameters
+    ----------
+    mphr : dict[str, str]
+        Parsed MPHR key-value pairs
+
+    Returns
+    -------
+    tuple[datetime, datetime]
+        (sensing_start, sensing_end) as naive UTC datetimes
+    """
+    fmt = "%Y%m%d%H%M%S"
+    start_str = mphr.get("SENSING_START", "")
+    end_str = mphr.get("SENSING_END", "")
+    start = datetime.strptime(start_str[:14], fmt)
+    end = datetime.strptime(end_str[:14], fmt)
+    return start, end
+
+
+def _parse_giadr_radiance(data: bytes, offset: int, rec_size: int) -> _AVHRRCalibration:
+    """Parse a GIADR-radiance record for calibration coefficients.
+
+    Parameters
+    ----------
+    data : bytes
+        Complete file bytes
+    offset : int
+        Start of GIADR record (including GRH)
+    rec_size : int
+        Total record size
+
+    Returns
+    -------
+    _AVHRRCalibration
+        Parsed calibration coefficients
+    """
+    cal = _AVHRRCalibration()
+    payload = offset + _GRH_SIZE
+
+    # Visible solar irradiances (integer2, scale 0.1 → W/m²)
+    cal.ch1_solar_irrad = (
+        struct.unpack_from(">h", data, payload + _GIADR_CH1_SOLAR_IRRAD_OFFSET)[0] * 0.1
+    )
+    cal.ch2_solar_irrad = (
+        struct.unpack_from(">h", data, payload + _GIADR_CH2_SOLAR_IRRAD_OFFSET)[0] * 0.1
+    )
+    cal.ch3a_solar_irrad = (
+        struct.unpack_from(">h", data, payload + _GIADR_CH3A_SOLAR_IRRAD_OFFSET)[0]
+        * 0.1
+    )
+
+    # Ch3B: wavenumber (integer4, different scales)
+    # CH3B_CENTRAL_WAVENUMBER: SF=10^2 → scale=0.01
+    cal.ch3b_wavenumber = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH3B_WAVENUMBER_OFFSET)[0]
+        * 0.01
+    )
+    cal.ch3b_a = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH3B_CONSTANT1_OFFSET)[0]
+        * 0.00001
+    )
+    cal.ch3b_b = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH3B_CONSTANT2_OFFSET)[0]
+        * 0.000001
+    )
+
+    # Ch4: wavenumber SF=10^3 → scale=0.001
+    cal.ch4_wavenumber = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH4_WAVENUMBER_OFFSET)[0]
+        * 0.001
+    )
+    cal.ch4_a = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH4_CONSTANT1_OFFSET)[0]
+        * 0.00001
+    )
+    cal.ch4_b = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH4_CONSTANT2_OFFSET)[0]
+        * 0.000001
+    )
+
+    # Ch5: wavenumber SF=10^3 → scale=0.001
+    cal.ch5_wavenumber = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH5_WAVENUMBER_OFFSET)[0]
+        * 0.001
+    )
+    cal.ch5_a = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH5_CONSTANT1_OFFSET)[0]
+        * 0.00001
+    )
+    cal.ch5_b = (
+        struct.unpack_from(">i", data, payload + _GIADR_CH5_CONSTANT2_OFFSET)[0]
+        * 0.000001
+    )
+
+    return cal
+
+
+def _radiance_to_bt(
+    radiance: np.ndarray, wavenumber: float, a: float, b: float
+) -> np.ndarray:
+    """Convert spectral radiance to brightness temperature.
+
+    Uses inverse Planck with band correction: BT = A + B * (C2*ν / ln(1 + C1*ν³/L))
+
+    Parameters
+    ----------
+    radiance : np.ndarray
+        Spectral radiance in mW/(m²·sr·cm⁻¹)
+    wavenumber : float
+        Central wavenumber (cm⁻¹)
+    a : float
+        Band correction intercept (K)
+    b : float
+        Band correction slope (K/K)
+
+    Returns
+    -------
+    np.ndarray
+        Brightness temperature (K)
+    """
+    valid = radiance > 0
+    bt = np.full_like(radiance, np.nan, dtype=np.float64)
+    r = radiance[valid]
+    t_planck = _C2 * wavenumber / np.log(1.0 + _C1 * wavenumber**3 / r)
+    bt[valid] = a + b * t_planck
+    return bt
+
+
+def _radiance_to_refl(radiance: np.ndarray, solar_irrad: float) -> np.ndarray:
+    """Convert radiance to reflectance percentage.
+
+    Formula: reflectance(%) = radiance * π * 100 / solar_irradiance
+
+    Parameters
+    ----------
+    radiance : np.ndarray
+        Radiance in W/(m²·sr)
+    solar_irrad : float
+        Solar filtered irradiance (W/m²)
+
+    Returns
+    -------
+    np.ndarray
+        Reflectance (%)
+    """
+    valid = (radiance > 0) & (solar_irrad > 0)
+    refl = np.full_like(radiance, np.nan, dtype=np.float64)
+    refl[valid] = radiance[valid] * np.pi * 100.0 / solar_irrad
+    return refl
+
+
+def _parse_native_avhrr(
+    data: bytes,
+    variables: list[str],
+    subsample: int = _DEFAULT_SUBSAMPLE,
+) -> pd.DataFrame:
+    """Parse an AVHRR Level 1B EPS native binary file.
+
+    Reads the binary file record by record, extracts calibration
+    coefficients from GIADR, and measurement data from MDR records.
+    Visible channels are calibrated to reflectance (%); thermal channels
+    are calibrated to brightness temperature (K).
+
+    Parameters
+    ----------
+    data : bytes
+        Complete file contents of an AVHRR .nat file
     variables : list[str]
         E2S variable names to extract (e.g. ["avhrr01", "avhrr04"])
     subsample : int, optional
-        Scan-line subsampling factor to reduce data volume, by default 16.
-        Across-track sampling uses the 103 EPS navigation tie points
-        (every 20th pixel) regardless of this setting.
+        Scan-line subsampling factor, by default 16.
+        Across-track uses 103 EPS navigation tie points.
 
     Returns
     -------
     pd.DataFrame
-        One row per (pixel, channel) observation with columns:
-        time, lat, lon, observation, variable, satellite,
-        scan_angle, channel_index, solza, solaza, satellite_za, satellite_aza
+        One row per (pixel, channel) observation.
     """
-    import dask
-
-    dask.config.set(num_workers=4)
-
-    scn = Scene(reader="avhrr_l1b_eps", filenames=[nat_file])
-
-    # Map e2s variable names to satpy dataset names
-    var_to_satpy: dict[str, str] = {}
-    for v in variables:
-        satpy_name, _ = MetOpAVHRRLexicon[v]
-        var_to_satpy[v] = satpy_name
-
-    # Load only channel data (calibrated BT/radiance) — no geo datasets.
-    # This triggers _read_all() internally but skips the expensive
-    # geotie-point interpolation that satpy performs for lat/lon.
-    satpy_datasets = list(set(var_to_satpy.values()))
-    try:
-        scn.load(satpy_datasets, generate=False)
-    except Exception as exc:
-        logger.warning("Failed to load datasets from {}: {}", nat_file, exc)
+    file_size = len(data)
+    if file_size < _GRH_SIZE:
         return pd.DataFrame()
 
-    # Access raw MDR records from satpy's file handler.
-    # After scn.load(), the file handler has already parsed the binary file.
-    reader = list(scn._readers.values())[0]
-    fh = list(reader.file_handlers.values())[0][0]
-    mdr = fh.sections[("mdr", np.int8(2))]
+    # Step 1: Parse MPHR (first record)
+    rc, _, _, rec_size = _parse_grh(data, 0)
+    if rc != _MPHR_RECORD_CLASS or rec_size > file_size:
+        logger.warning("First record is not MPHR (class={})", rc)
+        return pd.DataFrame()
 
-    # Read raw navigation tie points (103 per scan line, subsampled by line).
-    # EARTH_LOCATIONS: (n_scans, 103, 2) big-endian int32, scale 1e4 degrees.
-    # ANGULAR_RELATIONS: (n_scans, 103, 4) big-endian int16, scale 1e2 degrees.
-    # Order within dim-2: [solar_zenith, sat_zenith, solar_azimuth, sat_azimuth].
-    el = mdr["EARTH_LOCATIONS"][::subsample].compute()  # (N, 103, 2)
-    ar = mdr["ANGULAR_RELATIONS"][::subsample].compute()  # (N, 103, 4)
+    mphr = _parse_mphr(data, rec_size)
+    sensing_start, sensing_end = _parse_sensing_time(mphr)
 
-    lats = (el[:, :, 0] / 1e4).astype(np.float32)
-    lons = (el[:, :, 1] / 1e4).astype(np.float32)
-    # Convert [-180, 180] -> [0, 360]
-    lons = np.where(lons < 0, lons + 360.0, lons)
+    spacecraft_id = mphr.get("SPACECRAFT_ID", "")
+    satellite = _SPACECRAFT_MAP.get(spacecraft_id, f"Metop-{spacecraft_id}")
 
-    solza = (ar[:, :, 0] / 100.0).astype(np.float32)
-    satza = (ar[:, :, 1] / 100.0).astype(np.float32)
-    solazi = (ar[:, :, 2] / 100.0).astype(np.float32)
-    satazi = (ar[:, :, 3] / 100.0).astype(np.float32)
+    # Step 2: Scan all records — find GIADR-radiance and MDR offsets
+    calibration: _AVHRRCalibration | None = None
+    mdr_offsets: list[int] = []
+    offset = 0
 
-    n_lines, n_cols = lats.shape  # (subsampled scan lines, 103 tie points)
-    n_pixels = n_lines * n_cols
+    while offset + _GRH_SIZE <= file_size:
+        rc, _, sc, rec_size = _parse_grh(data, offset)
+        if rec_size < _GRH_SIZE or offset + rec_size > file_size:
+            break
 
-    # Extract satellite name and sensing times from scene attributes
-    satellite = "Metop"
-    start_time: datetime | None = None
-    end_time: datetime | None = None
-    for ds_name in satpy_datasets:
-        if ds_name in scn:
-            attrs = scn[ds_name].attrs
-            platform_name = attrs.get("platform_name", "")
-            if platform_name:
-                satellite = platform_name
-            if start_time is None:
-                start_time = attrs.get("start_time")
-                end_time = attrs.get("end_time")
+        if rc == _GIADR_RECORD_CLASS and sc == _GIADR_RADIANCE_SUBCLASS:
+            calibration = _parse_giadr_radiance(data, offset, rec_size)
 
-    if start_time is None:
-        start_time = datetime(2000, 1, 1)
-    if end_time is None:
-        end_time = start_time
+        elif rc == _MDR_RECORD_CLASS and sc == _MDR_SUBCLASS:
+            mdr_offsets.append(offset)
 
-    # Compute per-scan-line times (linear interpolation between start/end)
-    total_seconds = (end_time - start_time).total_seconds()
-    # n_lines is the subsampled count; map back to original line indices
-    n_total_lines = el.shape[0]  # same as n_lines (already subsampled above)
-    if n_total_lines > 1:
-        dt_per_line = total_seconds / (n_total_lines - 1)
-    else:
-        dt_per_line = 0.0
+        offset += rec_size
 
+    if calibration is None:
+        logger.warning("No GIADR-radiance record found in AVHRR file")
+        return pd.DataFrame()
+
+    n_total_scans = len(mdr_offsets)
+    if n_total_scans == 0:
+        logger.warning("No MDR records found in AVHRR file")
+        return pd.DataFrame()
+
+    # Step 3: Subsample scan lines
+    selected_scans = list(range(0, n_total_scans, subsample))
+    n_scans = len(selected_scans)
+    n_pixels = n_scans * _NAV_NUM_POINTS
+
+    # Step 4: Map requested variables to channel info
+    # Channel index in SCENE_RADIANCES: 0=ch1, 1=ch2, 2=ch3a/3b, 3=ch4, 4=ch5
+    channel_map: dict[str, dict] = {
+        "avhrr01": {"rad_idx": 0, "type": "vis", "ch_num": 1},
+        "avhrr02": {"rad_idx": 1, "type": "vis", "ch_num": 2},
+        "avhrr3a": {"rad_idx": 2, "type": "vis", "ch_num": 3},
+        "avhrr3b": {"rad_idx": 2, "type": "ir", "ch_num": 4},
+        "avhrr04": {"rad_idx": 3, "type": "ir", "ch_num": 5},
+        "avhrr05": {"rad_idx": 4, "type": "ir", "ch_num": 6},
+    }
+
+    requested_channels = {v: channel_map[v] for v in variables if v in channel_map}
+    if not requested_channels:
+        return pd.DataFrame()
+
+    # Step 5: Pre-allocate arrays for geolocation (shared across channels)
+    lats = np.empty(n_pixels, dtype=np.float32)
+    lons = np.empty(n_pixels, dtype=np.float32)
+    solza = np.empty(n_pixels, dtype=np.float32)
+    satza = np.empty(n_pixels, dtype=np.float32)
+    solazi = np.empty(n_pixels, dtype=np.float32)
+    satazi = np.empty(n_pixels, dtype=np.float32)
     times = np.empty(n_pixels, dtype="datetime64[ns]")
-    for i in range(n_lines):
-        line_time = start_time + timedelta(seconds=i * dt_per_line)
-        line_ns = np.datetime64(line_time, "ns")
-        times[i * n_cols : (i + 1) * n_cols] = line_ns
 
-    lat_flat = lats.ravel()
-    lon_flat = lons.ravel()
-    solza_flat = solza.ravel()
-    satza_flat = satza.ravel()
-    solazi_flat = solazi.ravel()
-    satazi_flat = satazi.ravel()
+    # Pre-allocate raw radiance for all 5 channels at tie points
+    raw_radiances = np.empty((n_pixels, _NUM_CHANNELS), dtype=np.float64)
+    # Frame indicator per scan line (for 3a/3b switching)
+    frame_indicators = np.empty(n_scans, dtype=np.uint32)
+
+    # Compute per-scan time interpolation
+    total_seconds = (sensing_end - sensing_start).total_seconds()
+    if n_total_scans > 1:
+        dt_per_scan = total_seconds / (n_total_scans - 1)
+    else:
+        dt_per_scan = 0.0
 
     # Pixel indices of the 103 navigation tie points across track
-    nav_cols = np.arange(
-        _NAV_FIRST_PIXEL,
-        _NAV_FIRST_PIXEL + _NAV_NUM_POINTS * _NAV_SAMPLE_RATE,
-        _NAV_SAMPLE_RATE,
-    )[:_NAV_NUM_POINTS]
+    nav_cols = np.arange(4, 4 + _NAV_NUM_POINTS * 20, 20)[:_NAV_NUM_POINTS]
 
-    # Build per-channel DataFrames, sampling channel data at tie-point columns
+    # Step 6: Read MDR records
+    for i, scan_global_idx in enumerate(selected_scans):
+        mdr_off = mdr_offsets[scan_global_idx]
+        base = i * _NAV_NUM_POINTS
+
+        # Time for this scan line
+        scan_time = sensing_start + timedelta(seconds=scan_global_idx * dt_per_scan)
+        times[base : base + _NAV_NUM_POINTS] = np.datetime64(scan_time, "ns")
+
+        # SCENE_RADIANCES: integer2, (5, 2048) at MDR offset 24
+        # We only need values at the 103 tie-point pixel columns
+        rad_off = mdr_off + _MDR_SCENE_RADIANCES_OFFSET
+        for ch in range(_NUM_CHANNELS):
+            for tp in range(_NAV_NUM_POINTS):
+                pixel_col = nav_cols[tp]
+                byte_off = rad_off + (ch * _DEFAULT_EARTH_VIEWS + pixel_col) * 2
+                raw_val = struct.unpack_from(">h", data, byte_off)[0]
+                raw_radiances[base + tp, ch] = raw_val * _RADIANCE_SCALES[ch]
+
+        # ANGULAR_RELATIONS: integer2, (103, 4) — interleaved per point
+        ang_off = mdr_off + _MDR_ANG_REL_OFFSET
+        raw_ang = struct.unpack_from(f">{_NAV_NUM_POINTS * 4}h", data, ang_off)
+        ang = np.array(raw_ang, dtype=np.float32) * _ANGULAR_RELATION_SCALE
+        # Shape: (103*4,) interleaved as (solza0,satza0,solazi0,satazi0,solza1,...)
+        solza[base : base + _NAV_NUM_POINTS] = ang[0::4]
+        satza[base : base + _NAV_NUM_POINTS] = ang[1::4]
+        solazi[base : base + _NAV_NUM_POINTS] = ang[2::4]
+        satazi[base : base + _NAV_NUM_POINTS] = ang[3::4]
+
+        # EARTH_LOCATIONS: integer4, (103, 2) — interleaved (lat0,lon0,lat1,lon1,...)
+        loc_off = mdr_off + _MDR_EARTH_LOC_OFFSET
+        raw_loc = struct.unpack_from(f">{_NAV_NUM_POINTS * 2}i", data, loc_off)
+        loc = np.array(raw_loc, dtype=np.float64) * _EARTH_LOCATION_SCALE
+        lat_vals = loc[0::2].astype(np.float32)
+        lon_vals = loc[1::2]
+        lon_vals = np.where(lon_vals < 0, lon_vals + 360.0, lon_vals).astype(np.float32)
+        lats[base : base + _NAV_NUM_POINTS] = lat_vals
+        lons[base : base + _NAV_NUM_POINTS] = lon_vals
+
+        # FRAME_INDICATOR: u4
+        frame_indicators[i] = struct.unpack_from(
+            ">I", data, mdr_off + _MDR_FRAME_INDICATOR_OFFSET
+        )[0]
+
+    # Step 7: Calibrate and build per-channel DataFrames
     frames: list[pd.DataFrame] = []
-    channel_num_map = {"1": 1, "2": 2, "3a": 3, "3b": 4, "4": 5, "5": 6}
 
-    for e2s_var, satpy_name in var_to_satpy.items():
-        try:
-            # Subsample scan lines, pick tie-point pixel columns
-            data = scn[satpy_name].values[::subsample][:, nav_cols]
-        except (KeyError, IndexError):
-            logger.warning("Dataset '{}' not available, skipping", satpy_name)
-            continue
+    for e2s_var, ch_info in requested_channels.items():
+        rad_idx = ch_info["rad_idx"]
+        ch_type = ch_info["type"]
+        ch_num = ch_info["ch_num"]
 
-        obs = data.ravel().astype(np.float32)
-        ch_idx = MetOpAVHRRLexicon.VOCAB[e2s_var]
-        ch_num = channel_num_map.get(ch_idx, 0)
+        raw_rad = raw_radiances[:, rad_idx].copy()
+
+        if ch_type == "vis":
+            # Visible channel → reflectance (%)
+            solar_irrad_map = {
+                0: calibration.ch1_solar_irrad,
+                1: calibration.ch2_solar_irrad,
+                2: calibration.ch3a_solar_irrad,
+            }
+            solar_irrad = solar_irrad_map[rad_idx]
+            obs = _radiance_to_refl(raw_rad, solar_irrad).astype(np.float32)
+
+            # For ch3a: mask out scan lines where 3b is active (bit16=0)
+            if e2s_var == "avhrr3a":
+                for i_scan in range(n_scans):
+                    if (frame_indicators[i_scan] & _FRAME_IND_3A_MASK) == 0:
+                        base = i_scan * _NAV_NUM_POINTS
+                        obs[base : base + _NAV_NUM_POINTS] = np.nan
+        else:
+            # Thermal channel → brightness temperature (K)
+            ir_cal_map = {
+                "avhrr3b": (
+                    calibration.ch3b_wavenumber,
+                    calibration.ch3b_a,
+                    calibration.ch3b_b,
+                ),
+                "avhrr04": (
+                    calibration.ch4_wavenumber,
+                    calibration.ch4_a,
+                    calibration.ch4_b,
+                ),
+                "avhrr05": (
+                    calibration.ch5_wavenumber,
+                    calibration.ch5_a,
+                    calibration.ch5_b,
+                ),
+            }
+            wn, a, b = ir_cal_map[e2s_var]
+            obs = _radiance_to_bt(raw_rad, wn, a, b).astype(np.float32)
+
+            # For ch3b: mask out scan lines where 3a is active (bit16=1)
+            if e2s_var == "avhrr3b":
+                for i_scan in range(n_scans):
+                    if (frame_indicators[i_scan] & _FRAME_IND_3A_MASK) != 0:
+                        base_idx = i_scan * _NAV_NUM_POINTS
+                        obs[base_idx : base_idx + _NAV_NUM_POINTS] = np.nan
 
         df = pd.DataFrame(
             {
                 "time": pd.to_datetime(times),
-                "lat": lat_flat,
-                "lon": lon_flat,
+                "lat": lats,
+                "lon": lons,
                 "observation": obs,
                 "variable": e2s_var,
                 "satellite": satellite,
-                "scan_angle": satza_flat,
+                "scan_angle": satza,
                 "channel_index": np.full(n_pixels, ch_num, dtype=np.uint16),
-                "solza": solza_flat,
-                "solaza": solazi_flat,
-                "satellite_za": satza_flat,
-                "satellite_aza": satazi_flat,
+                "solza": solza,
+                "solaza": solazi,
+                "satellite_za": satza,
+                "satellite_aza": satazi,
             }
         )
         frames.append(df)
@@ -254,8 +634,12 @@ class MetOpAVHRR:
     and 3B cannot operate simultaneously.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
-    and uses the satpy ``avhrr_l1b_eps`` reader to parse the EPS native
-    binary format.
+    and parses the EPS native binary format directly. Calibration coefficients
+    are read from the GIADR-radiance record; visible channels are converted
+    to reflectance (%), thermal channels to brightness temperature (K).
+
+    Geolocation uses the 103 EPS navigation tie points per scan line
+    (~20 km spacing), avoiding expensive full-resolution interpolation.
 
     Parameters
     ----------
@@ -263,8 +647,8 @@ class MetOpAVHRR:
         Satellite platform filter. One of "Metop-B", "Metop-C", or None
         (all available). By default None.
     subsample : int, optional
-        Spatial subsampling factor. AVHRR has 2048 pixels per scan line;
-        subsampling reduces data volume. By default 16.
+        Scan-line subsampling factor. AVHRR produces ~1000+ scan lines per
+        orbit; subsampling reduces data volume. By default 16.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple (lower, upper) for asymmetric
@@ -447,15 +831,12 @@ class MetOpAVHRR:
             )
             return self._empty_dataframe(schema)
 
-        # Parse each product with satpy
+        # Parse each product file
         frames: list[pd.DataFrame] = []
         for fpath in nat_files:
-            df = await asyncio.to_thread(
-                _parse_avhrr_with_satpy,
-                fpath,
-                variable_list,
-                self._subsample,
-            )
+            with open(fpath, "rb") as f:
+                raw = f.read()
+            df = _parse_native_avhrr(raw, variable_list, self._subsample)
             if not df.empty:
                 frames.append(df)
 
@@ -512,7 +893,6 @@ class MetOpAVHRR:
             "dtend": dt_end,
         }
         if self._satellite:
-            # eumdac search API expects friendly satellite names
             search_kwargs["sat"] = self._satellite
 
         products = collection.search(**search_kwargs)
@@ -550,8 +930,6 @@ class MetOpAVHRR:
 
                 # Handle ZIP-wrapped products
                 if raw[:2] == b"PK":
-                    import io
-
                     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
                         nat_names = [n for n in zf.namelist() if n.endswith(".nat")]
                         if nat_names:

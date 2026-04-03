@@ -32,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Added `eumdac>=3.1.0` to `data` optional dependency group for EUMETSAT Data Store access
-- Added `satpy>=0.50.0` to `data` optional dependency group for AVHRR EPS native format parsing
 
 ## [0.13.0] - 2026-03-20
 
