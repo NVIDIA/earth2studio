@@ -107,6 +107,10 @@ class OutputManager:
             self._executor.shutdown(wait=True)
             self._futures.clear()
 
+        if exc_type is not None:
+            logger.warning(f"Skipping barrier/consolidation due to exception: {exc_val}")
+            return
+
         if self._dist.distributed:
             torch.distributed.barrier()
 
@@ -173,12 +177,16 @@ class OutputManager:
             total["ensemble"] = np.arange(ensemble_size)
         total["time"] = times
 
+        zero = np.array([np.timedelta64(0, "ns")])
         step_lead = output_c["lead_time"]
         step_stride = step_lead[-1]
-        total["lead_time"] = (
-            np.asarray([step_lead + step_stride * i for i in range(nsteps + 1)])
-            .flatten()
-            .astype("timedelta64[ns]")
+        total["lead_time"] = np.concatenate(
+            [
+                zero,
+                np.asarray([step_lead + step_stride * i for i in range(nsteps)])
+                .flatten()
+                .astype("timedelta64[ns]"),
+            ]
         )
 
         for dim in ("lat", "lon"):

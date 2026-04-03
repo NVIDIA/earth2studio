@@ -47,8 +47,8 @@ torchrun --nproc_per_node=$NGPU --standalone main.py
 ```
 
 Work items (one per initial-time / ensemble-member pair) are partitioned
-automatically and evenly across ranks. Unlike the S2S recipe, remainder
-items are absorbed by the last rank rather than requiring exact divisibility.
+automatically and evenly across ranks. Remainder
+items are absorbed by the first rank rather than requiring exact divisibility.
 
 ## Configuration
 

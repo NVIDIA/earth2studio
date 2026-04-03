@@ -33,7 +33,6 @@ import os
 import sys
 import traceback
 from collections import OrderedDict
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -45,11 +44,6 @@ from src.work import build_work_items, distribute_work
 
 from earth2studio.data import Random
 from earth2studio.models.px import Persistence
-
-# Ensure the recipe root (parent of tests/) is on sys.path
-_RECIPE_ROOT = str(Path(__file__).resolve().parents[1])
-if _RECIPE_ROOT not in sys.path:
-    sys.path.insert(0, _RECIPE_ROOT)
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)

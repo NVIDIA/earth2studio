@@ -16,9 +16,7 @@
 
 from __future__ import annotations
 
-import sys
 from collections import OrderedDict
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -26,11 +24,6 @@ from omegaconf import OmegaConf
 
 from earth2studio.data import Random
 from earth2studio.models.px import Persistence
-
-# Ensure the recipe root is importable so ``from src.…`` works.
-_RECIPE_ROOT = Path(__file__).resolve().parents[1]
-if str(_RECIPE_ROOT) not in sys.path:
-    sys.path.insert(0, str(_RECIPE_ROOT))
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)

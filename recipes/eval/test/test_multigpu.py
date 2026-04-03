@@ -23,6 +23,7 @@ number of GPUs are available.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,15 +32,18 @@ import pytest
 import torch
 
 _WORKER = str(Path(__file__).with_name("_multigpu_worker.py"))
+_RECIPE_ROOT = str(Path(__file__).resolve().parents[1])
 
 _requires_2_gpus = pytest.mark.skipif(
     not torch.cuda.is_available() or torch.cuda.device_count() < 2,
     reason="Requires at least 2 CUDA GPUs",
 )
 
+
 def _run_worker(
     test_name: str, nproc: int, output_dir: str, timeout: int = 120
 ) -> subprocess.CompletedProcess:
+    env = {**os.environ, "PYTHONPATH": _RECIPE_ROOT}
     cmd = [
         sys.executable,
         "-m",
@@ -53,11 +57,12 @@ def _run_worker(
         output_dir,
     ]
     return subprocess.run(
-        cmd, # noqa: S603
+        cmd,  # noqa: S603
         capture_output=True,
         text=True,
         timeout=timeout,
-        cwd=str(Path(__file__).resolve().parents[1]),
+        cwd=_RECIPE_ROOT,
+        env=env,
     )
 
 

@@ -27,6 +27,10 @@ override-dependencies = ["onnx; python_full_version < '3.13'"]
 [tool.uv.sources]
 earth2studio = { path = "../../", editable = true }
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]
+
 [tool.hatch.build.targets.sdist]
 include = ["src/**/*.py"]
 exclude = []
