@@ -16,15 +16,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import os
+import random
 import tempfile
 import time
 import typing
 import weakref
 from collections import OrderedDict
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
@@ -42,6 +45,7 @@ from fsspec.implementations.cache_mapper import create_cache_mapper
 from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.utils import isfilelike
 from loguru import logger
+from tqdm.asyncio import tqdm
 
 from earth2studio.data.base import (
     DataFrameSource,
@@ -506,8 +510,6 @@ def ensure_utc(time: datetime) -> datetime:
     datetime
         Naive datetime in UTC
     """
-    from datetime import timezone
-
     if time.tzinfo is not None:
         time = time.astimezone(timezone.utc).replace(tzinfo=None)
     return time
@@ -555,9 +557,6 @@ async def async_retry(
     asyncio.TimeoutError
         If task_timeout is exceeded on the final attempt
     """
-    import asyncio
-    import random
-
     last_exc: BaseException | None = None
     for attempt in range(retries + 1):
         try:
@@ -609,7 +608,6 @@ async def managed_session(fs: Any) -> Any:
             # fetch data here - session will be closed even on error
             await gather_with_concurrency(coros, ...)
     """
-    from contextlib import asynccontextmanager
 
     @asynccontextmanager
     async def _managed_session_impl() -> Any:
@@ -664,10 +662,6 @@ async def gather_with_concurrency(
     Exception
         Any exception raised by a coroutine is propagated
     """
-    import asyncio
-
-    from tqdm.asyncio import tqdm
-
     semaphore = asyncio.Semaphore(max_workers)
 
     async def _bounded(coro: Any) -> Any:
@@ -728,8 +722,6 @@ async def cancellable_to_thread(
         If the operation exceeds timeout. Note: the underlying thread
         continues running - it cannot be force-killed in Python.
     """
-    import asyncio
-
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(func, *args, **kwargs),
