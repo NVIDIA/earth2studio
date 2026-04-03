@@ -142,7 +142,7 @@ def _run_single_forecast(
 
     if perturbation is not None:
         torch.manual_seed(item.seed)
-        x, coords = run_on_rank0_first(perturbation, x, coords)
+        x, coords = perturbation(x, coords)
 
     model_iter = prognostic.create_iterator(x, coords)
 

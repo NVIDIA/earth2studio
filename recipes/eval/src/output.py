@@ -107,12 +107,12 @@ class OutputManager:
             self._executor.shutdown(wait=True)
             self._futures.clear()
 
+        if self._dist.distributed:
+            torch.distributed.barrier()
+
         if self._dist.rank == 0 and self._io is not None:
             logger.info("Consolidating zarr metadata")
             zarr.consolidate_metadata(self._io.store)
-
-        if self._dist.distributed:
-            torch.distributed.barrier()
 
     # ------------------------------------------------------------------
     # Public API
@@ -174,8 +174,9 @@ class OutputManager:
         total["time"] = times
 
         step_lead = output_c["lead_time"]
+        step_stride = step_lead[-1]
         total["lead_time"] = (
-            np.asarray([step_lead * i for i in range(nsteps + 1)])
+            np.asarray([step_lead + step_stride * i for i in range(nsteps + 1)])
             .flatten()
             .astype("timedelta64[ns]")
         )

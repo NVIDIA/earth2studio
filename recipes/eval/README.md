@@ -24,8 +24,6 @@ Install the required packages:
 ```bash
 # With uv
 uv sync
-# With pip
-pip install -r pyproject.toml
 ```
 
 Run a deterministic DLWP forecast:
