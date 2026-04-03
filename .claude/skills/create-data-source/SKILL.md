@@ -149,9 +149,12 @@ Present:
 
 1. The storage backend and access pattern
 2. The fsspec filesystem to use (or justification for a dedicated library)
-3. Any new packages to add (or "none needed — all deps already present")
-4. How authentication works (env vars, config file, anonymous)
-5. Ask if the analysis looks correct
+3. Any new packages to add (or "none needed — all deps already present"),
+   including **license name and link** for each new dependency
+4. Flag any non-permissive licenses (GPL, AGPL, SSPL) that may
+   conflict with Apache-2.0
+5. How authentication works (env vars, config file, anonymous)
+6. Ask if the analysis looks correct
 
 ---
 
@@ -2092,8 +2095,21 @@ Closes #<issue_number> (if applicable)
 
 ### Dependencies added
 
-- `<package>=<version>` — <brief reason> (added to `data` extras)
-- *(or "No new dependencies needed")*
+| Package | Version | License | License URL | Reason |
+|---|---|---|---|---|
+| `<package>` | `>=X.Y` | <License name> | [link](<URL to license>) | <brief reason> |
+
+*(or "No new dependencies needed")*
+
+When filling this table, look up each new dependency's license:
+
+1. Check the package's PyPI page (`https://pypi.org/project/<package>/`)
+   or its repository for the license type
+2. Link directly to the license file (e.g., GitHub raw LICENSE or
+   PyPI license classifier URL)
+3. Flag any **non-permissive licenses** (GPL, AGPL, SSPL) — these
+   may be incompatible with the project's Apache-2.0 license and
+   require team review before merging
 
 ### Reference plot
 
