@@ -651,7 +651,7 @@ await gather_with_concurrency(
     max_workers=self._async_workers,  # Default 16
     task_timeout=60.0,  # Optional per-task timeout
     desc="Fetching <Source> data",
-    disable=(not self._verbose),
+    verbose=(not self._verbose),
 )
 ```
 
