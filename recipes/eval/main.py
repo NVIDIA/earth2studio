@@ -38,11 +38,8 @@ def main(cfg: DictConfig) -> None:
     all_items = build_work_items(cfg)
     my_items = distribute_work(all_items, dist.rank, dist.world_size)
 
-    if not my_items:
-        logger.info(f"Rank {dist.rank}: nothing to do, exiting cleanly.")
-        return
-
     # --- Load models --------------------------------------------------------
+    # All ranks must participate so barriers inside run_on_rank0_first are met.
     prognostic = load_prognostic(cfg)
     diagnostics = load_diagnostics(cfg)
 
@@ -58,6 +55,8 @@ def main(cfg: DictConfig) -> None:
     all_times = np.array(sorted({item.time for item in all_items}))
 
     # --- Run inference with managed output ----------------------------------
+    # OutputManager.__enter__/__exit__ contain barriers, so every rank must
+    # enter the context manager even if it has no work items.
     with OutputManager(
         cfg,
         prognostic=prognostic,
@@ -65,15 +64,18 @@ def main(cfg: DictConfig) -> None:
         nsteps=cfg.nsteps,
         ensemble_size=cfg.get("ensemble_size", 1),
     ) as output_mgr:
-        run_inference(
-            work_items=my_items,
-            prognostic=prognostic,
-            data_source=data_source,
-            output_mgr=output_mgr,
-            nsteps=cfg.nsteps,
-            perturbation=perturbation,
-            diagnostics=diagnostics,
-        )
+        if my_items:
+            run_inference(
+                work_items=my_items,
+                prognostic=prognostic,
+                data_source=data_source,
+                output_mgr=output_mgr,
+                nsteps=cfg.nsteps,
+                perturbation=perturbation,
+                diagnostics=diagnostics,
+            )
+        else:
+            logger.info(f"Rank {dist.rank}: no work items, waiting at barrier.")
 
     logger.success("Eval recipe finished.")
 

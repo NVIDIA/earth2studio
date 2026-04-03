@@ -107,8 +107,18 @@ class OutputManager:
             self._executor.shutdown(wait=True)
             self._futures.clear()
 
-        if exc_type is not None:
-            logger.warning(f"Skipping barrier/consolidation due to exception: {exc_val}")
+        has_error = exc_type is not None
+        if self._dist.distributed:
+            err_flag = torch.tensor(
+                [1.0 if has_error else 0.0], device="cuda" if torch.cuda.is_available() else "cpu"
+            )
+            torch.distributed.all_reduce(err_flag, op=torch.distributed.ReduceOp.MAX)
+            any_error = err_flag.item() > 0
+        else:
+            any_error = has_error
+
+        if any_error:
+            logger.warning(f"Skipping barrier/consolidation due to error (local={has_error})")
             return
 
         if self._dist.distributed:
