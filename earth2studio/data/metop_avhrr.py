@@ -139,9 +139,6 @@ _SPACECRAFT_MAP = {
     "M03": "Metop-C",
 }
 
-# Default subsampling factor for scan lines
-_DEFAULT_SUBSAMPLE = 16
-
 
 # ---------------------------------------------------------------------------
 # Calibration data class
@@ -380,7 +377,7 @@ def _radiance_to_refl(radiance: np.ndarray, solar_irrad: float) -> np.ndarray:
 def _parse_native_avhrr(
     data: bytes,
     variables: list[str],
-    subsample: int = _DEFAULT_SUBSAMPLE,
+    subsample: int = 1,
 ) -> pd.DataFrame:
     """Parse an AVHRR Level 1B EPS native binary file.
 
@@ -648,7 +645,7 @@ class MetOpAVHRR:
         (all available). By default None.
     subsample : int, optional
         Scan-line subsampling factor. AVHRR produces ~1000+ scan lines per
-        orbit; subsampling reduces data volume. By default 16.
+        orbit; subsampling reduces data volume. By default 1.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple (lower, upper) for asymmetric
@@ -686,7 +683,7 @@ class MetOpAVHRR:
 
     Badges
     ------
-    region:global dataclass:observation product:temp product:sat
+    region:global dataclass:observation product:sat
     """
 
     SOURCE_ID = "earth2studio.data.metop_avhrr"
@@ -712,7 +709,7 @@ class MetOpAVHRR:
     def __init__(
         self,
         satellite: str | None = None,
-        subsample: int = _DEFAULT_SUBSAMPLE,
+        subsample: int = 1,
         time_tolerance: TimeTolerance = np.timedelta64(1, "h"),
         cache: bool = True,
         verbose: bool = True,

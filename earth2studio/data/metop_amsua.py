@@ -442,7 +442,7 @@ class MetOpAMSUA:
 
     Badges
     ------
-    region:global dataclass:observation product:temp product:sat
+    region:global dataclass:observation product:sat
     """
 
     SOURCE_ID = "earth2studio.data.metop_amsua"
