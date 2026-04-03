@@ -1595,11 +1595,15 @@ Confirm no regressions.
 
 ---
 
-## Step 14 — Create Sanity-Check Plot Script
+## Step 14 — Create and Run Sanity-Check Plot Script
 
 Create a **standalone Python script** in the repo root. This is for
 PR reviewer reference only and should **NOT** be committed to the
-repo:
+repo.
+
+### 14a. Script templates
+
+**For DataSource / ForecastSource** (gridded data):
 
 ```python
 """Sanity-check plot for <SourceName> data source.
@@ -1615,24 +1619,100 @@ from earth2studio.data import SourceName
 # Fetch a sample
 ds = SourceName(cache=False)
 time = ...  # pick a recent valid time
-variable = "t2m"  # pick a representative variable
-data = ds(time, variable)
+variables = ["t2m", "msl", "u10m"]  # 1-3 representative variables
+data = ds(time, variables)
 
-# Plot
-fig, ax = plt.subplots(figsize=(12, 6))
-data.isel(time=0, variable=0).plot(ax=ax)
-ax.set_title(f"<SourceName> — {variable} at {time}")
+# Plot contours for each variable
+fig, axes = plt.subplots(1, len(variables), figsize=(6 * len(variables), 5))
+if len(variables) == 1:
+    axes = [axes]
+
+for ax, var in zip(axes, variables):
+    im = data.sel(variable=var).isel(time=0).plot(ax=ax, cmap="turbo")
+    ax.set_title(f"{var}")
+
+plt.suptitle(f"<SourceName> — {time}", y=1.02)
 plt.tight_layout()
-plt.savefig("sanity_check_<source_name>.png", dpi=150)
-plt.show()
+plt.savefig("sanity_check_<source_name>.png", dpi=150, bbox_inches="tight")
 print("Saved: sanity_check_<source_name>.png")
 ```
 
-For DataFrame sources, adapt the plot to show observation locations
-on a map or a table summary.
+**For DataFrameSource / ForecastFrameSource** (sparse data):
 
-Run the script and verify the plot looks reasonable. Save the
-output image — it will be referenced in the PR description.
+```python
+"""Sanity-check plot for <SourceName> data source.
+
+This script is for PR review only — do NOT commit to the repo.
+Run it to produce a quick visualization confirming the source works.
+"""
+import matplotlib.pyplot as plt
+import numpy as np
+
+from earth2studio.data import SourceName
+
+# Fetch a sample
+ds = SourceName(cache=False)
+time = ...  # pick a recent valid time
+variables = ["var1", "var2"]  # 1-3 representative variables
+df = ds(time, variables)
+
+# Plot scatter on globe for each variable
+fig, axes = plt.subplots(1, len(variables), figsize=(7 * len(variables), 5))
+if len(variables) == 1:
+    axes = [axes]
+
+for ax, var in zip(axes, variables):
+    subset = df[df["variable"] == var]
+    sc = ax.scatter(
+        subset["lon"], subset["lat"],
+        c=subset["observation"], s=1, cmap="turbo", alpha=0.7,
+    )
+    ax.set_title(f"{var} ({len(subset)} obs)")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_xlim(0, 360)
+    ax.set_ylim(-90, 90)
+    plt.colorbar(sc, ax=ax, shrink=0.7)
+
+plt.suptitle(f"<SourceName> — {time}", y=1.02)
+plt.tight_layout()
+plt.savefig("sanity_check_<source_name>.png", dpi=150, bbox_inches="tight")
+print("Saved: sanity_check_<source_name>.png")
+```
+
+### 14b. Run the script
+
+Execute the script and **verify the output images exist and look
+reasonable**:
+
+```bash
+python sanity_check_<source_name>.py
+```
+
+Check that:
+
+- The script runs without errors
+- Output PNGs are generated
+- Data points appear in expected geographic regions
+- Values are in physically reasonable ranges (e.g., temperatures
+  200–320 K, not 0 or NaN)
+- For DataFrame sources: observations form recognizable swath or
+  station patterns
+
+### 14c. **[CONFIRM — Sanity-Check Plots]**
+
+Present the output images to the user and ask:
+
+> The sanity-check script produced the following plots. Do these
+> look reasonable? (Check that geographic coverage, value ranges,
+> and data density match expectations for this data source.)
+
+**Do not proceed to Step 15 until the user confirms the plots
+look correct.** If the plots reveal bugs (empty data, wrong
+ranges, missing coverage), fix the issue and re-run.
+
+The output images will be uploaded to the PR description in
+Step 15.
 
 ---
 
@@ -1680,20 +1760,52 @@ Includes lexicon, unit tests, and documentation."
 
 Do **NOT** add the sanity-check script or its output image.
 
-### 15b. Push branch
+### 15b. Identify the fork remote and push branch
 
-Ask the user to push:
+The working repository is typically a **fork** of
+`NVIDIA/earth2studio`. Before pushing, confirm which git remote
+points to the user's fork:
 
 ```bash
-git push -u origin feat/data-source-<name>
+git remote -v
 ```
 
-### 15c. Open Pull Request
+Ask the user:
 
-Ask the user to open a PR (or use `gh pr create`) with the
-following body. The PR should follow the repo's template and
-include the data licensing section and a `<details>` spoiler with
-the sanity-check image:
+> Which git remote is your fork of `NVIDIA/earth2studio`?
+> (Usually `origin` — e.g., `git@github.com:<user>/earth2studio.git`)
+
+Then push the feature branch to the **fork** remote:
+
+```bash
+git push -u <fork-remote> feat/data-source-<name>
+```
+
+### 15c. Open Pull Request (fork → NVIDIA/earth2studio)
+
+> **Important:** PRs must be opened **from the fork** to the
+> **upstream source repository** `NVIDIA/earth2studio`. The branch
+> lives on the fork; the PR targets `main` (or the appropriate
+> base branch) on the upstream repo.
+
+Use `gh pr create` with explicit `--repo` and `--head` flags:
+
+```bash
+gh pr create \
+  --repo NVIDIA/earth2studio \
+  --base main \
+  --head <fork-owner>:feat/data-source-<name> \
+  --title "feat: add <SourceName> data source" \
+  --body "..."
+```
+
+Where `<fork-owner>` is the GitHub username that owns the fork
+(e.g., `NickGeneva`).
+
+The PR should follow the repo's template and
+include the data licensing section, the sanity-check script inside
+a `<details>` block, and the sanity-check images uploaded to the
+PR body:
 
 ````markdown
 ## Description
@@ -1743,6 +1855,22 @@ from <SourceName> at 2024-01-01T00:00 UTC">*
 
 </details>
 
+### Sanity-check script
+
+Include the sanity-check Python script inside a `<details>` block
+so reviewers can reproduce the plot:
+
+````markdown
+<details>
+<summary>Sanity-check script (click to expand)</summary>
+
+```python
+<paste the full sanity-check script here>
+```
+
+</details>
+````
+
 ## Checklist
 
 - [x] I am familiar with the [Contributing Guidelines][contrib].
@@ -1759,7 +1887,8 @@ from <SourceName> at 2024-01-01T00:00 UTC">*
 ## Dependencies
 
 <List any new packages added to pyproject.toml, or "None">
-````
+
+```` <!-- markdownlint-disable-line MD040 -->
 
 Drag-and-drop or attach the sanity-check PNG image into the PR body
 so the `<details>` spoiler renders correctly.

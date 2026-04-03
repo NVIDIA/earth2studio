@@ -516,13 +516,8 @@ class MetOpAVHRR:
             "dtend": dt_end,
         }
         if self._satellite:
-            sat_codes = {
-                "Metop-A": "M02",
-                "Metop-B": "M01",
-                "Metop-C": "M03",
-            }
-            sat_code = sat_codes.get(self._satellite, self._satellite)
-            search_kwargs["sat"] = sat_code
+            # eumdac search API expects friendly satellite names
+            search_kwargs["sat"] = self._satellite
 
         products = collection.search(**search_kwargs)
 
