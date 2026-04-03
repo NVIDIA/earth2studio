@@ -37,7 +37,13 @@ from earth2studio.data import (
 )
 from earth2studio.data.utils import (
     AsyncCachingFileSystem,
+    async_retry,
+    cancellable_to_thread,
     datasource_cache_root,
+    ensure_utc,
+    gather_with_concurrency,
+    managed_session,
+    prep_data_inputs,
     prep_forecast_inputs,
 )
 
@@ -667,3 +673,133 @@ async def test_async_cache_fs_cache_operations(tmp_path, expiry_time, wait_time)
     await asyncio.sleep(wait_time)
 
     cache_fs.clear_expired_cache(expiry_time=0.1)
+
+
+@pytest.mark.parametrize(
+    "time, variable",
+    [
+        (datetime.datetime(2020, 1, 1, 12, 0), "t2m"),
+        (
+            [datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 2)],
+            ["t2m", "u10m"],
+        ),
+        (np.datetime64("2020-01-01T12:00"), "t2m"),
+        (
+            np.array([np.datetime64("2020-01-01"), np.datetime64("2020-01-02")]),
+            np.array(["t2m", "u10m"]),
+        ),
+        (pd.Timestamp("2020-01-01 12:00"), ["t2m"]),
+        ([np.datetime64("2020-01-01"), np.datetime64("2020-01-02")], "t2m"),
+    ],
+)
+def test_prep_data_inputs(time, variable):
+    time_list, variable_list = prep_data_inputs(time, variable)
+
+    assert isinstance(time_list, list)
+    assert all(isinstance(t, datetime.datetime) for t in time_list)
+    assert isinstance(variable_list, list)
+    assert all(isinstance(v, str) for v in variable_list)
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime.datetime(2020, 1, 1, 12, 0, tzinfo=datetime.timezone.utc),
+        datetime.datetime(
+            2020, 1, 1, 7, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-5))
+        ),
+        pd.Timestamp("2020-01-01 12:00", tz="UTC"),
+        pd.Timestamp("2020-01-01 07:00", tz="US/Eastern"),
+    ],
+)
+def test_prep_data_inputs_utc_conversion(time):
+    time_list, _ = prep_data_inputs(time, "t2m")
+
+    assert len(time_list) == 1
+    assert time_list[0].tzinfo is None  # Should be naive UTC
+    assert time_list[0].hour == 12  # All should convert to 12:00 UTC
+
+
+def test_ensure_utc():
+    # Naive datetime passes through unchanged
+    naive = datetime.datetime(2020, 1, 1, 12, 0)
+    assert ensure_utc(naive) == naive
+    assert ensure_utc(naive).tzinfo is None
+
+    # UTC-aware converts to naive UTC
+    utc_aware = datetime.datetime(2020, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
+    result = ensure_utc(utc_aware)
+    assert result == datetime.datetime(2020, 1, 1, 12, 0)
+    assert result.tzinfo is None
+
+    # Non-UTC timezone converts correctly
+    est = datetime.timezone(datetime.timedelta(hours=-5))
+    est_time = datetime.datetime(2020, 1, 1, 7, 0, tzinfo=est)  # 7am EST = 12pm UTC
+    result = ensure_utc(est_time)
+    assert result == datetime.datetime(2020, 1, 1, 12, 0)
+    assert result.tzinfo is None
+
+
+@pytest.mark.asyncio
+async def test_async_retry():
+    # Test retry with eventual success
+    call_count = 0
+
+    async def fail_then_succeed():
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise OSError("transient")
+        return "ok"
+
+    result = await async_retry(fail_then_succeed, retries=3, backoff=0.01)
+    assert result == "ok"
+    assert call_count == 3
+
+    # Test exhausted retries
+    async def always_fail():
+        raise OSError("permanent")
+
+    with pytest.raises(IOError, match="permanent"):
+        await async_retry(always_fail, retries=2, backoff=0.01)
+
+
+@pytest.mark.asyncio
+async def test_gather_with_concurrency():
+    async def task(i):
+        await asyncio.sleep(0.01)
+        return i * 2
+
+    coros = [task(i) for i in range(5)]
+    out = await gather_with_concurrency(coros, max_workers=2, disable=True)
+    assert out == [0, 2, 4, 6, 8]
+
+
+@pytest.mark.asyncio
+async def test_managed_session():
+    class MockFS:
+        def __init__(self):
+            self.session_closed = False
+
+        async def set_session(self, refresh=False):
+            return self
+
+        async def close(self):
+            self.session_closed = True
+
+    # Test cleanup on error
+    fs = MockFS()
+    with pytest.raises(ValueError):
+        async with await managed_session(fs):
+            raise ValueError("error")
+
+    assert fs.session_closed
+
+
+@pytest.mark.asyncio
+async def test_cancellable_to_thread():
+    def blocking_func(x, y):
+        return x + y
+
+    result = await cancellable_to_thread(blocking_func, 1, 2, timeout=5.0)
+    assert result == 3
