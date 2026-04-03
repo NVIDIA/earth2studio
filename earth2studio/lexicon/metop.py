@@ -53,9 +53,11 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
     11        57.29 GHz    Stratosphere (~25 hPa)
     12        57.29 GHz    Stratosphere (~10 hPa)
     13        57.29 GHz    Upper stratosphere (~5 hPa)
-    14        57.29 GHz    Upper stratosphere (~2 hPa)
-    15        89.0 GHz     Surface, precipitation, ice
+     14        57.29 GHz    Upper stratosphere (~2 hPa)
     ========  ===========  ==========================================
+
+    Channel 15 (89.0 GHz) is excluded because the L1B product marks
+    ~97% of its measurements as missing due to quality filtering.
 
     Spatial resolution is approximately 48 km at nadir with 30 field-of-view
     positions per scan line. Each scan line takes 8 seconds.
@@ -84,7 +86,6 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
         "amsua12": 12,  # 57.29 GHz - Stratosphere: ~10 hPa peak weighting
         "amsua13": 13,  # 57.29 GHz - Stratosphere: ~5 hPa peak weighting
         "amsua14": 14,  # 57.29 GHz - Stratosphere: ~2 hPa peak weighting
-        "amsua15": 15,  # 89.0 GHz - Window: surface, precipitation, ice
     }
 
     @classmethod
@@ -94,12 +95,12 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
         Parameters
         ----------
         val : str
-            Variable name (e.g., ``'amsua01'``, ``'amsua15'``)
+            Variable name (e.g., ``'amsua01'``, ``'amsua14'``)
 
         Returns
         -------
         tuple[int, Callable]
-            Channel index (1-15) and identity modifier function
+            Channel index (1-14) and identity modifier function
         """
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in MetOp AMSU-A lexicon")

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
 - Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
 - Added `MetOpAMSUALexicon` and `MetOpAVHRRLexicon` for MetOp variable mappings
-- Added AMSU-A and AVHRR channel variables to `E2STUDIO_VOCAB`
+- Added AMSU-A (channels 1–14) and AVHRR channel variables to `E2STUDIO_VOCAB`
 
 ### Changed
 

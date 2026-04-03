@@ -33,8 +33,18 @@ from loguru import logger
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import MetOpAMSUALexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
+
+try:
+    import eumdac
+except ImportError:
+    OptionalDependencyFailure("data")
+    eumdac = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # AMSU-A EPS native binary format constants (MDR v4, 3464 bytes)
@@ -164,7 +174,7 @@ def _parse_grh(data: bytes, offset: int = 0) -> tuple[int, int, int, int]:
     record_class = data[offset]
     instrument_group = data[offset + 1]
     record_subclass = data[offset + 2]
-    record_size = struct.unpack_from(">I", data, offset + 8)[0]
+    record_size = struct.unpack_from(">I", data, offset + 4)[0]
     return record_class, instrument_group, record_subclass, record_size
 
 
@@ -272,32 +282,33 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
         scan_times[base : base + _NUM_FOVS] = scan_time_ns
 
         # SCENE_RADIANCE: integer4, 15×30, SF=1e7 at offset 22
+        # Interleaved: (ch1_fov1, ch2_fov1, ..., ch15_fov1, ch1_fov2, ...)
         rad_off = mdr_off + _SCENE_RADIANCE_OFFSET
         raw_rad = struct.unpack_from(f">{_NUM_CHANNELS * _NUM_FOVS}i", data, rad_off)
-        # Reshape to (15, 30) then transpose to (30, 15) for FOV-major order
+        # Reshape to (30, 15) — 30 FOVs, 15 channels per FOV
         rad_array = np.array(raw_rad, dtype=np.float64).reshape(
-            _NUM_CHANNELS, _NUM_FOVS
+            _NUM_FOVS, _NUM_CHANNELS
         )
-        radiances[base : base + _NUM_FOVS, :] = (rad_array.T) / 1e7
+        radiances[base : base + _NUM_FOVS, :] = rad_array / 1e7
 
         # ANGULAR_RELATION: integer2, 4×30, SF=1e2 at offset 1842
-        # Order: solar_za(30), sat_za(30), solar_azi(30), sat_azi(30)
+        # Interleaved: (solza0,satza0,solazi0,satazi0, solza1,satza1,...)
         ang_off = mdr_off + _ANGULAR_RELATION_OFFSET
         raw_ang = struct.unpack_from(f">{4 * _NUM_FOVS}h", data, ang_off)
-        ang = np.array(raw_ang, dtype=np.float32).reshape(4, _NUM_FOVS) / 100.0
-        solar_za[base : base + _NUM_FOVS] = ang[0]
-        sat_za[base : base + _NUM_FOVS] = ang[1]
-        solar_azi[base : base + _NUM_FOVS] = ang[2]
-        sat_azi[base : base + _NUM_FOVS] = ang[3]
+        ang = np.array(raw_ang, dtype=np.float32) / 100.0
+        solar_za[base : base + _NUM_FOVS] = ang[0::4]
+        sat_za[base : base + _NUM_FOVS] = ang[1::4]
+        solar_azi[base : base + _NUM_FOVS] = ang[2::4]
+        sat_azi[base : base + _NUM_FOVS] = ang[3::4]
 
         # EARTH_LOCATION: integer4, 2×30, SF=1e4 at offset 2082
-        # Order: lat(30), lon(30)
+        # Interleaved: (lat0, lon0, lat1, lon1, ..., lat29, lon29)
         loc_off = mdr_off + _EARTH_LOCATION_OFFSET
         raw_loc = struct.unpack_from(f">{2 * _NUM_FOVS}i", data, loc_off)
-        loc = np.array(raw_loc, dtype=np.float64).reshape(2, _NUM_FOVS) / 1e4
-        lats[base : base + _NUM_FOVS] = loc[0].astype(np.float32)
+        loc = np.array(raw_loc, dtype=np.float64) / 1e4
+        lats[base : base + _NUM_FOVS] = loc[0::2].astype(np.float32)
         # Convert longitude from [-180, 180] to [0, 360]
-        lon_vals = loc[1]
+        lon_vals = loc[1::2]
         lon_vals = np.where(lon_vals < 0, lon_vals + 360.0, lon_vals)
         lons[base : base + _NUM_FOVS] = lon_vals.astype(np.float32)
 
@@ -307,37 +318,39 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
         elevs[base : base + _NUM_FOVS] = np.array(raw_elev, dtype=np.float32)
 
     # Step 4: Convert radiances to brightness temperatures per channel
+    # Only include channels present in the lexicon
+    channel_to_var = {v: k for k, v in MetOpAMSUALexicon.VOCAB.items()}
+    valid_channels = sorted(channel_to_var.keys())  # 1-based channel indices
+    n_valid_channels = len(valid_channels)
+
     bt_arrays: dict[int, np.ndarray] = {}
-    for ch in range(_NUM_CHANNELS):
-        bt_arrays[ch] = _radiance_to_bt(radiances[:, ch], ch)
+    for ch_idx in valid_channels:
+        bt_arrays[ch_idx] = _radiance_to_bt(radiances[:, ch_idx - 1], ch_idx - 1)
 
-    # Step 5: Build long-format DataFrame (one row per FOV × channel)
+    # Step 5: Build long-format DataFrame (one row per FOV × valid channel)
     rows_per_channel = n_obs
-    total_rows = rows_per_channel * _NUM_CHANNELS
+    total_rows = rows_per_channel * n_valid_channels
 
-    all_times = np.tile(scan_times, _NUM_CHANNELS)
-    all_lats = np.tile(lats, _NUM_CHANNELS)
-    all_lons = np.tile(lons, _NUM_CHANNELS)
-    all_elevs = np.tile(elevs, _NUM_CHANNELS)
-    all_solza = np.tile(solar_za, _NUM_CHANNELS)
-    all_solaza = np.tile(solar_azi, _NUM_CHANNELS)
-    all_satza = np.tile(sat_za, _NUM_CHANNELS)
-    all_sataza = np.tile(sat_azi, _NUM_CHANNELS)
+    all_times = np.tile(scan_times, n_valid_channels)
+    all_lats = np.tile(lats, n_valid_channels)
+    all_lons = np.tile(lons, n_valid_channels)
+    all_elevs = np.tile(elevs, n_valid_channels)
+    all_solza = np.tile(solar_za, n_valid_channels)
+    all_solaza = np.tile(solar_azi, n_valid_channels)
+    all_satza = np.tile(sat_za, n_valid_channels)
+    all_sataza = np.tile(sat_azi, n_valid_channels)
 
     all_obs = np.empty(total_rows, dtype=np.float32)
     all_var = np.empty(total_rows, dtype=object)
     all_channel_idx = np.empty(total_rows, dtype=np.uint16)
-    all_scan_angle = np.tile(sat_za, _NUM_CHANNELS)  # scan angle ≈ sat zenith
+    all_scan_angle = np.tile(sat_za, n_valid_channels)  # scan angle ≈ sat zenith
 
-    # Variable name mapping: channel index (1-based) → e2s variable name
-    channel_to_var = {v: k for k, v in MetOpAMSUALexicon.VOCAB.items()}
-
-    for ch in range(_NUM_CHANNELS):
-        start = ch * rows_per_channel
+    for i, ch_idx in enumerate(valid_channels):
+        start = i * rows_per_channel
         end = start + rows_per_channel
-        all_obs[start:end] = bt_arrays[ch].astype(np.float32)
-        all_var[start:end] = channel_to_var[ch + 1]
-        all_channel_idx[start:end] = ch + 1
+        all_obs[start:end] = bt_arrays[ch_idx].astype(np.float32)
+        all_var[start:end] = channel_to_var[ch_idx]
+        all_channel_idx[start:end] = ch_idx
 
     df = pd.DataFrame(
         {
@@ -364,6 +377,7 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     return df
 
 
+@check_optional_dependencies()
 class MetOpAMSUA:
     """EUMETSAT MetOp AMSU-A Level 1B brightness temperature observations.
 
@@ -372,6 +386,10 @@ class MetOpAMSUA:
     satellites. It measures calibrated scene radiances at frequencies from
     23.8 GHz to 89.0 GHz, providing atmospheric temperature profiles from
     the surface to the upper stratosphere (~48 km).
+
+    This data source exposes **14 channels** (``amsua01`` through ``amsua14``).
+    Channel 15 (89.0 GHz) is excluded because the L1B product marks ~97% of
+    its measurements as missing due to quality filtering.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -486,7 +504,7 @@ class MetOpAMSUA:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             Variables to return. Must be in MetOpAMSUALexicon
-            (e.g. "amsua01" through "amsua15").
+            (e.g. "amsua01" through "amsua14").
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
 
@@ -620,13 +638,6 @@ class MetOpAMSUA:
         list[str]
             Paths to downloaded native format files
         """
-        try:
-            import eumdac
-        except ImportError:
-            raise ImportError(
-                "eumdac is required for MetOpAMSUA. Install with: pip install eumdac"
-            )
-
         token = eumdac.AccessToken(
             credentials=(self._consumer_key, self._consumer_secret)
         )

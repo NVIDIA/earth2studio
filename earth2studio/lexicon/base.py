@@ -252,7 +252,6 @@ E2STUDIO_VOCAB = {
     "amsua12": "AMSU-A Ch12 - Stratospheric sounding channel (57.29 GHz), ~10 hPa peak weighting",
     "amsua13": "AMSU-A Ch13 - Upper stratosphere sounding channel (57.29 GHz), ~5 hPa peak weighting",
     "amsua14": "AMSU-A Ch14 - Upper stratosphere sounding channel (57.29 GHz), ~2 hPa peak weighting",
-    "amsua15": "AMSU-A Ch15 - Microwave window channel (89.0 GHz), surface and precipitation",
     "avhrr01": "AVHRR Ch1 - Visible red (0.63 um), cloud and surface mapping, vegetation index",
     "avhrr02": "AVHRR Ch2 - Near-infrared (0.865 um), vegetation, water/land boundaries",
     "avhrr3a": "AVHRR Ch3A - Short-wave infrared (1.61 um), snow/ice discrimination (daytime only)",

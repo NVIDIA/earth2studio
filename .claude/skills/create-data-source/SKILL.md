@@ -166,6 +166,58 @@ After confirmation, if new packages are needed:
 
 If no new dependencies are needed, skip this step.
 
+### 3b. Register optional dependency imports
+
+New dependencies added to the `data` extras group are **optional** —
+they are not installed by default. The data source module **must not**
+use bare `import` or lazy `try/except ImportError: raise ImportError`
+for these packages. Instead, use the project's
+`OptionalDependencyFailure` / `check_optional_dependencies` pattern
+so that users get a clear, actionable error message pointing them to
+the correct install command.
+
+**At the top of the data source file** (module level), wrap all
+optional imports in a single `try/except` block:
+
+```python
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    import eumdac
+    from satpy import Scene
+except ImportError:
+    OptionalDependencyFailure("data")
+    eumdac = None  # type: ignore[assignment]
+    Scene = None  # type: ignore[assignment,misc]
+```
+
+Then decorate the data source class:
+
+```python
+@check_optional_dependencies()
+class SourceName:
+    ...
+```
+
+**Key rules:**
+
+- **One `try/except` per extras group** — bundle all optional imports
+  from the same group (e.g., `data`) into a single block.
+- **Always assign `None` fallbacks** with `# type: ignore` so the
+  module can still be imported for type checking and IDE navigation.
+- **Never use lazy imports** (`try: import X` inside a method body).
+  The `@check_optional_dependencies()` decorator on the class
+  handles the error at instantiation time.
+- **Never raise `ImportError` directly** — let
+  `OptionalDependencyFailure` produce the standardized rich error
+  with install instructions.
+
+See `earth2studio/data/cams.py` or `earth2studio/data/hrrr.py` for
+canonical examples.
+
 ---
 
 ## Step 4 — Create Lexicon Class
@@ -1595,7 +1647,7 @@ Confirm no regressions.
 
 ---
 
-## Step 14 — Create and Run Sanity-Check Plot Script
+## Step 14 — Validate Variables, Summarize, and Sanity-Check Plots
 
 Create a **standalone Python script** in the repo root. This is for
 PR reviewer reference only and should **NOT** be committed to the
@@ -1645,6 +1697,8 @@ print("Saved: sanity_check_<source_name>.png")
 This script is for PR review only — do NOT commit to the repo.
 Run it to produce a quick visualization confirming the source works.
 """
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -1656,31 +1710,145 @@ time = ...  # pick a recent valid time
 variables = ["var1", "var2"]  # 1-3 representative variables
 df = ds(time, variables)
 
-# Plot scatter on globe for each variable
-fig, axes = plt.subplots(1, len(variables), figsize=(7 * len(variables), 5))
+# Convert lon from [0,360] to [-180,180] for cartopy
+df["lon_plt"] = df["lon"].where(df["lon"] <= 180, df["lon"] - 360)
+
+# Plot scatter on globe for each variable (cartopy projection)
+fig, axes = plt.subplots(
+    1, len(variables),
+    figsize=(8 * len(variables), 5),
+    subplot_kw={"projection": ccrs.Robinson()},
+)
 if len(variables) == 1:
     axes = [axes]
 
 for ax, var in zip(axes, variables):
     subset = df[df["variable"] == var]
-    sc = ax.scatter(
-        subset["lon"], subset["lat"],
-        c=subset["observation"], s=1, cmap="turbo", alpha=0.7,
-    )
-    ax.set_title(f"{var} ({len(subset)} obs)")
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-    ax.set_xlim(0, 360)
-    ax.set_ylim(-90, 90)
-    plt.colorbar(sc, ax=ax, shrink=0.7)
+    obs = subset["observation"].values
+    # Use percentile clipping to avoid outliers blowing out the colorbar
+    vmin, vmax = np.percentile(obs[np.isfinite(obs)], [2, 98])
 
-plt.suptitle(f"<SourceName> — {time}", y=1.02)
+    ax.set_global()
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.3, alpha=0.5)
+
+    sc = ax.scatter(
+        subset["lon_plt"], subset["lat"],
+        c=obs, s=2, cmap="turbo", alpha=0.8,
+        vmin=vmin, vmax=vmax, edgecolors="none",
+        transform=ccrs.PlateCarree(),
+    )
+    ax.set_title(f"{var} ({len(subset)} obs)\nrange: {vmin:.0f}–{vmax:.0f} (p2–p98)")
+    plt.colorbar(sc, ax=ax, shrink=0.6, label="Observation",
+                 orientation="horizontal", pad=0.05)
+
+plt.suptitle(f"<SourceName> — {time}", y=1.0)
 plt.tight_layout()
 plt.savefig("sanity_check_<source_name>.png", dpi=150, bbox_inches="tight")
 print("Saved: sanity_check_<source_name>.png")
 ```
 
-### 14b. Run the script
+> **Tip:** Always use `cartopy` with a proper map projection
+> (Robinson, PlateCarree, etc.) for geospatial scatter plots.
+> Without a projection, satellite swath data looks distorted and
+> hard to interpret. Use percentile-clipped `vmin`/`vmax` and
+> `s >= 2` marker size — without clipping, outliers compress the
+> colorbar and make the plot appear blank.
+
+### 14b. Validate all lexicon variables
+
+**Every variable in the lexicon must be validated against real data.**
+A variable that exists in the lexicon but consistently produces missing
+or invalid data should be **removed** from the lexicon and
+`E2STUDIO_VOCAB`.
+
+Run a validation script that fetches a representative sample and
+checks every variable:
+
+```python
+"""Variable validation for <SourceName>.
+
+Checks every lexicon variable against real data to confirm it
+returns valid observations. Variables with very low valid-data
+rates should be removed from the lexicon.
+"""
+from datetime import datetime
+
+from earth2studio.data import SourceName
+from earth2studio.lexicon import SourceNameLexicon
+
+ds = SourceName(cache=True)
+time = ...  # pick a recent valid time
+all_vars = list(SourceNameLexicon.VOCAB.keys())
+df = ds(time, all_vars)
+
+print(f"{'Variable':<16} {'Obs Count':>10} {'Valid %':>8} {'Min':>10} {'Max':>10}")
+print("-" * 60)
+for var in sorted(all_vars):
+    sub = df[df["variable"] == var]
+    n_total = len(sub)
+    n_valid = sub["observation"].notna().sum()
+    pct = (n_valid / n_total * 100) if n_total > 0 else 0
+    vmin = sub["observation"].min() if n_valid > 0 else float("nan")
+    vmax = sub["observation"].max() if n_valid > 0 else float("nan")
+    flag = " *** REMOVE" if pct < 10 else ""
+    print(f"{var:<16} {n_total:>10} {pct:>7.1f}% {vmin:>10.2f} {vmax:>10.2f}{flag}")
+```
+
+**Action required:**
+
+- Variables with **< 10% valid data** must be removed from:
+  1. The lexicon class `VOCAB` dict
+  2. `E2STUDIO_VOCAB` in `earth2studio/lexicon/base.py`
+  3. The class docstring (note the removal and reason)
+- Variables with **10-50% valid data** should be kept but documented
+  with a note explaining the low coverage (e.g., day/night switching,
+  quality filtering)
+- After removing variables, re-run `make lint` and tests
+
+### 14c. Summarize variables and time range to user
+
+Before generating sanity-check plots, **present a summary table** to
+the user covering:
+
+1. **All valid variables** — name, description, observation count,
+   value range
+2. **Removed variables** — name, reason for removal (e.g., "> 97%
+   missing data")
+3. **Valid time range** — earliest and latest data available from the
+   remote store
+4. **Typical data density** — observations per orbit/file,
+   approximate global coverage cadence
+
+Example summary format:
+
+> **Variable Summary for MetOpAMSUA (14 channels):**
+>
+> | Variable | Freq (GHz) | Layer | Obs/orbit | BT Range (K) |
+> |----------|-----------|-------|-----------|---------------|
+> | amsua01 | 23.8 | Surface | 22,950 | 142–291 |
+> | amsua02 | 31.4 | Surface | 22,950 | 145–290 |
+> | ... | | | | |
+>
+> **Removed:** `amsua15` (89.0 GHz) — L1B product marks ~97% of
+> measurements as missing due to quality filtering.
+>
+> **Time range:** 2007-10-22 (Metop-A launch) to present.
+> Metop-B (2012-09-17 to present), Metop-C (2018-11-07 to present).
+>
+> **Data density:** ~767 scan lines × 30 FOVs = 23,010 obs per orbit,
+> ~14 orbits/day, global coverage twice daily.
+
+This summary helps the user understand what they are getting from the
+data source and verify it matches their expectations.
+
+### 14d. Create sanity-check plot script
+
+Create a **standalone Python script** in the repo root. This is for
+PR reviewer reference only and should **NOT** be committed to the
+repo. See 14a above for templates.
+
+### 14e. Run the script
 
 Execute the script and **verify the output images exist and look
 reasonable**:
@@ -1699,17 +1867,35 @@ Check that:
 - For DataFrame sources: observations form recognizable swath or
   station patterns
 
-### 14c. **[CONFIRM — Sanity-Check Plots]**
+### 14f. **[CONFIRM — Sanity-Check Plots]**
 
-Present the output images to the user and ask:
+**You MUST ask the user to visually inspect the generated plot(s)
+before proceeding.** Do not skip this step even if the script ran
+without errors — a successful run does not guarantee the plots are
+correct (e.g., empty axes, wrong colorbar range, garbled data).
 
-> The sanity-check script produced the following plots. Do these
-> look reasonable? (Check that geographic coverage, value ranges,
-> and data density match expectations for this data source.)
+Tell the user the absolute path to the generated image file(s) and
+ask them to open and inspect the output:
 
-**Do not proceed to Step 15 until the user confirms the plots
-look correct.** If the plots reveal bugs (empty data, wrong
-ranges, missing coverage), fix the issue and re-run.
+> The sanity-check script ran successfully and saved the following
+> plot:
+>
+> `/absolute/path/to/sanity_check_<source_name>.png`
+>
+> **Please open this image and confirm it looks correct.** Check:
+>
+> 1. Data points are visible on the axes (not blank/empty)
+> 2. Geographic coverage matches expectations (global swaths,
+>    regional stations, etc.)
+> 3. Colorbar values are in physically reasonable ranges
+> 4. No obvious artifacts (all-NaN regions, garbled coordinates)
+>
+> Does the plot look correct?
+
+**Do not proceed to Step 15 until the user explicitly confirms the
+plots look correct.** If the user reports problems (empty plots,
+wrong ranges, missing coverage), debug and fix the issue, re-run
+the script, and ask the user to inspect again.
 
 The output images will be uploaded to the PR description in
 Step 15.
@@ -1722,21 +1908,24 @@ Step 15.
 
 Before proceeding, confirm with the user:
 
-> All implementation steps are complete:
->
-> - Data source class implemented with correct method ordering
-> - Lexicon class created with variable mappings
-> - E2STUDIO_VOCAB / E2STUDIO_SCHEMA updated (if needed)
-> - Registered in `__init__.py` files
-> - Documentation RST files updated with badges
-> - Reference URLs included in docstrings
-> - CHANGELOG.md updated
-> - Format, lint, and license checks pass
-> - Unit tests written and passing
-> - Dependencies in `data` extras group confirmed
-> - Sanity-check plot generated
->
-> Ready to create a branch, commit, and prepare a PR?
+ > All implementation steps are complete:
+ >
+ > - Data source class implemented with correct method ordering
+ > - Lexicon class created with variable mappings
+ > - **All lexicon variables validated against real data** (low-validity
+ >   variables removed)
+ > - **Variable summary and time range presented to user**
+ > - E2STUDIO_VOCAB / E2STUDIO_SCHEMA updated (if needed)
+ > - Registered in `__init__.py` files
+ > - Documentation RST files updated with badges
+ > - Reference URLs included in docstrings
+ > - CHANGELOG.md updated
+ > - Format, lint, and license checks pass
+ > - Unit tests written and passing
+ > - Dependencies in `data` extras group confirmed
+ > - Sanity-check plots generated and confirmed by user
+ >
+ > Ready to create a branch, commit, and prepare a PR?
 
 ### 15a. Create branch and commit
 
@@ -1928,3 +2117,9 @@ so the `<details>` spoiler renders correctly.
 - **AVOID** downloading full files — use byte-range / slicing
 - **AVOID** over-complicating constructor parameters
 - **NEVER** call `loop.set_default_executor()` — mutates global state
+- **NEVER** commit, hardcode, or include API keys, secrets, tokens,
+  or credentials in source code, sample scripts, commit messages,
+  PR descriptions, or any file tracked by git. Always read
+  credentials from environment variables at runtime. If the user
+  provides test credentials during the session, use them only in
+  ephemeral shell commands — never persist them.

@@ -36,6 +36,7 @@ from earth2studio.data.metop_amsua import (
     _parse_native_amsua,
     _radiance_to_bt,
 )
+from earth2studio.lexicon import MetOpAMSUALexicon
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ def _build_grh(
     header[0] = record_class
     header[1] = instrument_group
     header[2] = record_subclass
-    struct.pack_into(">I", header, 8, record_size)
+    struct.pack_into(">I", header, 4, record_size)
     return bytes(header)
 
 
@@ -68,8 +69,10 @@ def _build_mdr(
     payload = bytearray(_MDR_SIZE - _GRH_SIZE)
 
     # SCENE_RADIANCE at payload offset 2 (record offset 22)
+    # Interleaved: (ch1_fov1, ch2_fov1, ..., ch15_fov1, ch1_fov2, ...)
     default_rad = int(0.01 * 1e7)
     if radiances is not None:
+        # radiances should be (30, 15) — FOV-major, interleaved
         scaled = (radiances * 1e7).astype(np.int32)
         struct.pack_into(f">{_NUM_CHANNELS * _NUM_FOVS}i", payload, 2, *scaled.ravel())
     else:
@@ -81,19 +84,25 @@ def _build_mdr(
         )
 
     # ANGULAR_RELATION at payload offset 1822
-    struct.pack_into(f">{4 * _NUM_FOVS}h", payload, 1822, *([1000] * (4 * _NUM_FOVS)))
+    # Interleaved: (solza0, satza0, solazi0, satazi0, solza1, ...)
+    ang_vals = []
+    for _ in range(_NUM_FOVS):
+        ang_vals.extend([1000, 1000, 1000, 1000])  # 10.0 deg each
+    struct.pack_into(f">{4 * _NUM_FOVS}h", payload, 1822, *ang_vals)
 
     # EARTH_LOCATION at payload offset 2062
+    # Interleaved: (lat0, lon0, lat1, lon1, ..., lat29, lon29)
     if lat is not None and lon is not None:
-        loc = np.vstack([lat, lon])
-        scaled_loc = (loc * 1e4).astype(np.int32)
-        struct.pack_into(f">{2 * _NUM_FOVS}i", payload, 2062, *scaled_loc.ravel())
+        loc_interleaved = np.empty(2 * _NUM_FOVS, dtype=np.float64)
+        loc_interleaved[0::2] = lat
+        loc_interleaved[1::2] = lon
+        scaled_loc = (loc_interleaved * 1e4).astype(np.int32)
+        struct.pack_into(f">{2 * _NUM_FOVS}i", payload, 2062, *scaled_loc)
     else:
-        default_lats = [0] * _NUM_FOVS
-        default_lons = [int(i * 1e4) for i in range(_NUM_FOVS)]
-        struct.pack_into(
-            f">{2 * _NUM_FOVS}i", payload, 2062, *(default_lats + default_lons)
-        )
+        loc_interleaved = []
+        for i in range(_NUM_FOVS):
+            loc_interleaved.extend([0, int(i * 1e4)])  # lat=0, lon=i
+        struct.pack_into(f">{2 * _NUM_FOVS}i", payload, 2062, *loc_interleaved)
 
     # TERRAIN_ELEVATION at payload offset 2362
     struct.pack_into(f">{_NUM_FOVS}h", payload, 2362, *([100] * _NUM_FOVS))
@@ -128,11 +137,11 @@ def test_metop_amsua_call_mock(tmp_path):
             cache=False,
             verbose=False,
         )
-        df = ds(datetime(2025, 1, 15, 10), ["amsua01", "amsua04", "amsua15"])
+        df = ds(datetime(2025, 1, 15, 10), ["amsua01", "amsua04", "amsua14"])
 
         assert list(df.columns) == ds.SCHEMA.names
         assert not df.empty
-        assert set(df["variable"].unique()) == {"amsua01", "amsua04", "amsua15"}
+        assert set(df["variable"].unique()) == {"amsua01", "amsua04", "amsua14"}
         assert set(df["satellite"].unique()) == {"Metop-B"}
         assert df["observation"].notna().all()
         assert df["lat"].between(-90, 90).all()
@@ -180,7 +189,7 @@ def test_metop_amsua_call_mock_empty(tmp_path):
         ),
         (
             [datetime(2025, 1, 15, 10), datetime(2025, 1, 15, 11)],
-            ["amsua04", "amsua09", "amsua15"],
+            ["amsua04", "amsua09", "amsua14"],
             timedelta(hours=2),
         ),
     ],
@@ -247,16 +256,17 @@ def test_radiance_to_bt():
 
 
 def test_parse_native_amsua():
-    # Minimal: MPHR + 1 MDR = 30 FOVs × 15 channels = 450 rows
+    n_lexicon_channels = len(MetOpAMSUALexicon.VOCAB)  # 14 (ch15 excluded)
+    # Minimal: MPHR + 1 MDR = 30 FOVs × 14 channels = 420 rows
     data = _build_native_file(n_scans=1)
     df = _parse_native_amsua(data)
-    assert len(df) == _NUM_FOVS * _NUM_CHANNELS
+    assert len(df) == _NUM_FOVS * n_lexicon_channels
     assert set(df["satellite"].unique()) == {"Metop-B"}
 
     # Multiple scans
     data = _build_native_file(spacecraft_id="M03", n_scans=3)
     df = _parse_native_amsua(data)
-    assert len(df) == 3 * _NUM_FOVS * _NUM_CHANNELS
+    assert len(df) == 3 * _NUM_FOVS * n_lexicon_channels
     assert set(df["satellite"].unique()) == {"Metop-C"}
 
     # Empty / malformed
@@ -285,4 +295,4 @@ def test_parse_native_amsua():
         + _build_mdr()
     )
     df = _parse_native_amsua(data)
-    assert len(df) == _NUM_FOVS * _NUM_CHANNELS
+    assert len(df) == _NUM_FOVS * n_lexicon_channels

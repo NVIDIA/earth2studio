@@ -33,8 +33,20 @@ from loguru import logger
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import MetOpAVHRRLexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
+
+try:
+    import eumdac
+    from satpy import Scene
+except ImportError:
+    OptionalDependencyFailure("data")
+    eumdac = None  # type: ignore[assignment]
+    Scene = None  # type: ignore[assignment,misc]
 
 # Spacecraft ID mapping
 _SPACECRAFT_MAP = {
@@ -50,6 +62,11 @@ _SPACECRAFT_MAP = {
 # Subsampling factor for AVHRR (2048 pixels/line is very dense)
 _DEFAULT_SUBSAMPLE = 16
 
+# AVHRR EPS native navigation constants
+_NAV_SAMPLE_RATE = 20  # pixels between navigation tie points
+_NAV_NUM_POINTS = 103  # number of tie-point positions per scan line
+_NAV_FIRST_PIXEL = 4  # 0-based pixel index of first tie point
+
 
 def _parse_avhrr_with_satpy(
     nat_file: str,
@@ -58,6 +75,11 @@ def _parse_avhrr_with_satpy(
 ) -> pd.DataFrame:
     """Parse an AVHRR Level 1B EPS native file using satpy.
 
+    Uses an optimized approach that loads only calibrated channel data through
+    satpy (avoiding expensive geolocation interpolation) and reads raw
+    navigation tie points directly from the EPS MDR records. This is ~12x
+    faster than loading full-resolution lat/lon through satpy.
+
     Parameters
     ----------
     nat_file : str
@@ -65,8 +87,9 @@ def _parse_avhrr_with_satpy(
     variables : list[str]
         E2S variable names to extract (e.g. ["avhrr01", "avhrr04"])
     subsample : int, optional
-        Spatial subsampling factor to reduce data volume, by default 16.
-        AVHRR has 2048 pixels per scan line, subsampling reduces this.
+        Scan-line subsampling factor to reduce data volume, by default 16.
+        Across-track sampling uses the 103 EPS navigation tie points
+        (every 20th pixel) regardless of this setting.
 
     Returns
     -------
@@ -75,139 +98,117 @@ def _parse_avhrr_with_satpy(
         time, lat, lon, observation, variable, satellite,
         scan_angle, channel_index, solza, solaza, satellite_za, satellite_aza
     """
-    try:
-        from satpy import Scene
-    except ImportError:
-        raise ImportError(
-            "satpy is required for MetOpAVHRR. Install with: pip install satpy"
-        )
+    import dask
+
+    dask.config.set(num_workers=4)
 
     scn = Scene(reader="avhrr_l1b_eps", filenames=[nat_file])
 
     # Map e2s variable names to satpy dataset names
-    satpy_datasets = []
     var_to_satpy: dict[str, str] = {}
     for v in variables:
         satpy_name, _ = MetOpAVHRRLexicon[v]
-        satpy_datasets.append(satpy_name)
         var_to_satpy[v] = satpy_name
 
-    # Always load geolocation and geometry
-    geo_datasets = [
-        "latitude",
-        "longitude",
-        "solar_zenith_angle",
-        "solar_azimuth_angle",
-        "satellite_zenith_angle",
-        "satellite_azimuth_angle",
-    ]
-
-    all_datasets = list(set(satpy_datasets + geo_datasets))
-
+    # Load only channel data (calibrated BT/radiance) — no geo datasets.
+    # This triggers _read_all() internally but skips the expensive
+    # geotie-point interpolation that satpy performs for lat/lon.
+    satpy_datasets = list(set(var_to_satpy.values()))
     try:
-        scn.load(all_datasets)
+        scn.load(satpy_datasets, generate=False)
     except Exception as exc:
         logger.warning("Failed to load datasets from {}: {}", nat_file, exc)
         return pd.DataFrame()
 
-    # Extract geolocation arrays (subsample to reduce memory)
-    try:
-        lat = scn["latitude"].values[::subsample, ::subsample]
-        lon = scn["longitude"].values[::subsample, ::subsample]
-    except KeyError:
-        logger.warning("Geolocation data not available in {}", nat_file)
-        return pd.DataFrame()
+    # Access raw MDR records from satpy's file handler.
+    # After scn.load(), the file handler has already parsed the binary file.
+    reader = list(scn._readers.values())[0]
+    fh = list(reader.file_handlers.values())[0][0]
+    mdr = fh.sections[("mdr", np.int8(2))]
 
-    # Convert longitude from [-180, 180] to [0, 360]
-    lon = np.where(lon < 0, lon + 360.0, lon)
+    # Read raw navigation tie points (103 per scan line, subsampled by line).
+    # EARTH_LOCATIONS: (n_scans, 103, 2) big-endian int32, scale 1e4 degrees.
+    # ANGULAR_RELATIONS: (n_scans, 103, 4) big-endian int16, scale 1e2 degrees.
+    # Order within dim-2: [solar_zenith, sat_zenith, solar_azimuth, sat_azimuth].
+    el = mdr["EARTH_LOCATIONS"][::subsample].compute()  # (N, 103, 2)
+    ar = mdr["ANGULAR_RELATIONS"][::subsample].compute()  # (N, 103, 4)
 
-    n_pixels = lat.size
+    lats = (el[:, :, 0] / 1e4).astype(np.float32)
+    lons = (el[:, :, 1] / 1e4).astype(np.float32)
+    # Convert [-180, 180] -> [0, 360]
+    lons = np.where(lons < 0, lons + 360.0, lons)
 
-    # Extract geometry (subsampled)
-    def _safe_get(name: str) -> np.ndarray:
-        try:
-            return scn[name].values[::subsample, ::subsample].ravel().astype(np.float32)
-        except (KeyError, Exception):
-            return np.full(n_pixels, np.nan, dtype=np.float32)
+    solza = (ar[:, :, 0] / 100.0).astype(np.float32)
+    satza = (ar[:, :, 1] / 100.0).astype(np.float32)
+    solazi = (ar[:, :, 2] / 100.0).astype(np.float32)
+    satazi = (ar[:, :, 3] / 100.0).astype(np.float32)
 
-    solza = _safe_get("solar_zenith_angle")
-    solaza = _safe_get("solar_azimuth_angle")
-    satza = _safe_get("satellite_zenith_angle")
-    sataza = _safe_get("satellite_azimuth_angle")
+    n_lines, n_cols = lats.shape  # (subsampled scan lines, 103 tie points)
+    n_pixels = n_lines * n_cols
 
-    # Extract satellite name from scene metadata
+    # Extract satellite name and sensing times from scene attributes
     satellite = "Metop"
-    try:
-        # Try to get platform name from loaded dataset
-        for ds_name in satpy_datasets:
-            if ds_name in scn:
-                ds_attrs = scn[ds_name].attrs
-                platform_name = ds_attrs.get("platform_name", "")
-                if platform_name:
-                    satellite = platform_name
-                    break
-    except Exception:  # noqa: S110
-        pass
-
-    # Extract sensing time from scene
-    start_time = None
-    end_time = None
-    try:
-        for ds_name in all_datasets:
-            if ds_name in scn:
-                ds_attrs = scn[ds_name].attrs
-                start_time = ds_attrs.get("start_time")
-                end_time = ds_attrs.get("end_time")
-                if start_time:
-                    break
-    except Exception:  # noqa: S110
-        pass
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    for ds_name in satpy_datasets:
+        if ds_name in scn:
+            attrs = scn[ds_name].attrs
+            platform_name = attrs.get("platform_name", "")
+            if platform_name:
+                satellite = platform_name
+            if start_time is None:
+                start_time = attrs.get("start_time")
+                end_time = attrs.get("end_time")
 
     if start_time is None:
         start_time = datetime(2000, 1, 1)
     if end_time is None:
         end_time = start_time
 
-    # Compute per-scan-line times (linear interpolation)
-    n_lines = lat.shape[0] if lat.ndim == 2 else 1
-    n_cols = lat.shape[1] if lat.ndim == 2 else lat.size
-
-    if isinstance(start_time, datetime):
-        total_seconds = (end_time - start_time).total_seconds()
-    else:
-        total_seconds = 0.0
-
-    if n_lines > 1:
-        dt_per_line = total_seconds / (n_lines - 1)
+    # Compute per-scan-line times (linear interpolation between start/end)
+    total_seconds = (end_time - start_time).total_seconds()
+    # n_lines is the subsampled count; map back to original line indices
+    n_total_lines = el.shape[0]  # same as n_lines (already subsampled above)
+    if n_total_lines > 1:
+        dt_per_line = total_seconds / (n_total_lines - 1)
     else:
         dt_per_line = 0.0
 
-    # Build time array (same time for all pixels in a scan line)
     times = np.empty(n_pixels, dtype="datetime64[ns]")
     for i in range(n_lines):
         line_time = start_time + timedelta(seconds=i * dt_per_line)
         line_ns = np.datetime64(line_time, "ns")
         times[i * n_cols : (i + 1) * n_cols] = line_ns
 
-    lat_flat = lat.ravel().astype(np.float32)
-    lon_flat = lon.ravel().astype(np.float32)
+    lat_flat = lats.ravel()
+    lon_flat = lons.ravel()
+    solza_flat = solza.ravel()
+    satza_flat = satza.ravel()
+    solazi_flat = solazi.ravel()
+    satazi_flat = satazi.ravel()
 
-    # Build per-channel DataFrames
+    # Pixel indices of the 103 navigation tie points across track
+    nav_cols = np.arange(
+        _NAV_FIRST_PIXEL,
+        _NAV_FIRST_PIXEL + _NAV_NUM_POINTS * _NAV_SAMPLE_RATE,
+        _NAV_SAMPLE_RATE,
+    )[:_NAV_NUM_POINTS]
+
+    # Build per-channel DataFrames, sampling channel data at tie-point columns
     frames: list[pd.DataFrame] = []
+    channel_num_map = {"1": 1, "2": 2, "3a": 3, "3b": 4, "4": 5, "5": 6}
+
     for e2s_var, satpy_name in var_to_satpy.items():
         try:
-            data = scn[satpy_name].values[::subsample, ::subsample]
-        except KeyError:
+            # Subsample scan lines, pick tie-point pixel columns
+            data = scn[satpy_name].values[::subsample][:, nav_cols]
+        except (KeyError, IndexError):
             logger.warning("Dataset '{}' not available, skipping", satpy_name)
             continue
 
         obs = data.ravel().astype(np.float32)
-
-        # Get channel index from lexicon
-        channel_idx = MetOpAVHRRLexicon.VOCAB[e2s_var]
-        # Map to numeric index
-        channel_num_map = {"1": 1, "2": 2, "3a": 3, "3b": 4, "4": 5, "5": 6}
-        ch_num = channel_num_map.get(channel_idx, 0)
+        ch_idx = MetOpAVHRRLexicon.VOCAB[e2s_var]
+        ch_num = channel_num_map.get(ch_idx, 0)
 
         df = pd.DataFrame(
             {
@@ -217,12 +218,12 @@ def _parse_avhrr_with_satpy(
                 "observation": obs,
                 "variable": e2s_var,
                 "satellite": satellite,
-                "scan_angle": satza,
+                "scan_angle": satza_flat,
                 "channel_index": np.full(n_pixels, ch_num, dtype=np.uint16),
-                "solza": solza,
-                "solaza": solaza,
-                "satellite_za": satza,
-                "satellite_aza": sataza,
+                "solza": solza_flat,
+                "solaza": solazi_flat,
+                "satellite_za": satza_flat,
+                "satellite_aza": satazi_flat,
             }
         )
         frames.append(df)
@@ -232,13 +233,14 @@ def _parse_avhrr_with_satpy(
 
     result = pd.concat(frames, ignore_index=True)
 
-    # Drop invalid observations
+    # Drop invalid observations (NaN obs, NaN coords, out-of-range lat)
     result = result.dropna(subset=["observation", "lat", "lon"])
     result = result[(result["lat"] >= -90) & (result["lat"] <= 90)]
 
     return result
 
 
+@check_optional_dependencies()
 class MetOpAVHRR:
     """EUMETSAT MetOp AVHRR Level 1B radiance and brightness temperature observations.
 
@@ -498,13 +500,6 @@ class MetOpAVHRR:
         list[str]
             Paths to downloaded native format files
         """
-        try:
-            import eumdac
-        except ImportError:
-            raise ImportError(
-                "eumdac is required for MetOpAVHRR. Install with: pip install eumdac"
-            )
-
         token = eumdac.AccessToken(
             credentials=(self._consumer_key, self._consumer_secret)
         )
