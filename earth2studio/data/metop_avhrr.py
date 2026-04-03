@@ -383,14 +383,15 @@ class MetOpAVHRR:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        df = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, variable, fields), timeout=self.async_timeout
+        try:
+            df = loop.run_until_complete(
+                asyncio.wait_for(
+                    self.fetch(time, variable, fields), timeout=self.async_timeout
+                )
             )
-        )
-
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return df
 

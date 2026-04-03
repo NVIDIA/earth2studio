@@ -741,6 +741,7 @@ def __init__(
     self._verbose = verbose
     self._async_workers = async_workers
     self._retries = retries
+    self._tmp_cache_hash: str | None = None  # Lazy init for temp cache
 
     # For async sources: attempt sync init of filesystem
     try:
@@ -824,14 +825,15 @@ def __call__(
     if self.fs is None:
         loop.run_until_complete(self._async_init())
 
-    xr_array = loop.run_until_complete(
-        asyncio.wait_for(
-            self.fetch(time, variable), timeout=self.async_timeout
+    try:
+        xr_array = loop.run_until_complete(
+            asyncio.wait_for(
+                self.fetch(time, variable), timeout=self.async_timeout
+            )
         )
-    )
-
-    if not self._cache:
-        shutil.rmtree(self.cache, ignore_errors=True)
+    finally:
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
     return xr_array
 ```
@@ -1075,16 +1077,40 @@ def _validate_time(cls, times: list[datetime]) -> None:
 
 ### 7g. Cache property
 
+When `cache=False`, each data source instance must use a **unique
+temporary subdirectory** to avoid collisions between concurrent
+instances or repeated calls. Use a lazily-initialized UUID hash:
+
 ```python
 @property
 def cache(self) -> str:
     """Get the appropriate cache location."""
     cache_location = os.path.join(datasource_cache_root(), "source_name")
     if not self._cache:
+        if self._tmp_cache_hash is None:
+            # First access: create a random suffix to avoid collisions
+            self._tmp_cache_hash = uuid.uuid4().hex[:8]
         cache_location = os.path.join(
-            cache_location, "tmp_source_name"
+            cache_location, f"tmp_source_name_{self._tmp_cache_hash}"
         )
     return cache_location
+```
+
+The constructor must initialize `self._tmp_cache_hash: str | None = None`.
+Import `uuid` at the top of the file.
+
+**IMPORTANT:** The `__call__` method **must** wrap the fetch call in
+`try/finally` so the temp cache is cleaned even on error, timeout, or
+cancellation — never leave orphaned temp directories on disk:
+
+```python
+try:
+    result = loop.run_until_complete(
+        asyncio.wait_for(self.fetch(...), timeout=self.async_timeout)
+    )
+finally:
+    if not self._cache:
+        shutil.rmtree(self.cache, ignore_errors=True)
 ```
 
 ### 7h. Available classmethod
@@ -1146,6 +1172,9 @@ def available(cls, time: datetime | np.datetime64) -> bool:
 - For **s3fs**: always use `skip_instance_cache=True`
 - Data must always be in **unnormalized physical units**
 - Use `loguru.logger` for all logging, never `print()`
+- **Always use `try/finally`** in `__call__` to clean up temp cache
+  when `cache=False` — ensures no orphaned temp directories on
+  error, timeout, or cancellation
 
 ---
 
@@ -2081,6 +2110,137 @@ so reviewers can reproduce the plot:
 
 Drag-and-drop or attach the sanity-check PNG image into the PR body
 so the `<details>` spoiler renders correctly.
+
+---
+
+## Step 16 — Automated Code Review (Greptile)
+
+After the PR is created and pushed, an automated code review from
+**greptile-apps** (Greptile) will be posted as PR review comments.
+Wait for this review, then process the feedback.
+
+### 16a. Wait for Greptile review
+
+Poll for review comments from `greptile-apps[bot]` every 30 seconds
+for up to **5 minutes**. Time out gracefully if no review arrives:
+
+```bash
+# Poll loop — check every 30s, timeout after 5 minutes (10 attempts)
+for i in $(seq 1 10); do
+  REVIEW_ID=$(gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/reviews \
+    --jq '.[] | select(.user.login == "greptile-apps[bot]") | .id' 2>/dev/null)
+  if [ -n "$REVIEW_ID" ]; then
+    echo "Greptile review found: $REVIEW_ID"
+    break
+  fi
+  echo "Attempt $i/10 — no review yet, waiting 30s..."
+  sleep 30
+done
+```
+
+If no review after 5 minutes, inform the user:
+
+> Greptile hasn't posted a review after 5 minutes. This can happen if
+> the review bot is busy or the PR hasn't triggered it. You can:
+> 1. Ask me to check again later
+> 2. Skip this step and proceed without automated review
+> 3. Manually request a review from Greptile on the PR page
+
+### 16b. Pull and parse review comments
+
+Once the review is posted, fetch all comments:
+
+```bash
+# Get all review comments on the PR
+gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments \
+  --jq '.[] | select(.user.login == "greptile-apps[bot]") |
+    {path: .path, line: .diff_hunk, body: .body}'
+```
+
+Also fetch the top-level review body:
+
+```bash
+gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/reviews \
+  --jq '.[] | select(.user.login == "greptile-apps[bot]") | .body'
+```
+
+### 16c. Categorize and present to user
+
+Parse each comment and categorize it:
+
+| Category | Description | Default action |
+|---|---|---|
+| **Bug / correctness** | Logic errors, wrong behavior | Fix |
+| **Style / convention** | Naming, formatting, patterns | Fix if valid |
+| **Performance** | Inefficiency, resource waste | Evaluate |
+| **Documentation** | Missing/wrong docs, docstrings | Fix |
+| **Suggestion** | Alternative approach, nice-to-have | User decides |
+| **False positive** | Incorrect or irrelevant feedback | Dismiss |
+
+### **[CONFIRM — Review Triage]**
+
+Present each comment to the user in a summary table:
+
+```markdown
+| # | File | Line | Category | Summary | Proposed Action |
+|---|------|------|----------|---------|-----------------|
+| 1 | metop_amsua.py | 142 | Bug | Missing null check | Fix: add guard |
+| 2 | metop_avhrr.py | 305 | Style | Use f-string | Fix: convert |
+| 3 | metop.py | 45 | Suggestion | Add type alias | Skip: not needed |
+| ... | ... | ... | ... | ... | ... |
+```
+
+For each comment, briefly explain:
+- What Greptile flagged
+- Whether you agree or disagree (with reasoning)
+- Your proposed fix (or why to skip)
+
+Ask the user to confirm which comments to address. The user may:
+- Accept all proposed fixes
+- Select specific fixes
+- Override your recommendation on any comment
+- Add their own fixes
+
+### 16d. Implement fixes
+
+For each accepted fix:
+
+1. Make the code change
+2. Run `make format && make lint` after all fixes
+3. Run the relevant tests
+4. Commit with a message like:
+   `fix: address code review feedback (Greptile)`
+
+### 16e. Respond to review comments
+
+For each Greptile comment, post a reply on the PR:
+
+**For fixed comments:**
+
+```bash
+gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
+  -f body="Fixed in <commit_sha>. <brief description of fix>"
+```
+
+**For dismissed comments (false positives / won't fix):**
+
+```bash
+gh api repos/NVIDIA/earth2studio/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies \
+  -f body="Won't fix — <brief justification>"
+```
+
+### 16f. Push and resolve
+
+```bash
+git push origin <branch>
+```
+
+After pushing, resolve all addressed review threads if possible.
+
+Inform the user of the final state:
+- How many comments were fixed
+- How many were dismissed (with reasons)
+- Any remaining open threads
 
 ---
 
