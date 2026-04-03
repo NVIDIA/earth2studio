@@ -86,9 +86,7 @@ class TestOutputManager:
                 cfg, prognostic=prognostic, times=times, nsteps=2, ensemble_size=3
             )
             assert "ensemble" in mgr._total_coords
-            np.testing.assert_array_equal(
-                mgr._total_coords["ensemble"], np.arange(3)
-            )
+            np.testing.assert_array_equal(mgr._total_coords["ensemble"], np.arange(3))
 
     def test_no_ensemble_coord_for_deterministic(self, cfg, prognostic):
         times = np.array([np.datetime64("2024-01-01")])
@@ -102,25 +100,19 @@ class TestOutputManager:
         times = np.array([np.datetime64("2024-01-01")])
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                mgr = OutputManager(
-                    cfg, prognostic=prognostic, times=times, nsteps=2
-                )
+                mgr = OutputManager(cfg, prognostic=prognostic, times=times, nsteps=2)
                 with mgr:
                     pass
 
                 # Opening again with overwrite=True should succeed
-                mgr2 = OutputManager(
-                    cfg, prognostic=prognostic, times=times, nsteps=2
-                )
+                mgr2 = OutputManager(cfg, prognostic=prognostic, times=times, nsteps=2)
                 with mgr2:
                     assert os.path.exists(mgr2._path)
 
     def test_error_without_context_manager(self, cfg, prognostic):
         times = np.array([np.datetime64("2024-01-01")])
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            mgr = OutputManager(
-                cfg, prognostic=prognostic, times=times, nsteps=2
-            )
+            mgr = OutputManager(cfg, prognostic=prognostic, times=times, nsteps=2)
             with pytest.raises(RuntimeError, match="context manager"):
                 _ = mgr.io
 
@@ -128,9 +120,7 @@ class TestOutputManager:
         times = np.array([np.datetime64("2024-01-01")])
         nsteps = 5
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            mgr = OutputManager(
-                cfg, prognostic=prognostic, times=times, nsteps=nsteps
-            )
+            mgr = OutputManager(cfg, prognostic=prognostic, times=times, nsteps=nsteps)
             # nsteps+1 lead times (step 0 = analysis, steps 1..nsteps = forecast)
             assert len(mgr._total_coords["lead_time"]) == nsteps + 1
 
@@ -198,9 +188,7 @@ class TestOutputManager:
                     n_lon = len(oc["lon"])
 
                     for step in range(3):
-                        lead = np.array(
-                            [mgr._total_coords["lead_time"][step]]
-                        )
+                        lead = np.array([mgr._total_coords["lead_time"][step]])
                         write_coords: CoordSystem = OrderedDict(
                             {
                                 "time": times,

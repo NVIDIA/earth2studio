@@ -67,14 +67,12 @@ def test_distribute_work(output_dir: str) -> None:
     if dist.rank == 0:
         all_items: list[int] = []
         for r in range(dist.world_size):
-            data = json.loads(
-                (Path(output_dir) / f"rank{r}_items.json").read_text()
-            )
+            data = json.loads((Path(output_dir) / f"rank{r}_items.json").read_text())
             all_items.extend(data)
 
-        assert sorted(all_items) == items, (
-            f"Items mismatch: {sorted(all_items)} != {items}"
-        )
+        assert (
+            sorted(all_items) == items
+        ), f"Items mismatch: {sorted(all_items)} != {items}"
         no_overlap = len(all_items) == len(set(all_items))
         assert no_overlap, "Ranks received overlapping items"
 

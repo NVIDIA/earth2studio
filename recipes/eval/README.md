@@ -26,16 +26,61 @@ Install the required packages:
 uv sync
 ```
 
-Run a deterministic DLWP forecast:
+**Step 1 — Pre-download data** (required before inference):
+
+```bash
+python predownload.py
+```
+
+**Step 2 — Run inference:**
 
 ```bash
 python main.py
 ```
 
-Override settings from the command line:
+`main.py` will refuse to start if the pre-download step has not been completed.
+To bypass this check (e.g. data is already cached from a prior run), pass
+`require_predownload=false`.
+
+## Pre-downloading Data
+
+`predownload.py` must be run before `main.py`.  It fetches and caches all
+initial condition data needed for inference, and optionally pre-fetches
+reanalysis data for verification.  It accepts the **same config overrides** as
+`main.py`, so the two commands stay in sync with no extra bookkeeping.
+
+IC variables, lead times, and model step size are inferred automatically from
+the model's `input_coords()` / `output_coords()`.
 
 ```bash
-python main.py nsteps=40 start_times='["2024-06-01 00:00:00"]'
+# Single process (login node or interactive session)
+python predownload.py
+
+# Distributed — parallelise across CPU workers
+torchrun --nproc_per_node=8 --standalone predownload.py
+
+# Match IC range and model to your planned eval config
+python predownload.py model=dlwp \
+    ic_block_start="2024-01-01" ic_block_end="2024-03-31" ic_block_step=24
+
+# Also pre-fetch ERA5 verification data for the full forecast window
+# (variables taken from output.variables — only what will be scored)
+python predownload.py predownload.verification.enabled=true
+```
+
+### Custom cache location
+
+To redirect all I/O to a shared filesystem, set `predownload.cache_dir`.
+Point the inference job at the same location via the `EARTH2STUDIO_DATA_CACHE`
+environment variable that earth2studio already supports:
+
+```bash
+# Pre-download to shared path
+python predownload.py predownload.cache_dir=/lustre/shared/e2s_cache
+
+# Inference reads from the same location
+EARTH2STUDIO_DATA_CACHE=/lustre/shared/e2s_cache torchrun \
+    --nproc_per_node=$NGPU --standalone main.py
 ```
 
 ## Multi-GPU Execution
@@ -47,8 +92,8 @@ torchrun --nproc_per_node=$NGPU --standalone main.py
 ```
 
 Work items (one per initial-time / ensemble-member pair) are partitioned
-automatically and evenly across ranks. Remainder
-items are absorbed by the first rank rather than requiring exact divisibility.
+automatically and evenly across ranks. Remainder items are absorbed by the
+first rank rather than requiring exact divisibility.
 
 ## Configuration
 
@@ -114,9 +159,11 @@ verification data, and write skill metrics.
 
 ```bash
 recipes/eval/
-├── main.py              # Hydra entry point
+├── main.py              # Hydra entry point — distributed inference
+├── predownload.py       # Hydra entry point — data pre-fetch
 ├── cfg/
 │   ├── default.yaml     # Main config
+│   ├── predownload.yaml # Pre-download config (inherits default.yaml)
 │   └── model/
 │       └── dlwp.yaml    # DLWP model config
 ├── src/

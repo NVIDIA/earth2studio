@@ -93,9 +93,7 @@ class TestRunInference:
             )
 
     def test_multiple_ics(self, prognostic, data_source, base_cfg):
-        times = np.array(
-            [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")]
-        )
+        times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
         items = [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
             WorkItem(time=np.datetime64("2024-01-02"), ensemble_id=0, seed=1),
@@ -115,16 +113,12 @@ class TestRunInference:
                             device=torch.device("cpu"),
                         )
 
-                    np.testing.assert_array_equal(
-                        mgr.io.coords["time"], times
-                    )
+                    np.testing.assert_array_equal(mgr.io.coords["time"], times)
                     for var in ["t2m", "z500"]:
                         arr = mgr.io[var]
                         assert arr.shape[0] == 2, "expected two distinct IC time slices"
 
-    @pytest.mark.skipif(
-        not torch.cuda.is_available(), reason="CUDA not available"
-    )
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
     def test_single_gpu_cuda(self, prognostic, data_source, base_cfg):
         times = np.array([np.datetime64("2024-01-01")])
         items = [WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)]
@@ -175,9 +169,7 @@ class TestRunInferenceEnsemble:
         self, prognostic, data_source, ensemble_output_mgr
     ):
         items = [
-            WorkItem(
-                time=np.datetime64("2024-01-01"), ensemble_id=eid, seed=eid * 100
-            )
+            WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=eid, seed=eid * 100)
             for eid in range(3)
         ]
         with patch(_RANK0_INFER, side_effect=_passthrough):

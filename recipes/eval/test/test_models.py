@@ -22,11 +22,10 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 from omegaconf import OmegaConf
+from src.models import load_diagnostics, load_prognostic
 
 from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
-
-from src.models import load_diagnostics, load_prognostic
 
 _RANK0_PATH = "src.models.run_on_rank0_first"
 
@@ -54,9 +53,7 @@ def _make_fake_prognostic_cls():
 class TestLoadPrognostic:
     def test_default_package_path(self):
         fake_cls, expected_model = _make_fake_prognostic_cls()
-        cfg = OmegaConf.create(
-            {"model": {"architecture": "some.module.FakePx"}}
-        )
+        cfg = OmegaConf.create({"model": {"architecture": "some.module.FakePx"}})
 
         with patch("src.models.hydra.utils.get_class", return_value=fake_cls):
             with patch(_RANK0_PATH, side_effect=_passthrough):
@@ -81,9 +78,7 @@ class TestLoadPrognostic:
         )
 
         with patch("src.models.hydra.utils.get_class", return_value=fake_cls):
-            with patch(
-                "earth2studio.models.auto.Package"
-            ) as mock_package:
+            with patch("earth2studio.models.auto.Package") as mock_package:
                 with patch(_RANK0_PATH, side_effect=_passthrough):
                     result = load_prognostic(cfg)
 
@@ -139,11 +134,7 @@ class TestLoadDiagnostics:
         fake_cls.load_default_package.return_value = MagicMock(name="dx_pkg")
 
         cfg = OmegaConf.create(
-            {
-                "diagnostics": {
-                    "my_dx": {"architecture": "some.module.FakeDx"}
-                }
-            }
+            {"diagnostics": {"my_dx": {"architecture": "some.module.FakeDx"}}}
         )
 
         with patch("src.models.hydra.utils.get_class", return_value=fake_cls):
@@ -159,9 +150,7 @@ class TestLoadDiagnostics:
         fake_cls.load_default_package.assert_called_once()
 
     def test_bad_config_raises(self):
-        cfg = OmegaConf.create(
-            {"diagnostics": {"bad": {"some_key": "some_value"}}}
-        )
+        cfg = OmegaConf.create({"diagnostics": {"bad": {"some_key": "some_value"}}})
         with pytest.raises(ValueError, match="'_target_' or 'architecture'"):
             load_diagnostics(cfg)
 

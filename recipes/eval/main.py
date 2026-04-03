@@ -22,7 +22,7 @@ from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging
 from src.inference import run_inference
 from src.models import load_diagnostics, load_prognostic
-from src.output import OutputManager
+from src.output import OutputManager, sentinel_path
 from src.work import build_work_items, distribute_work
 
 
@@ -33,6 +33,17 @@ def main(cfg: DictConfig) -> None:
     DistributedManager.initialize()
     configure_logging()
     dist = DistributedManager()
+
+    # --- Pre-download check -------------------------------------------------
+    if cfg.get("require_predownload", True):
+        sp = sentinel_path(cfg)
+        if not sp.exists():
+            raise RuntimeError(
+                f"Pre-download sentinel not found at '{sp}'.\n"
+                "Run 'python predownload.py' with the same config before inference.\n"
+                "To skip this check, set require_predownload=false."
+            )
+        logger.info(f"Pre-download sentinel found: {sp}")
 
     # --- Build and distribute work ------------------------------------------
     all_items = build_work_items(cfg)

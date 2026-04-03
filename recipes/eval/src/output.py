@@ -20,6 +20,7 @@ import os
 import shutil
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from types import TracebackType
 from typing import Any
 
@@ -35,6 +36,27 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
 
 from .distributed import run_on_rank0_first
+
+
+def sentinel_path(cfg: DictConfig) -> Path:
+    """Return the path of the pre-download sentinel file for this eval run.
+
+    The sentinel is written by ``predownload.py`` on successful completion and
+    checked by ``main.py`` when ``require_predownload`` is true.  It lives
+    alongside the forecast zarr so it is trivially co-located with the run
+    outputs and visible to every node on a shared filesystem.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config with an ``output.path`` key.
+
+    Returns
+    -------
+    Path
+        ``<output.path>/.predownload.done``
+    """
+    return Path(cfg.output.path) / ".predownload.done"
 
 
 class OutputManager:
@@ -116,7 +138,8 @@ class OutputManager:
         has_error = exc_type is not None or write_error is not None
         if self._dist.distributed:
             err_flag = torch.tensor(
-                [1.0 if has_error else 0.0], device="cuda" if torch.cuda.is_available() else "cpu"
+                [1.0 if has_error else 0.0],
+                device="cuda" if torch.cuda.is_available() else "cpu",
             )
             torch.distributed.all_reduce(err_flag, op=torch.distributed.ReduceOp.MAX)
             any_error = err_flag.item() > 0
@@ -124,7 +147,9 @@ class OutputManager:
             any_error = has_error
 
         if any_error:
-            logger.warning(f"Skipping barrier/consolidation due to error (local={has_error})")
+            logger.warning(
+                f"Skipping barrier/consolidation due to error (local={has_error})"
+            )
             if write_error is not None and exc_type is None:
                 raise write_error
             return

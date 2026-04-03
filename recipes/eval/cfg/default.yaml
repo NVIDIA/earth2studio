@@ -27,6 +27,14 @@ start_times:
 # ic_block_step: 24   # hours between ICs
 
 # ---------------------------------------------------------------------------
+# Pre-download enforcement
+# ---------------------------------------------------------------------------
+# When true, main.py refuses to start unless predownload.py has been run for
+# this project/run_id (verified via a sentinel file in the output directory).
+# Override with require_predownload=false to skip the check.
+require_predownload: true
+
+# ---------------------------------------------------------------------------
 # Forecast settings
 # ---------------------------------------------------------------------------
 nsteps: 20             # number of model steps per forecast

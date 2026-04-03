@@ -27,7 +27,6 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
-from .distributed import run_on_rank0_first
 from .output import OutputManager
 from .work import WorkItem
 
@@ -129,8 +128,7 @@ def _run_single_forecast(
     """
     time = [item.time]
 
-    x, coords = run_on_rank0_first(
-        fetch_data,
+    x, coords = fetch_data(
         source=data_source,
         time=time,
         variable=prognostic_ic["variable"],
