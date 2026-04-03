@@ -549,21 +549,12 @@ class MetOpAVHRR:
 
                 # Handle ZIP-wrapped products
                 if raw[:2] == b"PK":
-                    import tempfile
+                    import io
 
-                    with tempfile.NamedTemporaryFile(
-                        suffix=".zip", delete=False
-                    ) as tmp:
-                        tmp.write(raw)
-                        tmp_path = tmp.name
-
-                    try:
-                        with zipfile.ZipFile(tmp_path) as zf:
-                            nat_names = [n for n in zf.namelist() if n.endswith(".nat")]
-                            if nat_names:
-                                raw = zf.read(nat_names[0])
-                    finally:
-                        os.unlink(tmp_path)
+                    with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+                        nat_names = [n for n in zf.namelist() if n.endswith(".nat")]
+                        if nat_names:
+                            raw = zf.read(nat_names[0])
 
                 with open(cache_path, "wb") as f:
                     f.write(raw)

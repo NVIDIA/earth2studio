@@ -58,7 +58,6 @@ _MPHR_RECORD_CLASS = 1
 _SCENE_RADIANCE_OFFSET = 22  # integer4, 15×30, SF=1e7
 _ANGULAR_RELATION_OFFSET = 1842  # integer2, 4×30, SF=1e2
 _EARTH_LOCATION_OFFSET = 2082  # integer4, 2×30, SF=1e4
-_SURFACE_PROPERTIES_OFFSET = 2322  # integer2, 30
 _TERRAIN_ELEVATION_OFFSET = 2382  # integer2, 30
 
 _NUM_CHANNELS = 15
@@ -71,6 +70,10 @@ _C2 = 1.4387863  # cm·K
 
 # Metop-B AMSU-A central wavenumbers (cm⁻¹) per channel 1–15
 # From ATOVS L1B Product Guide, Appendix A
+# NOTE: Inter-satellite wavenumber differences (Metop-A/B/C) are <0.0002 cm⁻¹,
+# producing max BT bias <0.03 K — well below instrument NEdT (~0.2–0.5 K).
+# Band correction coefficients (A, B) are identity (0, 1) for all NOAA-KLM
+# platforms (per PGS §5.1.2.2.5). Using Metop-B values for all satellites.
 _WAVENUMBERS = np.array(
     [
         0.793897,
@@ -92,7 +95,7 @@ _WAVENUMBERS = np.array(
     dtype=np.float64,
 )
 
-# Band correction A, B per channel (all identity for Metop-B)
+# Band correction A, B per channel (identity for all NOAA-KLM platforms)
 _BAND_A = np.zeros(_NUM_CHANNELS, dtype=np.float64)
 _BAND_B = np.ones(_NUM_CHANNELS, dtype=np.float64)
 
@@ -450,7 +453,7 @@ class MetOpAMSUA:
             E2STUDIO_SCHEMA.field("time"),
             E2STUDIO_SCHEMA.field("lat"),
             E2STUDIO_SCHEMA.field("lon"),
-            pa.field("elev", pa.float32(), nullable=True),
+            E2STUDIO_SCHEMA.field("elev"),
             E2STUDIO_SCHEMA.field("observation"),
             E2STUDIO_SCHEMA.field("variable"),
             E2STUDIO_SCHEMA.field("satellite"),
