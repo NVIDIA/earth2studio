@@ -632,7 +632,7 @@ from earth2studio.data.utils import managed_session
 
 async def fetch(self, time, variable):
     # Session is ALWAYS closed, even if an exception is raised
-    async with await managed_session(self.fs) as session:
+    async with managed_session(self.fs) as session:
         # ... fetch data here ...
 ```
 
@@ -876,7 +876,7 @@ async def fetch(
     self._validate_time(time)
 
     # Use managed_session for guaranteed cleanup on error/timeout
-    async with await managed_session(self.fs) as session:
+    async with managed_session(self.fs) as session:
 
         # Pre-allocate output
         xr_array = xr.DataArray(

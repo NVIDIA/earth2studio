@@ -790,7 +790,7 @@ async def test_managed_session():
     # Test cleanup on error
     fs = MockFS()
     with pytest.raises(ValueError):
-        async with await managed_session(fs):
+        async with managed_session(fs):
             raise ValueError("error")
 
     assert fs.session_closed

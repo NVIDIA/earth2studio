@@ -530,7 +530,7 @@ async def async_retry(
     retries: int = 3,
     backoff: float = 1.0,
     task_timeout: float | None = None,
-    exceptions: tuple[type[BaseException], ...] = (OSError, IOError, TimeoutError),
+    exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
     **kwargs: Any,
 ) -> Any:
     """Retry an async callable with exponential backoff and jitter.
@@ -592,6 +592,7 @@ async def async_retry(
     raise last_exc  # type: ignore[misc]
 
 
+@asynccontextmanager
 async def managed_session(fs: Any) -> Any:
     """Context manager for fsspec async sessions.
 
@@ -604,10 +605,10 @@ async def managed_session(fs: Any) -> Any:
     fs : Any
         An fsspec filesystem instance (s3fs, gcsfs, etc.)
 
-    Returns
-    -------
-    AsyncContextManager
-        Yields the aiohttp client session (or None for non-session fs)
+    Yields
+    ------
+    Any
+        The aiohttp client session (or None for non-session fs)
 
     Example
     -------
@@ -617,19 +618,14 @@ async def managed_session(fs: Any) -> Any:
             # fetch data here - session will be closed even on error
             await gather_with_concurrency(coros, ...)
     """
-
-    @asynccontextmanager
-    async def _managed_session_impl() -> Any:
-        session = None
-        try:
-            if hasattr(fs, "set_session"):
-                session = await fs.set_session(refresh=True)
-            yield session
-        finally:
-            if session is not None:
-                await session.close()
-
-    return _managed_session_impl()
+    session = None
+    try:
+        if hasattr(fs, "set_session"):
+            session = await fs.set_session(refresh=True)
+        yield session
+    finally:
+        if session is not None:
+            await session.close()
 
 
 async def gather_with_concurrency(
