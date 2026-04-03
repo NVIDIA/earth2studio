@@ -21,11 +21,9 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 from omegaconf import OmegaConf
-
 from predownload import _compute_verification_times, _infer_step_hours
 from src.output import sentinel_path
 from src.work import build_work_items
-
 
 # ---------------------------------------------------------------------------
 # Helpers

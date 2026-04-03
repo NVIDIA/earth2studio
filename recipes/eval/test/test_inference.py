@@ -28,7 +28,6 @@ from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"
 _RANK0_OUTPUT = "src.output.run_on_rank0_first"
-_RANK0_INFER = "src.inference.run_on_rank0_first"
 
 
 def _passthrough(fn, *args, **kwargs):
@@ -67,30 +66,28 @@ class TestRunInference:
     def test_deterministic_single_ic(
         self, work_items, prognostic, data_source, output_mgr
     ):
-        with patch(_RANK0_INFER, side_effect=_passthrough):
-            run_inference(
-                work_items=work_items,
-                prognostic=prognostic,
-                data_source=data_source,
-                output_mgr=output_mgr,
-                nsteps=2,
-                device=torch.device("cpu"),
-            )
+        run_inference(
+            work_items=work_items,
+            prognostic=prognostic,
+            data_source=data_source,
+            output_mgr=output_mgr,
+            nsteps=2,
+            device=torch.device("cpu"),
+        )
 
         assert os.path.exists(output_mgr._path)
         assert "t2m" in output_mgr.io
         assert "z500" in output_mgr.io
 
     def test_empty_work_items_skips(self, prognostic, data_source, output_mgr):
-        with patch(_RANK0_INFER, side_effect=_passthrough):
-            run_inference(
-                work_items=[],
-                prognostic=prognostic,
-                data_source=data_source,
-                output_mgr=output_mgr,
-                nsteps=2,
-                device=torch.device("cpu"),
-            )
+        run_inference(
+            work_items=[],
+            prognostic=prognostic,
+            data_source=data_source,
+            output_mgr=output_mgr,
+            nsteps=2,
+            device=torch.device("cpu"),
+        )
 
     def test_multiple_ics(self, prognostic, data_source, base_cfg):
         times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
@@ -103,15 +100,14 @@ class TestRunInference:
                 with OutputManager(
                     base_cfg, prognostic=prognostic, times=times, nsteps=2
                 ) as mgr:
-                    with patch(_RANK0_INFER, side_effect=_passthrough):
-                        run_inference(
-                            work_items=items,
-                            prognostic=prognostic,
-                            data_source=data_source,
-                            output_mgr=mgr,
-                            nsteps=2,
-                            device=torch.device("cpu"),
-                        )
+                    run_inference(
+                        work_items=items,
+                        prognostic=prognostic,
+                        data_source=data_source,
+                        output_mgr=mgr,
+                        nsteps=2,
+                        device=torch.device("cpu"),
+                    )
 
                     np.testing.assert_array_equal(mgr.io.coords["time"], times)
                     for var in ["t2m", "z500"]:
@@ -124,22 +120,21 @@ class TestRunInference:
         items = [WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)]
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
-                with patch(_RANK0_INFER, side_effect=_passthrough):
-                    with OutputManager(
-                        base_cfg,
+                with OutputManager(
+                    base_cfg,
+                    prognostic=prognostic,
+                    times=times,
+                    nsteps=2,
+                ) as mgr:
+                    run_inference(
+                        work_items=items,
                         prognostic=prognostic,
-                        times=times,
+                        data_source=data_source,
+                        output_mgr=mgr,
                         nsteps=2,
-                    ) as mgr:
-                        run_inference(
-                            work_items=items,
-                            prognostic=prognostic,
-                            data_source=data_source,
-                            output_mgr=mgr,
-                            nsteps=2,
-                            device=torch.device("cuda:0"),
-                        )
-                    assert os.path.exists(mgr._path)
+                        device=torch.device("cuda:0"),
+                    )
+                assert os.path.exists(mgr._path)
 
 
 class TestRunInferenceEnsemble:
@@ -172,15 +167,14 @@ class TestRunInferenceEnsemble:
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=eid, seed=eid * 100)
             for eid in range(3)
         ]
-        with patch(_RANK0_INFER, side_effect=_passthrough):
-            run_inference(
-                work_items=items,
-                prognostic=prognostic,
-                data_source=data_source,
-                output_mgr=ensemble_output_mgr,
-                nsteps=2,
-                device=torch.device("cpu"),
-            )
+        run_inference(
+            work_items=items,
+            prognostic=prognostic,
+            data_source=data_source,
+            output_mgr=ensemble_output_mgr,
+            nsteps=2,
+            device=torch.device("cpu"),
+        )
 
         assert "ensemble" in ensemble_output_mgr.io.coords
         np.testing.assert_array_equal(

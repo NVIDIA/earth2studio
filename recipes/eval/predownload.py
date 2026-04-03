@@ -43,7 +43,8 @@ Also pre-fetch ERA5 verification data for the full forecast window::
 
     python predownload.py predownload.verification.enabled=true
 
-Override the IC time range just like the eval recipe::
+Override the IC time range just like the eval recipe (``ic_block_end`` is
+inclusive on the step grid; same ``np.arange`` semantics as ``work.py``)::
 
     python predownload.py ic_block_start="2024-01-01" ic_block_end="2024-03-31" \\
         ic_block_step=24
@@ -59,12 +60,12 @@ import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-
-from earth2studio.data import fetch_data
 from src.distributed import configure_logging
 from src.models import load_prognostic
 from src.output import sentinel_path
 from src.work import build_work_items, distribute_work
+
+from earth2studio.data import fetch_data
 
 
 def _infer_step_hours(model: object) -> int:

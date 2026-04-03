@@ -22,8 +22,11 @@ Key features:
 Install the required packages:
 
 ```bash
-# With uv
+# With uv (runtime dependencies only)
 uv sync
+
+# Include pytest and related tooling to run tests (see Testing below)
+uv sync --extra dev
 ```
 
 **Step 1 — Pre-download data** (required before inference):
@@ -110,7 +113,7 @@ start_times:
     - "2024-01-01 00:00:00"
     - "2024-01-02 00:00:00"
 
-# Or a range (remove start_times first)
+# Or a range (remove start_times first). ic_block_end is inclusive on the step grid.
 # ic_block_start: "2024-01-01 00:00:00"
 # ic_block_end: "2024-03-31 00:00:00"
 # ic_block_step: 24   # hours
@@ -187,9 +190,9 @@ Each source module has a specific scoped responsibilities:
 
 ## Testing
 
-Unit and integration tests live in `test/`. They use a lightweight
-`Persistence` model and `Random` data source so no network access or model
-checkpoints are required.
+Install dev dependencies first (`uv sync --extra dev`). Unit and integration
+tests live in `test/`. They use a lightweight `Persistence` model and
+`Random` data source so no network access or model checkpoints are required.
 
 ```bash
 # Run all tests (multi-GPU tests auto-skip when GPUs are unavailable)

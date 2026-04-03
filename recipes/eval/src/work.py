@@ -141,6 +141,10 @@ def _parse_initial_times(cfg: DictConfig) -> list[np.datetime64]:
     cfg : DictConfig
         Config containing either ``start_times`` (explicit list) or
         ``ic_block_start`` / ``ic_block_end`` / ``ic_block_step`` (range).
+        For the block form, times are ``np.arange(start, end + step, step)``
+        with ``step`` in hours, so ``ic_block_end`` is **inclusive**: the last
+        IC equals ``ic_block_end`` when that timestamp lies on the grid from
+        ``ic_block_start`` and ``ic_block_step``.
 
     Returns
     -------

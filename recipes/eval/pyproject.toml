@@ -13,6 +13,10 @@ dependencies = [
     "omegaconf",
     "nvidia-physicsnemo>=2.0",
     "zarr>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
     "pytest>=6.0.0",
     "pytest-cov",
     "pytest-timeout>=2.0.1",

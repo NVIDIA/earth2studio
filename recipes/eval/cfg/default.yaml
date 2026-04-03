@@ -21,7 +21,8 @@ run_id: dlwp_deterministic
 start_times:
     - "2024-01-01 00:00:00"
 
-# Option B: sweep (uncomment and remove start_times above to use)
+# Option B: sweep (uncomment and remove start_times above to use;
+# ic_block_end is inclusive — ICs are start, start+step, ... through end when on-grid)
 # ic_block_start: "2024-01-01 00:00:00"
 # ic_block_end: "2024-01-31 00:00:00"
 # ic_block_step: 24   # hours between ICs
