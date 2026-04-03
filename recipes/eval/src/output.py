@@ -101,13 +101,19 @@ class OutputManager:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        write_error: BaseException | None = None
         if self._executor is not None:
             for f in self._futures:
-                f.result()
+                try:
+                    f.result()
+                except Exception as e:
+                    if write_error is None:
+                        write_error = e
+                        logger.error(f"Threaded write failed: {e}")
             self._executor.shutdown(wait=True)
             self._futures.clear()
 
-        has_error = exc_type is not None
+        has_error = exc_type is not None or write_error is not None
         if self._dist.distributed:
             err_flag = torch.tensor(
                 [1.0 if has_error else 0.0], device="cuda" if torch.cuda.is_available() else "cpu"
@@ -119,6 +125,8 @@ class OutputManager:
 
         if any_error:
             logger.warning(f"Skipping barrier/consolidation due to error (local={has_error})")
+            if write_error is not None and exc_type is None:
+                raise write_error
             return
 
         if self._dist.distributed:

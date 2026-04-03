@@ -78,10 +78,10 @@ def run_inference(
     diagnostics = diagnostics or []
 
     prognostic = prognostic.to(device)
-    dx_input_coords: dict[int, CoordSystem] = {}
-    for dx in diagnostics:
-        dx.to(device)
-        dx_input_coords[id(dx)] = dx.input_coords()
+    diagnostics = [dx.to(device) for dx in diagnostics]
+    dx_input_coords: dict[int, CoordSystem] = {
+        id(dx): dx.input_coords() for dx in diagnostics
+    }
 
     prognostic_ic = prognostic.input_coords()
     output_coords = output_mgr.output_coords
