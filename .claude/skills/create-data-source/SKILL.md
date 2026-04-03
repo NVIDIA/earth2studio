@@ -2159,8 +2159,6 @@ so reviewers can reproduce the plot:
 
 <List any new packages added to pyproject.toml, or "None">
 
-```` <!-- markdownlint-disable-line MD040 -->
-
 Drag-and-drop or attach the sanity-check PNG image into the PR body
 so the `<details>` spoiler renders correctly.
 
@@ -2195,6 +2193,7 @@ If no review after 5 minutes, inform the user:
 
 > Greptile hasn't posted a review after 5 minutes. This can happen if
 > the review bot is busy or the PR hasn't triggered it. You can:
+>
 > 1. Ask me to check again later
 > 2. Skip this step and proceed without automated review
 > 3. Manually request a review from Greptile on the PR page
@@ -2244,11 +2243,13 @@ Present each comment to the user in a summary table:
 ```
 
 For each comment, briefly explain:
+
 - What Greptile flagged
 - Whether you agree or disagree (with reasoning)
 - Your proposed fix (or why to skip)
 
 Ask the user to confirm which comments to address. The user may:
+
 - Accept all proposed fixes
 - Select specific fixes
 - Override your recommendation on any comment
@@ -2291,6 +2292,7 @@ git push origin <branch>
 After pushing, resolve all addressed review threads if possible.
 
 Inform the user of the final state:
+
 - How many comments were fixed
 - How many were dismissed (with reasons)
 - Any remaining open threads
