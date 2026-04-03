@@ -19,7 +19,6 @@ import numpy as np
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-
 from src.distributed import configure_logging
 from src.inference import run_inference
 from src.models import load_diagnostics, load_prognostic

@@ -1,5 +1,8 @@
 # Model Evaluation (Eval) Recipe
 
+> 🏗️ **Under construction** — This recipe is still being developed; behavior,
+> defaults, and documentation may change without notice.
+
 General-purpose recipe for model verification and validation (V&V) using
 Earth2Studio. Run any prognostic model (with optional diagnostic models)
 across a set of initial conditions, distributing work across GPUs, and save
@@ -111,7 +114,7 @@ verification data, and write skill metrics.
 
 ## Architecture
 
-```
+```bash
 recipes/eval/
 ├── main.py              # Hydra entry point
 ├── cfg/
@@ -139,19 +142,19 @@ Each source module has a specific scoped responsibilities:
 
 ## Testing
 
-Unit and integration tests live in `tests/`. They use a lightweight
+Unit and integration tests live in `test/`. They use a lightweight
 `Persistence` model and `Random` data source so no network access or model
 checkpoints are required.
 
 ```bash
 # Run all tests (multi-GPU tests auto-skip when GPUs are unavailable)
-pytest tests/ -v
+pytest test/ -v
 
 # Only the pure-logic work-distribution tests (no GPU needed)
-pytest tests/test_work.py -v
+pytest test/test_work.py -v
 
 # Only multi-GPU tests (requires 2+ CUDA GPUs)
-pytest tests/test_multigpu.py -v
+pytest test/test_multigpu.py -v
 ```
 
 Multi-GPU tests launch `torchrun` as a subprocess, so each test exercises

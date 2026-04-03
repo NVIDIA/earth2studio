@@ -142,9 +142,7 @@ class OutputManager:
         """
         arrays, coord_sets, var_names = split_coords(x, coords)
         if self._executor is not None:
-            future = self._executor.submit(
-                self.io.write, arrays, coord_sets, var_names
-            )
+            future = self._executor.submit(self.io.write, arrays, coord_sets, var_names)
             self._futures.append(future)
         else:
             self.io.write(arrays, coord_sets, var_names)

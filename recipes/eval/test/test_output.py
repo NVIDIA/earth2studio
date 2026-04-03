@@ -24,10 +24,9 @@ import numpy as np
 import pytest
 import torch
 from omegaconf import OmegaConf
+from src.output import OutputManager
 
 from earth2studio.utils.coords import CoordSystem
-
-from src.output import OutputManager
 
 
 def _make_dist_mock(*, rank: int = 0, world_size: int = 1, distributed: bool = False):
@@ -134,3 +133,86 @@ class TestOutputManager:
             )
             # nsteps+1 lead times (step 0 = analysis, steps 1..nsteps = forecast)
             assert len(mgr._total_coords["lead_time"]) == nsteps + 1
+
+    def test_overwrite_false_raises_when_store_exists(self, prognostic, tmp_path):
+        no_overwrite_cfg = OmegaConf.create(
+            {
+                "output": {
+                    "path": str(tmp_path / "out"),
+                    "variables": ["t2m", "z500"],
+                    "overwrite": False,
+                    "thread_writers": 0,
+                    "chunks": {"time": 1, "lead_time": 1},
+                },
+            }
+        )
+        times = np.array([np.datetime64("2024-01-01")])
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(
+                    no_overwrite_cfg,
+                    prognostic=prognostic,
+                    times=times,
+                    nsteps=2,
+                )
+                with mgr:
+                    pass
+
+                mgr2 = OutputManager(
+                    no_overwrite_cfg,
+                    prognostic=prognostic,
+                    times=times,
+                    nsteps=2,
+                )
+                with pytest.raises(FileExistsError, match="already exists"):
+                    mgr2.__enter__()
+
+    def test_threaded_writes_produce_same_output(self, prognostic, tmp_path):
+        threaded_cfg = OmegaConf.create(
+            {
+                "output": {
+                    "path": str(tmp_path / "threaded_out"),
+                    "variables": ["t2m", "z500"],
+                    "overwrite": True,
+                    "thread_writers": 2,
+                    "chunks": {"time": 1, "lead_time": 1},
+                },
+            }
+        )
+        times = np.array([np.datetime64("2024-01-01")])
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                mgr = OutputManager(
+                    threaded_cfg,
+                    prognostic=prognostic,
+                    times=times,
+                    nsteps=2,
+                )
+                with mgr:
+                    assert mgr._executor is not None
+                    assert mgr._executor._max_workers == 2
+
+                    oc = mgr.output_coords
+                    n_var = len(oc["variable"])
+                    n_lat = len(oc["lat"])
+                    n_lon = len(oc["lon"])
+
+                    for step in range(3):
+                        lead = np.array(
+                            [mgr._total_coords["lead_time"][step]]
+                        )
+                        write_coords: CoordSystem = OrderedDict(
+                            {
+                                "time": times,
+                                "lead_time": lead,
+                                "variable": oc["variable"],
+                                "lat": oc["lat"],
+                                "lon": oc["lon"],
+                            }
+                        )
+                        data = torch.randn(1, 1, n_var, n_lat, n_lon)
+                        mgr.write(data, write_coords)
+
+                assert os.path.exists(mgr._path)
+                assert "t2m" in mgr.io
+                assert "z500" in mgr.io

@@ -19,9 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from omegaconf import OmegaConf
-
 from src.work import WorkItem, build_work_items, distribute_work
-
 
 # ---------------------------------------------------------------------------
 # build_work_items

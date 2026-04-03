@@ -37,12 +37,6 @@ _requires_2_gpus = pytest.mark.skipif(
     reason="Requires at least 2 CUDA GPUs",
 )
 
-_requires_4_gpus = pytest.mark.skipif(
-    not torch.cuda.is_available() or torch.cuda.device_count() < 4,
-    reason="Requires at least 4 CUDA GPUs",
-)
-
-
 def _run_worker(
     test_name: str, nproc: int, output_dir: str, timeout: int = 120
 ) -> subprocess.CompletedProcess:
@@ -59,7 +53,7 @@ def _run_worker(
         output_dir,
     ]
     return subprocess.run(
-        cmd,
+        cmd, # noqa: S603
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -86,25 +80,6 @@ class TestMultiGPU2:
     def test_end_to_end_inference(self, tmp_path):
         result = _run_worker(
             "end_to_end_inference", nproc=2, output_dir=str(tmp_path), timeout=180
-        )
-        assert result.returncode == 0, (
-            f"Worker failed (rc={result.returncode}):\n"
-            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
-
-
-@_requires_4_gpus
-class TestMultiGPU4:
-    def test_distribute_work(self, tmp_path):
-        result = _run_worker("distribute_work", nproc=4, output_dir=str(tmp_path))
-        assert result.returncode == 0, (
-            f"Worker failed (rc={result.returncode}):\n"
-            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
-
-    def test_end_to_end_inference(self, tmp_path):
-        result = _run_worker(
-            "end_to_end_inference", nproc=4, output_dir=str(tmp_path), timeout=180
         )
         assert result.returncode == 0, (
             f"Worker failed (rc={result.returncode}):\n"

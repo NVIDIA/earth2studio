@@ -8,7 +8,7 @@ authors = [
   { name="NVIDIA Earth-2 Team" },
 ]
 dependencies = [
-    "earth2studio[data,dlwp]",
+    "earth2studio[data,dlwp,perturbation,statistics,utils]",
     "hydra-core>=1.3.0",
     "omegaconf",
     "zarr>=3.0.0",

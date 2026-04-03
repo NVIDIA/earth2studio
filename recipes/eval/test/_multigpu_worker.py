@@ -37,21 +37,19 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from physicsnemo.distributed import DistributedManager
+from src.distributed import run_on_rank0_first
+from src.inference import run_inference
+from src.output import OutputManager
+from src.work import build_work_items, distribute_work
+
+from earth2studio.data import Random
+from earth2studio.models.px import Persistence
 
 # Ensure the recipe root (parent of tests/) is on sys.path
 _RECIPE_ROOT = str(Path(__file__).resolve().parents[1])
 if _RECIPE_ROOT not in sys.path:
     sys.path.insert(0, _RECIPE_ROOT)
-
-from physicsnemo.distributed import DistributedManager
-
-from earth2studio.data import Random
-from earth2studio.models.px import Persistence
-
-from src.distributed import run_on_rank0_first
-from src.inference import run_inference
-from src.output import OutputManager
-from src.work import WorkItem, build_work_items, distribute_work
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)

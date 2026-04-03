@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass
 from typing import TypeVar
 
@@ -40,14 +41,11 @@ class WorkItem:
         Ensemble member index (0 for deterministic runs).
     seed : int
         Random seed for reproducibility of perturbations.
-    model_id : str
-        Identifier for which model/checkpoint to use.
     """
 
     time: np.datetime64
     ensemble_id: int = 0
     seed: int = 0
-    model_id: str = "default"
 
 
 def build_work_items(cfg: DictConfig) -> list[WorkItem]:
@@ -177,6 +175,10 @@ def _parse_initial_times(cfg: DictConfig) -> list[np.datetime64]:
 def _deterministic_seed(base: int, time: np.datetime64, ensemble_id: int) -> int:
     """Produce a deterministic per-(time, ensemble) seed from a base seed.
 
+    Uses a fixed byte-packing scheme so the result is identical across
+    Python processes and runs (unlike ``hash()``, which is salted by
+    default via ``PYTHONHASHSEED``).
+
     Parameters
     ----------
     base : int
@@ -189,7 +191,16 @@ def _deterministic_seed(base: int, time: np.datetime64, ensemble_id: int) -> int
     Returns
     -------
     int
-        Deterministic seed value.
+        Deterministic seed value in [0, 2**63).
     """
-    time_hash = int(time.astype("datetime64[s]").astype("int64"))
-    return abs(hash((base, time_hash, ensemble_id))) % (2**63)
+    time_int = int(time.astype("datetime64[s]").astype("int64"))
+    packed = struct.pack(">qqq", base, time_int, ensemble_id)
+
+    # FNV-1a 64-bit — simple, fast, no external deps, fully deterministic.
+    FNV_OFFSET = 0xCBF29CE484222325
+    FNV_PRIME = 0x00000100000001B3
+    h = FNV_OFFSET
+    for byte in packed:
+        h ^= byte
+        h = (h * FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return h % (2**63)

@@ -56,24 +56,20 @@ def run_on_rank0_first(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
 
     if dist.rank == 0:
         result = func(*args, **kwargs)
-    else:
-        result = None  # type: ignore[assignment]
+        torch.distributed.barrier()  # Others let rank 0 go first, then sync
+        torch.distributed.barrier()  # Other ranks execute, then sync again
+        return result
 
-    torch.distributed.barrier()
-
-    if dist.rank != 0:
-        result = func(*args, **kwargs)
-
-    torch.distributed.barrier()
+    torch.distributed.barrier()  # Others wait for rank 0 to finish first, then sync
+    result = func(*args, **kwargs)
+    torch.distributed.barrier()  # Others execute, then sync again
     return result
 
 
 def configure_logging() -> None:
     """Set up loguru as the unified logging sink and suppress noisy packages."""
 
-    _NOISY_LOGGERS = frozenset(
-        {"makani.models.model_package", "numba.core.transforms"}
-    )
+    _NOISY_LOGGERS = frozenset({"makani.models.model_package", "numba.core.transforms"})
 
     class _InterceptHandler(logging.Handler):
         def emit(self, record: logging.LogRecord) -> None:
