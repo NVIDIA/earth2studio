@@ -1619,6 +1619,9 @@ Zarr file and mock `fetch_array` or the filesystem layer.
 - Test **availability / error handling**
 - **At least one mock test** per source (see 12d) — no network,
   no timeout, no xfail
+- **Target 90%+ line coverage** on the source module when running
+  with `--slow` (see Step 13b). Use `--cov-report=term-missing`
+  to identify uncovered lines.
 - Run via: `make pytest TOX_ENV=test-data` or
   `pytest test/data/test_<filename>.py -v`
 
@@ -1651,7 +1654,8 @@ Present:
 1. The test file path
 2. The test functions and what they cover
 3. Any test fixtures needed
-4. Ask if the tests look comprehensive enough
+4. Coverage percentage (must be >= 90% with `--slow`)
+5. Ask if the tests look comprehensive enough
 
 ---
 
@@ -1666,7 +1670,37 @@ uv run python -m pytest test/data/test_<filename>.py -v --timeout=60
 All tests must pass (or `xfail` for network tests). Fix failures
 and re-run until green.
 
-### 13b. Run the full data test suite (optional but recommended)
+### 13b. Run coverage report with `--slow` tests
+
+Run the new test file **with coverage** and the `--slow` flag to
+include network tests. The new data source file must achieve
+**at least 90% line coverage**:
+
+```bash
+uv run python -m pytest test/data/test_<filename>.py -v \
+    --slow --timeout=300 \
+    --cov=earth2studio/data/<filename> \
+    --cov-report=term-missing \
+    --cov-fail-under=90
+```
+
+- `--slow` enables network tests (marked `@pytest.mark.slow`)
+- `--cov=earth2studio/data/<filename>` scopes coverage to the
+  new source module only
+- `--cov-report=term-missing` shows which lines are not covered
+- `--cov-fail-under=90` fails the run if coverage is below 90%
+
+If coverage is below 90%, add additional tests or mock tests to
+cover the missing lines. Common gaps:
+
+- Error handling branches (e.g., empty products, invalid data)
+- Edge cases in parsing (e.g., missing fields, corrupt records)
+- Cache property paths (`cache=True` vs `cache=False`)
+- `resolve_fields` with different input types
+
+Re-run until coverage is at or above 90%.
+
+### 13c. Run the full data test suite (optional but recommended)
 
 ```bash
 make pytest TOX_ENV=test-data
