@@ -35,6 +35,55 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
+def _maybe_compile_model(
+    prognostic: PrognosticModel,
+    compile: bool,
+) -> PrognosticModel:
+    """Optionally apply torch.compile to the prognostic model's internal network.
+
+    When enabled, this wraps the model's underlying neural network with
+    ``torch.compile(mode="reduce-overhead")`` which uses CUDA Graphs under
+    the hood for faster autoregressive rollouts.
+
+    Parameters
+    ----------
+    prognostic : PrognosticModel
+        Prognostic model instance
+    compile : bool
+        Whether to apply torch.compile
+
+    Returns
+    -------
+    PrognosticModel
+        The same model, potentially with compiled internals
+    """
+    if not compile:
+        return prognostic
+
+    if not hasattr(torch, "compile"):
+        logger.warning(
+            "torch.compile requested but not available (requires PyTorch >= 2.0). "
+            "Falling back to eager mode."
+        )
+        return prognostic
+
+    try:
+        if hasattr(prognostic, "model") and isinstance(
+            prognostic.model, torch.nn.Module
+        ):
+            logger.info("Compiling prognostic model with torch.compile")
+            prognostic.model = torch.compile(prognostic.model, mode="reduce-overhead")
+        else:
+            logger.warning(
+                "torch.compile requested but prognostic model does not expose "
+                "a 'model' attribute of type nn.Module. Skipping compilation."
+            )
+    except Exception as e:
+        logger.warning(f"torch.compile failed, falling back to eager mode: {e}")
+
+    return prognostic
+
+
 # sphinx - deterministic start
 def deterministic(
     time: list[str] | list[datetime] | list[np.datetime64],
@@ -45,6 +94,7 @@ def deterministic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    compile: bool = False,
 ) -> IOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
@@ -68,6 +118,9 @@ def deterministic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    compile : bool, optional
+        If True, apply torch.compile to the model for faster autoregressive
+        rollouts using CUDA Graphs. Requires PyTorch >= 2.0. By default False
 
     Returns
     -------
@@ -84,6 +137,7 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+    prognostic = _maybe_compile_model(prognostic, compile)
     # sphinx - fetch data start
     # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
@@ -163,6 +217,7 @@ def diagnostic(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    compile: bool = False,
 ) -> IOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
@@ -188,6 +243,9 @@ def diagnostic(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    compile : bool, optional
+        If True, apply torch.compile to the model for faster autoregressive
+        rollouts using CUDA Graphs. Requires PyTorch >= 2.0. By default False
 
     Returns
     -------
@@ -204,6 +262,7 @@ def diagnostic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+    prognostic = _maybe_compile_model(prognostic, compile)
     diagnostic = diagnostic.to(device)
     # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
@@ -262,7 +321,6 @@ def diagnostic(
         total=nsteps + 1, desc="Running inference", position=1, disable=(not verbose)
     ) as pbar:
         for step, (x, coords) in enumerate(model):
-
             # Run diagnostic
             x, coords = map_coords(x, coords, diagnostic_ic)
             x, coords = diagnostic(x, coords)
@@ -290,6 +348,7 @@ def ensemble(
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
+    compile: bool = False,
 ) -> IOBackend:
     """Built in ensemble workflow.
 
@@ -318,6 +377,9 @@ def ensemble(
         Device to run inference on, by default None
     verbose : bool, optional
         Print inference progress, by default True
+    compile : bool, optional
+        If True, apply torch.compile to the model for faster autoregressive
+        rollouts using CUDA Graphs. Requires PyTorch >= 2.0. By default False
 
     Returns
     -------
@@ -335,6 +397,7 @@ def ensemble(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
+    prognostic = _maybe_compile_model(prognostic, compile)
 
     # Fetch data from data source and load onto device
     prognostic_ic = prognostic.input_coords()
@@ -395,7 +458,6 @@ def ensemble(
         position=2,
         disable=(not verbose),
     ):
-
         # Get fresh batch data
         x = x0.to(device)
 
