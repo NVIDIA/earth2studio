@@ -6,6 +6,12 @@ argument-hint: URL or description of remote data store (optional — will be ask
 
 # Create Data Source Wrapper
 
+> **Python Environment:** This project uses **uv** for dependency
+> management. Always use the local `.venv` virtual environment
+> (`source .venv/bin/activate` or prefix with `uv run python`) for all
+> Python commands — installing packages, running tests, executing
+> scripts, etc. Use `uv add` / `uv pip install` / `uv lock` instead of `pip install`.
+
 Create a new Earth2Studio data source by following every step below **in order**.
 Each confirmation gate marked by:
 
@@ -515,6 +521,8 @@ async def fetch(self, time, lead_time, variable) -> xr.DataArray: ...
 
 ```python
 SCHEMA: pa.Schema = pa.schema([...])  # Class attribute
+
+def __init__(self, ..., time_tolerance: TimeTolerance = np.timedelta64(10, "m"), ...): ...
 def __call__(self, time, variable, fields=None) -> pd.DataFrame: ...
 async def fetch(self, time, variable, fields=None) -> pd.DataFrame: ...
 ```
@@ -523,9 +531,16 @@ async def fetch(self, time, variable, fields=None) -> pd.DataFrame: ...
 
 ```python
 SCHEMA: pa.Schema = pa.schema([...])  # Class attribute
+
+def __init__(self, ..., time_tolerance: TimeTolerance = np.timedelta64(10, "m"), ...): ...
 def __call__(self, time, lead_time, variable, fields=None) -> pd.DataFrame: ...
 async def fetch(self, time, lead_time, variable, fields=None) -> pd.DataFrame: ...
 ```
+
+> **Note:** DataFrameSource and ForecastFrameSource typically require a
+> `time_tolerance` parameter because sparse observations have varying
+> timestamps. See the `e2s-012-time-tolerance` rule for full details
+> on the `TimeTolerance` type and `normalize_time_tolerance` utility.
 
 ### 6e. DataFrame SCHEMA definition
 
@@ -771,6 +786,34 @@ def __init__(
 | `async_timeout` | Total timeout (seconds) for the entire fetch | `600` |
 | `async_workers` | Max concurrent async tasks (semaphore bound) | `16` |
 | `retries` | Per-task retry count on transient failure | `3` |
+
+For **DataFrameSource / ForecastFrameSource**, also include:
+
+| Parameter | Purpose | Default |
+|---|---|---|
+| `time_tolerance` | Time tolerance for filtering observations | `np.timedelta64(10, 'm')` |
+
+Use the `TimeTolerance` type hint and call `normalize_time_tolerance()`
+at init time (see the `e2s-012-time-tolerance` rule):
+
+```python
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeTolerance
+
+def __init__(
+    self,
+    # Source-specific params first
+    time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 16,
+    retries: int = 3,
+):
+    lower, upper = normalize_time_tolerance(time_tolerance)
+    # Store normalized bounds, not raw input
+    ...
+```
 
 Keep source-specific parameters before these common ones. Avoid
 over-exposing internal configuration. Use `loguru.logger` for all
@@ -1297,6 +1340,16 @@ class SourceName:
     ------
     region:global dataclass:analysis product:wind product:temp
     """
+```
+
+For **DataFrameSource / ForecastFrameSource**, also include the
+`time_tolerance` parameter in the docstring:
+
+```text
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm')
 ```
 
 ### 9d. Verify all public method docstrings
@@ -2114,33 +2167,9 @@ When filling this table, look up each new dependency's license:
    may be incompatible with the project's Apache-2.0 license and
    require team review before merging
 
-### Reference plot
+### Validation
 
-<details>
-<summary>Sanity-check visualization (click to expand)</summary>
-
-![sanity_check_<source_name>](sanity_check_<source_name>.png)
-
-*<Caption describing what the plot shows, e.g., "2m temperature
-from <SourceName> at 2024-01-01T00:00 UTC">*
-
-</details>
-
-### Sanity-check script
-
-Include the sanity-check Python script inside a `<details>` block
-so reviewers can reproduce the plot:
-
-````markdown
-<details>
-<summary>Sanity-check script (click to expand)</summary>
-
-```python
-<paste the full sanity-check script here>
-```
-
-</details>
-````
+See sanity-check validation in PR comments below (posted in Step 15d).
 
 ## Checklist
 
@@ -2159,8 +2188,122 @@ so reviewers can reproduce the plot:
 
 <List any new packages added to pyproject.toml, or "None">
 
-Drag-and-drop or attach the sanity-check PNG image into the PR body
-so the `<details>` spoiler renders correctly.
+### 15d. Post sanity-check plot as PR comment
+
+After the PR is created, post the sanity-check visualization as a
+separate **PR comment** so it is immediately visible to reviewers
+without expanding a `<details>` block. This serves as quick visual
+evidence that the data source produces correct output.
+
+#### Image upload limitation
+
+**GitHub has no CLI or REST API for uploading images to PR comments.**
+The uploads endpoint (`uploads.github.com`) and GraphQL mutations do
+not support attaching local image files to issue/PR comments. The
+only way to embed an image is via the browser's drag-and-drop editor
+or by referencing an already-hosted URL.
+
+**Practical workflow:**
+
+1. Post the PR comment **without** the image — include the
+   validation table, the full sanity-check script, and a placeholder
+   line: `> **TODO:** Attach sanity-check image by editing this
+   comment in the browser.`
+2. Tell the user: *"The image is at `<local_path>`. Edit the PR
+   comment in your browser and drag the file into the editor to
+   embed it."*
+3. Use `gh api -X PATCH` to update the comment body (via
+   `-F body=@/tmp/comment.md`) if the text needs revision later.
+
+Do **not** waste time trying `curl` uploads, GraphQL file mutations,
+or the `uploads.github.com` asset endpoint — they do not work for
+issue/PR comment images.
+
+#### Writing the comment body
+
+Write the comment body to a temp file first, then post it. This
+avoids shell quoting issues with heredocs containing backticks and
+markdown:
+
+```bash
+# 1. Write body to a temp file (use your editor tool, not heredoc)
+#    Include: summary table, key findings, script in <details>
+
+# 2. Post the comment
+gh api -X POST repos/NVIDIA/earth2studio/issues/<PR_NUMBER>/comments \
+  -F "body=@/tmp/pr_comment_body.md" \
+  --jq '.html_url'
+```
+
+#### Comment content template
+
+Adapt to the source type. Include only relevant rows — omit
+satellite-specific rows for gridded sources, omit grid dimensions
+for DataFrame sources, etc.
+
+```markdown
+## Sanity-Check Validation
+
+**Source:** `<ClassName>` — <brief description>
+**Time:** YYYY-MM-DD HH:MM UTC
+**Parameters:** <source-specific context, e.g., tolerance, satellite, product>
+
+| Metric | Value |
+|--------|-------|
+| Output shape / rows | <shape for DataArray, row count for DataFrame> |
+| Variables | <list or count> |
+| Value range | <min>–<max> <unit> |
+| Lat range | <min>–<max>° |
+| Lon range | <min>–<max>° |
+| Missing / NaN | <count or 0> |
+
+*Add source-specific rows as needed (channels, satellites, grid
+dimensions, lead times, etc.)*
+
+**Key findings:**
+- <bullet summarizing physical reasonableness>
+- <bullet on spatial pattern / coverage>
+- <bullet on comparison with reference source, if applicable>
+
+> **TODO:** Attach sanity-check image by editing this comment in
+> the browser.
+
+<details>
+<summary>Sanity-check script (click to expand)</summary>
+
+PASTE THE FULL WORKING SCRIPT HERE — not a truncated excerpt.
+The script must be copy-pasteable and produce the plot end-to-end.
+
+</details>
+```
+
+**Important:** Always paste the **complete, runnable** script — not
+a shortened version. Reviewers should be able to reproduce the plot
+by copying the script directly.
+
+#### Comparison sources
+
+If a **comparison data source** exists for the same physical
+quantity (e.g., UFSObsSat for satellite BT, ERA5 for reanalysis
+fields), include a side-by-side comparison in the same comment.
+Briefly summarize expected differences:
+
+- Raw vs QC-subsetted data (different observation counts)
+- Different spatial coverage or resolution
+- Different time windows or update cadence
+- Unit or coordinate convention differences
+
+#### Finalize
+
+After posting, inform the user of:
+
+1. The comment URL
+2. The local path to the image file for manual attachment
+3. Instructions: *"Edit the comment in your browser and drag the
+   image file into the editor to embed it."*
+
+> **Note:** The sanity-check image and script are for PR review
+> purposes only — they must NOT be committed to the repository.
 
 ---
 
@@ -2301,6 +2444,7 @@ Inform the user of the final state:
 
 ## Reminders
 
+- **DO** use the repos local `uv` `.venv` to run python with `uv run python`
 - **DO NOT** commit the sanity-check script or image to the repo
 - **DO** use `loguru.logger` for logging, never `print()`, inside
   `earth2studio/`
