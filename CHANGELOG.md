@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added GenCast 1 degree Mini model
 - Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
 - Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
+- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
+- Added `JPSSATMSLexicon` for ATMS variable mappings
 
 ### Changed
 

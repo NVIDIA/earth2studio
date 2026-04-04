@@ -302,3 +302,90 @@ class JPSSLexicon(metaclass=LexiconType):
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in VIIRS lexicon")
         return cls.VOCAB[val]
+
+
+# ATMS channel center frequencies (GHz) for documentation / reference
+ATMS_CHANNEL_FREQS: dict[int, float] = {
+    1: 23.8,
+    2: 31.4,
+    3: 50.3,
+    4: 51.76,
+    5: 52.8,
+    6: 53.596,
+    7: 54.40,
+    8: 54.94,
+    9: 55.50,
+    10: 57.29,
+    11: 57.29,
+    12: 57.29,
+    13: 57.29,
+    14: 57.29,
+    15: 57.29,
+    16: 88.20,
+    17: 165.5,
+    18: 183.31,
+    19: 183.31,
+    20: 183.31,
+    21: 183.31,
+    22: 183.31,
+}
+
+# Number of ATMS cross-track field-of-view positions per scan line
+ATMS_NUM_FOVS = 96
+# Number of ATMS channels
+ATMS_NUM_CHANNELS = 22
+
+
+class JPSSATMSLexicon(metaclass=LexiconType):
+    """Lexicon for JPSS ATMS (Advanced Technology Microwave Sounder) data source.
+
+    This lexicon maps the ``atms`` variable to an identity modifier for brightness
+    temperature observations in Kelvin.  Individual channels (1-22) are distinguished
+    by the ``channel_index`` column of the returned DataFrame, following the same
+    convention used by :class:`~earth2studio.data.UFSObsSat`.
+
+    The ATMS instrument is a 22-channel cross-track scanning microwave radiometer
+    operating from 23 GHz to 183 GHz aboard NOAA-20 (JPSS-1) and NOAA-21 (JPSS-2).
+
+    Notes
+    -----
+    ATMS Channel Groups:
+
+    - Channels 1-2 (23-31 GHz): Surface / precipitation / total precipitable water
+    - Channels 3-15 (50-57 GHz): Temperature sounding (oxygen absorption complex)
+    - Channel 16 (88 GHz): Surface / cloud / precipitation
+    - Channels 17-22 (165-183 GHz): Humidity sounding (water vapor absorption)
+
+    References
+    ----------
+    - NOAA JPSS program:
+      https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
+    - ATMS instrument description:
+      https://www.star.nesdis.noaa.gov/jpss/ATMS.php
+    - AWS NOAA-20 open data:
+      https://registry.opendata.aws/noaa-nesdis-n20-pds/
+    """
+
+    VOCAB: dict[str, str] = {
+        "atms": "brightnessTemperature",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Get ATMS BUFR key for a standardized variable name.
+
+        Parameters
+        ----------
+        val : str
+            Standardized variable name (``atms``)
+
+        Returns
+        -------
+        tuple[str, Callable]
+            Tuple containing:
+            - BUFR key name for brightness temperature
+            - Modifier function (identity -- brightness temperature in K)
+        """
+        if val not in cls.VOCAB:
+            raise KeyError(f"Variable {val} not found in ATMS lexicon")
+        return cls.VOCAB[val], lambda x: x

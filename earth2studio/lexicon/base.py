@@ -238,6 +238,7 @@ E2STUDIO_VOCAB = {
     "viirs14m": "VIIRS M14 - LWIR (8.55 µm)",
     "viirs15m": "VIIRS M15 - LWIR (10.76 µm)",
     "viirs16m": "VIIRS M16 - LWIR (12.01 µm)",
+    "atms": "Advanced Technology Microwave Sounder brightness temperature (K)",
     "s3sy01aod": "Sentinel-3 SYNERGY aerosol optical depth band 01 (440 nm)",
     "s3sy02aod": "Sentinel-3 SYNERGY aerosol optical depth band 02 (550 nm)",
     "s3sy03aod": "Sentinel-3 SYNERGY aerosol optical depth band 03 (670 nm)",
@@ -405,6 +406,15 @@ E2STUDIO_SCHEMA = pa.schema(
             pa.float32(),
             nullable=True,
             metadata={"description": "Satellite azimuth angle (degrees)"},
+        ),
+        pa.field(
+            "channel_quality_flag",
+            pa.uint16(),
+            nullable=True,
+            metadata={
+                "description": "Per-channel data quality bit-flag "
+                "(0 = good, non-zero = degraded; see instrument documentation)"
+            },
         ),
     ]
 )
