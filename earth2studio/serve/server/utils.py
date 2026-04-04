@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Literal
 
@@ -72,10 +70,13 @@ def get_signed_url_key(request_id: str) -> str:
 # =============================================================================
 
 
+Stage = Literal["inference", "result_zip", "object_storage", "geocatalog_ingestion"]
+
+
 @check_optional_dependencies()
 def queue_next_stage(
     redis_client: redis.Redis,
-    current_stage: Literal["inference", "result_zip", "object_storage"],
+    current_stage: Stage,
     workflow_name: str,
     execution_id: str,
     output_path_str: str,
@@ -85,12 +86,12 @@ def queue_next_stage(
     Queue the next pipeline stage based on configuration.
 
     Pipeline flow:
-    - If result_zip_enabled: inference -> result_zip -> object_storage (if enabled) -> finalize
-    - If not result_zip_enabled: inference -> object_storage (if enabled) -> finalize
+    - If result_zip_enabled: inference -> result_zip -> object_storage (if enabled) -> [geocatalog_ingestion (if AZURE_GEOCATALOG_URL)] -> finalize
+    - If not result_zip_enabled: inference -> object_storage (if enabled) -> [geocatalog_ingestion (if AZURE_GEOCATALOG_URL)] -> finalize
 
     Args:
         redis_client: Redis client for queue connection
-        current_stage: The stage that just completed ("inference", "result_zip", "object_storage")
+        current_stage: The stage that just completed ("inference", "result_zip", "object_storage", "geocatalog_ingestion")
         workflow_name: Name of the workflow
         execution_id: Execution ID of the workflow
         output_path_str: Path to the output files
@@ -133,6 +134,16 @@ def queue_next_stage(
             args = (workflow_name, execution_id)
 
     elif current_stage == "object_storage":
+        if config.object_storage.azure_geocatalog_url:
+            next_queue = "geocatalog_ingestion"
+            next_func = "azure_planetary_computer.geocatalog_ingestion.process_geocatalog_ingestion"
+            args = (workflow_name, execution_id)
+        else:
+            next_queue = "finalize_metadata"
+            next_func = "earth2studio.serve.server.cpu_worker.process_finalize_metadata"
+            args = (workflow_name, execution_id)
+
+    elif current_stage == "geocatalog_ingestion":
         next_queue = "finalize_metadata"
         next_func = "earth2studio.serve.server.cpu_worker.process_finalize_metadata"
         args = (workflow_name, execution_id)

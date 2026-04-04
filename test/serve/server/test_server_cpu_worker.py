@@ -49,6 +49,7 @@ class MockQueueConfig:
     name: str = "inference"
     result_zip_queue_name: str = "result_zip"
     object_storage_queue_name: str = "object_storage"
+    geocatalog_ingestion_queue_name: str = "geocatalog_ingestion"
     finalize_metadata_queue_name: str = "finalize_metadata"
     max_size: int = 10
     default_timeout: str = "1h"
@@ -116,6 +117,15 @@ class MockObjectStorageConfig:
     cloudfront_key_pair_id: str | None = None
     cloudfront_private_key_path: str | None = None
     signed_url_expires_in: int = 3600
+    azure_geocatalog_url: str | None = None
+
+
+@dataclass
+class MockWorkflowExposureConfig:
+    """Mock workflow exposure configuration"""
+
+    exposed_workflows: list = field(default_factory=list)
+    warmup_workflows: list = field(default_factory=lambda: ["example_user_workflow"])
 
 
 @dataclass
@@ -130,6 +140,9 @@ class MockAppConfig:
     cors: MockCORSConfig = field(default_factory=MockCORSConfig)
     object_storage: MockObjectStorageConfig = field(
         default_factory=MockObjectStorageConfig
+    )
+    workflow_exposure: MockWorkflowExposureConfig = field(
+        default_factory=MockWorkflowExposureConfig
     )
 
 
@@ -1397,6 +1410,641 @@ class TestProcessObjectStorageUpload:
         assert result is not None and result.get("success") is False
         mock_fail.assert_called_once()
         assert "does not exist" in mock_fail.call_args[0][2]
+
+
+class TestProcessObjectStorageUploadEnabled:
+    """Tests for process_object_storage_upload when storage is enabled."""
+
+    def _make_mock_config(self, storage_type="s3", **kwargs):
+        """Return a Mock config with object_storage defaults for enabled storage."""
+        mock_config = Mock()
+        os_cfg = mock_config.object_storage
+        os_cfg.enabled = True
+        os_cfg.storage_type = storage_type
+        os_cfg.bucket = "my-bucket"
+        os_cfg.prefix = "outputs"
+        os_cfg.region = "us-east-1"
+        os_cfg.max_concurrency = 10
+        os_cfg.multipart_chunksize = 8388608
+        os_cfg.use_rust_client = False
+        os_cfg.use_transfer_acceleration = False
+        os_cfg.access_key_id = None
+        os_cfg.secret_access_key = None
+        os_cfg.session_token = None
+        os_cfg.endpoint_url = None
+        os_cfg.cloudfront_domain = None
+        os_cfg.cloudfront_key_pair_id = None
+        os_cfg.cloudfront_private_key = None
+        os_cfg.azure_container_name = None
+        os_cfg.azure_account_name = None
+        os_cfg.azure_geocatalog_url = None
+        os_cfg.signed_url_expires_in = 3600
+        mock_config.redis.retention_ttl = 604800
+        for k, v in kwargs.items():
+            setattr(os_cfg, k, v)
+        return mock_config
+
+    def _patch_all(
+        self, mock_config, mock_redis, mock_queue, mock_storage_cls, tmp_path
+    ):
+        """Context manager helper that patches everything for upload tests."""
+        return (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        )
+
+    def test_s3_upload_success_returns_result_with_files(self, tmp_path):
+        """S3 upload success path returns dict with files_uploaded, destination, remote_prefix."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        (output_dir / "result.nc").write_text("data")
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 4
+        mock_upload.destination = "s3://my-bucket/outputs/wf/exec_1"
+        mock_storage.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result["storage_type"] == "s3"
+        assert result["files_uploaded"] == 1
+        assert result["total_bytes"] == 4
+        assert result["remote_prefix"] == "outputs/wf/exec_1"
+        mock_queue.assert_called_once()
+
+    def test_azure_missing_container_and_bucket_returns_failure(self, tmp_path):
+        """Azure storage enabled but no container name and no bucket returns fail_workflow."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="azure", bucket=None, azure_container_name=None
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+        ):
+            mock_fail.return_value = {"success": False, "error": "no container"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert (
+            "azure_container_name" in mock_fail.call_args[0][2].lower()
+            or "container" in mock_fail.call_args[0][2].lower()
+        )
+
+    def test_msc_storage_creation_fails_returns_failure(self, tmp_path):
+        """When MSCObjectStorage constructor raises, returns fail_workflow dict."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = Mock()
+        mock_storage_cls = Mock(side_effect=RuntimeError("cannot connect"))
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "msc failed"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "msc storage client" in mock_fail.call_args[0][2].lower()
+
+    def test_upload_directory_exception_returns_failure(self, tmp_path):
+        """When upload_directory raises, returns fail_workflow dict."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = Mock()
+        mock_storage_cls = Mock()
+        mock_storage_cls.return_value.upload_directory.side_effect = IOError(
+            "network error"
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "upload failed"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "upload failed" in mock_fail.call_args[0][2].lower()
+
+    def test_upload_result_not_success_returns_failure(self, tmp_path):
+        """When upload_result.success is False, returns fail_workflow dict."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = Mock()
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = False
+        mock_upload.errors = ["checksum mismatch"]
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "upload result false"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "object storage" in mock_fail.call_args[0][2].lower()
+
+    def test_s3_with_cloudfront_generates_and_stores_signed_url(self, tmp_path):
+        """When CloudFront is configured, signed URL is generated and stored in storage_info."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="s3",
+            cloudfront_domain="d123.cloudfront.net",
+            cloudfront_key_pair_id="KP123",
+            cloudfront_private_key="-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
+        )
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 10
+        mock_upload.destination = "s3://my-bucket/outputs/wf/exec_1"
+        mock_storage.upload_directory.return_value = mock_upload
+        mock_storage.generate_signed_url.return_value = (
+            "https://d123.cloudfront.net/signed"
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result["signed_url"] == "https://d123.cloudfront.net/signed"
+        mock_storage.generate_signed_url.assert_called_once()
+        # Verify signed URL is stored in Redis (setex called with signed_url_key)
+        setex_keys = [call[0][0] for call in mock_redis.setex.call_args_list]
+        assert any("signed_url" in k for k in setex_keys)
+
+    def test_s3_signed_url_objectstorageerror_returns_failure(self, tmp_path):
+        """When generate_signed_url raises ObjectStorageError, returns fail_workflow."""
+        from earth2studio.serve.server.object_storage import ObjectStorageError
+
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="s3",
+            cloudfront_domain="d123.cloudfront.net",
+            cloudfront_key_pair_id="KP123",
+            cloudfront_private_key="fake",
+        )
+        mock_redis = Mock()
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 10
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage.upload_directory.return_value = mock_upload
+        mock_storage.generate_signed_url.side_effect = ObjectStorageError(
+            "signing failed"
+        )
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "signed url failed"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "signed url" in mock_fail.call_args[0][2].lower()
+
+    def test_azure_upload_success_sets_remote_path_and_blob_url(self, tmp_path):
+        """Azure upload success: storage_info has azure remote_path and blob_url for .nc file."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        (output_dir / "result.nc").write_bytes(b"netcdf")
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="my-container",
+            azure_account_name="myaccount",
+            azure_geocatalog_url="https://geocatalog.example/",
+        )
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_storage = mock_storage_cls.return_value
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 6
+        mock_upload.destination = "azure://my-container/outputs/wf/exec_1"
+        mock_storage.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result["success"] is True
+        assert result["storage_type"] == "azure"
+        # Verify storage_info was written to Redis with azure remote_path and blob_url
+        storage_info_calls = [
+            c for c in mock_redis.setex.call_args_list if "storage_info" in c[0][0]
+        ]
+        assert len(storage_info_calls) == 1
+        stored_info = json.loads(storage_info_calls[0][0][2])
+        assert stored_info["remote_path"].startswith("azure://my-container/")
+        assert "blob_url" in stored_info
+        assert "result.nc" in stored_info["blob_url"]
+
+    def test_azure_upload_blob_url_from_nc_file_in_directory(self, tmp_path):
+        """Azure upload: blob_url is built from the first .nc file found in a directory."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        (output_dir / "forecast.nc").write_bytes(b"data")
+        (output_dir / "other.txt").write_text("text")
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="container",
+            azure_account_name="myaccount",
+            azure_geocatalog_url="https://geocatalog.example/",
+        )
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 2
+        mock_upload.total_bytes = 100
+        mock_upload.destination = "azure://container/outputs/wf/exec_1"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result["success"] is True
+        storage_info_calls = [
+            c for c in mock_redis.setex.call_args_list if "storage_info" in c[0][0]
+        ]
+        stored_info = json.loads(storage_info_calls[0][0][2])
+        assert "forecast.nc" in stored_info.get("blob_url", "")
+
+    def test_azure_upload_blob_url_from_zarr_store_in_directory(self, tmp_path):
+        """Azure upload: blob_url points at first *.zarr store when no .nc files exist."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+        zarr_store = output_dir / "results.zarr"
+        zarr_store.mkdir()
+        (zarr_store / ".zarray").write_text("{}")
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="container",
+            azure_account_name="myaccount",
+            azure_geocatalog_url="https://geocatalog.example/",
+        )
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 10
+        mock_upload.destination = "azure://container/outputs/wf/exec_1"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result["success"] is True
+        storage_info_calls = [
+            c for c in mock_redis.setex.call_args_list if "storage_info" in c[0][0]
+        ]
+        stored_info = json.loads(storage_info_calls[0][0][2])
+        assert "results.zarr" in stored_info.get("blob_url", "")
+
+    def test_queue_next_returns_none_after_upload_returns_failure(self, tmp_path):
+        """When queue_next_stage returns None after a successful upload, returns fail_workflow."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        mock_redis = Mock()
+        mock_queue = Mock(return_value=None)
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 0
+        mock_upload.total_bytes = 0
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            mock_fail.return_value = {"success": False, "error": "no job"}
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None and result.get("success") is False
+        mock_fail.assert_called_once()
+        assert "pipeline stage" in mock_fail.call_args[0][2].lower()
+
+    def test_unexpected_exception_returns_fail_workflow(self, tmp_path):
+        """An unexpected exception in the try block returns fail_workflow dict (lines 825-827)."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(storage_type="s3")
+        # Make redis_client.setex raise to trigger the outer except after upload
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 1
+        mock_upload.total_bytes = 1
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+        mock_redis.setex.side_effect = RuntimeError("redis crashed")
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            result = process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        assert result is not None
+        assert result.get("success") is False
+
+    def test_azure_credentials_added_to_storage_kwargs(self, tmp_path):
+        """Azure-specific kwargs (account_name, container, endpoint_url) are passed for managed identity."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(
+            storage_type="azure",
+            bucket=None,
+            azure_container_name="my-container",
+            azure_account_name="myaccount",
+            endpoint_url="https://myaccount.blob.core.windows.net",
+        )
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 0
+        mock_upload.total_bytes = 0
+        mock_upload.destination = "azure://my-container/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        call_kwargs = mock_storage_cls.call_args[1]
+        assert (
+            call_kwargs.get("endpoint_url") == "https://myaccount.blob.core.windows.net"
+        )
+        assert call_kwargs.get("azure_account_name") == "myaccount"
+        assert call_kwargs.get("azure_container_name") == "my-container"
+
+    def test_s3_optional_credentials_added_when_set(self, tmp_path):
+        """S3 optional kwargs (access_key_id, session_token, endpoint_url) are passed when set."""
+        output_dir = tmp_path / "out"
+        output_dir.mkdir()
+
+        mock_config = self._make_mock_config(  # noqa: S106
+            storage_type="s3",
+            access_key_id="AK123",
+            secret_access_key="SK456",  # noqa: S106
+            session_token="ST789",  # noqa: S106
+            endpoint_url="https://s3.custom.example.com",
+        )
+        mock_redis = Mock()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
+        mock_upload = Mock()
+        mock_upload.success = True
+        mock_upload.files_uploaded = 0
+        mock_upload.total_bytes = 0
+        mock_upload.destination = "s3://my-bucket/prefix"
+        mock_storage_cls.return_value.upload_directory.return_value = mock_upload
+
+        with (
+            patch("earth2studio.serve.server.cpu_worker.config", mock_config),
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
+        ):
+            process_object_storage_upload(
+                workflow_name="wf",
+                execution_id="exec_1",
+                output_path_str=str(output_dir),
+            )
+
+        call_kwargs = mock_storage_cls.call_args[1]
+        assert call_kwargs.get("access_key_id") == "AK123"
+        assert call_kwargs.get("secret_access_key") == "SK456"
+        assert call_kwargs.get("session_token") == "ST789"
+        assert call_kwargs.get("endpoint_url") == "https://s3.custom.example.com"
+
+
+class TestProcessFinalizeMetadataEdgeCases:
+    """Tests for the exception handler in process_finalize_metadata (lines 1114-1116)."""
+
+    def test_exception_in_try_block_returns_fail_workflow(self, tmp_path):
+        """When json.loads raises (corrupt metadata), the except block returns fail_workflow."""
+        results_zip_dir = tmp_path / "results"
+        results_zip_dir.mkdir()
+        request_id = "my_wf:exec_1"
+        metadata_key = f"inference_request:{request_id}:pending_metadata"
+        results_zip_dir_key = f"inference_request:{request_id}:results_zip_dir"
+
+        with patch("earth2studio.serve.server.cpu_worker.redis_client") as mock_redis:
+            # Return non-JSON for metadata to trigger json.loads to raise
+            mock_redis.get.side_effect = lambda k: {
+                metadata_key: "NOT_VALID_JSON{{{",
+                results_zip_dir_key: str(results_zip_dir),
+            }.get(k)
+
+            result = process_finalize_metadata(
+                workflow_name="my_wf", execution_id="exec_1"
+            )
+
+        assert result is not None
+        assert result.get("success") is False
+        assert "metadata finalization" in result.get("error", "").lower()
 
 
 if __name__ == "__main__":

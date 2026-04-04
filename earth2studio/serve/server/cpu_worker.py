@@ -515,6 +515,36 @@ def process_result_zip(
         raise
 
 
+def _primary_azure_asset_relpath(output_path: Path) -> str | None:
+    """
+    Relative path under ``output_path`` for the primary dataset asset (GeoCatalog STAC href).
+
+    Prefers the first ``*.nc`` file found; otherwise the first ``*.zarr`` directory (Zarr store).
+    If ``output_path`` is itself a ``*.zarr`` directory, returns ``""`` (store contents sync to
+    ``remote_prefix`` without an extra path segment).
+
+    Returns
+    -------
+    str | None
+        Relative POSIX path, empty string for a root-level Zarr directory, or ``None`` if
+        no NetCDF or Zarr asset was found.
+    """
+    if not output_path.is_dir():
+        return None
+    nc_files = sorted(output_path.rglob("*.nc"))
+    if nc_files:
+        return nc_files[0].relative_to(output_path).as_posix()
+    zarr_dirs = sorted(
+        (p for p in output_path.rglob("*.zarr") if p.is_dir()),
+        key=lambda p: p.as_posix(),
+    )
+    if zarr_dirs:
+        return zarr_dirs[0].relative_to(output_path).as_posix()
+    if output_path.name.endswith(".zarr"):
+        return ""
+    return None
+
+
 @check_optional_dependencies()
 def process_object_storage_upload(
     workflow_name: str,
@@ -550,7 +580,11 @@ def process_object_storage_upload(
 
         # Upload to object storage if enabled
 
-        if config.object_storage.enabled and config.object_storage.bucket:
+        # Check if object storage is enabled and properly configured
+        if config.object_storage.enabled and (
+            config.object_storage.bucket
+            or config.object_storage.storage_type == "azure"
+        ):
             from earth2studio.serve.server.object_storage import (
                 MSCObjectStorage,
                 ObjectStorageError,
@@ -564,43 +598,81 @@ def process_object_storage_upload(
                     f"Output path does not exist: {output_path}",
                 )
 
-            # Create S3 storage instance
+            # Validate Azure container name is configured
+            if config.object_storage.storage_type == "azure":
+                if (
+                    not config.object_storage.azure_container_name
+                    and not config.object_storage.bucket
+                ):
+                    return fail_workflow(
+                        workflow_name,
+                        execution_id,
+                        "Azure storage is enabled but neither 'azure_container_name' nor 'bucket' is configured",
+                    )
+
+            # Create storage instance
             storage_kwargs: dict[str, Any] = {
-                "bucket": config.object_storage.bucket,
-                "region": config.object_storage.region,
-                "use_transfer_acceleration": config.object_storage.use_transfer_acceleration,
+                "bucket": config.object_storage.bucket
+                or config.object_storage.azure_container_name
+                or "",
+                "storage_type": config.object_storage.storage_type,
                 "max_concurrency": config.object_storage.max_concurrency,
                 "multipart_chunksize": config.object_storage.multipart_chunksize,
                 "use_rust_client": config.object_storage.use_rust_client,
             }
 
-            # Add optional credentials
-            if (
-                config.object_storage.access_key_id
-                and config.object_storage.secret_access_key
-            ):
-                storage_kwargs["access_key_id"] = config.object_storage.access_key_id
-                storage_kwargs["secret_access_key"] = (
-                    config.object_storage.secret_access_key
+            # Add storage-type-specific configuration
+            if config.object_storage.storage_type == "s3":
+                # S3-specific parameters
+                storage_kwargs["region"] = config.object_storage.region
+                storage_kwargs["use_transfer_acceleration"] = (
+                    config.object_storage.use_transfer_acceleration
                 )
-            if config.object_storage.session_token:
-                storage_kwargs["session_token"] = config.object_storage.session_token
-            if config.object_storage.endpoint_url:
-                storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
 
-            # Add CloudFront configuration for signed URLs
-            if config.object_storage.cloudfront_domain:
-                storage_kwargs["cloudfront_domain"] = (
-                    config.object_storage.cloudfront_domain
-                )
-            if config.object_storage.cloudfront_key_pair_id:
-                storage_kwargs["cloudfront_key_pair_id"] = (
-                    config.object_storage.cloudfront_key_pair_id
-                )
-            if config.object_storage.cloudfront_private_key:
-                storage_kwargs["cloudfront_private_key"] = (
-                    config.object_storage.cloudfront_private_key
-                )
+                # Add optional S3 credentials
+                if (
+                    config.object_storage.access_key_id
+                    and config.object_storage.secret_access_key
+                ):
+                    storage_kwargs["access_key_id"] = (
+                        config.object_storage.access_key_id
+                    )
+                    storage_kwargs["secret_access_key"] = (
+                        config.object_storage.secret_access_key
+                    )
+                if config.object_storage.session_token:
+                    storage_kwargs["session_token"] = (
+                        config.object_storage.session_token
+                    )
+                if config.object_storage.endpoint_url:
+                    storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
+
+                # Add CloudFront configuration for signed URLs
+                if config.object_storage.cloudfront_domain:
+                    storage_kwargs["cloudfront_domain"] = (
+                        config.object_storage.cloudfront_domain
+                    )
+                if config.object_storage.cloudfront_key_pair_id:
+                    storage_kwargs["cloudfront_key_pair_id"] = (
+                        config.object_storage.cloudfront_key_pair_id
+                    )
+                if config.object_storage.cloudfront_private_key:
+                    storage_kwargs["cloudfront_private_key"] = (
+                        config.object_storage.cloudfront_private_key
+                    )
+            elif config.object_storage.storage_type == "azure":
+                # Azure-specific parameters (managed identity via DefaultAzureCredentials)
+                if config.object_storage.azure_account_name:
+                    storage_kwargs["azure_account_name"] = (
+                        config.object_storage.azure_account_name
+                    )
+                if config.object_storage.azure_container_name:
+                    storage_kwargs["azure_container_name"] = (
+                        config.object_storage.azure_container_name
+                    )
+                # Support endpoint_url for Azure (useful for managed identity)
+                if config.object_storage.endpoint_url:
+                    storage_kwargs["endpoint_url"] = config.object_storage.endpoint_url
 
             try:
                 storage = MSCObjectStorage(**storage_kwargs)
@@ -617,8 +689,13 @@ def process_object_storage_upload(
             )
 
             # Upload the output directory
+            storage_location = (
+                f"s3://{config.object_storage.bucket}"
+                if config.object_storage.storage_type == "s3"
+                else f"azure://{config.object_storage.azure_container_name or config.object_storage.bucket}"
+            )
             logger.info(
-                f"Uploading {output_path} to s3://{config.object_storage.bucket}/{remote_prefix}"
+                f"Uploading {output_path} to {storage_location}/{remote_prefix}"
             )
 
             try:
@@ -642,14 +719,14 @@ def process_object_storage_upload(
                     f"Failed to upload to object storage: {upload_result.errors}",
                 )
 
-            storage_type = "s3"
+            storage_type = config.object_storage.storage_type
             logger.info(
                 f"Successfully uploaded {upload_result.files_uploaded} files "
                 f"({upload_result.total_bytes} bytes) to {upload_result.destination}"
             )
 
-            # Generate signed URL if CloudFront is configured
-            cloudfront_configured = all(
+            # Generate signed URL for S3 only (CloudFront). Azure: clients obtain tokens to read blobs.
+            can_generate_signed_url = storage_type == "s3" and all(
                 [
                     config.object_storage.cloudfront_domain,
                     config.object_storage.cloudfront_key_pair_id,
@@ -657,8 +734,10 @@ def process_object_storage_upload(
                 ]
             )
 
-            if not cloudfront_configured:
-                logger.info("CloudFront not configured, skipping signed URL generation")
+            if not can_generate_signed_url:
+                logger.info(
+                    f"Signed URL generation not configured for {storage_type}, skipping"
+                )
             else:
                 try:
                     signed_url_path = f"{remote_prefix}/*"
@@ -688,10 +767,38 @@ def process_object_storage_upload(
         storage_info = {
             "storage_type": storage_type,
         }
-        if storage_type == "s3" and remote_prefix:
-            storage_info["remote_path"] = (
-                f"s3://{config.object_storage.bucket}/{remote_prefix}"
-            )
+        if remote_prefix:
+            if storage_type == "s3":
+                storage_info["remote_path"] = (
+                    f"s3://{config.object_storage.bucket}/{remote_prefix}"
+                )
+            elif storage_type == "azure":
+                container_name = (
+                    config.object_storage.azure_container_name
+                    or config.object_storage.bucket
+                )
+                storage_info["remote_path"] = (
+                    f"azure://{container_name}/{remote_prefix}"
+                )
+                azure_account = config.object_storage.azure_account_name
+                if azure_account:
+                    storage_info["azure_account_name"] = azure_account
+                # Build HTTPS blob URL for primary netcdf file (for GeoCatalog ingestion)
+                if (
+                    config.object_storage.azure_account_name
+                    and config.object_storage.azure_geocatalog_url
+                ):
+                    primary_rel = _primary_azure_asset_relpath(output_path)
+                    if primary_rel is not None:
+                        base_url = (
+                            f"https://{config.object_storage.azure_account_name}"
+                            f".blob.core.windows.net/{container_name}/{remote_prefix}"
+                        )
+                        storage_info["blob_url"] = (
+                            f"{base_url}/{primary_rel}"
+                            if primary_rel
+                            else f"{base_url}/"
+                        )
         if signed_url:
             storage_info["signed_url"] = signed_url
 
@@ -729,7 +836,7 @@ def process_object_storage_upload(
             "signed_url": signed_url,
         }
 
-        if upload_result and storage_type == "s3":
+        if upload_result:
             result["files_uploaded"] = upload_result.files_uploaded
             result["total_bytes"] = upload_result.total_bytes
             result["destination"] = upload_result.destination
@@ -780,6 +887,7 @@ def process_finalize_metadata(
     storage_info_json = redis_client.get(storage_info_key)
 
     if not pending_metadata_json or not results_zip_dir_str:
+        logger.error(f"Pending metadata not found in Redis for {request_id}")
         return fail_workflow(
             workflow_name,
             execution_id,
@@ -799,6 +907,10 @@ def process_finalize_metadata(
                 metadata_dict["remote_path"] = storage_info["remote_path"]
             if storage_info.get("signed_url"):
                 metadata_dict["signed_url"] = storage_info["signed_url"]
+            if storage_info.get("azure_account_name"):
+                metadata_dict["azure_account_name"] = storage_info["azure_account_name"]
+            if storage_info.get("blob_url"):
+                metadata_dict["blob_url"] = storage_info["blob_url"]
         else:
             # No storage info means object storage was skipped or failed
             metadata_dict["storage_type"] = "server"

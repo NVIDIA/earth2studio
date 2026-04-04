@@ -65,7 +65,7 @@ fi
 echo ""
 
 # Check RQ workers status per queue
-RQ_QUEUES=("inference" "result_zip" "object_storage" "finalize_metadata")
+RQ_QUEUES=("inference" "result_zip" "object_storage" "geocatalog_ingestion" "finalize_metadata")
 RQ_ALL_OK=1
 
 echo "RQ Workers:"

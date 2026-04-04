@@ -17,10 +17,15 @@
 import sys
 from pathlib import Path
 
-# Repo root is parent of test/serve/server; ensure project is importable
-_repo_root = Path(__file__).resolve().parent.parent.parent
+# Repo root: conftest lives at <repo>/test/serve/server/conftest.py
+_repo_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
+
+# serve/server hosts top-level package azure_planetary_computer (worker GeoCatalog client)
+_serve_server_root = _repo_root / "serve" / "server"
+if str(_serve_server_root) not in sys.path:
+    sys.path.insert(0, str(_serve_server_root))
 
 # Store original earth2studio.serve.server.config module to restore if mocked
 _original_config_module = None

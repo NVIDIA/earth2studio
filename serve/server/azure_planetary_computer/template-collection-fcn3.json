@@ -1,0 +1,42 @@
+{
+  "type": "Collection",
+  "stac_version": "1.0.0",
+  "id": "earth-2-fcn3-{uuid}",
+  "title": "Earth-2 FourCastNet3",
+  "description": "Forecasts generated with the FourCastNet3 workflow on Microsoft Foundry.",
+  "links": [],
+  "stac_extensions": [],
+  "item_assets": {
+    "data": {
+      "type": "application/x-netcdf",
+      "roles": []
+    }
+  },
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180,
+          -90,
+          180,
+          90
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          null,
+          null
+        ]
+      ]
+    }
+  },
+  "license": "other",
+  "keywords": [
+    "Global",
+    "Forecast",
+    "Earth-2"
+  ],
+  "providers": []
+}
