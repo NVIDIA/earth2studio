@@ -107,6 +107,89 @@ class JPSS_ATMS:
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
 
+    ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``channel_index``
+    column (1--22) identifies each channel:
+
+    .. list-table:: ATMS Channel Specification
+       :header-rows: 1
+       :widths: 8 15 35
+
+       * - Channel
+         - Frequency (GHz)
+         - Primary Sensitivity
+       * - 1
+         - 23.8
+         - Window / water-vapour (surface)
+       * - 2
+         - 31.4
+         - Window (surface emissivity, cloud liquid water)
+       * - 3
+         - 50.3
+         - Oxygen (lower troposphere temperature)
+       * - 4
+         - 51.76
+         - Oxygen (lower troposphere temperature)
+       * - 5
+         - 52.8
+         - Oxygen (troposphere temperature)
+       * - 6
+         - 53.596
+         - Oxygen (troposphere temperature)
+       * - 7
+         - 54.40
+         - Oxygen (mid-troposphere temperature)
+       * - 8
+         - 54.94
+         - Oxygen (mid-troposphere temperature)
+       * - 9
+         - 55.50
+         - Oxygen (upper troposphere temperature)
+       * - 10
+         - 57.29 (fO1)
+         - Oxygen (tropopause temperature)
+       * - 11
+         - 57.29 (fO2)
+         - Oxygen (lower stratosphere temperature)
+       * - 12
+         - 57.29 (fO3)
+         - Oxygen (stratosphere temperature)
+       * - 13
+         - 57.29 (fO4)
+         - Oxygen (stratosphere temperature)
+       * - 14
+         - 57.29 (fO5)
+         - Oxygen (upper stratosphere temperature)
+       * - 15
+         - 57.29 (fO6)
+         - Oxygen (upper stratosphere temperature)
+       * - 16
+         - 88.20
+         - Window (precipitation, sea ice)
+       * - 17
+         - 165.5
+         - Window (precipitation, ice cloud)
+       * - 18
+         - 183.31 (fH1)
+         - Water-vapour (upper troposphere humidity)
+       * - 19
+         - 183.31 (fH2)
+         - Water-vapour (mid-troposphere humidity)
+       * - 20
+         - 183.31 (fH3)
+         - Water-vapour (mid-troposphere humidity)
+       * - 21
+         - 183.31 (fH4)
+         - Water-vapour (lower troposphere humidity)
+       * - 22
+         - 183.31 (fH5)
+         - Water-vapour (lower troposphere humidity)
+
+    Channels 10--15 share the 57.29 GHz oxygen-absorption line but use
+    different passband offsets (fO1--fO6), giving each a distinct altitude
+    weighting function.  Channels 18--22 similarly share 183.31 GHz with
+    different offsets (fH1--fH5) for water-vapour profiling at different
+    altitudes.
+
     Parameters
     ----------
     satellites : list[str] | None, optional
@@ -136,29 +219,18 @@ class JPSS_ATMS:
     ----
     Additional information on the data repository:
 
-    - https://registry.opendata.aws/noaa-nesdis-n20-pds/
+    - https://registry.opendata.aws/noaa-jpss/
     - https://www.star.nesdis.noaa.gov/jpss/ATMS.php
     - https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
 
-    Example
-    -------
-    .. highlight:: python
-    .. code-block:: python
+    ATMS channel specification and BUFR SDR format:
 
-        from datetime import datetime, timedelta
-        from earth2studio.data import JPSS_ATMS
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
 
-        # Use all possible satellites
-        ds = JPSS_ATMS()
-        df = ds(datetime(2024, 6, 1, 12), ["atms"])
-
-        # Use specific satellite
-        ds = JPSS_ATMS(satellites=["n20"])
-        df = ds(datetime(2024, 6, 1, 12), ["atms"])
 
     Badges
     ------
-    region:global dataclass:observation product:atmos product:sat
+    region:global dataclass:observation product:sat
     """
 
     SOURCE_ID = "earth2studio.data.JPSS_ATMS"
