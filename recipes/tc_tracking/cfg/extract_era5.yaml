@@ -1,0 +1,115 @@
+project: 'reference_tracks'
+mode: 'extract_baseline'
+
+cases:
+    # erin:
+    #     year: 2025
+    #     basin: north_atlantic
+
+    # harvey:
+    #     year: 2017
+    #     basin: north_atlantic
+
+    # irma:
+    #     year: 2017
+    #     basin: north_atlantic
+
+    # maria:
+    #     year: 2017
+    #     basin: north_atlantic
+
+    # ophelia:
+    #     year: 2017
+    #     basin: north_atlantic
+
+    # michael:
+    #     year: 2018
+    #     basin: north_atlantic
+
+    # dorian:
+    #     year: 2019
+    #     basin: north_atlantic
+
+    # lorenzo:
+    #     year: 2019
+    #     basin: north_atlantic
+
+    # iota:
+    #     year: 2020
+    #     basin: north_atlantic
+
+    # ian:
+    #     year: 2022
+    #     basin: north_atlantic
+
+    # lee:
+    #     year: 2023
+    #     basin: north_atlantic
+
+    # beryl:
+    #     year: 2024
+    #     basin: north_atlantic
+
+    # milton:
+    #     year: 2024
+    #     basin: north_atlantic
+
+    helene:
+        year: 2024
+        basin: north_atlantic
+
+    # lan:
+    #     year: 2017
+    #     basin: west_pacific
+
+    hato:
+        year: 2017
+        basin: west_pacific
+
+    # mawar:
+    #     year: 2023
+    #     basin: west_pacific
+
+    # yagi:
+    #     year: 2024
+    #     basin: west_pacific
+
+    # amphan:
+    #     year: 2020
+    #     basin: north_indian
+
+    # debbie:
+    #     year: 2017
+    #     basin: southern_pacific
+
+# CAUTION: ibtracs file for hato and helene only. obtain full data at https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+ibtracs_source_data: "./aux_data/ibtracs.HATO_HELENE.list.v04r01.csv"
+
+data_source:
+    era5_train:
+        years: "1980-2017"
+        source:
+            _target_: earth2studio.data.NCAR_ERA5
+
+    era5_oos:
+        years: "2018-2026"
+        source:
+            _target_: earth2studio.data.CDS
+
+store_dir: "./outputs_${project}"
+
+cyclone_tracking:
+    vars: ['msl', 'u10m', 'v10m', 'z300', 'z500']
+    detect_cmd: 'DetectNodes --verbosity 0 --mergedist 6 --closedcontourcmd _DIFF(z300,z500),-58.8,6.5,0;msl,200.,5.5,0 --searchbymin msl --outputcmd msl,min,0;_VECMAG(u10m,v10m),max,5;height,min,0'
+    stitch_cmd: 'StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10'
+    orography_path: './aux_data/orography.nc'
+    keep_raw_data: False
+    use_ram: True
+    print_te_output: False
+
+# hydra logs
+hydra:
+    job:
+        name: ${project}
+    run:
+        dir: ${store_dir}/${project}_logs/${now:%Y-%m-%d_%H-%M-%S}
