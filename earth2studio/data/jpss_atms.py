@@ -38,7 +38,6 @@ from tqdm.asyncio import tqdm
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.lexicon.jpss import (
-    ATMS_NUM_CHANNELS,
     JPSSATMSLexicon,
 )
 from earth2studio.utils.imports import (
@@ -100,10 +99,8 @@ class JPSS_ATMS:
     """JPSS ATMS (Advanced Technology Microwave Sounder) Level 1 BUFR
     brightness-temperature observations served from NOAA Open Data on AWS.
 
-    Each BUFR file contains a single scan line with
-    :data:`~earth2studio.lexicon.jpss.ATMS_NUM_FOVS` cross-track
-    field-of-view (FOV) positions and
-    :data:`~earth2studio.lexicon.jpss.ATMS_NUM_CHANNELS` microwave channels.
+    Each BUFR file contains a single scan line with 96 cross-track
+    field-of-view (FOV) positions and 22 microwave channels.
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
 
@@ -197,8 +194,9 @@ class JPSS_ATMS:
         (NOAA-20), ``"n21"`` (NOAA-21), and ``"npp"`` (Suomi NPP).
         By default ``None``, which queries all valid satellites.
     time_tolerance : TimeTolerance, optional
-        Symmetric or asymmetric tolerance window around each requested time
-        for selecting BUFR granules, by default ``np.timedelta64(30, "m")``.
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     cache : bool, optional
         Cache downloaded BUFR files locally, by default True
     verbose : bool, optional
@@ -262,7 +260,7 @@ class JPSS_ATMS:
     def __init__(
         self,
         satellites: list[str] | None = None,
-        time_tolerance: TimeTolerance = np.timedelta64(30, "m"),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
@@ -586,7 +584,7 @@ class JPSS_ATMS:
                     # i.e. shape (n_channels, n_fov) when reshaped, then
                     # transposed to (n_fov, n_channels) for row iteration.
                     bt_flat = eccodes.codes_get_array(msgid, task.bufr_key)
-                    n_channels = ATMS_NUM_CHANNELS
+                    n_channels = JPSSATMSLexicon.ATMS_NUM_CHANNELS
                     n_fov = n_subsets
 
                     if bt_flat.size != n_fov * n_channels:

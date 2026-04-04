@@ -521,6 +521,8 @@ async def fetch(self, time, lead_time, variable) -> xr.DataArray: ...
 
 ```python
 SCHEMA: pa.Schema = pa.schema([...])  # Class attribute
+
+def __init__(self, ..., time_tolerance: TimeTolerance = np.timedelta64(10, "m"), ...): ...
 def __call__(self, time, variable, fields=None) -> pd.DataFrame: ...
 async def fetch(self, time, variable, fields=None) -> pd.DataFrame: ...
 ```
@@ -529,9 +531,16 @@ async def fetch(self, time, variable, fields=None) -> pd.DataFrame: ...
 
 ```python
 SCHEMA: pa.Schema = pa.schema([...])  # Class attribute
+
+def __init__(self, ..., time_tolerance: TimeTolerance = np.timedelta64(10, "m"), ...): ...
 def __call__(self, time, lead_time, variable, fields=None) -> pd.DataFrame: ...
 async def fetch(self, time, lead_time, variable, fields=None) -> pd.DataFrame: ...
 ```
+
+> **Note:** DataFrameSource and ForecastFrameSource typically require a
+> `time_tolerance` parameter because sparse observations have varying
+> timestamps. See the `e2s-012-time-tolerance` rule for full details
+> on the `TimeTolerance` type and `normalize_time_tolerance` utility.
 
 ### 6e. DataFrame SCHEMA definition
 
@@ -777,6 +786,34 @@ def __init__(
 | `async_timeout` | Total timeout (seconds) for the entire fetch | `600` |
 | `async_workers` | Max concurrent async tasks (semaphore bound) | `16` |
 | `retries` | Per-task retry count on transient failure | `3` |
+
+For **DataFrameSource / ForecastFrameSource**, also include:
+
+| Parameter | Purpose | Default |
+|---|---|---|
+| `time_tolerance` | Time tolerance for filtering observations | `np.timedelta64(10, 'm')` |
+
+Use the `TimeTolerance` type hint and call `normalize_time_tolerance()`
+at init time (see the `e2s-012-time-tolerance` rule):
+
+```python
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeTolerance
+
+def __init__(
+    self,
+    # Source-specific params first
+    time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 16,
+    retries: int = 3,
+):
+    lower, upper = normalize_time_tolerance(time_tolerance)
+    # Store normalized bounds, not raw input
+    ...
+```
 
 Keep source-specific parameters before these common ones. Avoid
 over-exposing internal configuration. Use `loguru.logger` for all
@@ -1303,6 +1340,16 @@ class SourceName:
     ------
     region:global dataclass:analysis product:wind product:temp
     """
+```
+
+For **DataFrameSource / ForecastFrameSource**, also include the
+`time_tolerance` parameter in the docstring:
+
+```text
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm')
 ```
 
 ### 9d. Verify all public method docstrings

@@ -304,38 +304,6 @@ class JPSSLexicon(metaclass=LexiconType):
         return cls.VOCAB[val]
 
 
-# ATMS channel center frequencies (GHz) for documentation / reference
-ATMS_CHANNEL_FREQS: dict[int, float] = {
-    1: 23.8,
-    2: 31.4,
-    3: 50.3,
-    4: 51.76,
-    5: 52.8,
-    6: 53.596,
-    7: 54.40,
-    8: 54.94,
-    9: 55.50,
-    10: 57.29,
-    11: 57.29,
-    12: 57.29,
-    13: 57.29,
-    14: 57.29,
-    15: 57.29,
-    16: 88.20,
-    17: 165.5,
-    18: 183.31,
-    19: 183.31,
-    20: 183.31,
-    21: 183.31,
-    22: 183.31,
-}
-
-# Number of ATMS cross-track field-of-view positions per scan line
-ATMS_NUM_FOVS = 96
-# Number of ATMS channels
-ATMS_NUM_CHANNELS = 22
-
-
 class JPSSATMSLexicon(metaclass=LexiconType):
     """Lexicon for JPSS ATMS (Advanced Technology Microwave Sounder) data source.
 
@@ -365,6 +333,36 @@ class JPSSATMSLexicon(metaclass=LexiconType):
     - AWS NOAA-20 open data:
       https://registry.opendata.aws/noaa-nesdis-n20-pds/
     """
+
+    # Number of ATMS cross-track field-of-view positions per scan line
+    ATMS_NUM_FOVS = 96
+    # Number of ATMS channels
+    ATMS_NUM_CHANNELS = 22
+    # ATMS channel center frequencies (GHz) for documentation / reference
+    ATMS_CHANNEL_FREQS: dict[int, float] = {
+        1: 23.8,
+        2: 31.4,
+        3: 50.3,
+        4: 51.76,
+        5: 52.8,
+        6: 53.596,
+        7: 54.40,
+        8: 54.94,
+        9: 55.50,
+        10: 57.29,
+        11: 57.29,
+        12: 57.29,
+        13: 57.29,
+        14: 57.29,
+        15: 57.29,
+        16: 88.20,
+        17: 165.5,
+        18: 183.31,
+        19: 183.31,
+        20: 183.31,
+        21: 183.31,
+        22: 183.31,
+    }
 
     VOCAB: dict[str, str] = {
         "atms": "brightnessTemperature",
