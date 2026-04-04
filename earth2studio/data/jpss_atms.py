@@ -22,8 +22,10 @@ import os
 import pathlib
 import shutil
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 import nest_asyncio
 import numpy as np
@@ -72,6 +74,13 @@ _SAT_BUCKET_MAP: dict[str, str] = {
     "npp": "noaa-nesdis-snpp-pds",
 }
 
+# Earliest date with ATMS BUFR data on S3 per satellite
+_SAT_START_DATE: dict[str, datetime] = {
+    "npp": datetime(2023, 9, 6),
+    "n20": datetime(2023, 9, 6),
+    "n21": datetime(2023, 9, 6),
+}
+
 
 @dataclass
 class _ATMSAsyncTask:
@@ -83,7 +92,7 @@ class _ATMSAsyncTask:
     satellite: str
     variable: str
     bufr_key: str
-    modifier: object  # Callable[[Any], Any]
+    modifier: Callable[[Any], Any]
 
 
 @check_optional_dependencies()
@@ -519,13 +528,24 @@ class JPSS_ATMS:
 
                     # Per-channel quality flags (shape n_channels, one per channel)
                     try:
-                        cqf = eccodes.codes_get_array(msgid, "channelDataQualityFlags")
-                        # Normalise to exactly n_channels entries.  Some
-                        # BUFR producers emit per-FOV-per-channel arrays
-                        # (length n_fov * n_channels); take only the first
-                        # n_channels in that case (values repeat per-FOV).
-                        if cqf.size >= n_channels:
-                            cqf = cqf[:n_channels].astype(np.uint16)
+                        cqf_raw = eccodes.codes_get_array(
+                            msgid, "channelDataQualityFlags"
+                        )
+                        if cqf_raw.size == n_channels:
+                            # One flag per channel (shared across all FOVs)
+                            cqf = cqf_raw.astype(np.uint16)
+                        elif cqf_raw.size == n_fov * n_channels:
+                            # Per-FOV per-channel: reshape to (n_channels, n_fov)
+                            # and transpose to (n_fov, n_channels) so we can
+                            # index cqf_per_fov[i, ch] later.
+                            cqf = cqf_raw.reshape(n_channels, n_fov).T.astype(np.uint16)
+                        elif cqf_raw.size >= n_channels:
+                            # Unexpected size — take first n_channels entries
+                            logger.debug(
+                                f"channelDataQualityFlags unexpected size "
+                                f"{cqf_raw.size}, using first {n_channels}"
+                            )
+                            cqf = cqf_raw[:n_channels].astype(np.uint16)
                         else:
                             cqf = np.zeros(n_channels, dtype=np.uint16)
                     except Exception:
@@ -572,10 +592,12 @@ class JPSS_ATMS:
                             continue  # skip FOVs with invalid timestamps
 
                         for ch in range(n_channels):
-                            val = float(bt[i, ch])
+                            raw_val = float(bt[i, ch])
                             # Skip missing / fill values
-                            if val > 1e6 or val < 0:
+                            if raw_val > 1e6 or raw_val < 0:
                                 continue
+
+                            val = float(task.modifier(raw_val))
 
                             rows.append(
                                 {
@@ -588,7 +610,9 @@ class JPSS_ATMS:
                                     "solaza": float(solaza[i]),
                                     "satellite_za": float(sat_za[i]),
                                     "satellite_aza": float(sat_aza[i]),
-                                    "channel_quality_flag": int(cqf[ch]),
+                                    "channel_quality_flag": int(
+                                        cqf[i, ch] if cqf.ndim == 2 else cqf[ch]
+                                    ),
                                     "satellite": sat_name,
                                     "observation": val,
                                     "variable": task.variable,
@@ -708,7 +732,8 @@ class JPSS_ATMS:
         times : list[datetime]
             Date-times to validate.
         """
-        start_date = datetime(2017, 11, 29)
+        # Use the earliest S3 start date across all satellites
+        start_date = min(_SAT_START_DATE.values())
         for t in times:
             if t < start_date:
                 raise ValueError(
