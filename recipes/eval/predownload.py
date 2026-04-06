@@ -61,7 +61,7 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging
-from src.models import load_prognostic
+from src.models import load_diagnostics, load_prognostic
 from src.output import sentinel_path
 from src.work import build_work_items, distribute_work
 
@@ -139,21 +139,44 @@ def main(cfg: DictConfig) -> None:
             "to load from this location."
         )
 
-    # --- Load model to infer IC requirements --------------------------------
-    # Model is loaded to CPU (no .to(device) call here); we only need the
-    # coordinate metadata, not actual inference.
+    pipeline = cfg.get("pipeline", "forecast")
+
+    if pipeline == "forecast":
+        _predownload_forecast(cfg, dist, pd_cfg)
+    elif pipeline == "diagnostic":
+        _predownload_diagnostic(cfg, dist, pd_cfg)
+    else:
+        raise ValueError(
+            f"Unknown pipeline '{pipeline}'. Expected 'forecast' or 'diagnostic'."
+        )
+
+    # --- Sentinel file ------------------------------------------------------
+    if dist.distributed:
+        torch.distributed.barrier()
+
+    if dist.rank == 0:
+        sp = sentinel_path(cfg)
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        sp.write_text(np.datetime64("now", "s").item().isoformat())
+        logger.info(f"Sentinel written: {sp}")
+
+    logger.success("Pre-download finished.")
+
+
+def _predownload_forecast(
+    cfg: DictConfig, dist: DistributedManager, pd_cfg: DictConfig
+) -> None:
+    """Pre-download data for the forecast pipeline."""
+    # Load model to infer IC requirements (CPU only, no inference).
     model = load_prognostic(cfg)
     ic_coords = model.input_coords()
     ic_variables: list[str] = list(ic_coords["variable"])
     ic_lead_times: np.ndarray = ic_coords["lead_time"]
 
-    # --- Build unique IC times and distribute across ranks ------------------
     all_items = build_work_items(cfg)
-    # Ensemble members share the same IC data; deduplicate by time only.
     unique_ic_times: list[np.datetime64] = sorted({item.time for item in all_items})
     my_ic_times = distribute_work(unique_ic_times, dist.rank, dist.world_size)
 
-    # --- Initial condition data ---------------------------------------------
     logger.info(
         f"Rank {dist.rank}: pre-downloading IC data for "
         f"{len(my_ic_times)}/{len(unique_ic_times)} times — "
@@ -178,16 +201,12 @@ def main(cfg: DictConfig) -> None:
     # --- Verification data (optional) ---------------------------------------
     verif_cfg = pd_cfg.get("verification", {})
     if verif_cfg.get("enabled", False):
-        # Only fetch variables that will actually be written to the output
-        # store — no point caching data that will never be scored.
         verif_variables: list[str] = list(cfg.output.variables)
 
         step_hours = _infer_step_hours(model)
         all_verif_times = _compute_verification_times(
             unique_ic_times, cfg.nsteps, step_hours
         )
-        # Distribute verification times independently of IC distribution to
-        # avoid duplicate downloads across ranks.
         my_verif_times = distribute_work(all_verif_times, dist.rank, dist.world_size)
 
         logger.info(
@@ -204,19 +223,74 @@ def main(cfg: DictConfig) -> None:
 
         logger.success(f"Rank {dist.rank}: verification pre-download complete.")
 
-    # --- Sentinel file ------------------------------------------------------
-    # Barrier ensures every rank has finished before rank 0 stamps the file,
-    # so a partial run can never leave a valid sentinel behind.
-    if dist.distributed:
-        torch.distributed.barrier()
 
-    if dist.rank == 0:
-        sp = sentinel_path(cfg)
-        sp.parent.mkdir(parents=True, exist_ok=True)
-        sp.write_text(np.datetime64("now", "s").item().isoformat())
-        logger.info(f"Sentinel written: {sp}")
+def _predownload_diagnostic(
+    cfg: DictConfig, dist: DistributedManager, pd_cfg: DictConfig
+) -> None:
+    """Pre-download data for the diagnostic-only pipeline."""
+    diagnostics = load_diagnostics(cfg)
+    if not diagnostics:
+        raise ValueError(
+            "Diagnostic pipeline requires at least one entry in 'diagnostics'."
+        )
 
-    logger.success("Pre-download finished.")
+    # Build the union of input variables across all diagnostic models.
+    input_variables: list[str] = []
+    seen: set[str] = set()
+    for dx in diagnostics:
+        for v in dx.input_coords()["variable"]:
+            if str(v) not in seen:
+                input_variables.append(str(v))
+                seen.add(str(v))
+
+    all_items = build_work_items(cfg)
+    unique_ic_times: list[np.datetime64] = sorted({item.time for item in all_items})
+    my_ic_times = distribute_work(unique_ic_times, dist.rank, dist.world_size)
+
+    zero_lead = np.array([np.timedelta64(0, "ns")])
+
+    logger.info(
+        f"Rank {dist.rank}: pre-downloading diagnostic input data for "
+        f"{len(my_ic_times)}/{len(unique_ic_times)} times — "
+        f"{len(input_variables)} variables"
+    )
+
+    data_source = hydra.utils.instantiate(cfg.data_source)
+
+    for t in my_ic_times:
+        logger.info(f"Rank {dist.rank}: fetching input {t}")
+        fetch_data(
+            source=data_source,
+            time=[t],
+            variable=input_variables,
+            lead_time=zero_lead,
+            device=torch.device("cpu"),
+        )
+
+    logger.success(f"Rank {dist.rank}: diagnostic pre-download complete.")
+
+    # Verification data for diagnostic pipelines uses the same times
+    # (no forecast lead-time expansion).
+    verif_cfg = pd_cfg.get("verification", {})
+    if verif_cfg.get("enabled", False):
+        verif_variables: list[str] = list(cfg.output.variables)
+        my_verif_times = distribute_work(
+            unique_ic_times, dist.rank, dist.world_size
+        )
+
+        logger.info(
+            f"Rank {dist.rank}: pre-downloading verification data for "
+            f"{len(my_verif_times)}/{len(unique_ic_times)} times — "
+            f"{verif_variables}"
+        )
+
+        verif_source = hydra.utils.instantiate(verif_cfg.source)
+
+        for t in my_verif_times:
+            logger.info(f"Rank {dist.rank}: fetching verif {t}")
+            verif_source(np.array([t], dtype="datetime64[ns]"), verif_variables)
+
+        logger.success(f"Rank {dist.rank}: verification pre-download complete.")
 
 
 if __name__ == "__main__":

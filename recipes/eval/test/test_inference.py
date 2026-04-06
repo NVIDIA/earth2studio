@@ -23,11 +23,13 @@ import numpy as np
 import pytest
 import torch
 from src.inference import run_inference
-from src.output import OutputManager
+from src.output import OutputManager, build_forecast_coords
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"
 _RANK0_OUTPUT = "src.output.run_on_rank0_first"
+
+VARIABLES = ["t2m", "z500"]
 
 
 def _passthrough(fn, *args, **kwargs):
@@ -54,12 +56,12 @@ class TestRunInference:
     @pytest.fixture()
     def output_mgr(self, base_cfg, prognostic):
         times = np.array([np.datetime64("2024-01-01")])
+        total_coords = build_forecast_coords(prognostic, times, nsteps=2)
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
-                mgr = OutputManager(
-                    base_cfg, prognostic=prognostic, times=times, nsteps=2
-                )
+                mgr = OutputManager(base_cfg)
                 mgr.__enter__()
+                mgr.validate_output_store(total_coords, VARIABLES)
                 yield mgr
                 mgr.__exit__(None, None, None)
 
@@ -71,6 +73,7 @@ class TestRunInference:
             prognostic=prognostic,
             data_source=data_source,
             output_mgr=output_mgr,
+            output_variables=VARIABLES,
             nsteps=2,
             device=torch.device("cpu"),
         )
@@ -85,26 +88,28 @@ class TestRunInference:
             prognostic=prognostic,
             data_source=data_source,
             output_mgr=output_mgr,
+            output_variables=VARIABLES,
             nsteps=2,
             device=torch.device("cpu"),
         )
 
     def test_multiple_ics(self, prognostic, data_source, base_cfg):
         times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
+        total_coords = build_forecast_coords(prognostic, times, nsteps=2)
         items = [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
             WorkItem(time=np.datetime64("2024-01-02"), ensemble_id=0, seed=1),
         ]
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
-                with OutputManager(
-                    base_cfg, prognostic=prognostic, times=times, nsteps=2
-                ) as mgr:
+                with OutputManager(base_cfg) as mgr:
+                    mgr.validate_output_store(total_coords, VARIABLES)
                     run_inference(
                         work_items=items,
                         prognostic=prognostic,
                         data_source=data_source,
                         output_mgr=mgr,
+                        output_variables=VARIABLES,
                         nsteps=2,
                         device=torch.device("cpu"),
                     )
@@ -117,20 +122,18 @@ class TestRunInference:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
     def test_single_gpu_cuda(self, prognostic, data_source, base_cfg):
         times = np.array([np.datetime64("2024-01-01")])
+        total_coords = build_forecast_coords(prognostic, times, nsteps=2)
         items = [WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)]
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
-                with OutputManager(
-                    base_cfg,
-                    prognostic=prognostic,
-                    times=times,
-                    nsteps=2,
-                ) as mgr:
+                with OutputManager(base_cfg) as mgr:
+                    mgr.validate_output_store(total_coords, VARIABLES)
                     run_inference(
                         work_items=items,
                         prognostic=prognostic,
                         data_source=data_source,
                         output_mgr=mgr,
+                        output_variables=VARIABLES,
                         nsteps=2,
                         device=torch.device("cuda:0"),
                     )
@@ -147,16 +150,14 @@ class TestRunInferenceEnsemble:
     @pytest.fixture()
     def ensemble_output_mgr(self, ensemble_cfg, prognostic):
         times = np.array([np.datetime64("2024-01-01")])
+        total_coords = build_forecast_coords(
+            prognostic, times, nsteps=2, ensemble_size=3
+        )
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
-                mgr = OutputManager(
-                    ensemble_cfg,
-                    prognostic=prognostic,
-                    times=times,
-                    nsteps=2,
-                    ensemble_size=3,
-                )
+                mgr = OutputManager(ensemble_cfg)
                 mgr.__enter__()
+                mgr.validate_output_store(total_coords, VARIABLES)
                 yield mgr
                 mgr.__exit__(None, None, None)
 
@@ -172,6 +173,7 @@ class TestRunInferenceEnsemble:
             prognostic=prognostic,
             data_source=data_source,
             output_mgr=ensemble_output_mgr,
+            output_variables=VARIABLES,
             nsteps=2,
             device=torch.device("cpu"),
         )

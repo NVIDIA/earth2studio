@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
+
 import numpy as np
 import torch
 from loguru import logger
@@ -31,12 +33,41 @@ from .output import OutputManager
 from .work import WorkItem
 
 
+def build_output_coords(
+    spatial_ref: CoordSystem,
+    output_variables: list[str],
+) -> CoordSystem:
+    """Build the coordinate filter used to sub-select model output before writing.
+
+    Parameters
+    ----------
+    spatial_ref : CoordSystem
+        Reference coordinate system whose ``lat`` / ``lon`` entries (if
+        present) define the output grid.  Typically the output coords of
+        the prognostic or diagnostic model.
+    output_variables : list[str]
+        Variable names to extract from the model state at each step.
+
+    Returns
+    -------
+    CoordSystem
+        Filter with ``variable``, and optionally ``lat`` / ``lon`` keys.
+    """
+    oc: CoordSystem = OrderedDict()
+    oc["variable"] = np.array(output_variables)
+    for dim in ("lat", "lon"):
+        if dim in spatial_ref:
+            oc[dim] = spatial_ref[dim]
+    return oc
+
+
 @torch.inference_mode()
 def run_inference(
     work_items: list[WorkItem],
     prognostic: PrognosticModel,
     data_source: DataSource,
     output_mgr: OutputManager,
+    output_variables: list[str],
     nsteps: int,
     perturbation: Perturbation | None = None,
     diagnostics: list[DiagnosticModel] | None = None,
@@ -59,7 +90,9 @@ def run_inference(
     data_source : DataSource
         Source for initial condition data.
     output_mgr : OutputManager
-        Context-managed output handler (must already be entered).
+        Context-managed output handler (store must already be validated).
+    output_variables : list[str]
+        Variable names to sub-select from model output before writing.
     nsteps : int
         Number of forecast steps per initial condition.
     perturbation : Perturbation, optional
@@ -83,7 +116,8 @@ def run_inference(
     }
 
     prognostic_ic = prognostic.input_coords()
-    output_coords = output_mgr.output_coords
+    spatial_ref = prognostic.output_coords(prognostic_ic)
+    output_coords = build_output_coords(spatial_ref, output_variables)
     has_ensemble = "ensemble" in output_mgr.io.coords
 
     for item in tqdm(work_items, desc="Work items", position=0):
