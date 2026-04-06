@@ -773,6 +773,10 @@ class NomadsGDASObsConv:
                 break
             # BUFR edition 3/4: message length in bytes 5-7 (3 bytes, big-endian)
             msg_len = struct.unpack(">I", b"\x00" + file_data[idx + 4 : idx + 7])[0]
+            if msg_len < 8:
+                # Malformed/truncated: skip past this BUFR marker
+                pos = idx + 4
+                continue
             msg_bytes = file_data[idx : idx + msg_len]
 
             # Quick check of dataCategory in section 1.
@@ -1370,15 +1374,16 @@ def _emit_rows(
     pob_val = level.get(_OBS_POB)
     pres_pa = np.float32(pob_val * 100.0) if pob_val is not None else None
 
-    # Quality mark: use the first available quality mark in the level
-    quality_val = None
-    for qm_id in (_OBS_PQM, _OBS_TQM, _OBS_WQM, _OBS_QQM):
-        qv = level.get(qm_id)
-        if qv is not None:
-            quality_val = np.uint16(int(qv))
-            break
+    # Per-variable quality mark mapping: observation descriptor -> QM descriptor
+    _desc_to_qm: dict[int, int] = {
+        _OBS_POB: _OBS_PQM,
+        _OBS_TOB: _OBS_TQM,
+        _OBS_QOB: _OBS_QQM,
+        _OBS_UOB: _OBS_WQM,
+        _OBS_VOB: _OBS_WQM,
+    }
 
-    # Common row template
+    # Common row template (quality set per-variable below)
     base_row: dict[str, Any] = {
         "time": obs_time,
         "lat": np.float32(lat),
@@ -1391,7 +1396,7 @@ def _emit_rows(
         "station_elev": (
             np.float32(header["elv"]) if header["elv"] is not None else None
         ),
-        "quality": quality_val,
+        "quality": None,
     }
 
     # Non-wind variables
@@ -1403,12 +1408,19 @@ def _emit_rows(
         row = base_row.copy()
         row["variable"] = var_name
         row["observation"] = np.float32(val)
+        # Use the correct quality mark for this variable
+        qm_id = _desc_to_qm.get(desc_id)
+        qv = level.get(qm_id) if qm_id is not None else None
+        row["quality"] = np.uint16(int(qv)) if qv is not None else None
         rows.append(row)
 
     # Wind variables (u/v from UOB/VOB)
     if need_wind:
         uob = level.get(_OBS_UOB)
         vob = level.get(_OBS_VOB)
+        # Wind quality mark applies to both u and v
+        wqm = level.get(_OBS_WQM)
+        wind_quality = np.uint16(int(wqm)) if wqm is not None else None
 
         if uob is not None and vob is not None:
             for var_name, (bufr_key, _) in var_plan.items():
@@ -1416,11 +1428,13 @@ def _emit_rows(
                     row = base_row.copy()
                     row["variable"] = var_name
                     row["observation"] = np.float32(uob)
+                    row["quality"] = wind_quality
                     rows.append(row)
                 elif bufr_key == "wind::v":
                     row = base_row.copy()
                     row["variable"] = var_name
                     row["observation"] = np.float32(vob)
+                    row["quality"] = wind_quality
                     rows.append(row)
 
 
@@ -1444,7 +1458,7 @@ def _extract_dx_tables(
         sign_scale(1), scale(3), sign_ref(1), reference(10), width(3)
 
     Each Table D entry has:
-        F, X, Y, mnemonic(32), desc_cont(32), n_members,
+        F, X, Y, mnemonic(64), n_members,
         [member F, X, Y, …]
 
     Parameters
@@ -1549,6 +1563,8 @@ def _extract_dx_tables(
         if idx + 3 >= n:
             return
         # Table D header: F, X, Y, mnemonic(64)
+        # Note: unlike Table B, NCEP DX Table D entries encode the
+        # mnemonic as a single 64-bit field (no separate desc_cont).
         f_val = flat[idx]
         x_val = flat[idx + 1]
         y_val = flat[idx + 2]
@@ -1575,6 +1591,3 @@ def _extract_dx_tables(
 
         if members:
             table_d[seq_id] = (seq_mnemonic, members)
-
-        # Build pybufrkit Table D entry: (name, [member_descriptor_ids])
-        table_d[seq_id] = (seq_mnemonic, members)
