@@ -215,8 +215,8 @@ def test_jpss_atms_call_mock(tmp_path):
     assert df["channel_index"].between(1, 22).all()
     assert len(df) == n_fov * n_channels
     assert df["satellite"].iloc[0] == "n20"
-    assert "channel_quality_flag" in df.columns
-    assert (df["channel_quality_flag"] == 0).all()
+    assert "quality" in df.columns
+    assert (df["quality"] == 0).all()
 
 
 # ---------------------------------------------------------------------------

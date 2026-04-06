@@ -250,7 +250,7 @@ class JPSS_ATMS:
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
             E2STUDIO_SCHEMA.field("satellite_aza"),
-            E2STUDIO_SCHEMA.field("channel_quality_flag"),
+            E2STUDIO_SCHEMA.field("quality"),
             pa.field("satellite", pa.string()),
             pa.field("observation", pa.float32()),
             pa.field("variable", pa.string()),
@@ -680,7 +680,7 @@ class JPSS_ATMS:
                                     "solaza": float(solaza[i]),
                                     "satellite_za": float(sat_za[i]),
                                     "satellite_aza": float(sat_aza[i]),
-                                    "channel_quality_flag": int(
+                                    "quality": int(
                                         cqf[i, ch] if cqf.ndim == 2 else cqf[ch]
                                     ),
                                     "satellite": sat_name,
@@ -705,7 +705,7 @@ class JPSS_ATMS:
         df["solaza"] = df["solaza"].astype(np.float32)
         df["satellite_za"] = df["satellite_za"].astype(np.float32)
         df["satellite_aza"] = df["satellite_aza"].astype(np.float32)
-        df["channel_quality_flag"] = df["channel_quality_flag"].astype(np.uint16)
+        df["quality"] = df["quality"].astype(np.uint16)
         df["observation"] = df["observation"].astype(np.float32)
         return df
 

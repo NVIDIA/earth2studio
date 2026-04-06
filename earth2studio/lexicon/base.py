@@ -364,6 +364,13 @@ E2STUDIO_SCHEMA = pa.schema(
             nullable=True,
             metadata={"description": "Station elevation (m)"},
         ),
+        # Quality control fields
+        pa.field(
+            "quality",
+            pa.uint16(),
+            nullable=True,
+            metadata={"description": "Quality control marker (0=best, 15=missing)"},
+        ),
         # Satellite observation fields
         pa.field(
             "satellite",
@@ -406,15 +413,6 @@ E2STUDIO_SCHEMA = pa.schema(
             pa.float32(),
             nullable=True,
             metadata={"description": "Satellite azimuth angle (degrees)"},
-        ),
-        pa.field(
-            "channel_quality_flag",
-            pa.uint16(),
-            nullable=True,
-            metadata={
-                "description": "Per-channel data quality bit-flag "
-                "(0 = good, non-zero = degraded; see instrument documentation)"
-            },
         ),
     ]
 )
