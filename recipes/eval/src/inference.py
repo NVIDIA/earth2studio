@@ -14,54 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Backward-compatible shim — delegates to :class:`ForecastPipeline`.
+
+The canonical implementation now lives in :mod:`src.pipeline`.  This module
+preserves the ``run_inference`` / ``build_output_coords`` function signatures
+so that existing call sites (including tests) continue to work unchanged.
+"""
+
 from __future__ import annotations
 
-from collections import OrderedDict
-
-import numpy as np
 import torch
-from loguru import logger
-from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
+from earth2studio.data import DataSource
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
 from .output import OutputManager
+from .pipeline import ForecastPipeline, build_output_coords
 from .work import WorkItem
 
-
-def build_output_coords(
-    spatial_ref: CoordSystem,
-    output_variables: list[str],
-) -> CoordSystem:
-    """Build the coordinate filter used to sub-select model output before writing.
-
-    Parameters
-    ----------
-    spatial_ref : CoordSystem
-        Reference coordinate system whose ``lat`` / ``lon`` entries (if
-        present) define the output grid.  Typically the output coords of
-        the prognostic or diagnostic model.
-    output_variables : list[str]
-        Variable names to extract from the model state at each step.
-
-    Returns
-    -------
-    CoordSystem
-        Filter with ``variable``, and optionally ``lat`` / ``lon`` keys.
-    """
-    oc: CoordSystem = OrderedDict()
-    oc["variable"] = np.array(output_variables)
-    for dim in ("lat", "lon"):
-        if dim in spatial_ref:
-            oc[dim] = spatial_ref[dim]
-    return oc
+# Re-export so existing ``from src.inference import build_output_coords`` works.
+__all__ = ["build_output_coords", "run_inference"]
 
 
-@torch.inference_mode()
 def run_inference(
     work_items: list[WorkItem],
     prognostic: PrognosticModel,
@@ -75,135 +51,21 @@ def run_inference(
 ) -> None:
     """Run distributed inference over a list of work items.
 
-    Each work item represents a single forecast (one initial time and
-    ensemble member).  The function iterates through the assigned work,
-    fetches initial conditions, optionally perturbs them, runs the
-    prognostic model, applies any diagnostic models, and writes results
-    through the OutputManager.
-
-    Parameters
-    ----------
-    work_items : list[WorkItem]
-        Work items assigned to this rank (already distributed).
-    prognostic : PrognosticModel
-        The prognostic forecast model.
-    data_source : DataSource
-        Source for initial condition data.
-    output_mgr : OutputManager
-        Context-managed output handler (store must already be validated).
-    output_variables : list[str]
-        Variable names to sub-select from model output before writing.
-    nsteps : int
-        Number of forecast steps per initial condition.
-    perturbation : Perturbation, optional
-        IC perturbation method.  If None, forecasts are deterministic.
-    diagnostics : list[DiagnosticModel], optional
-        Diagnostic models to apply at each step.
-    device : torch.device, optional
-        Device for inference.  Defaults to CUDA if available.
+    This is a compatibility wrapper around :class:`ForecastPipeline`.
+    See :mod:`src.pipeline` for the canonical implementation.
     """
-    if not work_items:
-        logger.warning("No work items for this rank — skipping inference.")
-        return
-
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    diagnostics = diagnostics or []
 
-    prognostic = prognostic.to(device)
-    diagnostics = [dx.to(device) for dx in diagnostics]
-    dx_input_coords: dict[int, CoordSystem] = {
-        id(dx): dx.input_coords() for dx in diagnostics
+    pipeline = ForecastPipeline()
+    pipeline.prognostic = prognostic.to(device)
+    pipeline.diagnostics = [dx.to(device) for dx in (diagnostics or [])]
+    pipeline.perturbation = perturbation
+    pipeline.nsteps = nsteps
+
+    pipeline._prognostic_ic = prognostic.input_coords()
+    pipeline._spatial_ref = prognostic.output_coords(pipeline._prognostic_ic)
+    pipeline._dx_input_coords = {
+        id(dx): dx.input_coords() for dx in pipeline.diagnostics
     }
 
-    prognostic_ic = prognostic.input_coords()
-    spatial_ref = prognostic.output_coords(prognostic_ic)
-    output_coords = build_output_coords(spatial_ref, output_variables)
-    has_ensemble = "ensemble" in output_mgr.io.coords
-
-    for item in tqdm(work_items, desc="Work items", position=0):
-        _run_single_forecast(
-            item=item,
-            prognostic=prognostic,
-            prognostic_ic=prognostic_ic,
-            data_source=data_source,
-            output_mgr=output_mgr,
-            output_coords=output_coords,
-            nsteps=nsteps,
-            perturbation=perturbation,
-            diagnostics=diagnostics,
-            dx_input_coords=dx_input_coords,
-            has_ensemble=has_ensemble,
-            device=device,
-        )
-
-    logger.success("Inference complete")
-
-
-def _run_single_forecast(
-    item: WorkItem,
-    prognostic: PrognosticModel,
-    prognostic_ic: CoordSystem,
-    data_source: DataSource,
-    output_mgr: OutputManager,
-    output_coords: CoordSystem,
-    nsteps: int,
-    perturbation: Perturbation | None,
-    diagnostics: list[DiagnosticModel],
-    dx_input_coords: dict[int, CoordSystem],
-    has_ensemble: bool,
-    device: torch.device,
-) -> None:
-    """Run one forecast for a single WorkItem and write output.
-
-    The model runs without any ensemble dimension — each work item is a
-    single deterministic or perturbed forecast.  The ensemble coordinate
-    is injected at write time so the data lands in the correct slice of
-    the output store.
-    """
-    time = [item.time]
-
-    x, coords = fetch_data(
-        source=data_source,
-        time=time,
-        variable=prognostic_ic["variable"],
-        lead_time=prognostic_ic["lead_time"],
-        device=device,
-    )
-
-    x, coords = map_coords(x, coords, prognostic_ic)
-
-    if perturbation is not None:
-        torch.manual_seed(item.seed)
-        x, coords = perturbation(x, coords)
-
-    model_iter = prognostic.create_iterator(x, coords)
-
-    for step, (x_step, coords_step) in enumerate(
-        tqdm(
-            model_iter,
-            total=nsteps + 1,
-            desc=f"IC {item.time}",
-            position=1,
-            leave=False,
-        )
-    ):
-        for dx in diagnostics:
-            dx_ic = dx_input_coords[id(dx)]
-            y, y_coords = map_coords(x_step, coords_step, dx_ic)
-            y, y_coords = dx(y, y_coords)
-            x_step, coords_step = cat_coords(
-                (x_step, y), (coords_step, y_coords), "variable"
-            )
-
-        x_out, coords_out = map_coords(x_step, coords_step, output_coords)
-
-        if has_ensemble:
-            x_out = x_out.unsqueeze(0)
-            coords_out = CoordSystem(
-                {"ensemble": np.array([item.ensemble_id])} | dict(coords_out)
-            )
-
-        output_mgr.write(x_out, coords_out)
-
-        if step >= nsteps:
-            break
+    pipeline.run(work_items, data_source, output_mgr, output_variables, device)

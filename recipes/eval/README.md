@@ -11,6 +11,7 @@ forecast outputs to zarr.
 Key features:
 
 - Works with **any** Earth2Studio prognostic or diagnostic model
+- **Extensible pipeline interface** — subclass `Pipeline` to add custom inference loops
 - Multi-GPU distributed inference via `torchrun` / SLURM / MPI
 - Clean work-distribution with automatic load balancing across ranks
 - Parallel, non-blocking zarr I/O via thread pool
@@ -170,11 +171,13 @@ recipes/eval/
 │   └── model/
 │       └── dlwp.yaml    # DLWP model config
 ├── src/
+│   ├── pipeline.py      # Pipeline ABC + built-in pipelines (forecast, diagnostic)
 │   ├── work.py          # WorkItem, build_work_items, distribute_work
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
 │   ├── output.py        # OutputManager (zarr lifecycle)
-│   └── inference.py     # Core inference loop
+│   ├── inference.py     # Compat shim → ForecastPipeline
+│   └── diagnostic_inference.py  # Compat shim → DiagnosticPipeline
 └── pyproject.toml
 ```
 
@@ -182,11 +185,64 @@ Each source module has a specific scoped responsibilities:
 
 | Module | Responsibility |
 |---|---|
+| `pipeline.py` | `Pipeline` ABC and built-in implementations (`ForecastPipeline`, `DiagnosticPipeline`) |
 | `work.py` | Define work units; parse ICs from config; distribute across ranks |
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
-| `inference.py` | Fetch ICs, perturb, run model iterator, apply diagnostics, write |
+| `inference.py` | Backward-compatible wrapper around `ForecastPipeline` |
+| `diagnostic_inference.py` | Backward-compatible wrapper around `DiagnosticPipeline` |
+
+### Pipeline interface
+
+All inference logic is driven by a **Pipeline** — an abstract base class
+(`src/pipeline.py`) that separates per-work-item inference from the shared
+scaffolding (work iteration, output filtering, ensemble injection, zarr
+writes).  Subclasses implement three methods:
+
+| Method | Purpose |
+|---|---|
+| `setup(cfg, device)` | Load models, move to device, cache coordinate metadata |
+| `build_total_coords(times, ensemble_size)` | Define the full zarr output coordinate system |
+| `run_item(item, data_source, device)` | Yield `(tensor, coords)` pairs for one work item |
+
+The base class `Pipeline.run()` handles everything else: iterating work
+items, building the output variable filter, injecting the ensemble dimension,
+and writing to the `OutputManager`.
+
+Two built-in pipelines are provided:
+
+- **`ForecastPipeline`** (`pipeline=forecast`) — prognostic rollout with
+  optional diagnostic models.  Yields one output per lead-time step.
+- **`DiagnosticPipeline`** (`pipeline=diagnostic`) — diagnostic-only (no
+  prognostic model).  Yields a single output per work item.
+
+### Custom pipelines
+
+To add a custom inference loop, subclass `Pipeline` and set `pipeline` in
+your Hydra config to the fully-qualified class name:
+
+```python
+# my_pipeline.py
+from src.pipeline import Pipeline
+
+class MyPipeline(Pipeline):
+    def setup(self, cfg, device):
+        ...
+    def build_total_coords(self, times, ensemble_size):
+        ...
+    def run_item(self, item, data_source, device):
+        ...
+        yield x, coords
+```
+
+```yaml
+# In your Hydra config override:
+pipeline: my_pipeline.MyPipeline
+```
+
+Custom pipelines inherit the full shared machinery — distributed output
+management, ensemble dimension handling, threaded zarr writes — for free.
 
 ## Testing
 
