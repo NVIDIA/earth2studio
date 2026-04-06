@@ -363,6 +363,13 @@ E2STUDIO_SCHEMA = pa.schema(
             nullable=True,
             metadata={"description": "Station elevation (m)"},
         ),
+        # Quality control fields
+        pa.field(
+            "quality",
+            pa.uint16(),
+            nullable=True,
+            metadata={"description": "Quality control marker (0=best, 15=missing)"},
+        ),
         # Satellite observation fields
         pa.field(
             "satellite",

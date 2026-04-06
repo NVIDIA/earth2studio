@@ -21,6 +21,7 @@ Data sources that provide tabular data as DataFrames.
       :template: datasource.rst
 
       data.ISD
+      data.NomadsGDASObsConv
       data.RandomDataFrame
       data.UFSObsConv
       data.UFSObsSat
