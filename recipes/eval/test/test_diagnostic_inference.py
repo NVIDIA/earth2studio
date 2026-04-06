@@ -17,14 +17,14 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 import torch
-from conftest import FakeDiagnostic
-from src.diagnostic_inference import run_diagnostic_inference
 from src.output import OutputManager, build_diagnostic_coords
+from src.pipeline import DiagnosticPipeline
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"
@@ -45,6 +45,30 @@ def _make_dist_mock(*, rank=0, world_size=1, distributed=False):
             self.distributed = distributed
 
     return _FakeDist()
+
+
+def _make_diagnostic_pipeline(diagnostics):
+    """Build a DiagnosticPipeline with pre-set attributes (bypassing setup)."""
+    device = torch.device("cpu")
+    pipeline = DiagnosticPipeline()
+    pipeline.diagnostics = [dx.to(device) for dx in diagnostics]
+    pipeline._dx_input_coords = {
+        id(dx): dx.input_coords() for dx in pipeline.diagnostics
+    }
+
+    all_input_vars: list[str] = []
+    seen: set[str] = set()
+    for dx in pipeline.diagnostics:
+        for v in pipeline._dx_input_coords[id(dx)]["variable"]:
+            if v not in seen:
+                all_input_vars.append(str(v))
+                seen.add(str(v))
+    pipeline._all_input_vars = all_input_vars
+
+    dx0 = pipeline.diagnostics[0]
+    pipeline._spatial_ref = dx0.output_coords(pipeline._dx_input_coords[id(dx0)])
+    pipeline._zero_lead = np.array([np.timedelta64(0, "ns")])
+    return pipeline
 
 
 class TestBuildDiagnosticCoords:
@@ -71,7 +95,7 @@ class TestBuildDiagnosticCoords:
             build_diagnostic_coords([], times)
 
 
-class TestRunDiagnosticInference:
+class TestDiagnosticPipeline:
     @pytest.fixture()
     def diag_cfg(self, tmp_path):
         from omegaconf import OmegaConf
@@ -88,6 +112,10 @@ class TestRunDiagnosticInference:
         )
 
     @pytest.fixture()
+    def pipeline(self, fake_diagnostic):
+        return _make_diagnostic_pipeline([fake_diagnostic])
+
+    @pytest.fixture()
     def diag_output_mgr(self, diag_cfg, fake_diagnostic):
         times = np.array([np.datetime64("2024-01-01")])
         total_coords = build_diagnostic_coords([fake_diagnostic], times)
@@ -99,13 +127,12 @@ class TestRunDiagnosticInference:
                 yield mgr
                 mgr.__exit__(None, None, None)
 
-    def test_single_ic(self, fake_diagnostic, data_source, diag_output_mgr):
+    def test_single_ic(self, pipeline, data_source, diag_output_mgr):
         items = [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
         ]
-        run_diagnostic_inference(
+        pipeline.run(
             work_items=items,
-            diagnostics=[fake_diagnostic],
             data_source=data_source,
             output_mgr=diag_output_mgr,
             output_variables=DIAG_OUTPUT_VARS,
@@ -115,19 +142,18 @@ class TestRunDiagnosticInference:
         assert os.path.exists(diag_output_mgr._path)
         assert "diag_a" in diag_output_mgr.io
 
-    def test_empty_work_items_skips(self, fake_diagnostic, data_source, diag_output_mgr):
-        run_diagnostic_inference(
+    def test_empty_work_items_skips(self, pipeline, data_source, diag_output_mgr):
+        pipeline.run(
             work_items=[],
-            diagnostics=[fake_diagnostic],
             data_source=data_source,
             output_mgr=diag_output_mgr,
             output_variables=DIAG_OUTPUT_VARS,
             device=torch.device("cpu"),
         )
 
-    def test_multiple_ics(self, fake_diagnostic, data_source, diag_cfg):
+    def test_multiple_ics(self, pipeline, data_source, diag_cfg):
         times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
-        total_coords = build_diagnostic_coords([fake_diagnostic], times)
+        total_coords = build_diagnostic_coords(pipeline.diagnostics, times)
         items = [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
             WorkItem(time=np.datetime64("2024-01-02"), ensemble_id=0, seed=1),
@@ -136,9 +162,8 @@ class TestRunDiagnosticInference:
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
                 with OutputManager(diag_cfg) as mgr:
                     mgr.validate_output_store(total_coords, DIAG_OUTPUT_VARS)
-                    run_diagnostic_inference(
+                    pipeline.run(
                         work_items=items,
-                        diagnostics=[fake_diagnostic],
                         data_source=data_source,
                         output_mgr=mgr,
                         output_variables=DIAG_OUTPUT_VARS,
@@ -151,8 +176,6 @@ class TestRunDiagnosticInference:
 
     def test_ensemble_writes(self, fake_diagnostic, data_source):
         from omegaconf import OmegaConf
-
-        import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             cfg = OmegaConf.create(
@@ -175,13 +198,13 @@ class TestRunDiagnosticInference:
                 )
                 for eid in range(3)
             ]
+            pipeline = _make_diagnostic_pipeline([fake_diagnostic])
             with patch(_DIST_PATH, return_value=_make_dist_mock()):
                 with patch(_RANK0_OUTPUT, side_effect=_passthrough):
                     with OutputManager(cfg) as mgr:
                         mgr.validate_output_store(total_coords, DIAG_OUTPUT_VARS)
-                        run_diagnostic_inference(
+                        pipeline.run(
                             work_items=items,
-                            diagnostics=[fake_diagnostic],
                             data_source=data_source,
                             output_mgr=mgr,
                             output_variables=DIAG_OUTPUT_VARS,
@@ -193,16 +216,19 @@ class TestRunDiagnosticInference:
                             mgr.io.coords["ensemble"], np.arange(3)
                         )
 
-    def test_no_diagnostics_raises(self, data_source, diag_output_mgr):
-        items = [
-            WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
-        ]
-        with pytest.raises(ValueError, match="At least one"):
-            run_diagnostic_inference(
-                work_items=items,
-                diagnostics=[],
-                data_source=data_source,
-                output_mgr=diag_output_mgr,
-                output_variables=DIAG_OUTPUT_VARS,
-                device=torch.device("cpu"),
-            )
+    def test_run_item_yields_single_output(self, pipeline, data_source):
+        item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)
+        steps = list(pipeline.run_item(item, data_source, torch.device("cpu")))
+        assert len(steps) == 1
+        x, coords = steps[0]
+        assert isinstance(x, torch.Tensor)
+        assert "variable" in coords
+
+    def test_build_total_coords(self, pipeline):
+        times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
+        coords = pipeline.build_total_coords(times, ensemble_size=1)
+        assert "ensemble" not in coords
+        assert "time" in coords
+        assert "lead_time" in coords
+        assert len(coords["lead_time"]) == 1
+        assert coords["lead_time"][0] == np.timedelta64(0, "ns")

@@ -39,8 +39,8 @@ import numpy as np
 import torch
 from physicsnemo.distributed import DistributedManager
 from src.distributed import run_on_rank0_first
-from src.inference import run_inference
-from src.output import OutputManager, build_forecast_coords
+from src.output import OutputManager
+from src.pipeline import ForecastPipeline
 from src.work import build_work_items, distribute_work
 
 from earth2studio.data import Random
@@ -141,17 +141,25 @@ def test_end_to_end_inference(output_dir: str) -> None:
     all_items = build_work_items(cfg)
     my_items = distribute_work(all_items, dist.rank, dist.world_size)
     all_times = np.array(sorted({item.time for item in all_items}))
-    total_coords = build_forecast_coords(prognostic, all_times, nsteps, ensemble_size)
+
+    pipeline = ForecastPipeline()
+    pipeline.prognostic = prognostic.to(dist.device)
+    pipeline.diagnostics = []
+    pipeline.perturbation = None
+    pipeline.nsteps = nsteps
+    pipeline._prognostic_ic = prognostic.input_coords()
+    pipeline._spatial_ref = prognostic.output_coords(pipeline._prognostic_ic)
+    pipeline._dx_input_coords = {}
+
+    total_coords = pipeline.build_total_coords(all_times, ensemble_size)
 
     with OutputManager(cfg) as output_mgr:
         output_mgr.validate_output_store(total_coords, list(VARIABLES))
-        run_inference(
+        pipeline.run(
             work_items=my_items,
-            prognostic=prognostic,
             data_source=data_source,
             output_mgr=output_mgr,
             output_variables=list(VARIABLES),
-            nsteps=nsteps,
             device=dist.device,
         )
 

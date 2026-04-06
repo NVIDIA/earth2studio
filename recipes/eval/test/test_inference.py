@@ -22,8 +22,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 import torch
-from src.inference import run_inference
 from src.output import OutputManager, build_forecast_coords
+from src.pipeline import ForecastPipeline
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"
@@ -46,12 +46,32 @@ def _make_dist_mock(*, rank=0, world_size=1, distributed=False):
     return _FakeDist()
 
 
-class TestRunInference:
+def _make_forecast_pipeline(prognostic, diagnostics=None, perturbation=None, nsteps=2):
+    """Build a ForecastPipeline with pre-set attributes (bypassing setup)."""
+    device = torch.device("cpu")
+    pipeline = ForecastPipeline()
+    pipeline.prognostic = prognostic.to(device)
+    pipeline.diagnostics = [dx.to(device) for dx in (diagnostics or [])]
+    pipeline.perturbation = perturbation
+    pipeline.nsteps = nsteps
+    pipeline._prognostic_ic = prognostic.input_coords()
+    pipeline._spatial_ref = prognostic.output_coords(pipeline._prognostic_ic)
+    pipeline._dx_input_coords = {
+        id(dx): dx.input_coords() for dx in pipeline.diagnostics
+    }
+    return pipeline
+
+
+class TestForecastPipeline:
     @pytest.fixture()
     def work_items(self):
         return [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
         ]
+
+    @pytest.fixture()
+    def pipeline(self, prognostic):
+        return _make_forecast_pipeline(prognostic)
 
     @pytest.fixture()
     def output_mgr(self, base_cfg, prognostic):
@@ -66,15 +86,13 @@ class TestRunInference:
                 mgr.__exit__(None, None, None)
 
     def test_deterministic_single_ic(
-        self, work_items, prognostic, data_source, output_mgr
+        self, work_items, pipeline, data_source, output_mgr
     ):
-        run_inference(
+        pipeline.run(
             work_items=work_items,
-            prognostic=prognostic,
             data_source=data_source,
             output_mgr=output_mgr,
             output_variables=VARIABLES,
-            nsteps=2,
             device=torch.device("cpu"),
         )
 
@@ -82,20 +100,18 @@ class TestRunInference:
         assert "t2m" in output_mgr.io
         assert "z500" in output_mgr.io
 
-    def test_empty_work_items_skips(self, prognostic, data_source, output_mgr):
-        run_inference(
+    def test_empty_work_items_skips(self, pipeline, data_source, output_mgr):
+        pipeline.run(
             work_items=[],
-            prognostic=prognostic,
             data_source=data_source,
             output_mgr=output_mgr,
             output_variables=VARIABLES,
-            nsteps=2,
             device=torch.device("cpu"),
         )
 
-    def test_multiple_ics(self, prognostic, data_source, base_cfg):
+    def test_multiple_ics(self, pipeline, data_source, base_cfg):
         times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
-        total_coords = build_forecast_coords(prognostic, times, nsteps=2)
+        total_coords = build_forecast_coords(pipeline.prognostic, times, nsteps=2)
         items = [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0),
             WorkItem(time=np.datetime64("2024-01-02"), ensemble_id=0, seed=1),
@@ -104,13 +120,11 @@ class TestRunInference:
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
                 with OutputManager(base_cfg) as mgr:
                     mgr.validate_output_store(total_coords, VARIABLES)
-                    run_inference(
+                    pipeline.run(
                         work_items=items,
-                        prognostic=prognostic,
                         data_source=data_source,
                         output_mgr=mgr,
                         output_variables=VARIABLES,
-                        nsteps=2,
                         device=torch.device("cpu"),
                     )
 
@@ -124,23 +138,45 @@ class TestRunInference:
         times = np.array([np.datetime64("2024-01-01")])
         total_coords = build_forecast_coords(prognostic, times, nsteps=2)
         items = [WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)]
+        pipeline = _make_forecast_pipeline(prognostic)
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
                 with OutputManager(base_cfg) as mgr:
                     mgr.validate_output_store(total_coords, VARIABLES)
-                    run_inference(
+                    pipeline.run(
                         work_items=items,
-                        prognostic=prognostic,
                         data_source=data_source,
                         output_mgr=mgr,
                         output_variables=VARIABLES,
-                        nsteps=2,
                         device=torch.device("cuda:0"),
                     )
                 assert os.path.exists(mgr._path)
 
+    def test_build_total_coords(self, pipeline):
+        times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
+        coords = pipeline.build_total_coords(times, ensemble_size=1)
+        assert "ensemble" not in coords
+        assert "time" in coords
+        assert "lead_time" in coords
+        assert len(coords["lead_time"]) == 3  # nsteps=2 → 3 lead times
 
-class TestRunInferenceEnsemble:
+    def test_build_total_coords_ensemble(self, pipeline):
+        times = np.array([np.datetime64("2024-01-01")])
+        coords = pipeline.build_total_coords(times, ensemble_size=3)
+        assert "ensemble" in coords
+        np.testing.assert_array_equal(coords["ensemble"], np.arange(3))
+
+    def test_run_item_yields_correct_steps(self, pipeline, data_source):
+        item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)
+        steps = list(pipeline.run_item(item, data_source, torch.device("cpu")))
+        # nsteps=2 → yields step 0 (analysis) + steps 1..2 = 3 total
+        assert len(steps) == 3
+        for x, coords in steps:
+            assert isinstance(x, torch.Tensor)
+            assert "variable" in coords
+
+
+class TestForecastPipelineEnsemble:
     @pytest.fixture()
     def ensemble_cfg(self, base_cfg):
         cfg = base_cfg.copy()
@@ -168,13 +204,12 @@ class TestRunInferenceEnsemble:
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=eid, seed=eid * 100)
             for eid in range(3)
         ]
-        run_inference(
+        pipeline = _make_forecast_pipeline(prognostic)
+        pipeline.run(
             work_items=items,
-            prognostic=prognostic,
             data_source=data_source,
             output_mgr=ensemble_output_mgr,
             output_variables=VARIABLES,
-            nsteps=2,
             device=torch.device("cpu"),
         )
 

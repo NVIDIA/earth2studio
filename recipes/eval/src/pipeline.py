@@ -50,36 +50,13 @@ from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
 from .models import load_diagnostics, load_prognostic
-from .output import OutputManager, build_diagnostic_coords, build_forecast_coords
+from .output import (
+    OutputManager,
+    build_diagnostic_coords,
+    build_forecast_coords,
+    build_output_coords,
+)
 from .work import WorkItem
-
-
-def build_output_coords(
-    spatial_ref: CoordSystem,
-    output_variables: list[str],
-) -> CoordSystem:
-    """Build the coordinate filter used to sub-select model output before writing.
-
-    Parameters
-    ----------
-    spatial_ref : CoordSystem
-        Reference coordinate system whose ``lat`` / ``lon`` entries (if
-        present) define the output grid.  Typically the output coords of
-        the prognostic or diagnostic model.
-    output_variables : list[str]
-        Variable names to extract from the model state at each step.
-
-    Returns
-    -------
-    CoordSystem
-        Filter with ``variable``, and optionally ``lat`` / ``lon`` keys.
-    """
-    oc: CoordSystem = OrderedDict()
-    oc["variable"] = np.array(output_variables)
-    for dim in ("lat", "lon"):
-        if dim in spatial_ref:
-            oc[dim] = spatial_ref[dim]
-    return oc
 
 
 class Pipeline(ABC):

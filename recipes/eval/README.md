@@ -175,9 +175,7 @@ recipes/eval/
 │   ├── work.py          # WorkItem, build_work_items, distribute_work
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
-│   ├── output.py        # OutputManager (zarr lifecycle)
-│   ├── inference.py     # Compat shim → ForecastPipeline
-│   └── diagnostic_inference.py  # Compat shim → DiagnosticPipeline
+│   └── output.py        # OutputManager (zarr lifecycle)
 └── pyproject.toml
 ```
 
@@ -190,8 +188,6 @@ Each source module has a specific scoped responsibilities:
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
-| `inference.py` | Backward-compatible wrapper around `ForecastPipeline` |
-| `diagnostic_inference.py` | Backward-compatible wrapper around `DiagnosticPipeline` |
 
 ### Pipeline interface
 
