@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added GenCast 1 degree Mini model
 - Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
 - Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
+- Added real-time GDAS conventional observation data source (`NomadsGDASObsConv`)
+- Added `GDASObsConvLexicon` for NOMADS PrepBUFR variable mappings
+- Added `quality` field to `E2STUDIO_SCHEMA` for observation QC markers
 
 ### Changed
 
