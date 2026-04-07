@@ -381,8 +381,11 @@ class TestMSCObjectStorageS3Additional:
         with pytest.raises(ObjectStorageError, match="No CloudFront private key"):
             storage._rsa_signer(b"message")
 
-    def test_rsa_signer_with_mocked_key(self, mock_msc):
-        """_rsa_signer signs message using the configured private key."""
+    def test_rsa_signer_signs_message_with_pem_key(self, mock_msc):
+        """`_rsa_signer` loads the PEM `cloudfront_private_key` and returns RSA signature bytes.
+
+        `cryptography` is mocked (no real key material) so we only assert the call path and return value.
+        """
         storage = MSCObjectStorage(bucket="b", region="us-east-1")
         storage.cloudfront_private_key = (
             "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"

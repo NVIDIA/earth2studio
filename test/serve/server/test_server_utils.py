@@ -206,7 +206,7 @@ class TestQueueNextStage:
         assert "process_finalize_metadata" in mock_queue.enqueue.call_args[0][0]
         assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
 
-    def test_object_storage_stage_with_geocatalog_url_queues_geocatalog(self):
+    def test_object_storage_stage_queues_geocatalog(self):
         """current_stage=object_storage with geocatalog URL enqueues process_geocatalog_ingestion."""
         mock_redis = MagicMock()
         mock_config = MagicMock()

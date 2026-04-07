@@ -18,6 +18,7 @@ import logging
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,6 +42,7 @@ from earth2studio.models.px.stormscope import (
 )
 from earth2studio.serve.server import (
     Earth2Workflow,
+    WorkflowParameters,
     WorkflowProgress,
     workflow_registry,
 )
@@ -51,6 +53,9 @@ logger = logging.getLogger("foundry_fcn3_stormscope_goes_workflow")
 logger.setLevel(logging.INFO)
 
 GOES_MODEL_NAME = "6km_60min_natten_cos_zenith_input_eoe_v2"
+
+_MAX_FORECAST_STEPS = 32
+_MAX_ENSEMBLE_SAMPLES = 32
 
 
 @workflow_registry.register
@@ -90,6 +95,29 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         self.stormscope.build_conditioning_interpolator(
             coords_out["lat"], coords_out["lon"]
         )
+
+    @classmethod
+    def validate_parameters(
+        cls, parameters: dict[str, Any] | WorkflowParameters
+    ) -> WorkflowParameters:
+        """Validate request parameters and ensemble limits for FCN3 and StormScope sample counts."""
+        validated = super().validate_parameters(parameters)
+        if not 1 <= validated.n_steps <= _MAX_FORECAST_STEPS:
+            raise ValueError(
+                f"n_steps must be between 1 and {_MAX_FORECAST_STEPS}, "
+                f"got {validated.n_steps}"
+            )
+        if not 1 <= validated.n_samples_fcn3 <= _MAX_ENSEMBLE_SAMPLES:
+            raise ValueError(
+                f"n_samples_fcn3 must be between 1 and {_MAX_ENSEMBLE_SAMPLES}, "
+                f"got {validated.n_samples_fcn3}"
+            )
+        if not 1 <= validated.n_samples_stormscope <= _MAX_ENSEMBLE_SAMPLES:
+            raise ValueError(
+                f"n_samples_stormscope must be between 1 and {_MAX_ENSEMBLE_SAMPLES}, "
+                f"got {validated.n_samples_stormscope}"
+            )
+        return validated
 
     def load_fcn3_interp(self) -> InterpModAFNO:
         """Load FCN3 with surface pressure diagnostics and hourly ``InterpModAFNO`` wrapping."""

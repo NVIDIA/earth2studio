@@ -17,6 +17,7 @@
 import logging
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import torch
@@ -28,6 +29,7 @@ from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import FCN3
 from earth2studio.serve.server import (
     Earth2Workflow,
+    WorkflowParameters,
     WorkflowProgress,
     workflow_registry,
 )
@@ -36,6 +38,9 @@ from earth2studio.utils.time import timearray_to_datetime, to_time_array
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("foundry_fcn3_workflow")
+
+_MAX_FORECAST_STEPS = 32
+_MAX_ENSEMBLE_SAMPLES = 32
 
 
 @workflow_registry.register
@@ -58,6 +63,24 @@ class FoundryFCN3Workflow(Earth2Workflow):
         self.rng = np.random.default_rng(init_seed)
 
         self.data = PlanetaryComputerECMWFOpenDataIFS(verbose=False, cache=False)
+
+    @classmethod
+    def validate_parameters(
+        cls, parameters: dict[str, Any] | WorkflowParameters
+    ) -> WorkflowParameters:
+        """Validate request parameters and enforce FCN3 ensemble limits for ``n_steps`` and ``n_samples``."""
+        validated = super().validate_parameters(parameters)
+        if not 1 <= validated.n_steps <= _MAX_FORECAST_STEPS:
+            raise ValueError(
+                f"n_steps must be between 1 and {_MAX_FORECAST_STEPS}, "
+                f"got {validated.n_steps}"
+            )
+        if not 1 <= validated.n_samples <= _MAX_ENSEMBLE_SAMPLES:
+            raise ValueError(
+                f"n_samples must be between 1 and {_MAX_ENSEMBLE_SAMPLES}, "
+                f"got {validated.n_samples}"
+            )
+        return validated
 
     def load_fcn3(self) -> FCN3:
         """Load the default FCN3 package, move it to the workflow device, and set eval mode."""
@@ -174,8 +197,8 @@ class FoundryFCN3Workflow(Earth2Workflow):
         self,
         io: IOBackend,
         start_time: datetime = datetime(2025, 1, 1),
-        n_steps: int = 20,
-        n_samples: int = 16,
+        n_steps: int = 12,
+        n_samples: int = 4,
         seeds: Sequence[int] | None = None,
         variables: Sequence[str] | None = ("t2m", "u10m", "v10m"),
         collection_id: str | None = None,

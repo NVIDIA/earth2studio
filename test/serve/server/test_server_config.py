@@ -619,186 +619,99 @@ class TestObjectStorageEnvOverrides:
         reset_config()
         return ConfigManager()
 
-    def test_object_storage_type_s3(self) -> None:
+    def test_apply_env_overrides_from_environment(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Single pass: set env vars, ``_apply_env_overrides``, assert all mapped fields."""
         manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_TYPE"] = "s3"
+        env = {
+            "OBJECT_STORAGE_TYPE": "s3",
+            "OBJECT_STORAGE_BUCKET": "my-bucket",
+            "OBJECT_STORAGE_REGION": "eu-west-1",
+            "OBJECT_STORAGE_PREFIX": "custom/prefix",
+            "OBJECT_STORAGE_ACCESS_KEY_ID": "AKID",
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY": "SECRET",
+            "OBJECT_STORAGE_SESSION_TOKEN": "TOKEN",
+            "OBJECT_STORAGE_ENDPOINT_URL": "https://s3.local",
+            "OBJECT_STORAGE_TRANSFER_ACCELERATION": "true",
+            "OBJECT_STORAGE_MAX_CONCURRENCY": "32",
+            "OBJECT_STORAGE_MULTIPART_CHUNKSIZE": "8388608",
+            "OBJECT_STORAGE_USE_RUST_CLIENT": "true",
+            "CLOUDFRONT_DOMAIN": "cdn.example.com",
+            "CLOUDFRONT_KEY_PAIR_ID": "KID123",
+            "CLOUDFRONT_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----",
+            "SIGNED_URL_EXPIRES_IN": "3600",
+            "AZURE_STORAGE_ACCOUNT_NAME": "myaccount",
+            "AZURE_CONTAINER_NAME": "mycontainer",
+            "AZURE_GEOCATALOG_URL": "https://geocatalog.example.com",
+            "EXPOSED_WORKFLOWS": "workflow_a, workflow_b, workflow_c",
+            "OUTPUT_FORMAT": "netcdf4",
+        }
+        for key, value in env.items():
+            monkeypatch.setenv(key, value)
         manager._apply_env_overrides()
-        assert manager.config.object_storage.storage_type == "s3"
 
-    def test_object_storage_type_azure(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_TYPE"] = "azure"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.storage_type == "azure"
-
-    def test_object_storage_type_invalid_ignored(self) -> None:
-        manager = self._get_manager()
-        original = manager.config.object_storage.storage_type
-        os.environ["OBJECT_STORAGE_TYPE"] = "gcs"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.storage_type == original
-
-    def test_object_storage_bucket(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_BUCKET"] = "my-bucket"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.bucket == "my-bucket"
-
-    def test_object_storage_region(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_REGION"] = "eu-west-1"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.region == "eu-west-1"
-
-    def test_object_storage_prefix(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_PREFIX"] = "custom/prefix"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.prefix == "custom/prefix"
-
-    def test_object_storage_access_key_id(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_ACCESS_KEY_ID"] = "AKID"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.access_key_id == "AKID"
-
-    def test_object_storage_secret_access_key(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_SECRET_ACCESS_KEY"] = "SECRET"  # noqa: S105
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.secret_access_key == "SECRET"  # noqa: S105
-
-    def test_object_storage_session_token(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_SESSION_TOKEN"] = "TOKEN"  # noqa: S105
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.session_token == "TOKEN"  # noqa: S105
-
-    def test_object_storage_endpoint_url(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_ENDPOINT_URL"] = "https://s3.local"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.endpoint_url == "https://s3.local"
-
-    def test_object_storage_transfer_acceleration_true(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_TRANSFER_ACCELERATION"] = "true"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.use_transfer_acceleration is True
-
-    def test_object_storage_transfer_acceleration_false(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_TRANSFER_ACCELERATION"] = "false"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.use_transfer_acceleration is False
-
-    def test_object_storage_max_concurrency(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_MAX_CONCURRENCY"] = "32"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.max_concurrency == 32
-
-    def test_object_storage_multipart_chunksize(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_MULTIPART_CHUNKSIZE"] = "8388608"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.multipart_chunksize == 8388608
-
-    def test_object_storage_use_rust_client_true(self) -> None:
-        manager = self._get_manager()
-        os.environ["OBJECT_STORAGE_USE_RUST_CLIENT"] = "true"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.use_rust_client is True
-
-    def test_cloudfront_domain(self) -> None:
-        manager = self._get_manager()
-        os.environ["CLOUDFRONT_DOMAIN"] = "cdn.example.com"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.cloudfront_domain == "cdn.example.com"
-
-    def test_cloudfront_key_pair_id(self) -> None:
-        manager = self._get_manager()
-        os.environ["CLOUDFRONT_KEY_PAIR_ID"] = "KID123"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.cloudfront_key_pair_id == "KID123"
-
-    def test_cloudfront_private_key(self) -> None:
-        manager = self._get_manager()
-        os.environ["CLOUDFRONT_PRIVATE_KEY"] = "-----BEGIN RSA PRIVATE KEY-----"
-        manager._apply_env_overrides()
-        assert (
-            manager.config.object_storage.cloudfront_private_key
-            == "-----BEGIN RSA PRIVATE KEY-----"
-        )
-
-    def test_signed_url_expires_in(self) -> None:
-        manager = self._get_manager()
-        os.environ["SIGNED_URL_EXPIRES_IN"] = "3600"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.signed_url_expires_in == 3600
-
-    def test_azure_storage_account_name(self) -> None:
-        manager = self._get_manager()
-        os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = "myaccount"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.azure_account_name == "myaccount"
-
-    def test_azure_container_name(self) -> None:
-        manager = self._get_manager()
-        os.environ["AZURE_CONTAINER_NAME"] = "mycontainer"
-        manager._apply_env_overrides()
-        assert manager.config.object_storage.azure_container_name == "mycontainer"
-
-    def test_azure_endpoint_url(self) -> None:
-        manager = self._get_manager()
-        os.environ["AZURE_ENDPOINT_URL"] = "https://myaccount.blob.core.windows.net"
-        manager._apply_env_overrides()
-        assert (
-            manager.config.object_storage.endpoint_url
-            == "https://myaccount.blob.core.windows.net"
-        )
-
-    def test_azure_geocatalog_url(self) -> None:
-        manager = self._get_manager()
-        os.environ["AZURE_GEOCATALOG_URL"] = "https://geocatalog.example.com"
-        manager._apply_env_overrides()
-        assert (
-            manager.config.object_storage.azure_geocatalog_url
-            == "https://geocatalog.example.com"
-        )
-
-    def test_exposed_workflows_parses_comma_separated(self) -> None:
-        manager = self._get_manager()
-        os.environ["EXPOSED_WORKFLOWS"] = "workflow_a, workflow_b, workflow_c"
-        manager._apply_env_overrides()
+        obs = manager.config.object_storage
+        assert obs.storage_type == "s3"
+        assert obs.bucket == "my-bucket"
+        assert obs.region == "eu-west-1"
+        assert obs.prefix == "custom/prefix"
+        assert obs.access_key_id == "AKID"
+        assert obs.secret_access_key == "SECRET"  # noqa: S105
+        assert obs.session_token == "TOKEN"  # noqa: S105
+        assert obs.endpoint_url == "https://s3.local"
+        assert obs.use_transfer_acceleration is True
+        assert obs.max_concurrency == 32
+        assert obs.multipart_chunksize == 8388608
+        assert obs.use_rust_client is True
+        assert obs.cloudfront_domain == "cdn.example.com"
+        assert obs.cloudfront_key_pair_id == "KID123"
+        assert obs.cloudfront_private_key == "-----BEGIN RSA PRIVATE KEY-----"
+        assert obs.signed_url_expires_in == 3600
+        assert obs.azure_account_name == "myaccount"
+        assert obs.azure_container_name == "mycontainer"
+        assert obs.azure_geocatalog_url == "https://geocatalog.example.com"
         assert manager.config.workflow_exposure.exposed_workflows == [
             "workflow_a",
             "workflow_b",
             "workflow_c",
         ]
-
-    def test_exposed_workflows_single(self) -> None:
-        manager = self._get_manager()
-        os.environ["EXPOSED_WORKFLOWS"] = "only_workflow"
-        manager._apply_env_overrides()
-        assert manager.config.workflow_exposure.exposed_workflows == ["only_workflow"]
-
-    def test_output_format_zarr(self) -> None:
-        manager = self._get_manager()
-        os.environ["OUTPUT_FORMAT"] = "zarr"
-        manager._apply_env_overrides()
-        assert manager.config.paths.output_format == "zarr"
-
-    def test_output_format_netcdf4(self) -> None:
-        manager = self._get_manager()
-        os.environ["OUTPUT_FORMAT"] = "netcdf4"
-        manager._apply_env_overrides()
         assert manager.config.paths.output_format == "netcdf4"
 
-    def test_output_format_invalid_ignored(self) -> None:
+        # Boolean false parsing and alternate output format (second apply on same manager)
+        monkeypatch.setenv("OBJECT_STORAGE_TRANSFER_ACCELERATION", "false")
+        monkeypatch.setenv("OBJECT_STORAGE_USE_RUST_CLIENT", "false")
+        monkeypatch.setenv("OUTPUT_FORMAT", "zarr")
+        manager._apply_env_overrides()
+        assert obs.use_transfer_acceleration is False
+        assert obs.use_rust_client is False
+        assert manager.config.paths.output_format == "zarr"
+
+        monkeypatch.setenv("OBJECT_STORAGE_TYPE", "azure")
+        manager._apply_env_overrides()
+        assert obs.storage_type == "azure"
+
+        monkeypatch.setenv(
+            "AZURE_ENDPOINT_URL", "https://myaccount.blob.core.windows.net"
+        )
+        manager._apply_env_overrides()
+        assert obs.endpoint_url == "https://myaccount.blob.core.windows.net"
+
+    def test_apply_env_overrides_invalid_storage_type_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manager = self._get_manager()
+        original = manager.config.object_storage.storage_type
+        monkeypatch.setenv("OBJECT_STORAGE_TYPE", "gcs")
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.storage_type == original
+
+    def test_apply_env_overrides_invalid_output_format_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         manager = self._get_manager()
         original = manager.config.paths.output_format
-        os.environ["OUTPUT_FORMAT"] = "csv"
+        monkeypatch.setenv("OUTPUT_FORMAT", "csv")
         manager._apply_env_overrides()
         assert manager.config.paths.output_format == original
 
@@ -841,12 +754,14 @@ class TestObjectStorageEnvOverrides:
         mock_init.assert_called_once()
         assert wf_cfg == expected
 
-    def test_initialize_config_uses_config_dir_env_var(self) -> None:
+    def test_initialize_config_uses_config_dir_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """_initialize_config uses CONFIG_DIR env var when set (covers lines 203-204)"""
         reset_config()
         manager = ConfigManager()
         manager._config = None
         manager._workflow_config = None
-        os.environ["CONFIG_DIR"] = "/custom/conf"
+        monkeypatch.setenv("CONFIG_DIR", "/custom/conf")
         manager._initialize_config()
         assert isinstance(manager._config, AppConfig)
