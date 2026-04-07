@@ -262,6 +262,7 @@ class JPSS_ATMS:
     SCHEMA = pa.schema(
         [
             E2STUDIO_SCHEMA.field("time"),
+            E2STUDIO_SCHEMA.field("class"),
             E2STUDIO_SCHEMA.field("lat"),
             E2STUDIO_SCHEMA.field("lon"),
             pa.field(
@@ -719,6 +720,7 @@ class JPSS_ATMS:
                             rows.append(
                                 {
                                     "time": obs_time,
+                                    "class": "rad",
                                     "lat": float(lat[i]),
                                     "lon": float(lon[i]) % 360.0,
                                     "scan_angle": _fov_to_scan_angle(float(fov[i])),
