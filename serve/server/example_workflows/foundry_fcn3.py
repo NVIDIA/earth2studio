@@ -39,7 +39,7 @@ from earth2studio.utils.time import timearray_to_datetime, to_time_array
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("foundry_fcn3_workflow")
 
-_MAX_FORECAST_STEPS = 32
+_MAX_FORECAST_STEPS = 400
 _MAX_ENSEMBLE_SAMPLES = 32
 
 
