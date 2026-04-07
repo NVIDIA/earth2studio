@@ -80,6 +80,28 @@ _SAT_START_DATE: dict[str, datetime] = {
     "n21": datetime(2023, 9, 6),
 }
 
+# ATMS cross-track geometry: 96 FOVs spanning ±52.77° (total 105.54°).
+# Nadir lies between FOV 48 and 49 (1-indexed).
+_ATMS_NUM_FOVS: int = 96
+_ATMS_TOTAL_SCAN_DEG: float = 105.54
+_ATMS_DEG_PER_FOV: float = _ATMS_TOTAL_SCAN_DEG / _ATMS_NUM_FOVS
+
+
+def _fov_to_scan_angle(fov: float) -> float:
+    """Convert a 1-indexed field-of-view number to scan angle in degrees.
+
+    Parameters
+    ----------
+    fov : float
+        Field-of-view number (1–96).
+
+    Returns
+    -------
+    float
+        Scan angle in degrees (negative = left of nadir, positive = right).
+    """
+    return (fov - (_ATMS_NUM_FOVS + 1) / 2.0) * _ATMS_DEG_PER_FOV
+
 
 @dataclass
 class _ATMSAsyncTask:
@@ -243,7 +265,7 @@ class JPSS_ATMS:
                 "scan_angle",
                 pa.float32(),
                 nullable=True,
-                metadata={"bufr_name": "fieldOfViewNumber"},
+                metadata={"bufr_name": "fieldOfViewNumber (converted to degrees)"},
             ),
             E2STUDIO_SCHEMA.field("channel_index"),
             E2STUDIO_SCHEMA.field("solza"),
@@ -544,6 +566,27 @@ class JPSS_ATMS:
             return pd.DataFrame(columns=schema.names)
 
         result = pd.concat(frames, ignore_index=True)
+
+        # When multiple requested times have overlapping tolerance windows
+        # the same BUFR file may appear in more than one task.  Downloads
+        # are already deduplicated via ``uri_set``, but the decode path
+        # runs once per task, so identical observations can end up in
+        # ``frames`` twice.  Drop exact duplicates to prevent this.
+        dedup_cols = [
+            c
+            for c in (
+                "time",
+                "lat",
+                "lon",
+                "channel_index",
+                "satellite",
+                "variable",
+            )
+            if c in result.columns
+        ]
+        if dedup_cols:
+            result = result.drop_duplicates(subset=dedup_cols, ignore_index=True)
+
         result.attrs["source"] = self.SOURCE_ID
         return result[[name for name in schema.names if name in result.columns]]
 
@@ -674,7 +717,7 @@ class JPSS_ATMS:
                                     "time": obs_time,
                                     "lat": float(lat[i]),
                                     "lon": float(lon[i]) % 360.0,
-                                    "scan_angle": float(fov[i]),
+                                    "scan_angle": _fov_to_scan_angle(float(fov[i])),
                                     "channel_index": ch + 1,
                                     "solza": float(solza[i]),
                                     "solaza": float(solaza[i]),
