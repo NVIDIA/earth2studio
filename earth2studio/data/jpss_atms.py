@@ -799,7 +799,7 @@ class JPSS_ATMS:
 
         df = pd.DataFrame(rows)
         # Enforce schema dtypes
-        df["time"] = pd.to_datetime(df["time"])
+        df["time"] = pd.to_datetime(df["time"]).astype("datetime64[ms]")
         df["lat"] = df["lat"].astype(np.float32)
         df["lon"] = df["lon"].astype(np.float32)
         df["scan_angle"] = df["scan_angle"].astype(np.float32)
