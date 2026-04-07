@@ -83,11 +83,35 @@ _SAT_START_DATE: dict[str, datetime] = {
     "n21": datetime(2023, 9, 6),
 }
 
-# ATMS cross-track geometry: 96 FOVs spanning ±52.77° (total 105.54°).
-# Nadir lies between FOV 48 and 49 (1-indexed).
+# ---------------------------------------------------------------------------
+# ATMS cross-track geometry and scan timing constants
+#
+# Source: JPSS ATMS SDR Algorithm Theoretical Basis Document (ATBD),
+#   D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B, Version 1, 2022-04-27,
+#   Section 3 ("Instrument Description"), pp. 8-9.
+#   https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
+#
+# The antenna completes 3 revolutions in 8 seconds (scan period = 8/3 s).
+# Each scan cycle samples 96 Earth-scene FOVs at ~18 ms integration each,
+# with an angular sampling interval of 1.11°.  The total angular range
+# from FOV-1 center to FOV-96 center is 95 × 1.11° = 105.45° (±52.725°
+# from nadir).  The scan speed is ~61.6°/s.
+#
+# Integration time per FOV (18 ms) also confirmed by:
+#   Weng et al. (2012), "Introduction to Suomi NPP ATMS for NWP and
+#   tropical cyclone applications", J. Geophys. Res., 117, D19112,
+#   doi:10.1029/2012JD018144, Section 2.
+# ---------------------------------------------------------------------------
 _ATMS_NUM_FOVS: int = 96
-_ATMS_TOTAL_SCAN_DEG: float = 105.54
-_ATMS_DEG_PER_FOV: float = _ATMS_TOTAL_SCAN_DEG / _ATMS_NUM_FOVS
+_ATMS_TOTAL_SCAN_DEG: float = 105.45  # 95 × 1.11°, per ATBD §3
+_ATMS_DEG_PER_FOV: float = _ATMS_TOTAL_SCAN_DEG / (_ATMS_NUM_FOVS - 1)  # 1.11°
+
+# Scan period: 3 revolutions in 8 seconds → 8/3 s per scan line (ATBD §3).
+_ATMS_SCAN_PERIOD_S: float = 8.0 / 3.0  # 2.667 s
+
+# Each FOV is sampled for ~18 ms with scan speed ~61.6°/s (ATBD §3).
+# The 96 FOVs span ~1.73 s of the 2.667 s scan cycle (~65% duty cycle).
+_ATMS_FOV_DWELL_S: float = 0.018  # 18 ms per FOV
 
 
 def _fov_to_scan_angle(fov: float) -> float:
@@ -104,6 +128,29 @@ def _fov_to_scan_angle(fov: float) -> float:
         Scan angle in degrees (negative = left of nadir, positive = right).
     """
     return (fov - (_ATMS_NUM_FOVS + 1) / 2.0) * _ATMS_DEG_PER_FOV
+
+
+def _fov_to_time_offset(fov: float) -> timedelta:
+    """Compute the sub-second time offset for a given FOV within a scan line.
+
+    ATMS samples 96 FOVs sequentially at ~18 ms per step.  The BUFR time
+    fields only carry integer-second precision, so this offset is added to
+    recover approximate sub-second timing.  FOV 1 is the first sample
+    (offset = 0); FOV 96 is the last (offset ≈ 1.71 s).
+
+    Source: ATMS SDR ATBD (D0001-M01-S01-001), §3, p. 8-9.
+
+    Parameters
+    ----------
+    fov : float
+        Field-of-view number (1–96, 1-indexed).
+
+    Returns
+    -------
+    timedelta
+        Sub-second offset from the start of the scan line.
+    """
+    return timedelta(seconds=(fov - 1) * _ATMS_FOV_DWELL_S)
 
 
 @dataclass
@@ -709,6 +756,13 @@ class JPSS_ATMS:
                         except (ValueError, OverflowError):
                             continue  # skip FOVs with invalid timestamps
 
+                        # Add sub-second offset based on FOV position in
+                        # the scan line.  BUFR only carries integer-second
+                        # timestamps; the offset recovers ~18 ms per-FOV
+                        # timing from the ATMS scan geometry (ATBD §3).
+                        fov_index = float(fov[i])
+                        obs_time = obs_time + _fov_to_time_offset(fov_index)
+
                         for ch in range(n_channels):
                             raw_val = float(bt[i, ch])
                             # Skip missing / fill values
@@ -723,7 +777,7 @@ class JPSS_ATMS:
                                     "class": "rad",
                                     "lat": float(lat[i]),
                                     "lon": float(lon[i]) % 360.0,
-                                    "scan_angle": _fov_to_scan_angle(float(fov[i])),
+                                    "scan_angle": _fov_to_scan_angle(fov_index),
                                     "channel_index": ch + 1,
                                     "solza": float(solza[i]),
                                     "solaza": float(solaza[i]),
