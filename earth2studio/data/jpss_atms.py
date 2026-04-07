@@ -33,9 +33,12 @@ import pandas as pd
 import pyarrow as pa
 import s3fs
 from loguru import logger
-from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    gather_with_concurrency,
+    prep_data_inputs,
+)
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.lexicon.jpss import (
     JPSSATMSLexicon,
@@ -428,10 +431,11 @@ class JPSS_ATMS:
         # Deduplicate by S3 URI
         uri_set = {t.s3_uri for t in tasks}
         fetch_jobs = [self._fetch_remote_file(uri) for uri in uri_set]
-        await tqdm.gather(
-            *fetch_jobs,
+        await gather_with_concurrency(
+            fetch_jobs,
+            max_workers=self._max_workers,
             desc="Fetching ATMS BUFR files",
-            disable=(not self._verbose),
+            verbose=(not self._verbose),
         )
 
         if session:
