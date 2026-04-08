@@ -215,3 +215,85 @@ class MetOpAVHRRLexicon(metaclass=LexiconType):
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in MetOp AVHRR lexicon")
         return cls.VOCAB[val], lambda x: x
+
+
+class MetOpMHSLexicon(metaclass=LexiconType):
+    """Lexicon for MetOp MHS Level 1B brightness temperature data.
+
+    This lexicon maps the ``mhs`` variable to an identity modifier for
+    brightness temperature observations in Kelvin.  Individual channels (1-5)
+    are distinguished by the ``channel_index`` column of the returned DataFrame,
+    following the same convention used by :class:`~earth2studio.data.UFSObsSat`.
+
+    MHS (Microwave Humidity Sounder) is a 5-channel cross-track scanning
+    microwave radiometer aboard the MetOp satellite series, providing
+    atmospheric humidity profiles from the surface through the upper
+    troposphere.  MHS is the successor to AMSU-B and operates on MetOp-A
+    (decommissioned 2021), MetOp-B, and MetOp-C.
+
+    The data source returns calibrated brightness temperatures (K) derived from
+    scene radiances via the Planck function with band correction coefficients.
+
+    Notes
+    -----
+    MHS Channel Specifications (MetOp-B/C):
+
+    ========  ===============  ==========================================
+    Channel   Frequency        Primary Application
+    ========  ===============  ==========================================
+    1         89.0 GHz         Surface emissivity, ice/rain detection
+    2         157.0 GHz        Mid-troposphere humidity, precipitation
+    3         183.311±1 GHz    Upper troposphere humidity (~300 hPa)
+    4         183.311±3 GHz    Mid/upper troposphere humidity (~500 hPa)
+    5         190.311 GHz      Lower troposphere humidity, precipitation
+    ========  ===============  ==========================================
+
+    Spatial resolution is approximately 16 km at nadir with 90 field-of-view
+    positions per scan line.  The scan period is 8/3 seconds (shared antenna
+    assembly with AMSU-A), covering a swath of ~2180 km.
+
+    Variable documentation:
+        https://user.eumetsat.int/s3/eup-strapi-media/pdf_atovsl1b_pg_8bbaa8ba48.pdf
+
+    References
+    ----------
+    - EUMETSAT. ATOVS Level 1 Products Product Guide (EUM/OPS-EPS/MAN/04/0030).
+    - NOAA KLM User's Guide, Section 3.9 "MHS Instrument Description".
+    """
+
+    # Number of MHS cross-track field-of-view positions per scan line
+    MHS_NUM_FOVS = 90
+    # Number of MHS channels
+    MHS_NUM_CHANNELS = 5
+    # MHS channel center frequencies (GHz)
+    MHS_CHANNEL_FREQS: dict[int, float] = {
+        1: 89.0,
+        2: 157.0,
+        3: 183.311,
+        4: 183.311,
+        5: 190.311,
+    }
+
+    VOCAB: dict[str, str] = {
+        "mhs": "brightnessTemperature",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Get MHS data key and modifier for a variable name.
+
+        Parameters
+        ----------
+        val : str
+            Standardized variable name (``mhs``)
+
+        Returns
+        -------
+        tuple[str, Callable]
+            Tuple containing:
+            - Data key for brightness temperature
+            - Modifier function (identity -- brightness temperature in K)
+        """
+        if val not in cls.VOCAB:
+            raise KeyError(f"Variable {val} not found in MetOp MHS lexicon")
+        return cls.VOCAB[val], lambda x: x

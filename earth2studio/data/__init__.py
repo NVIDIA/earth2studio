@@ -32,6 +32,7 @@ from .jpss import JPSS
 from .jpss_atms import JPSS_ATMS
 from .metop_amsua import MetOpAMSUA
 from .metop_avhrr import MetOpAVHRR
+from .metop_mhs import MetOpMHS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (
