@@ -240,7 +240,7 @@ E2STUDIO_VOCAB = {
     "viirs16m": "VIIRS M16 - LWIR (12.01 µm)",
     "amsua": "Advanced Microwave Sounding Unit-A brightness temperature (K)",
     "atms": "Advanced Technology Microwave Sounder brightness temperature (K)",
-    "avhrr": "AVHRR/3 calibrated observation (reflectance % or brightness temperature K)",
+    "avhrr": "AVHRR/3 calibrated observation (reflectance percent or brightness temperature K)",
     "mhs": "Microwave Humidity Sounder brightness temperature (K)",
     "s3sy01aod": "Sentinel-3 SYNERGY aerosol optical depth band 01 (440 nm)",
     "s3sy02aod": "Sentinel-3 SYNERGY aerosol optical depth band 02 (550 nm)",
