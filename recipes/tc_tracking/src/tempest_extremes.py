@@ -671,83 +671,164 @@ class TempestExtremes:
                     os.remove(file)
 
 
-# Global thread pool for background TempestExtremes processing
-_tempest_executor: ThreadPoolExecutor | None = None
-_tempest_background_tasks: list[Future] = []
-_tempest_executor_lock: threading.Lock = threading.Lock()
+class TempestExecutorManager:
+    """Singleton (Borg pattern) that owns the shared thread-pool, semaphore, and
+    task list used by :class:`AsyncTempestExtremes`.
 
-# Global semaphore that caps the total number of concurrent TE subprocesses per rank.
-# Defaults to cpu_count / local_ranks (i.e. a fair share of CPUs for this rank).
-_local_ranks = torch.cuda.device_count() or 1
-_te_semaphore = threading.Semaphore(max(1, (os.cpu_count() or 1) // _local_ranks))
+    Every instance shares the same ``__dict__``, so state is consistent across
+    the process.  Heavy resources (executor, semaphore) are created lazily on
+    first access, avoiding import-time side-effects such as
+    ``torch.cuda.device_count()`` or ``os.cpu_count()`` calls.
 
-
-def set_te_concurrency_limit(limit: int) -> None:
-    """Override the per-rank TE concurrency limit.
-
-    Parameters
-    ----------
-    limit : int
-        Maximum number of concurrent TempestExtremes subprocesses for this rank.
+    Example
+    -------
+    >>> mgr = TempestExecutorManager()
+    >>> future = mgr.submit(some_fn, arg1, arg2)
+    >>> mgr.register_task(future)
     """
-    global _te_semaphore
-    _te_semaphore = threading.Semaphore(max(1, limit))
 
+    _shared_state: dict = {}
+    _executor: ThreadPoolExecutor | None
+    _tasks: list[Future]
+    _lock: threading.Lock
+    _semaphore: threading.Semaphore | None
 
-def get_tempest_executor() -> ThreadPoolExecutor:
-    """Get or create the thread pool executor for TempestExtremes processing."""
-    global _tempest_executor
-    with _tempest_executor_lock:
-        if _tempest_executor is None:
-            # Reduced worker count for long-running tasks to avoid resource exhaustion
-            max_workers = min(4, os.cpu_count() or 1)
-            _tempest_executor = ThreadPoolExecutor(
-                max_workers=max_workers, thread_name_prefix="tempest_extremes"
-            )
-            # Ensure cleanup on exit
-            atexit.register(cleanup_tempest_executor)
-    return _tempest_executor
+    def __new__(cls) -> "TempestExecutorManager":
+        obj = super().__new__(cls)
+        obj.__dict__ = cls._shared_state
+        if not hasattr(obj, "_executor"):
+            obj._executor = None
+        if not hasattr(obj, "_tasks"):
+            obj._tasks = []
+        if not hasattr(obj, "_lock"):
+            obj._lock = threading.Lock()
+        if not hasattr(obj, "_semaphore"):
+            obj._semaphore = None
+        return obj
 
+    # ------------------------------------------------------------------
+    # Lazy properties
+    # ------------------------------------------------------------------
 
-def cleanup_tempest_executor(timeout_per_task: int = 360) -> None:
-    """Clean up the thread pool executor.
+    @property
+    def executor(self) -> ThreadPoolExecutor:
+        """Lazily create and return the shared ``ThreadPoolExecutor``.
 
-    Parameters
-    ----------
-    timeout_per_task : int, optional
-        Timeout in seconds for each task, by default 360
-
-    Raises
-    ------
-    ChildProcessError
-        If one or more background TempestExtremes tasks failed
-    """
-    global _tempest_executor, _tempest_background_tasks
-    with _tempest_executor_lock:
-        if _tempest_executor is not None:
-            # Wait for all background tasks to complete
-            child_process_errors = []
-            for i, future in enumerate(_tempest_background_tasks):
-                try:
-                    future.result(
-                        timeout=timeout_per_task
-                    )  # Configurable timeout per task
-                except ChildProcessError as e:
-                    print(
-                        f"Background TempestExtremes task {i+1} failed with ChildProcessError: {e}"
-                    )
-                    child_process_errors.append(e)
-                except Exception as e:
-                    print(f"Background TempestExtremes task {i+1} failed: {e}")
-            _tempest_executor.shutdown(wait=True)
-            _tempest_executor = None
-            _tempest_background_tasks.clear()
-
-            # Re-raise ChildProcessError if any occurred
-            if child_process_errors:
-                raise ChildProcessError(
-                    f"One or more background TempestExtremes tasks failed: {child_process_errors}"
+        Pool size is ``min(8, cpu_count)`` — deliberately larger than the old
+        default of 4, because the :pyattr:`semaphore` (not the pool) controls
+        actual subprocess concurrency.  The extra headroom avoids deadlocks
+        when coordinator tasks and per-member tasks share the same pool.
+        """
+        with self._lock:
+            if self._executor is None:
+                max_workers = min(8, os.cpu_count() or 1)
+                self._executor = ThreadPoolExecutor(
+                    max_workers=max_workers,
+                    thread_name_prefix="tempest_extremes",
                 )
+                atexit.register(TempestExecutorManager.cleanup)
+        return self._executor
+
+    @property
+    def semaphore(self) -> threading.Semaphore:
+        """Lazily create and return the per-rank concurrency semaphore.
+
+        Defaults to ``cpu_count // local_gpu_count`` so each rank gets a fair
+        share of CPU cores.  Override via :meth:`set_concurrency_limit`.
+        """
+        with self._lock:
+            if self._semaphore is None:
+                local_ranks = torch.cuda.device_count() or 1
+                self._semaphore = threading.Semaphore(
+                    max(1, (os.cpu_count() or 1) // local_ranks)
+                )
+        return self._semaphore
+
+    # ------------------------------------------------------------------
+    # Public helpers
+    # ------------------------------------------------------------------
+
+    def set_concurrency_limit(self, limit: int) -> None:
+        """Override the per-rank TE concurrency limit.
+
+        Parameters
+        ----------
+        limit : int
+            Maximum number of concurrent TempestExtremes subprocesses for
+            this rank.
+        """
+        with self._lock:
+            self._semaphore = threading.Semaphore(max(1, limit))
+
+    def submit(self, fn: Any, *args: Any, **kwargs: Any) -> Future:
+        """Submit *fn* to the shared executor and return its ``Future``."""
+        return self.executor.submit(fn, *args, **kwargs)
+
+    def register_task(self, future: Future) -> None:
+        """Track *future* so :meth:`cleanup` can wait for it."""
+        with self._lock:
+            self._tasks.append(future)
+
+    def prune_tasks(self) -> None:
+        """Remove completed futures from the tracked task list."""
+        with self._lock:
+            self._tasks = [f for f in self._tasks if not f.done()]
+
+    @property
+    def task_count(self) -> int:
+        """Number of currently tracked (may include completed) tasks."""
+        with self._lock:
+            return len(self._tasks)
+
+    @classmethod
+    def is_initialized(cls) -> bool:
+        """Return ``True`` if the executor has been created."""
+        return cls._shared_state.get("_executor") is not None
+
+    # ------------------------------------------------------------------
+    # Cleanup
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def cleanup(timeout_per_task: int = 360) -> None:
+        """Wait for all tracked tasks, shut down the pool, and reset state.
+
+        Registered via ``atexit`` when the executor is first created.
+
+        Parameters
+        ----------
+        timeout_per_task : int, optional
+            Timeout in seconds for each task, by default 360.
+
+        Raises
+        ------
+        ChildProcessError
+            If one or more background TempestExtremes tasks failed.
+        """
+        mgr = TempestExecutorManager()
+        with mgr._lock:
+            if mgr._executor is not None:
+                child_process_errors: list[Exception] = []
+                for i, future in enumerate(mgr._tasks):
+                    try:
+                        future.result(timeout=timeout_per_task)
+                    except ChildProcessError as e:
+                        print(
+                            f"Background TempestExtremes task {i+1} failed "
+                            f"with ChildProcessError: {e}"
+                        )
+                        child_process_errors.append(e)
+                    except Exception as e:
+                        print(f"Background TempestExtremes task {i+1} failed: {e}")
+                mgr._executor.shutdown(wait=True)
+                mgr._executor = None
+                mgr._tasks.clear()
+
+                if child_process_errors:
+                    raise ChildProcessError(
+                        "One or more background TempestExtremes tasks "
+                        f"failed: {child_process_errors}"
+                    )
 
 
 class AsyncTempestExtremes(TempestExtremes):
@@ -769,9 +850,10 @@ class AsyncTempestExtremes(TempestExtremes):
         - timeout : int, optional
             Timeout in seconds for operations, by default 60
         - max_workers_per_rank : int, optional
-            Hard cap on the total number of concurrent TempestExtremes subprocesses
-            for this rank, across all thread pools. If None (default), uses
-            cpu_count // local_gpu_count. Overrides the module-level default.
+            Hard cap on the total number of concurrent TempestExtremes
+            subprocesses for this rank.  If None (default), uses
+            ``cpu_count // local_gpu_count``.  Overrides the
+            :class:`TempestExecutorManager` singleton's default.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -783,7 +865,7 @@ class AsyncTempestExtremes(TempestExtremes):
         super().__init__(*args, **kwargs)
 
         if max_workers_per_rank is not None:
-            set_te_concurrency_limit(max_workers_per_rank)
+            TempestExecutorManager().set_concurrency_limit(max_workers_per_rank)
 
         # Track background tasks for this instance
         self._instance_tasks: list[Future] = []
@@ -863,44 +945,31 @@ class AsyncTempestExtremes(TempestExtremes):
         ChildProcessError
             If any previous cyclone tracking task failed
         """
-        # Check if any previous task failed and raise error immediately
         self._check_for_failures()
+        mgr = TempestExecutorManager()
 
-        global _tempest_background_tasks
-
-        # Clean up completed tasks to avoid memory buildup
-        with _tempest_executor_lock:
-            _tempest_background_tasks = [
-                f for f in _tempest_background_tasks if not f.done()
-            ]
-
+        mgr.prune_tasks()
         with self._instance_lock:
             self._instance_tasks = [f for f in self._instance_tasks if not f.done()]
 
-        # Check if we have too many running tasks
-        with _tempest_executor_lock:
-            running_tasks = len(_tempest_background_tasks)
-            if running_tasks >= 3:  # Conservative limit for long-running tasks
-                print(
-                    f"Warning: {running_tasks} TempestExtremes tasks already running. Consider waiting for some to complete."
-                )
+        running_tasks = mgr.task_count
+        if running_tasks >= 3:
+            print(
+                f"Warning: {running_tasks} TempestExtremes tasks already "
+                "running. Consider waiting for some to complete."
+            )
 
-        # CRITICAL: Run setup_files() (which includes dump_raw_data with netCDF writes)
-        # SYNCHRONOUSLY in the main thread. HDF5/netCDF4 is not thread-safe, and
-        # concurrent writes from multiple threads cause segmentation faults.
+        # CRITICAL: Run setup_files() (which includes dump_raw_data with
+        # netCDF writes) SYNCHRONOUSLY in the main thread.  HDF5/netCDF4 is
+        # not thread-safe; concurrent writes cause segmentation faults.
         insies, outsies, node_files, track_files = self.setup_files(out_file_names)
         self.track_files = track_files
 
-        # Submit only the TE processing (detect/stitch) to the background thread
-        executor = get_tempest_executor()
-        future = executor.submit(
+        future = mgr.submit(
             self._run_te_and_cleanup, insies, outsies, node_files, track_files
         )
 
-        # Add to both global and instance task lists
-        with _tempest_executor_lock:
-            _tempest_background_tasks.append(future)
-
+        mgr.register_task(future)
         with self._instance_lock:
             self._instance_tasks.append(future)
 
@@ -974,7 +1043,7 @@ class AsyncTempestExtremes(TempestExtremes):
         ChildProcessError
             If TempestExtremes detect or stitch operations fail
         """
-        with _te_semaphore:
+        with TempestExecutorManager().semaphore:
             then = time.time()
             self.detect_and_stitch(ins, outs, node_file, track_file)
             if self.print_te_output:
@@ -994,6 +1063,12 @@ class AsyncTempestExtremes(TempestExtremes):
         This method is designed to run in a background thread after the netCDF
         files have already been written by the main thread.
 
+        Per-member tasks are submitted to the shared
+        :class:`TempestExecutorManager` pool rather than a local throw-away
+        pool.  Actual subprocess concurrency is bounded by the manager's
+        semaphore, so extra pool threads only queue work — they do not cause
+        resource exhaustion.
+
         Parameters
         ----------
         insies : list[str]
@@ -1011,56 +1086,48 @@ class AsyncTempestExtremes(TempestExtremes):
             If TempestExtremes detect or stitch operations fail for any member
         """
         then = time.time()
-
-        # Actual concurrency is bounded by _te_semaphore, so pool sizing
-        # only controls how many tasks are queued, not how many run at once.
+        mgr = TempestExecutorManager()
         n_members = len(insies)
-        max_workers = min(n_members, os.cpu_count() or 1)
 
         try:
-            with ThreadPoolExecutor(
-                max_workers=max_workers, thread_name_prefix="te_members"
-            ) as executor:
-                member_futures = []
-
+            member_futures = [
+                mgr.submit(
+                    self._process_single_member, ins, outs, node_file, track_file
+                )
                 for ins, outs, node_file, track_file in zip(
                     insies, outsies, node_files, track_files
-                ):
-                    future = executor.submit(
-                        self._process_single_member, ins, outs, node_file, track_file
-                    )
-                    member_futures.append(future)
+                )
+            ]
 
-                exceptions = []
-                for i, future in enumerate(member_futures):
-                    try:
-                        future.result()
-                    except Exception as e:
-                        print(f"Member {i+1} processing failed: {e}")
-                        exceptions.append((i, e))
+            exceptions: list[tuple[int, Exception]] = []
+            for i, future in enumerate(member_futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Member {i+1} processing failed: {e}")
+                    exceptions.append((i, e))
 
             if exceptions:
-                error_msg = (
-                    f"Processing failed for {len(exceptions)} member(s): {exceptions}"
+                raise ChildProcessError(
+                    f"Processing failed for {len(exceptions)} member(s): "
+                    f"{exceptions}"
                 )
-                raise ChildProcessError(error_msg)
         finally:
             self.tidy_up(insies, outsies)
 
         print(
-            f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"
+            f"took {(time.time() - then):.1f}s to track cyclones for all "
+            f"{n_members} members"
         )
 
     def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
         """Execute cyclone tracking with parallel processing per ensemble member.
 
-        This override of the parent method dumps data synchronously (within this thread),
-        then spawns separate threads for each ensemble member's processing. This allows
-        multiple ensemble members to be processed in parallel while avoiding race
-        conditions during data dumping.
-
-        Uses a dedicated local thread pool for member processing to avoid conflicts
-        with the global executor during shutdown.
+        This override of the parent method dumps data synchronously (within
+        this thread), then submits per-member processing tasks to the shared
+        :class:`TempestExecutorManager` pool, allowing multiple ensemble
+        members to be processed in parallel while avoiding race conditions
+        during data dumping.
 
         Parameters
         ----------
