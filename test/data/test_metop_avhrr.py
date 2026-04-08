@@ -176,7 +176,7 @@ def _build_mdr_record(
 
 def _build_avhrr_dataframe(
     n_pixels: int = 100,
-    satellite: str = "Metop-B",
+    satellite: str = "metop-b",
 ) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     base_time = datetime(2025, 1, 15, 10, 30, 0)

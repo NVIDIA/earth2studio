@@ -148,7 +148,7 @@ def test_metop_amsua_call_mock(tmp_path):
         assert not df.empty
         assert set(df["variable"].unique()) == {"amsua"}
         assert set(df["class"].unique()) == {"rad"}
-        assert set(df["satellite"].unique()) == {"Metop-B"}
+        assert set(df["satellite"].unique()) == {"metop-b"}
         assert df["observation"].notna().all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
@@ -267,7 +267,7 @@ def test_parse_native_amsua():
     data = _build_native_file(n_scans=1)
     df = _parse_native_amsua(data)
     assert len(df) == _NUM_FOVS * n_channels
-    assert set(df["satellite"].unique()) == {"Metop-B"}
+    assert set(df["satellite"].unique()) == {"metop-b"}
     assert (df["variable"] == "amsua").all()
     assert (df["class"] == "rad").all()
     assert "quality" in df.columns
@@ -277,7 +277,7 @@ def test_parse_native_amsua():
     data = _build_native_file(spacecraft_id="M03", n_scans=3)
     df = _parse_native_amsua(data)
     assert len(df) == 3 * _NUM_FOVS * n_channels
-    assert set(df["satellite"].unique()) == {"Metop-C"}
+    assert set(df["satellite"].unique()) == {"metop-c"}
 
     # Empty / malformed
     assert _parse_native_amsua(b"").empty

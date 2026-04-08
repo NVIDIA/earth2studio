@@ -115,13 +115,21 @@ _BAND_B = np.ones(_NUM_CHANNELS, dtype=np.float64)
 
 # Spacecraft ID mapping
 _SPACECRAFT_MAP = {
-    "1": "Metop-B",
-    "2": "Metop-A",
-    "3": "Metop-C",
-    "4": "Metop-SGA1",
-    "M01": "Metop-B",
-    "M02": "Metop-A",
-    "M03": "Metop-C",
+    "1": "metop-b",
+    "2": "metop-a",
+    "3": "metop-c",
+    "4": "metop-sga1",
+    "M01": "metop-b",
+    "M02": "metop-a",
+    "M03": "metop-c",
+}
+
+# Reverse map: user-facing lowercase → eumdac API display name
+_EUMDAC_SAT_NAME = {
+    "metop-a": "Metop-A",
+    "metop-b": "Metop-B",
+    "metop-c": "Metop-C",
+    "metop-sga1": "Metop-SGA1",
 }
 
 
@@ -252,7 +260,7 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     sensing_start, sensing_end = _parse_sensing_time(mphr)
 
     spacecraft_id = mphr.get("SPACECRAFT_ID", "")
-    satellite = _SPACECRAFT_MAP.get(spacecraft_id, f"Metop-{spacecraft_id}")
+    satellite = _SPACECRAFT_MAP.get(spacecraft_id, f"metop-{spacecraft_id.lower()}")
 
     # Step 2: Collect MDR records
     offset = 0
@@ -432,8 +440,8 @@ class MetOpAMSUA:
     Parameters
     ----------
     satellite : str, optional
-        Satellite platform filter for product search. One of "Metop-B",
-        "Metop-C", or None (all available). By default None.
+        Satellite platform filter for product search. One of "metop-a",
+        "metop-b", "metop-c", or None (all available). By default None.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple (lower, upper) for asymmetric
@@ -475,6 +483,7 @@ class MetOpAMSUA:
 
     SOURCE_ID = "earth2studio.data.metop_amsua"
     COLLECTION_ID = "EO:EUM:DAT:METOP:AMSUL1"
+    VALID_SATELLITES = frozenset(["metop-a", "metop-b", "metop-c"])
 
     SCHEMA = pa.schema(
         [
@@ -504,7 +513,16 @@ class MetOpAMSUA:
         verbose: bool = True,
         async_timeout: int = 600,
     ) -> None:
+        if satellite is not None and satellite not in self.VALID_SATELLITES:
+            raise ValueError(
+                f"Invalid satellite '{satellite}'. "
+                f"Valid options: {sorted(self.VALID_SATELLITES)}"
+            )
         self._satellite = satellite
+        # eumdac API expects title-case names (e.g. "Metop-B")
+        self._eumdac_satellite = (
+            _EUMDAC_SAT_NAME[satellite] if satellite else None
+        )
         self._cache = cache
         self._verbose = verbose
         self._tmp_cache_hash: str | None = None
@@ -693,9 +711,9 @@ class MetOpAMSUA:
             "dtstart": dt_start,
             "dtend": dt_end,
         }
-        if self._satellite:
-            # eumdac search API expects friendly satellite names
-            search_kwargs["sat"] = self._satellite
+        if self._eumdac_satellite:
+            # eumdac search API expects title-case satellite names
+            search_kwargs["sat"] = self._eumdac_satellite
 
         products = collection.search(**search_kwargs)
 
