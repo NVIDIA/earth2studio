@@ -250,8 +250,6 @@ class InstabilityDetection:
         """
         var_dim = list(coords).index("variable")
         batch_dim = list(coords).index("ensemble") if "ensemble" in coords else None
-        if "ensemble" in coords:
-            batch_dim = list(coords).index("ensemble")
 
         if self.baseline is None:
             self.baseline = xx.mean(

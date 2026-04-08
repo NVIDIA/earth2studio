@@ -23,7 +23,6 @@ import time
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from subprocess import run
-from types import TracebackType
 from typing import Any
 
 import numpy as np
@@ -49,8 +48,9 @@ class TempestExtremes:
     This class provides functionality for detecting and tracking tropical cyclones
     using the TempestExtremes (TE) software package directly on model outputs.
     To be compatible with TE, model outputs are buffered as a netcdf file with the
-    coordinates (time, lat, lon). Optionally, this netcdf file can be stored in RAM to
-    avoid writing large amount of data to disk.
+    coordinates (time, lat, lon). By default, intermediate files are written to
+    /dev/shm (shared memory) when available, falling back to disk. A custom scratch
+    directory can be specified to control where these files are stored.
     Since TE natively only provides a command-line interface, a subprocess is spawned
     calling TE. To provide users with as much flexibility as possible, the command to
     execute TE has to be specified by the user and passed to the class during
@@ -97,7 +97,6 @@ class TempestExtremes:
         Longitude coordinates
     store_dir : str
         Path for storing output files.
-        If use_ram==False, intermediate files will also be written to that path.
     static_vars : torch.Tensor, optional
         A tensor holding static data like orography, by default None
     static_coords : dict, optional
@@ -106,8 +105,10 @@ class TempestExtremes:
         Whether to keep raw data files, by default False
     print_te_output : bool, optional
         Whether to print TempestExtremes command line output, by default False
-    use_ram : bool, optional
-        Whether to use RAM (/dev/shm) for temporary storage, by default True
+    scratch_dir : str | None, optional
+        Directory for temporary intermediate files (netCDF snapshots, file lists).
+        If None (default), uses /dev/shm/cyclone_tracking when available, otherwise
+        falls back to <store_dir>/cyclone_tracks_te/raw_data.
     **kwargs
         Additional keyword arguments for robustness
     """
@@ -127,7 +128,7 @@ class TempestExtremes:
         static_coords: dict | None = None,
         keep_raw_data: bool = False,
         print_te_output: bool = False,
-        use_ram: bool = True,
+        scratch_dir: str | None = None,
         **kwargs: Any,
     ):  # leave kwargs to make call robust to switching between this and async version
 
@@ -143,7 +144,7 @@ class TempestExtremes:
         self.lats = lats
         self.lons = lons
 
-        if isinstance(self.time_step, np.ndarray) or isinstance(self.time_step, list):
+        if isinstance(self.time_step, (np.ndarray, list)):
             if not len(self.time_step) == 1:
                 raise ValueError(
                     "TempestExtremes connector currently only accepts multiple ensemble members from a single ICs."
@@ -155,6 +156,10 @@ class TempestExtremes:
                 + " currently, only one of them is provided"
             )
 
+        self._lead_times = np.asarray(
+            [self.time_step * i for i in range(self.n_steps + 1)]
+        ).flatten()
+
         self.format_tempestextremes_commands(detect_cmd, stitch_cmd)
 
         self.check_tempest_extremes_availability()
@@ -163,9 +168,7 @@ class TempestExtremes:
 
         self.initialise_te_kvstore()
 
-        self.setup_output_directories(use_ram, store_dir)
-
-        return
+        self.setup_output_directories(scratch_dir, store_dir)
 
     def format_tempestextremes_commands(self, detect_cmd: str, stitch_cmd: str) -> None:
         """Format TempestExtremes commands by removing input/output file arguments.
@@ -186,8 +189,6 @@ class TempestExtremes:
         )
         self.stitch_cmd = self.remove_arguments(self.stitch_cmd, ["--in", "--out"])
 
-        return
-
     def check_tempest_extremes_availability(self) -> None:
         """Check if TempestExtremes executables are available on the system.
 
@@ -203,13 +204,9 @@ class TempestExtremes:
             try:
                 run(cmd, capture_output=True)  # noqa: S603
             except Exception as e:
-                self.dependency_failure(e.__traceback__, e)
+                self.dependency_failure(e)
 
-        return
-
-    def dependency_failure(
-        self, error_traceback: TracebackType | None, error_value: BaseException
-    ) -> None:
+    def dependency_failure(self, error: BaseException) -> None:
         """Display a formatted error message for TempestExtremes dependency failures.
 
         This method creates and prints information about TempestExtremes dependency
@@ -217,9 +214,7 @@ class TempestExtremes:
 
         Parameters
         ----------
-        error_traceback : TracebackType | None
-            The traceback object from the exception (typically from exception.__traceback__)
-        error_value : BaseException
+        error : BaseException
             The exception object that was raised
 
         Raises
@@ -242,13 +237,13 @@ class TempestExtremes:
             + "For more information, visit the install documentation: \n"
             + f"{doc_url}[/yellow]"
         )
-        if error_value:
+        if error:
             table.add_row(
                 Traceback(
                     Traceback.extract(
-                        type(error_value),
-                        error_value,
-                        error_traceback,
+                        type(error),
+                        error,
+                        error.__traceback__,
                         show_locals=False,
                     )
                 )
@@ -286,45 +281,36 @@ class TempestExtremes:
 
         return cmd
 
-    def setup_output_directories(self, use_ram: bool, store_dir: str) -> None:
+    def setup_output_directories(self, scratch_dir: str | None, store_dir: str) -> None:
         """Set up output directories for final data storage and for storing
         auxiliary files.
 
         Parameters
         ----------
-        use_ram : bool
-            Whether to use RAM for temporary storage
+        scratch_dir : str | None
+            Directory for temporary intermediate files. If None, auto-detects
+            /dev/shm and falls back to <store_dir>/cyclone_tracks_te/raw_data.
         store_dir : str
             Base storage directory path
         """
         self.store_dir = os.path.abspath(os.path.join(store_dir, "cyclone_tracks_te"))
 
         if self.rank == 0:
-            os.makedirs(self.store_dir, exist_ok=True)  # output for track data
+            os.makedirs(self.store_dir, exist_ok=True)
             if self.keep_raw:
-                os.makedirs(
-                    os.path.join(self.store_dir, "raw_data"), exist_ok=True
-                )  # output for raw data
+                os.makedirs(os.path.join(self.store_dir, "raw_data"), exist_ok=True)
 
-        if use_ram:
-            ram_path = "/dev/shm"  # noqa: S108
-            if not os.path.exists(ram_path):
-                raise ValueError(
-                    "/dev/shm not available. Set use_ram=False and use store_dir to specify a different location."  # noqa: S108
-                )
-            self.ram_dir = os.path.join(ram_path, "cyclone_tracking")
-            if DistributedManager().local_rank == 0:
-                os.makedirs(
-                    self.ram_dir, exist_ok=True
-                )  # RAM location for processing fields
-        else:
-            self.ram_dir = os.path.join(self.store_dir, "raw_data")
-            if self.rank == 0:
-                os.makedirs(
-                    self.ram_dir, exist_ok=True
-                )  # disk location for processing fields
+        if scratch_dir is None:
+            shm_path = "/dev/shm"  # noqa: S108
+            scratch_dir = (
+                os.path.join(shm_path, "cyclone_tracking")
+                if os.path.exists(shm_path)
+                else os.path.join(self.store_dir, "raw_data")
+            )
 
-        return
+        self.scratch_dir = scratch_dir
+        if DistributedManager().local_rank == 0:
+            os.makedirs(self.scratch_dir, exist_ok=True)
 
     def initialise_store_coords(self) -> None:
         """Initialize coordinate system for data storage.
@@ -332,7 +318,6 @@ class TempestExtremes:
         Creates the internal coordinate system for storing to the internal
         KV io backend, with optionally adding static variables at each time step.
         """
-        # extract time step in case it's passed as list or array
         _input_vars = self.input_vars
         if self.static_coords:
             _input_vars = np.array(
@@ -341,16 +326,12 @@ class TempestExtremes:
 
         self._store_coords = OrderedDict(
             {
-                "lead_time": np.asarray(
-                    [self.time_step * i for i in range(self.n_steps + 1)]
-                ).flatten(),
+                "lead_time": self._lead_times,
                 "variable": np.array(_input_vars),
                 "lat": np.array(self.lats),
                 "lon": np.array(self.lons),
             }
         )
-
-        return
 
     @property
     def input_coords(self) -> OrderedDict:
@@ -364,9 +345,7 @@ class TempestExtremes:
         return OrderedDict(
             {
                 "time": np.empty(0),
-                "lead_time": np.asarray(
-                    [self.time_step * i for i in range(self.n_steps + 1)]
-                ).flatten(),
+                "lead_time": self._lead_times,
                 "variable": np.array(self.input_vars),
                 "lat": np.array(self.lats),
                 "lon": np.array(self.lons),
@@ -388,8 +367,6 @@ class TempestExtremes:
         oco.move_to_end("ensemble", last=False)
 
         self.store.add_array(coords=oco, array_name=out_vars)
-
-        return
 
     def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
         """Dump raw data from store to NetCDF files.
@@ -429,7 +406,7 @@ class TempestExtremes:
 
         for mem in mems:
             raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
-            raw_dat = os.path.join(self.ram_dir, raw_dat)
+            raw_dat = os.path.join(self.scratch_dir, raw_dat)
             raw_files.append(raw_dat)
             kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
 
@@ -470,20 +447,20 @@ class TempestExtremes:
         for ii, (mem, raw_dat) in enumerate(zip(mems, raw_files)):
             # in_files to file
             _ins = os.path.join(
-                self.ram_dir,
+                self.scratch_dir,
                 f"input_files_{self.rank:04d}_{ic_str}_mem_{mem:05d}.txt",
             )
             with open(_ins, "w") as fl:
                 fl.write(raw_dat + "\n")
 
             _outs = os.path.join(
-                self.ram_dir,
+                self.scratch_dir,
                 f"output_files_{self.rank:04d}_{ic_str}_mem_{mem:05d}.txt",
             )
             base_name = os.path.basename(raw_dat)
             base_name = base_name.rsplit(".", 1)[0]
             node_file = os.path.join(
-                self.ram_dir, base_name + f"_mem_{mem:05d}_tc_centres.txt"
+                self.scratch_dir, base_name + f"_mem_{mem:05d}_tc_centres.txt"
             )
             with open(_outs, "w") as fl:
                 fl.write(node_file + "\n")
@@ -533,8 +510,6 @@ class TempestExtremes:
         xx_sub, coords_sub = map_coords(xx, coords, self._store_coords)
         self.store.write(*split_coords(xx_sub, coords_sub, dim="variable"))
 
-        return
-
     @staticmethod
     def run_te(command: list[str], print_output: bool) -> None:
         """Run TempestExtremes command and handle output.
@@ -580,7 +555,35 @@ class TempestExtremes:
                 f"\nERROR: {command[0]} failed, see output above from TempestExtremes for details."
             )
 
-        return
+    def detect_and_stitch(
+        self, ins: str, outs: str, node_file: str, track_file: str
+    ) -> None:
+        """Run TempestExtremes detect and stitch for a single ensemble member.
+
+        Parameters
+        ----------
+        ins : str
+            Path to input file list
+        outs : str
+            Path to output file list
+        node_file : str
+            Path to node file
+        track_file : str
+            Path to track file
+
+        Raises
+        ------
+        ChildProcessError
+            If TempestExtremes detect or stitch operations fail
+        """
+        self.run_te(
+            command=self.detect_cmd + ["--in_data_list", ins, "--out_file_list", outs],
+            print_output=self.print_te_output,
+        )
+        self.run_te(
+            command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
+            print_output=self.print_te_output,
+        )
 
     def track_cyclones(self, out_file_names: list[str] | None = None) -> None:
         """Execute cyclone tracking using TempestExtremes.
@@ -607,24 +610,11 @@ class TempestExtremes:
             for ins, outs, node_file, track_file in zip(
                 insies, outsies, node_files, self.track_files
             ):
-                # detect nodes
-                self.run_te(
-                    command=self.detect_cmd
-                    + ["--in_data_list", ins, "--out_file_list", outs],
-                    print_output=self.print_te_output,
-                )
-
-                # stitch them together
-                self.run_te(
-                    command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
-                    print_output=self.print_te_output,
-                )
+                self.detect_and_stitch(ins, outs, node_file, track_file)
         finally:
             self.tidy_up(insies, outsies)
 
         print(f"took {(time.time() - then):.1f}s to track cyclones")
-
-        return
 
     def __call__(self, out_file_names: list[str] | None = None) -> None:
         """Make the class callable to execute cyclone tracking.
@@ -660,7 +650,9 @@ class TempestExtremes:
                 if self.keep_raw:  # move field data to disk
                     out_path = os.path.join(self.store_dir, "raw_data")
                     raw_dest = os.path.join(out_path, os.path.basename(raw_dat))
-                    if raw_dat != raw_dest:  # nothing to do if use_ram=False
+                    if (
+                        raw_dat != raw_dest
+                    ):  # nothing to do if scratch_dir == raw_data dir
                         if os.path.exists(raw_dest):
                             os.remove(raw_dest)
                         shutil.move(raw_dat, out_path)
@@ -677,8 +669,6 @@ class TempestExtremes:
             for file in files:
                 if os.path.exists(file):
                     os.remove(file)
-
-        return
 
 
 # Global thread pool for background TempestExtremes processing
@@ -916,88 +906,6 @@ class AsyncTempestExtremes(TempestExtremes):
 
         return future
 
-    def get_task_status(self) -> dict[str, int]:
-        """Get status of background tasks for this instance.
-
-        Returns
-        -------
-        dict[str, int]
-            Dictionary containing task status counts with keys:
-            - 'running': Number of currently running tasks
-            - 'pending': Number of pending tasks
-            - 'completed': Number of completed tasks
-            - 'failed': Number of failed tasks
-            - 'total': Total number of tasks
-        """
-        with self._instance_lock:
-            running = sum(1 for f in self._instance_tasks if f.running())
-            pending = sum(
-                1 for f in self._instance_tasks if not f.done() and not f.running()
-            )
-            completed = sum(1 for f in self._instance_tasks if f.done())
-            failed = sum(
-                1
-                for f in self._instance_tasks
-                if f.done() and f.exception() is not None
-            )
-
-            return {
-                "running": running,
-                "pending": pending,
-                "completed": completed,
-                "failed": failed,
-                "total": len(self._instance_tasks),
-            }
-
-    def get_task_results(
-        self, raise_on_error: bool = True
-    ) -> dict[str, Any] | tuple[list[Any], list[tuple[str, Exception]]]:
-        """Get results from all completed tasks.
-
-        Parameters
-        ----------
-        raise_on_error : bool, optional
-            If True, raises ChildProcessError if any task failed with that error.
-            If False, returns results and exceptions separately, by default True
-
-        Returns
-        -------
-        dict[str, Any] | tuple[list[Any], list[tuple[str, Exception]]]
-            If raise_on_error=True: dict with successful results.
-            If raise_on_error=False: tuple of (results, exceptions).
-
-        Raises
-        ------
-        ChildProcessError
-            If raise_on_error=True and any task failed with ChildProcessError
-        Exception
-            If raise_on_error=True and any task failed with other exceptions
-        """
-        with self._instance_lock:
-            tasks_to_check = list(self._instance_tasks)
-
-        results = []
-        exceptions: list[tuple[str, Exception]] = []
-
-        for i, future in enumerate(tasks_to_check):
-            if future.done():
-                try:
-                    result = future.result()
-                    results.append(result)
-                except ChildProcessError as e:
-                    if raise_on_error:
-                        raise  # Re-raise ChildProcessError immediately
-                    exceptions.append(("ChildProcessError", e))
-                except Exception as e:
-                    if raise_on_error:
-                        raise  # Re-raise any other exceptions
-                    exceptions.append(("Exception", e))
-
-        if raise_on_error:
-            return {"results": results, "task_count": len(tasks_to_check)}
-        else:
-            return results, exceptions
-
     def wait_for_completion(self, timeout_per_task: int | None = None) -> None:
         """Wait for all background tasks associated with this instance to complete.
 
@@ -1068,20 +976,7 @@ class AsyncTempestExtremes(TempestExtremes):
         """
         with _te_semaphore:
             then = time.time()
-
-            # detect nodes
-            self.run_te(
-                command=self.detect_cmd
-                + ["--in_data_list", ins, "--out_file_list", outs],
-                print_output=self.print_te_output,
-            )
-
-            # stitch them together
-            self.run_te(
-                command=self.stitch_cmd + ["--in", node_file, "--out", track_file],
-                print_output=self.print_te_output,
-            )
-
+            self.detect_and_stitch(ins, outs, node_file, track_file)
             if self.print_te_output:
                 print(
                     f"took {(time.time() - then):.1f}s to track cyclones for one member"
@@ -1177,51 +1072,8 @@ class AsyncTempestExtremes(TempestExtremes):
         ChildProcessError
             If TempestExtremes detect or stitch operations fail for any member
         """
-        then = time.time()
-
-        # Dump data and setup files (synchronous within this thread to avoid race conditions)
         insies, outsies, node_files, self.track_files = self.setup_files(out_file_names)
-
-        # Actual concurrency is bounded by _te_semaphore, so pool sizing
-        # only controls how many tasks are queued, not how many run at once.
-        n_members = len(insies)
-        max_workers = min(n_members, os.cpu_count() or 1)
-
-        try:
-            with ThreadPoolExecutor(
-                max_workers=max_workers, thread_name_prefix="te_members"
-            ) as executor:
-                # Submit one task per member to process in parallel
-                member_futures = []
-
-                for ins, outs, node_file, track_file in zip(
-                    insies, outsies, node_files, self.track_files
-                ):
-                    future = executor.submit(
-                        self._process_single_member, ins, outs, node_file, track_file
-                    )
-                    member_futures.append(future)
-
-                # Wait for all members to complete
-                exceptions = []
-                for i, future in enumerate(member_futures):
-                    try:
-                        future.result()
-                    except Exception as e:
-                        print(f"Member {i+1} processing failed: {e}")
-                        exceptions.append((i, e))
-
-            if exceptions:
-                error_msg = (
-                    f"Processing failed for {len(exceptions)} member(s): {exceptions}"
-                )
-                raise ChildProcessError(error_msg)
-        finally:
-            self.tidy_up(insies, outsies)
-
-        print(
-            f"took {(time.time() - then):.1f}s to track cyclones for all {len(member_futures)} members"
-        )
+        self._run_te_and_cleanup(insies, outsies, node_files, self.track_files)
 
     def cleanup(self, timeout_per_task: int | None = None) -> None:
         """Explicitly clean up and wait for all background tasks to complete.
@@ -1248,9 +1100,7 @@ class AsyncTempestExtremes(TempestExtremes):
             timeout_per_task = self.timeout
 
         try:
-            if hasattr(self, "_instance_tasks") and hasattr(self, "_instance_lock"):
-                self.wait_for_completion(timeout_per_task=timeout_per_task)
-
+            self.wait_for_completion(timeout_per_task=timeout_per_task)
             self._cleanup_done = True
 
         except Exception as _:
@@ -1293,6 +1143,4 @@ class AsyncTempestExtremes(TempestExtremes):
         ChildProcessError
             If any previous cyclone tracking task failed
         """
-        # Check if any previous task failed and raise error immediately
-        self._check_for_failures()
         return self.track_cyclones_async(out_file_names)

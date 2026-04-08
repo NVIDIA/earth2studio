@@ -265,8 +265,8 @@ cyclone_tracking:
     orography_path: https://huggingface.co/nvidia/fourcastnet3/blob/main/orography.nc
     # keep raw field data used for tracking
     keep_raw_data: False
-    # write in-memory files to avoid disk I/O
-    use_ram: True
+    # scratch directory for intermediate files (null = auto-detect /dev/shm, fall back to disk)
+    scratch_dir: null
     task_timeout_seconds: 120   # timeout for tracking tasks
     print_te_output: False      # print TE output to terminal
     max_workers_per_rank: 8     # max concurrent TE subprocesses per rank
@@ -282,10 +282,12 @@ the dedicated section below.
 `True` to see TempestExtremes logs. However, iterating
 through full inference runs for debugging can be cumbersome.
 For more efficient debugging, set `keep_raw_data` to `True`
-and `use_ram` to `False` to write field snapshots as NetCDF
-files to `${store_dir}/cyclone_tracks_te/raw_data`. You can
-then debug the TempestExtremes commands directly from the
-command line using these files. Once the commands work
+to write field snapshots as NetCDF files to
+`${store_dir}/cyclone_tracks_te/raw_data`. You can optionally
+set `scratch_dir` to a persistent path if you want intermediate
+files to survive between runs. You can then debug the
+TempestExtremes commands directly from the command line using
+these files. Once the commands work
 correctly, copy them back to the configuration file.
 When running TempestExtremes from the command line, you
 need to specify file paths explicitly (see

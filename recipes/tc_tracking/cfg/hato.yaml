@@ -21,7 +21,7 @@ cyclone_tracking:
     stitch_cmd: 'StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10'
     orography_path: https://huggingface.co/nvidia/fourcastnet3/blob/main/orography.nc
     keep_raw_data: False
-    use_ram: True
+    scratch_dir: null
     task_timeout_seconds: 120
     print_te_output: False
     max_workers_per_rank: 8

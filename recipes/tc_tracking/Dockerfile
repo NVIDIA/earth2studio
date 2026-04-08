@@ -14,6 +14,8 @@ RUN apt update -y && \
     wget -qO- https://astral.sh/uv/install.sh | sh && \
     cd / && \
     git clone https://github.com/ClimateGlobalChange/tempestextremes.git && \
+    cd /tempestextremes && \
+    git checkout 80d2b54f60117bd386f8786c8c35e739e63bfc97 && \
     mkdir -p /tempestextremes/build && \
     cd /tempestextremes/build && \
     cmake .. && \

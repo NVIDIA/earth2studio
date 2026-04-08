@@ -16,6 +16,7 @@
 
 import os
 import random
+import sys
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -72,8 +73,6 @@ def initialise(cfg: DictConfig) -> None:
         np.random.seed(cfg.random_seed)
         random.seed(cfg.random_seed)
         torch.cuda.manual_seed(cfg.random_seed)
-
-    return
 
 
 def load_model(cfg: DictConfig) -> PrognosticModel:
@@ -198,7 +197,7 @@ def run_inference(
             store_dir=cfg.store_dir,
             keep_raw_data=cfg.cyclone_tracking.keep_raw_data,
             print_te_output=cfg.cyclone_tracking.print_te_output,
-            use_ram=cfg.cyclone_tracking.use_ram,
+            scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
             timeout=cfg.cyclone_tracking.task_timeout_seconds,
             max_workers_per_rank=cfg.cyclone_tracking.get("max_workers_per_rank", None),
         )
@@ -395,8 +394,6 @@ def generate_ensemble(cfg: DictConfig) -> None:
 
     if ic_mems is None:
         DistributedManager().cleanup()
-        exit()
+        sys.exit()
 
     store = run_inference(model, cfg, store, out_coords, ic_mems)
-
-    return
