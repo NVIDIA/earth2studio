@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="../../../_static/favicon.ico" rel="icon" type="image/x-icon">
-    <title>IFS_ENS_FX &#8212; Earth2Studio</title>
+    <title>JPSS_ATMS &#8212; Earth2Studio</title>
   
   
   
@@ -61,7 +61,7 @@
     <script src="../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.IFS_ENS_FX';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/generated/data/earth2studio.data.JPSS_ATMS';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/NVIDIA/earth2studio/gh-pages/_static/switcher.json';
@@ -74,8 +74,8 @@
 
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="earth2studio.data: DataFrame Sources" href="../../datasources_dataframe.html" />
-    <link rel="prev" title="IFS_FX" href="earth2studio.data.IFS_FX.html" />
+    <link rel="next" title="RandomDataFrame" href="earth2studio.data.RandomDataFrame.html" />
+    <link rel="prev" title="ISD" href="earth2studio.data.ISD.html" />
 
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -501,7 +501,7 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CBottle3D.html">CBottle3D</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../datasources_forecast.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.AIFS_FX.html">AIFS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.CAMS_FX.html">CAMS_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.AIFS_ENS_FX.html">AIFS_ENS_FX</a></li>
@@ -510,12 +510,12 @@
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.GEFS_FX_721x1440.html">GEFS_FX_721x1440</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.HRRR_FX.html">HRRR_FX</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.IFS_FX.html">IFS_FX</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">IFS_ENS_FX</a></li>
+<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.IFS_ENS_FX.html">IFS_ENS_FX</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../datasources_dataframe.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.ISD.html">ISD</a></li>
-<li class="toctree-l3"><a class="reference internal" href="earth2studio.data.JPSS_ATMS.html">JPSS_ATMS</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">JPSS_ATMS</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.RandomDataFrame.html">RandomDataFrame</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.UFSObsConv.html">UFSObsConv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="earth2studio.data.UFSObsSat.html">UFSObsSat</a></li>
@@ -673,9 +673,9 @@
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../datasources_forecast.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: Forecast Sources</a></li>
+    <li class="breadcrumb-item"><a href="../../datasources_dataframe.html" class="nav-link"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">IFS_ENS_FX</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">JPSS_ATMS</span></li>
   </ul>
 </nav>
 </div>
@@ -692,95 +692,228 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="ifs-ens-fx">
-<h1>IFS_ENS_FX<a class="headerlink" href="#ifs-ens-fx" title="Link to this heading">#</a></h1>
+  <section id="jpss-atms">
+<h1>JPSS_ATMS<a class="headerlink" href="#jpss-atms" title="Link to this heading">#</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="earth2studio.data.IFS_ENS_FX">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">IFS_ENS_FX</span></span><span class="sig-paren">(</span>
+<dt class="sig sig-object py" id="earth2studio.data.JPSS_ATMS">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">earth2studio.data.</span></span><span class="sig-name descname"><span class="pre">JPSS_ATMS</span></span><span class="sig-paren">(</span>
 
 <dl>
-<dd><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'aws'</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">member</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">satellites</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">time_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(10,</span> <span class="pre">'m')</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">max_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ecmwf.html#IFS_ENS_FX"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS_ENS_FX" title="Link to this definition">#</a></dt>
-<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:simulation" style="background-color:#b451ed;color:#fff;" title="Numerical / AI Simulation"><i class="fa-solid fa-microchip"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span></span><p>Integrated forecast system (IFS) ensemble (ENS) forecast data source on an
-equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
-ECMWF. Data for the most recent 4 days can be retrieved from ECMWF’s servers
-(source <cite>ecmwf</cite>). Historical data is part of ECMWF’s open data project on AWS
-(source <cite>aws</cite>).</p>
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/jpss_atms.html#JPSS_ATMS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_ATMS" title="Link to this definition">#</a></dt>
+<dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>JPSS ATMS (Advanced Technology Microwave Sounder) Level 1 BUFR
+brightness-temperature observations served from NOAA Open Data on AWS.</p>
+<p>Each BUFR file contains a single scan line with 96 cross-track
+field-of-view (FOV) positions and 22 microwave channels.
+The returned <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code> has one row per FOV per channel,
+following the same convention as <a class="reference internal" href="earth2studio.data.UFSObsSat.html#earth2studio.data.UFSObsSat" title="earth2studio.data.UFSObsSat"><code class="xref py py-class docutils literal notranslate"><span class="pre">UFSObsSat</span></code></a>.</p>
+<p>ATMS has 22 channels spanning 23.8–183.31 GHz.  The <code class="docutils literal notranslate"><span class="pre">channel_index</span></code>
+column (1–22) identifies each channel:</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">ATMS Channel Specification</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 13.8%" />
+<col style="width: 25.9%" />
+<col style="width: 60.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Channel</p></th>
+<th class="head"><p>Frequency (GHz)</p></th>
+<th class="head"><p>Primary Sensitivity</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>23.8</p></td>
+<td><p>Window / water-vapour (surface)</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>31.4</p></td>
+<td><p>Window (surface emissivity, cloud liquid water)</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>50.3</p></td>
+<td><p>Oxygen (lower troposphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>51.76</p></td>
+<td><p>Oxygen (lower troposphere temperature)</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>52.8</p></td>
+<td><p>Oxygen (troposphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>53.596</p></td>
+<td><p>Oxygen (troposphere temperature)</p></td>
+</tr>
+<tr class="row-even"><td><p>7</p></td>
+<td><p>54.40</p></td>
+<td><p>Oxygen (mid-troposphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>8</p></td>
+<td><p>54.94</p></td>
+<td><p>Oxygen (mid-troposphere temperature)</p></td>
+</tr>
+<tr class="row-even"><td><p>9</p></td>
+<td><p>55.50</p></td>
+<td><p>Oxygen (upper troposphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>10</p></td>
+<td><p>57.29 (fO1)</p></td>
+<td><p>Oxygen (tropopause temperature)</p></td>
+</tr>
+<tr class="row-even"><td><p>11</p></td>
+<td><p>57.29 (fO2)</p></td>
+<td><p>Oxygen (lower stratosphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>12</p></td>
+<td><p>57.29 (fO3)</p></td>
+<td><p>Oxygen (stratosphere temperature)</p></td>
+</tr>
+<tr class="row-even"><td><p>13</p></td>
+<td><p>57.29 (fO4)</p></td>
+<td><p>Oxygen (stratosphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>14</p></td>
+<td><p>57.29 (fO5)</p></td>
+<td><p>Oxygen (upper stratosphere temperature)</p></td>
+</tr>
+<tr class="row-even"><td><p>15</p></td>
+<td><p>57.29 (fO6)</p></td>
+<td><p>Oxygen (upper stratosphere temperature)</p></td>
+</tr>
+<tr class="row-odd"><td><p>16</p></td>
+<td><p>88.20</p></td>
+<td><p>Window (precipitation, sea ice)</p></td>
+</tr>
+<tr class="row-even"><td><p>17</p></td>
+<td><p>165.5</p></td>
+<td><p>Window (precipitation, ice cloud)</p></td>
+</tr>
+<tr class="row-odd"><td><p>18</p></td>
+<td><p>183.31 (fH1)</p></td>
+<td><p>Water-vapour (upper troposphere humidity)</p></td>
+</tr>
+<tr class="row-even"><td><p>19</p></td>
+<td><p>183.31 (fH2)</p></td>
+<td><p>Water-vapour (mid-troposphere humidity)</p></td>
+</tr>
+<tr class="row-odd"><td><p>20</p></td>
+<td><p>183.31 (fH3)</p></td>
+<td><p>Water-vapour (mid-troposphere humidity)</p></td>
+</tr>
+<tr class="row-even"><td><p>21</p></td>
+<td><p>183.31 (fH4)</p></td>
+<td><p>Water-vapour (lower troposphere humidity)</p></td>
+</tr>
+<tr class="row-odd"><td><p>22</p></td>
+<td><p>183.31 (fH5)</p></td>
+<td><p>Water-vapour (lower troposphere humidity)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Channels 10–15 share the 57.29 GHz oxygen-absorption line but use
+different passband offsets (fO1–fO6), giving each a distinct altitude
+weighting function.  Channels 18–22 similarly share 183.31 GHz with
+different offsets (fH1–fH5) for water-vapour profiling at different
+altitudes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>source</strong> (<em>str</em><em>, </em><em>optional</em>) – Data source to fetch data from. For possible options refer to ECMWF’s open data
-Python SDK, by default “aws”.</p></li>
-<li><p><strong>member</strong> (<em>int</em><em>, </em><em>optional</em>) – Ensemble member id to use. If 0 the control forecast will be requested, if
-greater than 0 perturbed ensemble member will be requested, by default 0.</p></li>
-<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache data source in local memory, by default True.</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Print download progress, by default True.</p></li>
-<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Time in seconds after which the download will be cancelled if not finished
-successfully, by default 600.</p></li>
+<li><p><strong>satellites</strong> (<em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – Satellite short-names to query.  Valid values are <code class="docutils literal notranslate"><span class="pre">&quot;n20&quot;</span></code>
+(NOAA-20), <code class="docutils literal notranslate"><span class="pre">&quot;n21&quot;</span></code> (NOAA-21), and <code class="docutils literal notranslate"><span class="pre">&quot;npp&quot;</span></code> (Suomi NPP).
+By default <code class="docutils literal notranslate"><span class="pre">None</span></code>, which queries all valid satellites.</p></li>
+<li><p><strong>time_tolerance</strong> (<em>TimeTolerance</em><em>, </em><em>optional</em>) – Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default, np.timedelta64(10, ‘m’).</p></li>
+<li><p><strong>cache</strong> (<em>bool</em><em>, </em><em>optional</em>) – Cache downloaded BUFR files locally, by default True</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Show download progress bars, by default True</p></li>
+<li><p><strong>async_timeout</strong> (<em>int</em><em>, </em><em>optional</em>) – Total timeout in seconds for the async fetch, by default 600</p></li>
+<li><p><strong>max_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of concurrent S3 fetch tasks, by default 24</p></li>
+<li><p><strong>retries</strong> (<em>int</em><em>, </em><em>optional</em>) – Per-file retry count on transient I/O failures, by default 3</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>This is a remote data source and can potentially download a large amount of data
-to your local machine for large requests.</p>
+<p>This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Additional information on the data repository can be referenced here:</p>
+<p>Additional information on the data repository:</p>
 <ul class="simple">
-<li><p><a class="github reference external" href="https://github.com/ecmwf/ecmwf-opendata">ecmwf/ecmwf-opendata</a></p></li>
-<li><p><a class="reference external" href="https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts">https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts</a></p></li>
-<li><p><a class="reference external" href="https://registry.opendata.aws/ecmwf-forecasts/">https://registry.opendata.aws/ecmwf-forecasts/</a></p></li>
-<li><p><a class="reference external" href="https://console.cloud.google.com/storage/browser/ecmwf-open-data/">https://console.cloud.google.com/storage/browser/ecmwf-open-data/</a></p></li>
+<li><p><a class="reference external" href="https://registry.opendata.aws/noaa-jpss/">https://registry.opendata.aws/noaa-jpss/</a></p></li>
+<li><p><a class="reference external" href="https://www.star.nesdis.noaa.gov/jpss/ATMS.php">https://www.star.nesdis.noaa.gov/jpss/ATMS.php</a></p></li>
+<li><p><a class="reference external" href="https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system">https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system</a></p></li>
+</ul>
+<p>ATMS channel specification and BUFR SDR format:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf">https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf</a></p></li>
 </ul>
 </div>
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.IFS_ENS_FX.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ecmwf.html#IFS_ENS_FX.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS_ENS_FX.__call__" title="Link to this definition">#</a></dt>
-<dd><p>Retrieve IFS ENS forecast data.</p>
+<dt class="sig sig-object py" id="earth2studio.data.JPSS_ATMS.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/jpss_atms.html#JPSS_ATMS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_ATMS.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Fetch ATMS brightness-temperature observations.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>lead_time</strong> (<em>timedelta</em><em> | </em><em>list</em><em>[</em><em>timedelta</em><em>] </em><em>| </em><em>LeadTimeArray</em>) – Forecast lead times to fetch.</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the data lexicon.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – Variable names to return (e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;atms&quot;]</span></code>).</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Subset of schema fields to include, by default None (all).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>IFS ENS forecast data array</p>
+<dd class="field-even"><p>Long-format DataFrame with one row per FOV per channel.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>xr.DataArray</p>
+<dd class="field-odd"><p>pd.DataFrame</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="earth2studio.data.IFS_ENS_FX.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lead_time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/ecmwf.html#IFS_ENS_FX.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.IFS_ENS_FX.fetch" title="Link to this definition">#</a></dt>
-<dd><p>Async method to retrieve IFS ENS forecast data.</p>
+<dt class="sig sig-object py" id="earth2studio.data.JPSS_ATMS.fetch">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/jpss_atms.html#JPSS_ATMS.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_ATMS.fetch" title="Link to this definition">#</a></dt>
+<dd><p>Async implementation of the data fetch.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>time</strong> (<em>datetime</em><em> | </em><em>list</em><em>[</em><em>datetime</em><em>] </em><em>| </em><em>TimeArray</em>) – Timestamps to return data for (UTC).</p></li>
-<li><p><strong>lead_time</strong> (<em>timedelta</em><em> | </em><em>list</em><em>[</em><em>timedelta</em><em>] </em><em>| </em><em>LeadTimeArray</em>) – Forecast lead times to fetch.</p></li>
-<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – String, list of strings or array of strings that refer to variables to
-return. Must be in the data lexicon.</p></li>
+<li><p><strong>variable</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>VariableArray</em>) – Variable names to return.</p></li>
+<li><p><strong>fields</strong> (<em>str</em><em> | </em><em>list</em><em>[</em><em>str</em><em>] </em><em>| </em><em>pa.Schema</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Subset of schema fields to include, by default None.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>IFS ENS forecast data array.</p>
+<dd class="field-even"><p>Long-format DataFrame.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>xr.DataArray</p>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="earth2studio.data.JPSS_ATMS.available">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/jpss_atms.html#JPSS_ATMS.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_ATMS.available" title="Link to this definition">#</a></dt>
+<dd><p>Check whether data is available for a given time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>time</strong> (<em>datetime</em><em> | </em><em>np.datetime64</em>) – Date-time to check.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
 </dd>
 </dl>
 </dd></dl>
@@ -800,20 +933,20 @@ return. Must be in the data lexicon.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="earth2studio.data.IFS_FX.html"
+       href="earth2studio.data.ISD.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">IFS_FX</p>
+        <p class="prev-next-title">ISD</p>
       </div>
     </a>
     <a class="right-next"
-       href="../../datasources_dataframe.html"
+       href="earth2studio.data.RandomDataFrame.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">earth2studio.data</span></code>: DataFrame Sources</p>
+        <p class="prev-next-title">RandomDataFrame</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -838,9 +971,10 @@ return. Must be in the data lexicon.</p></li>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS_ENS_FX"><code class="docutils literal notranslate"><span class="pre">IFS_ENS_FX</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS_ENS_FX.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.IFS_ENS_FX.fetch"><code class="docutils literal notranslate"><span class="pre">fetch()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.JPSS_ATMS"><code class="docutils literal notranslate"><span class="pre">JPSS_ATMS</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.JPSS_ATMS.__call__"><code class="docutils literal notranslate"><span class="pre">__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.JPSS_ATMS.fetch"><code class="docutils literal notranslate"><span class="pre">fetch()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#earth2studio.data.JPSS_ATMS.available"><code class="docutils literal notranslate"><span class="pre">available()</span></code></a></li>
 </ul>
 </li>
 </ul>
