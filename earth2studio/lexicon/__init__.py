@@ -22,6 +22,7 @@ from .cmip6 import CMIP6Lexicon
 from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
+from .ghcn import GHCNLexicon
 from .goes import GOESLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
