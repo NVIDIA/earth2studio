@@ -541,9 +541,7 @@ def _parse_native_avhrr(
 
         # MDR_QUALITY: u4 scan-level quality bitmask, truncated to uint16
         mdr_qual = struct.unpack_from(">I", data, mdr_off + _MDR_QUALITY_OFFSET)[0]
-        quality_per_pixel[base : base + _NAV_NUM_POINTS] = np.uint16(
-            mdr_qual & 0xFFFF
-        )
+        quality_per_pixel[base : base + _NAV_NUM_POINTS] = np.uint16(mdr_qual & 0xFFFF)
 
     # Step 7: Calibrate and build per-channel DataFrames
     frames: list[pd.DataFrame] = []
@@ -747,9 +745,7 @@ class MetOpAVHRR:
             )
         self._satellite = satellite
         # eumdac API expects title-case names (e.g. "Metop-B")
-        self._eumdac_satellite = (
-            _EUMDAC_SAT_NAME[satellite] if satellite else None
-        )
+        self._eumdac_satellite = _EUMDAC_SAT_NAME[satellite] if satellite else None
         self._subsample = subsample
         self._cache = cache
         self._verbose = verbose

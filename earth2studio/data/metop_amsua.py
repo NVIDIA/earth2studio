@@ -520,9 +520,7 @@ class MetOpAMSUA:
             )
         self._satellite = satellite
         # eumdac API expects title-case names (e.g. "Metop-B")
-        self._eumdac_satellite = (
-            _EUMDAC_SAT_NAME[satellite] if satellite else None
-        )
+        self._eumdac_satellite = _EUMDAC_SAT_NAME[satellite] if satellite else None
         self._cache = cache
         self._verbose = verbose
         self._tmp_cache_hash: str | None = None

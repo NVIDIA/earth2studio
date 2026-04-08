@@ -26,8 +26,6 @@ from earth2studio.data import MetOpMHS
 from earth2studio.data.metop_mhs import (
     _ANGULAR_RELATION_OFFSET,
     _EARTH_LOCATION_OFFSET,
-    _GIADR_RECORD_CLASS,
-    _GIADR_RADIANCE_SUBCLASS,
     _GRH_SIZE,
     _MDR_RECORD_CLASS,
     _MDR_RECORD_SUBCLASS,

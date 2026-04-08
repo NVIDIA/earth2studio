@@ -135,7 +135,9 @@ _EUMDAC_SAT_NAME = {
 }
 
 
-def _parse_giadr_radiance(data: bytes, offset: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _parse_giadr_radiance(
+    data: bytes, offset: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Parse GIADR-MHS-RADIANCE record for band correction parameters.
 
     Parameters
@@ -326,8 +328,8 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
             mdr_offsets.append(offset)
         elif rc == _GIADR_RECORD_CLASS and sc == _GIADR_RADIANCE_SUBCLASS:
             # Parse GIADR-MHS-RADIANCE for band correction parameters
-            giadr_wavenumbers, giadr_intercepts, giadr_slopes = (
-                _parse_giadr_radiance(data, offset)
+            giadr_wavenumbers, giadr_intercepts, giadr_slopes = _parse_giadr_radiance(
+                data, offset
             )
         offset += rec_size
 
@@ -590,9 +592,7 @@ class MetOpMHS:
             )
         self._satellite = satellite
         # eumdac API expects title-case names (e.g. "Metop-B")
-        self._eumdac_satellite = (
-            _EUMDAC_SAT_NAME[satellite] if satellite else None
-        )
+        self._eumdac_satellite = _EUMDAC_SAT_NAME[satellite] if satellite else None
         self._cache = cache
         self._verbose = verbose
         self._tmp_cache_hash: str | None = None
