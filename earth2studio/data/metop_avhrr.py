@@ -701,7 +701,7 @@ class MetOpAVHRR:
     Additional information on the data repository:
 
     - https://data.eumetsat.int/data/map/EO:EUM:DAT:METOP:AVHRRL1
-    - https://user.eumetsat.int/s3/eup-strapi-media/pdf_ten_97231_eps_avhrr_l1_pgs_d2b7482b08.pdf
+    - https://user.eumetsat.int/s3/eup-strapi-media/pdf_ten_990004_eps_avhrr1_pgs_194a06daf0.pdf
 
     Badges
     ------
