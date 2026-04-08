@@ -31,6 +31,7 @@ from earth2studio.data.metop_amsua import (
     _MPHR_RECORD_CLASS,
     _NUM_CHANNELS,
     _NUM_FOVS,
+    _QUALITY_OFFSET,
     _parse_grh,
     _parse_mphr,
     _parse_native_amsua,
@@ -64,6 +65,7 @@ def _build_mdr(
     radiances: np.ndarray | None = None,
     lat: np.ndarray | None = None,
     lon: np.ndarray | None = None,
+    quality_val: int = 0,
 ) -> bytes:
     grh = _build_grh(_MDR_RECORD_CLASS, 0, _MDR_RECORD_SUBCLASS, _MDR_SIZE)
     payload = bytearray(_MDR_SIZE - _GRH_SIZE)
@@ -107,6 +109,9 @@ def _build_mdr(
     # TERRAIN_ELEVATION at payload offset 2362
     struct.pack_into(f">{_NUM_FOVS}h", payload, 2362, *([100] * _NUM_FOVS))
 
+    # QUALITY at payload offset = _QUALITY_OFFSET - _GRH_SIZE
+    struct.pack_into(">I", payload, _QUALITY_OFFSET - _GRH_SIZE, quality_val)
+
     return grh + bytes(payload)
 
 
@@ -137,11 +142,12 @@ def test_metop_amsua_call_mock(tmp_path):
             cache=False,
             verbose=False,
         )
-        df = ds(datetime(2025, 1, 15, 10), ["amsua01", "amsua04", "amsua14"])
+        df = ds(datetime(2025, 1, 15, 10), ["amsua"])
 
         assert list(df.columns) == ds.SCHEMA.names
         assert not df.empty
-        assert set(df["variable"].unique()) == {"amsua01", "amsua04", "amsua14"}
+        assert set(df["variable"].unique()) == {"amsua"}
+        assert set(df["class"].unique()) == {"rad"}
         assert set(df["satellite"].unique()) == {"Metop-B"}
         assert df["observation"].notna().all()
         assert df["lat"].between(-90, 90).all()
@@ -159,7 +165,7 @@ def test_metop_amsua_call_mock_fields_subset(tmp_path):
         ds = MetOpAMSUA(time_tolerance=timedelta(hours=24), cache=False, verbose=False)
 
         subset = ["time", "lat", "lon", "observation", "variable"]
-        df = ds(datetime(2025, 1, 15, 10), ["amsua04"], fields=subset)
+        df = ds(datetime(2025, 1, 15, 10), ["amsua"], fields=subset)
         assert list(df.columns) == subset
         assert not df.empty
 
@@ -168,7 +174,7 @@ def test_metop_amsua_call_mock_empty(tmp_path):
     with patch.object(MetOpAMSUA, "_download_products") as mock_dl:
         mock_dl.return_value = []
         ds = MetOpAMSUA(time_tolerance=timedelta(hours=1), cache=False, verbose=False)
-        df = ds(datetime(2025, 1, 15, 10), ["amsua04"])
+        df = ds(datetime(2025, 1, 15, 10), ["amsua"])
         assert df.empty
         assert list(df.columns) == ds.SCHEMA.names
 
@@ -184,12 +190,12 @@ def test_metop_amsua_call_mock_empty(tmp_path):
     [
         (
             datetime(2025, 1, 15, 11),
-            ["amsua01"],
+            ["amsua"],
             timedelta(hours=1),
         ),
         (
             [datetime(2025, 1, 15, 10), datetime(2025, 1, 15, 11)],
-            ["amsua04", "amsua09", "amsua14"],
+            ["amsua"],
             timedelta(hours=2),
         ),
     ],
@@ -207,7 +213,7 @@ def test_metop_amsua_fetch(time, variable, tol):
 @pytest.mark.parametrize("cache", [True, False])
 def test_metop_amsua_cache(cache):
     ds = MetOpAMSUA(time_tolerance=timedelta(hours=1), cache=cache, verbose=False)
-    df = ds(datetime(2025, 1, 15, 11), ["amsua04"])
+    df = ds(datetime(2025, 1, 15, 11), ["amsua"])
     assert list(df.columns) == ds.SCHEMA.names
 
 
@@ -256,17 +262,21 @@ def test_radiance_to_bt():
 
 
 def test_parse_native_amsua():
-    n_lexicon_channels = len(MetOpAMSUALexicon.VOCAB)  # 14 (ch15 excluded)
+    n_channels = MetOpAMSUALexicon.AMSUA_NUM_CHANNELS  # 14 (ch15 excluded)
     # Minimal: MPHR + 1 MDR = 30 FOVs × 14 channels = 420 rows
     data = _build_native_file(n_scans=1)
     df = _parse_native_amsua(data)
-    assert len(df) == _NUM_FOVS * n_lexicon_channels
+    assert len(df) == _NUM_FOVS * n_channels
     assert set(df["satellite"].unique()) == {"Metop-B"}
+    assert (df["variable"] == "amsua").all()
+    assert (df["class"] == "rad").all()
+    assert "quality" in df.columns
+    assert (df["quality"] == 0).all()  # default quality_val=0
 
     # Multiple scans
     data = _build_native_file(spacecraft_id="M03", n_scans=3)
     df = _parse_native_amsua(data)
-    assert len(df) == 3 * _NUM_FOVS * n_lexicon_channels
+    assert len(df) == 3 * _NUM_FOVS * n_channels
     assert set(df["satellite"].unique()) == {"Metop-C"}
 
     # Empty / malformed
@@ -295,4 +305,21 @@ def test_parse_native_amsua():
         + _build_mdr()
     )
     df = _parse_native_amsua(data)
-    assert len(df) == _NUM_FOVS * n_lexicon_channels
+    assert len(df) == _NUM_FOVS * n_channels
+
+
+def test_parse_native_amsua_quality():
+    """Verify non-zero quality values propagate to all FOV × channel rows."""
+    n_channels = MetOpAMSUALexicon.AMSUA_NUM_CHANNELS
+    mphr = _build_mphr(
+        {
+            "SPACECRAFT_ID": "M01",
+            "SENSING_START": "20250115100000Z",
+            "SENSING_END": "20250115100800Z",
+        }
+    )
+    # Build file with quality_val=42
+    data = mphr + _build_mdr(quality_val=42)
+    df = _parse_native_amsua(data)
+    assert len(df) == _NUM_FOVS * n_channels
+    assert (df["quality"] == 42).all()

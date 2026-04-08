@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from typing import Any
 
 from earth2studio.lexicon.base import LexiconType
 
@@ -22,13 +23,14 @@ from earth2studio.lexicon.base import LexiconType
 class MetOpAMSUALexicon(metaclass=LexiconType):
     """Lexicon for MetOp AMSU-A Level 1B brightness temperature data.
 
-    Maps Earth2Studio variable names to AMSU-A channel indices (1-15).
+    This lexicon maps the ``amsua`` variable to an identity modifier for
+    brightness temperature observations in Kelvin.  Individual channels (1-14)
+    are distinguished by the ``channel_index`` column of the returned DataFrame,
+    following the same convention used by :class:`~earth2studio.data.UFSObsSat`.
+
     AMSU-A is a 15-channel microwave radiometer on the MetOp satellite series
     providing atmospheric temperature profiles from the surface through the
-    stratosphere. Channels 1-2 are window channels sensitive to surface
-    properties and precipitation. Channels 3-8 provide tropospheric temperature
-    sounding. Channels 9-14 provide stratospheric temperature sounding.
-    Channel 15 is a high-frequency window channel.
+    stratosphere.
 
     The data source returns calibrated brightness temperatures (K) derived from
     scene radiances via the Planck function with band correction coefficients.
@@ -53,7 +55,7 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
     11        57.29 GHz    Stratosphere (~25 hPa)
     12        57.29 GHz    Stratosphere (~10 hPa)
     13        57.29 GHz    Upper stratosphere (~5 hPa)
-     14        57.29 GHz    Upper stratosphere (~2 hPa)
+    14        57.29 GHz    Upper stratosphere (~2 hPa)
     ========  ===========  ==========================================
 
     Channel 15 (89.0 GHz) is excluded because the L1B product marks
@@ -71,36 +73,47 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
     - EUMETSAT. AMSU-A Level 1 Product Format Specification (EPS.MIS.SPE.97228).
     """
 
-    VOCAB: dict[str, int] = {
-        "amsua01": 1,  # 23.8 GHz - Window: surface emissivity, precipitation
-        "amsua02": 2,  # 31.4 GHz - Window: total column water vapor, cloud liquid water
-        "amsua03": 3,  # 50.3 GHz - Troposphere: lower troposphere temperature
-        "amsua04": 4,  # 52.8 GHz - Troposphere: mid-troposphere (~700 hPa)
-        "amsua05": 5,  # 53.6 GHz - Troposphere: mid-troposphere (~500 hPa)
-        "amsua06": 6,  # 54.4 GHz - Troposphere: upper troposphere (~400 hPa)
-        "amsua07": 7,  # 54.9 GHz - Tropopause: tropopause region (~300 hPa)
-        "amsua08": 8,  # 55.5 GHz - Stratosphere: lower stratosphere (~200 hPa)
-        "amsua09": 9,  # 57.29 GHz - Stratosphere: ~90 hPa peak weighting
-        "amsua10": 10,  # 57.29 GHz - Stratosphere: ~50 hPa peak weighting
-        "amsua11": 11,  # 57.29 GHz - Stratosphere: ~25 hPa peak weighting
-        "amsua12": 12,  # 57.29 GHz - Stratosphere: ~10 hPa peak weighting
-        "amsua13": 13,  # 57.29 GHz - Stratosphere: ~5 hPa peak weighting
-        "amsua14": 14,  # 57.29 GHz - Stratosphere: ~2 hPa peak weighting
+    # Number of AMSU-A cross-track field-of-view positions per scan line
+    AMSUA_NUM_FOVS = 30
+    # Number of valid AMSU-A channels (excludes channel 15)
+    AMSUA_NUM_CHANNELS = 14
+    # AMSU-A channel center frequencies (GHz)
+    AMSUA_CHANNEL_FREQS: dict[int, float] = {
+        1: 23.8,
+        2: 31.4,
+        3: 50.3,
+        4: 52.8,
+        5: 53.596,
+        6: 54.4,
+        7: 54.94,
+        8: 55.5,
+        9: 57.29,
+        10: 57.29,
+        11: 57.29,
+        12: 57.29,
+        13: 57.29,
+        14: 57.29,
+    }
+
+    VOCAB: dict[str, str] = {
+        "amsua": "brightnessTemperature",
     }
 
     @classmethod
-    def get_item(cls, val: str) -> tuple[int, Callable]:
-        """Get AMSU-A channel index and modifier for a variable name.
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Get AMSU-A data key and modifier for a variable name.
 
         Parameters
         ----------
         val : str
-            Variable name (e.g., ``'amsua01'``, ``'amsua14'``)
+            Standardized variable name (``amsua``)
 
         Returns
         -------
-        tuple[int, Callable]
-            Channel index (1-14) and identity modifier function
+        tuple[str, Callable]
+            Tuple containing:
+            - Data key for brightness temperature
+            - Modifier function (identity -- brightness temperature in K)
         """
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in MetOp AMSU-A lexicon")
@@ -110,15 +123,17 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
 class MetOpAVHRRLexicon(metaclass=LexiconType):
     """Lexicon for MetOp AVHRR Level 1B data.
 
-    Maps Earth2Studio variable names to satpy dataset identifiers for the
-    AVHRR/3 instrument on the MetOp satellite series. AVHRR/3 is a 6-channel
-    radiometer covering visible, near-infrared, and thermal infrared bands.
-    Channels 3A and 3B are mutually exclusive (only one active per scan line,
-    switched by telecommand).
+    This lexicon maps the ``avhrr`` variable to an identity modifier.
+    Individual channels (1, 2, 3a, 3b, 4, 5) are distinguished by the
+    ``channel_index`` column of the returned DataFrame.  The ``class``
+    column differentiates observation types: ``"refl"`` for visible/NIR
+    channels (1, 2, 3A) which return reflectance (%), and ``"rad"`` for
+    thermal IR channels (3B, 4, 5) which return brightness temperature (K).
 
-    For visible/near-IR channels (1, 2, 3A), the data source returns calibrated
-    radiances (W m-2 sr-1 um-1). For thermal IR channels (3B, 4, 5), the data
-    source returns brightness temperatures (K).
+    AVHRR/3 is a 6-channel radiometer covering visible, near-infrared,
+    and thermal infrared bands aboard the MetOp satellite series.
+    Channels 3A and 3B are mutually exclusive (only one active per scan
+    line, switched by telecommand).
 
     Notes
     -----
@@ -150,28 +165,52 @@ class MetOpAVHRRLexicon(metaclass=LexiconType):
     - EUMETSAT. AVHRR Level 1 Product Format Specification (EPS.MIS.SPE.97231).
     """
 
+    # Number of AVHRR navigation tie points per scan line
+    AVHRR_NAV_NUM_POINTS = 103
+    # Number of AVHRR channels
+    AVHRR_NUM_CHANNELS = 6
+    # AVHRR channel wavelengths (µm)
+    AVHRR_CHANNEL_WAVELENGTHS: dict[str, float] = {
+        "1": 0.63,
+        "2": 0.865,
+        "3a": 1.61,
+        "3b": 3.74,
+        "4": 10.8,
+        "5": 12.0,
+    }
+    # Channels that return reflectance (%) vs brightness temperature (K)
+    AVHRR_REFLECTANCE_CHANNELS: frozenset[str] = frozenset({"1", "2", "3a"})
+    AVHRR_THERMAL_CHANNELS: frozenset[str] = frozenset({"3b", "4", "5"})
+
+    # Channel index mapping (1-based) for channel_index column
+    AVHRR_CHANNEL_INDEX: dict[str, int] = {
+        "1": 1,
+        "2": 2,
+        "3a": 3,
+        "3b": 4,
+        "4": 5,
+        "5": 6,
+    }
+
     VOCAB: dict[str, str] = {
-        "avhrr01": "1",  # 0.63 um - VIS: cloud/surface, NDVI red component
-        "avhrr02": "2",  # 0.865 um - NIR: vegetation, water/land, NDVI NIR component
-        "avhrr3a": "3a",  # 1.61 um - SWIR: snow/ice discrimination (daytime only)
-        "avhrr3b": "3b",  # 3.74 um - MWIR: fire detection, night SST, cloud mapping
-        "avhrr04": "4",  # 10.8 um - TIR: sea/land surface temp, cloud top temp
-        "avhrr05": "5",  # 12.0 um - TIR: surface temp, water vapor correction
+        "avhrr": "calibratedObservation",
     }
 
     @classmethod
-    def get_item(cls, val: str) -> tuple[str, Callable]:
-        """Get satpy dataset name and modifier for a variable name.
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Get AVHRR data key and modifier for a variable name.
 
         Parameters
         ----------
         val : str
-            Variable name (e.g., ``'avhrr01'``, ``'avhrr3b'``)
+            Standardized variable name (``avhrr``)
 
         Returns
         -------
         tuple[str, Callable]
-            Satpy dataset name (e.g. ``'1'``, ``'3b'``) and identity modifier
+            Tuple containing:
+            - Data key for calibrated observation
+            - Modifier function (identity)
         """
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in MetOp AVHRR lexicon")

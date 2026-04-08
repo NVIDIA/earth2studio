@@ -59,10 +59,24 @@ _SCENE_RADIANCE_OFFSET = 22  # integer4, 15×30, SF=1e7
 _ANGULAR_RELATION_OFFSET = 1842  # integer2, 4×30, SF=1e2
 _EARTH_LOCATION_OFFSET = 2082  # integer4, 2×30, SF=1e4
 _TERRAIN_ELEVATION_OFFSET = 2382  # integer2, 30
+_QUALITY_OFFSET = 2442  # uint32, scan-level quality bitmask
 
 _NUM_CHANNELS = 15
 _NUM_FOVS = 30
 _MDR_SIZE = 3464
+
+# AMSU-A scan timing
+# 3 antenna revolutions per 8 seconds → scan period = 8/3 s ≈ 2.667 s
+# Earth-view sweep covers 30 FOVs with ~200 ms integration each
+#
+# Source: NOAA KLM User's Guide, Section 3.3 "AMSU-A Instrument Description"
+#   https://www.star.nesdis.noaa.gov/mirs/documents/0.0_NOAA_KLM_Users_Guide.pdf
+#   - Scan period: 8 seconds for 3 complete antenna revolutions (Table 3.3-1)
+#   - 30 Earth-scene samples per scan line at 3.3° step angle
+#   - Integration time: ~165 ms per FOV (channels 1-2), ~200 ms (channels 3-15)
+# Using 200 ms as representative dwell for per-FOV time interpolation.
+_SCAN_PERIOD_S = 8.0 / 3.0  # 2.667 s per scan revolution
+_FOV_DWELL_S = 0.2  # ~200 ms per FOV step
 
 # Planck constants for radiance → brightness temperature conversion
 _C1 = 1.191062e-05  # mW/m²/sr/cm⁻⁴
@@ -268,6 +282,7 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     # Radiances: (n_scans*30, 15) → brightness temps per channel
     radiances = np.empty((n_obs, _NUM_CHANNELS), dtype=np.float64)
     scan_times = np.empty(n_obs, dtype="datetime64[ns]")
+    quality = np.empty(n_obs, dtype=np.uint16)
 
     # Compute per-scan time by linearly interpolating from sensing_start to sensing_end
     total_seconds = (sensing_end - sensing_start).total_seconds()
@@ -276,13 +291,18 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     else:
         dt_per_scan = 0.0
 
+    # Pre-compute per-FOV time offsets within a scan (FOV 0 → 0 ms, FOV 29 → 5.8 s)
+    fov_offsets_ns = np.array(
+        [np.timedelta64(int(i * _FOV_DWELL_S * 1e9), "ns") for i in range(_NUM_FOVS)]
+    )
+
     for scan_idx, mdr_off in enumerate(mdr_offsets):
         base = scan_idx * _NUM_FOVS
 
-        # Time for this scan line (linear interpolation)
+        # Time for this scan line (linear interpolation) + per-FOV offset
         scan_time = sensing_start + timedelta(seconds=scan_idx * dt_per_scan)
         scan_time_ns = np.datetime64(scan_time, "ns")
-        scan_times[base : base + _NUM_FOVS] = scan_time_ns
+        scan_times[base : base + _NUM_FOVS] = scan_time_ns + fov_offsets_ns
 
         # SCENE_RADIANCE: integer4, 15×30, SF=1e7 at offset 22
         # Interleaved: (ch1_fov1, ch2_fov1, ..., ch15_fov1, ch1_fov2, ...)
@@ -320,10 +340,13 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
         raw_elev = struct.unpack_from(f">{_NUM_FOVS}h", data, elev_off)
         elevs[base : base + _NUM_FOVS] = np.array(raw_elev, dtype=np.float32)
 
+        # QUALITY: uint32, scan-level bitmask at offset 2442, truncated to uint16
+        mdr_qual = struct.unpack_from(">I", data, mdr_off + _QUALITY_OFFSET)[0]
+        quality[base : base + _NUM_FOVS] = np.uint16(mdr_qual & 0xFFFF)
+
     # Step 4: Convert radiances to brightness temperatures per channel
-    # Only include channels present in the lexicon
-    channel_to_var = {v: k for k, v in MetOpAMSUALexicon.VOCAB.items()}
-    valid_channels = sorted(channel_to_var.keys())  # 1-based channel indices
+    # Channels 1-14 are valid (channel 15 excluded per lexicon)
+    valid_channels = list(range(1, MetOpAMSUALexicon.AMSUA_NUM_CHANNELS + 1))
     n_valid_channels = len(valid_channels)
 
     bt_arrays: dict[int, np.ndarray] = {}
@@ -344,32 +367,33 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     all_sataza = np.tile(sat_azi, n_valid_channels)
 
     all_obs = np.empty(total_rows, dtype=np.float32)
-    all_var = np.empty(total_rows, dtype=object)
     all_channel_idx = np.empty(total_rows, dtype=np.uint16)
     all_scan_angle = np.tile(sat_za, n_valid_channels)  # scan angle ≈ sat zenith
+    all_quality = np.tile(quality, n_valid_channels)
 
     for i, ch_idx in enumerate(valid_channels):
         start = i * rows_per_channel
         end = start + rows_per_channel
         all_obs[start:end] = bt_arrays[ch_idx].astype(np.float32)
-        all_var[start:end] = channel_to_var[ch_idx]
         all_channel_idx[start:end] = ch_idx
 
     df = pd.DataFrame(
         {
             "time": pd.to_datetime(all_times),
+            "class": "rad",
             "lat": all_lats,
             "lon": all_lons,
             "elev": all_elevs,
-            "observation": all_obs,
-            "variable": all_var,
-            "satellite": satellite,
             "scan_angle": all_scan_angle,
             "channel_index": all_channel_idx,
             "solza": all_solza,
             "solaza": all_solaza,
             "satellite_za": all_satza,
             "satellite_aza": all_sataza,
+            "quality": all_quality,
+            "satellite": satellite,
+            "observation": all_obs,
+            "variable": "amsua",
         }
     )
 
@@ -390,9 +414,13 @@ class MetOpAMSUA:
     23.8 GHz to 89.0 GHz, providing atmospheric temperature profiles from
     the surface to the upper stratosphere (~48 km).
 
-    This data source exposes **14 channels** (``amsua01`` through ``amsua14``).
+    This data source exposes **14 channels** (channel indices 1 through 14).
     Channel 15 (89.0 GHz) is excluded because the L1B product marks ~97% of
     its measurements as missing due to quality filtering.
+
+    The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
+    following the same convention as :class:`~earth2studio.data.UFSObsSat`.
+    The ``channel_index`` column (1--14) identifies each channel.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -451,18 +479,20 @@ class MetOpAMSUA:
     SCHEMA = pa.schema(
         [
             E2STUDIO_SCHEMA.field("time"),
+            E2STUDIO_SCHEMA.field("class"),
             E2STUDIO_SCHEMA.field("lat"),
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("elev"),
-            E2STUDIO_SCHEMA.field("observation"),
-            E2STUDIO_SCHEMA.field("variable"),
-            E2STUDIO_SCHEMA.field("satellite"),
             E2STUDIO_SCHEMA.field("scan_angle"),
             E2STUDIO_SCHEMA.field("channel_index"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
             E2STUDIO_SCHEMA.field("satellite_aza"),
+            E2STUDIO_SCHEMA.field("quality"),
+            pa.field("satellite", pa.string()),
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
         ]
     )
 
@@ -507,14 +537,15 @@ class MetOpAMSUA:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             Variables to return. Must be in MetOpAMSUALexicon
-            (e.g. "amsua01" through "amsua14").
+            (e.g. ``["amsua"]``).
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
 
         Returns
         -------
         pd.DataFrame
-            AMSU-A observation data in long format.
+            AMSU-A observation data in long format with one row per FOV
+            per channel.
         """
         try:
             nest_asyncio.apply()
@@ -548,14 +579,16 @@ class MetOpAMSUA:
         time : datetime | list[datetime] | TimeArray
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
-            Variables to return. Must be in MetOpAMSUALexicon.
+            Variables to return. Must be in MetOpAMSUALexicon
+            (e.g. ``["amsua"]``).
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
 
         Returns
         -------
         pd.DataFrame
-            AMSU-A observation data in long format.
+            AMSU-A observation data in long format with one row per FOV
+            per channel.
         """
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -601,9 +634,17 @@ class MetOpAMSUA:
 
         result = pd.concat(frames, ignore_index=True)
 
-        # Filter by requested variables
-        requested_channels = set(variable_list)
-        result = result[result["variable"].isin(requested_channels)]
+        # Deduplicate rows that may appear from overlapping tolerance windows
+        result = result.drop_duplicates(
+            subset=[
+                "time",
+                "lat",
+                "lon",
+                "channel_index",
+                "satellite",
+                "variable",
+            ]
+        )
 
         # Filter by time window for each requested timestamp
         time_masks = []

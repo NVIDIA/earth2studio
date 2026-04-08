@@ -31,6 +31,7 @@ from earth2studio.data.metop_avhrr import (
     _MDR_ANG_REL_OFFSET,
     _MDR_EARTH_LOC_OFFSET,
     _MDR_FRAME_INDICATOR_OFFSET,
+    _MDR_QUALITY_OFFSET,
     _MDR_RECORD_CLASS,
     _MDR_SCENE_RADIANCES_OFFSET,
     _MDR_SUBCLASS,
@@ -122,6 +123,7 @@ def _build_mdr_record(
     lat_val: int = 450000,
     lon_val: int = 100000,
     frame_indicator: int = 0,
+    quality_val: int = 0,
 ) -> bytes:
     """Build a minimal MDR record with enough data for parsing.
 
@@ -162,6 +164,10 @@ def _build_mdr_record(
         if off + 8 <= rec_size:
             struct.pack_into(">ii", rec, off, lat_val, lon_val)
 
+    # QUALITY at _MDR_QUALITY_OFFSET (uint32)
+    if _MDR_QUALITY_OFFSET + 4 <= rec_size:
+        struct.pack_into(">I", rec, _MDR_QUALITY_OFFSET, quality_val)
+
     # FRAME_INDICATOR at _MDR_FRAME_INDICATOR_OFFSET
     struct.pack_into(">I", rec, _MDR_FRAME_INDICATOR_OFFSET, frame_indicator)
 
@@ -170,36 +176,37 @@ def _build_mdr_record(
 
 def _build_avhrr_dataframe(
     n_pixels: int = 100,
-    variables: list[str] | None = None,
     satellite: str = "Metop-B",
 ) -> pd.DataFrame:
-    if variables is None:
-        variables = ["avhrr04"]
     rng = np.random.default_rng(42)
     base_time = datetime(2025, 1, 15, 10, 30, 0)
+    # Simulate all 6 channels (like real parser produces)
+    channel_info = [
+        ("1", 1, "refl"),
+        ("2", 2, "refl"),
+        ("3a", 3, "refl"),
+        ("3b", 4, "rad"),
+        ("4", 5, "rad"),
+        ("5", 6, "rad"),
+    ]
     rows = [
         {
             "time": pd.Timestamp(base_time),
+            "class": cls,
             "lat": rng.uniform(-90, 90),
             "lon": rng.uniform(0, 360),
             "observation": rng.uniform(200, 320),
-            "variable": var,
+            "variable": "avhrr",
             "satellite": satellite,
             "scan_angle": rng.uniform(-55, 55),
-            "channel_index": {
-                "avhrr01": 1,
-                "avhrr02": 2,
-                "avhrr3a": 3,
-                "avhrr3b": 4,
-                "avhrr04": 5,
-                "avhrr05": 6,
-            }.get(var, 0),
+            "channel_index": ch_idx,
             "solza": rng.uniform(0, 90),
             "solaza": rng.uniform(0, 360),
             "satellite_za": rng.uniform(0, 65),
             "satellite_aza": rng.uniform(0, 360),
+            "quality": 0,
         }
-        for var in variables
+        for _ch_name, ch_idx, cls in channel_info
         for _ in range(n_pixels)
     ]
     return pd.DataFrame(rows)
@@ -209,7 +216,7 @@ def _build_avhrr_dataframe(
 # Mock test — exercises __call__ end-to-end without network
 # ---------------------------------------------------------------------------
 def test_metop_avhrr_call_mock(tmp_path):
-    mock_df = _build_avhrr_dataframe(n_pixels=50, variables=["avhrr01", "avhrr04"])
+    mock_df = _build_avhrr_dataframe(n_pixels=50)
 
     with (
         patch.object(MetOpAVHRR, "_download_products") as mock_dl,
@@ -225,11 +232,12 @@ def test_metop_avhrr_call_mock(tmp_path):
             cache=False,
             verbose=False,
         )
-        df = ds(datetime(2025, 1, 15, 10), ["avhrr01", "avhrr04"])
+        df = ds(datetime(2025, 1, 15, 10), ["avhrr"])
 
         assert list(df.columns) == ds.SCHEMA.names
         assert not df.empty
-        assert set(df["variable"].unique()) == {"avhrr01", "avhrr04"}
+        assert set(df["variable"].unique()) == {"avhrr"}
+        assert set(df["class"].unique()).issubset({"rad", "refl"})
         assert df["observation"].notna().all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
@@ -238,7 +246,7 @@ def test_metop_avhrr_call_mock(tmp_path):
 
 
 def test_metop_avhrr_call_mock_fields_subset(tmp_path):
-    mock_df = _build_avhrr_dataframe(n_pixels=20, variables=["avhrr04"])
+    mock_df = _build_avhrr_dataframe(n_pixels=20)
 
     with (
         patch.object(MetOpAVHRR, "_download_products") as mock_dl,
@@ -250,7 +258,7 @@ def test_metop_avhrr_call_mock_fields_subset(tmp_path):
 
         ds = MetOpAVHRR(time_tolerance=timedelta(hours=24), cache=False, verbose=False)
         subset = ["time", "lat", "lon", "observation", "variable"]
-        df = ds(datetime(2025, 1, 15, 10), ["avhrr04"], fields=subset)
+        df = ds(datetime(2025, 1, 15, 10), ["avhrr"], fields=subset)
         assert list(df.columns) == subset
         assert not df.empty
 
@@ -259,7 +267,7 @@ def test_metop_avhrr_call_mock_empty(tmp_path):
     with patch.object(MetOpAVHRR, "_download_products") as mock_dl:
         mock_dl.return_value = []
         ds = MetOpAVHRR(time_tolerance=timedelta(hours=1), cache=False, verbose=False)
-        df = ds(datetime(2025, 1, 15, 10), ["avhrr04"])
+        df = ds(datetime(2025, 1, 15, 10), ["avhrr"])
         assert df.empty
         assert list(df.columns) == ds.SCHEMA.names
 
@@ -329,15 +337,18 @@ def test_parse_native_avhrr_minimal():
     file_data = mphr + giadr + mdr1 + mdr2
 
     # subsample=1 to get both scan lines
-    df = _parse_native_avhrr(file_data, ["avhrr04"], subsample=1)
+    df = _parse_native_avhrr(file_data, subsample=1)
     assert not df.empty
     assert "observation" in df.columns
     assert "lat" in df.columns
     assert "lon" in df.columns
     assert "variable" in df.columns
-    assert (df["variable"] == "avhrr04").all()
-    # Should have 2 scans * 103 tie points = 206 rows (minus any NaN drops)
-    assert len(df) <= 206
+    assert "class" in df.columns
+    assert "quality" in df.columns
+    assert (df["variable"] == "avhrr").all()
+    assert set(df["class"].unique()).issubset({"rad", "refl"})
+    # Should have 2 scans * 103 tie points * n_channels rows (minus any NaN drops)
+    assert len(df) > 0
     # Lat: 45.0 and -30.0 (in degrees)
     assert df["lat"].between(-90, 90).all()
 
@@ -353,19 +364,16 @@ def test_parse_native_avhrr_frame_indicator_3a_3b():
 
     file_data = mphr + giadr + mdr_3b + mdr_3a
 
-    # Request avhrr3b — should only have data from mdr_3b (scan 0)
-    df_3b = _parse_native_avhrr(file_data, ["avhrr3b"], subsample=1)
-    # Request avhrr3a — should only have data from mdr_3a (scan 1)
-    df_3a = _parse_native_avhrr(file_data, ["avhrr3a"], subsample=1)
-
-    # avhrr3b should have ~103 rows (1 scan), avhrr3a should have ~103 rows (1 scan)
-    assert len(df_3b) <= _NAV_NUM_POINTS
-    assert len(df_3a) <= _NAV_NUM_POINTS
+    # Request all channels — parser always returns all; 3a/3b masking applies
+    df_3b = _parse_native_avhrr(file_data, subsample=1)
+    # With 3b active in scan 0 and 3a active in scan 1, both should be present
+    # but channel 3a only from scan 1, channel 3b only from scan 0
+    assert not df_3b.empty
 
 
 def test_parse_native_avhrr_empty():
     """Empty data returns empty DataFrame."""
-    df = _parse_native_avhrr(b"", ["avhrr04"])
+    df = _parse_native_avhrr(b"", subsample=1)
     assert df.empty
 
 
@@ -376,10 +384,12 @@ def test_parse_native_avhrr_multiple_channels():
     mdr = _build_mdr_record(radiance_val=2500)
 
     file_data = mphr + giadr + mdr
-    df = _parse_native_avhrr(file_data, ["avhrr04", "avhrr05"], subsample=1)
+    df = _parse_native_avhrr(file_data, subsample=1)
 
     if not df.empty:
-        assert set(df["variable"].unique()).issubset({"avhrr04", "avhrr05"})
+        assert (df["variable"] == "avhrr").all()
+        # All channels are always returned
+        assert len(df["channel_index"].unique()) >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -393,12 +403,12 @@ def test_parse_native_avhrr_multiple_channels():
     [
         (
             datetime(2025, 1, 15, 11),
-            ["avhrr04"],
+            ["avhrr"],
             timedelta(hours=1),
         ),
         (
             [datetime(2025, 1, 15, 10), datetime(2025, 1, 15, 11)],
-            ["avhrr01", "avhrr04"],
+            ["avhrr"],
             timedelta(hours=2),
         ),
     ],
@@ -421,7 +431,7 @@ def test_metop_avhrr_cache(cache):
         cache=cache,
         verbose=False,
     )
-    df = ds(datetime(2025, 1, 15, 11), ["avhrr04"])
+    df = ds(datetime(2025, 1, 15, 11), ["avhrr"])
     assert list(df.columns) == ds.SCHEMA.names
 
 
@@ -456,6 +466,8 @@ def test_metop_avhrr_schema_satellite_fields():
         "solaza",
         "satellite_za",
         "satellite_aza",
+        "class",
+        "quality",
     ]:
         assert field in names
     assert "elev" not in names

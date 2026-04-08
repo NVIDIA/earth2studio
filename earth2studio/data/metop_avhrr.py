@@ -376,7 +376,6 @@ def _radiance_to_refl(radiance: np.ndarray, solar_irrad: float) -> np.ndarray:
 
 def _parse_native_avhrr(
     data: bytes,
-    variables: list[str],
     subsample: int = 1,
 ) -> pd.DataFrame:
     """Parse an AVHRR Level 1B EPS native binary file.
@@ -390,16 +389,15 @@ def _parse_native_avhrr(
     ----------
     data : bytes
         Complete file contents of an AVHRR .nat file
-    variables : list[str]
-        E2S variable names to extract (e.g. ["avhrr01", "avhrr04"])
     subsample : int, optional
-        Scan-line subsampling factor, by default 16.
+        Scan-line subsampling factor, by default 1.
         Across-track uses 103 EPS navigation tie points.
 
     Returns
     -------
     pd.DataFrame
-        One row per (pixel, channel) observation.
+        One row per (pixel, channel) observation with ``variable="avhrr"``,
+        ``class="refl"`` for visible channels and ``class="rad"`` for thermal.
     """
     file_size = len(data)
     if file_size < _GRH_SIZE:
@@ -449,20 +447,19 @@ def _parse_native_avhrr(
     n_scans = len(selected_scans)
     n_pixels = n_scans * _NAV_NUM_POINTS
 
-    # Step 4: Map requested variables to channel info
+    # Step 4: Channel map — always extract all channels.
     # Channel index in SCENE_RADIANCES: 0=ch1, 1=ch2, 2=ch3a/3b, 3=ch4, 4=ch5
+    # channel_index values match MetOpAVHRRLexicon.AVHRR_CHANNEL_INDEX
     channel_map: dict[str, dict] = {
-        "avhrr01": {"rad_idx": 0, "type": "vis", "ch_num": 1},
-        "avhrr02": {"rad_idx": 1, "type": "vis", "ch_num": 2},
-        "avhrr3a": {"rad_idx": 2, "type": "vis", "ch_num": 3},
-        "avhrr3b": {"rad_idx": 2, "type": "ir", "ch_num": 4},
-        "avhrr04": {"rad_idx": 3, "type": "ir", "ch_num": 5},
-        "avhrr05": {"rad_idx": 4, "type": "ir", "ch_num": 6},
+        "1": {"rad_idx": 0, "type": "vis", "ch_num": 1},
+        "2": {"rad_idx": 1, "type": "vis", "ch_num": 2},
+        "3a": {"rad_idx": 2, "type": "vis", "ch_num": 3},
+        "3b": {"rad_idx": 2, "type": "ir", "ch_num": 4},
+        "4": {"rad_idx": 3, "type": "ir", "ch_num": 5},
+        "5": {"rad_idx": 4, "type": "ir", "ch_num": 6},
     }
 
-    requested_channels = {v: channel_map[v] for v in variables if v in channel_map}
-    if not requested_channels:
-        return pd.DataFrame()
+    all_channels = channel_map
 
     # Step 5: Pre-allocate arrays for geolocation (shared across channels)
     lats = np.empty(n_pixels, dtype=np.float32)
@@ -477,6 +474,8 @@ def _parse_native_avhrr(
     raw_radiances = np.empty((n_pixels, _NUM_CHANNELS), dtype=np.float64)
     # Frame indicator per scan line (for 3a/3b switching)
     frame_indicators = np.empty(n_scans, dtype=np.uint32)
+    # Scan-level quality indicator (uint32 bitmask, truncated to uint16)
+    quality_per_pixel = np.zeros(n_pixels, dtype=np.uint16)
 
     # Compute per-scan time interpolation
     total_seconds = (sensing_end - sensing_start).total_seconds()
@@ -532,13 +531,20 @@ def _parse_native_avhrr(
             ">I", data, mdr_off + _MDR_FRAME_INDICATOR_OFFSET
         )[0]
 
+        # MDR_QUALITY: u4 scan-level quality bitmask, truncated to uint16
+        mdr_qual = struct.unpack_from(">I", data, mdr_off + _MDR_QUALITY_OFFSET)[0]
+        quality_per_pixel[base : base + _NAV_NUM_POINTS] = np.uint16(
+            mdr_qual & 0xFFFF
+        )
+
     # Step 7: Calibrate and build per-channel DataFrames
     frames: list[pd.DataFrame] = []
 
-    for e2s_var, ch_info in requested_channels.items():
+    for ch_key, ch_info in all_channels.items():
         rad_idx = ch_info["rad_idx"]
         ch_type = ch_info["type"]
         ch_num = ch_info["ch_num"]
+        obs_class = "refl" if ch_type == "vis" else "rad"
 
         raw_rad = raw_radiances[:, rad_idx].copy()
 
@@ -553,7 +559,7 @@ def _parse_native_avhrr(
             obs = _radiance_to_refl(raw_rad, solar_irrad).astype(np.float32)
 
             # For ch3a: mask out scan lines where 3b is active (bit16=0)
-            if e2s_var == "avhrr3a":
+            if ch_key == "3a":
                 for i_scan in range(n_scans):
                     if (frame_indicators[i_scan] & _FRAME_IND_3A_MASK) == 0:
                         base = i_scan * _NAV_NUM_POINTS
@@ -561,27 +567,27 @@ def _parse_native_avhrr(
         else:
             # Thermal channel → brightness temperature (K)
             ir_cal_map = {
-                "avhrr3b": (
+                "3b": (
                     calibration.ch3b_wavenumber,
                     calibration.ch3b_a,
                     calibration.ch3b_b,
                 ),
-                "avhrr04": (
+                "4": (
                     calibration.ch4_wavenumber,
                     calibration.ch4_a,
                     calibration.ch4_b,
                 ),
-                "avhrr05": (
+                "5": (
                     calibration.ch5_wavenumber,
                     calibration.ch5_a,
                     calibration.ch5_b,
                 ),
             }
-            wn, a, b = ir_cal_map[e2s_var]
+            wn, a, b = ir_cal_map[ch_key]
             obs = _radiance_to_bt(raw_rad, wn, a, b).astype(np.float32)
 
             # For ch3b: mask out scan lines where 3a is active (bit16=1)
-            if e2s_var == "avhrr3b":
+            if ch_key == "3b":
                 for i_scan in range(n_scans):
                     if (frame_indicators[i_scan] & _FRAME_IND_3A_MASK) != 0:
                         base_idx = i_scan * _NAV_NUM_POINTS
@@ -590,17 +596,19 @@ def _parse_native_avhrr(
         df = pd.DataFrame(
             {
                 "time": pd.to_datetime(times),
+                "class": obs_class,
                 "lat": lats,
                 "lon": lons,
-                "observation": obs,
-                "variable": e2s_var,
-                "satellite": satellite,
                 "scan_angle": satza,
                 "channel_index": np.full(n_pixels, ch_num, dtype=np.uint16),
                 "solza": solza,
                 "solaza": solazi,
                 "satellite_za": satza,
                 "satellite_aza": satazi,
+                "quality": quality_per_pixel,
+                "satellite": satellite,
+                "observation": obs,
+                "variable": "avhrr",
             }
         )
         frames.append(df)
@@ -629,6 +637,12 @@ class MetOpAVHRR:
     Channels 1-2 and 3A provide reflectances (visible/NIR), while channels
     3B, 4, and 5 provide brightness temperatures (thermal IR). Channels 3A
     and 3B cannot operate simultaneously.
+
+    The returned :class:`~pandas.DataFrame` has one row per pixel per channel,
+    following the same convention as :class:`~earth2studio.data.UFSObsSat`.
+    The ``channel_index`` column (1--6) identifies each channel.  The ``class``
+    column differentiates observation types: ``"refl"`` for visible/NIR
+    channels (1, 2, 3A) and ``"rad"`` for thermal IR channels (3B, 4, 5).
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
     and parses the EPS native binary format directly. Calibration coefficients
@@ -692,17 +706,19 @@ class MetOpAVHRR:
     SCHEMA = pa.schema(
         [
             E2STUDIO_SCHEMA.field("time"),
+            E2STUDIO_SCHEMA.field("class"),
             E2STUDIO_SCHEMA.field("lat"),
             E2STUDIO_SCHEMA.field("lon"),
-            E2STUDIO_SCHEMA.field("observation"),
-            E2STUDIO_SCHEMA.field("variable"),
-            E2STUDIO_SCHEMA.field("satellite"),
             E2STUDIO_SCHEMA.field("scan_angle"),
             E2STUDIO_SCHEMA.field("channel_index"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
             E2STUDIO_SCHEMA.field("satellite_aza"),
+            E2STUDIO_SCHEMA.field("quality"),
+            pa.field("satellite", pa.string()),
+            pa.field("observation", pa.float32()),
+            pa.field("variable", pa.string()),
         ]
     )
 
@@ -748,14 +764,15 @@ class MetOpAVHRR:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             Variables to return. Must be in MetOpAVHRRLexicon
-            (e.g. "avhrr01", "avhrr04", "avhrr3b").
+            (e.g. ``["avhrr"]``).
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
 
         Returns
         -------
         pd.DataFrame
-            AVHRR observation data in long format.
+            AVHRR observation data in long format with one row per pixel
+            per channel.
         """
         try:
             nest_asyncio.apply()
@@ -789,14 +806,16 @@ class MetOpAVHRR:
         time : datetime | list[datetime] | TimeArray
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
-            Variables to return. Must be in MetOpAVHRRLexicon.
+            Variables to return. Must be in MetOpAVHRRLexicon
+            (e.g. ``["avhrr"]``).
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
 
         Returns
         -------
         pd.DataFrame
-            AVHRR observation data in long format.
+            AVHRR observation data in long format with one row per pixel
+            per channel.
         """
         time_list, variable_list = prep_data_inputs(time, variable)
         schema = self.resolve_fields(fields)
@@ -833,7 +852,7 @@ class MetOpAVHRR:
         for fpath in nat_files:
             with open(fpath, "rb") as f:
                 raw = f.read()
-            df = _parse_native_avhrr(raw, variable_list, self._subsample)
+            df = _parse_native_avhrr(raw, self._subsample)
             if not df.empty:
                 frames.append(df)
 
@@ -841,6 +860,18 @@ class MetOpAVHRR:
             return self._empty_dataframe(schema)
 
         result = pd.concat(frames, ignore_index=True)
+
+        # Deduplicate rows that may appear from overlapping tolerance windows
+        result = result.drop_duplicates(
+            subset=[
+                "time",
+                "lat",
+                "lon",
+                "channel_index",
+                "satellite",
+                "variable",
+            ]
+        )
 
         # Filter by time windows
         time_masks = []
