@@ -1026,16 +1026,19 @@ class AsyncTempestExtremes(TempestExtremes):
                 f"Waiting for {len(tasks_to_wait)} TempestExtremes tasks to complete..."
             )
 
+            errors = []
             for i, future in enumerate(tasks_to_wait):
                 try:
                     print(f"Waiting for task {i+1}/{len(tasks_to_wait)} to complete...")
                     future.result(timeout=timeout_per_task)
-                except ChildProcessError as e:
-                    print(f"Task {i+1} failed with ChildProcessError: {e}")
-                    raise  # Re-raise ChildProcessError to propagate it
                 except Exception as e:
-                    print(f"Task {i+1} failed: {e}")
-                    raise  # Re-raise any other exceptions as well
+                    print(f"  Task {i+1}/{len(tasks_to_wait)} failed: {e}")
+                    errors.append(e)
+
+            if errors:
+                raise ChildProcessError(
+                    f"{len(errors)} background task(s) failed: {errors}"
+                )
         else:
             print("No background tasks to wait for.")
 
@@ -1255,6 +1258,7 @@ class AsyncTempestExtremes(TempestExtremes):
                         f"AsyncTempestExtremes: waiting for {len(tasks_to_wait)} background tasks to complete..."
                     )
 
+                    errors = []
                     for i, future in enumerate(tasks_to_wait):
                         try:
                             print(f"  Waiting for task {i+1}/{len(tasks_to_wait)}...")
@@ -1262,14 +1266,14 @@ class AsyncTempestExtremes(TempestExtremes):
                             print(
                                 f"  Task {i+1}/{len(tasks_to_wait)} completed successfully"
                             )
-                        except ChildProcessError as e:
-                            print(
-                                f"  Task {i+1}/{len(tasks_to_wait)} failed with ChildProcessError: {e}"
-                            )
-                            raise  # Re-raise to propagate the error
                         except Exception as e:
                             print(f"  Task {i+1}/{len(tasks_to_wait)} failed: {e}")
-                            raise  # Re-raise to propagate the error
+                            errors.append(e)
+
+                    if errors:
+                        raise ChildProcessError(
+                            f"{len(errors)} background task(s) failed: {errors}"
+                        )
 
                     print(
                         f"All {len(tasks_to_wait)} background tasks completed successfully"

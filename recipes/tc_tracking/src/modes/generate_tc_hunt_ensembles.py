@@ -62,7 +62,7 @@ def initialise(cfg: DictConfig) -> None:
     # make pytorch occupy only GPU memory it really needs
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-    # initialise ditributed manager
+    # initialise distributed manager
     DistributedManager.initialize()
 
     # intialise random seeds
@@ -102,7 +102,7 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     if "model" in cfg:
         model_name = cfg.model
 
-    if model_name[:4] == "aifs":
+    if model_name.lower().startswith("aifs"):
         from earth2studio.models.px import AIFSENS
 
         model_cls = AIFSENS
@@ -237,9 +237,8 @@ def run_inference(
         # set random state or apply perturbation
         if ("model" not in cfg) or (cfg.model == "fcn3"):
             model.set_rng(seed=seed)
-        elif (
-            cfg.model[:4] == "aifs"
-        ):  # no need for perturbation, but also cannot set internal noise state
+        elif cfg.model.lower().startswith("aifs"):
+            # no need for perturbation, but also cannot set internal noise state
             pass
         else:
             sg = SphericalGaussian(noise_amplitude=0.0005)
