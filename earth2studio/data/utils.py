@@ -327,6 +327,27 @@ def prep_data_array(
     return out, out_coords
 
 
+def ensure_utc(time: datetime) -> datetime:
+    """Normalize a datetime to naive UTC.
+
+    If timezone-aware, convert to UTC then strip tzinfo.
+    If naive, assume UTC and return unchanged.
+
+    Parameters
+    ----------
+    time : datetime
+        Input datetime (naive or tz-aware)
+
+    Returns
+    -------
+    datetime
+        Naive datetime in UTC
+    """
+    if time.tzinfo is not None:
+        time = time.astimezone(timezone.utc).replace(tzinfo=None)
+    return time
+
+
 def prep_data_inputs(
     time: datetime | list[datetime] | np.datetime64 | TimeArray,
     variable: str | list[str] | VariableArray,
@@ -336,29 +357,38 @@ def prep_data_inputs(
     Parameters
     ----------
     time : datetime | list[datetime] | np.datetime64 | TimeArray
-        Datetime, list of datetimes or array of np.datetime64 to fetch
+        Datetime, list of datetimes or array of np.datetime64 to fetch (UTC)
     variable : str | list[str] | VariableArray
         String, list of strings or array of strings that refer to variables
 
     Returns
     -------
     tuple[list[datetime], list[str]]
-        Time and variable lists
+        Time and variable lists (times normalized to naive UTC)
     """
+
+    def _to_datetime(t: datetime | np.datetime64 | pd.Timestamp) -> datetime:
+        """Convert a single time value to a datetime object."""
+        if isinstance(t, np.datetime64):
+            return pd.Timestamp(t).to_pydatetime()
+        if isinstance(t, pd.Timestamp):
+            return t.to_pydatetime()
+        return t
+
     if isinstance(variable, str):
         variable = [variable]
 
     if isinstance(variable, np.ndarray):
         variable = variable.astype(str).tolist()
 
-    if isinstance(time, datetime):
-        time = [time]
+    if isinstance(time, (datetime, np.datetime64, pd.Timestamp)):
+        time = [ensure_utc(_to_datetime(time))]
 
-    if isinstance(time, np.datetime64):
-        time = [pd.Timestamp(time).to_pydatetime()]
+    elif isinstance(time, np.ndarray):  # np.datetime64 -> datetime
+        time = [ensure_utc(t) for t in timearray_to_datetime(time)]
 
-    if isinstance(time, np.ndarray):  # np.datetime64 -> datetime
-        time = timearray_to_datetime(time)
+    elif isinstance(time, list):
+        time = [ensure_utc(_to_datetime(t)) for t in time]
 
     return time, variable
 
@@ -494,34 +524,13 @@ def datasource_cache_root() -> str:
 # =============================================================================
 
 
-def ensure_utc(time: datetime) -> datetime:
-    """Normalize a datetime to naive UTC.
-
-    If timezone-aware, convert to UTC then strip tzinfo.
-    If naive, assume UTC and return unchanged.
-
-    Parameters
-    ----------
-    time : datetime
-        Input datetime (naive or tz-aware)
-
-    Returns
-    -------
-    datetime
-        Naive datetime in UTC
-    """
-    if time.tzinfo is not None:
-        time = time.astimezone(timezone.utc).replace(tzinfo=None)
-    return time
-
-
 async def async_retry(
     coro_func: Callable[..., Any],
     *args: Any,
     retries: int = 3,
     backoff: float = 1.0,
     task_timeout: float | None = None,
-    exceptions: tuple[type[BaseException], ...] = (OSError, IOError, TimeoutError),
+    exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
     **kwargs: Any,
 ) -> Any:
     """Retry an async callable with exponential backoff and jitter.
@@ -583,6 +592,7 @@ async def async_retry(
     raise last_exc  # type: ignore[misc]
 
 
+@asynccontextmanager
 async def managed_session(fs: Any) -> Any:
     """Context manager for fsspec async sessions.
 
@@ -595,10 +605,10 @@ async def managed_session(fs: Any) -> Any:
     fs : Any
         An fsspec filesystem instance (s3fs, gcsfs, etc.)
 
-    Returns
-    -------
-    AsyncContextManager
-        Yields the aiohttp client session (or None for non-session fs)
+    Yields
+    ------
+    Any
+        The aiohttp client session (or None for non-session fs)
 
     Example
     -------
@@ -608,19 +618,14 @@ async def managed_session(fs: Any) -> Any:
             # fetch data here - session will be closed even on error
             await gather_with_concurrency(coros, ...)
     """
-
-    @asynccontextmanager
-    async def _managed_session_impl() -> Any:
-        session = None
-        try:
-            if hasattr(fs, "set_session"):
-                session = await fs.set_session(refresh=True)
-            yield session
-        finally:
-            if session is not None:
-                await session.close()
-
-    return _managed_session_impl()
+    session = None
+    try:
+        if hasattr(fs, "set_session"):
+            session = await fs.set_session(refresh=True)
+        yield session
+    finally:
+        if session is not None:
+            await session.close()
 
 
 async def gather_with_concurrency(
@@ -628,7 +633,7 @@ async def gather_with_concurrency(
     max_workers: int = 16,
     task_timeout: float | None = None,
     desc: str = "Fetching",
-    disable: bool = False,
+    verbose: bool = False,
 ) -> list[Any]:
     """Run coroutines with bounded concurrency and progress bar.
 
@@ -647,7 +652,7 @@ async def gather_with_concurrency(
         If a task exceeds this timeout, it raises asyncio.TimeoutError.
     desc : str, optional
         Progress bar description
-    disable : bool, optional
+    verbose : bool, optional
         Disable the progress bar
 
     Returns
@@ -671,7 +676,7 @@ async def gather_with_concurrency(
             return await coro
 
     bounded = [_bounded(c) for c in coros]
-    return await tqdm.gather(*bounded, desc=desc, disable=disable)
+    return await tqdm.gather(*bounded, desc=desc, disable=verbose)
 
 
 async def cancellable_to_thread(

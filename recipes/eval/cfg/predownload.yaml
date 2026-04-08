@@ -1,0 +1,62 @@
+# ============================================================================
+# Eval Recipe — pre-download configuration
+# ============================================================================
+# Inherits the full eval config (model, data_source, IC times, etc.) and adds
+# a `predownload` section that controls cache location and verification fetching.
+#
+# IC variables, lead times, and model step size are inferred automatically from
+# the model's input_coords() / output_coords() — no manual bookkeeping needed
+# when switching models.  Verification variables are taken from output.variables
+# so only data that will actually be scored is fetched.
+#
+# Usage:
+#   python predownload.py
+#   python predownload.py model=myfcn nsteps=40
+#   python predownload.py predownload.cache_dir=/lustre/shared/e2s_cache
+#   python predownload.py predownload.verification.enabled=true
+#   torchrun --nproc_per_node=8 --standalone predownload.py
+# ============================================================================
+
+defaults:
+    - default   # inherit all eval config (ICs, model, data_source, nsteps, …)
+    - _self_    # predownload overrides applied last
+
+# ---------------------------------------------------------------------------
+# Pre-download settings
+# ---------------------------------------------------------------------------
+predownload:
+
+    # Optional path override for the earth2studio data cache.
+    # When set, EARTH2STUDIO_DATA_CACHE is set to this value before any data
+    # source is instantiated, redirecting all cache I/O to this directory.
+    #
+    # Set the same environment variable when launching main.py so that the
+    # inference job reads data from this location:
+    #
+    #   EARTH2STUDIO_DATA_CACHE=/my/cache torchrun --nproc_per_node=8 main.py
+    cache_dir: null
+
+    # -----------------------------------------------------------------------
+    # Verification / reanalysis data (optional)
+    # -----------------------------------------------------------------------
+    # When enabled, fetches reanalysis data for every model output time across
+    # all IC windows (IC time + k * step_hours for k in 0..nsteps).
+    # Verification variables come from output.variables.  Step size and lead
+    # times are inferred from the model's coordinate methods automatically.
+    # Verification times are deduplicated and distributed across ranks
+    # independently of the IC distribution.
+    verification:
+        enabled: false
+
+        # Data source for verification data.  Defaults to ARCO (ERA5) — the
+        # same source used for ICs.  Override to use a different reanalysis.
+        source:
+            _target_: earth2studio.data.ARCO
+            verbose: false
+
+# ---------------------------------------------------------------------------
+# Hydra runtime — write logs to a separate directory from the eval run
+# ---------------------------------------------------------------------------
+hydra:
+    run:
+        dir: outputs/${project}_${run_id}/predownload

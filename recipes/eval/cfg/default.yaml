@@ -1,0 +1,100 @@
+# ============================================================================
+# Eval Recipe — default configuration
+# ============================================================================
+# General-purpose model evaluation: run a prognostic (and optionally
+# diagnostic) model across a set of initial conditions, write outputs to zarr.
+# ============================================================================
+
+defaults:
+    - model: dlwp
+
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
+project: eval_run
+run_id: dlwp_deterministic
+
+# ---------------------------------------------------------------------------
+# Initial conditions
+# ---------------------------------------------------------------------------
+# Option A: explicit list
+start_times:
+    - "2024-01-01 00:00:00"
+
+# Option B: sweep (uncomment and remove start_times above to use;
+# ic_block_end is inclusive — ICs are start, start+step, ... through end when on-grid)
+# ic_block_start: "2024-01-01 00:00:00"
+# ic_block_end: "2024-01-31 00:00:00"
+# ic_block_step: 24   # hours between ICs
+
+# ---------------------------------------------------------------------------
+# Pre-download enforcement
+# ---------------------------------------------------------------------------
+# When true, main.py refuses to start unless predownload.py has been run for
+# this project/run_id (verified via a sentinel file in the output directory).
+# Override with require_predownload=false to skip the check.
+require_predownload: true
+
+# ---------------------------------------------------------------------------
+# Forecast settings
+# ---------------------------------------------------------------------------
+nsteps: 20             # number of model steps per forecast
+ensemble_size: 1       # 1 = deterministic; >1 = ensemble with perturbation
+random_seed: 42        # base seed for reproducible perturbations
+
+# ---------------------------------------------------------------------------
+# Perturbation (only used when ensemble_size > 1)
+# ---------------------------------------------------------------------------
+# perturbation:
+#     _target_: earth2studio.perturbation.CorrelatedSphericalGaussian
+#     noise_amplitude: 0.05
+
+# ---------------------------------------------------------------------------
+# Diagnostic models (applied at each forecast step, optional)
+# ---------------------------------------------------------------------------
+# diagnostics:
+#     precipitation:
+#         architecture: earth2studio.models.dx.PrecipitationAFNO
+
+# ---------------------------------------------------------------------------
+# Data source — provides initial conditions
+# ---------------------------------------------------------------------------
+data_source:
+    _target_: earth2studio.data.ARCO
+    verbose: false
+
+# ---------------------------------------------------------------------------
+# Output configuration
+# ---------------------------------------------------------------------------
+output:
+    path: outputs/${project}_${run_id}
+    variables:
+        - t2m
+        - z500
+    overwrite: true
+    thread_writers: 4   # 0 = synchronous writes
+    chunks:
+        time: 1
+        lead_time: 1
+
+# ---------------------------------------------------------------------------
+# Scoring (placeholder — not yet implemented)
+# ---------------------------------------------------------------------------
+# scoring:
+#     variables: [t2m, z500]
+#     metrics:
+#         rmse:
+#             _target_: earth2studio.statistics.rmse
+#         crps:
+#             _target_: earth2studio.statistics.crps
+#             ensemble_dimension: ensemble
+#             fair: true
+#     temporal_aggregation: null   # e.g. "weekly"
+#     score_path: ${output.path}
+
+# ---------------------------------------------------------------------------
+# Hydra runtime config
+# ---------------------------------------------------------------------------
+hydra:
+    run:
+        dir: outputs/${project}_${run_id}

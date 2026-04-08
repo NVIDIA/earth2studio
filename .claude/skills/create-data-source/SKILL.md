@@ -6,6 +6,12 @@ argument-hint: URL or description of remote data store (optional — will be ask
 
 # Create Data Source Wrapper
 
+> **Python Environment:** This project uses **uv** for dependency
+> management. Always use the local `.venv` virtual environment
+> (`source .venv/bin/activate` or prefix with `uv run python`) for all
+> Python commands — installing packages, running tests, executing
+> scripts, etc. Use `uv add` / `uv pip install` / `uv lock` instead of `pip install`.
+
 Create a new Earth2Studio data source by following every step below **in order**.
 Each confirmation gate marked by:
 
@@ -515,6 +521,8 @@ async def fetch(self, time, lead_time, variable) -> xr.DataArray: ...
 
 ```python
 SCHEMA: pa.Schema = pa.schema([...])  # Class attribute
+
+def __init__(self, ..., time_tolerance: TimeTolerance = np.timedelta64(10, "m"), ...): ...
 def __call__(self, time, variable, fields=None) -> pd.DataFrame: ...
 async def fetch(self, time, variable, fields=None) -> pd.DataFrame: ...
 ```
@@ -523,9 +531,16 @@ async def fetch(self, time, variable, fields=None) -> pd.DataFrame: ...
 
 ```python
 SCHEMA: pa.Schema = pa.schema([...])  # Class attribute
+
+def __init__(self, ..., time_tolerance: TimeTolerance = np.timedelta64(10, "m"), ...): ...
 def __call__(self, time, lead_time, variable, fields=None) -> pd.DataFrame: ...
 async def fetch(self, time, lead_time, variable, fields=None) -> pd.DataFrame: ...
 ```
+
+> **Note:** DataFrameSource and ForecastFrameSource typically require a
+> `time_tolerance` parameter because sparse observations have varying
+> timestamps. See the `e2s-012-time-tolerance` rule for full details
+> on the `TimeTolerance` type and `normalize_time_tolerance` utility.
 
 ### 6e. DataFrame SCHEMA definition
 
@@ -572,7 +587,6 @@ utilities** instead of implementing their own patterns. Import them:
 from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
-    ensure_utc,
     gather_with_concurrency,
     managed_session,
     prep_data_inputs,
@@ -580,17 +594,25 @@ from earth2studio.data.utils import (
 )
 ```
 
-### 6.5a. `ensure_utc` — Timezone normalization
+### 6.5a. Input Preprocessing Functions
 
-All time inputs should be treated as UTC. Use `ensure_utc` to convert
-timezone-aware datetimes to naive UTC:
+Use the appropriate prep function based on source type. These functions
+normalize time/variable inputs and handle timezone conversion to naive
+UTC automatically:
 
-```python
-from earth2studio.data.utils import ensure_utc
+| Source Type | Prep Function | Signature |
+|-------------|---------------|-----------|
+| **DataSource** | `prep_data_inputs` | `(time, variable)` |
+| **ForecastSource** | `prep_forecast_inputs` | `(time, lead_time, variable)` |
+| **DataFrameSource** | `prep_data_inputs` | `(time, variable)` |
+| **ForecastFrameSource** | `prep_forecast_inputs` | `(time, lead_time, variable)` |
 
-# Converts tz-aware to naive UTC, passes through naive unchanged
-utc_time = ensure_utc(input_time)
-```
+These functions:
+
+- Convert single values to lists (`datetime` → `list[datetime]`)
+- Convert numpy arrays to lists (`np.datetime64` → `list[datetime]`)
+- Handle `pd.Timestamp` inputs
+- Normalize timezone-aware datetimes to naive UTC automatically
 
 ### 6.5b. `async_retry` — Retry with exponential backoff
 
@@ -625,7 +647,7 @@ from earth2studio.data.utils import managed_session
 
 async def fetch(self, time, variable):
     # Session is ALWAYS closed, even if an exception is raised
-    async with await managed_session(self.fs) as session:
+    async with managed_session(self.fs) as session:
         # ... fetch data here ...
 ```
 
@@ -644,7 +666,7 @@ await gather_with_concurrency(
     max_workers=self._async_workers,  # Default 16
     task_timeout=60.0,  # Optional per-task timeout
     desc="Fetching <Source> data",
-    disable=(not self._verbose),
+    verbose=(not self._verbose),
 )
 ```
 
@@ -765,6 +787,34 @@ def __init__(
 | `async_workers` | Max concurrent async tasks (semaphore bound) | `16` |
 | `retries` | Per-task retry count on transient failure | `3` |
 
+For **DataFrameSource / ForecastFrameSource**, also include:
+
+| Parameter | Purpose | Default |
+|---|---|---|
+| `time_tolerance` | Time tolerance for filtering observations | `np.timedelta64(10, 'm')` |
+
+Use the `TimeTolerance` type hint and call `normalize_time_tolerance()`
+at init time (see the `e2s-012-time-tolerance` rule):
+
+```python
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeTolerance
+
+def __init__(
+    self,
+    # Source-specific params first
+    time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 16,
+    retries: int = 3,
+):
+    lower, upper = normalize_time_tolerance(time_tolerance)
+    # Store normalized bounds, not raw input
+    ...
+```
+
 Keep source-specific parameters before these common ones. Avoid
 over-exposing internal configuration. Use `loguru.logger` for all
 logging, never `print()`.
@@ -864,14 +914,12 @@ async def fetch(
         )
 
     time, variable = prep_data_inputs(time, variable)
-    # Normalize timezone-aware inputs to naive UTC
-    time = [ensure_utc(t) for t in time]
 
     pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
     self._validate_time(time)
 
     # Use managed_session for guaranteed cleanup on error/timeout
-    async with await managed_session(self.fs) as session:
+    async with managed_session(self.fs) as session:
 
         # Pre-allocate output
         xr_array = xr.DataArray(
@@ -910,14 +958,14 @@ async def fetch(
 
 Key patterns (all new data sources MUST follow these):
 
+- **`prep_data_inputs` / `prep_forecast_inputs`** — normalizes inputs
+  and converts timezone-aware datetimes to naive UTC automatically.
 - **`managed_session`** replaces bare `set_session`/`close` — ensures
   the aiohttp session is closed even if an exception is raised
   during fetching.
 - **`gather_with_concurrency`** replaces `tqdm.gather` — prevents
   resource exhaustion by limiting concurrent tasks to
   `self._async_workers`.
-- **`ensure_utc`** — ensures all timezone-aware inputs are converted
-  to naive UTC.
 
 For **ForecastSource**, use `prep_forecast_inputs` instead and add
 `lead_time` dimension.
@@ -1163,8 +1211,6 @@ def available(cls, time: datetime | np.datetime64) -> bool:
   bare `tqdm.gather(*tasks)` which launches all tasks at once.
 - **Always wrap `fetch_array` with `async_retry`** in
   `fetch_wrapper` using `self._retries` — handles transient errors
-- **Always use `ensure_utc`** on time inputs — ensures correct
-  timezone handling
 - **Never call `loop.set_default_executor()`** — this mutates global
   state. Use `cancellable_to_thread` with per-call timeout instead.
 - **AVOID** using xarray for loading data where possible — work with
@@ -1294,6 +1340,16 @@ class SourceName:
     ------
     region:global dataclass:analysis product:wind product:temp
     """
+```
+
+For **DataFrameSource / ForecastFrameSource**, also include the
+`time_tolerance` parameter in the docstring:
+
+```text
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm')
 ```
 
 ### 9d. Verify all public method docstrings
@@ -2111,33 +2167,9 @@ When filling this table, look up each new dependency's license:
    may be incompatible with the project's Apache-2.0 license and
    require team review before merging
 
-### Reference plot
+### Validation
 
-<details>
-<summary>Sanity-check visualization (click to expand)</summary>
-
-![sanity_check_<source_name>](sanity_check_<source_name>.png)
-
-*<Caption describing what the plot shows, e.g., "2m temperature
-from <SourceName> at 2024-01-01T00:00 UTC">*
-
-</details>
-
-### Sanity-check script
-
-Include the sanity-check Python script inside a `<details>` block
-so reviewers can reproduce the plot:
-
-````markdown
-<details>
-<summary>Sanity-check script (click to expand)</summary>
-
-```python
-<paste the full sanity-check script here>
-```
-
-</details>
-````
+See sanity-check validation in PR comments below (posted in Step 15d).
 
 ## Checklist
 
@@ -2156,10 +2188,122 @@ so reviewers can reproduce the plot:
 
 <List any new packages added to pyproject.toml, or "None">
 
-```` <!-- markdownlint-disable-line MD040 -->
+### 15d. Post sanity-check plot as PR comment
 
-Drag-and-drop or attach the sanity-check PNG image into the PR body
-so the `<details>` spoiler renders correctly.
+After the PR is created, post the sanity-check visualization as a
+separate **PR comment** so it is immediately visible to reviewers
+without expanding a `<details>` block. This serves as quick visual
+evidence that the data source produces correct output.
+
+#### Image upload limitation
+
+**GitHub has no CLI or REST API for uploading images to PR comments.**
+The uploads endpoint (`uploads.github.com`) and GraphQL mutations do
+not support attaching local image files to issue/PR comments. The
+only way to embed an image is via the browser's drag-and-drop editor
+or by referencing an already-hosted URL.
+
+**Practical workflow:**
+
+1. Post the PR comment **without** the image — include the
+   validation table, the full sanity-check script, and a placeholder
+   line: `> **TODO:** Attach sanity-check image by editing this
+   comment in the browser.`
+2. Tell the user: *"The image is at `<local_path>`. Edit the PR
+   comment in your browser and drag the file into the editor to
+   embed it."*
+3. Use `gh api -X PATCH` to update the comment body (via
+   `-F body=@/tmp/comment.md`) if the text needs revision later.
+
+Do **not** waste time trying `curl` uploads, GraphQL file mutations,
+or the `uploads.github.com` asset endpoint — they do not work for
+issue/PR comment images.
+
+#### Writing the comment body
+
+Write the comment body to a temp file first, then post it. This
+avoids shell quoting issues with heredocs containing backticks and
+markdown:
+
+```bash
+# 1. Write body to a temp file (use your editor tool, not heredoc)
+#    Include: summary table, key findings, script in <details>
+
+# 2. Post the comment
+gh api -X POST repos/NVIDIA/earth2studio/issues/<PR_NUMBER>/comments \
+  -F "body=@/tmp/pr_comment_body.md" \
+  --jq '.html_url'
+```
+
+#### Comment content template
+
+Adapt to the source type. Include only relevant rows — omit
+satellite-specific rows for gridded sources, omit grid dimensions
+for DataFrame sources, etc.
+
+```markdown
+## Sanity-Check Validation
+
+**Source:** `<ClassName>` — <brief description>
+**Time:** YYYY-MM-DD HH:MM UTC
+**Parameters:** <source-specific context, e.g., tolerance, satellite, product>
+
+| Metric | Value |
+|--------|-------|
+| Output shape / rows | <shape for DataArray, row count for DataFrame> |
+| Variables | <list or count> |
+| Value range | <min>–<max> <unit> |
+| Lat range | <min>–<max>° |
+| Lon range | <min>–<max>° |
+| Missing / NaN | <count or 0> |
+
+*Add source-specific rows as needed (channels, satellites, grid
+dimensions, lead times, etc.)*
+
+**Key findings:**
+- <bullet summarizing physical reasonableness>
+- <bullet on spatial pattern / coverage>
+- <bullet on comparison with reference source, if applicable>
+
+> **TODO:** Attach sanity-check image by editing this comment in
+> the browser.
+
+<details>
+<summary>Sanity-check script (click to expand)</summary>
+
+PASTE THE FULL WORKING SCRIPT HERE — not a truncated excerpt.
+The script must be copy-pasteable and produce the plot end-to-end.
+
+</details>
+```
+
+**Important:** Always paste the **complete, runnable** script — not
+a shortened version. Reviewers should be able to reproduce the plot
+by copying the script directly.
+
+#### Comparison sources
+
+If a **comparison data source** exists for the same physical
+quantity (e.g., UFSObsSat for satellite BT, ERA5 for reanalysis
+fields), include a side-by-side comparison in the same comment.
+Briefly summarize expected differences:
+
+- Raw vs QC-subsetted data (different observation counts)
+- Different spatial coverage or resolution
+- Different time windows or update cadence
+- Unit or coordinate convention differences
+
+#### Finalize
+
+After posting, inform the user of:
+
+1. The comment URL
+2. The local path to the image file for manual attachment
+3. Instructions: *"Edit the comment in your browser and drag the
+   image file into the editor to embed it."*
+
+> **Note:** The sanity-check image and script are for PR review
+> purposes only — they must NOT be committed to the repository.
 
 ---
 
@@ -2192,6 +2336,7 @@ If no review after 5 minutes, inform the user:
 
 > Greptile hasn't posted a review after 5 minutes. This can happen if
 > the review bot is busy or the PR hasn't triggered it. You can:
+>
 > 1. Ask me to check again later
 > 2. Skip this step and proceed without automated review
 > 3. Manually request a review from Greptile on the PR page
@@ -2296,6 +2441,7 @@ Inform the user of the final state:
 
 ## Reminders
 
+- **DO** use the repos local `uv` `.venv` to run python with `uv run python`
 - **DO NOT** commit the sanity-check script or image to the repo
 - **DO** use `loguru.logger` for logging, never `print()`, inside
   `earth2studio/`
@@ -2314,8 +2460,7 @@ Inform the user of the final state:
 - **DO** include reference URLs in class docstrings and lexicon docs
 - **DO** always update CHANGELOG.md under the current unreleased version
 - **DO** use async utilities from `earth2studio/data/utils.py`:
-  `managed_session`, `gather_with_concurrency`, `async_retry`,
-  `ensure_utc`
+  `managed_session`, `gather_with_concurrency`, `async_retry`
 - **DO** use pure async I/O (`fs._cat_file()`, async zarr, etc.)
 - **PREFER** fsspec-compatible filesystems (s3fs, gcsfs, adlfs, etc.)
   over dedicated client libraries

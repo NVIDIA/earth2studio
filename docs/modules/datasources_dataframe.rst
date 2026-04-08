@@ -21,6 +21,7 @@ Data sources that provide tabular data as DataFrames.
       :template: datasource.rst
 
       data.ISD
+      data.JPSS_ATMS
       data.MetOpAMSUA
       data.MetOpAVHRR
       data.RandomDataFrame
