@@ -1248,36 +1248,8 @@ class AsyncTempestExtremes(TempestExtremes):
             timeout_per_task = self.timeout
 
         try:
-            # Wait for all instance tasks to complete
             if hasattr(self, "_instance_tasks") and hasattr(self, "_instance_lock"):
-                with self._instance_lock:
-                    tasks_to_wait = list(self._instance_tasks)
-
-                if tasks_to_wait:
-                    print(
-                        f"AsyncTempestExtremes: waiting for {len(tasks_to_wait)} background tasks to complete..."
-                    )
-
-                    errors = []
-                    for i, future in enumerate(tasks_to_wait):
-                        try:
-                            print(f"  Waiting for task {i+1}/{len(tasks_to_wait)}...")
-                            future.result(timeout=timeout_per_task)
-                            print(
-                                f"  Task {i+1}/{len(tasks_to_wait)} completed successfully"
-                            )
-                        except Exception as e:
-                            print(f"  Task {i+1}/{len(tasks_to_wait)} failed: {e}")
-                            errors.append(e)
-
-                    if errors:
-                        raise ChildProcessError(
-                            f"{len(errors)} background task(s) failed: {errors}"
-                        )
-
-                    print(
-                        f"All {len(tasks_to_wait)} background tasks completed successfully"
-                    )
+                self.wait_for_completion(timeout_per_task=timeout_per_task)
 
             self._cleanup_done = True
 

@@ -1,7 +1,7 @@
 [project]
 name = "earth2studio.recipe.tc_hunt"
 version = "0.1.0"
-description = "global ensemble predictions and tracking tropical cylones in generated fields"
+description = "global ensemble prediction with tropical cylone tracking"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

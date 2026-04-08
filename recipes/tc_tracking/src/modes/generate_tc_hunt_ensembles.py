@@ -245,6 +245,7 @@ def run_inference(
             xx, coords = sg(xx, coords)
 
         iterator = model.create_iterator(xx, coords)
+        stab = torch.ones(mini_batch_size)
 
         # roll out the model and record data as desired
         for _, (xx, coords) in tqdm(
@@ -264,7 +265,7 @@ def run_inference(
                     )
                     break
 
-        if cyclone_tracking and (not stability_check or stab.all()):
+        if cyclone_tracking and stab.all():
             cyclone_tracking(
                 out_file_names=[  # TODO add seed only for FCN3 members, as the seed in AIFS is not exposed. also check for netcdf output
                     f"tracks_{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}_seed_{seed}_bs_{cfg.batch_size}.csv"
