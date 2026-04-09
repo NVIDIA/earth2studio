@@ -121,7 +121,7 @@ class GSISatelliteLexicon(metaclass=LexiconType):
         "amsua": "metop-a,metop-b,metop-c,n15,n16,n17,n18,n19::amsua::ges::Observation",
         "amsub": "n15,n16,n17::amsub::ges::Observation",
         "iasi": "metop-a,metop-b,metop-c::iasi::ges::Observation",
-        "crisfr": "npp,n20::cris-fsr::ges::Observation",
+        "crisfsr": "npp,n20::cris-fsr::ges::Observation",
     }
 
     @classmethod
