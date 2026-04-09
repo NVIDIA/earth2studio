@@ -17,6 +17,7 @@
 import json
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -173,6 +174,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 26.0,
+        topo: torch.Tensor | None = None,
     ):
         super().__init__()
         # Validate and store staged models
@@ -199,6 +201,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         self._input_interp_max_dist_km = input_interp_max_dist_km
         self._conditioning_interp_max_dist_km = conditioning_interp_max_dist_km
+
+        if topo is not None:
+            self.register_buffer("topo", topo)
+        else:
+            self.topo = None
 
         if y_coords is not None and x_coords is not None:
             self.y = y_coords
@@ -557,6 +564,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ]
         )
 
+        if self.topo is not None:
+            topo_field = self.topo.to(device=x.device, dtype=x.dtype)
+            if topo_field.dim() == 2:
+                topo_field = topo_field[None, None, :, :]
+            parts.append(topo_field.expand(b * t, -1, -1, -1))
+
         return torch.cat(parts, dim=1)
 
     @torch.inference_mode()
@@ -669,7 +682,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         for i, (t_cur, t_next) in enumerate(
             zip(t_steps[:-1], t_steps[1:])
         ):  # 0, ..., N-1
-            print(i)
             x_cur = x_next
 
             # select active expert based on t_cur
@@ -697,7 +709,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 active_net_prime = self._select_expert(t_next)
 
                 denoised = active_net_prime(
-                    x_next, t_next, class_labels=class_labels, condition=condition
+                    x_next,
+                    t_next,
+                    class_labels=class_labels,
+                    condition=condition,
                 ).to(self._SAMPLER_DTYPE)
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
@@ -1063,6 +1078,7 @@ class StormScopeGOES(StormScopeBase):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 26.0,
+        topo: torch.Tensor | None = None,
     ):
 
         super().__init__(
@@ -1083,6 +1099,7 @@ class StormScopeGOES(StormScopeBase):
             x_coords=x_coords,
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
+            topo=topo,
         )
         self.means: torch.Tensor = self.means[:, -len(self.variables) :, :, :]
         self.stds: torch.Tensor = self.stds[:, -len(self.variables) :, :, :]
@@ -1274,6 +1291,20 @@ class StormScopeGOES(StormScopeBase):
             conditioning_means = torch.empty(0)
             conditioning_stds = torch.empty(0)
 
+        # Load topography if present in the package (raw, unnormalized).
+        topo_tensor = None
+        try:
+            topo_arr = np.load(package.resolve("topo.npy")).astype(np.float32)
+            topo_arr = topo_arr[
+                anchor_y : anchor_y + image_size[0],
+                anchor_x : anchor_x + image_size[1],
+            ]
+            topo_arr = topo_arr[::spatial_downsample, ::spatial_downsample]
+            topo_tensor = torch.from_numpy(topo_arr)
+            logger.info("Loaded topo.npy from package")
+        except FileNotFoundError:
+            pass
+
         return cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
@@ -1289,6 +1320,7 @@ class StormScopeGOES(StormScopeBase):
             y_coords=y,
             x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
+            topo=topo_tensor,
         )
 
 
@@ -1652,6 +1684,7 @@ class StormScopeNSRDB(StormScopeBase):
         stds: torch.Tensor,
         latitudes: torch.Tensor,
         longitudes: torch.Tensor,
+        first_step_diffusion_model: torch.nn.Module | None = None,
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         invariants: torch.Tensor | None = None,
@@ -1665,6 +1698,9 @@ class StormScopeNSRDB(StormScopeBase):
         input_times: np.ndarray = np.array([np.timedelta64(0, "m")]),
         output_times: np.ndarray = np.array([np.timedelta64(10, "m")]),
         input_interp_max_dist_km: float = 12.0,
+        lead_time_steps: int = 0,
+        bootstrap_lead_time_label: int = 0,
+        autoregressive_lead_time_label: int = 1,
     ):
         variables_arr = np.array(["ghi"] if variables is None else variables)
         conditioning_vars_arr = np.array(
@@ -1710,8 +1746,98 @@ class StormScopeNSRDB(StormScopeBase):
         if valid_mask is not None:
             self.valid_mask = valid_mask.to(self.latitudes.device)
 
+        self.lead_time_steps = int(lead_time_steps)
+        self.bootstrap_lead_time_label = int(bootstrap_lead_time_label)
+        self.autoregressive_lead_time_label = int(autoregressive_lead_time_label)
+        self.first_step_diffusion_model = (
+            first_step_diffusion_model if first_step_diffusion_model is not None else diffusion_model
+        )
+        self.rollout_diffusion_model = diffusion_model
+        self._sigma_min = float(sigma_min)
+        self._sigma_max = float(sigma_max)
         self._zero_seed_pending = False
         self._compute_sincos_latlon()
+
+    def _build_inference_lead_time_label(
+        self, *, b: int, t: int, is_bootstrap: bool, device: torch.device
+    ) -> torch.Tensor | None:
+        """Return per-sample lead-time labels when LT embedding is enabled."""
+        if self.lead_time_steps <= 0:
+            return None
+
+        label = (
+            self.bootstrap_lead_time_label
+            if is_bootstrap
+            else self.autoregressive_lead_time_label
+        )
+        if label < 0 or label >= self.lead_time_steps:
+            logger.warning(
+                "Skipping lead_time_label: label=%s is outside [0, %s).",
+                label,
+                self.lead_time_steps,
+            )
+            return None
+        return torch.full((b * t,), int(label), device=device, dtype=torch.int64)
+
+    @contextmanager
+    def _use_forecast_checkpoint(
+        self,
+        model: nn.Module,
+        sigma_min: float,
+        sigma_max: float,
+        lead_time_label: torch.Tensor | None = None,
+    ) -> Generator[None, None, None]:
+        """Temporarily switch active denoiser checkpoint for one forecast step."""
+        if lead_time_label is not None:
+            class _LeadTimeInjectedModel(nn.Module):
+                def __init__(self, base_model: nn.Module, lt_label: torch.Tensor):
+                    super().__init__()
+                    self.base_model = base_model
+                    self.lt_label = lt_label
+
+                def round_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
+                    return self.base_model.round_sigma(sigma)  # type: ignore[attr-defined]
+
+                def forward(
+                    self,
+                    x: torch.Tensor,
+                    sigma: torch.Tensor,
+                    class_labels: torch.Tensor | None = None,
+                    condition: torch.Tensor | None = None,
+                ) -> torch.Tensor:
+                    return self.base_model(
+                        x,
+                        sigma,
+                        class_labels=class_labels,
+                        condition=condition,
+                        lead_time_label=self.lt_label,
+                    )
+
+            active_model: nn.Module = _LeadTimeInjectedModel(model, lead_time_label)
+        else:
+            active_model = model
+
+        old_model_spec = self.model_spec
+        old_stage_models = self.stage_models
+        old_start_sigma = self.start_sigma
+        old_end_sigma = self.end_sigma
+        try:
+            self.model_spec = [
+                {
+                    "model": active_model,
+                    "sigma_min": float(sigma_min),
+                    "sigma_max": float(sigma_max),
+                }
+            ]
+            self.stage_models = nn.ModuleList([active_model])
+            self.start_sigma = float(sigma_min)
+            self.end_sigma = float(sigma_max)
+            yield
+        finally:
+            self.model_spec = old_model_spec
+            self.stage_models = old_stage_models
+            self.start_sigma = old_start_sigma
+            self.end_sigma = old_end_sigma
 
     def _compute_sincos_latlon(self) -> None:
         lat_rad = torch.deg2rad(self.latitudes)
@@ -1822,8 +1948,6 @@ class StormScopeNSRDB(StormScopeBase):
 
         times = np.array(coords["time"]).astype(np.datetime64)
         lead_times = np.array(coords["lead_time"]).astype(np.timedelta64)
-        print("times: ", times)
-        print("lead_times: ", lead_times)
         # Estimation semantics: compute SZA at the conditioning/GOES time.
         sza_times = np.concatenate([times + lead_times[-1]] * b, axis=0)
         sza_times = np.array(
@@ -1867,8 +1991,10 @@ class StormScopeNSRDB(StormScopeBase):
         if conditioning is not None:
             conditioning = self._sanitize_tensor(conditioning)
 
-        if self._zero_seed_pending:
-            x_norm = x
+        is_bootstrap_step = self._zero_seed_pending
+        if is_bootstrap_step:
+            # Estimation bootstrap must see an all-zero state (matching training mask behavior).
+            x_norm = torch.zeros_like(x)
             self._zero_seed_pending = False
         else:
             x_norm = (x - self.means) / self.stds
@@ -1891,19 +2017,50 @@ class StormScopeNSRDB(StormScopeBase):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
+        lead_time_label = self._build_inference_lead_time_label(
+            b=b, t=t, is_bootstrap=is_bootstrap_step, device=x.device
+        )
         latents = torch.randn(b * t, *x.shape[3:], device=x.device, dtype=x.dtype)
-        print("latents: ", latents.shape, latents.min(), latents.max())
-        print("condition: ", condition.shape, condition.min(), condition.max())
-        out = self._edm_sampler(
-            latents=latents,
-            condition=condition,
-            sigma_min=self.start_sigma,
-            sigma_max=self.end_sigma,
-            **self.sampler_args,
-        ).to(output_dtype)
-        print("out: ", out.shape, out.min(), out.max())
-        print("stds: ", self.stds.shape, self.stds.min(), self.stds.max())
-        print("means: ", self.means.shape, self.means.min(), self.means.max())
+        if is_bootstrap_step:
+            # Only estimate_from_goes() sets this flag; use first-step checkpoint once.
+            with self._use_forecast_checkpoint(
+                self.first_step_diffusion_model,
+                self._sigma_min,
+                self._sigma_max,
+                lead_time_label=lead_time_label,
+            ):
+                out = self._edm_sampler(
+                    latents=latents,
+                    condition=condition,
+                    sigma_min=self._sigma_min,
+                    sigma_max=self._sigma_max,
+                    **self.sampler_args,
+                ).to(output_dtype)
+        else:
+            # AR path: inject lead-time labels when LT embedding is enabled.
+            if lead_time_label is not None:
+                with self._use_forecast_checkpoint(
+                    self.rollout_diffusion_model,
+                    self._sigma_min,
+                    self._sigma_max,
+                    lead_time_label=lead_time_label,
+                ):
+                    out = self._edm_sampler(
+                        latents=latents,
+                        condition=condition,
+                        sigma_min=self._sigma_min,
+                        sigma_max=self._sigma_max,
+                        **self.sampler_args,
+                    ).to(output_dtype)
+            else:
+                # Non-LT path remains unchanged and uses rollout checkpoint/model_spec.
+                out = self._edm_sampler(
+                    latents=latents,
+                    condition=condition,
+                    sigma_min=self._sigma_min,
+                    sigma_max=self._sigma_max,
+                    **self.sampler_args,
+                ).to(output_dtype)
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
         out = out * self.stds + self.means
         out = self._sanitize_tensor(out)
@@ -1979,9 +2136,29 @@ class StormScopeNSRDB(StormScopeBase):
             registry = json.load(f)
         pkg = registry[model_name]
 
-        ckpt = pkg["checkpoints"][0]
-        diffusion = Module.from_checkpoint(package.resolve(ckpt["path"]))
-        logger.info(f"Loaded diffusion model from {ckpt['path']}")
+        ckpt_first = pkg.get("first_step_checkpoint")
+        ckpt_ar = pkg.get("ar_checkpoint")
+        checkpoints = pkg.get("checkpoints", [])
+        if ckpt_first is None and len(checkpoints) > 0:
+            ckpt_first = checkpoints[0]
+        if ckpt_ar is None:
+            if len(checkpoints) > 1:
+                ckpt_ar = checkpoints[1]
+            else:
+                ckpt_ar = ckpt_first
+        if ckpt_first is None or ckpt_ar is None:
+            raise ValueError(
+                "Missing checkpoint metadata in registry. Expected either "
+                "'first_step_checkpoint'/'ar_checkpoint' or at least one entry in 'checkpoints'."
+            )
+
+        diffusion_first = Module.from_checkpoint(package.resolve(ckpt_first["path"]))
+        diffusion_ar = Module.from_checkpoint(package.resolve(ckpt_ar["path"]))
+        logger.info(
+            "Loaded NSRDB checkpoints: first_step=%s, ar=%s",
+            ckpt_first["path"],
+            ckpt_ar["path"],
+        )
 
         image_size = pkg["image_size"]
         spatial_downsample = int(pkg.get("spatial_downsample", 1))
@@ -2066,11 +2243,20 @@ class StormScopeNSRDB(StormScopeBase):
                 f"shape={valid_mask.shape}, valid={valid_fraction:.1%}"
             )
 
-        sigma_min = float(ckpt.get("sigma_min", 0.004))
-        sigma_max = float(ckpt.get("sigma_max", 500.0))
+        # Shared sigma range for all checkpoints/models (first-step and AR).
+        sigma_min = float(
+            pkg.get("sigma_min", ckpt_first.get("sigma_min", ckpt_ar.get("sigma_min", 0.004)))
+        )
+        sigma_max = float(
+            pkg.get("sigma_max", ckpt_first.get("sigma_max", ckpt_ar.get("sigma_max", 500.0)))
+        )
+        lead_time_steps = int(pkg.get("lead_time_steps", 0))
+        bootstrap_label = int(pkg.get("bootstrap_lead_time_label", 0))
+        autoreg_label = int(pkg.get("autoregressive_lead_time_label", 1))
 
         return cls(
-            diffusion_model=diffusion,
+            diffusion_model=diffusion_ar,
+            first_step_diffusion_model=diffusion_first,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
             latitudes=latitudes.to(dtype=torch.float32),
@@ -2090,4 +2276,7 @@ class StormScopeNSRDB(StormScopeBase):
             input_times=input_times,
             output_times=output_times,
             input_interp_max_dist_km=6.0 * spatial_downsample,
+            lead_time_steps=lead_time_steps,
+            bootstrap_lead_time_label=bootstrap_label,
+            autoregressive_lead_time_label=autoreg_label,
         )
