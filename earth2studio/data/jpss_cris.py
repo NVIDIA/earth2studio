@@ -89,6 +89,36 @@ _CRIS_NUM_CHANNELS: int = (
 _CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
 _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
+# GSI sensor_chan numbering for CrIS FSR.
+# GSI uses a contiguous 1-based numbering across all three bands but with a
+# different LWIR channel count (713) than the instrument's physical 717.  The
+# four highest-wavenumber LWIR channels (1095.625 -- 1097.5 cm^-1) are not
+# assimilated by GSI, so MWIR begins at sensor_chan 714 rather than 718.
+#
+#   Band   | JPSS 0-based |  sensor_chan  | Wavenumber (cm^-1)
+#   -------+--------------+--------------+--------------------
+#   LWIR   | 0 .. 712     | 1 .. 713     | 650.0 -- 1095.0
+#   (gap)  | 713 .. 716   | — (unused)   | 1095.625 -- 1097.5
+#   MWIR   | 717 .. 1585  | 714 .. 1582  | 1210.0 -- 1752.5
+#   SWIR   | 1586 .. 2222 | 1583 .. 2219 | 2155.0 -- 2552.5
+#
+# Channels in the gap are assigned sensor_chan 0 (sentinel for "not in GSI").
+_CRIS_GSI_SENSOR_CHAN: np.ndarray = np.empty(
+    _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW + _CRIS_NUM_CHANNELS_SW,
+    dtype=np.uint16,
+)
+# LWIR: first 713 channels → 1..713; last 4 → 0 (sentinel)
+_CRIS_GSI_SENSOR_CHAN[:713] = np.arange(1, 714, dtype=np.uint16)
+_CRIS_GSI_SENSOR_CHAN[713:_CRIS_NUM_CHANNELS_LW] = 0
+# MWIR: 869 channels → 714..1582
+_CRIS_GSI_SENSOR_CHAN[
+    _CRIS_NUM_CHANNELS_LW : _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW
+] = np.arange(714, 714 + _CRIS_NUM_CHANNELS_MW, dtype=np.uint16)
+# SWIR: 637 channels → 1583..2219
+_CRIS_GSI_SENSOR_CHAN[_CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW :] = np.arange(
+    1583, 1583 + _CRIS_NUM_CHANNELS_SW, dtype=np.uint16
+)
+
 # HDF5 dataset paths in SDR files (CrIS-FS-SDR)
 _SDR_GROUP = "All_Data/CrIS-FS-SDR_All"
 _SDR_RADIANCE_KEYS = {
@@ -168,8 +198,14 @@ class JPSS_CRIS:
 
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.JPSS_ATMS`.
-    The ``channel_index`` column uses 0-based sequential indexing across all
-    three bands (LW: 0--716, MW: 717--1585, SW: 1586--2222).
+    The ``channel_index`` column uses the GSI ``sensor_chan`` numbering
+    convention so that channel indices are directly comparable with
+    :class:`~earth2studio.data.UFSObsSat`:
+
+    - **LWIR** channels 0--712 (0-based) → sensor_chan 1--713
+    - **LWIR** channels 713--716 (0-based) → sensor_chan 0 (sentinel; not in GSI)
+    - **MWIR** channels 717--1585 (0-based) → sensor_chan 714--1582
+    - **SWIR** channels 1586--2222 (0-based) → sensor_chan 1583--2219
 
     Data is stored as paired HDF5 files on S3:
 
@@ -686,7 +722,7 @@ class JPSS_CRIS:
                 np.repeat(all_sat_za, n_channels), type=pa.float32()
             ),
             "channel_index": pa.array(
-                np.tile(np.arange(n_channels, dtype=np.uint16), n_total),
+                np.tile(_CRIS_GSI_SENSOR_CHAN, n_total),
                 type=pa.uint16(),
             ),
             "solza": pa.array(np.repeat(all_sol_za, n_channels), type=pa.float32()),

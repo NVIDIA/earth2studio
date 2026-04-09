@@ -144,7 +144,8 @@ def test_jpss_cris_fetch(time, variable):
     assert "channel_index" in df.columns
 
     if not df.empty:
-        assert df["channel_index"].between(0, 2222).all()
+        # GSI sensor_chan: 0 (sentinel for gap channels), 1..2219
+        assert df["channel_index"].between(0, 2219).all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
         # Radiance values should be finite and mostly positive; some
@@ -236,7 +237,8 @@ def test_jpss_cris_call_mock(tmp_path):
     assert not df.empty
     assert list(df.columns) == ds.SCHEMA.names
     assert set(df["variable"].unique()) == {"crisfsr"}
-    assert df["channel_index"].between(0, 2222).all()
+    # GSI sensor_chan: 0 (sentinel for gap channels), 1..2219
+    assert df["channel_index"].between(0, 2219).all()
     expected_rows = n_scan * n_for * n_fov * n_channels
     assert len(df) == expected_rows
     assert df["satellite"].iloc[0] == "n20"

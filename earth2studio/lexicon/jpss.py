@@ -394,9 +394,9 @@ class JPSSCrISLexicon(metaclass=LexiconType):
 
     This lexicon maps the ``crisfsr`` variable to an identity modifier for
     spectral radiance observations in mW/(m^2 sr cm^-1).  Individual channels
-    (0--2222) are distinguished by the ``channel_index`` column of the returned
-    DataFrame, following the same convention used by
-    :class:`~earth2studio.data.JPSS_CRIS`.
+    are distinguished by the ``channel_index`` column of the returned
+    DataFrame, which uses the GSI ``sensor_chan`` numbering convention
+    for compatibility with :class:`~earth2studio.data.UFSObsSat`.
 
     The CrIS instrument is a Fourier-transform spectrometer operating in three
     infrared spectral bands aboard Suomi NPP, NOAA-20 (JPSS-1) and NOAA-21
@@ -409,11 +409,12 @@ class JPSSCrISLexicon(metaclass=LexiconType):
 
     Notes
     -----
-    CrIS Channel Indexing (0-based, sequential):
+    CrIS Channel Indexing (GSI ``sensor_chan`` convention):
 
-    - Channels   0--716  : LWIR band (717 channels)
-    - Channels 717--1585 : MWIR band (869 channels)
-    - Channels 1586--2222: SWIR band (637 channels)
+    - sensor_chan   1--713  : LWIR band (713 of 717 physical channels)
+    - sensor_chan   0       : LWIR edge channels 713--716 (sentinel; not in GSI)
+    - sensor_chan 714--1582 : MWIR band (869 channels)
+    - sensor_chan 1583--2219: SWIR band (637 channels)
 
     References
     ----------
