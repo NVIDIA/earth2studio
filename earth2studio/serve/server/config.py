@@ -450,12 +450,6 @@ def get_config() -> AppConfig:
 
     Returns:
         AppConfig: The application configuration
-
-    Example:
-        >>> from earth2studio.serve.server.config import get_config
-        >>> config = get_config()
-        >>> print(config.redis.host)
-        'localhost'
     """
     return get_config_manager().config
 
@@ -489,11 +483,5 @@ def get_workflow_config(name: str) -> dict[str, Any]:
 
     Returns:
         dict[str, Any]: The workflow configuration
-
-    Example:
-        >>> from earth2studio.serve.server.config import get_workflow_config
-        >>> config = get_workflow_config("deterministic_earth2_workflow")
-        >>> print(config["model_type"])
-        'fcn'
     """
     return get_config_manager().workflow_config.get(name, {})

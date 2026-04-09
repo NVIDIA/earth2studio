@@ -1027,6 +1027,10 @@ class StormScopeGOES(StormScopeBase):
     To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
     As a result, there are portions of the domain which go beyond the extent of the GOES-East data,
     so these portions are masked as invalid (set to NaN).
+
+    Badges
+    ------
+    region:na class:nwc product:sat year:2026 gpu:80gb
     """
 
     def __init__(
@@ -1355,6 +1359,10 @@ class StormScopeMRMS(StormScopeBase):
     To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
     As a result, there are portions of the domain which go beyond the extent of the MRMS data,
     so these portions are masked as invalid (set to NaN).
+
+    Badges
+    ------
+    region:na class:nwc product:radar year:2026 gpu:80gb
     """
 
     _STATE_FIRST = False

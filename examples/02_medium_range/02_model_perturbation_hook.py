@@ -107,7 +107,11 @@ data = GFS()
 
 # Create the IO handler, store in memory
 chunks = {"ensemble": 1, "time": 1, "lead_time": 1}
-io_unperturbed = ZarrBackend(file_name="outputs/05_ensemble.zarr", chunks=chunks)
+io_unperturbed = ZarrBackend(
+    file_name="outputs/05_ensemble.zarr",
+    chunks=chunks,
+    backend_kwargs={"overwrite": True},
+)
 
 
 # %%

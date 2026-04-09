@@ -165,6 +165,13 @@ fuxi = [
     "onnxscript",
     "onnxruntime-gpu>=1.21.0",
 ]
+gencast = [
+    "graphcast",
+    "dm-haiku>=0.0.14",
+    "jax[cuda12]>=0.4.26",
+    "flax>=0.10.6",
+    "dm-tree>=0.1.9",
+]
 graphcast = [
     "graphcast",
     "dm-haiku>=0.0.14",
@@ -250,10 +257,10 @@ da-stormcast = [
 ]
 # All, must not have conflicts
 all = [
-    "earth2studio[data,perturbation,statistics,utils]",
-    "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
+    "earth2studio[data,perturbation,statistics,utils,serve]",
+    "earth2studio[aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast]",
     "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
-    "earth2studio[da-interp,da-stormcast]",
+    "earth2studio[da-interp,da-stormcast,da-healda]",
 ]
 
 # ==== UV configuration ====
@@ -325,7 +332,7 @@ dev = [
     "black==24.1.0",
     "coverage>=6.5.0",
     "interrogate>=1.5.0",
-    "hatch>=1.14.0",
+    "hatch>=1.16.5",
     "mypy",
     "pre-commit",
     "pytest>=6.0.0",
@@ -353,7 +360,8 @@ docs = [
     "sphinx-togglebutton>=0.3.0",
     "myst-parser>=0.18.0",
     "sphinx-favicon>=1.0.1",
-    "nvidia-sphinx-theme"
+    "nvidia-sphinx-theme",
+    "sphinx-badges",
 ]
 
 [tool.hatch.version]
@@ -386,6 +394,7 @@ exclude = []
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
 "serve/server/test/*.py" = ["S101"]
+"recipes/**/test/*.py" = ["S101"]
 
 # ==== Pytest configuration ====
 [tool.pytest.ini_options]
@@ -458,7 +467,7 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 python_version = "3.12"
 packages = ['earth2studio']
 exclude = [
-    'examples', 'test', 'docs', 'serve/test'
+    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test'
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
