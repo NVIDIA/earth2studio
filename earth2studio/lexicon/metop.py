@@ -24,7 +24,7 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
     """Lexicon for MetOp AMSU-A Level 1B brightness temperature data.
 
     This lexicon maps the ``amsua`` variable to an identity modifier for
-    brightness temperature observations in Kelvin.  Individual channels (1-14)
+    brightness temperature observations in Kelvin.  Individual channels (1-15)
     are distinguished by the ``channel_index`` column of the returned DataFrame,
     following the same convention used by :class:`~earth2studio.data.UFSObsSat`.
 
@@ -56,10 +56,11 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
     12        57.29 GHz    Stratosphere (~10 hPa)
     13        57.29 GHz    Upper stratosphere (~5 hPa)
     14        57.29 GHz    Upper stratosphere (~2 hPa)
+    15        89.0 GHz     Surface, precipitation, ice
     ========  ===========  ==========================================
 
-    Channel 15 (89.0 GHz) is excluded because the L1B product marks
-    ~97% of its measurements as missing due to quality filtering.
+    Channel 15 (89.0 GHz) may have a high fraction of missing values
+    in some L1B products due to quality filtering.
 
     Spatial resolution is approximately 48 km at nadir with 30 field-of-view
     positions per scan line. Each scan line takes 8 seconds.
@@ -75,8 +76,8 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
 
     # Number of AMSU-A cross-track field-of-view positions per scan line
     AMSUA_NUM_FOVS = 30
-    # Number of valid AMSU-A channels (excludes channel 15)
-    AMSUA_NUM_CHANNELS = 14
+    # Number of valid AMSU-A channels
+    AMSUA_NUM_CHANNELS = 15
     # AMSU-A channel center frequencies (GHz)
     AMSUA_CHANNEL_FREQS: dict[int, float] = {
         1: 23.8,
@@ -93,6 +94,7 @@ class MetOpAMSUALexicon(metaclass=LexiconType):
         12: 57.29,
         13: 57.29,
         14: 57.29,
+        15: 89.0,
     }
 
     VOCAB: dict[str, str] = {

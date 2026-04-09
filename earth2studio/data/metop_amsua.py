@@ -353,7 +353,6 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
         quality[base : base + _NUM_FOVS] = np.uint16(mdr_qual & 0xFFFF)
 
     # Step 4: Convert radiances to brightness temperatures per channel
-    # Channels 1-14 are valid (channel 15 excluded per lexicon)
     valid_channels = list(range(1, MetOpAMSUALexicon.AMSUA_NUM_CHANNELS + 1))
     n_valid_channels = len(valid_channels)
 
@@ -422,13 +421,13 @@ class MetOpAMSUA:
     23.8 GHz to 89.0 GHz, providing atmospheric temperature profiles from
     the surface to the upper stratosphere (~48 km).
 
-    This data source exposes **14 channels** (channel indices 1 through 14).
-    Channel 15 (89.0 GHz) is excluded because the L1B product marks ~97% of
-    its measurements as missing due to quality filtering.
+    This data source exposes **15 channels** (channel indices 1 through 15).
+    Channel 15 (89.0 GHz) may have a high fraction of missing values in some
+    L1B products due to quality filtering.
 
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
-    The ``channel_index`` column (1--14) identifies each channel.
+    The ``channel_index`` column (1--15) identifies each channel.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
