@@ -71,9 +71,9 @@ _PLATFORM_SAT_MAP: dict[str, str] = {v: k for k, v in _SAT_PLATFORM_MAP.items()}
 
 # Earliest date with CrIS FSR data on S3 per satellite
 _SAT_START_DATE: dict[str, datetime] = {
-    "npp": datetime(2022, 1, 1),
-    "n20": datetime(2022, 1, 1),
-    "n21": datetime(2022, 1, 1),
+    "npp": datetime(2023, 9, 6),
+    "n20": datetime(2023, 9, 6),
+    "n21": datetime(2023, 9, 6),
 }
 
 # ---------------------------------------------------------------------------
@@ -633,8 +633,11 @@ class JPSS_CRIS:
         del granules
 
         # --- Deduplicate at spatial level (before channel expansion) ---
-        # Build a structured key: (time_ms, lat_int, lon_int, satellite)
-        # Using int16 quantization for lat/lon is sufficient (~0.01° precision)
+        # Build a structured key: (time_ms, lat_int, lon_int)
+        # Using int32 quantization for lat/lon gives ~0.01° precision.
+        # Satellite is intentionally excluded — collocated observations
+        # from different platforms at the same (time, lat, lon) are treated
+        # as duplicates to avoid double-counting in assimilation.
         time_as_i8 = all_times.view(np.int64)
         lat_i = (all_lat * 100).astype(np.int32)
         lon_i = (all_lon * 100).astype(np.int32)
@@ -807,7 +810,8 @@ class JPSS_CRIS:
         n_channels = radiance.shape[3]
         n_spatial = n_scan * n_for * n_fov
 
-        # Combine QF3 band flags into single uint16
+        # Combine QF3 band flags into single uint16 for the quality column.
+        # These flags are exposed as metadata; filtering is left to the caller.
         qf_combined = (
             qf3[:, :, :, 0].astype(np.uint16)
             | (qf3[:, :, :, 1].astype(np.uint16) << 4)
