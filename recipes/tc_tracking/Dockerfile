@@ -26,4 +26,4 @@ RUN apt update -y && \
 COPY . /tc_tracking_src
 
 RUN cd /tc_tracking_src && \
-    uv pip install --system --break-system-packages --no-cache-dir .
+    uv pip install --system --break-system-packages --no-cache-dir ".[all]"
