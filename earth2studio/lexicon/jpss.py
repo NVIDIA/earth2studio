@@ -387,3 +387,83 @@ class JPSSATMSLexicon(metaclass=LexiconType):
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in ATMS lexicon")
         return cls.VOCAB[val], lambda x: x
+
+
+class JPSSCrISLexicon(metaclass=LexiconType):
+    """Lexicon for JPSS CrIS (Cross-track Infrared Sounder) FSR data source.
+
+    This lexicon maps the ``crisfsr`` variable to an identity modifier for
+    spectral radiance observations in mW/(m^2 sr cm^-1).  Individual channels
+    (0--2222) are distinguished by the ``channel_index`` column of the returned
+    DataFrame, following the same convention used by
+    :class:`~earth2studio.data.JPSS_CRIS`.
+
+    The CrIS instrument is a Fourier-transform spectrometer operating in three
+    infrared spectral bands aboard Suomi NPP, NOAA-20 (JPSS-1) and NOAA-21
+    (JPSS-2).  In Full Spectral Resolution (FSR) mode the instrument produces
+    2223 channels:
+
+    - **LWIR** (9.14--15.38 µm, 650--1095 cm^-1): 717 channels at 0.625 cm^-1
+    - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
+    - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
+
+    Notes
+    -----
+    CrIS Channel Indexing (0-based, sequential):
+
+    - Channels   0--716  : LWIR band (717 channels)
+    - Channels 717--1585 : MWIR band (869 channels)
+    - Channels 1586--2222: SWIR band (637 channels)
+
+    References
+    ----------
+    - NOAA JPSS CrIS SDR:
+      https://www.star.nesdis.noaa.gov/jpss/CrIS.php
+    - AWS NOAA-20 open data:
+      https://registry.opendata.aws/noaa-nesdis-n20-pds/
+    - CrIS SDR documentation:
+      https://ncc.nesdis.noaa.gov/documents/documentation/viirs-users-guide-tech-report-142a-v1.3.pdf
+    """
+
+    # Number of CrIS spectral channels per band (FSR mode)
+    CRIS_NUM_CHANNELS_LW: int = 717
+    CRIS_NUM_CHANNELS_MW: int = 869
+    CRIS_NUM_CHANNELS_SW: int = 637
+    CRIS_NUM_CHANNELS: int = (
+        CRIS_NUM_CHANNELS_LW + CRIS_NUM_CHANNELS_MW + CRIS_NUM_CHANNELS_SW
+    )  # 2223
+
+    # CrIS spatial geometry
+    CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
+    CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
+
+    # CrIS spectral band wavenumber ranges (cm^-1)
+    CRIS_BAND_RANGES: dict[str, tuple[float, float]] = {
+        "LW": (650.0, 1095.0),
+        "MW": (1210.0, 1750.0),
+        "SW": (2155.0, 2550.0),
+    }
+
+    VOCAB: dict[str, str] = {
+        "crisfsr": "spectralRadiance",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Get CrIS HDF5 dataset key for a standardised variable name.
+
+        Parameters
+        ----------
+        val : str
+            Standardised variable name (``crisfsr``)
+
+        Returns
+        -------
+        tuple[str, Callable]
+            Tuple containing:
+            - HDF5 dataset key for spectral radiance
+            - Modifier function (identity -- radiance in mW/(m^2 sr cm^-1))
+        """
+        if val not in cls.VOCAB:
+            raise KeyError(f"Variable {val} not found in CrIS lexicon")
+        return cls.VOCAB[val], lambda x: x

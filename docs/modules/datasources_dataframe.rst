@@ -22,6 +22,7 @@ Data sources that provide tabular data as DataFrames.
 
       data.ISD
       data.JPSS_ATMS
+      data.JPSS_CRIS
       data.RandomDataFrame
       data.UFSObsConv
       data.UFSObsSat

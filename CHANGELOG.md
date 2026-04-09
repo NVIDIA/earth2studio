@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
 - Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
 - Added `JPSSATMSLexicon` for ATMS variable mappings
+- Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
+- Added `JPSSCrISLexicon` for CrIS FSR variable mappings
 
 ### Changed
 

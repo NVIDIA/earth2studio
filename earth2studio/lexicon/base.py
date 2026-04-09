@@ -239,6 +239,7 @@ E2STUDIO_VOCAB = {
     "viirs15m": "VIIRS M15 - LWIR (10.76 µm)",
     "viirs16m": "VIIRS M16 - LWIR (12.01 µm)",
     "atms": "Advanced Technology Microwave Sounder brightness temperature (K)",
+    "crisfsr": "Cross-track Infrared Sounder Full Spectral Resolution radiance (mW/(m^2 sr cm^-1))",
     "s3sy01aod": "Sentinel-3 SYNERGY aerosol optical depth band 01 (440 nm)",
     "s3sy02aod": "Sentinel-3 SYNERGY aerosol optical depth band 02 (550 nm)",
     "s3sy03aod": "Sentinel-3 SYNERGY aerosol optical depth band 03 (670 nm)",
