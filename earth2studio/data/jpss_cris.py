@@ -183,12 +183,11 @@ class JPSS_CRIS:
         (NOAA-20), ``"n21"`` (NOAA-21), and ``"npp"`` (Suomi NPP).
         By default ``None``, which queries all valid satellites.
     subsample : int, optional
-        Spatial sub-sampling factor applied to the Field-of-Regard (FOR)
-        dimension.  Each CrIS scan line has 30 cross-track FORs; setting
-        ``subsample=N`` selects every *N*-th FOR (``FORs[::N]``), reducing
-        the number of spatial points by approximately that factor while
-        preserving all 9 FOVs within each selected FOR.  By default 1
-        (no sub-sampling).
+        Temporal sub-sampling factor applied at the granule level.  Each
+        CrIS granule covers roughly 32 seconds of observations; setting
+        ``subsample=N`` selects every *N*-th granule from the time-ordered
+        list, reducing data volume by approximately that factor.  By
+        default 1 (no sub-sampling).
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -590,10 +589,14 @@ class JPSS_CRIS:
                 return None
 
             try:
-                return self._decode_hdf5(sdr_path, geo_path, task, self._subsample)
+                return self._decode_hdf5(sdr_path, geo_path, task)
             except Exception:
                 logger.warning(f"Failed to decode {task.sdr_uri}", exc_info=True)
                 return None
+
+        # Sub-sample granules (temporal sub-sampling) before decoding
+        if self._subsample > 1:
+            tasks = tasks[:: self._subsample]
 
         # Decode all granules in parallel using threads
         n_workers = min(len(tasks), self._max_workers) if tasks else 1
@@ -723,7 +726,6 @@ class JPSS_CRIS:
         sdr_path: str,
         geo_path: str,
         task: _CrISAsyncTask,
-        subsample: int = 1,
     ) -> _CrISDecodedGranule | None:
         """Decode a CrIS SDR + GEO HDF5 file pair into compact arrays.
 
@@ -745,9 +747,6 @@ class JPSS_CRIS:
             Local path to the CrIS GEO HDF5 file.
         task : _CrISAsyncTask
             Task metadata (tolerance bounds, satellite, variable, modifier).
-        subsample : int, optional
-            FOR sub-sampling factor.  Selects every *subsample*-th
-            Field-of-Regard along the cross-track dimension, by default 1.
         """
         # IET epoch for vectorized time conversion
         iet_epoch = np.datetime64("1958-01-01T00:00:00", "us")
@@ -797,21 +796,6 @@ class JPSS_CRIS:
 
         # Use the pre-read time but only for valid scans
         for_time = for_time[valid_scans]
-
-        # --- Sub-sample FORs along the cross-track dimension ---
-        if subsample > 1:
-            for_sel = slice(None, None, subsample)  # every Nth FOR
-            rad_lw = rad_lw[:, for_sel]
-            rad_mw = rad_mw[:, for_sel]
-            rad_sw = rad_sw[:, for_sel]
-            qf3 = qf3[:, for_sel]
-            lat = lat[:, for_sel]
-            lon = lon[:, for_sel]
-            sat_za = sat_za[:, for_sel]
-            sat_aza = sat_aza[:, for_sel]
-            sol_za = sol_za[:, for_sel]
-            sol_aza = sol_aza[:, for_sel]
-            for_time = for_time[:, for_sel]
 
         n_scan = len(valid_scans)
 
