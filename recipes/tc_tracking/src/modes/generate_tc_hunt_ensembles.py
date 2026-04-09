@@ -22,6 +22,7 @@ from copy import deepcopy
 
 import numpy as np
 import torch
+from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
@@ -31,7 +32,6 @@ from earth2studio.data import fetch_data
 from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import SphericalGaussian
 from earth2studio.utils.coords import map_coords
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
 from src.data.tc_hunt_file_output import (
@@ -109,10 +109,6 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
         from earth2studio.models.px import FCN3
 
         model_cls = FCN3
-    elif model_name == "sfno":
-        from earth2studio.models.px import SFNO
-
-        model_cls = SFNO
     else:
         raise ValueError(f"model {model_name} not supported")
 
@@ -239,9 +235,6 @@ def run_inference(
         elif cfg.model.lower().startswith("aifs"):
             # no need for perturbation, but also cannot set internal noise state
             pass
-        else:
-            sg = SphericalGaussian(noise_amplitude=0.0005)
-            xx, coords = sg(xx, coords)
 
         iterator = model.create_iterator(xx, coords)
         stab = torch.ones(mini_batch_size)
@@ -259,7 +252,7 @@ def run_inference(
                 stab, _ = stability_check(yy, coy)
                 if not stab.all():
                     ic_mems.append((ic, mems, seed + 1))
-                    print(
+                    logger.warning(
                         f"CAUTION: one of members {mems} became unstable. will re-create with new seed."
                     )
                     break
@@ -313,7 +306,7 @@ def distribute_runs(
     ic_mems = ic_mems[dist.rank * ic_mems_per_rank : (dist.rank + 1) * ic_mems_per_rank]
 
     if len(ic_mems) == 0:
-        print(f"nothing to do for rank {dist.rank}, exiting")
+        logger.info(f"nothing to do for rank {dist.rank}, exiting")
         return None
 
     return ic_mems

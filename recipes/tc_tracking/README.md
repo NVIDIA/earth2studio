@@ -171,6 +171,18 @@ ensemble prediction with either FCN3 or AIFS-ENS and track
 tropical cyclones within the predictions. A full example can
 be found at `cfg/helene.yaml`.
 
+> [!Note]
+> The pipeline currently supports probabilistic models
+> (FCN3, AIFS-ENS) that generate ensemble spread
+> internally. Deterministic models can be added as well,
+> but require an additional perturbation method to produce
+> meaningful ensemble members. When adding a deterministic
+> model, register it in `generate_tc_hunt_ensembles.py`
+> alongside the existing model branches **and** add a
+> corresponding perturbation step in the
+> `# set random state or apply perturbation` section of the
+> same file.
+
 **Basics:**
 
 ```yaml

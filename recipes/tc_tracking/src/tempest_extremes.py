@@ -27,6 +27,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from loguru import logger
 from physicsnemo.distributed import DistributedManager
 from rich.console import Console
 from rich.table import Table
@@ -614,7 +615,7 @@ class TempestExtremes:
         finally:
             self.tidy_up(insies, outsies)
 
-        print(f"took {(time.time() - then):.1f}s to track cyclones")
+        logger.info(f"took {(time.time() - then):.1f}s to track cyclones")
 
     def __call__(self, out_file_names: list[str] | None = None) -> None:
         """Make the class callable to execute cyclone tracking.
@@ -813,13 +814,15 @@ class TempestExecutorManager:
                     try:
                         future.result(timeout=timeout_per_task)
                     except ChildProcessError as e:
-                        print(
+                        logger.error(
                             f"Background TempestExtremes task {i+1} failed "
                             f"with ChildProcessError: {e}"
                         )
                         child_process_errors.append(e)
                     except Exception as e:
-                        print(f"Background TempestExtremes task {i+1} failed: {e}")
+                        logger.error(
+                            f"Background TempestExtremes task {i+1} failed: {e}"
+                        )
                 mgr._executor.shutdown(wait=True)
                 mgr._executor = None
                 mgr._tasks.clear()
@@ -954,7 +957,7 @@ class AsyncTempestExtremes(TempestExtremes):
 
         running_tasks = mgr.task_count
         if running_tasks >= 3:
-            print(
+            logger.warning(
                 f"Warning: {running_tasks} TempestExtremes tasks already "
                 "running. Consider waiting for some to complete."
             )
@@ -999,17 +1002,19 @@ class AsyncTempestExtremes(TempestExtremes):
             tasks_to_wait = list(self._instance_tasks)
 
         if tasks_to_wait:
-            print(
+            logger.info(
                 f"Waiting for {len(tasks_to_wait)} TempestExtremes tasks to complete..."
             )
 
             errors = []
             for i, future in enumerate(tasks_to_wait):
                 try:
-                    print(f"Waiting for task {i+1}/{len(tasks_to_wait)} to complete...")
+                    logger.info(
+                        f"Waiting for task {i+1}/{len(tasks_to_wait)} to complete..."
+                    )
                     future.result(timeout=timeout_per_task)
                 except Exception as e:
-                    print(f"  Task {i+1}/{len(tasks_to_wait)} failed: {e}")
+                    logger.error(f"Task {i+1}/{len(tasks_to_wait)} failed: {e}")
                     errors.append(e)
 
             if errors:
@@ -1017,7 +1022,7 @@ class AsyncTempestExtremes(TempestExtremes):
                     f"{len(errors)} background task(s) failed: {errors}"
                 )
         else:
-            print("No background tasks to wait for.")
+            logger.info("No background tasks to wait for.")
 
     def _process_single_member(
         self, ins: str, outs: str, node_file: str, track_file: str
@@ -1047,7 +1052,7 @@ class AsyncTempestExtremes(TempestExtremes):
             then = time.time()
             self.detect_and_stitch(ins, outs, node_file, track_file)
             if self.print_te_output:
-                print(
+                logger.info(
                     f"took {(time.time() - then):.1f}s to track cyclones for one member"
                 )
 
@@ -1104,7 +1109,7 @@ class AsyncTempestExtremes(TempestExtremes):
                 try:
                     future.result()
                 except Exception as e:
-                    print(f"Member {i+1} processing failed: {e}")
+                    logger.error(f"Member {i+1} processing failed: {e}")
                     exceptions.append((i, e))
 
             if exceptions:
@@ -1115,7 +1120,7 @@ class AsyncTempestExtremes(TempestExtremes):
         finally:
             self.tidy_up(insies, outsies)
 
-        print(
+        logger.info(
             f"took {(time.time() - then):.1f}s to track cyclones for all "
             f"{n_members} members"
         )

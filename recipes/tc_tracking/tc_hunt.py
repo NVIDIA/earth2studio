@@ -24,6 +24,7 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_DYNAMIC", "FALSE")
 
 import hydra  # noqa: E402
+from loguru import logger  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
 from src.modes.generate_tc_hunt_ensembles import generate_ensemble  # noqa: E402
 
@@ -38,7 +39,7 @@ def tc_hunt(cfg: DictConfig) -> None:
     else:
         raise ValueError(f'invalid mode: {cfg.mode}, choose from "generate_ensemble"')
 
-    print("finished **yaaayyyy**")
+    logger.success("finished **yaaayyyy**")
 
     return
 
