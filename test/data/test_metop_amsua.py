@@ -262,8 +262,8 @@ def test_radiance_to_bt():
 
 
 def test_parse_native_amsua():
-    n_channels = MetOpAMSUALexicon.AMSUA_NUM_CHANNELS  # 14 (ch15 excluded)
-    # Minimal: MPHR + 1 MDR = 30 FOVs × 14 channels = 420 rows
+    n_channels = MetOpAMSUALexicon.AMSUA_NUM_CHANNELS  # 15 channels
+    # Minimal: MPHR + 1 MDR = 30 FOVs × 15 channels = 450 rows
     data = _build_native_file(n_scans=1)
     df = _parse_native_amsua(data)
     assert len(df) == _NUM_FOVS * n_channels
