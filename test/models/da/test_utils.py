@@ -100,6 +100,7 @@ class TestFilterTimeRange:
             np.datetime64("2024-01-01T12:00:00"),
             datetime(2024, 1, 1, 12, 0, 0),
             "2024-01-01T12:00:00",
+            np.array(["2024-01-01T12:00:00"], dtype=np.datetime64),
         ],
     )
     def test_filter_time_range_pandas(self, sample_pandas_df, request_time):
@@ -108,7 +109,11 @@ class TestFilterTimeRange:
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 1
-        assert result.iloc[0]["time"] == pd.Timestamp(request_time)
+        if isinstance(request_time, (list, np.ndarray)):
+            expected_time = pd.Timestamp(request_time[0])
+        else:
+            expected_time = pd.Timestamp(request_time)
+        assert result.iloc[0]["time"] == expected_time
 
     @pytest.mark.parametrize(
         "request_time",

@@ -154,6 +154,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         None.
     num_interp_steps : int, optional
         Number of interpolation steps to perform between forecast steps, by default 6
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:40gb
     """
 
     def __init__(

@@ -3,22 +3,23 @@
 Testing is a core part of Earth2Studio development and we have strict requirements for
 unit testing any new feature.
 Presently we expect new functionality to have over 90% coverage within reason.
-The core tool used for testing in Earth2Studio is [PyTest](https://docs.pytest.org/en/8.2.x/)
+The core tool used for testing in Earth2Studio is [pytest](https://docs.pytest.org/en/8.2.x/)
 and all unit tests can be found inside the [test](https://github.com/NVIDIA/earth2studio/tree/main/test)
 folder.
-Ensure that developer dependencies are install as outline in the [developer overview](#developer_overview)
-section.
+Ensure that developer dependencies are installed as outlined in {ref}`developer_overview`.
+Run `make` targets below from the repository root (the directory that contains `Makefile`
+and `pyproject.toml`).
 
-## PyTest
+## pytest
 
 Earth2Studio uses [tox](https://tox.wiki/) to manage test environments and dependencies.
 Many unit tests, particularly ones for data sources, have [timeout limits](https://github.com/pytest-dev/pytest-timeout)
 and are allowed to fail using the [xfail](https://docs.pytest.org/en/6.2.x/skipping.html#xfail-mark-test-functions-as-expected-to-fail)
 decorator.
-It is normal for some tests to fail, particularly for machines with slower internet
-connections.
-Users should always look at the test summary to understand which tests produced
-an error but did not fail.
+It is normal for some tests to time out or be skipped, particularly on machines with slower
+internet connections.
+Always read the test summary to see which tests **failed**, which **errored**, and which
+were **xfail** (expected failure).
 
 ### Test Environments
 
@@ -30,6 +31,7 @@ Earth2Studio organizes tests into separate tox environments based on functionali
 - **`test-stats`** - Statistical method tests (requires `statistics` and `utils` extras)
 - **`test-px-models`** - Prognostic model tests (requires `all` extra)
 - **`test-dx-models`** - Diagnostic model tests (requires `all` extra)
+- **`test-da-models`** - Data assimilation model tests (requires `all` extra)
 - **`test-serve`** - Serve/API tests (requires `serve` extra)
 
 ### Running Tests with Tox
@@ -46,6 +48,7 @@ make pytest TOX_ENV=test-data
 # Run model tests
 make pytest TOX_ENV=test-px-models
 make pytest TOX_ENV=test-dx-models
+make pytest TOX_ENV=test-da-models
 ```
 
 You can also run tox directly:
@@ -58,19 +61,19 @@ uvx tox -c tox.ini run -e test-data
 uvx tox -c tox.ini run -e test-data -- -v
 ```
 
-### Running Tests Directly with Pytest
+### Running Tests Directly with pytest
 
-For quick iteration during development, you can run pytest directly:
+For rapid iteration during development, you can run pytest directly:
 
 ```bash
 # Quick test suite (skips slow tests)
-pytest test/
+uv run pytest test/
 
 # Standard test suite (includes slow tests)
-pytest --slow test/
+uv run pytest --slow test/
 
 # Run specific test module
-pytest test/data/test_gfs.py
+uv run pytest test/data/test_gfs.py
 ```
 
 :::{note}
@@ -89,28 +92,11 @@ debugging and allows parallel execution. Each job only runs when relevant files 
 - **`test-stats`** - Runs when statistics code or tests change
 - **`test-px-models`** - Runs when prognostic model code or tests change
 - **`test-dx-models`** - Runs when diagnostic model code or tests change
-- **`test-serve`** - Runs when serve/API code or tests change
+- **`test-da-models`** - Runs when data assimilation model code or tests change
+- **`test-serve`** - Runs when serve, API code, or tests change
 
 To force all tests to run regardless of changes, set the `CI_PYTEST_ALL` environment variable
 to `1`, `true`, `yes`, or `on`.
-
-#### CI Model Package Cache
-
-In the CI pipeline a NFS mounted folder is used as a pre-cached store of all
-pre-trained model checkpoint files (automodels) so each pipeline does not need to rerun
-the download.
-The cache folder is managed internally by the developers.
-This should reflect a local cache if a user was to fetch and load all possible models.
-The point of truth for generating this cache of model checkpoints **should** always be
-`test/models/test_auto_models.py`.
-This test all listed auto-models and create a `./cache` folder with the following
-command:
-
-```bash
-pytest --model-download -s test/models/test_auto_models.py
-
-ls -l ./cache
-```
 
 ## Coverage
 
@@ -139,7 +125,7 @@ Tests are always evolving based on new errors discovered and features added.
 Right now the best way to contribute unit tests for a new feature is to modify the tests
 for a feature of a similar type.
 For example, for a new data source, copy and modify the tests for say GFS or ARCO.
-For additional information about the tests, reach out with an issue and the developers can
+For additional information about the tests, open an issue and the developers can
 provide more information.
 
 If you are contributing a model, be sure to make the developers aware of this to

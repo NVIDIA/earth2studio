@@ -38,7 +38,7 @@ io = NetCDF4Backend("output.nc")
 run(["2024-01-01"], 10, model, ds, io)
 ```
 
-## About
+## Getting Started
 
 - [Install](about/install)
 - [Introduction](about/intro)
@@ -48,7 +48,7 @@ run(["2024-01-01"], 10, model, ds, io)
 
 - [Prognostic Models](components/prognostic)
 - [Diagnostic Models](components/diagnostic)
-- [Datasources](components/datasources)
+- [Data Sources](components/datasources)
 - [Perturbations](components/perturbation)
 - [Statistics](components/statistics)
 - [IO Backends](components/io)
@@ -75,57 +75,12 @@ run(["2024-01-01"], 10, model, ds, io)
 - [Frequently Asked Questions](support/faq)
 
 ```{toctree}
-:caption: About
-:maxdepth: 1
+:maxdepth: 2
 :hidden:
 
-about/install
-about/intro
-about/data
-
-```
-
-```{toctree}
-:caption: Core Components
-:maxdepth: 1
-:hidden:
-
-components/prognostic
-components/diagnostic
-components/datasources
-components/perturbation
-components/io
-components/statistics
-```
-
-```{toctree}
-:caption: Advanced Usage
-:maxdepth: 1
-:hidden:
-
-advanced/batch
-advanced/auto
-advanced/lexicon
-```
-
-```{toctree}
-:caption: Developer Guide
-:maxdepth: 1
-:hidden:
-
-developer/overview
-developer/dependency
-developer/style
-developer/documentation
-developer/testing
-developer/build
-developer/recipes
-```
-
-```{toctree}
-:caption: Support
-:maxdepth: 1
-:hidden:
-support/troubleshooting
-support/faq
+about/index
+components/index
+advanced/index
+developer/index
+support/index
 ```

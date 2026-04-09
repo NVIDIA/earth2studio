@@ -7,7 +7,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0a0] - 2026-03-xx
+## [0.14.0a0] - 2026-04-xx
+
+### Added
+
+- Added GenCast 1 degree Mini model
+- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
+- Added `CAMSGlobalLexicon` for CAMS variable mappings (AOD, total column gases)
+- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
+- Added `JPSSATMSLexicon` for ATMS variable mappings
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.13.0] - 2026-03-20
 
 ### Added
 
@@ -25,7 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
 - Added StormCast SDA model
-- Adding Beta serve utils with inference server and client implementations
+- Added beta serve utils with inference server and client implementations
+- Added HealPix data assimilation (HealDA) model
+- Added `energy_score` metric for multivariate ensemble forecast verification
 
 ### Changed
 
@@ -35,8 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle infill to mixture of model checkpoints
 - Updated GraphCastOperational and GraphCastSmall latitude input / output to be [90,-90]
 - Updated GraphCast models to support multiple time inputs, multiple times will be looped not batched
-
-### Deprecated
+- Renamed `tolerance` parameter in ISD data source to `time_tolerance`
 
 ### Removed
 
@@ -48,8 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug in cbottle datasource resulting identical samples for multiple samples
 - Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
 - Bug in spherical perturbations which did not use lmax from the SHT transform
-
-### Security
 
 ### Dependencies
 

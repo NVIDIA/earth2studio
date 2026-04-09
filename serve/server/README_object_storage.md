@@ -188,7 +188,7 @@ When object storage is enabled, the workflow result metadata includes additional
 The Python client SDK handles storage type automatically:
 
 ```python
-from api_client.e2client import RemoteEarth2Workflow
+from earth2studio.serve.client.e2client import RemoteEarth2Workflow
 
 workflow = RemoteEarth2Workflow(api_url, workflow_name="deterministic_earth2_workflow")
 
@@ -202,7 +202,7 @@ ds = result.as_dataset()  # Automatically fetches from S3 if configured
 The `Earth2StudioClient.download_result()` method handles both storage types:
 
 ```python
-from api_client.client import Earth2StudioClient, InferenceRequest
+from earth2studio.serve.client.client import Earth2StudioClient, InferenceRequest
 
 client = Earth2StudioClient(api_url, workflow_name="deterministic_earth2_workflow")
 request_result = client.run_inference_sync(
@@ -243,7 +243,7 @@ The client provides an fsspec mapper for opening Zarr stores directly:
 
 ```python
 import xarray as xr
-from api_client.object_storage import create_cloudfront_mapper
+from earth2studio.serve.client.fsspec_utils import create_cloudfront_mapper
 
 # Create a mapper from the signed URL
 mapper = create_cloudfront_mapper(request_result.signed_url, zarr_path="results.zarr")

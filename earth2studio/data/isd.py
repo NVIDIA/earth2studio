@@ -22,7 +22,7 @@ import pathlib
 import shutil
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import nest_asyncio
 import numpy as np
@@ -37,6 +37,8 @@ from earth2studio.data.utils import (
     prep_data_inputs,
 )
 from earth2studio.lexicon import ISDLexicon
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeTolerance
 
 
 @dataclass
@@ -56,9 +58,10 @@ class ISD:
     stations : list[str]
         Station IDs as the concatenation of USAF (6 chars) and WBAN (5 digits) to
         attempt to fetch data from.
-    tolerance : timedelta | np.timedelta64, optional
-        Time tolerance; nearest row within +/- tolerance is used per request, by default
-        np.timedelta64(0)
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default np.timedelta64(10, 'm')
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -94,8 +97,13 @@ class ISD:
 
         # Bay area, lat lon bounding box (lat min, lon min, lat max, lon max)
         stations = ISD.get_stations_bbox((36, -124, 40, -120))
-        ds = ISD(stations, tolerance=timedelta(hours=2))
+        ds = ISD(stations, time_tolerance=timedelta(hours=2))
         df = ds(datetime(2024, 1, 1, 20), ["t2m", "ws10m"])
+
+    Badges
+    ------
+    region:na dataclass:observation product:wind product:precip product:temp
+    product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.isd"
@@ -128,17 +136,16 @@ class ISD:
     def __init__(
         self,
         stations: list[str],
-        tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
     ):
         self.stations = stations
-        # Normalize tolerance to python timedelta
-        if isinstance(tolerance, np.timedelta64):
-            self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
-        else:
-            self.tolerance = tolerance
+        # Normalize tolerance to (lower, upper) python timedelta bounds
+        lower, upper = normalize_time_tolerance(time_tolerance)
+        self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
+        self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
         self._cache = cache
         self._tmp_cache_hash: str | None = None
         self._verbose = verbose
@@ -270,8 +277,8 @@ class ISD:
                 df = station_year_dfs[index]
                 index += 1
 
-                tmin = dt - self.tolerance
-                tmax = dt + self.tolerance
+                tmin = dt + self._tolerance_lower
+                tmax = dt + self._tolerance_upper
 
                 if df.empty:
                     continue

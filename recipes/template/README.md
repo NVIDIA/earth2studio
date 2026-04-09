@@ -53,11 +53,11 @@ Run the template
 uv run python main.py
 
 >> Hello
->> 0.12.1
+>> 0.13.0
 
 uv run python main.py print.hello False
 
->> 0.12.1
+>> 0.13.0
 ```
 
 ## Documentation

@@ -96,6 +96,10 @@ class GEFS_FX:
     - https://registry.opendata.aws/noaa-gefs/
     - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
     - https://www.nco.ncep.noaa.gov/pmb/products/gens/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     GEFS_BUCKET_NAME = "noaa-gefs-pds"
@@ -654,6 +658,10 @@ class GEFS_FX_721x1440(GEFS_FX):
     - https://registry.opendata.aws/noaa-gefs/
     - https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
     - https://www.nco.ncep.noaa.gov/pmb/products/gens/
+
+    Badges
+    ------
+    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
     """
 
     GEFS_LAT = np.linspace(90, -90, 721)

@@ -262,12 +262,16 @@ async def test_ifs_async_fetch():
     ds_ifs_fx = IFS_FX(cache=False)
     ds_ifs_ens = IFS_ENS(cache=False, member=1)
     ds_ifs_ens_fx = IFS_ENS_FX(cache=False, member=1)
+    ds_aifs_fx = AIFS_FX(cache=False)
+    ds_aifs_ens_fx = AIFS_ENS_FX(cache=False, member=1)
 
-    da_ifs, da_fx, da_ens, da_ens_fx = await asyncio.gather(
+    da_ifs, da_fx, da_ens, da_ens_fx, da_aifs_fx, da_aifs_ens_fx = await asyncio.gather(
         ds_ifs.fetch(t, variable),
         ds_ifs_fx.fetch(t, lt, variable),
         ds_ifs_ens.fetch(t, variable),
         ds_ifs_ens_fx.fetch(t, lt, variable),
+        ds_aifs_fx.fetch(t, lt, variable),
+        ds_aifs_ens_fx.fetch(t, lt, variable),
     )
 
     # IFS (analysis): [time, variable, lat, lon]
@@ -299,6 +303,22 @@ async def test_ifs_async_fetch():
     assert da_ens_fx.shape[3] == 721
     assert da_ens_fx.shape[4] == 1440
     assert not np.isnan(da_ens_fx.values).any()
+
+    # AIFS_FX (forecast): [time, lead_time, variable, lat, lon]
+    assert da_aifs_fx.shape[0] == 1
+    assert da_aifs_fx.shape[1] == 1
+    assert da_aifs_fx.shape[2] == 1
+    assert da_aifs_fx.shape[3] == 721
+    assert da_aifs_fx.shape[4] == 1440
+    assert not np.isnan(da_aifs_fx.values).any()
+
+    # AIFS_ENS_FX (forecast): [time, lead_time, variable, lat, lon]
+    assert da_aifs_ens_fx.shape[0] == 1
+    assert da_aifs_ens_fx.shape[1] == 1
+    assert da_aifs_ens_fx.shape[2] == 1
+    assert da_aifs_ens_fx.shape[3] == 721
+    assert da_aifs_ens_fx.shape[4] == 1440
+    assert not np.isnan(da_aifs_ens_fx.values).any()
 
 
 @pytest.mark.timeout(30)

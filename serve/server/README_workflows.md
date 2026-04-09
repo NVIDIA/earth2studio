@@ -281,7 +281,7 @@ class DeterministicWorkflowParameters(WorkflowParameters):
     # Model selection
     model_type: str = Field(
         default="dlwp",
-        description="Prognostic model type (dlwp, fcn)"
+        description="Prognostic model type (dlwp, fcn, fcn3)"
     )
 
     # Data source
@@ -358,7 +358,7 @@ class DeterministicWorkflow(Workflow):
             from earth2studio import run
             from earth2studio.data import GFS
             from earth2studio.io import ZarrBackend
-            from earth2studio.models.px import DLWP, FCN
+            from earth2studio.models.px import DLWP, FCN, FCN3
 
             # Load model based on parameter
             if parameters.model_type.lower() == "dlwp":
@@ -367,6 +367,9 @@ class DeterministicWorkflow(Workflow):
             elif parameters.model_type.lower() == "fcn":
                 package = FCN.load_default_package()
                 model = FCN.load_model(package)
+            elif parameters.model_type.lower() == "fcn3":
+                package = FCN3.load_default_package()
+                model = FCN3.load_model(package)
 
             # Set up data source
             data = GFS()
@@ -448,7 +451,8 @@ curl -X GET "http://localhost:8000/workflows"
 ```json
 {
   "workflows": {
-    "deterministic_workflow": "Earth2Studio deterministic forecast with visualization"
+    "deterministic_workflow": "Earth2Studio deterministic forecast with visualization",
+    "ensemble_workflow": "Earth2Studio ensemble forecast workflow with perturbation and visualization"
   }
 }
 ```
@@ -871,5 +875,6 @@ You now have a complete workflow system that can:
 
 ---
 
-* For more examples, check out the `deterministic_workflow.py`, `example_user_workflow.py`, and
+* For more examples, check out the `deterministic_workflow.py`,
+  `ensemble_workflow.py`, `example_user_workflow.py`, and
   workflow discovery documentation in this repository.*

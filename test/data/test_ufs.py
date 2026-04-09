@@ -39,12 +39,12 @@ from earth2studio.data import UFSObsConv, UFSObsSat
 @pytest.mark.parametrize(
     "variable, tol",
     [
-        (["t2m"], timedelta(hours=1)),
-        (["u10m", "v10m"], timedelta(hours=2)),
+        (["t"], timedelta(hours=1)),
+        (["u", "v"], timedelta(hours=2)),
     ],
 )
 def test_ufsobsconv_fetch(time, variable, tol):
-    ds = UFSObsConv(tolerance=tol, cache=False, verbose=False)
+    ds = UFSObsConv(time_tolerance=tol, cache=False, verbose=False)
     df = ds(time, variable)
 
     assert list(df.columns) == ds.SCHEMA.names
@@ -75,11 +75,11 @@ def test_ufsobsconv_fetch(time, variable, tol):
         datetime(year=2024, month=1, day=1, hour=0),
     ],
 )
-@pytest.mark.parametrize("variable", [["t2m"]])
+@pytest.mark.parametrize("variable", [["t"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_ufsobsconv_cache(time, variable, cache):
     ds = UFSObsConv(
-        tolerance=timedelta(hours=1),
+        time_tolerance=timedelta(hours=1),
         cache=cache,
         verbose=False,
     )
@@ -105,19 +105,19 @@ def test_ufsobsconv_schema_fields():
     time = datetime(year=2024, month=1, day=1, hour=0)
     tol = timedelta(hours=1)
 
-    ds = UFSObsConv(tolerance=tol, cache=False, verbose=False)
+    ds = UFSObsConv(time_tolerance=tol, cache=False, verbose=False)
 
-    df_full = ds(time, ["t2m"], fields=None)
+    df_full = ds(time, ["t"], fields=None)
     assert list(df_full.columns) == ds.SCHEMA.names
 
     subset_fields = ["time", "lat", "lon", "observation", "variable"]
-    df_subset = ds(time, ["t2m"], fields=subset_fields)
+    df_subset = ds(time, ["t"], fields=subset_fields)
     assert list(df_subset.columns) == subset_fields
 
 
 def test_ufsobsconv_exceptions():
     ds = UFSObsConv(
-        tolerance=timedelta(hours=1),
+        time_tolerance=timedelta(hours=1),
         cache=False,
         verbose=False,
     )
@@ -128,7 +128,7 @@ def test_ufsobsconv_exceptions():
     with pytest.raises(KeyError):
         ds(
             datetime(2024, 1, 1),
-            ["t2m"],
+            ["t"],
             fields=["observation", "variable", "invalid_field"],
         )
 
@@ -154,11 +154,26 @@ def test_ufsobsconv_exceptions():
 
 
 def test_ufsobsconv_tolerance_conversion():
-    ds_timedelta = UFSObsConv(tolerance=timedelta(hours=1), cache=False, verbose=False)
-    assert ds_timedelta.tolerance == timedelta(hours=1)
+    ds_timedelta = UFSObsConv(
+        time_tolerance=timedelta(hours=1), cache=False, verbose=False
+    )
+    assert ds_timedelta._tolerance_lower == timedelta(hours=-1)
+    assert ds_timedelta._tolerance_upper == timedelta(hours=1)
 
-    ds_numpy = UFSObsConv(tolerance=np.timedelta64(1, "h"), cache=False, verbose=False)
-    assert ds_numpy.tolerance == timedelta(hours=1)
+    ds_numpy = UFSObsConv(
+        time_tolerance=np.timedelta64(1, "h"), cache=False, verbose=False
+    )
+    assert ds_numpy._tolerance_lower == timedelta(hours=-1)
+    assert ds_numpy._tolerance_upper == timedelta(hours=1)
+
+    # Asymmetric tolerance tuple
+    ds_asym = UFSObsConv(
+        time_tolerance=(np.timedelta64(-3, "h"), np.timedelta64(1, "h")),
+        cache=False,
+        verbose=False,
+    )
+    assert ds_asym._tolerance_lower == timedelta(hours=-3)
+    assert ds_asym._tolerance_upper == timedelta(hours=1)
 
 
 @pytest.mark.slow
@@ -176,10 +191,13 @@ def test_ufsobsconv_tolerance_conversion():
     [
         (["atms"], ["npp"], timedelta(hours=1)),
         (["mhs"], ["metop-a", "metop-b"], timedelta(hours=2)),
+        (["airs"], ["aqua"], timedelta(hours=1)),
     ],
 )
 def test_ufsobssat_fetch(time, variable, satellites, tol):
-    ds = UFSObsSat(tolerance=tol, satellites=satellites, cache=False, verbose=False)
+    ds = UFSObsSat(
+        time_tolerance=tol, satellites=satellites, cache=False, verbose=False
+    )
     df = ds(time, variable)
 
     assert list(df.columns) == ds.SCHEMA.names
@@ -216,7 +234,7 @@ def test_ufsobssat_fetch(time, variable, satellites, tol):
 @pytest.mark.parametrize("cache", [True, False])
 def test_ufsobssat_cache(time, variable, cache):
     ds = UFSObsSat(
-        tolerance=timedelta(hours=1),
+        time_tolerance=timedelta(hours=1),
         satellites=["npp"],
         cache=cache,
         verbose=False,
@@ -242,7 +260,7 @@ def test_ufsobssat_schema_fields():
     time = datetime(year=2024, month=1, day=1, hour=0)
     tol = timedelta(hours=1)
 
-    ds = UFSObsSat(tolerance=tol, satellites=["npp"], cache=False, verbose=False)
+    ds = UFSObsSat(time_tolerance=tol, satellites=["npp"], cache=False, verbose=False)
 
     df_full = ds(time, ["atms"], fields=None)
     assert list(df_full.columns) == ds.SCHEMA.names
@@ -254,7 +272,7 @@ def test_ufsobssat_schema_fields():
 
 def test_ufsobssat_exceptions():
     ds = UFSObsSat(
-        tolerance=timedelta(hours=1),
+        time_tolerance=timedelta(hours=1),
         satellites=["npp"],
         cache=False,
         verbose=False,

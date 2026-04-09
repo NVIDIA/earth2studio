@@ -7,25 +7,24 @@ and familiarity with the codebase.
 :::{admonition} Warning
 :class: warning
 
-Earth2Studio recipes are in beta, thus may dramatically change or get moved.
+Earth2Studio recipes are in beta and can change dramatically or be moved.
 :::
 
 ## What is a Recipe?
 
 While examples demonstrate how to use features, recipes focus on how to solve specific
 problems.
-Recipes are not intended to be turnkey solutions with every potential option; rather
-reference or boilerplate projects for different common use cases.
-Here's how they differ:
+Recipes are not intended to be turnkey solutions with every potential option; rather,
+they are reference or boilerplate projects for different common use cases.
 
-### Examples
+Here's how examples differ:
 
-- Self-contained [JupyText](https://jupytext.readthedocs.io/en/latest/) format
+- Self-contained [Jupytext](https://jupytext.readthedocs.io/en/latest/) format
 - Focus on demonstrating specific features
-- Include graphical output for sphinx gallery
-- Requirements must be part of earth2studio + docs dep group
+- Include graphical output for Sphinx Gallery
+- Required to be part of earth2studio + docs dep group
 - Single GPU, A100 (40G) max resource requirement
-- Runs in less than 10 minutes
+- Run in less than 10 minutes
 
 ### Recipes
 
@@ -36,13 +35,13 @@ Here's how they differ:
 - Requirements provided in `pyproject.toml`
 - May require more specific hardware or system dependencies
 
-See {ref}`examples_userguide` for more information on creating an example.
+Refer to {ref}`examples_userguide` for more information on creating an example.
 
 ## Recipe Structure
 
-The [recipe template](https://github.com/NVIDIA/earth2studio/recipes/template/),
-defines what a recipe should contain and look like including folders, README sections,
-support files.
+The [recipe template](https://github.com/NVIDIA/earth2studio/recipes/template/)
+defines what a recipe should contain and look like, including folders, README sections,
+and support files.
 Recipes have the following structure:
 
 ```text
@@ -64,39 +63,39 @@ recipes/
 
 1. **Code Standards**
 
-    - Must follow all pre-commit standards and code practices
-    - Must include end-to-end tests validating functionality
-    - **No** images, data files, or other file formats allowed in the repo, can link to
-        externally hosted. Earth2Studio has a [HuggingFace assets dataset](https://huggingface.co/datasets/nvidia/earth2studio-assets)
+    - Must follow all pre-commit standards and code practices.
+    - Must include end-to-end tests validating functionality.
+    - **No** images, data files, or other file formats are allowed in the repo; link
+        to assets that are hosted externally instead. Earth2Studio has a [HuggingFace assets dataset](https://huggingface.co/datasets/nvidia/earth2studio-assets)
         that can be used.
     - Implementation or re-implementation of components that exist in Earth2Studio
-        package is not encouraged. Upstreaming is a priority
+        package is not encouraged. Upstreaming is a priority.
 
 2. **Testing**
 
-    - Should include end-to-end tests with expected results to verify functionality
-    - Not included in the main `pytest` suite
-    - Tested following major release cycles
+    - Should include end-to-end tests with expected results to verify functionality.
+    - Not included in the main `pytest` suite.
+    - Tested following major release cycles.
 
 3. **Ownership**
 
-    - Must have designated owners (listed as authors in `pyproject.toml`)
-    - Owners responsible for fixing bugs and updates
-    - Recipes can and may be removed based on their use or relevance
+    - Must have designated owners (listed as authors in `pyproject.toml`).
+    - Owners are responsible for fixing bugs and updates.
+    - Recipes can and may be removed based on their use or relevance.
 
 4. **Dependencies**
 
-    - Must use shipped versions of Earth2Studio (not main branch)
-    - Dependencies managed through `pyproject.toml` using [uv](https://docs.astral.sh/uv/)
-    - A `requirements.txt` should also be provided for pip install
+    - Must use shipped versions of Earth2Studio (not the main branch).
+    - Dependencies are managed through `pyproject.toml` using [uv](https://docs.astral.sh/uv/).
+    - A `requirements.txt` should also be provided for `pip install`.
 
 5. **Documentation**
 
-    - Clear README.md explaining purpose and usage
-    - Can include JuPyText notebooks for interactive documentation
-    - Should reference related examples when applicable
-    - Links to the recipes should be added to the recipe index
-    - Recipes can provide related plotting functionality
+    - Clear README.md explaining purpose and usage.
+    - Can include Jupytext notebooks for interactive documentation.
+    - Should reference related examples when applicable.
+    - Links to the recipes should be added to the recipe index.
+    - Recipes can provide related plotting functionality.
 
 ## Creating a New Recipe
 

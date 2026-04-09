@@ -161,6 +161,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Observation noise standard deviation for DPS guidance, by default 0.1
     sda_gamma : float, optional
         SDA scaling factor for DPS guidance, by default 0.001
+
+    Badges
+    ------
+    region:na class:da class:nwc product:wind product:temp product:atmos product:radar
+    product:insitu year:2024 gpu:40gb
     """
 
     def __init__(

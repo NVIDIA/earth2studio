@@ -87,6 +87,10 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Model atmospheric variable center normalization tensor of size [1,7,1,1]
     scale : torch.Tensor
         Model atmospheric variable scale normalization tensor of size [1,7,1,1]
+
+    Badges
+    ------
+    region:global class:s2s product:temp product:atmos year:2021 gpu:40gb
     """
 
     def __init__(

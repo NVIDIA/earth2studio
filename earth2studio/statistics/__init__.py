@@ -18,6 +18,7 @@ from .acc import acc
 from .base import Metric, Statistic
 from .brier import brier_score
 from .crps import crps
+from .energy_score import energy_score
 from .fss import fss
 from .lsd import log_spectral_distance
 from .moments import mean, std, variance  # noqa

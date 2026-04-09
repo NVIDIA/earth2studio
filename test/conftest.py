@@ -19,30 +19,6 @@ import os
 import pytest
 
 
-@pytest.fixture(scope="session")
-def model_cache_context():
-    class EnvContextManager:
-        def __init__(self, **kwargs):
-            # Set default to CI cache
-            self.env_vars = {}
-            # Over rider with inputs
-            for key, value in kwargs.items():
-                self.env_vars[key] = value
-
-        def __enter__(self):
-            self.old_values = {
-                key: os.environ.get(key)
-                for key in self.env_vars.keys()
-                if os.environ.get(key) is not None
-            }
-            os.environ.update(self.env_vars)
-
-        def __exit__(self, exc_type, exc_value, exc_traceback):
-            os.environ.update(self.old_values)
-
-    return EnvContextManager
-
-
 def pytest_addoption(parser):
     parser.addoption(
         "--package-download",

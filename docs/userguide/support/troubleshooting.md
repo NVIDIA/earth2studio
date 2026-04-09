@@ -1,10 +1,10 @@
 # Troubleshooting
 
-## ONNX Runtime  Error when binding input
+## ONNX Runtime Error when binding input
 
-When running an ONNX based model, such as FengWu or Pangu, one may see a runtime error
+When running an ONNX based model, such as FengWu or Pangu, you may see a runtime error
 where the model fails to bind input data when using a GPU. The error message may look
-like.
+like:
 > RuntimeError: Error when binding input: There's no data transfer registered for
 >copying tensors from Device:[DeviceType:1 MemoryType:0 DeviceId:0]
 
@@ -13,11 +13,11 @@ or
 >FAIL : Failed to load library libonnxruntime_providers_cuda.so with error:
 > libcublasLt.so.11: cannot open shared object file: No such file or directory.
 
-This is an error from ONNX runtime not being installed correctly.
+This is an error from ONNX Runtime not being installed correctly.
 If you are using CUDA 12 make sure you manually pip install following the instructions
 on the ONNX [documentation](https://onnxruntime.ai/docs/install/#python-installs).
-You may need to manually link the needed libraries, see this
-[Github issue](https://github.com/microsoft/onnxruntime/issues/19616) for reference.
+You may need to manually link the needed libraries. Refer to this
+[GitHub issue](https://github.com/microsoft/onnxruntime/issues/19616) for reference.
 
 ## ImportError: object is not installed, install manually or using pip
 
@@ -42,12 +42,12 @@ In the above example, running the command:
 uv pip install earth2studio[data]
 # Or with pip
 pip install earth2studio[data]
-# Or if you are developer
+# Or if you are a developer
 uv sync --extra data
 ```
 
 will fix the problem.
-For additional information refer to the {ref}`optional_dependencies` section.
+For additional information, refer to the {ref}`optional_dependencies` section.
 
 ## Earth2Studio not authorized to download public models from NGC
 
@@ -76,7 +76,7 @@ export NGC_CLI_ORG=no-org
 export NGC_CLI_TEAM=no-team
 ```
 
-For more information see the [NGC CLI docs](https://docs.ngc.nvidia.com/cli/index.html).
+For more information, refer to the [NGC CLI docs](https://docs.ngc.nvidia.com/cli/index.html).
 
 Still having some problems? Open an issue.
 
@@ -90,12 +90,12 @@ There are a few options to try outside of just waiting for the build to complete
 1. Install a prebuilt flash attention wheel, either from the official repo or other
   contributor projects like [flashattn.dev](https://flashattn.dev/#finder).
 
-2. If you are using a Docker container is possible, the PyTorch Docker container on NGC has
-  flash attention already built inside of it. See {ref}`pytorch_container_environment`
+2. If using a Docker container is an option, the PyTorch Docker container on NGC has
+  flash attention already built inside of it. Refer to {ref}`pytorch_container_environment`
   for details on how to install Earth2Studio inside a container.
 
 3. Speed up the compile time by increasing the number of jobs used during the build
-  process. The upper limit depends on the systems memory, too large may result in
+  process. The upper limit depends on the system's memory; too large a value may result in
   a crash:
 
     ```bash
@@ -103,9 +103,9 @@ There are a few options to try outside of just waiting for the build to complete
     export MAX_JOBS=8
     ```
 
-## Earth2Grid or TorchHarmonics Build Failure `Python.h: No such file or directory`
+## Earth2Grid or torch-harmonics Build Failure `Python.h: No such file or directory`
 
-[Earth2Grid](https://github.com/NVlabs/earth2grid) and [TorchHarmonics](https://github.com/NVIDIA/torch-harmonics)
+[Earth2Grid](https://github.com/NVlabs/earth2grid) and [torch-harmonics](https://github.com/NVIDIA/torch-harmonics)
 sometimes need to be installed from source and built on your machine.
 This requires the installation of the Python 3 developer tools.
 Without it the following error will occur on attempted install:
@@ -125,11 +125,11 @@ can be installed with:
 sudo apt-get install python3-dev
 ```
 
-## Torch Harmonics has long build time for FCNv3
+## torch-harmonics has long build time for FCNv3
 
-This is a known challenge when building torch harmonics with cuda extensions, which
+This is a known challenge when building torch-harmonics with CUDA extensions, which
 require the compilation of discrete-continuous (DISCO) convolutions.
-One method to speed up the install process is to limit the [cuda architectures](https://developer.nvidia.com/cuda-gpus)
+One method to speed up the install process is to limit the [CUDA architectures](https://developer.nvidia.com/cuda-gpus)
 that are built to the specific card being used.
 For example, to compile for just Ada Lovelace and newer architectures, set the
 following environment variables before installing:
@@ -139,14 +139,14 @@ export FORCE_CUDA_EXTENSION=1
 export TORCH_CUDA_ARCH_LIST="8.9 9.0 10.0 12.0+PTX"
 ```
 
-See the [torch harmonics repo](https://github.com/NVIDIA/torch-harmonics) for more
+Refer to the [torch-harmonics repo](https://github.com/NVIDIA/torch-harmonics) for more
 information.
-If torch harmonics is already installed, you may need to force a re-install to build
-the cuda extensions:
+If torch-harmonics is already installed, you may need to force a re-install to build
+the CUDA extensions:
 
 ```bash
 pip install --no-build-isolation --force-reinstall --upgrade --no-deps \
-  --no-cache  --verbose torch-harmonics==0.8.0
+  --no-cache --verbose torch-harmonics==0.8.0
 # Or respective uv command
 ```
 
@@ -154,7 +154,7 @@ pip install --no-build-isolation --force-reinstall --upgrade --no-deps \
 
 Some packages that need to get built from source like dm-tree or natten require some
 additional build tools on the system.
-This error indicates that the system needs [cmake](https://cmake.org/download/)
+This error indicates that the system needs [CMake](https://cmake.org/download/)
 installed.
 For Debian systems this can be done through APT:
 
@@ -162,12 +162,46 @@ For Debian systems this can be done through APT:
 apt install cmake
 ```
 
+## torch-harmonics Import Error (undefined symbol)
+
+```text
+ 37 from .spectral_convolution import SpectralConvS2                         │ │
+│ │   38 from .disco import DiscreteContinuousConvS2, DiscreteContinuousConv │ │
+│ │   39 from .resample import ResampleS2                                    │ │
+│ │ ❱ 40 from .attention import AttentionS2, NeighborhoodAttentionS2         │ │
+│ │   41 from . import quadrature                                            │ │
+│ │   42 from . import random_fields                                         │ │
+│ │   43 from . import examples                                              │ │
+│ │                                                                          │ │
+│ │ /builds/modulus/earth-2/earth2studio/.cache/uv/…                         │ │
+│ │ in <module>                                                              │ │
+│ │                                                                          │ │
+│ │   35 from attention_helpers import cuda_kernels_is_available, optimized_ │ │
+│ │   36                                                                     │ │
+│ │   37 if optimized_kernels_is_available():                                │ │
+│ │ ❱ 38 │   from . import _C                                                │ │
+│ │   39 │   from torch.ops import attention_kernels                         │ │
+│ │   40 else:                                                               │ │
+│ │   41 │   attention_kernels = None                                        │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+│ ImportError:                                                                 │
+│ /builds/modulus/earth-2/earth2studio/.cache/uv/…                             │
+│ undefined symbol: _ZN3c104cuda29c10_cuda_check_implementationEiPKcS2_ib      │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This error typically means that `torch-harmonics` was compiled against a different
+version of PyTorch than the one currently installed. Verify that your PyTorch version
+matches the one `torch-harmonics` was originally built with. Note that `uv` caches
+compiled packages across virtual environments, so you may need to clear the cache
+(`uv cache clean`) and rebuild the package.
+
 ## RuntimeError: Cannot find the ecCodes library
 
 This can surface when using a data source (including: CDS, GFS, HRRR) that needs to
 read grib files indicating that ECMWF's eccodes library needs to be installed.
 Eccodes has several [install methods](https://github.com/ecmwf/eccodes), provided on
-[conda forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and
+[conda-forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and
 APT for Debian based systems:
 
 ```bash

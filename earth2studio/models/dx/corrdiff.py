@@ -144,6 +144,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     sigma_max : float | None, optional
         Maximum noise level for diffusion process. If None, uses sampler-specific defaults
         By default None.
+
+    Badges
+    ------
+    region:global class:ds product:wind product:precip product:temp product:atmos
+    year:2023 gpu:80gb
     """
 
     def __init__(
@@ -1285,6 +1290,10 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         are supported. Default is 'euler'
     seed: int | None, optional
         Random seed for reproducibility. Default is None.
+
+    Badges
+    ------
+    region:as class:ds product:wind product:precip product:temp product:atmos year:2023 gpu:40gb
     """
 
     def __init__(

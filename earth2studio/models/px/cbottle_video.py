@@ -118,6 +118,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         DatasetModality.ERA5
     time_stepper : TimeStepperFunction, optional
         Sampler function used to denoise, by default TimeStepperFunction.HEUN
+
+    Badges
+    ------
+    region:global class:cm product:wind product:precip product:temp product:atmos
+    product:solar year:2025 gpu:40gb
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))

@@ -24,14 +24,14 @@ This rule enforces unit testing standards for Earth2Studio as defined in [testin
 ```python
 # ✅ Correct
 def test_isd_fetch(stations, time, variable, tol):
-    ds = ISD(stations=stations, tolerance=tol, cache=False)
+    ds = ISD(stations=stations, time_tolerance=tol, cache=False)
     df = ds(time, variable)
     assert list(df.columns) == ds.SCHEMA.names
 
 # ❌ Wrong
 def test_isd_fetch(stations, time, variable, tol):
     """Test ISD data fetching functionality."""
-    ds = ISD(stations=stations, tolerance=tol, cache=False)
+    ds = ISD(stations=stations, time_tolerance=tol, cache=False)
     ...
 ```
 

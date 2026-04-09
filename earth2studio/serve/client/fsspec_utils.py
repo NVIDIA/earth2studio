@@ -18,7 +18,7 @@
 from typing import Any, NoReturn
 from urllib.parse import parse_qs, urlencode, urlparse
 
-import fsspec  # type: ignore[import-untyped]
+import fsspec
 
 from earth2studio.serve.client.models import InferenceRequestResults, StorageType
 

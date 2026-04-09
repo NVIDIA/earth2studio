@@ -92,6 +92,10 @@ class MRMS:
 
     - https://registry.opendata.aws/noaa-mrms-pds/
     - https://noaa-mrms-pds.s3.amazonaws.com/index.html
+
+    Badges
+    ------
+    region:na dataclass:observation product:radar
     """
 
     MRMS_BUCKET_NAME = "noaa-mrms-pds"

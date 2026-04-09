@@ -142,20 +142,21 @@ def cache_folder(tmp_path_factory):
         ("s3://noaa-swpc-pds", "text/3-day-geomag-forecast.txt"),
     ],
 )
-def test_package(url, file, cache_folder, model_cache_context):
+def test_package(url, file, cache_folder, monkeypatch):
     if url is None:
         url = "file://" / cache_folder
 
-    with model_cache_context(
-        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
-        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
-    ):
-        package = Package(str(url))
-        file_path = package.resolve(file)
-        assert Path(file_path).is_file()
-        # Getting depricated
-        file_path2 = package.get(file)
-        assert file_path == file_path2
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(cache_folder.resolve()))
+    monkeypatch.setenv("EARTH2STUDIO_PACKAGE_TIMEOUT", "30")
+    monkeypatch.delenv("EARTH2STUDIO_MODEL_CACHE", raising=False)
+    monkeypatch.delenv("EARTH2STUDIO_DATA_CACHE", raising=False)
+
+    package = Package(str(url))
+    file_path = package.resolve(file)
+    assert Path(file_path).is_file()
+    # Getting depricated
+    file_path2 = package.get(file)
+    assert file_path == file_path2
 
 
 @pytest.mark.parametrize(
@@ -171,7 +172,7 @@ def test_package(url, file, cache_folder, model_cache_context):
     ],
 )
 def test_package_caching_behavior(
-    url, file, should_cache, tmp_path_factory, model_cache_context
+    url, file, should_cache, tmp_path_factory, monkeypatch
 ):
     source_folder = tmp_path_factory.mktemp("source")
     cache_folder = tmp_path_factory.mktemp("cache")
@@ -183,32 +184,33 @@ def test_package_caching_behavior(
     if url is None:
         url = f"file://{source_folder}"
 
-    with model_cache_context(
-        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
-        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
-    ):
-        package = Package(str(url))
-        initial_cache_contents = list(cache_folder.rglob("*"))
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(cache_folder.resolve()))
+    monkeypatch.setenv("EARTH2STUDIO_PACKAGE_TIMEOUT", "30")
+    monkeypatch.delenv("EARTH2STUDIO_MODEL_CACHE", raising=False)
+    monkeypatch.delenv("EARTH2STUDIO_DATA_CACHE", raising=False)
 
-        initial_cache_files = [f for f in initial_cache_contents if f.is_file()]
-        file_path = package.resolve(file)
-        assert Path(file_path).is_file()
+    package = Package(str(url))
+    initial_cache_contents = list(cache_folder.rglob("*"))
 
-        # Get cache folder contents after file resolution
-        final_cache_contents = list(cache_folder.rglob("*"))
-        final_cache_files = [f for f in final_cache_contents if f.is_file()]
+    initial_cache_files = [f for f in initial_cache_contents if f.is_file()]
+    file_path = package.resolve(file)
+    assert Path(file_path).is_file()
 
-        # Check caching behavior
-        cache_files_added = len(final_cache_files) - len(initial_cache_files)
+    # Get cache folder contents after file resolution
+    final_cache_contents = list(cache_folder.rglob("*"))
+    final_cache_files = [f for f in final_cache_contents if f.is_file()]
 
-        if should_cache:
-            assert (
-                cache_files_added > 0
-            ), f"Expected remote file {file} to be cached, but no new cache files found"
-            assert str(cache_folder) in str(file_path)
-        else:
-            assert cache_files_added == 0
-            assert str(cache_folder) not in str(file_path)
+    # Check caching behavior
+    cache_files_added = len(final_cache_files) - len(initial_cache_files)
+
+    if should_cache:
+        assert (
+            cache_files_added > 0
+        ), f"Expected remote file {file} to be cached, but no new cache files found"
+        assert str(cache_folder) in str(file_path)
+    else:
+        assert cache_files_added == 0
+        assert str(cache_folder) not in str(file_path)
 
 
 @pytest.mark.parametrize(
@@ -231,37 +233,36 @@ def test_package_caching_behavior(
         ),
     ],
 )
-def test_ngc_package(url, file, api_key, cache_folder, model_cache_context):
+def test_ngc_package(url, file, api_key, cache_folder, monkeypatch):
     # Clear instance cache to make sure we always create a new fsspec file system
     # every test. Fsspec caches fs instances by default
     # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
     NGCModelFileSystem.clear_instance_cache()
     # No API key is tested above in test_package
     current_key = os.environ.get("NGC_CLI_API_KEY", None)
-    with model_cache_context(
-        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
-        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
-    ):
-        # Reload ngcbase module to ensure clean environment for each test
-        if api_key and not current_key:
-            pytest.skip("NGC_CLI_API_KEY not set")
-        elif current_key:
-            del os.environ["NGC_CLI_API_KEY"]
 
-        if ngcbase is None and api_key:
-            pytest.skip("NGC SDK not installed")
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(cache_folder.resolve()))
+    monkeypatch.setenv("EARTH2STUDIO_PACKAGE_TIMEOUT", "30")
+    monkeypatch.delenv("EARTH2STUDIO_MODEL_CACHE", raising=False)
+    monkeypatch.delenv("EARTH2STUDIO_DATA_CACHE", raising=False)
 
-        if api_key:
-            import importlib
+    # Reload ngcbase module to ensure clean environment for each test
+    if api_key and not current_key:
+        pytest.skip("NGC_CLI_API_KEY not set")
+    elif current_key:
+        monkeypatch.delenv("NGC_CLI_API_KEY")
 
-            importlib.reload(ngcbase)
+    if ngcbase is None and api_key:
+        pytest.skip("NGC SDK not installed")
 
-        package = Package(str(url), fs_options={"authenticated_api": api_key})
-        file_path = package.resolve(file)
-        assert Path(file_path).is_file()
+    if api_key:
+        import importlib
 
-    if current_key:
-        os.environ["NGC_CLI_API_KEY"] = current_key
+        importlib.reload(ngcbase)
+
+    package = Package(str(url), fs_options={"authenticated_api": api_key})
+    file_path = package.resolve(file)
+    assert Path(file_path).is_file()
 
 
 def test_ngc_filesystem():
@@ -350,19 +351,20 @@ def test_ngc_filesystem():
         ),
     ],
 )
-def test_ngc_package_errors(url, file, cache_folder, model_cache_context):
+def test_ngc_package_errors(url, file, cache_folder, monkeypatch):
     # Clear instance cache to make sure we always create a new fsspec file system
     # every test. Fsspec caches fs instances by default
     # https://github.com/fsspec/filesystem_spec/blob/master/fsspec/spec.py#L47
     NGCModelFileSystem.clear_instance_cache()
 
-    with model_cache_context(
-        EARTH2STUDIO_CACHE=str(cache_folder.resolve()),
-        EARTH2STUDIO_PACKAGE_TIMEOUT="30",
-    ):
-        with pytest.raises(http.client.HTTPException):
-            package = Package(str(url))
-            package.open(file)
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(cache_folder.resolve()))
+    monkeypatch.setenv("EARTH2STUDIO_PACKAGE_TIMEOUT", "30")
+    monkeypatch.delenv("EARTH2STUDIO_MODEL_CACHE", raising=False)
+    monkeypatch.delenv("EARTH2STUDIO_DATA_CACHE", raising=False)
+
+    with pytest.raises(http.client.HTTPException):
+        package = Package(str(url))
+        package.open(file)
 
 
 def test_auto_model_mixin():

@@ -129,6 +129,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         Maximum noise level for diffusion process, by default 800
     seed : int, optional
         Random generator seed for latent variables, by default None
+
+    Badges
+    ------
+    region:global class:ds product:wind product:precip product:temp product:atmos
+    year:2025 gpu:80gb
     """
 
     def __init__(

@@ -203,6 +203,11 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Quater degree resolution [721x1440] land sea mask on lat-lon grid
     geopotential_at_surface : np.array
         Quater degree resolution [721x1440] geopotential at surface on lat-lon grid
+
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos year:2022
+    gpu:40gb
     """
 
     def __init__(

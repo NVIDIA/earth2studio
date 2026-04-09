@@ -71,6 +71,10 @@ class ARCO:
     The data source will automatically use Multi-Storage Client (MSC) if available,
     otherwise it will fallback to using gcsfs directly. MSC can provide better
     performance for cloud storage access.
+
+    Badges
+    ------
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     ARCO_LAT = np.linspace(90, -90, 721)
