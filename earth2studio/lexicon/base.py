@@ -242,7 +242,7 @@ E2STUDIO_VOCAB = {
     "airs": "Atmospheric Infrared Sounder brightness temperature (K)",
     "amsua": "Advanced Microwave Sounding Unit-A brightness temperature (K)",
     "amsub": "Advanced Microwave Sounding Unit-B brightness temperature (K)",
-    "cris": "Cross-track Infrared Sounder Full Spectral Resolution (CrIS-FSR) brightness temperature (K)",
+    "crisfsr": "Cross-track Infrared Sounder Full Spectral Resolution (CrIS-FSR) brightness temperature (K)",
     "iasi": "Infrared Atmospheric Sounding Interferometer brightness temperature (K)",
     "mhs": "Microwave Humidity Sounder brightness temperature (K)",
     "s3sy01aod": "Sentinel-3 SYNERGY aerosol optical depth band 01 (440 nm)",
