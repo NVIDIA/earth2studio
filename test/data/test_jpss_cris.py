@@ -240,6 +240,71 @@ def test_jpss_cris_call_mock(tmp_path):
     assert (df["observation"] > 0).all()
 
 
+def test_jpss_cris_subsample_mock(tmp_path):
+    """Verify sub-sampling reduces spatial points by the expected factor."""
+    n_scan, n_for, n_fov = 2, 30, 9  # use 30 FORs to test sub-sampling
+    n_channels = 717 + 869 + 637  # 2223
+
+    sdr_file = tmp_path / "SCRIF_j01.h5"
+    geo_file = tmp_path / "GCRSO_j01.h5"
+    _make_mock_hdf5_pair(str(sdr_file), str(geo_file), n_scan, n_for, n_fov)
+
+    sdr_uri = "s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/2024/06/01/SCRIF_j01.h5"
+    geo_uri = "s3://noaa-nesdis-n20-pds/CrIS-SDR-GEO/2024/06/01/GCRSO_j01.h5"
+
+    def fake_cache_path(self, s3_uri):
+        if "SCRIF" in s3_uri or "SDR" in s3_uri and "GEO" not in s3_uri:
+            return str(sdr_file)
+        return str(geo_file)
+
+    mock_task = MagicMock(
+        sdr_uri=sdr_uri,
+        geo_uri=geo_uri,
+        datetime_min=datetime(2024, 6, 1, 11, 0),
+        datetime_max=datetime(2024, 6, 1, 13, 0),
+        satellite="n20",
+        variable="crisfsr",
+        modifier=lambda x: x,
+    )
+
+    # subsample=1 → all 30 FORs
+    with (
+        patch.object(JPSS_CRIS, "_fetch_remote_file", return_value=None),
+        patch.object(JPSS_CRIS, "_cache_path", fake_cache_path),
+        patch.object(JPSS_CRIS, "_create_tasks", return_value=[mock_task]),
+    ):
+        ds_full = JPSS_CRIS(satellites=["n20"], subsample=1, cache=False, verbose=False)
+        df_full = ds_full(datetime(2024, 6, 1, 12), ["crisfsr"])
+
+    assert len(df_full) == n_scan * n_for * n_fov * n_channels
+
+    # subsample=3 → every 3rd FOR: ceil(30/3) = 10 FORs
+    with (
+        patch.object(JPSS_CRIS, "_fetch_remote_file", return_value=None),
+        patch.object(JPSS_CRIS, "_cache_path", fake_cache_path),
+        patch.object(JPSS_CRIS, "_create_tasks", return_value=[mock_task]),
+    ):
+        ds_sub = JPSS_CRIS(satellites=["n20"], subsample=3, cache=False, verbose=False)
+        df_sub = ds_sub(datetime(2024, 6, 1, 12), ["crisfsr"])
+
+    n_for_sub = len(range(0, n_for, 3))  # 0,3,6,9,...,27 → 10
+    expected_rows = n_scan * n_for_sub * n_fov * n_channels
+    assert len(df_sub) == expected_rows
+
+    # subsample=5 → every 5th FOR: 0,5,10,15,20,25 → 6 FORs
+    with (
+        patch.object(JPSS_CRIS, "_fetch_remote_file", return_value=None),
+        patch.object(JPSS_CRIS, "_cache_path", fake_cache_path),
+        patch.object(JPSS_CRIS, "_create_tasks", return_value=[mock_task]),
+    ):
+        ds_sub5 = JPSS_CRIS(satellites=["n20"], subsample=5, cache=False, verbose=False)
+        df_sub5 = ds_sub5(datetime(2024, 6, 1, 12), ["crisfsr"])
+
+    n_for_sub5 = len(range(0, n_for, 5))  # 0,5,10,15,20,25 → 6
+    expected_rows5 = n_scan * n_for_sub5 * n_fov * n_channels
+    assert len(df_sub5) == expected_rows5
+
+
 # ---------------------------------------------------------------------------
 # Validation / error tests (no network)
 # ---------------------------------------------------------------------------

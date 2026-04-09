@@ -23,6 +23,7 @@ import pathlib
 import shutil
 import uuid
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -88,10 +89,6 @@ _CRIS_NUM_CHANNELS: int = (
 _CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
 _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
-# IET epoch: 1958-01-01T00:00:00 UTC (International Atomic Time reference)
-# Offset from Unix epoch (1970-01-01) to IET epoch (1958-01-01) in microseconds
-_IET_EPOCH = datetime(1958, 1, 1)
-
 # HDF5 dataset paths in SDR files (CrIS-FS-SDR)
 _SDR_GROUP = "All_Data/CrIS-FS-SDR_All"
 _SDR_RADIANCE_KEYS = {
@@ -121,22 +118,6 @@ _GEO_KEYS = {
 }
 
 
-def _iet_to_datetime(iet_us: int) -> datetime:
-    """Convert IET microseconds since 1958-01-01 to a Python datetime.
-
-    Parameters
-    ----------
-    iet_us : int
-        Microseconds since 1958-01-01T00:00:00 UTC.
-
-    Returns
-    -------
-    datetime
-        Corresponding UTC datetime.
-    """
-    return _IET_EPOCH + timedelta(microseconds=int(iet_us))
-
-
 @dataclass
 class _CrISAsyncTask:
     """Metadata for a single CrIS granule download task (SDR + GEO pair)."""
@@ -148,6 +129,29 @@ class _CrISAsyncTask:
     satellite: str
     variable: str
     modifier: Callable[[Any], Any]
+
+
+@dataclass
+class _CrISDecodedGranule:
+    """Compact decoded data from a single CrIS granule.
+
+    Stores spatial arrays (one value per FOV) and the 2-D radiance
+    matrix.  The expensive channel-expansion into long-format rows is
+    deferred until :py:meth:`JPSS_CRIS._compile_dataframe` where all
+    granules are expanded in a single batch.
+    """
+
+    lat: np.ndarray  # (n_valid,) float32
+    lon: np.ndarray  # (n_valid,) float32
+    sat_za: np.ndarray  # (n_valid,) float32
+    sat_aza: np.ndarray  # (n_valid,) float32
+    sol_za: np.ndarray  # (n_valid,) float32
+    sol_aza: np.ndarray  # (n_valid,) float32
+    quality: np.ndarray  # (n_valid,) uint16
+    times: np.ndarray  # (n_valid,) datetime64[ms]
+    radiance: np.ndarray  # (n_valid, n_channels) float32
+    satellite: str
+    variable: str
 
 
 class JPSS_CRIS:
@@ -178,6 +182,13 @@ class JPSS_CRIS:
         Satellite short-names to query.  Valid values are ``"n20"``
         (NOAA-20), ``"n21"`` (NOAA-21), and ``"npp"`` (Suomi NPP).
         By default ``None``, which queries all valid satellites.
+    subsample : int, optional
+        Spatial sub-sampling factor applied to the Field-of-Regard (FOR)
+        dimension.  Each CrIS scan line has 30 cross-track FORs; setting
+        ``subsample=N`` selects every *N*-th FOR (``FORs[::N]``), reducing
+        the number of spatial points by approximately that factor while
+        preserving all 9 FOVs within each selected FOR.  By default 1
+        (no sub-sampling).
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -246,6 +257,7 @@ class JPSS_CRIS:
     def __init__(
         self,
         satellites: list[str] | None = None,
+        subsample: int = 1,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         cache: bool = True,
         verbose: bool = True,
@@ -263,6 +275,7 @@ class JPSS_CRIS:
                     f"Valid options: {sorted(self.VALID_SATELLITES)}"
                 )
         self._satellites = satellites
+        self._subsample = max(1, int(subsample))
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
@@ -425,6 +438,8 @@ class JPSS_CRIS:
         embedded start-timestamp falls within the tolerance window.  The
         corresponding GEO file is paired by matching the common filename
         fields (platform, date, start time, end time, orbit).
+
+        SDR and GEO directory listings are issued concurrently.
         """
         tasks: list[_CrISAsyncTask] = []
 
@@ -447,30 +462,48 @@ class JPSS_CRIS:
                             f"{bucket}/CrIS-FS-SDR/"
                             f"{day.year:04d}/{day.month:02d}/{day.day:02d}/"
                         )
-                        try:
-                            listing = await self.fs._ls(sdr_prefix, detail=False)  # type: ignore[union-attr]
-                        except FileNotFoundError:
-                            logger.warning(f"No CrIS data at s3://{sdr_prefix}")
-                            day += timedelta(days=1)
-                            continue
-
-                        # List the matching GEO directory and build a
-                        # lookup keyed by (platform, date, start, end, orbit).
                         geo_prefix = (
                             f"{bucket}/CrIS-SDR-GEO/"
                             f"{day.year:04d}/{day.month:02d}/{day.day:02d}/"
                         )
-                        geo_lookup: dict[str, str] = {}
-                        try:
-                            geo_listing = await self.fs._ls(geo_prefix, detail=False)  # type: ignore[union-attr]
-                            for gpath in geo_listing:
-                                gname = gpath.rsplit("/", 1)[-1]
-                                if gname.startswith("GCRSO_"):
-                                    geo_lookup[self._granule_key(gname)] = gpath
-                        except FileNotFoundError:
-                            logger.warning(f"No CrIS GEO data at s3://{geo_prefix}")
 
-                        for path in listing:
+                        # Issue both listings concurrently
+                        sdr_coro = self.fs._ls(sdr_prefix, detail=False)  # type: ignore[union-attr]
+                        geo_coro = self.fs._ls(geo_prefix, detail=False)  # type: ignore[union-attr]
+
+                        sdr_listing: list[str] = []
+                        geo_listing: list[str] = []
+                        try:
+                            sdr_listing, geo_listing = await asyncio.gather(
+                                sdr_coro, geo_coro
+                            )
+                        except FileNotFoundError:
+                            # One or both directories missing — try individually
+                            try:
+                                sdr_listing = await self.fs._ls(  # type: ignore[union-attr]
+                                    sdr_prefix, detail=False
+                                )
+                            except FileNotFoundError:
+                                logger.warning(f"No CrIS data at s3://{sdr_prefix}")
+                            try:
+                                geo_listing = await self.fs._ls(  # type: ignore[union-attr]
+                                    geo_prefix, detail=False
+                                )
+                            except FileNotFoundError:
+                                logger.warning(f"No CrIS GEO data at s3://{geo_prefix}")
+
+                        if not sdr_listing:
+                            day += timedelta(days=1)
+                            continue
+
+                        # Build GEO lookup keyed by granule key
+                        geo_lookup: dict[str, str] = {}
+                        for gpath in geo_listing:
+                            gname = gpath.rsplit("/", 1)[-1]
+                            if gname.startswith("GCRSO_"):
+                                geo_lookup[self._granule_key(gname)] = gpath
+
+                        for path in sdr_listing:
                             fname = path.rsplit("/", 1)[-1]
                             if not fname.startswith("SCRIF_"):
                                 continue
@@ -532,190 +565,338 @@ class JPSS_CRIS:
         tasks: list[_CrISAsyncTask],
         schema: pa.Schema,
     ) -> pd.DataFrame:
-        """Decode cached HDF5 files and assemble the output DataFrame."""
-        frames: list[pd.DataFrame] = []
+        """Decode cached HDF5 files and assemble the output DataFrame.
 
-        for task in tasks:
+        HDF5 decoding is parallelised across threads.  Both h5py I/O and
+        numpy compute release the GIL, so threads give effective speedup
+        without the serialisation overhead of multiprocessing.
+
+        Each granule is decoded into a compact :class:`_CrISDecodedGranule`
+        (spatial arrays + 2-D radiance matrix).  The expensive expansion
+        to long-format (one row per channel per FOV) is done once at the
+        end over all granules combined, avoiding intermediate DataFrame
+        allocation per granule.
+        """
+
+        def _decode_one(task: _CrISAsyncTask) -> _CrISDecodedGranule | None:
             sdr_path = self._cache_path(task.sdr_uri)
             geo_path = self._cache_path(task.geo_uri)
 
             if not pathlib.Path(sdr_path).is_file():
                 logger.warning(f"Cached SDR file missing for {task.sdr_uri}")
-                continue
+                return None
             if not pathlib.Path(geo_path).is_file():
                 logger.warning(f"Cached GEO file missing for {task.geo_uri}")
-                continue
+                return None
 
             try:
-                df = self._decode_hdf5(sdr_path, geo_path, task)
+                return self._decode_hdf5(sdr_path, geo_path, task, self._subsample)
             except Exception:
                 logger.warning(f"Failed to decode {task.sdr_uri}", exc_info=True)
-                continue
+                return None
 
-            if df.empty:
-                continue
+        # Decode all granules in parallel using threads
+        n_workers = min(len(tasks), self._max_workers) if tasks else 1
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            results = list(pool.map(_decode_one, tasks))
 
-            # Filter by time tolerance window
-            mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
-            df = df.loc[mask]
-            if not df.empty:
-                frames.append(df)
+        granules = [g for g in results if g is not None]
 
-        if not frames:
+        if not granules:
             return pd.DataFrame(columns=schema.names)
 
-        result = pd.concat(frames, ignore_index=True)
+        # --- Batch: concatenate compact spatial arrays across granules ---
+        all_lat = np.concatenate([g.lat for g in granules])
+        all_lon = np.concatenate([g.lon for g in granules])
+        all_sat_za = np.concatenate([g.sat_za for g in granules])
+        all_sat_aza = np.concatenate([g.sat_aza for g in granules])
+        all_sol_za = np.concatenate([g.sol_za for g in granules])
+        all_sol_aza = np.concatenate([g.sol_aza for g in granules])
+        all_quality = np.concatenate([g.quality for g in granules])
+        all_times = np.concatenate([g.times for g in granules])
+        all_radiance = np.concatenate([g.radiance for g in granules])  # (N, n_channels)
 
-        # Deduplicate in case overlapping tolerance windows hit the same granule
-        dedup_cols = [
-            c
-            for c in (
-                "time",
-                "lat",
-                "lon",
-                "channel_index",
-                "satellite",
-                "variable",
-            )
-            if c in result.columns
-        ]
-        if dedup_cols:
-            result = result.drop_duplicates(subset=dedup_cols, ignore_index=True)
+        n_total = len(all_lat)
+        n_channels = all_radiance.shape[1]
+
+        # Build satellite/variable arrays for dedup support
+        # (each granule may have different satellite)
+        sat_pieces = [np.broadcast_to(g.satellite, g.lat.shape[0]) for g in granules]
+        var_pieces = [np.broadcast_to(g.variable, g.lat.shape[0]) for g in granules]
+        all_sat = np.concatenate(sat_pieces)
+        all_var = np.concatenate(var_pieces)
+
+        # Free granule list — data is now in the concatenated arrays
+        del granules
+
+        # --- Deduplicate at spatial level (before channel expansion) ---
+        # Build a structured key: (time_ms, lat_int, lon_int, satellite)
+        # Using int16 quantization for lat/lon is sufficient (~0.01° precision)
+        time_as_i8 = all_times.view(np.int64)
+        lat_i = (all_lat * 100).astype(np.int32)
+        lon_i = (all_lon * 100).astype(np.int32)
+
+        # Unique spatial points — use numpy lexsort for fast dedup
+        order = np.lexsort((lon_i, lat_i, time_as_i8))
+        sorted_t = time_as_i8[order]
+        sorted_lat = lat_i[order]
+        sorted_lon = lon_i[order]
+        diffs = (
+            (sorted_t[1:] != sorted_t[:-1])
+            | (sorted_lat[1:] != sorted_lat[:-1])
+            | (sorted_lon[1:] != sorted_lon[:-1])
+        )
+        unique_mask: np.ndarray = np.empty(n_total, dtype=bool)
+        unique_mask[0] = True
+        unique_mask[1:] = diffs
+        keep_idx = order[unique_mask]
+        keep_idx.sort()  # preserve original order
+
+        if len(keep_idx) < n_total:
+            all_lat = all_lat[keep_idx]
+            all_lon = all_lon[keep_idx]
+            all_sat_za = all_sat_za[keep_idx]
+            all_sat_aza = all_sat_aza[keep_idx]
+            all_sol_za = all_sol_za[keep_idx]
+            all_sol_aza = all_sol_aza[keep_idx]
+            all_quality = all_quality[keep_idx]
+            all_times = all_times[keep_idx]
+            all_radiance = all_radiance[keep_idx]
+            all_sat = all_sat[keep_idx]
+            all_var = all_var[keep_idx]
+            n_total = len(keep_idx)
+
+        # --- Expand to long-format using PyArrow for efficiency ---
+        n_rows = n_total * n_channels
+
+        arrs: dict[str, pa.Array] = {
+            "time": pa.array(np.repeat(all_times, n_channels)),
+            "class": pa.DictionaryArray.from_arrays(
+                np.zeros(n_rows, dtype=np.int8), ["rad"]
+            ),
+            "lat": pa.array(np.repeat(all_lat, n_channels), type=pa.float32()),
+            "lon": pa.array(np.repeat(all_lon, n_channels), type=pa.float32()),
+            "scan_angle": pa.array(
+                np.repeat(all_sat_za, n_channels), type=pa.float32()
+            ),
+            "channel_index": pa.array(
+                np.tile(np.arange(n_channels, dtype=np.uint16), n_total),
+                type=pa.uint16(),
+            ),
+            "solza": pa.array(np.repeat(all_sol_za, n_channels), type=pa.float32()),
+            "solaza": pa.array(np.repeat(all_sol_aza, n_channels), type=pa.float32()),
+            "satellite_za": pa.array(
+                np.repeat(all_sat_za, n_channels), type=pa.float32()
+            ),
+            "satellite_aza": pa.array(
+                np.repeat(all_sat_aza, n_channels), type=pa.float32()
+            ),
+            "quality": pa.array(np.repeat(all_quality, n_channels), type=pa.uint16()),
+            "observation": pa.array(all_radiance.ravel(), type=pa.float32()),
+        }
+
+        # Build satellite and variable using DictionaryArray for memory
+        unique_sats = list(dict.fromkeys(all_sat))
+        sat_codes = {s: i for i, s in enumerate(unique_sats)}
+        sat_indices = np.repeat(
+            np.array([sat_codes[s] for s in all_sat], dtype=np.int8), n_channels
+        )
+        arrs["satellite"] = pa.DictionaryArray.from_arrays(sat_indices, unique_sats)
+
+        unique_vars = list(dict.fromkeys(all_var))
+        var_codes = {v: i for i, v in enumerate(unique_vars)}
+        var_indices = np.repeat(
+            np.array([var_codes[v] for v in all_var], dtype=np.int8), n_channels
+        )
+        arrs["variable"] = pa.DictionaryArray.from_arrays(var_indices, unique_vars)
+
+        # Select only schema-requested columns
+        schema_names = [n for n in schema.names if n in arrs]
+        tbl = pa.table({n: arrs[n] for n in schema_names})
+        result = tbl.to_pandas()
 
         result.attrs["source"] = self.SOURCE_ID
-        return result[[name for name in schema.names if name in result.columns]]
+        return result
 
     def _decode_hdf5(
         self,
         sdr_path: str,
         geo_path: str,
         task: _CrISAsyncTask,
-    ) -> pd.DataFrame:
-        """Decode a CrIS SDR + GEO HDF5 file pair into a DataFrame.
+        subsample: int = 1,
+    ) -> _CrISDecodedGranule | None:
+        """Decode a CrIS SDR + GEO HDF5 file pair into compact arrays.
 
-        The SDR file contains spectral radiance arrays with shape
-        ``(n_scan, 30, 9, n_channels)`` for each band (LW, MW, SW).
-        The GEO file contains geolocation with shape
-        ``(n_scan, 30, 9)`` and time with shape ``(n_scan, 30)``.
+        Returns a :class:`_CrISDecodedGranule` containing spatial arrays
+        (one element per valid FOV) and a 2-D radiance matrix
+        ``(n_valid, n_channels)``.  The expensive channel-expansion into
+        long-format rows is deferred to
+        :py:meth:`_compile_dataframe`.
 
-        Each combination of (scan, FOR, FOV, channel) produces one row.
+        Scan lines whose FORTime falls entirely outside the tolerance
+        window are skipped before reading the (much larger) radiance
+        arrays.
+
+        Parameters
+        ----------
+        sdr_path : str
+            Local path to the CrIS SDR HDF5 file.
+        geo_path : str
+            Local path to the CrIS GEO HDF5 file.
+        task : _CrISAsyncTask
+            Task metadata (tolerance bounds, satellite, variable, modifier).
+        subsample : int, optional
+            FOR sub-sampling factor.  Selects every *subsample*-th
+            Field-of-Regard along the cross-track dimension, by default 1.
         """
-        rows: list[dict] = []
+        # IET epoch for vectorized time conversion
+        iet_epoch = np.datetime64("1958-01-01T00:00:00", "us")
+        tmin_dt64 = np.datetime64(task.datetime_min, "ms")
+        tmax_dt64 = np.datetime64(task.datetime_max, "ms")
 
-        with h5py.File(sdr_path, "r") as sdr, h5py.File(geo_path, "r") as geo:
-            # Read radiance arrays
-            rad_lw = sdr[_SDR_RADIANCE_KEYS["LW"]][:]  # (n_scan, 30, 9, 717)
-            rad_mw = sdr[_SDR_RADIANCE_KEYS["MW"]][:]  # (n_scan, 30, 9, 869)
-            rad_sw = sdr[_SDR_RADIANCE_KEYS["SW"]][:]  # (n_scan, 30, 9, 637)
-
-            n_scan = rad_lw.shape[0]
-
-            # Read quality flags
-            try:
-                # QF3: per-FOR-per-FOV per-band quality, (n_scan, 30, 9, 3)
-                qf3 = sdr[_SDR_QF_KEYS["QF3"]][:]
-            except KeyError:
-                qf3 = np.zeros(
-                    (n_scan, _CRIS_NUM_FOR, _CRIS_NUM_FOV, 3), dtype=np.uint8
-                )
-
-            # Read GEO arrays
-            lat = geo[_GEO_KEYS["lat"]][:]  # (n_scan, 30, 9)
-            lon = geo[_GEO_KEYS["lon"]][:]  # (n_scan, 30, 9)
-            sat_za = geo[_GEO_KEYS["sat_za"]][:]  # (n_scan, 30, 9)
-            sat_aza = geo[_GEO_KEYS["sat_aza"]][:]  # (n_scan, 30, 9)
-            sol_za = geo[_GEO_KEYS["sol_za"]][:]  # (n_scan, 30, 9)
-            sol_aza = geo[_GEO_KEYS["sol_aza"]][:]  # (n_scan, 30, 9)
+        # --- Phase 1: Read GEO time first (tiny) to filter scan lines ---
+        with h5py.File(geo_path, "r") as geo:
             for_time = geo[_GEO_KEYS["for_time"]][:]  # (n_scan, 30) IET µs
 
-        # Concatenate radiance across bands: (n_scan, n_for, n_fov, n_channels)
+        # Convert FORTime to datetime64 for each (scan, FOR)
+        time_dt64 = (iet_epoch + for_time.astype("timedelta64[us]")).astype(
+            "datetime64[ms]"
+        )
+        # A scan line is relevant if ANY FOR in that scan is within window
+        scan_has_valid_time = np.any(
+            (time_dt64 >= tmin_dt64) & (time_dt64 <= tmax_dt64) & (for_time > 0),
+            axis=1,
+        )  # (n_scan,)
+
+        if not scan_has_valid_time.any():
+            return None
+
+        valid_scans = np.where(scan_has_valid_time)[0]
+
+        # --- Phase 2: Read only the scan lines we need ---
+        with h5py.File(sdr_path, "r") as sdr, h5py.File(geo_path, "r") as geo:
+            # HDF5 fancy indexing with sorted indices (efficient for contiguous)
+            rad_lw = sdr[_SDR_RADIANCE_KEYS["LW"]][valid_scans]
+            rad_mw = sdr[_SDR_RADIANCE_KEYS["MW"]][valid_scans]
+            rad_sw = sdr[_SDR_RADIANCE_KEYS["SW"]][valid_scans]
+
+            try:
+                qf3 = sdr[_SDR_QF_KEYS["QF3"]][valid_scans]
+            except KeyError:
+                qf3 = np.zeros(
+                    (len(valid_scans), _CRIS_NUM_FOR, _CRIS_NUM_FOV, 3),
+                    dtype=np.uint8,
+                )
+
+            lat = geo[_GEO_KEYS["lat"]][valid_scans]
+            lon = geo[_GEO_KEYS["lon"]][valid_scans]
+            sat_za = geo[_GEO_KEYS["sat_za"]][valid_scans]
+            sat_aza = geo[_GEO_KEYS["sat_aza"]][valid_scans]
+            sol_za = geo[_GEO_KEYS["sol_za"]][valid_scans]
+            sol_aza = geo[_GEO_KEYS["sol_aza"]][valid_scans]
+
+        # Use the pre-read time but only for valid scans
+        for_time = for_time[valid_scans]
+
+        # --- Sub-sample FORs along the cross-track dimension ---
+        if subsample > 1:
+            for_sel = slice(None, None, subsample)  # every Nth FOR
+            rad_lw = rad_lw[:, for_sel]
+            rad_mw = rad_mw[:, for_sel]
+            rad_sw = rad_sw[:, for_sel]
+            qf3 = qf3[:, for_sel]
+            lat = lat[:, for_sel]
+            lon = lon[:, for_sel]
+            sat_za = sat_za[:, for_sel]
+            sat_aza = sat_aza[:, for_sel]
+            sol_za = sol_za[:, for_sel]
+            sol_aza = sol_aza[:, for_sel]
+            for_time = for_time[:, for_sel]
+
+        n_scan = len(valid_scans)
+
+        # Concatenate radiance: (n_scan, n_for, n_fov, n_channels)
         radiance = np.concatenate([rad_lw, rad_mw, rad_sw], axis=-1)
+        del rad_lw, rad_mw, rad_sw  # free memory early
         n_for = radiance.shape[1]
         n_fov = radiance.shape[2]
         n_channels = radiance.shape[3]
+        n_spatial = n_scan * n_for * n_fov
 
-        # Combine quality flags: OR the three band-specific QF3 flags into
-        # a single uint16 per (scan, FOR, FOV).  Shift band flags into
-        # distinct bit positions: LW=bits 0-3, MW=bits 4-7, SW=bits 8-11.
+        # Combine QF3 band flags into single uint16
         qf_combined = (
             qf3[:, :, :, 0].astype(np.uint16)
             | (qf3[:, :, :, 1].astype(np.uint16) << 4)
             | (qf3[:, :, :, 2].astype(np.uint16) << 8)
-        )  # (n_scan, n_for, n_fov)
+        )
+        del qf3
 
-        # Build rows vectorised per scan line
-        for s in range(n_scan):
-            for f in range(n_for):
-                # Time from FORTime (shared across all FOVs in this FOR)
-                iet_val = int(for_time[s, f])
-                if iet_val <= 0:
-                    continue
-                obs_time = _iet_to_datetime(iet_val)
+        # Flatten spatial dims
+        lat_flat = lat.reshape(-1).astype(np.float32)
+        lon_flat = lon.reshape(-1).astype(np.float32)
 
-                for v in range(n_fov):
-                    lat_val = float(lat[s, f, v])
-                    lon_val = float(lon[s, f, v])
+        # Expand for_time to (n_scan, n_for, n_fov)
+        for_time_3d = np.broadcast_to(
+            for_time[:, :, np.newaxis], (n_scan, n_for, n_fov)
+        )
+        time_flat = for_time_3d.reshape(-1)
 
-                    # Skip fill values (typically -999.x)
-                    if lat_val < -90.0 or lat_val > 90.0:
-                        continue
-                    if lon_val < -180.1 or lon_val > 360.1:
-                        continue
+        # Convert times for tolerance filtering
+        times_dt64 = (iet_epoch + time_flat.astype("timedelta64[us]")).astype(
+            "datetime64[ms]"
+        )
 
-                    # Normalise longitude to [0, 360)
-                    lon_val = lon_val % 360.0
+        # Valid spatial mask: good lat/lon, positive time, AND within tolerance
+        valid_spatial = (
+            (lat_flat >= -90.0)
+            & (lat_flat <= 90.0)
+            & (lon_flat >= -180.1)
+            & (lon_flat <= 360.1)
+            & (time_flat > 0)
+            & (times_dt64 >= tmin_dt64)
+            & (times_dt64 <= tmax_dt64)
+        )
 
-                    sat_za_val = float(sat_za[s, f, v])
-                    sat_aza_val = float(sat_aza[s, f, v])
-                    sol_za_val = float(sol_za[s, f, v])
-                    sol_aza_val = float(sol_aza[s, f, v])
-                    qf_val = int(qf_combined[s, f, v])
+        if not valid_spatial.any():
+            return None
 
-                    for ch in range(n_channels):
-                        raw_val = float(radiance[s, f, v, ch])
+        # Apply spatial mask
+        lat_valid = lat_flat[valid_spatial]
+        lon_valid = lon_flat[valid_spatial] % 360.0
+        times_valid = times_dt64[valid_spatial]
 
-                        # Skip missing / fill values
-                        if raw_val < -1e6 or raw_val > 1e6:
-                            continue
+        sat_za_valid = sat_za.reshape(-1)[valid_spatial].astype(np.float32)
+        sat_aza_valid = sat_aza.reshape(-1)[valid_spatial].astype(np.float32)
+        sol_za_valid = sol_za.reshape(-1)[valid_spatial].astype(np.float32)
+        sol_aza_valid = sol_aza.reshape(-1)[valid_spatial].astype(np.float32)
+        qf_valid = qf_combined.reshape(-1)[valid_spatial].astype(np.uint16)
 
-                        val = float(task.modifier(raw_val))
+        # Radiance: (n_valid, n_channels)
+        radiance_valid = radiance.reshape(n_spatial, n_channels)[valid_spatial]
+        del radiance  # free the large array
 
-                        rows.append(
-                            {
-                                "time": obs_time,
-                                "class": "rad",
-                                "lat": lat_val,
-                                "lon": lon_val,
-                                "scan_angle": sat_za_val,
-                                "channel_index": ch,
-                                "solza": sol_za_val,
-                                "solaza": sol_aza_val,
-                                "satellite_za": sat_za_val,
-                                "satellite_aza": sat_aza_val,
-                                "quality": qf_val,
-                                "satellite": task.satellite,
-                                "observation": val,
-                                "variable": task.variable,
-                            }
-                        )
+        # Apply modifier
+        radiance_valid = task.modifier(radiance_valid).astype(np.float32)
 
-        if not rows:
-            return pd.DataFrame(columns=self.SCHEMA.names)
+        # Mask out fill values: set them to NaN (kept for now, could filter)
+        bad = (radiance_valid <= -1e6) | (radiance_valid >= 1e6)
+        if bad.any():
+            radiance_valid = radiance_valid.copy()
+            radiance_valid[bad] = np.float32("nan")
 
-        df = pd.DataFrame(rows)
-        # Enforce schema dtypes
-        df["time"] = pd.to_datetime(df["time"]).astype("datetime64[ms]")
-        df["lat"] = df["lat"].astype(np.float32)
-        df["lon"] = df["lon"].astype(np.float32)
-        df["scan_angle"] = df["scan_angle"].astype(np.float32)
-        df["channel_index"] = df["channel_index"].astype(np.uint16)
-        df["solza"] = df["solza"].astype(np.float32)
-        df["solaza"] = df["solaza"].astype(np.float32)
-        df["satellite_za"] = df["satellite_za"].astype(np.float32)
-        df["satellite_aza"] = df["satellite_aza"].astype(np.float32)
-        df["quality"] = df["quality"].astype(np.uint16)
-        df["observation"] = df["observation"].astype(np.float32)
-        return df
+        return _CrISDecodedGranule(
+            lat=lat_valid,
+            lon=lon_valid,
+            sat_za=sat_za_valid,
+            sat_aza=sat_aza_valid,
+            sol_za=sol_za_valid,
+            sol_aza=sol_aza_valid,
+            quality=qf_valid,
+            times=times_valid,
+            radiance=radiance_valid,
+            satellite=task.satellite,
+            variable=task.variable,
+        )
 
     # ------------------------------------------------------------------
     # Filename parsing and pairing
