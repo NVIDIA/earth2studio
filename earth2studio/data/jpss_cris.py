@@ -119,6 +119,51 @@ _CRIS_GSI_SENSOR_CHAN[_CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW :] = np.aran
     1583, 1583 + _CRIS_NUM_CHANNELS_SW, dtype=np.uint16
 )
 
+# CrIS wavenumber grid for each channel (cm^-1).
+# All three bands use a uniform 0.625 cm^-1 spacing.
+_CRIS_WAVENUMBER: np.ndarray = np.concatenate(
+    [
+        650.0 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_LW),  # LWIR
+        1210.0 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_MW),  # MWIR
+        2155.0 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_SW),  # SWIR
+    ]
+).astype(np.float64)
+
+# Planck radiation constants for converting spectral radiance (mW/(m^2 sr cm^-1))
+# to brightness temperature (K).
+#   c1 = 2 h c^2  in mW m^-2 sr^-1 (cm^-1)^-3  (i.e. mW/(m^2 sr cm^-4))
+#   c2 = h c / k_B  in cm K
+_PLANCK_C1: float = 1.191042953e-5  # mW / (m^2 sr cm^-4)
+_PLANCK_C2: float = 1.4387752  # cm K
+
+
+def _radiance_to_bt(
+    radiance: np.ndarray,
+    wavenumber: np.ndarray = _CRIS_WAVENUMBER,
+) -> np.ndarray:
+    """Convert spectral radiance to brightness temperature via inverse Planck.
+
+    Parameters
+    ----------
+    radiance : np.ndarray
+        Spectral radiance in mW/(m^2 sr cm^-1).  Shape ``(n_fov, n_channels)``
+        or ``(n_channels,)``.  NaN values are preserved.
+    wavenumber : np.ndarray
+        Wavenumber grid in cm^-1, shape ``(n_channels,)``.
+
+    Returns
+    -------
+    np.ndarray
+        Brightness temperature in Kelvin, same shape as *radiance*.
+    """
+    nu = wavenumber  # (n_channels,)
+    # T_B = c2 * nu / ln(1 + c1 * nu^3 / L)
+    nu3 = nu * nu * nu
+    with np.errstate(divide="ignore", invalid="ignore"):
+        bt = _PLANCK_C2 * nu / np.log1p(_PLANCK_C1 * nu3 / radiance)
+    return bt
+
+
 # HDF5 dataset paths in SDR files (CrIS-FS-SDR)
 _SDR_GROUP = "All_Data/CrIS-FS-SDR_All"
 _SDR_RADIANCE_KEYS = {
@@ -165,10 +210,10 @@ class _CrISAsyncTask:
 class _CrISDecodedGranule:
     """Compact decoded data from a single CrIS granule.
 
-    Stores spatial arrays (one value per FOV) and the 2-D radiance
-    matrix.  The expensive channel-expansion into long-format rows is
-    deferred until :py:meth:`JPSS_CRIS._compile_dataframe` where all
-    granules are expanded in a single batch.
+    Stores spatial arrays (one value per FOV) and the 2-D brightness
+    temperature matrix.  The expensive channel-expansion into long-format
+    rows is deferred until :py:meth:`JPSS_CRIS._compile_dataframe` where
+    all granules are expanded in a single batch.
     """
 
     lat: np.ndarray  # (n_valid,) float32
@@ -179,14 +224,19 @@ class _CrISDecodedGranule:
     sol_aza: np.ndarray  # (n_valid,) float32
     quality: np.ndarray  # (n_valid,) uint16
     times: np.ndarray  # (n_valid,) datetime64[ms]
-    radiance: np.ndarray  # (n_valid, n_channels) float32
+    radiance: np.ndarray  # (n_valid, n_channels) float32  (brightness temp K)
     satellite: str
     variable: str
 
 
 class JPSS_CRIS:
     """JPSS CrIS (Cross-track Infrared Sounder) Full Spectral Resolution (FSR)
-    Level 1 spectral radiance observations served from NOAA Open Data on AWS.
+    Level 1 brightness temperature observations served from NOAA Open Data on
+    AWS.
+
+    Raw spectral radiance from the HDF5 SDR files is converted to brightness
+    temperature (K) via the inverse Planck function so that the ``observation``
+    column is directly comparable with :class:`~earth2studio.data.UFSObsSat`.
 
     Each HDF5 granule contains a small number of scan lines, each with 30
     Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
@@ -350,7 +400,7 @@ class JPSS_CRIS:
         variable: str | list[str] | VariableArray,
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
-        """Fetch CrIS FSR spectral radiance observations.
+        """Fetch CrIS FSR brightness temperature observations.
 
         Parameters
         ----------
@@ -907,6 +957,10 @@ class JPSS_CRIS:
         if bad.any():
             radiance_valid = radiance_valid.copy()
             radiance_valid[bad] = np.float32("nan")
+
+        # Convert spectral radiance → brightness temperature (K) so that
+        # the observation column is in the same units as UFSObsSat.
+        radiance_valid = _radiance_to_bt(radiance_valid).astype(np.float32)
 
         return _CrISDecodedGranule(
             lat=lat_valid,

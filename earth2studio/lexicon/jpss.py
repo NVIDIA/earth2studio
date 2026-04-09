@@ -393,10 +393,12 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     """Lexicon for JPSS CrIS (Cross-track Infrared Sounder) FSR data source.
 
     This lexicon maps the ``crisfsr`` variable to an identity modifier for
-    spectral radiance observations in mW/(m^2 sr cm^-1).  Individual channels
-    are distinguished by the ``channel_index`` column of the returned
-    DataFrame, which uses the GSI ``sensor_chan`` numbering convention
-    for compatibility with :class:`~earth2studio.data.UFSObsSat`.
+    the raw HDF5 spectral-radiance field.  The data source itself applies the
+    inverse Planck function to convert radiance into brightness temperature
+    (K), so the ``observation`` column in the returned DataFrame is directly
+    comparable with :class:`~earth2studio.data.UFSObsSat`.  Individual
+    channels are distinguished by the ``channel_index`` column, which uses the
+    GSI ``sensor_chan`` numbering convention.
 
     The CrIS instrument is a Fourier-transform spectrometer operating in three
     infrared spectral bands aboard Suomi NPP, NOAA-20 (JPSS-1) and NOAA-21
@@ -463,7 +465,8 @@ class JPSSCrISLexicon(metaclass=LexiconType):
         tuple[str, Callable]
             Tuple containing:
             - HDF5 dataset key for spectral radiance
-            - Modifier function (identity -- radiance in mW/(m^2 sr cm^-1))
+            - Modifier function (identity -- radiance is converted to
+              brightness temperature inside the data source)
         """
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in CrIS lexicon")

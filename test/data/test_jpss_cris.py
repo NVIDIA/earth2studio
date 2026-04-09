@@ -148,11 +148,11 @@ def test_jpss_cris_fetch(time, variable):
         assert df["channel_index"].between(0, 2219).all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
-        # Radiance values should be finite and mostly positive; some
-        # channels may have near-zero or slightly negative values due
-        # to instrument noise (especially SWIR).
+        # Brightness temperature values should be finite and in a
+        # physically reasonable range (K).
         assert df["observation"].notna().all()
-        assert (df["observation"] < 200).all()  # mW/(m^2 sr cm^-1)
+        assert (df["observation"] > 100).all()  # > 100 K
+        assert (df["observation"] < 400).all()  # < 400 K
 
 
 @pytest.mark.slow
