@@ -115,12 +115,13 @@ class GSISatelliteLexicon(metaclass=LexiconType):
     """
 
     VOCAB: dict[str, str] = {
+        "airs": "aqua::airs::ges::Observation",
         "atms": "npp,n20::atms::ges::Observation",
         "mhs": "metop-a,metop-b,metop-c,n18,n19::mhs::ges::Observation",
         "amsua": "metop-a,metop-b,metop-c,n15,n16,n17,n18,n19::amsua::ges::Observation",
         "amsub": "n15,n16,n17::amsub::ges::Observation",
         "iasi": "metop-a,metop-b,metop-c::iasi::ges::Observation",
-        "crisfsr": "npp,n20::cris-fsr::ges::Observation",
+        "cris": "npp,n20::cris-fsr::ges::Observation",  # Cross-track Infrared Sounder, Full Spectral Resolution (CrIS-FSR)
     }
 
     @classmethod
