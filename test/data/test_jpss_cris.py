@@ -25,6 +25,109 @@ import pyarrow as pa
 import pytest
 
 from earth2studio.data import JPSS_CRIS
+from earth2studio.data.jpss_cris import (
+    _CRIS_GSI_SENSOR_CHAN,
+    _CRIS_WAVENUMBER,
+    _hamming_apodize,
+)
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for channel mapping
+# ---------------------------------------------------------------------------
+def test_guard_channel_layout():
+    """Verify the 2+2 guard channel layout per band."""
+    # Each band has 2 low-end guards (sensor_chan=0) and 2 high-end guards
+    # LWIR: indices 0,1 = guard; 2..714 = science (1..713); 715,716 = guard
+    assert _CRIS_GSI_SENSOR_CHAN[0] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[1] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[2] == 1
+    assert _CRIS_GSI_SENSOR_CHAN[714] == 713
+    assert _CRIS_GSI_SENSOR_CHAN[715] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[716] == 0
+
+    # MWIR: indices 717,718 = guard; 719..1583 = science (714..1578); 1584,1585 = guard
+    assert _CRIS_GSI_SENSOR_CHAN[717] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[718] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[719] == 714
+    assert _CRIS_GSI_SENSOR_CHAN[1583] == 1578
+    assert _CRIS_GSI_SENSOR_CHAN[1584] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[1585] == 0
+
+    # SWIR: indices 1586,1587 = guard; 1588..2220 = science (1579..2211); 2221,2222 = guard
+    assert _CRIS_GSI_SENSOR_CHAN[1586] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[1587] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[1588] == 1579
+    assert _CRIS_GSI_SENSOR_CHAN[2220] == 2211
+    assert _CRIS_GSI_SENSOR_CHAN[2221] == 0
+    assert _CRIS_GSI_SENSOR_CHAN[2222] == 0
+
+    # Total guard channels
+    assert (_CRIS_GSI_SENSOR_CHAN == 0).sum() == 12
+    # Total science channels
+    assert (_CRIS_GSI_SENSOR_CHAN > 0).sum() == 2211
+
+
+def test_wavenumber_grid_starts():
+    """Verify wavenumber grid starts at correct values including guard channels."""
+    # LWIR starts at 648.75 (2 guard channels below 650.0)
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[0], 648.75)
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[1], 649.375)
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[2], 650.0)  # first science channel
+
+    # MWIR starts at 1208.75
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[717], 1208.75)
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[719], 1210.0)  # first science channel
+
+    # SWIR starts at 2153.75
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[1586], 2153.75)
+    np.testing.assert_allclose(_CRIS_WAVENUMBER[1588], 2155.0)  # first science channel
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for apodization
+# ---------------------------------------------------------------------------
+def test_hamming_apodize_shape():
+    """Verify _hamming_apodize trims guard channels correctly."""
+    rng = np.random.default_rng(0)
+    # Single spectrum
+    spec_1d = rng.uniform(1, 50, 2223).astype(np.float32)
+    apod_1d = _hamming_apodize(spec_1d)
+    assert apod_1d.shape == (2211,)
+
+    # Batch of spectra
+    spec_2d = rng.uniform(1, 50, (5, 2223)).astype(np.float32)
+    apod_2d = _hamming_apodize(spec_2d)
+    assert apod_2d.shape == (5, 2211)
+
+
+def test_hamming_apodize_constant_spectrum():
+    """For a spatially-constant spectrum the Hamming kernel is an identity
+    (0.23+0.54+0.23=1.0), so the output should equal the input at science
+    channels."""
+    val = 42.0
+    spec = np.full(2223, val, dtype=np.float64)
+    apod = _hamming_apodize(spec)
+    np.testing.assert_allclose(apod, val, atol=1e-12)
+
+
+def test_hamming_apodize_kernel_weights():
+    """Verify the 3-tap [0.23, 0.54, 0.23] kernel is applied correctly on
+    an interior LWIR channel."""
+    spec = np.zeros(2223, dtype=np.float64)
+    # Set a single spike at LWIR channel 100 (interior, far from edge/guard).
+    # With 2 guard channels at the low end trimmed, input index 100 maps to
+    # apodized output index 98.
+    spec[100] = 1.0
+    apod = _hamming_apodize(spec)
+    # The spike should spread to neighbours (output indices 97, 98, 99)
+    assert abs(apod[97] - 0.23) < 1e-14
+    assert abs(apod[98] - 0.54) < 1e-14
+    assert abs(apod[99] - 0.23) < 1e-14
+    # All other science channels should be zero
+    mask = np.ones(2211, dtype=bool)
+    mask[97:100] = False
+    np.testing.assert_allclose(apod[mask], 0.0, atol=1e-14)
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +247,8 @@ def test_jpss_cris_fetch(time, variable):
     assert "channel_index" in df.columns
 
     if not df.empty:
-        # GSI sensor_chan: 0 (sentinel for gap channels), 1..2219
-        assert df["channel_index"].between(0, 2219).all()
+        # Apodized (default): contiguous sensor_chan 1..2211
+        assert df["channel_index"].between(1, 2211).all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
         # Brightness temperature values should be finite and in a
@@ -200,9 +303,9 @@ def test_jpss_cris_cache(cache):
 # Mock / offline tests (no network required)
 # ---------------------------------------------------------------------------
 def test_jpss_cris_call_mock(tmp_path):
-    """Exercise the full __call__ path with synthetic HDF5 files."""
+    """Exercise the full __call__ path with synthetic HDF5 files (apodized)."""
     n_scan, n_for, n_fov = 2, 4, 9  # reduced to keep test fast
-    n_channels = 717 + 869 + 637  # 2223
+    n_channels_apod = 713 + 865 + 633  # 2211 science channels after apodization
 
     sdr_file = tmp_path / "SCRIF_j01.h5"
     geo_file = tmp_path / "GCRSO_j01.h5"
@@ -237,9 +340,9 @@ def test_jpss_cris_call_mock(tmp_path):
     assert not df.empty
     assert list(df.columns) == ds.SCHEMA.names
     assert set(df["variable"].unique()) == {"crisfsr"}
-    # GSI sensor_chan: 0 (sentinel for gap channels), 1..2219
-    assert df["channel_index"].between(0, 2219).all()
-    expected_rows = n_scan * n_for * n_fov * n_channels
+    # Apodized: contiguous sensor_chan 1..2211 (no guard channel sentinels)
+    assert df["channel_index"].between(1, 2211).all()
+    expected_rows = n_scan * n_for * n_fov * n_channels_apod
     assert len(df) == expected_rows
     assert df["satellite"].iloc[0] == "n20"
     assert "quality" in df.columns
@@ -248,10 +351,56 @@ def test_jpss_cris_call_mock(tmp_path):
     assert (df["observation"] > 0).all()
 
 
+def test_jpss_cris_call_mock_unapodized(tmp_path):
+    """Exercise the full __call__ path with apodize=False (unapodized)."""
+    n_scan, n_for, n_fov = 2, 4, 9
+    n_channels_raw = 717 + 869 + 637  # 2223 including guard channels
+
+    sdr_file = tmp_path / "SCRIF_j01.h5"
+    geo_file = tmp_path / "GCRSO_j01.h5"
+    _make_mock_hdf5_pair(str(sdr_file), str(geo_file), n_scan, n_for, n_fov)
+
+    sdr_uri = "s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/2024/06/01/SCRIF_j01.h5"
+    geo_uri = "s3://noaa-nesdis-n20-pds/CrIS-SDR-GEO/2024/06/01/GCRSO_j01.h5"
+
+    def fake_cache_path(self, s3_uri):
+        if "SCRIF" in s3_uri or "SDR" in s3_uri and "GEO" not in s3_uri:
+            return str(sdr_file)
+        return str(geo_file)
+
+    mock_task = MagicMock(
+        sdr_uri=sdr_uri,
+        geo_uri=geo_uri,
+        datetime_min=datetime(2024, 6, 1, 11, 0),
+        datetime_max=datetime(2024, 6, 1, 13, 0),
+        satellite="n20",
+        variable="crisfsr",
+        modifier=lambda x: x,
+    )
+
+    with (
+        patch.object(JPSS_CRIS, "_fetch_remote_file", return_value=None),
+        patch.object(JPSS_CRIS, "_cache_path", fake_cache_path),
+        patch.object(JPSS_CRIS, "_create_tasks", return_value=[mock_task]),
+    ):
+        ds = JPSS_CRIS(satellites=["n20"], apodize=False, cache=False, verbose=False)
+        df = ds(datetime(2024, 6, 1, 12), ["crisfsr"])
+
+    assert not df.empty
+    assert list(df.columns) == ds.SCHEMA.names
+    # Unapodized: sensor_chan includes 0 (guard) and 1..2211
+    assert df["channel_index"].between(0, 2211).all()
+    expected_rows = n_scan * n_for * n_fov * n_channels_raw
+    assert len(df) == expected_rows
+    # Guard channels should have sensor_chan 0
+    guard_rows = df[df["channel_index"] == 0]
+    assert len(guard_rows) > 0  # 12 guard channels per FOV
+
+
 def test_jpss_cris_subsample_mock(tmp_path):
     """Verify granule-level sub-sampling reduces data by the expected factor."""
     n_scan, n_for, n_fov = 2, 4, 9
-    n_channels = 717 + 869 + 637  # 2223
+    n_channels_apod = 713 + 865 + 633  # 2211 (default: apodized)
 
     # Create 3 distinct granule file pairs (different seeds → different coords)
     granule_files = []
@@ -287,7 +436,7 @@ def test_jpss_cris_subsample_mock(tmp_path):
         for i in range(3)
     ]
 
-    rows_per_granule = n_scan * n_for * n_fov * n_channels
+    rows_per_granule = n_scan * n_for * n_fov * n_channels_apod
 
     # subsample=1 → all 3 granules
     with (

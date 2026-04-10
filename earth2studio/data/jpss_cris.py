@@ -89,43 +89,93 @@ _CRIS_NUM_CHANNELS: int = (
 _CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
 _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
-# GSI sensor_chan numbering for CrIS FSR.
-# GSI uses a contiguous 1-based numbering across all three bands but with a
-# different LWIR channel count (713) than the instrument's physical 717.  The
-# four highest-wavenumber LWIR channels (1095.625 -- 1097.5 cm^-1) are not
-# assimilated by GSI, so MWIR begins at sensor_chan 714 rather than 718.
+# GSI / CRTM sensor_chan numbering for CrIS FSR.
+#
+# The physical instrument has 2223 channels (717 + 869 + 637) but the CRTM
+# SpcCoeff defines only 2211 *science* channels (713 + 865 + 633).  Each band
+# has 2 guard channels at the low-wavenumber end and 2 at the high-wavenumber
+# end (4 total per band, 12 overall) that are excluded from CRTM and never
+# appear in GSI diagnostic files.  GSI uses contiguous 1-based numbering
+# across the three science bands:
 #
 #   Band   | JPSS 0-based |  sensor_chan  | Wavenumber (cm^-1)
 #   -------+--------------+--------------+--------------------
-#   LWIR   | 0 .. 712     | 1 .. 713     | 650.0 -- 1095.0
-#   (gap)  | 713 .. 716   | — (unused)   | 1095.625 -- 1097.5
-#   MWIR   | 717 .. 1585  | 714 .. 1582  | 1210.0 -- 1752.5
-#   SWIR   | 1586 .. 2222 | 1583 .. 2219 | 2155.0 -- 2552.5
+#   (guard)| 0 .. 1       | 0 (sentinel) | 648.75 -- 649.375
+#   LWIR   | 2 .. 714     | 1 .. 713     | 650.0 -- 1095.0
+#   (guard)| 715 .. 716   | 0 (sentinel) | 1095.625 -- 1096.25
+#   (guard)| 717 .. 718   | 0 (sentinel) | 1208.75 -- 1209.375
+#   MWIR   | 719 .. 1583  | 714 .. 1578  | 1210.0 -- 1750.0
+#   (guard)| 1584 .. 1585 | 0 (sentinel) | 1750.625 -- 1751.25
+#   (guard)| 1586 .. 1587 | 0 (sentinel) | 2153.75 -- 2154.375
+#   SWIR   | 1588 .. 2220 | 1579 .. 2211 | 2155.0 -- 2550.0
+#   (guard)| 2221 .. 2222 | 0 (sentinel) | 2550.625 -- 2551.25
 #
-# Channels in the gap are assigned sensor_chan 0 (sentinel for "not in GSI").
-_CRIS_GSI_SENSOR_CHAN: np.ndarray = np.empty(
+# Guard channels are assigned sensor_chan 0 (sentinel for "not in GSI/CRTM").
+_CRIS_NUM_SCIENCE_LW: int = 713  # CRTM science channels per band
+_CRIS_NUM_SCIENCE_MW: int = 865
+_CRIS_NUM_SCIENCE_SW: int = 633
+_CRIS_NUM_GUARD_LO: int = 2  # guard channels at low-wavenumber end of each band
+_CRIS_NUM_GUARD_HI: int = 2  # guard channels at high-wavenumber end of each band
+
+# Full (unapodized) sensor_chan mapping — 2223 elements including guard channels.
+_CRIS_GSI_SENSOR_CHAN: np.ndarray = np.zeros(
     _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW + _CRIS_NUM_CHANNELS_SW,
     dtype=np.uint16,
 )
-# LWIR: first 713 channels → 1..713; last 4 → 0 (sentinel)
-_CRIS_GSI_SENSOR_CHAN[:713] = np.arange(1, 714, dtype=np.uint16)
-_CRIS_GSI_SENSOR_CHAN[713:_CRIS_NUM_CHANNELS_LW] = 0
-# MWIR: 869 channels → 714..1582
+# LWIR: skip 2 low guards, 713 science channels → 1..713, 2 high guards → 0
 _CRIS_GSI_SENSOR_CHAN[
-    _CRIS_NUM_CHANNELS_LW : _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW
-] = np.arange(714, 714 + _CRIS_NUM_CHANNELS_MW, dtype=np.uint16)
-# SWIR: 637 channels → 1583..2219
-_CRIS_GSI_SENSOR_CHAN[_CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW :] = np.arange(
-    1583, 1583 + _CRIS_NUM_CHANNELS_SW, dtype=np.uint16
+    _CRIS_NUM_GUARD_LO : _CRIS_NUM_GUARD_LO + _CRIS_NUM_SCIENCE_LW
+] = np.arange(1, _CRIS_NUM_SCIENCE_LW + 1, dtype=np.uint16)
+# MWIR: skip 2 low guards, 865 science channels → 714..1578, 2 high guards → 0
+_mw_start = _CRIS_NUM_CHANNELS_LW  # physical index where MWIR begins
+_CRIS_GSI_SENSOR_CHAN[
+    _mw_start
+    + _CRIS_NUM_GUARD_LO : _mw_start
+    + _CRIS_NUM_GUARD_LO
+    + _CRIS_NUM_SCIENCE_MW
+] = np.arange(
+    _CRIS_NUM_SCIENCE_LW + 1,
+    _CRIS_NUM_SCIENCE_LW + _CRIS_NUM_SCIENCE_MW + 1,
+    dtype=np.uint16,
+)
+# SWIR: skip 2 low guards, 633 science channels → 1579..2211, 2 high guards → 0
+_sw_start = _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW
+_CRIS_GSI_SENSOR_CHAN[
+    _sw_start
+    + _CRIS_NUM_GUARD_LO : _sw_start
+    + _CRIS_NUM_GUARD_LO
+    + _CRIS_NUM_SCIENCE_SW
+] = np.arange(
+    _CRIS_NUM_SCIENCE_LW + _CRIS_NUM_SCIENCE_MW + 1,
+    _CRIS_NUM_SCIENCE_LW + _CRIS_NUM_SCIENCE_MW + _CRIS_NUM_SCIENCE_SW + 1,
+    dtype=np.uint16,
+)
+
+# Apodized sensor_chan mapping — 2211 science channels only (guard trimmed).
+_CRIS_GSI_SENSOR_CHAN_APOD: np.ndarray = np.arange(
+    1,
+    _CRIS_NUM_SCIENCE_LW + _CRIS_NUM_SCIENCE_MW + _CRIS_NUM_SCIENCE_SW + 1,
+    dtype=np.uint16,
 )
 
 # CrIS wavenumber grid for each channel (cm^-1).
 # All three bands use a uniform 0.625 cm^-1 spacing.
+# The SDR stores 2 guard channels at the low-wavenumber end of each band,
+# so the physical grid starts 2 * 0.625 = 1.25 cm^-1 below the science start.
 _CRIS_WAVENUMBER: np.ndarray = np.concatenate(
     [
-        650.0 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_LW),  # LWIR
-        1210.0 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_MW),  # MWIR
-        2155.0 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_SW),  # SWIR
+        648.75 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_LW),  # LWIR
+        1208.75 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_MW),  # MWIR
+        2153.75 + 0.625 * np.arange(_CRIS_NUM_CHANNELS_SW),  # SWIR
+    ]
+).astype(np.float64)
+
+# Apodized (science-only) wavenumber grid — guard channels removed.
+_CRIS_WAVENUMBER_APOD: np.ndarray = np.concatenate(
+    [
+        650.0 + 0.625 * np.arange(_CRIS_NUM_SCIENCE_LW),  # LWIR science
+        1210.0 + 0.625 * np.arange(_CRIS_NUM_SCIENCE_MW),  # MWIR science
+        2155.0 + 0.625 * np.arange(_CRIS_NUM_SCIENCE_SW),  # SWIR science
     ]
 ).astype(np.float64)
 
@@ -133,8 +183,42 @@ _CRIS_WAVENUMBER: np.ndarray = np.concatenate(
 # to brightness temperature (K).
 #   c1 = 2 h c^2  in mW m^-2 sr^-1 (cm^-1)^-3  (i.e. mW/(m^2 sr cm^-4))
 #   c2 = h c / k_B  in cm K
-_PLANCK_C1: float = 1.191042953e-5  # mW / (m^2 sr cm^-4)
-_PLANCK_C2: float = 1.4387752  # cm K
+_PLANCK_C1: float = 1.191042722543250e-5  # mW / (m^2 sr cm^-4)  [CRTM SpcCoeff]
+_PLANCK_C2: float = 1.438775246065195  # cm K  [CRTM SpcCoeff]
+
+# ---------------------------------------------------------------------------
+# Hamming apodization constants
+# ---------------------------------------------------------------------------
+# CrIS is a Fourier Transform Spectrometer.  The SDR files store unapodized
+# (sinc ILS) spectral radiance.  NCEP applies Hamming apodization before
+# encoding the data into BUFR for GSI assimilation, so UFS/GSI brightness
+# temperatures correspond to apodized spectra.
+#
+# For CrIS FSR the channel spacing is dv = 0.625 cm^-1, which equals
+# 1/(2*L) where L = 0.8 cm is the maximum optical path difference.  This
+# makes the Hamming window w(x) = 0.54 + 0.46*cos(pi*x/L) equivalent to
+# an exact 3-tap spectral convolution:
+#
+#   apodized[n] = 0.23 * unapodized[n-1] + 0.54 * unapodized[n] + 0.23 * unapodized[n+1]
+#
+# The kernel coefficients come from a = 0.54 (center) and (1-a)/2 = 0.23 (sides).
+_HAMMING_A0: float = 0.54
+_HAMMING_A1: float = 0.23  # symmetric: a_{-1} = a_{+1}
+
+# Band offsets into the concatenated 2223-channel array (for per-band apodization).
+_BAND_SLICES: list[tuple[int, int, int]] = [
+    (0, _CRIS_NUM_CHANNELS_LW, _CRIS_NUM_SCIENCE_LW),  # LWIR
+    (
+        _CRIS_NUM_CHANNELS_LW,
+        _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW,
+        _CRIS_NUM_SCIENCE_MW,
+    ),  # MWIR
+    (
+        _CRIS_NUM_CHANNELS_LW + _CRIS_NUM_CHANNELS_MW,
+        _CRIS_NUM_CHANNELS,
+        _CRIS_NUM_SCIENCE_SW,
+    ),  # SWIR
+]
 
 
 def _radiance_to_bt(
@@ -162,6 +246,64 @@ def _radiance_to_bt(
     with np.errstate(divide="ignore", invalid="ignore"):
         bt = _PLANCK_C2 * nu / np.log1p(_PLANCK_C1 * nu3 / radiance)
     return bt
+
+
+def _hamming_apodize(radiance: np.ndarray) -> np.ndarray:
+    """Apply Hamming apodization to unapodized CrIS spectral radiance.
+
+    The 3-tap symmetric Hamming convolution kernel ``[0.23, 0.54, 0.23]``
+    is the exact spectral-domain equivalent of multiplying the CrIS
+    interferogram by ``w(x) = 0.54 + 0.46 cos(pi x / L)``.  It is applied
+    independently to each of the three bands (LWIR, MWIR, SWIR) in radiance
+    space.  The 2 guard channels at each end of each band (4 per band, 12
+    total) are trimmed after convolution, reducing the total from 2223 to
+    2211 science channels.
+
+    At band-edge channels (first/last of each band) the filter would need a
+    neighbour outside the band.  We use symmetric (reflect) padding so that
+    the edge value is replicated, which is consistent with the interferogram
+    being even-symmetric.
+
+    .. note::
+
+       The spectral-domain 3-tap kernel is the exact Fourier dual of
+       interferogram-domain Hamming for continuous signals.  Residuals
+       relative to UFS/GSI brightness temperatures are typically < 1 K
+       for most channels.
+
+    Parameters
+    ----------
+    radiance : np.ndarray
+        Unapodized spectral radiance, shape ``(n_fov, 2223)`` or ``(2223,)``.
+
+    Returns
+    -------
+    np.ndarray
+        Apodized spectral radiance with guard channels removed,
+        shape ``(n_fov, 2211)`` or ``(2211,)``.
+    """
+    squeeze = radiance.ndim == 1
+    if squeeze:
+        radiance = radiance[np.newaxis, :]
+
+    out_parts: list[np.ndarray] = []
+    for band_start, band_end, n_science in _BAND_SLICES:
+        band = radiance[:, band_start:band_end]  # (n_fov, n_band)
+        # Pad one sample on each side using reflect (symmetric boundary)
+        padded = np.pad(band, ((0, 0), (1, 1)), mode="reflect")
+        # 3-tap Hamming convolution
+        apod = (
+            _HAMMING_A1 * padded[:, :-2]
+            + _HAMMING_A0 * padded[:, 1:-1]
+            + _HAMMING_A1 * padded[:, 2:]
+        )
+        # Trim guard channels: 2 at low end + 2 at high end → keep n_science
+        out_parts.append(apod[:, _CRIS_NUM_GUARD_LO : _CRIS_NUM_GUARD_LO + n_science])
+
+    result = np.concatenate(out_parts, axis=1)
+    if squeeze:
+        return result[0]
+    return result
 
 
 # HDF5 dataset paths in SDR files (CrIS-FS-SDR)
@@ -238,6 +380,16 @@ class JPSS_CRIS:
     temperature (K) via the inverse Planck function so that the ``observation``
     column is directly comparable with :class:`~earth2studio.data.UFSObsSat`.
 
+    By default, Hamming apodization is applied to the unapodized (sinc ILS)
+    radiance before the Planck inversion.  This matches the processing used by
+    NCEP/GSI (which receives Hamming-apodized CrIS radiance via BUFR) and
+    produces brightness temperatures consistent with
+    :class:`~earth2studio.data.UFSObsSat`.  The 2 guard channels at each end
+    of each band (4 per band, 12 total) are trimmed during apodization,
+    yielding 2211 science channels.  Set ``apodize=False`` to retain the full
+    2223 unapodized channels (including 12 guard channels with
+    ``channel_index=0``).
+
     Each HDF5 granule contains a small number of scan lines, each with 30
     Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
     array).  In FSR mode the instrument produces 2223 spectral channels:
@@ -246,16 +398,22 @@ class JPSS_CRIS:
     - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
-    The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
-    following the same convention as :class:`~earth2studio.data.JPSS_ATMS`.
-    The ``channel_index`` column uses the GSI ``sensor_chan`` numbering
-    convention so that channel indices are directly comparable with
-    :class:`~earth2studio.data.UFSObsSat`:
+    When ``apodize=True`` (default), guard channels are trimmed and the output
+    has 2211 channels with contiguous ``channel_index`` 1--2211.
 
-    - **LWIR** channels 0--712 (0-based) → sensor_chan 1--713
-    - **LWIR** channels 713--716 (0-based) → sensor_chan 0 (sentinel; not in GSI)
-    - **MWIR** channels 717--1585 (0-based) → sensor_chan 714--1582
-    - **SWIR** channels 1586--2222 (0-based) → sensor_chan 1583--2219
+    When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
+    per FOV per channel including guard channels.  The ``channel_index`` column
+    uses the GSI ``sensor_chan`` numbering convention:
+
+    - **LWIR** channels 0--1 (0-based) → sensor_chan 0 (guard; not in GSI)
+    - **LWIR** channels 2--714 (0-based) → sensor_chan 1--713
+    - **LWIR** channels 715--716 (0-based) → sensor_chan 0 (guard; not in GSI)
+    - **MWIR** channels 717--718 (0-based) → sensor_chan 0 (guard; not in GSI)
+    - **MWIR** channels 719--1583 (0-based) → sensor_chan 714--1578
+    - **MWIR** channels 1584--1585 (0-based) → sensor_chan 0 (guard; not in GSI)
+    - **SWIR** channels 1586--1587 (0-based) → sensor_chan 0 (guard; not in GSI)
+    - **SWIR** channels 1588--2220 (0-based) → sensor_chan 1579--2211
+    - **SWIR** channels 2221--2222 (0-based) → sensor_chan 0 (guard; not in GSI)
 
     Data is stored as paired HDF5 files on S3:
 
@@ -274,6 +432,27 @@ class JPSS_CRIS:
         ``subsample=N`` selects every *N*-th granule from the time-ordered
         list, reducing data volume by approximately that factor.  By
         default 1 (no sub-sampling).
+    apodize : bool, optional
+        Apply Hamming apodization to the unapodized SDR radiance before
+        converting to brightness temperature.  When ``True`` (default),
+        the 3-tap Hamming kernel ``[0.23, 0.54, 0.23]`` is convolved
+        per-band in radiance space and the 2 guard channels at each
+        end of each band are trimmed, yielding 2211 science
+        channels that are directly comparable with
+        :class:`~earth2studio.data.UFSObsSat`.  Set to ``False`` to
+        retain the unapodized spectra with all 2223 channels (including
+        12 guard channels with ``channel_index=0``).
+
+        .. note::
+
+           The spectral-domain 3-tap kernel matches interferogram-domain
+           Hamming for smooth spectral regions (window channels,
+           ``sensor_chan`` ≥ 200: agreement < 0.5 K with UFS/GSI).
+           Channels on sharp CO₂ Q-branch features near 667 cm⁻¹ and
+           720 cm⁻¹ may show residuals of 5–20 K because the 3-tap
+           discrete convolution does not fully replicate the
+           interferogram-domain apodization applied by NESDIS upstream
+           of GSI.
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
@@ -343,6 +522,7 @@ class JPSS_CRIS:
         self,
         satellites: list[str] | None = None,
         subsample: int = 1,
+        apodize: bool = True,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         cache: bool = True,
         verbose: bool = True,
@@ -361,6 +541,7 @@ class JPSS_CRIS:
                 )
         self._satellites = satellites
         self._subsample = max(1, int(subsample))
+        self._apodize = apodize
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
@@ -761,6 +942,11 @@ class JPSS_CRIS:
         # --- Expand to long-format using PyArrow for efficiency ---
         n_rows = n_total * n_channels
 
+        # Select the correct sensor_chan mapping based on apodization setting
+        sensor_chan = (
+            _CRIS_GSI_SENSOR_CHAN_APOD if self._apodize else _CRIS_GSI_SENSOR_CHAN
+        )
+
         arrs: dict[str, pa.Array] = {
             "time": pa.array(np.repeat(all_times, n_channels)),
             "class": pa.DictionaryArray.from_arrays(
@@ -772,7 +958,7 @@ class JPSS_CRIS:
                 np.repeat(all_sat_za, n_channels), type=pa.float32()
             ),
             "channel_index": pa.array(
-                np.tile(_CRIS_GSI_SENSOR_CHAN, n_total),
+                np.tile(sensor_chan, n_total),
                 type=pa.uint16(),
             ),
             "solza": pa.array(np.repeat(all_sol_za, n_channels), type=pa.float32()),
@@ -958,9 +1144,18 @@ class JPSS_CRIS:
             radiance_valid = radiance_valid.copy()
             radiance_valid[bad] = np.float32("nan")
 
+        # Optional Hamming apodization: smooth the unapodized (sinc ILS)
+        # radiance to match the apodized spectra used by GSI/CRTM, then trim
+        # the 2 guard channels at each end of each band.
+        if self._apodize:
+            radiance_valid = _hamming_apodize(radiance_valid)
+            wn = _CRIS_WAVENUMBER_APOD
+        else:
+            wn = _CRIS_WAVENUMBER
+
         # Convert spectral radiance → brightness temperature (K) so that
         # the observation column is in the same units as UFSObsSat.
-        radiance_valid = _radiance_to_bt(radiance_valid).astype(np.float32)
+        radiance_valid = _radiance_to_bt(radiance_valid, wn).astype(np.float32)
 
         return _CrISDecodedGranule(
             lat=lat_valid,

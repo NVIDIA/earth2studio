@@ -393,12 +393,13 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     """Lexicon for JPSS CrIS (Cross-track Infrared Sounder) FSR data source.
 
     This lexicon maps the ``crisfsr`` variable to an identity modifier for
-    the raw HDF5 spectral-radiance field.  The data source itself applies the
-    inverse Planck function to convert radiance into brightness temperature
-    (K), so the ``observation`` column in the returned DataFrame is directly
-    comparable with :class:`~earth2studio.data.UFSObsSat`.  Individual
-    channels are distinguished by the ``channel_index`` column, which uses the
-    GSI ``sensor_chan`` numbering convention.
+    the raw HDF5 spectral-radiance field.  The data source itself applies
+    optional Hamming apodization (default on) followed by the inverse Planck
+    function to convert radiance into brightness temperature (K), so the
+    ``observation`` column in the returned DataFrame is directly comparable
+    with :class:`~earth2studio.data.UFSObsSat`.  Individual channels are
+    distinguished by the ``channel_index`` column, which uses the GSI
+    ``sensor_chan`` numbering convention.
 
     The CrIS instrument is a Fourier-transform spectrometer operating in three
     infrared spectral bands aboard Suomi NPP, NOAA-20 (JPSS-1) and NOAA-21
@@ -409,14 +410,28 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
+    When ``apodize=True`` (default in :class:`~earth2studio.data.JPSS_CRIS`),
+    the 2 guard channels at each end of each band (4 per band, 12 total) are
+    trimmed after apodization, yielding 2211 science channels with contiguous
+    ``channel_index`` 1--2211.
+
     Notes
     -----
     CrIS Channel Indexing (GSI ``sensor_chan`` convention):
 
+    The CRTM defines 2211 science channels (713 + 865 + 633) across the three
+    bands.  Each band has 2 guard channels at the low-wavenumber end and 2 at
+    the high-wavenumber end that are excluded from CRTM/GSI.
+
+    - sensor_chan   0       : LWIR guard channels 0--1 (not in GSI)
     - sensor_chan   1--713  : LWIR band (713 of 717 physical channels)
-    - sensor_chan   0       : LWIR edge channels 713--716 (sentinel; not in GSI)
-    - sensor_chan 714--1582 : MWIR band (869 channels)
-    - sensor_chan 1583--2219: SWIR band (637 channels)
+    - sensor_chan   0       : LWIR guard channels 715--716 (not in GSI)
+    - sensor_chan   0       : MWIR guard channels 717--718 (not in GSI)
+    - sensor_chan 714--1578 : MWIR band (865 of 869 physical channels)
+    - sensor_chan   0       : MWIR guard channels 1584--1585 (not in GSI)
+    - sensor_chan   0       : SWIR guard channels 1586--1587 (not in GSI)
+    - sensor_chan 1579--2211: SWIR band (633 of 637 physical channels)
+    - sensor_chan   0       : SWIR guard channels 2221--2222 (not in GSI)
 
     References
     ----------
@@ -440,11 +455,15 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
     CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
-    # CrIS spectral band wavenumber ranges (cm^-1)
+    # CrIS spectral band wavenumber ranges (cm^-1).
+    # These are the *full physical* band extents (including 4 guard channels at
+    # the high end of each band).  CRTM/GSI science channels cover a slightly
+    # narrower range (650--1095, 1210--1750, 2155--2550 cm^-1) because the 4
+    # highest-wavenumber guard channels per band are excluded.
     CRIS_BAND_RANGES: dict[str, tuple[float, float]] = {
-        "LW": (650.0, 1095.0),
-        "MW": (1210.0, 1750.0),
-        "SW": (2155.0, 2550.0),
+        "LW": (650.0, 1097.5),
+        "MW": (1210.0, 1752.5),
+        "SW": (2155.0, 2552.5),
     }
 
     VOCAB: dict[str, str] = {
