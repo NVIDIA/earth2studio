@@ -500,6 +500,53 @@ class WorkflowExecutionResponse(BaseModel):
     timestamp: str
 
 
+@app.post("/v1/infer", response_model=WorkflowExecutionResponse)
+async def execute_default_workflow(
+    request: WorkflowExecutionRequest,
+) -> WorkflowExecutionResponse:
+    """
+    Enqueue the single exposed workflow for execution.
+
+    This endpoint is only valid when exactly one workflow is exposed (same notion
+    of *exposed* as ``GET /v1/infer/workflows``). If zero or more than one workflow
+    is exposed, the request fails.
+
+    Parameters
+    ----------
+    request : WorkflowExecutionRequest
+        Request body containing workflow parameters for the selected workflow.
+
+    Returns
+    -------
+    WorkflowExecutionResponse
+        Execution ID, status (QUEUED), queue position, and message.
+
+    Raises
+    ------
+    HTTPException
+        503 if no exposed workflows are registered; 409 if more than one exposed
+        workflow; otherwise same status codes as ``POST /v1/infer/{workflow_name}``.
+    """
+    exposed = workflow_registry.list_workflows(exposed_only=True)
+    n_exposed = len(exposed)
+    if n_exposed == 0:
+        raise HTTPException(
+            status_code=503,
+            detail="No exposed workflows are available.",
+        )
+    if n_exposed > 1:
+        names = ", ".join(exposed)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "POST /v1/infer requires exactly one exposed workflow; "
+                f"found {n_exposed}: {names}."
+            ),
+        )
+    workflow_name = next(iter(exposed))
+    return await execute_workflow(workflow_name, request)
+
+
 @app.post("/v1/infer/{workflow_name}", response_model=WorkflowExecutionResponse)
 async def execute_workflow(
     workflow_name: str, request: WorkflowExecutionRequest

@@ -1569,6 +1569,54 @@ class TestExecuteWorkflowBranches:
         assert response.status_code == 500
         assert "enqueue" in response.json().get("detail", "").lower()
 
+    def test_default_infer_no_exposed_503(self, client_exec):
+        """POST /v1/infer returns 503 when no workflows are exposed."""
+        client, _, _ = client_exec
+        from earth2studio.serve.server.workflow import workflow_registry
+
+        with patch.object(workflow_registry, "list_workflows", return_value={}):
+            r = client.post("/v1/infer", json={"parameters": {}})
+        assert r.status_code == 503
+        assert "No exposed workflows" in r.json()["detail"]
+
+    def test_default_infer_multiple_exposed_409(self, client_exec):
+        """POST /v1/infer returns 409 when more than one workflow is exposed."""
+        client, _, _ = client_exec
+        from earth2studio.serve.server.workflow import workflow_registry
+
+        with patch.object(
+            workflow_registry,
+            "list_workflows",
+            return_value={"wf_a": "A", "wf_b": "B"},
+        ):
+            r = client.post("/v1/infer", json={"parameters": {}})
+        assert r.status_code == 409
+        d = r.json()["detail"]
+        assert "exactly one" in d
+        assert "wf_a" in d and "wf_b" in d
+
+    def test_default_infer_delegates_to_named_route(self, client_exec):
+        """POST /v1/infer matches POST /v1/infer/exec_wf when exactly one workflow is exposed."""
+        client, mock_redis, mock_queue = client_exec
+        from earth2studio.serve.server.workflow import workflow_registry
+
+        mock_job = MagicMock()
+        mock_job.id = "solo_job"
+        mock_queue.enqueue = MagicMock(return_value=mock_job)
+        mock_redis.llen = MagicMock(return_value=0)
+        # Registry may contain other workflows from app init; isolate to one exposed name.
+        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
+            with patch.object(
+                workflow_registry,
+                "list_workflows",
+                return_value={"exec_wf": "For execute tests"},
+            ):
+                r_default = client.post("/v1/infer", json={"parameters": {}})
+            r_named = client.post("/v1/infer/exec_wf", json={"parameters": {}})
+        assert r_default.status_code == 200
+        assert r_named.status_code == 200
+        assert r_default.json()["status"] == r_named.json()["status"] == "queued"
+
 
 class TestHealthMetricsSchemaExceptions:
     """Tests for health, metrics, and schema exception paths."""
