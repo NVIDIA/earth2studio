@@ -217,6 +217,7 @@ class OutputManager:
 
         self._path = os.path.join(output_cfg.path, "forecast.zarr")
         self._overwrite = output_cfg.get("overwrite", False)
+        self._resume = cfg.get("resume", False)
         self._thread_io = output_cfg.get("thread_writers", 0)
         self._chunks: dict[str, int] = dict(
             output_cfg.get("chunks", {"time": 1, "lead_time": 1})
@@ -338,23 +339,46 @@ class OutputManager:
         else:
             self.io.write(arrays, coord_sets, var_names)
 
+    def flush(self) -> None:
+        """Wait for all pending threaded writes to complete.
+
+        Called between work items during resume runs to guarantee that all
+        zarr writes have landed before a completion marker is written.
+        Raises immediately if any pending write failed.
+        """
+        if self._executor is not None:
+            for f in self._futures:
+                f.result()
+            self._futures.clear()
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
     def _open_store(self) -> ZarrBackend:
         """Create or open the zarr store (called inside rank-ordered context)."""
+        if self._total_coords is None or self._variables is None:
+            raise ValueError(
+                "Total coordinates and variables must be set before opening the store"
+            )
         is_rank0 = self._dist.rank == 0 if self._dist.distributed else True
 
         os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
 
-        if is_rank0 and os.path.exists(self._path):
-            if self._overwrite:
+        store_exists = os.path.exists(self._path)
+
+        if is_rank0 and store_exists:
+            if self._resume:
+                logger.info(f"Resuming into existing store: {self._path}")
+            elif self._overwrite:
                 logger.warning(f"Overwriting existing store: {self._path}")
                 shutil.rmtree(self._path)
+                store_exists = False
             else:
                 raise FileExistsError(
-                    f"{self._path} already exists. Set output.overwrite=true to replace."
+                    f"{self._path} already exists. "
+                    "Set output.overwrite=true to replace, "
+                    "or resume=true to append."
                 )
 
         chunks = dict(self._chunks)
@@ -367,7 +391,7 @@ class OutputManager:
             backend_kwargs={"overwrite": False},
         )
 
-        if is_rank0:
+        if is_rank0 and not store_exists:
             write_coords = self._total_coords.copy()
             variables = np.array(self._variables)
             io.add_array(write_coords, variables)
@@ -376,10 +400,14 @@ class OutputManager:
             for v in self._variables:
                 if v not in io:
                     raise ValueError(
-                        f"Variable '{v}' missing from store — rank 0 initialization failed?"
+                        f"Variable '{v}' missing from store — "
+                        "rank 0 initialization failed?"
                     )
             for dim in self._total_coords:
                 handshake_coords(io.coords, self._total_coords, required_dim=dim)
-            logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
+            if is_rank0:
+                logger.info(f"Validated existing store for resume: {self._path}")
+            else:
+                logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
 
         return io

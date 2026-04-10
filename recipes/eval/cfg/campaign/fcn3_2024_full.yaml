@@ -1,0 +1,104 @@
+# @package _global_
+# FCN3 full 2024 — 56-member ensemble, 00Z/12Z ICs, 10-day forecasts.
+# 732 ICs x 56 members = 40,992 work items; use resume=true and
+# submit multiple SLURM jobs to distribute work.
+defaults:
+    - override /model: fcn3
+
+run_id: fcn3_2024_full
+
+# Every 00Z and 12Z in 2024 (366 days x 2 = 732 ICs)
+start_times: null
+ic_block_start: "2024-01-01 00:00:00"
+ic_block_end: "2024-12-31 12:00:00"
+ic_block_step: 12
+
+nsteps: 40
+ensemble_size: 56
+resume: true
+
+perturbation:
+    _target_: earth2studio.perturbation.CorrelatedSphericalGaussian
+    noise_amplitude: 0.05
+
+output:
+    overwrite: false
+    variables:
+        # Surface (7)
+        - u10m
+        - v10m
+        - u100m
+        - v100m
+        - t2m
+        - msl
+        - tcwv
+        # U-wind at pressure levels (13)
+        - u50
+        - u100
+        - u150
+        - u200
+        - u250
+        - u300
+        - u400
+        - u500
+        - u600
+        - u700
+        - u850
+        - u925
+        - u1000
+        # V-wind at pressure levels (13)
+        - v50
+        - v100
+        - v150
+        - v200
+        - v250
+        - v300
+        - v400
+        - v500
+        - v600
+        - v700
+        - v850
+        - v925
+        - v1000
+        # Geopotential at pressure levels (13)
+        - z50
+        - z100
+        - z150
+        - z200
+        - z250
+        - z300
+        - z400
+        - z500
+        - z600
+        - z700
+        - z850
+        - z925
+        - z1000
+        # Temperature at pressure levels (13)
+        - t50
+        - t100
+        - t150
+        - t200
+        - t250
+        - t300
+        - t400
+        - t500
+        - t600
+        - t700
+        - t850
+        - t925
+        - t1000
+        # Specific humidity at pressure levels (13)
+        - q50
+        - q100
+        - q150
+        - q200
+        - q250
+        - q300
+        - q400
+        - q500
+        - q600
+        - q700
+        - q850
+        - q925
+        - q1000

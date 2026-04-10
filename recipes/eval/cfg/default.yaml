@@ -7,22 +7,22 @@
 
 defaults:
     - model: dlwp
+    - optional campaign: null   # e.g. +campaign=fcn3_2024_full
 
 # ---------------------------------------------------------------------------
 # Project metadata
 # ---------------------------------------------------------------------------
 project: eval_run
-run_id: dlwp_deterministic
+run_id: default
 
 # ---------------------------------------------------------------------------
 # Initial conditions
 # ---------------------------------------------------------------------------
-# Option A: explicit list
+# Option A: explicit list (set to null in campaign configs that use Option B)
 start_times:
     - "2024-01-01 00:00:00"
 
-# Option B: sweep (uncomment and remove start_times above to use;
-# ic_block_end is inclusive — ICs are start, start+step, ... through end when on-grid)
+# Option B: sweep (set start_times to null first)
 # ic_block_start: "2024-01-01 00:00:00"
 # ic_block_end: "2024-01-31 00:00:00"
 # ic_block_step: 24   # hours between ICs
@@ -48,6 +48,14 @@ require_predownload: true
 nsteps: 20             # number of model steps per forecast
 ensemble_size: 1       # 1 = deterministic; >1 = ensemble with perturbation
 random_seed: 42        # base seed for reproducible perturbations
+
+# ---------------------------------------------------------------------------
+# Resume / multi-job support
+# ---------------------------------------------------------------------------
+# When true, skip work items that already have completion markers and append
+# to the existing zarr store.  Useful for resuming after a failure or
+# splitting work across multiple SLURM submissions with the same config.
+resume: false
 
 # ---------------------------------------------------------------------------
 # Perturbation (only used when ensemble_size > 1)
@@ -83,6 +91,17 @@ output:
     chunks:
         time: 1
         lead_time: 1
+
+# ---------------------------------------------------------------------------
+# Pre-download settings (used by predownload.py, ignored by main.py)
+# ---------------------------------------------------------------------------
+predownload:
+    cache_dir: null              # override EARTH2STUDIO_DATA_CACHE
+    verification:
+        enabled: false
+        source:
+            _target_: earth2studio.data.ARCO
+            verbose: false
 
 # ---------------------------------------------------------------------------
 # Scoring (placeholder — not yet implemented)

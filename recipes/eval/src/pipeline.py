@@ -33,7 +33,6 @@ required methods (:meth:`setup`, :meth:`build_total_coords`,
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict
 from collections.abc import Iterator
 
 import hydra
@@ -56,7 +55,7 @@ from .output import (
     build_forecast_coords,
     build_output_coords,
 )
-from .work import WorkItem
+from .work import WorkItem, write_marker
 
 
 class Pipeline(ABC):
@@ -221,7 +220,7 @@ class Pipeline(ABC):
     # Shared machinery — not overridden by subclasses
     # ------------------------------------------------------------------
 
-    @torch.inference_mode()
+    @torch.no_grad()  # not using inference_mode() due to problem with DLWP
     def run(
         self,
         work_items: list[WorkItem],
@@ -229,6 +228,7 @@ class Pipeline(ABC):
         output_mgr: OutputManager,
         output_variables: list[str],
         device: torch.device,
+        cfg: DictConfig | None = None,
     ) -> None:
         """Iterate work items, filter outputs, and write to the output store.
 
@@ -236,6 +236,9 @@ class Pipeline(ABC):
         work item, applies the output coordinate filter (variable + spatial
         sub-selection), injects the ensemble dimension when present, and
         writes each chunk via the :class:`OutputManager`.
+
+        When ``cfg.resume`` is true, a completion marker is written after
+        each work item so that resumed runs can skip it.
 
         Parameters
         ----------
@@ -249,10 +252,15 @@ class Pipeline(ABC):
             Variable names to sub-select before writing.
         device : torch.device
             Target device for inference.
+        cfg : DictConfig | None
+            Full Hydra config.  Required when ``resume=true`` so that
+            completion markers can be written.
         """
         if not work_items:
             logger.warning("No work items for this rank — skipping inference.")
             return
+
+        resume = cfg.get("resume", False) if cfg is not None else False
 
         output_coords = build_output_coords(self._spatial_ref, output_variables)
         has_ensemble = "ensemble" in output_mgr.io.coords
@@ -264,11 +272,14 @@ class Pipeline(ABC):
                 if has_ensemble:
                     x_out = x_out.unsqueeze(0)
                     coords_out = CoordSystem(
-                        {"ensemble": np.array([item.ensemble_id])}
-                        | dict(coords_out)
+                        {"ensemble": np.array([item.ensemble_id])} | dict(coords_out)
                     )
 
                 output_mgr.write(x_out, coords_out)
+
+            if resume:
+                output_mgr.flush()
+                write_marker(item, cfg)
 
         logger.success("Inference complete.")
 
@@ -306,18 +317,14 @@ class ForecastPipeline(Pipeline):
 
         self._prognostic_ic = self.prognostic.input_coords()
         self._spatial_ref = self.prognostic.output_coords(self._prognostic_ic)
-        self._dx_input_coords = {
-            id(dx): dx.input_coords() for dx in self.diagnostics
-        }
+        self._dx_input_coords = {id(dx): dx.input_coords() for dx in self.diagnostics}
 
     def build_total_coords(
         self,
         times: np.ndarray,
         ensemble_size: int,
     ) -> CoordSystem:
-        return build_forecast_coords(
-            self.prognostic, times, self.nsteps, ensemble_size
-        )
+        return build_forecast_coords(self.prognostic, times, self.nsteps, ensemble_size)
 
     def run_item(
         self,
@@ -337,6 +344,9 @@ class ForecastPipeline(Pipeline):
         if self.perturbation is not None:
             torch.manual_seed(item.seed)
             x, coords = self.perturbation(x, coords)
+
+        if hasattr(self.prognostic, "set_rng"):
+            self.prognostic.set_rng(seed=item.seed, reset=True)
 
         model_iter = self.prognostic.create_iterator(x, coords)
 
@@ -383,9 +393,7 @@ class DiagnosticPipeline(Pipeline):
                 "Diagnostic pipeline requires at least one entry in 'diagnostics'."
             )
 
-        self._dx_input_coords = {
-            id(dx): dx.input_coords() for dx in self.diagnostics
-        }
+        self._dx_input_coords = {id(dx): dx.input_coords() for dx in self.diagnostics}
 
         # Build the union of all input variables needed from the data source.
         all_input_vars: list[str] = []
@@ -469,9 +477,7 @@ def build_pipeline(cfg: DictConfig) -> Pipeline:
     if "." in name:
         cls = hydra.utils.get_class(name)
         if not (isinstance(cls, type) and issubclass(cls, Pipeline)):
-            raise TypeError(
-                f"Custom pipeline '{name}' must be a subclass of Pipeline."
-            )
+            raise TypeError(f"Custom pipeline '{name}' must be a subclass of Pipeline.")
         return cls()
 
     if name not in PIPELINE_REGISTRY:

@@ -60,12 +60,11 @@ the model's `input_coords()` / `output_coords()`.
 # Single process (login node or interactive session)
 python predownload.py
 
+# With a campaign config
+python predownload.py +campaign=fcn3_2024_full
+
 # Distributed — parallelise across CPU workers
 torchrun --nproc_per_node=8 --standalone predownload.py
-
-# Match IC range and model to your planned eval config
-python predownload.py model=dlwp \
-    ic_block_start="2024-01-01" ic_block_end="2024-03-31" ic_block_step=24
 
 # Also pre-fetch ERA5 verification data for the full forecast window
 # (variables taken from output.variables — only what will be scored)
@@ -99,34 +98,92 @@ Work items (one per initial-time / ensemble-member pair) are partitioned
 automatically and evenly across ranks. Remainder items are absorbed by the
 first rank rather than requiring exact divisibility.
 
+## Resuming and Multi-Job Runs
+
+Set `resume=true` to skip already-completed work items and append to the
+existing zarr store.  This is useful in two scenarios:
+
+### Resuming after a failure
+
+If a job is killed or times out partway through, re-submit with the same
+config plus `resume=true`.  Completed work items are detected via marker
+files in `<output.path>/.progress/` and automatically skipped:
+
+```bash
+torchrun --nproc_per_node=$NGPU --standalone main.py resume=true
+```
+
+### Splitting work across multiple SLURM jobs
+
+Submit N identical jobs with `resume=true`.  The first job to start creates
+the zarr store; subsequent jobs validate the schema and append.  Each job
+skips items that have already been completed by earlier jobs:
+
+```bash
+# Submit the same command multiple times (or as a SLURM array)
+torchrun --nproc_per_node=$NGPU --standalone main.py resume=true
+```
+
+Because zarr chunks are non-overlapping per `(time, lead_time)` slice,
+concurrent writes from different jobs to different ICs are safe.
+
+When `resume=true`, the `output.overwrite` setting is ignored — existing
+data is never deleted.  When all items are complete, subsequent runs exit
+immediately with a success message.
+
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).
+The config is organized into three layers:
 
-### Project and initial conditions
+| Layer | Location | Purpose |
+|---|---|---|
+| Base | `cfg/default.yaml` | Shared defaults (pipeline, data source, output, predownload) |
+| Model | `cfg/model/*.yaml` | Model architecture and checkpoint |
+| Campaign | `cfg/campaign/*.yaml` | ICs, ensemble, variables, forecast length |
+
+### Campaign configs
+
+Campaign configs are the primary way to set up evaluation runs.  They
+override only what differs from the base config — model, ICs, ensemble
+size, and output variables.  Apply with `+campaign=`:
+
+```bash
+# DLWP monthly deterministic
+python main.py +campaign=dlwp_2024_monthly
+
+# FCN3 full 56-member ensemble
+python main.py +campaign=fcn3_2024_full
+```
+
+Both `main.py` and `predownload.py` accept the same `+campaign=` flag,
+so the two scripts stay in sync automatically.
+
+To add a new model benchmark, create one file in `cfg/campaign/`:
 
 ```yaml
-project: eval_run
-run_id: dlwp_deterministic
+# cfg/campaign/my_model_2024.yaml
+# @package _global_
+defaults:
+    - override /model: my_model
 
-# Explicit list of ICs
+run_id: my_model_2024
 start_times:
     - "2024-01-01 00:00:00"
-    - "2024-01-02 00:00:00"
-
-# Or a range (remove start_times first). ic_block_end is inclusive on the step grid.
-# ic_block_start: "2024-01-01 00:00:00"
-# ic_block_end: "2024-03-31 00:00:00"
-# ic_block_step: 24   # hours
+nsteps: 40
+output:
+    variables: [t2m, z500]
 ```
 
 ### Model selection
 
-Models are selected via Hydra defaults. To switch models, either override
-on the command line or create a new YAML under `cfg/model/`:
+Models are selected via Hydra defaults. Each model config lives in
+`cfg/model/` and specifies the architecture class. Campaign configs
+override the model via `defaults: [override /model: ...]`, or you
+can switch on the command line:
 
 ```bash
-python main.py model=dlwp
+python main.py model=fcn3
 ```
 
 ### Ensemble runs
@@ -140,18 +197,8 @@ perturbation:
     noise_amplitude: 0.05
 ```
 
-### Output
-
-```yaml
-output:
-    path: outputs/${project}_${run_id}
-    variables: [t2m, z500]
-    overwrite: true
-    thread_writers: 4
-    chunks:
-        time: 1
-        lead_time: 1
-```
+For stochastic models (e.g. FCN3), the pipeline also calls
+`model.set_rng(seed=...)` per ensemble member when available.
 
 ### Scoring (planned)
 
@@ -166,13 +213,17 @@ recipes/eval/
 ├── main.py              # Hydra entry point — distributed inference
 ├── predownload.py       # Hydra entry point — data pre-fetch
 ├── cfg/
-│   ├── default.yaml     # Main config
-│   ├── predownload.yaml # Pre-download config (inherits default.yaml)
-│   └── model/
-│       └── dlwp.yaml    # DLWP model config
+│   ├── default.yaml     # Base config (shared defaults + predownload)
+│   ├── predownload.yaml # Thin overlay (hydra.run.dir only)
+│   ├── model/
+│   │   ├── dlwp.yaml
+│   │   └── fcn3.yaml
+│   └── campaign/        # One file per evaluation campaign
+│       ├── dlwp_2024_monthly.yaml
+│       └── fcn3_2024_full.yaml
 ├── src/
-│   ├── pipeline.py      # Pipeline ABC + built-in pipelines (forecast, diagnostic)
-│   ├── work.py          # WorkItem, build_work_items, distribute_work
+│   ├── pipeline.py      # Pipeline ABC + built-in pipelines
+│   ├── work.py          # WorkItem, distribution, resume markers
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
 │   └── output.py        # OutputManager (zarr lifecycle)
@@ -183,7 +234,7 @@ Each source module has a specific scoped responsibilities:
 
 | Module | Responsibility |
 |---|---|
-| `pipeline.py` | `Pipeline` ABC and built-in implementations (`ForecastPipeline`, `DiagnosticPipeline`) |
+| `pipeline.py` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic) |
 | `work.py` | Define work units; parse ICs from config; distribute across ranks |
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |

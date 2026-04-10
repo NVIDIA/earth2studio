@@ -274,9 +274,7 @@ def _predownload_diagnostic(
     verif_cfg = pd_cfg.get("verification", {})
     if verif_cfg.get("enabled", False):
         verif_variables: list[str] = list(cfg.output.variables)
-        my_verif_times = distribute_work(
-            unique_ic_times, dist.rank, dist.world_size
-        )
+        my_verif_times = distribute_work(unique_ic_times, dist.rank, dist.world_size)
 
         logger.info(
             f"Rank {dist.rank}: pre-downloading verification data for "

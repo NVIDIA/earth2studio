@@ -13,6 +13,7 @@ dependencies = [
     "omegaconf",
     "nvidia-physicsnemo>=2.0",
     "zarr>=3.0.0",
+    "matplotlib",
 ]
 
 [project.optional-dependencies]

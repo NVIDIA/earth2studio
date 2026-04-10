@@ -16,13 +16,19 @@
 
 import hydra
 import numpy as np
+import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging
 from src.output import OutputManager, sentinel_path
 from src.pipeline import build_pipeline
-from src.work import build_work_items, distribute_work
+from src.work import (
+    build_work_items,
+    clear_progress,
+    distribute_work,
+    filter_completed_items,
+)
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="default")
@@ -47,12 +53,28 @@ def main(cfg: DictConfig) -> None:
 
     # --- Build and distribute work ------------------------------------------
     all_items = build_work_items(cfg)
-    my_items = distribute_work(all_items, dist.rank, dist.world_size)
+    resume = cfg.get("resume", False)
+
+    if resume:
+        remaining_items = filter_completed_items(all_items, cfg)
+        if not remaining_items:
+            logger.success("All work items already completed — nothing to do.")
+            if dist.distributed:
+                torch.distributed.barrier()
+            return
+    else:
+        remaining_items = all_items
+        if cfg.output.get("overwrite", False):
+            clear_progress(cfg)
+
+    my_items = distribute_work(remaining_items, dist.rank, dist.world_size)
 
     # --- Pipeline setup -----------------------------------------------------
     pipeline = build_pipeline(cfg)
     pipeline.setup(cfg, device)
 
+    # Use all_items for coord building so the zarr schema always covers the
+    # full set of ICs, even when resuming a partial run.
     all_times = np.array(sorted({item.time for item in all_items}))
     output_variables = list(cfg.output.variables)
     total_coords = pipeline.build_total_coords(all_times, cfg.get("ensemble_size", 1))
@@ -62,7 +84,9 @@ def main(cfg: DictConfig) -> None:
     with OutputManager(cfg) as output_mgr:
         output_mgr.validate_output_store(total_coords, output_variables)
         if my_items:
-            pipeline.run(my_items, data_source, output_mgr, output_variables, device)
+            pipeline.run(
+                my_items, data_source, output_mgr, output_variables, device, cfg
+            )
         else:
             logger.info(f"Rank {dist.rank}: no work items, waiting at barrier.")
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TypeVar
 
 import numpy as np
@@ -129,6 +130,97 @@ def distribute_work(
 
 
 # ---------------------------------------------------------------------------
+# Resume / progress tracking
+# ---------------------------------------------------------------------------
+
+
+def progress_dir(cfg: DictConfig) -> Path:
+    """Return the progress-tracking directory for this eval run.
+
+    Completion markers are written here — one per finished work item — so
+    that resumed or multi-job runs can skip already-completed items.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config with an ``output.path`` key.
+
+    Returns
+    -------
+    Path
+        ``<output.path>/.progress``
+    """
+    return Path(cfg.output.path) / ".progress"
+
+
+def _marker_name(item: WorkItem) -> str:
+    """Return a filesystem-safe marker filename for *item*."""
+    ts = str(item.time.astype("datetime64[s]")).replace("-", "").replace(":", "")
+    return f"{ts}_ens{item.ensemble_id}.done"
+
+
+def write_marker(item: WorkItem, cfg: DictConfig) -> None:
+    """Write a completion marker for a finished work item.
+
+    Parameters
+    ----------
+    item : WorkItem
+        The completed work item.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = progress_dir(cfg)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / _marker_name(item)).write_text(np.datetime64("now", "s").item().isoformat())
+
+
+def filter_completed_items(items: list[WorkItem], cfg: DictConfig) -> list[WorkItem]:
+    """Remove work items that already have completion markers.
+
+    Parameters
+    ----------
+    items : list[WorkItem]
+        Full list of work items.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+
+    Returns
+    -------
+    list[WorkItem]
+        Items whose markers are absent (i.e. still need to run).
+    """
+    d = progress_dir(cfg)
+    if not d.exists():
+        return items
+    existing = {f.name for f in d.iterdir() if f.suffix == ".done"}
+    remaining = [item for item in items if _marker_name(item) not in existing]
+    skipped = len(items) - len(remaining)
+    if skipped:
+        logger.info(f"Resume: skipping {skipped}/{len(items)} completed work items")
+    return remaining
+
+
+def clear_progress(cfg: DictConfig) -> None:
+    """Remove all completion markers for this eval run.
+
+    Called on a fresh (non-resume) run with ``overwrite=true`` so that stale
+    markers from a prior run are not picked up if the user later switches to
+    ``resume=true``.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = progress_dir(cfg)
+    if d.exists():
+        import shutil
+
+        shutil.rmtree(d)
+        logger.debug(f"Cleared progress directory: {d}")
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
@@ -156,8 +248,8 @@ def _parse_initial_times(cfg: DictConfig) -> list[np.datetime64]:
     ValueError
         If both ``start_times`` and ``ic_block_start`` are provided, or neither.
     """
-    has_list = "start_times" in cfg
-    has_block = "ic_block_start" in cfg
+    has_list = "start_times" in cfg and cfg.start_times is not None
+    has_block = "ic_block_start" in cfg and cfg.ic_block_start is not None
 
     if has_list and has_block:
         raise ValueError(
