@@ -172,7 +172,7 @@ for i in $(seq 1 $NUM_OBJSTORE_WORKERS); do
     echo "Started object storage worker $i (PID: $!)"
 done
 
-# Start geocatalog ingestion workers (used when AZURE_GEOCATALOG_URL is set)
+# Start geocatalog ingestion workers (used when requests include geo_catalog_url for Azure NetCDF flows)
 echo "Starting $NUM_GEOCATALOG_WORKERS geocatalog ingestion workers..."
 GEOCATALOG_WORKER_PIDS=()
 for i in $(seq 1 $NUM_GEOCATALOG_WORKERS); do

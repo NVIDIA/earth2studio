@@ -140,13 +140,33 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
     def run(
         self, parameters: dict[str, Any] | WorkflowParameters, execution_id: str
     ) -> dict[str, Any]:
-        """Run custom workflow"""
+        """
+        Run custom workflow.
+
+        Chooses Zarr vs NetCDF output from ``paths.output_format`` in server config.
+        If the workflow's ``__call__`` defines an ``output_format`` parameter, a value
+        sent in the API request overrides the server default; if the client omits it,
+        the server default is used.
+        """
 
         # Store execution_id for use in update_progress
         self.execution_id = execution_id
 
         # Validate and convert parameters
         parameters = self.validate_parameters(parameters)
+
+        # Output format: API may override server default when the workflow declares
+        # ``output_format`` on ``__call__`` (see ``model_fields_set``).
+        param_cls = type(self).Parameters
+        cfg_output_format = get_config().paths.output_format
+        if "output_format" in param_cls.model_fields:
+            if "output_format" in parameters.model_fields_set:
+                output_format = parameters.output_format
+            else:
+                output_format = cfg_output_format
+            parameters = parameters.model_copy(update={"output_format": output_format})
+        else:
+            output_format = cfg_output_format
 
         # Initialize metadata for tracking
         metadata = {"parameters": parameters.model_dump()}
@@ -161,7 +181,6 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
 
             # Configure output
             output_dir = self.get_output_path(execution_id)
-            output_format = get_config().paths.output_format
             if output_format == "zarr":
                 output_path = str(output_dir / "results.zarr")
                 results_io: IOBackend = ZarrBackend(output_path)

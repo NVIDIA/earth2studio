@@ -599,10 +599,6 @@ class TestObjectStorageEnvOverrides:
             "CLOUDFRONT_KEY_PAIR_ID",
             "CLOUDFRONT_PRIVATE_KEY",
             "SIGNED_URL_EXPIRES_IN",
-            "AZURE_STORAGE_ACCOUNT_NAME",
-            "AZURE_CONTAINER_NAME",
-            "AZURE_ENDPOINT_URL",
-            "AZURE_GEOCATALOG_URL",
             "EXPOSED_WORKFLOWS",
             "OUTPUT_FORMAT",
             "CONFIG_DIR",
@@ -641,9 +637,6 @@ class TestObjectStorageEnvOverrides:
             "CLOUDFRONT_KEY_PAIR_ID": "KID123",
             "CLOUDFRONT_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----",
             "SIGNED_URL_EXPIRES_IN": "3600",
-            "AZURE_STORAGE_ACCOUNT_NAME": "myaccount",
-            "AZURE_CONTAINER_NAME": "mycontainer",
-            "AZURE_GEOCATALOG_URL": "https://geocatalog.example.com",
             "EXPOSED_WORKFLOWS": "workflow_a, workflow_b, workflow_c",
             "OUTPUT_FORMAT": "netcdf4",
         }
@@ -668,9 +661,6 @@ class TestObjectStorageEnvOverrides:
         assert obs.cloudfront_key_pair_id == "KID123"
         assert obs.cloudfront_private_key == "-----BEGIN RSA PRIVATE KEY-----"
         assert obs.signed_url_expires_in == 3600
-        assert obs.azure_account_name == "myaccount"
-        assert obs.azure_container_name == "mycontainer"
-        assert obs.azure_geocatalog_url == "https://geocatalog.example.com"
         assert manager.config.workflow_exposure.exposed_workflows == [
             "workflow_a",
             "workflow_b",
@@ -688,13 +678,12 @@ class TestObjectStorageEnvOverrides:
         assert manager.config.paths.output_format == "zarr"
 
         monkeypatch.setenv("OBJECT_STORAGE_TYPE", "azure")
-        manager._apply_env_overrides()
-        assert obs.storage_type == "azure"
-
         monkeypatch.setenv(
-            "AZURE_ENDPOINT_URL", "https://myaccount.blob.core.windows.net"
+            "OBJECT_STORAGE_ENDPOINT_URL",
+            "https://myaccount.blob.core.windows.net",
         )
         manager._apply_env_overrides()
+        assert obs.storage_type == "azure"
         assert obs.endpoint_url == "https://myaccount.blob.core.windows.net"
 
     def test_apply_env_overrides_invalid_storage_type_ignored(

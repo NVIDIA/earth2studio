@@ -168,6 +168,9 @@ from earth2studio.serve.server.cpu_worker import (  # noqa: E402  # noqa: E402
     process_object_storage_upload,
     process_result_zip,
 )
+from earth2studio.serve.server.utils import (  # noqa: E402
+    get_inference_request_metadata_key,
+)
 from earth2studio.serve.server.workflow import WorkflowResult  # noqa: E402
 
 
@@ -1368,6 +1371,7 @@ class TestProcessObjectStorageUpload:
                 ) as mock_queue_next:
                     mock_config.object_storage.enabled = False
                     mock_config.object_storage.bucket = None
+                    mock_redis.get.return_value = None
                     mock_redis.setex = Mock()
                     mock_queue_next.return_value = "job_1"
 
@@ -1444,6 +1448,31 @@ class TestProcessObjectStorageUploadEnabled:
             setattr(os_cfg, k, v)
         return mock_config
 
+    @staticmethod
+    def _redis_no_pending_metadata() -> Mock:
+        """Pending-metadata GET returns None so ``json.loads`` is never given a Mock."""
+        mock_redis = Mock()
+        mock_redis.get.return_value = None
+        return mock_redis
+
+    @staticmethod
+    def _redis_azure_pending(
+        container_url: str,
+        geo_catalog_url: str | None = None,
+        *,
+        workflow_name: str = "wf",
+        execution_id: str = "exec_1",
+    ) -> Mock:
+        """Pending metadata JSON with ``container_url`` (and optional ``geo_catalog_url``)."""
+        mock_redis = Mock()
+        meta_key = get_inference_request_metadata_key(f"{workflow_name}:{execution_id}")
+        params: dict[str, str] = {"container_url": container_url}
+        if geo_catalog_url is not None:
+            params["geo_catalog_url"] = geo_catalog_url
+        body = json.dumps({"parameters": params})
+        mock_redis.get.side_effect = lambda k: body if k == meta_key else None
+        return mock_redis
+
     def _patch_all(
         self, mock_config, mock_redis, mock_queue, mock_storage_cls, tmp_path
     ):
@@ -1465,7 +1494,7 @@ class TestProcessObjectStorageUploadEnabled:
         (output_dir / "result.nc").write_text("data")
 
         mock_config = self._make_mock_config(storage_type="s3")
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_storage = mock_storage_cls.return_value
@@ -1499,32 +1528,37 @@ class TestProcessObjectStorageUploadEnabled:
         assert result["remote_prefix"] == "outputs/wf/exec_1"
         mock_queue.assert_called_once()
 
-    def test_azure_missing_container_and_bucket_returns_failure(self, tmp_path):
-        """Azure storage enabled but no container name and no bucket returns fail_workflow."""
+    def test_azure_missing_container_url_skips_upload_with_success(self, tmp_path):
+        """Azure enabled without container_url in request: no upload, pipeline succeeds."""
         output_dir = tmp_path / "out"
         output_dir.mkdir()
 
         mock_config = self._make_mock_config(
             storage_type="azure", bucket=None, azure_container_name=None
         )
+        mock_redis = self._redis_no_pending_metadata()
+        mock_queue = Mock(return_value="job_1")
+        mock_storage_cls = Mock()
 
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
-            patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
+            patch("earth2studio.serve.server.cpu_worker.redis_client", mock_redis),
+            patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
+            patch(
+                "earth2studio.serve.server.object_storage.MSCObjectStorage",
+                mock_storage_cls,
+            ),
         ):
-            mock_fail.return_value = {"success": False, "error": "no container"}
             result = process_object_storage_upload(
                 workflow_name="wf",
                 execution_id="exec_1",
                 output_path_str=str(output_dir),
             )
 
-        assert result is not None and result.get("success") is False
-        mock_fail.assert_called_once()
-        assert (
-            "azure_container_name" in mock_fail.call_args[0][2].lower()
-            or "container" in mock_fail.call_args[0][2].lower()
-        )
+        assert result is not None and result.get("success") is True
+        assert result.get("storage_type") == "server"
+        mock_storage_cls.assert_not_called()
+        mock_queue.assert_called_once()
 
     def test_msc_storage_creation_fails_returns_failure(self, tmp_path):
         """When MSCObjectStorage constructor raises, returns fail_workflow dict."""
@@ -1532,7 +1566,7 @@ class TestProcessObjectStorageUploadEnabled:
         output_dir.mkdir()
 
         mock_config = self._make_mock_config(storage_type="s3")
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_storage_cls = Mock(side_effect=RuntimeError("cannot connect"))
 
         with (
@@ -1561,7 +1595,7 @@ class TestProcessObjectStorageUploadEnabled:
         output_dir.mkdir()
 
         mock_config = self._make_mock_config(storage_type="s3")
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_storage_cls = Mock()
         mock_storage_cls.return_value.upload_directory.side_effect = IOError(
             "network error"
@@ -1593,7 +1627,7 @@ class TestProcessObjectStorageUploadEnabled:
         output_dir.mkdir()
 
         mock_config = self._make_mock_config(storage_type="s3")
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_storage_cls = Mock()
         mock_upload = Mock()
         mock_upload.success = False
@@ -1631,7 +1665,7 @@ class TestProcessObjectStorageUploadEnabled:
             cloudfront_key_pair_id="KP123",
             cloudfront_private_key="-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
         )
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_storage = mock_storage_cls.return_value
@@ -1681,7 +1715,7 @@ class TestProcessObjectStorageUploadEnabled:
             cloudfront_key_pair_id="KP123",
             cloudfront_private_key="fake",
         )
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_storage_cls = Mock()
         mock_storage = mock_storage_cls.return_value
         mock_upload = Mock()
@@ -1727,7 +1761,10 @@ class TestProcessObjectStorageUploadEnabled:
             azure_account_name="myaccount",
             azure_geocatalog_url="https://geocatalog.example/",
         )
-        mock_redis = Mock()
+        mock_redis = self._redis_azure_pending(
+            "https://myaccount.blob.core.windows.net/my-container",
+            "https://geocatalog.example/",
+        )
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_storage = mock_storage_cls.return_value
@@ -1780,7 +1817,10 @@ class TestProcessObjectStorageUploadEnabled:
             azure_account_name="myaccount",
             azure_geocatalog_url="https://geocatalog.example/",
         )
-        mock_redis = Mock()
+        mock_redis = self._redis_azure_pending(
+            "https://myaccount.blob.core.windows.net/container",
+            "https://geocatalog.example/",
+        )
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_upload = Mock()
@@ -1827,7 +1867,10 @@ class TestProcessObjectStorageUploadEnabled:
             azure_account_name="myaccount",
             azure_geocatalog_url="https://geocatalog.example/",
         )
-        mock_redis = Mock()
+        mock_redis = self._redis_azure_pending(
+            "https://myaccount.blob.core.windows.net/container",
+            "https://geocatalog.example/",
+        )
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_upload = Mock()
@@ -1865,7 +1908,7 @@ class TestProcessObjectStorageUploadEnabled:
         output_dir.mkdir()
 
         mock_config = self._make_mock_config(storage_type="s3")
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_queue = Mock(return_value=None)
         mock_storage_cls = Mock()
         mock_upload = Mock()
@@ -1903,7 +1946,7 @@ class TestProcessObjectStorageUploadEnabled:
 
         mock_config = self._make_mock_config(storage_type="s3")
         # Make redis_client.setex raise to trigger the outer except after upload
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_upload = Mock()
@@ -1933,7 +1976,7 @@ class TestProcessObjectStorageUploadEnabled:
         assert result.get("success") is False
 
     def test_azure_credentials_added_to_storage_kwargs(self, tmp_path):
-        """Azure-specific kwargs (account_name, container, endpoint_url) are passed for managed identity."""
+        """Azure MSCObjectStorage receives account and container from parsed request container_url."""
         output_dir = tmp_path / "out"
         output_dir.mkdir()
 
@@ -1942,9 +1985,22 @@ class TestProcessObjectStorageUploadEnabled:
             bucket=None,
             azure_container_name="my-container",
             azure_account_name="myaccount",
-            endpoint_url="https://myaccount.blob.core.windows.net",
         )
         mock_redis = Mock()
+        metadata_key = "inference_request:wf:exec_1:pending_metadata"
+        mock_redis.get.side_effect = lambda k: (
+            json.dumps(
+                {
+                    "parameters": {
+                        "container_url": (
+                            "https://myaccount.blob.core.windows.net/my-container"
+                        ),
+                    },
+                }
+            )
+            if k == metadata_key
+            else None
+        )
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_upload = Mock()
@@ -1970,9 +2026,7 @@ class TestProcessObjectStorageUploadEnabled:
             )
 
         call_kwargs = mock_storage_cls.call_args[1]
-        assert (
-            call_kwargs.get("endpoint_url") == "https://myaccount.blob.core.windows.net"
-        )
+        assert call_kwargs.get("endpoint_url") is None
         assert call_kwargs.get("azure_account_name") == "myaccount"
         assert call_kwargs.get("azure_container_name") == "my-container"
 
@@ -1988,7 +2042,7 @@ class TestProcessObjectStorageUploadEnabled:
             session_token="ST789",  # noqa: S106
             endpoint_url="https://s3.custom.example.com",
         )
-        mock_redis = Mock()
+        mock_redis = self._redis_no_pending_metadata()
         mock_queue = Mock(return_value="job_1")
         mock_storage_cls = Mock()
         mock_upload = Mock()

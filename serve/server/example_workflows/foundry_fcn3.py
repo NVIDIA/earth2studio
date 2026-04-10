@@ -17,7 +17,7 @@
 import logging
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import torch
@@ -68,7 +68,7 @@ class FoundryFCN3Workflow(Earth2Workflow):
     def validate_parameters(
         cls, parameters: dict[str, Any] | WorkflowParameters
     ) -> WorkflowParameters:
-        """Validate request parameters and enforce FCN3 ensemble limits for ``n_steps`` and ``n_samples``."""
+        """Validate request parameters, geo_catalog/container_url/output_format, and FCN3 limits."""
         validated = super().validate_parameters(parameters)
         if not 1 <= validated.n_steps <= _MAX_FORECAST_STEPS:
             raise ValueError(
@@ -80,6 +80,15 @@ class FoundryFCN3Workflow(Earth2Workflow):
                 f"n_samples must be between 1 and {_MAX_ENSEMBLE_SAMPLES}, "
                 f"got {validated.n_samples}"
             )
+        if validated.geo_catalog_url is not None:
+            if validated.container_url is None:
+                raise ValueError(
+                    "container_url is required when geo_catalog_url is set."
+                )
+            if validated.output_format != "netcdf4":
+                raise ValueError(
+                    "output_format must be 'netcdf4' when geo_catalog_url is set."
+                )
         return validated
 
     def load_fcn3(self) -> FCN3:
@@ -201,6 +210,9 @@ class FoundryFCN3Workflow(Earth2Workflow):
         n_samples: int = 4,
         seeds: Sequence[int] | None = None,
         variables: Sequence[str] | None = ("t2m", "u10m", "v10m"),
+        output_format: Literal["zarr", "netcdf4"] = "netcdf4",
+        container_url: str | None = None,
+        geo_catalog_url: str | None = None,
         collection_id: str | None = None,
     ) -> None:
         self.validate_start_time(start_time)

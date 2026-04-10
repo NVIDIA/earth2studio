@@ -26,6 +26,9 @@ from pydantic import Field
 
 # Set API environment variable before importing main (DANGER!!! REMOVE THIS)
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
+# test/serve/server/conftest.py clears EXPOSED_WORKFLOWS; keep parity if this file is
+# imported without that conftest (e.g. dynamic imports).
+os.environ.pop("EXPOSED_WORKFLOWS", None)
 
 # Patch FastAPI route creation to handle union return types
 # This fixes the issue where FastAPI can't handle dict[str, Any] | StreamingResponse
@@ -2112,6 +2115,45 @@ class TestGetWorkflowResultFileBranches:
                 response = client.get("/v1/infer/file_wf/exec_1/results/data.txt")
         assert response.status_code == 200
         assert response.text == "hello world"
+        accept_ranges = response.headers.get("accept-ranges") or response.headers.get(
+            "Accept-Ranges", ""
+        )
+        assert accept_ranges == "bytes"
+
+    def test_get_workflow_result_file_range_returns_206(self, client_file):
+        """Range request returns 206 with Content-Range and partial body."""
+        client, mock_async, mock_sync, tmp_path, WorkflowStatus = client_file
+        exec_data = self._exec_data()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        out_file = output_dir / "data.txt"
+        out_file.write_text("hello world")
+        mock_async.get = AsyncMock(return_value=str(output_dir))
+        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+            with patch("earth2studio.serve.server.main.redis_client", mock_async):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                response = client.get(
+                    "/v1/infer/file_wf/exec_1/results/data.txt",
+                    headers={"Range": "bytes=0-4"},
+                )
+        assert response.status_code == 206
+        assert response.content == b"hello"
+        accept_ranges = response.headers.get("accept-ranges") or response.headers.get(
+            "Accept-Ranges", ""
+        )
+        assert accept_ranges == "bytes"
+        cl = response.headers.get("content-length") or response.headers.get(
+            "Content-Length", ""
+        )
+        assert cl == "5"
+        cr = (
+            response.headers.get("content-range")
+            or response.headers.get("Content-Range")
+            or ""
+        )
+        assert "bytes 0-4/" in cr and cr.rstrip().endswith("/11")
 
 
 class TestLifespanBranches:

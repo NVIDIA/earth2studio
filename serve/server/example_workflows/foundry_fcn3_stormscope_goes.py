@@ -18,7 +18,7 @@ import logging
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import torch
@@ -100,7 +100,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
     def validate_parameters(
         cls, parameters: dict[str, Any] | WorkflowParameters
     ) -> WorkflowParameters:
-        """Validate request parameters and ensemble limits for FCN3 and StormScope sample counts."""
+        """Validate request parameters, geo_catalog/container_url/output_format, and FCN3/StormScope limits."""
         validated = super().validate_parameters(parameters)
         if not 1 <= validated.n_steps <= _MAX_FORECAST_STEPS:
             raise ValueError(
@@ -117,6 +117,15 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 f"n_samples_stormscope must be between 1 and {_MAX_ENSEMBLE_SAMPLES}, "
                 f"got {validated.n_samples_stormscope}"
             )
+        if validated.geo_catalog_url is not None:
+            if validated.container_url is None:
+                raise ValueError(
+                    "container_url is required when geo_catalog_url is set."
+                )
+            if validated.output_format != "netcdf4":
+                raise ValueError(
+                    "output_format must be 'netcdf4' when geo_catalog_url is set."
+                )
         return validated
 
     def load_fcn3_interp(self) -> InterpModAFNO:
@@ -465,6 +474,9 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         seeds_fcn3: Sequence[int] | None = None,
         seeds_stormscope: Sequence[int] | None = None,
         variables: Sequence[str] | None = ("abi01c", "abi02c", "abi03c"),
+        output_format: Literal["zarr", "netcdf4"] = "netcdf4",
+        container_url: str | None = None,
+        geo_catalog_url: str | None = None,
         collection_id: str | None = None,
     ) -> None:
         self.validate_start_times(start_time_stormscope, start_time_fcn3)

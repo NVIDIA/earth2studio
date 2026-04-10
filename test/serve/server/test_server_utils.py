@@ -16,14 +16,44 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
 from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
     get_results_zip_dir_key,
     get_signed_url_key,
+    parse_range_header,
     queue_next_stage,
 )
+
+
+class TestParseRangeHeader:
+    """Tests for parse_range_header."""
+
+    def test_no_range_returns_full_file(self):
+        start, end, length, status = parse_range_header(None, 100)
+        assert (start, end, length, status) == (0, 99, 100, 200)
+
+    def test_bytes_range_returns_206(self):
+        start, end, length, status = parse_range_header("bytes=10-19", 100)
+        assert start == 10 and end == 19 and length == 10 and status == 206
+
+    def test_open_ended_range(self):
+        start, end, length, status = parse_range_header("bytes=90-", 100)
+        assert start == 90 and end == 99 and length == 10 and status == 206
+
+    def test_suffix_range(self):
+        start, end, length, status = parse_range_header("bytes=-5", 100)
+        assert start == 95 and end == 99 and length == 5 and status == 206
+
+    def test_invalid_range_raises_416(self):
+        with pytest.raises((HTTPException, StarletteHTTPException)) as exc_info:
+            parse_range_header("bytes=200-300", 100)
+        assert exc_info.value.status_code == 416
 
 
 class TestRedisKeyFunctions:
@@ -207,12 +237,10 @@ class TestQueueNextStage:
         assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
 
     def test_object_storage_stage_queues_geocatalog(self):
-        """current_stage=object_storage with geocatalog URL enqueues process_geocatalog_ingestion."""
+        """current_stage=object_storage with Azure storage_type enqueues GeoCatalog ingestion."""
         mock_redis = MagicMock()
         mock_config = MagicMock()
-        mock_config.object_storage.azure_geocatalog_url = (
-            "https://geocatalog.example.com"
-        )
+        mock_config.object_storage.storage_type = "azure"
         mock_config.queue.geocatalog_ingestion_queue_name = "geocatalog_ingestion"
         mock_config.queue.default_timeout = "1h"
         mock_config.queue.job_timeout = "2h"
@@ -237,14 +265,17 @@ class TestQueueNextStage:
 
         assert result == "job_geo"
         mock_queue.enqueue.assert_called_once()
-        assert "process_geocatalog_ingestion" in mock_queue.enqueue.call_args[0][0]
+        assert (
+            "azure_planetary_computer.geocatalog_ingestion.process_geocatalog_ingestion"
+            in mock_queue.enqueue.call_args[0][0]
+        )
         assert mock_queue.enqueue.call_args[0][1:3] == ("wf", "exec_1")
 
     def test_object_storage_stage_queues_finalize_metadata(self):
-        """current_stage=object_storage enqueues process_finalize_metadata when geocatalog is not configured."""
+        """current_stage=object_storage enqueues finalize when storage_type is not Azure."""
         mock_redis = MagicMock()
         mock_config = MagicMock()
-        mock_config.object_storage.azure_geocatalog_url = None
+        mock_config.object_storage.storage_type = "s3"
         mock_config.queue.finalize_metadata_queue_name = "finalize_metadata"
         mock_config.queue.default_timeout = "1h"
         mock_config.queue.job_timeout = "2h"

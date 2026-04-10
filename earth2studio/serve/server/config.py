@@ -139,15 +139,8 @@ class ObjectStorageConfig:
     cloudfront_private_key: str | None = None  # PEM private key content
     # Signed URL settings
     signed_url_expires_in: int = 86400  # Default 24 hours
-    # Azure Blob Storage configuration
-    azure_account_name: str | None = None  # Azure storage account name
-    azure_container_name: str | None = (
-        None  # Azure container name (falls back to bucket if not set)
-    )
-    # Azure Planetary Computer / GeoCatalog ingestion (optional)
-    azure_geocatalog_url: str | None = (
-        None  # When set, triggers PC ingestion after upload
-    )
+    # Azure: storage account and container come from workflow request ``container_url``;
+    # GeoCatalog base URL from request ``geo_catalog_url`` (see cpu_worker / object storage).
 
 
 @dataclass
@@ -428,23 +421,6 @@ class ConfigManager:
                     "SIGNED_URL_EXPIRES_IN",
                     default=self._config.object_storage.signed_url_expires_in,
                 )
-            )
-
-        # Azure Blob Storage overrides
-        if os.getenv("AZURE_STORAGE_ACCOUNT_NAME"):
-            self._config.object_storage.azure_account_name = os.getenv(
-                "AZURE_STORAGE_ACCOUNT_NAME"
-            )
-        if os.getenv("AZURE_CONTAINER_NAME"):
-            self._config.object_storage.azure_container_name = os.getenv(
-                "AZURE_CONTAINER_NAME"
-            )
-        # Support AZURE_ENDPOINT_URL for managed identity scenarios
-        if os.getenv("AZURE_ENDPOINT_URL"):
-            self._config.object_storage.endpoint_url = os.getenv("AZURE_ENDPOINT_URL")
-        if os.getenv("AZURE_GEOCATALOG_URL"):
-            self._config.object_storage.azure_geocatalog_url = os.getenv(
-                "AZURE_GEOCATALOG_URL"
             )
 
         # Workflow exposure overrides

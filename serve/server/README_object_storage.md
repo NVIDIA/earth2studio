@@ -116,24 +116,12 @@ export SIGNED_URL_EXPIRES_IN=86400  # URL expiration in seconds (S3/CloudFront o
 export OBJECT_STORAGE_ENABLED=true
 export OBJECT_STORAGE_TYPE=azure
 
-# Azure Configuration
-# Container name (used as bucket equivalent)
-export OBJECT_STORAGE_BUCKET=your-container-name
+# Workflow API: set ``container_url`` (HTTPS Azure Blob container URL)
+# and optionally ``geo_catalog_url`` for GeoCatalog / Planetary Computer ingestion after
+# upload.
+# ``OBJECT_STORAGE_BUCKET`` is not used for Azure account/container selection.
+
 export OBJECT_STORAGE_PREFIX=outputs  # Optional: prefix for uploaded files
-
-# Azure: storage account (managed identity / DefaultAzureCredential for uploads)
-export AZURE_STORAGE_ACCOUNT_NAME=mystorageaccount
-# Blob service endpoint (optional). Either works; both set `endpoint_url` in config
-# (see code order).
-# export OBJECT_STORAGE_ENDPOINT_URL=https://mystorageaccount.blob.core.windows.net
-# export AZURE_ENDPOINT_URL=https://mystorageaccount.blob.core.windows.net
-
-# Optional: Container name (defaults to OBJECT_STORAGE_BUCKET if not set)
-export AZURE_CONTAINER_NAME=workflow-results
-
-# Optional: Planetary Computer Pro / GeoCatalog STAC ingestion after upload
-# (queues `geocatalog_ingestion`)
-# export AZURE_GEOCATALOG_URL=https://geocatalog.spatio.azure.com/
 
 # Transfer Configuration
 export OBJECT_STORAGE_MAX_CONCURRENCY=16          # Concurrent upload threads
@@ -173,16 +161,18 @@ object_storage:
 object_storage:
   enabled: true
   storage_type: azure
-  bucket: your-container-name  # Container name (used as bucket equivalent)
   prefix: outputs
   max_concurrency: 16
   multipart_chunksize: 8388608
   use_rust_client: true
-  azure_account_name: mystorageaccount  # Required unless endpoint_url is set
-  endpoint_url: null  # Optional: e.g. https://mystorageaccount.blob.core.windows.net
-  azure_container_name: workflow-results  # Optional, defaults to bucket
-  azure_geocatalog_url: null  # When set, run GeoCatalog ingestion after upload
 ```
+
+The blob service URL for uploads is derived from the request ``container_url``
+(standard ``https://<account>.blob.core.windows.net/...``); it is not configured separately.
+
+Clients must pass ``container_url`` (and optionally ``geo_catalog_url``) on each workflow
+inference request; they are not configured in YAML or via ``AZURE_*`` environment
+variables.
 
 ### Configuration Parameters Reference
 
@@ -191,13 +181,13 @@ object_storage:
 |-----------|---------------------|---------|-------------|
 | `enabled` | `OBJECT_STORAGE_ENABLED` | `false` | Enable object storage |
 | `storage_type` | `OBJECT_STORAGE_TYPE` | `s3` | Storage provider: `s3` or `azure` |
-| `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name or Azure container name |
+| `bucket` | `OBJECT_STORAGE_BUCKET` | `null` | S3 bucket name (Azure container comes from request ``container_url``) |
 | `region` | `OBJECT_STORAGE_REGION` | `us-east-1` | AWS region (S3 only) |
 | `prefix` | `OBJECT_STORAGE_PREFIX` | `outputs` | Remote prefix for files |
 | `access_key_id` | `OBJECT_STORAGE_ACCESS_KEY_ID` | `null` | AWS access key ID (S3 only) |
 | `secret_access_key` | `OBJECT_STORAGE_SECRET_ACCESS_KEY` | `null` | AWS secret access key (S3 only) |
 | `session_token` | `OBJECT_STORAGE_SESSION_TOKEN` | `null` | AWS session token (S3 only) |
-| `endpoint_url` | `OBJECT_STORAGE_ENDPOINT_URL` or `AZURE_ENDPOINT_URL` | `null` | Custom endpoint (S3-compatible; Azure blob URL). Both env vars map to `endpoint_url`; if both are set, `AZURE_ENDPOINT_URL` wins. |
+| `endpoint_url` | `OBJECT_STORAGE_ENDPOINT_URL` | `null` | Custom endpoint for S3-compatible APIs (S3 only). |
 | `use_transfer_acceleration` | `OBJECT_STORAGE_TRANSFER_ACCELERATION` | `true` | Enable S3 Transfer Acceleration (S3 only) |
 | `max_concurrency` | `OBJECT_STORAGE_MAX_CONCURRENCY` | `16` | Max concurrent transfers |
 | `multipart_chunksize` | `OBJECT_STORAGE_MULTIPART_CHUNKSIZE` | `8388608` | Multipart chunk size (bytes) |
@@ -205,10 +195,9 @@ object_storage:
 | `cloudfront_domain` | `CLOUDFRONT_DOMAIN` | `null` | CloudFront distribution domain (S3 only) |
 | `cloudfront_key_pair_id` | `CLOUDFRONT_KEY_PAIR_ID` | `null` | CloudFront key pair ID (S3 only) |
 | `cloudfront_private_key` | `CLOUDFRONT_PRIVATE_KEY` | `null` | PEM private key *content* for CloudFront signing (S3 only) |
-| `azure_account_name` | `AZURE_STORAGE_ACCOUNT_NAME` | `null` | Azure storage account name (Azure only; uploads use DefaultAzureCredential) |
-| `azure_container_name` | `AZURE_CONTAINER_NAME` | `null` | Azure container name (Azure only, defaults to bucket) |
-| `azure_geocatalog_url` | `AZURE_GEOCATALOG_URL` | `null` | When set, enqueue GeoCatalog / Planetary Computer ingestion after Azure upload |
 | `signed_url_expires_in` | `SIGNED_URL_EXPIRES_IN` | `86400` | CloudFront signed URL TTL (seconds; S3 only) |
+
+Azure account, container, and GeoCatalog base URL are supplied per request as workflow parameters ``container_url`` and ``geo_catalog_url`` (not environment variables).
 <!-- markdownlint-enable MD013 -->
 
 ## Result Metadata

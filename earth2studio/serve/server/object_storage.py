@@ -210,8 +210,8 @@ class MSCObjectStorage(ObjectStorage):
     AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN (optional), AWS_DEFAULT_REGION.
 
     For Azure Blob Storage, authentication uses DefaultAzureCredentials (managed identity,
-    Azure CLI, etc.). Provide ``endpoint_url`` and/or ``azure_account_name`` to locate the
-    account; do not use connection strings.
+    Azure CLI, etc.). Provide ``azure_account_name``; the blob service URL is always
+    ``https://<account>.blob.core.windows.net``. Do not use connection strings.
 
     References
     ----------
@@ -232,7 +232,7 @@ class MSCObjectStorage(ObjectStorage):
     session_token : str, optional
         AWS session token for temporary credentials.
     endpoint_url : str, optional
-        Custom endpoint URL for S3-compatible services or Azure Blob Storage.
+        Custom endpoint URL for S3-compatible services (S3 only; not used for Azure).
     use_transfer_acceleration : bool, optional
         Enable S3 Transfer Acceleration (bucket must support it). Default is False.
     max_concurrency : int, optional
@@ -250,7 +250,7 @@ class MSCObjectStorage(ObjectStorage):
     cloudfront_private_key : str, optional
         PEM private key content as string for signed URLs.
     azure_account_name : str, optional
-        Azure storage account name (used with managed identity when ``endpoint_url`` is not set).
+        Azure storage account name (required for Azure; used to build the standard blob URL).
     azure_container_name : str, optional
         Azure container name.
     """
@@ -322,10 +322,22 @@ class MSCObjectStorage(ObjectStorage):
             self.use_managed_identity = True
             logger.info(
                 "Using Azure DefaultAzureCredentials (managed identity / Azure CLI). "
-                f"Account: {azure_account_name or 'will be determined from endpoint'}, "
+                f"Account: {azure_account_name or '(missing)'}, "
                 f"Container: {self.azure_container_name}"
             )
             self.azure_account_name = azure_account_name
+
+            account_name = self.azure_account_name
+            endpoint_suffix = "core.windows.net"
+            if not account_name:
+                raise ObjectStorageError(
+                    "Azure storage requires azure_account_name to build the blob service URL "
+                    "(https://<account>.blob.core.windows.net)."
+                )
+            self.endpoint_url = f"https://{account_name}.blob.{endpoint_suffix}"
+            logger.info(
+                f"Constructed Azure endpoint URL from account name: {self.endpoint_url}"
+            )
         else:
             raise ValueError(
                 f"Unsupported storage_type: {storage_type}. Must be 's3' or 'azure'."
@@ -376,28 +388,10 @@ class MSCObjectStorage(ObjectStorage):
                 }
             }
         elif storage_type == "azure":
-            # Build the Azure storage provider options
-            # Derive endpoint URL from endpoint_url parameter or azure_account_name
-            azure_endpoint_url: str | None = None
-
-            if endpoint_url:
-                azure_endpoint_url = endpoint_url.rstrip("/")
-            else:
-                account_name = self.azure_account_name
-                endpoint_suffix = "core.windows.net"
-                if not account_name:
-                    raise ObjectStorageError(
-                        "Azure endpoint_url cannot be determined. "
-                        "Please provide endpoint_url or azure_account_name (managed identity)."
-                    )
-                azure_endpoint_url = f"https://{account_name}.blob.{endpoint_suffix}"
-                logger.info(
-                    f"Constructed Azure endpoint URL from account name: {azure_endpoint_url}"
-                )
-
+            # Build the Azure storage provider options (endpoint resolved in __init__)
             azure_storage_provider_options = {
                 "base_path": self.azure_container_name,
-                "endpoint_url": azure_endpoint_url,
+                "endpoint_url": self.endpoint_url,
             }
 
             # Build the Azure profile config with credentials provider
