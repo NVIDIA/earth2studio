@@ -28,6 +28,7 @@ from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSLexicon
 from .metop import MetOpAMSUALexicon, MetOpAVHRRLexicon, MetOpMHSLexicon
+from .metop_iasi import MetOpIASILexicon
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .planetary_computer import (

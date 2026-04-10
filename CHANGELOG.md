@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added AMSU-A (channels 1–14) and AVHRR channel variables to `E2STUDIO_VOCAB`
 - Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
 - Added `JPSSATMSLexicon` for ATMS variable mappings
+- Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
+- Added `MetOpIASILexicon` for IASI variable mappings (8461 spectral channels)
 
 ### Changed
 
