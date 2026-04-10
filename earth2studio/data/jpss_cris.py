@@ -459,7 +459,6 @@ class JPSS_CRIS:
     - https://registry.opendata.aws/noaa-jpss/
     - https://www.star.nesdis.noaa.gov/jpss/CrIS.php
     - https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
-    - https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
 
     Badges
     ------
