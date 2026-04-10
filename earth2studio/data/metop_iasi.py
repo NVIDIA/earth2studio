@@ -248,13 +248,13 @@ def _parse_giadr_scale_factors(
     nb_bands = struct.unpack_from(">h", data, payload)[0]
 
     first_off = payload + 2
-    first_ch = np.array(struct.unpack_from(f">{10}h", data, first_off), dtype=np.int16)
+    first_ch = np.array(struct.unpack_from(f">{10}h", data, first_off), dtype=np.int32)
 
     last_off = first_off + 20
-    last_ch = np.array(struct.unpack_from(f">{10}h", data, last_off), dtype=np.int16)
+    last_ch = np.array(struct.unpack_from(f">{10}h", data, last_off), dtype=np.int32)
 
     sf_off = last_off + 20
-    sf = np.array(struct.unpack_from(f">{10}h", data, sf_off), dtype=np.int16)
+    sf = np.array(struct.unpack_from(f">{10}h", data, sf_off), dtype=np.int32)
 
     return first_ch[:nb_bands], last_ch[:nb_bands], sf[:nb_bands], nb_bands
 
@@ -540,11 +540,16 @@ def _parse_native_iasi(
     # We also need wavenumber info — extract from first MDR
     wavenumber_cm: np.ndarray | None = None
 
+    # Compute relative field offsets once from the first MDR and reuse
+    # (MDR layout is identical across all records in a conforming IASI L1C file)
+    first_offsets = _compute_mdr_field_offsets(data, mdr_offsets[0])
+    rel_offsets = {k: v - mdr_offsets[0] for k, v in first_offsets.items()}
+
     for scan_idx, mdr_off in enumerate(mdr_offsets):
         base = scan_idx * n_obs_per_scan
 
-        # Compute field offsets for this MDR
-        field_offsets = _compute_mdr_field_offsets(data, mdr_off)
+        # Reuse relative offsets — avoids recomputing per MDR
+        field_offsets = {k: mdr_off + rel for k, rel in rel_offsets.items()}
 
         # Extract wavenumber calibration from first MDR
         if wavenumber_cm is None:
@@ -578,15 +583,15 @@ def _parse_native_iasi(
         ).reshape(_NUM_EFOVS, _NUM_IFOVS, 2)
         raw_geo_f = raw_geo.astype(np.float64) / 1e6
 
-        for efov in range(_NUM_EFOVS):
-            obs_base = base + efov * _NUM_IFOVS
-            lats[obs_base : obs_base + _NUM_IFOVS] = raw_geo_f[efov, :, 1].astype(
-                np.float32
-            )
-            lon_vals = raw_geo_f[efov, :, 0]
-            # Convert longitude from [-180, 180] to [0, 360]
-            lon_vals = np.where(lon_vals < 0, lon_vals + 360.0, lon_vals)
-            lons[obs_base : obs_base + _NUM_IFOVS] = lon_vals.astype(np.float32)
+        # Flatten [30][4] → [120] and assign in one shot
+        flat_lats = raw_geo_f[:, :, 1].ravel().astype(np.float32)
+        flat_lons = raw_geo_f[:, :, 0].ravel()
+        # Convert longitude from [-180, 180] to [0, 360]
+        flat_lons = np.where(flat_lons < 0, flat_lons + 360.0, flat_lons).astype(
+            np.float32
+        )
+        lats[base : base + n_obs_per_scan] = flat_lats
+        lons[base : base + n_obs_per_scan] = flat_lons
 
         # GGeoSondAnglesMETOP: int32[30][4][2], SF=1e6 — [efov][ifov][zen=0,azi=1]
         sat_ang_off = field_offsets["GGeoSondAnglesMETOP"]
@@ -598,14 +603,12 @@ def _parse_native_iasi(
         ).reshape(_NUM_EFOVS, _NUM_IFOVS, 2)
         raw_sat_ang_f = raw_sat_ang.astype(np.float64) / 1e6
 
-        for efov in range(_NUM_EFOVS):
-            obs_base = base + efov * _NUM_IFOVS
-            sat_za[obs_base : obs_base + _NUM_IFOVS] = raw_sat_ang_f[efov, :, 0].astype(
-                np.float32
-            )
-            sat_azi[obs_base : obs_base + _NUM_IFOVS] = raw_sat_ang_f[
-                efov, :, 1
-            ].astype(np.float32)
+        sat_za[base : base + n_obs_per_scan] = (
+            raw_sat_ang_f[:, :, 0].ravel().astype(np.float32)
+        )
+        sat_azi[base : base + n_obs_per_scan] = (
+            raw_sat_ang_f[:, :, 1].ravel().astype(np.float32)
+        )
 
         # GGeoSondAnglesSUN: int32[30][4][2], SF=1e6 — [efov][ifov][zen=0,azi=1]
         sun_ang_off = field_offsets["GGeoSondAnglesSUN"]
@@ -617,14 +620,12 @@ def _parse_native_iasi(
         ).reshape(_NUM_EFOVS, _NUM_IFOVS, 2)
         raw_sun_ang_f = raw_sun_ang.astype(np.float64) / 1e6
 
-        for efov in range(_NUM_EFOVS):
-            obs_base = base + efov * _NUM_IFOVS
-            solar_za[obs_base : obs_base + _NUM_IFOVS] = raw_sun_ang_f[
-                efov, :, 0
-            ].astype(np.float32)
-            solar_azi[obs_base : obs_base + _NUM_IFOVS] = raw_sun_ang_f[
-                efov, :, 1
-            ].astype(np.float32)
+        solar_za[base : base + n_obs_per_scan] = (
+            raw_sun_ang_f[:, :, 0].ravel().astype(np.float32)
+        )
+        solar_azi[base : base + n_obs_per_scan] = (
+            raw_sun_ang_f[:, :, 1].ravel().astype(np.float32)
+        )
 
         # GQisFlagQualDetailed: uint16[30][4]
         qual_off = field_offsets["GQisFlagQualDetailed"]
@@ -635,27 +636,25 @@ def _parse_native_iasi(
             offset=qual_off,
         ).reshape(_NUM_EFOVS, _NUM_IFOVS)
 
-        for efov in range(_NUM_EFOVS):
-            obs_base = base + efov * _NUM_IFOVS
-            quality[obs_base : obs_base + _NUM_IFOVS] = raw_qual[efov, :]
+        quality[base : base + n_obs_per_scan] = raw_qual.ravel()
 
         # GS1cSpect: int16[30][4][8700] — L1C calibrated spectra
         spect_off = field_offsets["GS1cSpect"]
 
-        # Extract only selected channels for all EFOVs×IFOVs in this scan
-        for efov in range(_NUM_EFOVS):
-            for ifov in range(_NUM_IFOVS):
-                obs_idx = base + efov * _NUM_IFOVS + ifov
-                # Each IFOV spectrum starts at:
-                # spect_off + (efov * 4 + ifov) * 8700 * 2
-                ifov_spect_off = (
-                    spect_off + (efov * _NUM_IFOVS + ifov) * _NUM_CHANNELS_ALLOC * 2
-                )
-                # Read only the channels we need
-                for ci_idx, ci in enumerate(ch_idx):
-                    ch_off = ifov_spect_off + int(ci) * 2
-                    raw_val = struct.unpack_from(">h", data, ch_off)[0]
-                    radiances[obs_idx, ci_idx] = float(raw_val) * channel_scales[ci]
+        # Vectorized extraction: read full spectral block and index channels
+        raw_spect = np.frombuffer(
+            data,
+            dtype=">i2",
+            count=_NUM_EFOVS * _NUM_IFOVS * _NUM_CHANNELS_ALLOC,
+            offset=spect_off,
+        ).reshape(_NUM_EFOVS, _NUM_IFOVS, _NUM_CHANNELS_ALLOC)
+
+        # Select only requested channels and apply per-channel scale factors
+        selected = raw_spect[:, :, ch_idx].astype(np.float64)  # (30, 4, n_ch)
+        selected *= channel_scales[ch_idx]
+        radiances[base : base + n_obs_per_scan, :] = selected.reshape(
+            n_obs_per_scan, n_ch
+        )
 
     # Step 5: Convert radiance to mW/(m²·sr·cm⁻¹) for Planck function
     # The GIADR-scaled values are in W/(m²·sr·m⁻¹). Convert:
@@ -1074,8 +1073,12 @@ class MetOpIASI:
                     if str(entry).endswith(".nat"):
                         nat_entry = entry
                         break
-            except Exception:  # noqa: S110
-                pass
+            except Exception as exc:  # noqa: S110
+                logger.debug(
+                    "Could not list entries for product {}: {} — using default entry",
+                    product,
+                    exc,
+                )
 
             # Download to cache
             cache_name = f"{product}.nat"
