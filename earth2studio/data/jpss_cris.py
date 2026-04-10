@@ -202,6 +202,24 @@ _PLANCK_C2: float = 1.438775246065195  # cm K  [CRTM SpcCoeff]
 #   apodized[n] = 0.23 * unapodized[n-1] + 0.54 * unapodized[n] + 0.23 * unapodized[n+1]
 #
 # The kernel coefficients come from a = 0.54 (center) and (1-a)/2 = 0.23 (sides).
+#
+# References
+# ----------
+# - CrIS SDR Algorithm Theoretical Basis Document (ATBD), JPSS Program
+#   474-00032, Rev C (2021), Sections 2.5 and 3.1.1:
+#   https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CrIS-SDR_C.pdf
+#
+# - Han, Y. et al. (2013), "Suomi NPP CrIS measurements, sensor data record
+#   algorithm, calibration and validation activities, and record data quality",
+#   J. Geophys. Res. Atmos., 118, 12734-12748, doi:10.1002/2013JD020344
+#
+# - GSI BUFR encoder applies Hamming apodization to CrIS radiance before
+#   encoding.  See NOAA-EMC/GSI ``src/gsi/read_cris.f90``, subroutine
+#   ``read_cris``, and the NESDIS/STAR NUCAPS BUFR product documentation.
+#
+# - Blackman, R.B. and Tukey, J.W. (1958), "The Measurement of Power Spectra",
+#   Dover Publications.  Defines the Hamming window:
+#   w(x) = 0.54 + 0.46 * cos(pi * x / L).
 _HAMMING_A0: float = 0.54
 _HAMMING_A1: float = 0.23  # symmetric: a_{-1} = a_{+1}
 
@@ -264,23 +282,12 @@ def _hamming_apodize(radiance: np.ndarray) -> np.ndarray:
     the edge value is replicated, which is consistent with the interferogram
     being even-symmetric.
 
-    .. note::
-
-       The spectral-domain 3-tap kernel is the exact Fourier dual of
-       interferogram-domain Hamming for continuous signals.  Residuals
-       relative to UFS/GSI brightness temperatures are typically < 1 K
-       for most channels.
-
-    Parameters
+    References
     ----------
-    radiance : np.ndarray
-        Unapodized spectral radiance, shape ``(n_fov, 2223)`` or ``(2223,)``.
 
-    Returns
-    -------
-    np.ndarray
-        Apodized spectral radiance with guard channels removed,
-        shape ``(n_fov, 2211)`` or ``(2211,)``.
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_nsr_20180614.pdf
+    - https://www-cdn.eumetsat.int/files/2022-11/12%20-%20Tobin%20-%20CrIS_spectral_20221019.pdf
+
     """
     squeeze = radiance.ndim == 1
     if squeeze:
@@ -350,13 +357,7 @@ class _CrISAsyncTask:
 
 @dataclass
 class _CrISDecodedGranule:
-    """Compact decoded data from a single CrIS granule.
-
-    Stores spatial arrays (one value per FOV) and the 2-D brightness
-    temperature matrix.  The expensive channel-expansion into long-format
-    rows is deferred until :py:meth:`JPSS_CRIS._compile_dataframe` where
-    all granules are expanded in a single batch.
-    """
+    """Compact decoded data from a single CrIS granule."""
 
     lat: np.ndarray  # (n_valid,) float32
     lon: np.ndarray  # (n_valid,) float32
@@ -480,11 +481,8 @@ class JPSS_CRIS:
 
     - https://registry.opendata.aws/noaa-jpss/
     - https://www.star.nesdis.noaa.gov/jpss/CrIS.php
+    - https://www.star.nesdis.noaa.gov/jpss/Docs.php#S948113
     - https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
-
-    CrIS SDR format and channel specification:
-
-    - https://ncc.nesdis.noaa.gov/documents/documentation/viirs-users-guide-tech-report-142a-v1.3.pdf
 
     Badges
     ------
@@ -572,9 +570,6 @@ class JPSS_CRIS:
             skip_instance_cache=True,
         )
 
-    # ------------------------------------------------------------------
-    # Synchronous entry point
-    # ------------------------------------------------------------------
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -618,9 +613,6 @@ class JPSS_CRIS:
 
         return df
 
-    # ------------------------------------------------------------------
-    # Async fetch
-    # ------------------------------------------------------------------
     async def fetch(
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -689,9 +681,6 @@ class JPSS_CRIS:
         df = self._compile_dataframe(tasks, schema)
         return df
 
-    # ------------------------------------------------------------------
-    # Task creation -- discover CrIS granules in S3
-    # ------------------------------------------------------------------
     async def _create_tasks(
         self,
         time_list: list[datetime],
@@ -1171,9 +1160,6 @@ class JPSS_CRIS:
             variable=task.variable,
         )
 
-    # ------------------------------------------------------------------
-    # Filename parsing and pairing
-    # ------------------------------------------------------------------
     @staticmethod
     def _parse_filename_time(filename: str) -> datetime | None:
         """Extract the granule start time from a CrIS SDR filename.
@@ -1231,9 +1217,6 @@ class JPSS_CRIS:
             return "_".join(parts[1:6])  # platform_d*_t*_e*_b*
         return filename  # fallback – should not happen for valid files
 
-    # ------------------------------------------------------------------
-    # resolve_fields / cache / available
-    # ------------------------------------------------------------------
     @classmethod
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
         """Convert *fields* parameter into a validated PyArrow schema.
