@@ -865,24 +865,25 @@ class JPSS_CRIS:
         del granules
 
         # --- Deduplicate at spatial level (before channel expansion) ---
-        # Build a structured key: (time_ms, lat_int, lon_int)
-        # Using int32 quantization for lat/lon gives ~0.01° precision.
-        # Satellite is intentionally excluded — collocated observations
-        # from different platforms at the same (time, lat, lon) are treated
-        # as duplicates to avoid double-counting in assimilation.
+        # This really isnt needed, its more of a safety net
         time_as_i8 = all_times.view(np.int64)
         lat_i = (all_lat * 100).astype(np.int32)
         lon_i = (all_lon * 100).astype(np.int32)
 
-        # Unique spatial points — use numpy lexsort for fast dedup
-        order = np.lexsort((lon_i, lat_i, time_as_i8))
+        # Encode satellite strings as integer codes for lexsort
+        unique_sats, sat_codes = np.unique(all_sat, return_inverse=True)
+        sat_i = sat_codes.astype(np.int32)
+
+        order = np.lexsort((lon_i, lat_i, sat_i, time_as_i8))
         sorted_t = time_as_i8[order]
         sorted_lat = lat_i[order]
         sorted_lon = lon_i[order]
+        sorted_sat = sat_i[order]
         diffs = (
             (sorted_t[1:] != sorted_t[:-1])
             | (sorted_lat[1:] != sorted_lat[:-1])
             | (sorted_lon[1:] != sorted_lon[:-1])
+            | (sorted_sat[1:] != sorted_sat[:-1])
         )
         unique_mask: np.ndarray = np.empty(n_total, dtype=bool)
         unique_mask[0] = True
