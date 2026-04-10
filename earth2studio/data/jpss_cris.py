@@ -90,6 +90,8 @@ _CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
 _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 
 # GSI / CRTM sensor_chan numbering for CrIS FSR.
+# https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
+# (Table 4, LWIR, MWIR FSR, SWIR FSR)
 #
 # The physical instrument has 2223 channels (717 + 869 + 637) but the CRTM
 # SpcCoeff defines only 2211 *science* channels (713 + 865 + 633).  Each band
@@ -110,6 +112,7 @@ _CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
 #   SWIR   | 1588 .. 2220 | 1579 .. 2211 | 2155.0 -- 2550.0
 #   (guard)| 2221 .. 2222 | 0 (sentinel) | 2550.625 -- 2551.25
 #
+
 # Guard channels are assigned sensor_chan 0 (sentinel for "not in GSI/CRTM").
 _CRIS_NUM_SCIENCE_LW: int = 713  # CRTM science channels per band
 _CRIS_NUM_SCIENCE_MW: int = 865
@@ -193,33 +196,6 @@ _PLANCK_C2: float = 1.438775246065195  # cm K  [CRTM SpcCoeff]
 # (sinc ILS) spectral radiance.  NCEP applies Hamming apodization before
 # encoding the data into BUFR for GSI assimilation, so UFS/GSI brightness
 # temperatures correspond to apodized spectra.
-#
-# For CrIS FSR the channel spacing is dv = 0.625 cm^-1, which equals
-# 1/(2*L) where L = 0.8 cm is the maximum optical path difference.  This
-# makes the Hamming window w(x) = 0.54 + 0.46*cos(pi*x/L) equivalent to
-# an exact 3-tap spectral convolution:
-#
-#   apodized[n] = 0.23 * unapodized[n-1] + 0.54 * unapodized[n] + 0.23 * unapodized[n+1]
-#
-# The kernel coefficients come from a = 0.54 (center) and (1-a)/2 = 0.23 (sides).
-#
-# References
-# ----------
-# - CrIS SDR Algorithm Theoretical Basis Document (ATBD), JPSS Program
-#   474-00032, Rev C (2021), Sections 2.5 and 3.1.1:
-#   https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CrIS-SDR_C.pdf
-#
-# - Han, Y. et al. (2013), "Suomi NPP CrIS measurements, sensor data record
-#   algorithm, calibration and validation activities, and record data quality",
-#   J. Geophys. Res. Atmos., 118, 12734-12748, doi:10.1002/2013JD020344
-#
-# - GSI BUFR encoder applies Hamming apodization to CrIS radiance before
-#   encoding.  See NOAA-EMC/GSI ``src/gsi/read_cris.f90``, subroutine
-#   ``read_cris``, and the NESDIS/STAR NUCAPS BUFR product documentation.
-#
-# - Blackman, R.B. and Tukey, J.W. (1958), "The Measurement of Power Spectra",
-#   Dover Publications.  Defines the Hamming window:
-#   w(x) = 0.54 + 0.46 * cos(pi * x / L).
 _HAMMING_A0: float = 0.54
 _HAMMING_A1: float = 0.23  # symmetric: a_{-1} = a_{+1}
 
@@ -285,6 +261,7 @@ def _hamming_apodize(radiance: np.ndarray) -> np.ndarray:
     References
     ----------
 
+    - https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
     - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-002_JPSS_ATBD_CRIS-SDR_nsr_20180614.pdf
     - https://www-cdn.eumetsat.int/files/2022-11/12%20-%20Tobin%20-%20CrIS_spectral_20221019.pdf
 
@@ -481,7 +458,7 @@ class JPSS_CRIS:
 
     - https://registry.opendata.aws/noaa-jpss/
     - https://www.star.nesdis.noaa.gov/jpss/CrIS.php
-    - https://www.star.nesdis.noaa.gov/jpss/Docs.php#S948113
+    - https://www.star.nesdis.noaa.gov/jpss/documents/UserGuides/CrIS_SDR_Users_Guide1p1_20180405.pdf
     - https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
 
     Badges
