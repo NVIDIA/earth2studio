@@ -310,6 +310,10 @@ def _compute_mdr_field_offsets(data: bytes, mdr_offset: int) -> dict[str, int]:
     known field structure sequentially to compute absolute byte offsets
     for the fields we need.
 
+    References
+    ----------
+    https://github.com/stcorp/codadef-eps/blob/master/types/IASI_MDR_L1C_v5.xml
+
     Parameters
     ----------
     data : bytes
