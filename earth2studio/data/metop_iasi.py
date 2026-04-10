@@ -546,8 +546,7 @@ def _parse_native_iasi(
 
     # Compute relative field offsets once from the first MDR and reuse
     # (MDR layout is identical across all records in a conforming IASI L1C file)
-    first_offsets = _compute_mdr_field_offsets(data, mdr_offsets[0])
-    rel_offsets = {k: v - mdr_offsets[0] for k, v in first_offsets.items()}
+    rel_offsets = {k: v - mdr_offsets[0] for k, v in first_mdr_offsets.items()}
 
     for scan_idx, mdr_off in enumerate(mdr_offsets):
         base = scan_idx * n_obs_per_scan
