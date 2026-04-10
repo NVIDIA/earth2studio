@@ -2404,13 +2404,11 @@ Present each comment to the user in a summary table:
 ```
 
 For each comment, briefly explain:
-
 - What Greptile flagged
 - Whether you agree or disagree (with reasoning)
 - Your proposed fix (or why to skip)
 
 Ask the user to confirm which comments to address. The user may:
-
 - Accept all proposed fixes
 - Select specific fixes
 - Override your recommendation on any comment
@@ -2453,7 +2451,6 @@ git push origin <branch>
 After pushing, resolve all addressed review threads if possible.
 
 Inform the user of the final state:
-
 - How many comments were fixed
 - How many were dismissed (with reasons)
 - Any remaining open threads
