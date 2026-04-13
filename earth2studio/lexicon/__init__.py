@@ -26,7 +26,7 @@ from .gfs import GFSLexicon
 from .goes import GOESLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
-from .jpss import JPSSATMSLexicon, JPSSLexicon
+from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
 from .metop import MetOpAMSUALexicon, MetOpAVHRRLexicon, MetOpMHSLexicon
 from .metop_iasi import MetOpIASILexicon
 from .mrms import MRMSLexicon

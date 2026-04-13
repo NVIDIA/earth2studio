@@ -1679,7 +1679,7 @@ Zarr file and mock `fetch_array` or the filesystem layer.
 - **At least one mock test** per source (see 12d) — no network,
   no timeout, no xfail
 - **Target 90%+ line coverage** on the source module when running
-  with `--slow` (see Step 13b). Use `--cov-report=term-missing`
+  with `--slow` (see Step 13c). Use `--cov-report=term-missing`
   to identify uncovered lines.
 - Run via: `make pytest TOX_ENV=test-data` or
   `pytest test/data/test_<filename>.py -v`
