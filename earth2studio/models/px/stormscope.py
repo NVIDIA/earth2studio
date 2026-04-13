@@ -160,31 +160,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
 
-    def _generate_latents(
-        self,
-        shape: tuple[int, ...],
-        device: torch.device,
-        dtype: torch.dtype,
-    ) -> torch.Tensor:
-        """Generate latent noise, optionally with AR(1) temporal correlation.
-
-        Set ``self.noise_alpha`` > 0 to blend with the previous call's noise
-        for temporal coherence across consecutive predictions.
-        """
-        z_new = torch.randn(shape, device=device, dtype=dtype)
-        alpha = getattr(self, "noise_alpha", 0.0)
-        prev = getattr(self, "_prev_noise", None)
-        if alpha > 0 and prev is not None and prev.shape == z_new.shape:
-            latents = alpha * prev.to(device=device, dtype=dtype) + (1 - alpha**2)**0.5 * z_new
-        else:
-            latents = z_new
-        self._prev_noise = latents.detach().cpu()
-        return latents
-
-    def reset_noise(self) -> None:
-        """Clear cached noise state. Call between independent forecast inits."""
-        self._prev_noise = None
-
     def __init__(
         self,
         model_spec: list[dict[str, Any]],
@@ -690,8 +665,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
-        latents = self._generate_latents(
-            (b * t, *x.shape[3:]), device=x.device, dtype=x.dtype
+        latents = torch.randn(
+            b * t, *x.shape[3:], device=x.device, dtype=x.dtype
         )
 
         # Run diffusion sampler
@@ -2082,6 +2057,27 @@ class StormScopeNSRDB(StormScopeBase):
     def _sanitize_tensor(x: torch.Tensor) -> torch.Tensor:
         """Match dataset behavior: replace NaN/Inf with zeros (always out-of-place)."""
         return torch.nan_to_num(x.clone(), nan=0.0, posinf=0.0, neginf=0.0)
+
+    def _generate_latents(
+        self,
+        shape: tuple[int, ...],
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Generate latent noise with optional AR(1) temporal correlation."""
+        z_new = torch.randn(shape, device=device, dtype=dtype)
+        alpha = getattr(self, "noise_alpha", 0.0)
+        prev = getattr(self, "_prev_noise", None)
+        if alpha > 0 and prev is not None and prev.shape == z_new.shape:
+            latents = alpha * prev.to(device=device, dtype=dtype) + (1 - alpha**2)**0.5 * z_new
+        else:
+            latents = z_new
+        self._prev_noise = latents.detach().cpu()
+        return latents
+
+    def reset_noise(self) -> None:
+        """Clear cached noise state. Call between independent forecast inits."""
+        self._prev_noise = None
 
     def _unitless_insolation(
         self, coords: CoordSystem, b: int, device: torch.device, dtype: torch.dtype,
