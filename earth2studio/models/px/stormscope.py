@@ -51,16 +51,19 @@ from earth2studio.utils.type import CoordSystem
 try:
     from omegaconf import OmegaConf
     from physicsnemo import Module
+    from physicsnemo.utils.insolation import insolation as pnm_insolation
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")
     OmegaConf = None  # type: ignore[assignment]
     Module = None  # type: ignore[assignment]
+    pnm_insolation = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
 from earth2studio.models.nn.stormscope_util import (
     DropInDiT,
     EDMPrecond,
+    MaskedModel,
 )
 
 
@@ -74,6 +77,8 @@ def model_wrap(model: Module) -> nn.Module:
             pnm=model,
         ),
     )
+
+
 
 
 @check_optional_dependencies()
@@ -155,6 +160,31 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
 
+    def _generate_latents(
+        self,
+        shape: tuple[int, ...],
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Generate latent noise, optionally with AR(1) temporal correlation.
+
+        Set ``self.noise_alpha`` > 0 to blend with the previous call's noise
+        for temporal coherence across consecutive predictions.
+        """
+        z_new = torch.randn(shape, device=device, dtype=dtype)
+        alpha = getattr(self, "noise_alpha", 0.0)
+        prev = getattr(self, "_prev_noise", None)
+        if alpha > 0 and prev is not None and prev.shape == z_new.shape:
+            latents = alpha * prev.to(device=device, dtype=dtype) + (1 - alpha**2)**0.5 * z_new
+        else:
+            latents = z_new
+        self._prev_noise = latents.detach().cpu()
+        return latents
+
+    def reset_noise(self) -> None:
+        """Clear cached noise state. Call between independent forecast inits."""
+        self._prev_noise = None
+
     def __init__(
         self,
         model_spec: list[dict[str, Any]],
@@ -221,14 +251,16 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 if key not in spec:
                     raise KeyError(f"model_spec[{i}] missing required key '{key}'.")
 
-        # Sort stages by descending sigma_max to ensure large->small sampling schedule
+        # Keep registry order (ascending sigma) so that _select_expert picks
+        # the lowest-sigma expert first in overlap regions, matching the
+        # inferencer's select_expert() iteration order.
         self.model_spec = sorted(
-            model_spec, key=lambda s: float(s["sigma_max"]), reverse=True
+            model_spec, key=lambda s: float(s["sigma_min"]), reverse=False
         )
         # Store in ModuleList so `.to(device)` works
         self.stage_models = nn.ModuleList([spec["model"] for spec in self.model_spec])
-        self.start_sigma = self.model_spec[-1]["sigma_min"]
-        self.end_sigma = self.model_spec[0]["sigma_max"]
+        self.start_sigma = self.model_spec[0]["sigma_min"]
+        self.end_sigma = self.model_spec[-1]["sigma_max"]
 
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
@@ -257,6 +289,39 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             },
         )
         return package
+
+    @staticmethod
+    def _load_grid(
+        package: Package,
+        pkg: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Load and crop HRRR grid from a model package.
+
+        Returns dict with keys: latitudes, longitudes, y, x, image_size,
+        spatial_downsample, anchor_y, anchor_x.
+        """
+        image_size = pkg["image_size"]
+        spatial_downsample = int(pkg.get("spatial_downsample", 1))
+        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
+        longitudes = torch.from_numpy(np.load(package.resolve("lon.npy")))
+        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
+        full_y, full_x = latitudes.shape[0], longitudes.shape[1] if longitudes.dim() > 1 else latitudes.shape[0]
+        anchor_y = int((full_y - image_size[0]) / 2)
+        anchor_x = int((full_x - image_size[1]) / 2)
+        latitudes = latitudes[anchor_y:anchor_y + image_size[0], anchor_x:anchor_x + image_size[1]]
+        longitudes = longitudes[anchor_y:anchor_y + image_size[0], anchor_x:anchor_x + image_size[1]]
+        y = hrrr_y[anchor_y:anchor_y + image_size[0]]
+        x = hrrr_x[anchor_x:anchor_x + image_size[1]]
+        y = y[::spatial_downsample]
+        x = x[::spatial_downsample]
+        latitudes = latitudes[::spatial_downsample, ::spatial_downsample]
+        longitudes = longitudes[::spatial_downsample, ::spatial_downsample]
+        return {
+            "latitudes": latitudes, "longitudes": longitudes,
+            "y": y, "x": x,
+            "image_size": image_size, "spatial_downsample": spatial_downsample,
+            "anchor_y": anchor_y, "anchor_x": anchor_x,
+        }
 
     @classmethod
     def load_model(
@@ -506,10 +571,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 parts.insert(0, conditioning)
         if self.latitudes is not None and self.longitudes is not None:
             normed_lat = (self.latitudes - self._CENTRAL_LAT_CONSTANT) / self._LAT_SCALE
-            normed_lon = (
-                self.longitudes + 180.0
-            ) % 360.0 - 180.0  # trained models expect [-180, 180] longitudes
-            normed_lon = (normed_lon - self._CENTRAL_LON_CONSTANT) / self._LON_SCALE
+            normed_lon = (self.longitudes - self._CENTRAL_LON_CONSTANT) / self._LON_SCALE
             latlon_input = torch.cat(
                 (normed_lat[None, None, :, :], normed_lon[None, None, :, :]), dim=1
             )
@@ -628,9 +690,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
-        latents = torch.randn(
-            b * t, *x.shape[3:], device=x.device, dtype=x.dtype
-        )  # shape [B*T, C, H, W]
+        latents = self._generate_latents(
+            (b * t, *x.shape[3:]), device=x.device, dtype=x.dtype
+        )
 
         # Run diffusion sampler
         out = self._edm_sampler(
@@ -774,9 +836,23 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             x_coords = coords.copy()
 
-        # Handle invalid gridpoints: initially zero-fill any NaNs so they don't cause problems in concat/prep ops
-        # Data will be zero-filled again after normalization in the forward method.
-        # if not (conditioning and torch.any(self.conditioning_valid_mask)):
+        # Detect NaN/Inf in source data and update the valid mask accordingly.
+        # This handles predicted GOES which has NaN at out-of-coverage pixels
+        # but lands on the native grid (so the interpolation mask is trivially 100%).
+        any_nan = torch.isnan(x) | torch.isinf(x)
+        if any_nan.any():
+            # Reduce to spatial [H, W]: a pixel is invalid if ANY channel is NaN
+            spatial_nan = any_nan
+            while spatial_nan.dim() > 2:
+                spatial_nan = spatial_nan.any(dim=0)
+            if spatial_nan.dim() == 3:
+                spatial_nan = spatial_nan.any(dim=0)
+            valid_mask = valid_mask & ~spatial_nan
+            if conditioning:
+                self.conditioning_valid_mask = valid_mask.to(device=self.latitudes.device)
+            else:
+                self.valid_mask = valid_mask.to(device=self.latitudes.device)
+
         x = torch.where(~valid_mask, 0.0, x)
 
         return x, x_coords
@@ -1235,31 +1311,11 @@ class StormScopeGOES(StormScopeBase):
                 }
             )
 
-        # Grid coordinates: crop a subregion from the HRRR grid
-        image_size = pkg["image_size"]
-        spatial_downsample = pkg["spatial_downsample"]
-        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (
-            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
-        ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
-        full_y, full_x = latitudes.shape[0], longitudes.shape[1]
-        anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)
-        latitudes = latitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        longitudes = longitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]]
-
-        # Spatial downsample
-        y = y[::spatial_downsample]
-        x = x[::spatial_downsample]
-        latitudes = latitudes[::spatial_downsample, ::spatial_downsample]
-        longitudes = longitudes[::spatial_downsample, ::spatial_downsample]
+        grid = cls._load_grid(package, pkg)
+        latitudes, longitudes = grid["latitudes"], grid["longitudes"]
+        y, x = grid["y"], grid["x"]
+        image_size, spatial_downsample = grid["image_size"], grid["spatial_downsample"]
+        anchor_y, anchor_x = grid["anchor_y"], grid["anchor_x"]
 
         # Input/output timesteps configuration
         if pkg["sliding_window"]:
@@ -1600,31 +1656,11 @@ class StormScopeMRMS(StormScopeBase):
                 }
             )
 
-        # Grid coordinates: crop a subregion from the HRRR grid
-        image_size = pkg["image_size"]
-        spatial_downsample = pkg["spatial_downsample"]
-        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (
-            torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
-        ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
-        full_y, full_x = latitudes.shape[0], longitudes.shape[1]
-        anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)
-        latitudes = latitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        longitudes = longitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]]
-
-        # Spatial downsample
-        y = y[::spatial_downsample]
-        x = x[::spatial_downsample]
-        latitudes = latitudes[::spatial_downsample, ::spatial_downsample]
-        longitudes = longitudes[::spatial_downsample, ::spatial_downsample]
+        grid = cls._load_grid(package, pkg)
+        latitudes, longitudes = grid["latitudes"], grid["longitudes"]
+        y, x = grid["y"], grid["x"]
+        image_size, spatial_downsample = grid["image_size"], grid["spatial_downsample"]
+        anchor_y, anchor_x = grid["anchor_y"], grid["anchor_x"]
 
         # Input/output timesteps configuration
         if pkg["sliding_window"]:
@@ -1682,7 +1718,54 @@ class StormScopeMRMS(StormScopeBase):
 class StormScopeNSRDB(StormScopeBase):
     """Solar radiation nowcasting model with StormScope-style interface.
 
-    This wrapper is diffusion-only and expects a UNet-based diffusion checkpoint.
+    Supports three inference modes:
+
+    1. **Pure diffusion** -- sample entirely from noise (default when no regression
+       model is present).
+    2. **Regression only** -- deterministic prediction from the regression model.
+    3. **Regression + SDEdit** -- warm-start diffusion from the regression prediction
+       by injecting noise at ``sdedit_sigma`` and running the denoiser from there.
+
+    When ``state_norm_mode="clearness_index"``, the GHI target is normalized by
+    dividing by ``(insolation + clearness_index_eps)`` rather than by z-score.
+    Insolation is ``max(cos_zenith, 0) * solar_constant``.
+
+    Parameters
+    ----------
+    diffusion_model : torch.nn.Module
+        Diffusion denoiser checkpoint (AR / rollout).
+    means : torch.Tensor
+        Per-variable mean for z-score normalization, shape ``[1, C, 1, 1]``.
+    stds : torch.Tensor
+        Per-variable std for z-score normalization, shape ``[1, C, 1, 1]``.
+    latitudes : torch.Tensor
+        Latitudes of the grid, shape ``[H, W]``.
+    longitudes : torch.Tensor
+        Longitudes of the grid, shape ``[H, W]``.
+    first_step_diffusion_model : torch.nn.Module | None
+        Separate denoiser for the first (bootstrap) step.  Falls back to
+        *diffusion_model* when ``None``.
+    regression_model : torch.nn.Module | None
+        Optional deterministic regression model used for SDEdit warm-starting.
+    conditioning_means, conditioning_stds : torch.Tensor | None
+        Normalization stats for the external conditioning data (e.g. GOES).
+    invariants : torch.Tensor | None
+        Static invariant channels (lat/lon trig, altitude, land-sea mask).
+    valid_mask : torch.Tensor | None
+        Boolean mask of valid grid-points, shape ``[H, W]``.
+    sdedit_sigma : float | None
+        Noise level for SDEdit warm-starting.  When ``None``, pure diffusion is used.
+    mask_regression : bool
+        If ``True``, zero out denoised outputs at invalid pixels at every
+        diffusion step, and mask the regression prediction before SDEdit.
+    state_norm_mode : str
+        ``"standard"`` for z-score, ``"clearness_index"`` for clearness-index norm.
+    clearness_index_eps : float
+        Epsilon added to the insolation denominator in clearness-index mode.
+    solar_constant : float
+        Solar constant (W/m²) used to compute insolation.
+    disable_norm : bool
+        Metadata flag indicating the diffusion model lacks GroupNorm.
     """
 
     def __init__(
@@ -1693,6 +1776,7 @@ class StormScopeNSRDB(StormScopeBase):
         latitudes: torch.Tensor,
         longitudes: torch.Tensor,
         first_step_diffusion_model: torch.nn.Module | None = None,
+        regression_model: torch.nn.Module | None = None,
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         invariants: torch.Tensor | None = None,
@@ -1706,9 +1790,17 @@ class StormScopeNSRDB(StormScopeBase):
         input_times: np.ndarray = np.array([np.timedelta64(0, "m")]),
         output_times: np.ndarray = np.array([np.timedelta64(10, "m")]),
         input_interp_max_dist_km: float = 12.0,
+        y_coords: np.ndarray | None = None,
+        x_coords: np.ndarray | None = None,
         lead_time_steps: int = 0,
         bootstrap_lead_time_label: int = 0,
         autoregressive_lead_time_label: int = 1,
+        sdedit_sigma: float | None = None,
+        mask_regression: bool = False,
+        state_norm_mode: str = "standard",
+        clearness_index_eps: float = 10.0,
+        solar_constant: float = 1361.0,
+        disable_norm: bool = False,
     ):
         variables_arr = np.array(["ghi"] if variables is None else variables)
         conditioning_vars_arr = np.array(
@@ -1736,6 +1828,8 @@ class StormScopeNSRDB(StormScopeBase):
             sampler_args=sampler_args or {},
             input_times=input_times,
             output_times=output_times,
+            y_coords=y_coords,
+            x_coords=x_coords,
             input_interp_max_dist_km=input_interp_max_dist_km,
             conditioning_interp_max_dist_km=input_interp_max_dist_km,
         )
@@ -1757,35 +1851,21 @@ class StormScopeNSRDB(StormScopeBase):
         self.lead_time_steps = int(lead_time_steps)
         self.bootstrap_lead_time_label = int(bootstrap_lead_time_label)
         self.autoregressive_lead_time_label = int(autoregressive_lead_time_label)
-        self.first_step_diffusion_model = (
-            first_step_diffusion_model if first_step_diffusion_model is not None else diffusion_model
-        )
+        self.first_step_diffusion_model = diffusion_model
         self.rollout_diffusion_model = diffusion_model
         self._sigma_min = float(sigma_min)
         self._sigma_max = float(sigma_max)
-        self._zero_seed_pending = False
-        self._compute_sincos_latlon()
 
-    def _build_inference_lead_time_label(
-        self, *, b: int, t: int, is_bootstrap: bool, device: torch.device
-    ) -> torch.Tensor | None:
-        """Return per-sample lead-time labels when LT embedding is enabled."""
-        if self.lead_time_steps <= 0:
-            return None
+        # Regression + SDEdit
+        self.regression_model = regression_model
+        self.sdedit_sigma = float(sdedit_sigma) if sdedit_sigma is not None else None
+        self.mask_regression = bool(mask_regression)
+        self.disable_norm = bool(disable_norm)
 
-        label = (
-            self.bootstrap_lead_time_label
-            if is_bootstrap
-            else self.autoregressive_lead_time_label
-        )
-        if label < 0 or label >= self.lead_time_steps:
-            logger.warning(
-                "Skipping lead_time_label: label=%s is outside [0, %s).",
-                label,
-                self.lead_time_steps,
-            )
-            return None
-        return torch.full((b * t,), int(label), device=device, dtype=torch.int64)
+        # Clearness index normalization
+        self.state_norm_mode = str(state_norm_mode)
+        self.clearness_index_eps = float(clearness_index_eps)
+        self.solar_constant = float(solar_constant)
 
     @contextmanager
     def _use_forecast_checkpoint(
@@ -1847,19 +1927,101 @@ class StormScopeNSRDB(StormScopeBase):
             self.start_sigma = old_start_sigma
             self.end_sigma = old_end_sigma
 
-    def _compute_sincos_latlon(self) -> None:
-        lat_rad = torch.deg2rad(self.latitudes)
-        lon_rad = torch.deg2rad(self.longitudes)
-        sincos_latlon = torch.stack(
-            [
-                torch.cos(lat_rad),
-                torch.cos(lon_rad),
-                torch.sin(lat_rad),
-                torch.sin(lon_rad),
-            ],
-            dim=0,
+    @contextmanager
+    def _mask_denoiser_outputs(self) -> Generator[None, None, None]:
+        """Temporarily wrap all stage models with pixel masking."""
+        if not self.mask_regression or not hasattr(self, "valid_mask"):
+            yield
+            return
+        vmask = self.valid_mask.reshape(1, 1, *self.valid_mask.shape[-2:])
+        originals = [spec["model"] for spec in self.model_spec]
+        orig_stage_models = self.stage_models
+        try:
+            for spec in self.model_spec:
+                spec["model"] = MaskedModel(spec["model"], vmask.to(dtype=torch.float32))
+            self.stage_models = nn.ModuleList([s["model"] for s in self.model_spec])
+            yield
+        finally:
+            for spec, orig in zip(self.model_spec, originals):
+                spec["model"] = orig
+            self.stage_models = orig_stage_models
+
+    # ---- Clearness index helpers ----
+
+    def _compute_insolation(
+        self,
+        times: np.ndarray,
+    ) -> torch.Tensor:
+        """Compute insolation using the 1995 orbital model from physicsnemo.
+
+        This matches the training-time computation in ``goes_nsrdb.py`` which
+        uses ``physicsnemo.utils.insolation.insolation`` (1995 orbital constants
+        with Earth-Sun distance correction).
+
+        Parameters
+        ----------
+        times : np.ndarray
+            Array of datetime objects (one per batch element).
+
+        Returns
+        -------
+        torch.Tensor
+            Insolation field in W/m^2 with shape ``[len(times), H, W]``.
+        """
+        import pandas as pd
+
+        dates = np.array([pd.Timestamp(t) for t in times])
+        lon_360 = self._lon_cpu_copy.astype(np.float32)
+        lat_deg = self._lat_cpu_copy.astype(np.float32)
+
+        sol = pnm_insolation(
+            dates,
+            lat_deg,
+            lon_360,
+            scale=self.solar_constant,
+            daily=False,
+            clip_zero=True,
         )
-        self.register_buffer("sincos_latlon", sincos_latlon)
+        return torch.from_numpy(sol)
+
+    def _normalize_clearness_index(
+        self,
+        x: torch.Tensor,
+        insolation: torch.Tensor,
+    ) -> torch.Tensor:
+        """Normalize physical GHI to clearness index: x / (insolation + eps)."""
+        denom = insolation + self.clearness_index_eps
+        return x / denom
+
+    def _denormalize_clearness_index(
+        self,
+        x: torch.Tensor,
+        insolation: torch.Tensor,
+    ) -> torch.Tensor:
+        """Denormalize clearness index back to physical GHI: x * (insolation + eps)."""
+        denom = insolation + self.clearness_index_eps
+        return x * denom
+
+    def _get_target_datetimes(
+        self, coords: CoordSystem
+    ) -> np.ndarray:
+        """Compute datetimes for insolation calculation.
+
+        The NSRDB model is a same-time estimator: given GOES at time T it
+        estimates GHI at T.  Insolation is therefore computed at the GOES
+        observation time (``time + lead_time``), with no additional offset.
+        """
+        times = np.array(coords["time"]).astype(np.datetime64)
+        lead_times = np.array(coords["lead_time"]).astype(np.timedelta64)
+        target_times = times + lead_times[-1]
+        return np.array(
+            [
+                datetime.fromtimestamp(
+                    t.astype("datetime64[s]").astype(int), tz=timezone.utc
+                )
+                for t in target_times
+            ]
+        )
 
     def input_coords(self) -> CoordSystem:
         return OrderedDict(
@@ -1918,8 +2080,29 @@ class StormScopeNSRDB(StormScopeBase):
 
     @staticmethod
     def _sanitize_tensor(x: torch.Tensor) -> torch.Tensor:
-        """Match dataset behavior: replace NaN/Inf with zeros."""
-        return torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+        """Match dataset behavior: replace NaN/Inf with zeros (always out-of-place)."""
+        return torch.nan_to_num(x.clone(), nan=0.0, posinf=0.0, neginf=0.0)
+
+    def _unitless_insolation(
+        self, coords: CoordSystem, b: int, device: torch.device, dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Compute unitless insolation (scale=1.0) for conditioning channels.
+
+        Returns sanitized tensor of shape ``[B*T, 1, H, W]``.
+        """
+        import pandas as pd
+        times = np.array(coords["time"]).astype(np.datetime64)
+        lead_times = np.array(coords["lead_time"]).astype(np.timedelta64)
+        sza_np_times = np.concatenate([times + lead_times[-1]] * b, axis=0)
+        sza_datetimes = np.array([pd.Timestamp(t) for t in sza_np_times])
+        sol = pnm_insolation(
+            sza_datetimes,
+            self._lat_cpu_copy.astype(np.float32),
+            self._lon_cpu_copy.astype(np.float32),
+            scale=1.0, daily=False, clip_zero=True,
+        )
+        sol_t = torch.from_numpy(sol).to(device=device, dtype=dtype)[:, None, :, :]
+        return self._sanitize_tensor(sol_t)
 
     def build_condition(
         self,
@@ -1928,7 +2111,11 @@ class StormScopeNSRDB(StormScopeBase):
         conditioning: torch.Tensor | None = None,
         conditioning_coords: CoordSystem | None = None,
     ) -> torch.Tensor:
-        """NSRDB condition with training channel order."""
+        """NSRDB condition: [GOES(8), cos_zenith(1), invariants(6)] = 15 channels.
+
+        The state is NOT included here -- the EDM preconditioner already
+        prepends ``c_in * x`` (the noisy target) to the model input.
+        """
         if self.sliding_window:
             x, coords = self._stack_lead_times(x, coords)
             if conditioning is not None:
@@ -1947,38 +2134,28 @@ class StormScopeNSRDB(StormScopeBase):
             conditioning = conditioning.reshape(b * t * lt, *conditioning.shape[3:])
             conditioning = self._sanitize_tensor(conditioning)
 
-        parts = [x]
+        parts: list[torch.Tensor] = []
         if conditioning is not None:
-            if self._STATE_FIRST:
-                parts.append(conditioning)
-            else:
-                parts.insert(0, conditioning)
+            parts.append(conditioning)
 
-        times = np.array(coords["time"]).astype(np.datetime64)
-        lead_times = np.array(coords["lead_time"]).astype(np.timedelta64)
-        # Estimation semantics: compute SZA at the conditioning/GOES time.
-        sza_times = np.concatenate([times + lead_times[-1]] * b, axis=0)
-        sza_times = np.array(
-            [
-                datetime.fromtimestamp(
-                    tt.astype("datetime64[s]").astype(int), tz=timezone.utc
-                )
-                for tt in sza_times
-            ]
-        )
-        cz = np.stack(
-            [cos_zenith_angle(tt, self._lon_cpu_copy, self._lat_cpu_copy) for tt in sza_times],
-            axis=0,
-        )
-        cz_t = torch.from_numpy(cz).to(device=x.device, dtype=x.dtype)[:, None, :, :]
-        # Training order: [state, GOES..., cos_zenith, invariants...]
-        parts.append(self._sanitize_tensor(cz_t))
+        parts.append(self._unitless_insolation(coords, b, x.device, x.dtype))
 
         if self.invariants is not None:
             inv = self.invariants.to(device=x.device, dtype=x.dtype)
             inv = self._sanitize_tensor(inv)
             parts.append(inv.repeat(b * t, 1, 1, 1))
         return torch.cat(parts, dim=1)
+
+    def _run_regression(
+        self,
+        condition: torch.Tensor,
+    ) -> torch.Tensor:
+        """Run the regression model on the conditioning tensor.
+
+        The regression model expects the conditioning channels *without* the
+        zeroed state prefix (background + invariants only).
+        """
+        return self._sanitize_tensor(self.regression_model(condition))
 
     @torch.inference_mode()
     def _forward(
@@ -1999,15 +2176,20 @@ class StormScopeNSRDB(StormScopeBase):
         if conditioning is not None:
             conditioning = self._sanitize_tensor(conditioning)
 
-        is_bootstrap_step = self._zero_seed_pending
-        if is_bootstrap_step:
-            # Estimation bootstrap must see an all-zero state (matching training mask behavior).
-            x_norm = torch.zeros_like(x)
-            self._zero_seed_pending = False
-        else:
-            x_norm = (x - self.means) / self.stds
+        # Compute insolation for clearness-index mode
+        use_ci = self.state_norm_mode == "clearness_index"
+        insolation_6d = None
+        if use_ci:
+            target_datetimes = self._get_target_datetimes(coords)
+            insolation = self._compute_insolation(target_datetimes).to(
+                device=x.device, dtype=x.dtype
+            )
+            insolation_6d = insolation[:t].unsqueeze(0).unsqueeze(2).unsqueeze(3)
+            insolation_6d = insolation_6d.expand(b, -1, 1, -1, -1, -1)
+
+        # The NSRDB model is a pure estimator -- input state is always zeroed
+        x_norm = torch.zeros_like(x)
         x_norm = self._sanitize_tensor(x_norm)
-        x_norm = torch.where(self.valid_mask, x_norm, 0.0)
         output_dtype = x_norm.dtype
 
         if conditioning is not None:
@@ -2025,43 +2207,49 @@ class StormScopeNSRDB(StormScopeBase):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
-        lead_time_label = self._build_inference_lead_time_label(
-            b=b, t=t, is_bootstrap=is_bootstrap_step, device=x.device
+
+        latents = self._generate_latents(
+            (b * t, *x.shape[3:]), device=x.device, dtype=x.dtype
         )
-        latents = torch.randn(b * t, *x.shape[3:], device=x.device, dtype=x.dtype)
-        if is_bootstrap_step:
-            # Only estimate_from_goes() sets this flag; use first-step checkpoint once.
-            with self._use_forecast_checkpoint(
-                self.first_step_diffusion_model,
-                self._sigma_min,
-                self._sigma_max,
-                lead_time_label=lead_time_label,
-            ):
-                out = self._edm_sampler(
-                    latents=latents,
-                    condition=condition,
-                    sigma_min=self._sigma_min,
-                    sigma_max=self._sigma_max,
-                    **self.sampler_args,
-                ).to(output_dtype)
-        else:
-            # AR path: inject lead-time labels when LT embedding is enabled.
-            if lead_time_label is not None:
+
+        # Determine inference mode: regression + SDEdit vs pure diffusion
+        use_sdedit = (
+            self.regression_model is not None
+            and self.sdedit_sigma is not None
+            and self.sdedit_sigma > 0
+        )
+
+        with self._mask_denoiser_outputs():
+            if use_sdedit:
+                reg_condition = self._build_regression_condition(
+                    conditioning_norm=conditioning_norm,
+                    coords=coords,
+                    b=b,
+                    t=t,
+                    lt=lt,
+                    x=x_norm,
+                )
+                reg_pred = self._run_regression(reg_condition)
+                if self.mask_regression:
+                    valid_flat = self.valid_mask.reshape(1, 1, *self.valid_mask.shape[-2:])
+                    reg_pred = reg_pred * valid_flat.to(dtype=reg_pred.dtype)
+
+                sdedit_sigma_max = self.sdedit_sigma
+                x_init = reg_pred / sdedit_sigma_max + latents
+
                 with self._use_forecast_checkpoint(
                     self.rollout_diffusion_model,
                     self._sigma_min,
-                    self._sigma_max,
-                    lead_time_label=lead_time_label,
+                    sdedit_sigma_max,
                 ):
                     out = self._edm_sampler(
-                        latents=latents,
+                        latents=x_init,
                         condition=condition,
                         sigma_min=self._sigma_min,
-                        sigma_max=self._sigma_max,
+                        sigma_max=sdedit_sigma_max,
                         **self.sampler_args,
                     ).to(output_dtype)
             else:
-                # Non-LT path remains unchanged and uses rollout checkpoint/model_spec.
                 out = self._edm_sampler(
                     latents=latents,
                     condition=condition,
@@ -2069,17 +2257,49 @@ class StormScopeNSRDB(StormScopeBase):
                     sigma_max=self._sigma_max,
                     **self.sampler_args,
                 ).to(output_dtype)
+
         out = out.reshape(b, t, len(self.output_times), *out.shape[1:])
-        out = out * self.stds + self.means
+
+        if use_ci:
+            out = self._denormalize_clearness_index(out, insolation_6d)
+        else:
+            out = out * self.stds + self.means
         out = self._sanitize_tensor(out)
         out = torch.clamp(out, min=0)
-        out = torch.where(self.valid_mask, out, 0.0)
-
-        if conditioning is not None:
-            goes_ch0 = conditioning[:, :, :, 0:1, :, :]
-            goes_unavailable = goes_ch0 == 0
-            out = torch.where(goes_unavailable.expand_as(out), torch.zeros_like(out), out)
+        out = torch.where(self.valid_mask, out, torch.nan)
         return out
+
+    def _build_regression_condition(
+        self,
+        conditioning_norm: torch.Tensor | None,
+        coords: CoordSystem,
+        b: int,
+        t: int,
+        lt: int,
+        x: torch.Tensor,
+    ) -> torch.Tensor:
+        """Build the conditioning tensor for the regression model.
+
+        Training channel order: [GOES(8), cos_zenith(1), invariants(6)] = 15.
+        """
+        parts: list[torch.Tensor] = []
+
+        if conditioning_norm is not None:
+            c_flat = conditioning_norm
+            if c_flat.dim() == 6:
+                c_flat = c_flat.reshape(b * t * lt, *c_flat.shape[3:])
+            parts.append(c_flat)
+
+        parts.append(self._unitless_insolation(coords, b, x.device, x.dtype))
+
+        if self.invariants is not None:
+            inv = self.invariants.to(device=x.device, dtype=x.dtype)
+            inv = self._sanitize_tensor(inv)
+            if inv.dim() == 3:
+                inv = inv.unsqueeze(0)
+            parts.append(inv.expand(b * t, -1, -1, -1))
+
+        return torch.cat(parts, dim=1)
 
     def _zero_state_from_conditioning(
         self, conditioning: torch.Tensor, conditioning_coords: CoordSystem
@@ -2118,14 +2338,15 @@ class StormScopeNSRDB(StormScopeBase):
         conditioning: torch.Tensor,
         conditioning_coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """One-step NSRDB estimate from GOES conditioning using a zero initial state.
+        """Estimate GHI from GOES conditioning.
 
         This is the intended entry point when chaining StormScopeGOES -> StormScopeNSRDB.
+        The model is a pure estimator (no autoregressive state); the input state
+        is always zeroed internally.
         """
         state, state_coords = self._zero_state_from_conditioning(
             conditioning, conditioning_coords
         )
-        self._zero_seed_pending = True
         return self.call_with_conditioning(
             state,
             state_coords,
@@ -2140,50 +2361,53 @@ class StormScopeNSRDB(StormScopeBase):
         model_name: str = "stormscope_solar_goes_nsrdb",
         conditioning_data_source: DataSource | ForecastSource | None = None,
     ) -> "StormScopeNSRDB":
+        """Load model from package.
+
+        Parameters
+        ----------
+        package : Package
+            Package containing checkpoints and metadata.
+        model_name : str
+            Key in registry.json to load.
+        conditioning_data_source : DataSource | ForecastSource | None
+            Optional data source for external conditioning.
+
+        Returns
+        -------
+        StormScopeNSRDB
+            Instantiated model with optional regression + SDEdit support.
+        """
         with open(package.resolve("registry.json")) as f:
             registry = json.load(f)
         pkg = registry[model_name]
 
-        ckpt_first = pkg.get("first_step_checkpoint")
-        ckpt_ar = pkg.get("ar_checkpoint")
+        # Single diffusion checkpoint -- model is a pure estimator, no AR distinction
+        ckpt_info = pkg.get("first_step_checkpoint") or pkg.get("ar_checkpoint")
         checkpoints = pkg.get("checkpoints", [])
-        if ckpt_first is None and len(checkpoints) > 0:
-            ckpt_first = checkpoints[0]
-        if ckpt_ar is None:
-            if len(checkpoints) > 1:
-                ckpt_ar = checkpoints[1]
-            else:
-                ckpt_ar = ckpt_first
-        if ckpt_first is None or ckpt_ar is None:
+        if ckpt_info is None and len(checkpoints) > 0:
+            ckpt_info = checkpoints[0]
+        if ckpt_info is None:
             raise ValueError(
-                "Missing checkpoint metadata in registry. Expected either "
-                "'first_step_checkpoint'/'ar_checkpoint' or at least one entry in 'checkpoints'."
+                "Missing checkpoint metadata in registry. Expected "
+                "'first_step_checkpoint', 'ar_checkpoint', or at least one entry in 'checkpoints'."
             )
 
-        diffusion_first = Module.from_checkpoint(package.resolve(ckpt_first["path"]))
-        diffusion_ar = Module.from_checkpoint(package.resolve(ckpt_ar["path"]))
-        logger.info(
-            "Loaded NSRDB checkpoints: first_step=%s, ar=%s",
-            ckpt_first["path"],
-            ckpt_ar["path"],
-        )
+        diffusion_model = Module.from_checkpoint(package.resolve(ckpt_info["path"]))
+        logger.info("Loaded NSRDB diffusion checkpoint: %s", ckpt_info["path"])
 
-        image_size = pkg["image_size"]
-        spatial_downsample = int(pkg.get("spatial_downsample", 1))
+        # Optional regression model for SDEdit warm-starting
+        regression_model = None
+        reg_ckpt_info = pkg.get("regression_checkpoint")
+        if reg_ckpt_info is not None:
+            reg_path = reg_ckpt_info["path"]
+            regression_model = Module.from_checkpoint(package.resolve(reg_path))
+            logger.info("Loaded regression checkpoint: %s", reg_path)
 
-        latitudes = torch.from_numpy(np.load(package.resolve("lat.npy")))
-        longitudes = (torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0) % 360.0
-        full_y, full_x = latitudes.shape
-        anchor_y = int((full_y - image_size[0]) / 2)
-        anchor_x = int((full_x - image_size[1]) / 2)
-        latitudes = latitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        longitudes = longitudes[
-            anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
-        ]
-        latitudes = latitudes[::spatial_downsample, ::spatial_downsample]
-        longitudes = longitudes[::spatial_downsample, ::spatial_downsample]
+        grid = cls._load_grid(package, pkg)
+        latitudes, longitudes = grid["latitudes"], grid["longitudes"]
+        y, x = grid["y"], grid["x"]
+        image_size, spatial_downsample = grid["image_size"], grid["spatial_downsample"]
+        anchor_y, anchor_x = grid["anchor_y"], grid["anchor_x"]
 
         if pkg.get("sliding_window", False):
             n_steps = int(pkg.get("n_steps", 1))
@@ -2232,39 +2456,64 @@ class StormScopeNSRDB(StormScopeBase):
             ][::spatial_downsample, ::spatial_downsample]
             altitude = np.nan_to_num(altitude, nan=0.0, posinf=0.0, neginf=0.0)
             invariants.append(altitude)
-        if package.fs.exists(f"{package.root}/landsea_mask.npy"):
-            landsea = np.load(package.resolve("landsea_mask.npy")).astype(np.float32)
-            landsea = landsea[
+        elev_std_name = None
+        if package.fs.exists(f"{package.root}/elev_std.npy"):
+            elev_std_name = "elev_std.npy"
+            elev_std = np.load(package.resolve(elev_std_name)).astype(np.float32)
+            elev_std = elev_std[
                 anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
             ][::spatial_downsample, ::spatial_downsample]
-            landsea = np.nan_to_num(landsea, nan=0.0, posinf=0.0, neginf=0.0)
-            invariants.append(landsea)
+            elev_std = np.nan_to_num(elev_std, nan=0.0, posinf=0.0, neginf=0.0)
+            invariants.append(elev_std)
 
         invariants_t = torch.from_numpy(np.stack(invariants, axis=0))
 
         valid_mask = None
-        if altitude is not None:
+        if package.fs.exists(f"{package.root}/nsrdb_mask.npy"):
+            nsrdb_mask = np.load(package.resolve("nsrdb_mask.npy"))
+            nsrdb_mask = nsrdb_mask[
+                anchor_y : anchor_y + image_size[0], anchor_x : anchor_x + image_size[1]
+            ][::spatial_downsample, ::spatial_downsample]
+            valid_mask = torch.from_numpy(nsrdb_mask > 0).bool()
+            valid_fraction = valid_mask.float().mean().item()
+            logger.info(
+                "Loaded nsrdb_mask.npy: "
+                f"shape={valid_mask.shape}, valid={valid_fraction:.1%}"
+            )
+        elif altitude is not None:
             valid_mask = torch.from_numpy(np.isfinite(altitude)).bool()
             valid_fraction = valid_mask.float().mean().item()
             logger.info(
-                "Inferred valid mask from altitude.npy: "
+                "Inferred valid mask from altitude.npy (fallback): "
                 f"shape={valid_mask.shape}, valid={valid_fraction:.1%}"
             )
 
-        # Shared sigma range for all checkpoints/models (first-step and AR).
         sigma_min = float(
-            pkg.get("sigma_min", ckpt_first.get("sigma_min", ckpt_ar.get("sigma_min", 0.004)))
+            pkg.get("sigma_min", ckpt_info.get("sigma_min", 0.004))
         )
         sigma_max = float(
-            pkg.get("sigma_max", ckpt_first.get("sigma_max", ckpt_ar.get("sigma_max", 500.0)))
+            pkg.get("sigma_max", ckpt_info.get("sigma_max", 500.0))
         )
-        lead_time_steps = int(pkg.get("lead_time_steps", 0))
-        bootstrap_label = int(pkg.get("bootstrap_lead_time_label", 0))
-        autoreg_label = int(pkg.get("autoregressive_lead_time_label", 1))
+
+        # SDEdit / regression parameters
+        sdedit_sigma = pkg.get("sdedit_sigma", None)
+        if sdedit_sigma is not None:
+            sdedit_sigma = float(sdedit_sigma)
+        mask_regression = bool(pkg.get("mask_regression", False))
+        disable_norm = bool(pkg.get("disable_norm", False))
+
+        # Clearness index normalization parameters
+        state_norm_mode = str(pkg.get("state_norm_mode", "standard"))
+        clearness_index_eps = float(pkg.get("clearness_index_eps", 10.0))
+        solar_constant = float(pkg.get("solar_constant", 1361.0))
+
+        default_sampler_args: dict[str, Any] = {"num_steps": 24}
+        if sdedit_sigma is not None:
+            default_sampler_args = {"num_steps": 12}
 
         return cls(
-            diffusion_model=diffusion_ar,
-            first_step_diffusion_model=diffusion_first,
+            diffusion_model=diffusion_model,
+            regression_model=regression_model,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
             latitudes=latitudes.to(dtype=torch.float32),
@@ -2278,13 +2527,18 @@ class StormScopeNSRDB(StormScopeBase):
             variables=variables,
             conditioning_variables=conditioning_variables,
             conditioning_data_source=conditioning_data_source,
-            sampler_args={"num_steps": 24},
+            sampler_args=default_sampler_args,
             sigma_min=sigma_min,
             sigma_max=sigma_max,
             input_times=input_times,
             output_times=output_times,
+            y_coords=y,
+            x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
-            lead_time_steps=lead_time_steps,
-            bootstrap_lead_time_label=bootstrap_label,
-            autoregressive_lead_time_label=autoreg_label,
+            sdedit_sigma=sdedit_sigma,
+            mask_regression=mask_regression,
+            state_norm_mode=state_norm_mode,
+            clearness_index_eps=clearness_index_eps,
+            solar_constant=solar_constant,
+            disable_norm=disable_norm,
         )
