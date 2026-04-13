@@ -99,6 +99,7 @@ _build
 docs/modules/generated
 docs/modules/backreferences
 docs/examples
+docs/superpowers
 
 # Pytestmon
 .testmondata*
