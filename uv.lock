@@ -1642,6 +1642,7 @@ all = [
     { name = "eccodeslib" },
     { name = "ecmwf-opendata" },
     { name = "einops" },
+    { name = "eumdac" },
     { name = "fastapi" },
     { name = "flash-attn" },
     { name = "flax" },
@@ -1742,6 +1743,7 @@ data = [
     { name = "eccodes" },
     { name = "eccodeslib" },
     { name = "ecmwf-opendata" },
+    { name = "eumdac" },
     { name = "globus-sdk" },
     { name = "httpx" },
     { name = "intake-esgf", version = "2025.10.22", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno')" },
@@ -1971,6 +1973,8 @@ requires-dist = [
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'da-stormcast'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
+    { name = "eumdac", marker = "extra == 'all'", specifier = ">=3.1.0" },
+    { name = "eumdac", marker = "extra == 'data'", specifier = ">=3.1.0" },
     { name = "fastapi", marker = "extra == 'all'", specifier = ">=0.104.0" },
     { name = "fastapi", marker = "extra == 'serve'", specifier = ">=0.104.0" },
     { name = "flash-attn", marker = "extra == 'aifs'" },
@@ -2326,6 +2330,21 @@ epath = [
 ]
 epy = [
     { name = "typing-extensions" },
+]
+
+[[package]]
+name = "eumdac"
+version = "3.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "paho-mqtt" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/24/33a8c11edcd468629efeae4638e0acec5742560a5a112e255c8de066c075/eumdac-3.1.1.tar.gz", hash = "sha256:85359c42422815a0f2780bc988a95b3b7126f3ccdc98a9605d385b783044c2a7", size = 113025, upload-time = "2025-12-11T10:21:52.854Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/50/19f18fb17dc7bad32070fbca54d40f6fe8e5711deb1c744c84ac9d13ec10/eumdac-3.1.1-py3-none-any.whl", hash = "sha256:881705c7678bd3ea9a67fbb89f9e68d00de65dac02a4990c1d42df7dd5cb6fde", size = 101425, upload-time = "2025-12-11T10:21:51.471Z" },
 ]
 
 [[package]]
@@ -5531,6 +5550,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4", size = 143416, upload-time = "2026-01-21T20:50:39.064Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529", size = 74366, upload-time = "2026-01-21T20:50:37.788Z" },
+]
+
+[[package]]
+name = "paho-mqtt"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz", hash = "sha256:12d6e7511d4137555a3f6ea167ae846af2c7357b10bc6fa4f7c3968fc1723834", size = 148848, upload-time = "2024-04-29T19:52:55.591Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c4/cb/00451c3cf31790287768bb12c6bec834f5d292eaf3022afc88e14b8afc94/paho_mqtt-2.1.0-py3-none-any.whl", hash = "sha256:6db9ba9b34ed5bc6b6e3812718c7e06e2fd7444540df2455d2c51bd58808feee", size = 67219, upload-time = "2024-04-29T19:52:48.345Z" },
 ]
 
 [[package]]
