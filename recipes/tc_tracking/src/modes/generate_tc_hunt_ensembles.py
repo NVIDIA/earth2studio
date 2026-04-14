@@ -23,7 +23,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 from loguru import logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 from zarr import consolidate_metadata
@@ -42,6 +42,7 @@ from src.data.tc_hunt_file_output import (
 from src.tc_hunt_utils import (
     InstabilityDetection,
     get_set_of_random_seeds,
+    remove_duplicates,
     run_with_rank_ordered_execution,
     set_initial_times,
 )
@@ -191,10 +192,10 @@ def run_inference(
             static_vars=heights,
             static_coords=height_coords,
             store_dir=cfg.store_dir,
-            keep_raw_data=cfg.cyclone_tracking.keep_raw_data,
-            print_te_output=cfg.cyclone_tracking.print_te_output,
+            keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
+            print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
             scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
-            timeout=cfg.cyclone_tracking.task_timeout_seconds,
+            timeout=cfg.cyclone_tracking.get("task_timeout_seconds", 120),
             max_workers_per_rank=cfg.cyclone_tracking.get("max_workers_per_rank", None),
         )
 
@@ -372,6 +373,99 @@ def generate_ensemble(cfg: DictConfig) -> None:
     initialise(cfg)
 
     ic_mems, ics = configure_runs(cfg)
+
+    model = load_model(cfg)
+
+    store, out_coords = (
+        run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
+            setup_output,
+            cfg=cfg,
+            model=model,
+            ics=ics,
+            add_arrays=DistributedManager().rank == 0,
+        )
+    )
+
+    if ic_mems is None:
+        DistributedManager().cleanup()
+        sys.exit()
+
+    store = run_inference(model, cfg, store, out_coords, ic_mems)
+
+
+def set_reproduction_configs(
+    cfg: DictConfig,
+) -> tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]:
+    """Build and distribute work items for reproducing specific ensemble members.
+
+    Parses the ``reproduce_members`` config list, expands each requested member
+    to its full batch (since the internal random state can only be set per
+    batch), de-duplicates, and distributes across ranks.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object.  Must contain ``reproduce_members`` (list
+        of ``[ic, member_id, seed]`` triples), ``batch_size``, and
+        ``ensemble_size``.
+
+    Returns
+    -------
+    tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]
+        Tuple of (work items for this rank, list of all initial-condition times)
+    """
+    ic_mems = OmegaConf.to_container(cfg.reproduce_members)
+
+    ics = []
+    for ii in range(len(ic_mems)):
+        ic_mems[ii][0] = np.datetime64(ic_mems[ii][0])
+        ics.append(ic_mems[ii][0])
+
+        # expand to the full batch that contains the requested member
+        batch_id = ic_mems[ii][1] // cfg.batch_size
+        ic_mems[ii][1] = np.arange(
+            batch_id * cfg.batch_size,
+            min((batch_id + 1) * cfg.batch_size, cfg.ensemble_size),
+        )
+
+    ic_mems = remove_duplicates(ic_mems)
+    ics = list(set(ics))
+
+    if not DistributedManager().distributed:
+        return ic_mems, ics
+
+    ic_mems_rank = distribute_runs(ic_mems)
+
+    return ic_mems_rank, ics
+
+
+def reproduce_members(cfg: DictConfig) -> None:
+    """Reproduce specific ensemble members to extract atmospheric fields.
+
+    Entry point that validates the configuration, sets up reproduction work
+    items, loads the model, and re-runs inference for the requested members
+    with the original random seeds so that results are bit-identical.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object
+
+    Raises
+    ------
+    ValueError
+        If ``store_type`` is ``"zarr"`` (not supported for reproduction) or
+        the model is not ``"fcn3"`` (only FCN3 exposes its internal random
+        state).
+    """
+    if cfg.store_type == "zarr":
+        raise ValueError("Zarr output not supported for reproducing ensemble members")
+    if cfg.model != "fcn3":
+        raise ValueError("Currently, reproducibility works for FCN3 only")
+
+    initialise(cfg)
+
+    ic_mems, ics = set_reproduction_configs(cfg)
 
     model = load_model(cfg)
 
