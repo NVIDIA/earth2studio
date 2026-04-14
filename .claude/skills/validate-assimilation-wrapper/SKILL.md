@@ -234,9 +234,8 @@ def test_model_call(sample_observations_pandas, device):
     assert da.coords["time"].values[0] == request_time[0]
 
     # Validate output shape matches model's coordinate system
-    n_variables = len(model.VARIABLES) if hasattr(model, "VARIABLES") else da.shape[1]
+    # NOTE: n_variables varies by model - update this check to match the model's output
     assert da.shape[0] == len(request_time)
-    assert da.shape[1] == n_variables
 
     # Validate coordinate values
     assert "t2m" in da.coords["variable"].values  # At least one expected variable
@@ -589,14 +588,14 @@ least 90% line coverage**:
 
 ```bash
 uv run python -m pytest test/models/da/test_<filename>.py -v \
-    --slow --timeout=300 \
+    --package --timeout=300 \
     --cov=earth2studio/models/da/<filename> \
     --cov-report=term-missing \
     --cov-fail-under=90
 ```
 
-- `--slow` enables integration tests marked with `@pytest.mark.package`
-  (the `--slow` flag is configured in `conftest.py` to include package
+- `--package` enables integration tests marked with `@pytest.mark.package`
+  (the `--package` flag is configured in `conftest.py` to include package
   tests that download real checkpoints and may require GPU)
 - `--cov=earth2studio/models/da/<filename>` scopes coverage to the
   new model module only
