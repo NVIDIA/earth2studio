@@ -162,8 +162,10 @@ def run_inference(
     dist = DistributedManager()
     data_source_mngr = DataSourceManager(cfg)
 
-    # iterate over initial conditions
-    ic_prev = None
+    # Per-IC caches: avoid re-creating NetCDF stores or re-fetching data when
+    # the same IC is encountered again (e.g. after stability re-queuing).
+    nc_stores: dict[np.datetime64, NetCDF4Backend] = {}
+    ic_data_cache: dict[np.datetime64, tuple[torch.Tensor, OrderedDict]] = {}
 
     cyclone_tracking = None
     if "cyclone_tracking" in cfg:
@@ -211,10 +213,12 @@ def run_inference(
 
         data_source = data_source_mngr.select_data_source(ic)
 
-        # if new IC, fetch data, create iterator
-        if ic != ic_prev:
-            if cfg.store_type == "netcdf":
-                store = initialise_netcdf_output(cfg, out_coords, ic, ic_mems)
+        if cfg.store_type == "netcdf" and ic not in nc_stores:
+            nc_stores[ic] = initialise_netcdf_output(cfg, out_coords, ic, ic_mems)
+        if cfg.store_type == "netcdf":
+            store = nc_stores[ic]
+
+        if ic not in ic_data_cache:
             x0, coords0 = fetch_data(
                 data_source,
                 time=[np.datetime64(ic)],
@@ -222,7 +226,9 @@ def run_inference(
                 variable=model.input_coords()["variable"],
                 device=dist.device,
             )
-            ic_prev = ic
+            ic_data_cache[ic] = (x0, coords0)
+        else:
+            x0, coords0 = ic_data_cache[ic]
 
         coords = {"ensemble": np.array(mems)} | coords0.copy()
         xx = x0.unsqueeze(0).repeat(mini_batch_size, *([1] * x0.ndim))
@@ -429,6 +435,7 @@ def set_reproduction_configs(
         )
 
     ic_mems = remove_duplicates(ic_mems)
+    ic_mems.sort(key=lambda x: x[0])
     ics = list(set(ics))
 
     if not DistributedManager().distributed:
@@ -460,7 +467,7 @@ def reproduce_members(cfg: DictConfig) -> None:
     """
     if cfg.store_type == "zarr":
         raise ValueError("Zarr output not supported for reproducing ensemble members")
-    if cfg.model != "fcn3":
+    if cfg.get("model", "fcn3") != "fcn3":
         raise ValueError("Currently, reproducibility works for FCN3 only")
 
     initialise(cfg)
