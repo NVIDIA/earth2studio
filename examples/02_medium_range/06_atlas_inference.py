@@ -72,7 +72,7 @@ In this example you will learn:
 #   Atlas was trained on ERA5 data and in-filled NaNs in SST over landmasses with a value
 #   of 0 K using the ERA5 land-sea mask. If you are using a different SST dataset, you will
 #   need to in-fill the NaNs using the appropriate land-sea mask.
-#   
+#
 
 # %%
 import os
@@ -82,11 +82,11 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-import torch
 import numpy as np
+import torch
 
-from earth2studio.data.utils import fetch_data
 from earth2studio.data import ARCO
+from earth2studio.data.utils import fetch_data
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Atlas
 
@@ -146,7 +146,7 @@ for step in range(n_manual_steps):
 
 # %%
 # Using the model iterator interface
-# --------------------
+# ----------------------------------
 # For a less verbose approach, we can use the model iterator interface directly,
 # which automatically handles the internal latent state during autoregressive rollout.
 # Simply pass the model and other instantiated components to the workflow, which will
@@ -154,7 +154,7 @@ for step in range(n_manual_steps):
 # %%
 import earth2studio.run as run
 
-nsteps = 20
+nsteps = 3
 io = run.deterministic(
     ["2024-01-01"],
     nsteps,
@@ -170,14 +170,14 @@ print(io.root.tree())
 # Post Processing
 # ---------------
 # The last step is to post process our results. We will plot the predicted 10m u-wind
-# component (u10m) and total column water vapour (tcwv) at day 3 of the forecast.
+# component (u10m) and total column water vapour (tcwv) at 12 hours into the forecast.
 
 # %%
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
 forecast = "2024-01-01"
-step = 12  # lead time = 72 hrs (day 3)
+step = 2  # lead time = 12 hrs into the forecast
 
 plt.close("all")
 projection = ccrs.Robinson()
