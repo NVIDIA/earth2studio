@@ -22,6 +22,10 @@ Data sources that provide tabular data as DataFrames.
 
       data.ISD
       data.JPSS_ATMS
+      data.JPSS_CRIS
+      data.MetOpAMSUA
+      data.MetOpAVHRR
+      data.MetOpMHS
       data.RandomDataFrame
       data.UFSObsConv
       data.UFSObsSat
