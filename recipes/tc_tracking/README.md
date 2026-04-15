@@ -93,18 +93,24 @@ therefore building the container might still take around
 
 <!-- markdownlint-enable MD013 -->
 
+> [!Important]
+> Both `torch-harmonics` and `flash-attn` are built without
+> build isolation and need to discover the installed PyTorch
+> version, CUDA version, and include paths at compile time,
+> so PyTorch must be present in the environment before
+> running `uv sync`.
+
 The project contains a `pyproject.toml` and a `uv.lock` file
-for setting up the environment. To install with locked
-dependencies:
+for setting up the environment. First install PyTorch for
+your system, then sync the remaining dependencies:
 
 ```bash
-uv sync --frozen
+uv pip install torch
+uv sync
 ```
 
-This creates a uv environment in the `.venv` directory. The
-`--frozen` flag ensures the exact versions specified in the
-lock file are used. Optionally, activate the virtual
-environment:
+This creates a uv environment in the `.venv` directory.
+Optionally, activate the virtual environment:
 
 ```bash
 source .venv/bin/activate
