@@ -587,6 +587,19 @@ def process_object_storage_upload(
         azure_account_name: str | None = None
         azure_container_name: str | None = None
 
+        # When uploads are configured, validate the path before touching Redis so
+        # missing paths fail with a clear error (not a connection error from get()).
+        if config.object_storage.enabled and (
+            config.object_storage.bucket
+            or config.object_storage.storage_type == "azure"
+        ):
+            if not output_path.exists():
+                return fail_workflow(
+                    workflow_name,
+                    execution_id,
+                    f"Output path does not exist: {output_path}",
+                )
+
         # Request parameters from pending metadata (written at result_zip)
         request_parameters: dict[str, Any] = {}
         metadata_key = get_inference_request_metadata_key(request_id)
@@ -617,14 +630,6 @@ def process_object_storage_upload(
                 MSCObjectStorage,
                 ObjectStorageError,
             )
-
-            # Check output path exists
-            if not output_path.exists():
-                return fail_workflow(
-                    workflow_name,
-                    execution_id,
-                    f"Output path does not exist: {output_path}",
-                )
 
             container_url_raw = request_parameters.get("container_url")
             skip_azure_without_container = (
