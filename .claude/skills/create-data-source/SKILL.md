@@ -1679,7 +1679,7 @@ Zarr file and mock `fetch_array` or the filesystem layer.
 - **At least one mock test** per source (see 12d) — no network,
   no timeout, no xfail
 - **Target 90%+ line coverage** on the source module when running
-  with `--slow` (see Step 13b). Use `--cov-report=term-missing`
+  with `--slow` (see Step 13c). Use `--cov-report=term-missing`
   to identify uncovered lines.
 - Run via: `make pytest TOX_ENV=test-data` or
   `pytest test/data/test_<filename>.py -v`
@@ -1720,16 +1720,34 @@ Present:
 
 ## Step 13 — Run Tests
 
-### 13a. Run the new test file
+### 13a. Run non-slow tests first
+
+Run only the non-slow (offline / mock) tests to verify they all pass:
 
 ```bash
-uv run python -m pytest test/data/test_<filename>.py -v --timeout=60
+uv run python -m pytest test/data/test_<filename>.py -v
 ```
 
-All tests must pass (or `xfail` for network tests). Fix failures
-and re-run until green.
+All non-slow tests must pass. Fix failures and re-run until green.
 
-### 13b. Run coverage report with `--slow` tests
+### 13b. Run slow tests without timeout
+
+Run the slow (network) tests **without** a `--timeout` CLI flag to
+ensure they actually complete successfully without being killed by
+a global timeout. The per-test `@pytest.mark.timeout()` decorators
+remain on the tests as a safeguard, but the CLI must not impose an
+additional cap:
+
+```bash
+uv run python -m pytest test/data/test_<filename>.py -v --slow
+```
+
+All slow tests should either pass or `xfail`. If any test times out
+via its `@pytest.mark.timeout()` decorator, investigate whether the
+timeout value is too low or the fetch is genuinely hanging, and fix
+accordingly.
+
+### 13c. Run coverage report with `--slow` tests
 
 Run the new test file **with coverage** and the `--slow` flag to
 include network tests. The new data source file must achieve
@@ -1737,7 +1755,7 @@ include network tests. The new data source file must achieve
 
 ```bash
 uv run python -m pytest test/data/test_<filename>.py -v \
-    --slow --timeout=300 \
+    --slow \
     --cov=earth2studio/data/<filename> \
     --cov-report=term-missing \
     --cov-fail-under=90
@@ -1759,7 +1777,7 @@ cover the missing lines. Common gaps:
 
 Re-run until coverage is at or above 90%.
 
-### 13c. Run the full data test suite (optional but recommended)
+### 13d. Run the full data test suite (optional but recommended)
 
 ```bash
 make pytest TOX_ENV=test-data
