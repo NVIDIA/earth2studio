@@ -14,18 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from earth2studio.serve.server.utils import (
+    create_file_stream,
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
     get_inference_request_zip_key,
     get_results_zip_dir_key,
     get_signed_url_key,
+    parse_azure_blob_container_url,
     parse_range_header,
     queue_next_stage,
 )
@@ -54,6 +56,121 @@ class TestParseRangeHeader:
         with pytest.raises((HTTPException, StarletteHTTPException)) as exc_info:
             parse_range_header("bytes=200-300", 100)
         assert exc_info.value.status_code == 416
+
+    def test_non_bytes_range_unit_raises_416(self):
+        with pytest.raises((HTTPException, StarletteHTTPException)) as exc_info:
+            parse_range_header("items=0-1", 100)
+        assert exc_info.value.status_code == 416
+
+    def test_multiple_ranges_uses_first(self, caplog):
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        start, end, length, status = parse_range_header("bytes=0-1,10-15", 100)
+        assert (start, end, length, status) == (0, 1, 2, 206)
+        assert "Multiple ranges" in caplog.text
+
+    def test_range_part_without_hyphen_raises_416(self):
+        with pytest.raises((HTTPException, StarletteHTTPException)) as exc_info:
+            parse_range_header("bytes=invalid", 100)
+        assert exc_info.value.status_code == 416
+
+
+class TestParseAzureBlobContainerUrl:
+    """Tests for parse_azure_blob_container_url."""
+
+    def test_valid_container_url(self):
+        account, container = parse_azure_blob_container_url(
+            "https://mystorage.blob.core.windows.net/mycontainer"
+        )
+        assert account == "mystorage"
+        assert container == "mycontainer"
+
+    def test_strips_whitespace(self):
+        account, container = parse_azure_blob_container_url(
+            "  https://acct.blob.core.windows.net/c1  "
+        )
+        assert account == "acct" and container == "c1"
+
+    def test_extra_path_segments_uses_first_path_component_as_container(self):
+        account, container = parse_azure_blob_container_url(
+            "https://a.blob.core.windows.net/c1/blob/path"
+        )
+        assert account == "a" and container == "c1"
+
+    def test_http_scheme_rejected(self):
+        with pytest.raises(ValueError, match="https"):
+            parse_azure_blob_container_url("http://a.blob.core.windows.net/c1")
+
+    def test_non_azure_host_rejected(self):
+        with pytest.raises(ValueError, match="blob.core.windows.net"):
+            parse_azure_blob_container_url("https://example.com/c1")
+
+    def test_missing_container_in_path_rejected(self):
+        with pytest.raises(ValueError, match="container name"):
+            parse_azure_blob_container_url("https://onlyacct.blob.core.windows.net/")
+
+
+class TestCreateFileStream:
+    """Tests for create_file_stream."""
+
+    @pytest.mark.asyncio
+    async def test_streams_full_file(self, tmp_path):
+        p = tmp_path / "f.bin"
+        p.write_bytes(b"abcdefghij")
+        chunks = [part async for part in create_file_stream(p, 0, 10, "test file")]
+        assert b"".join(chunks) == b"abcdefghij"
+
+    @pytest.mark.asyncio
+    async def test_skips_start_bytes_then_reads(self, tmp_path):
+        p = tmp_path / "f.bin"
+        p.write_bytes(b"0123456789")
+        chunks = [part async for part in create_file_stream(p, 3, 4, "test file")]
+        assert b"".join(chunks) == b"3456"
+
+    @pytest.mark.asyncio
+    async def test_stops_early_if_file_shorter_than_content_length(self, tmp_path):
+        p = tmp_path / "f.bin"
+        p.write_bytes(b"ab")
+        chunks = [part async for part in create_file_stream(p, 0, 1000, "test file")]
+        assert b"".join(chunks) == b"ab"
+
+    @pytest.mark.asyncio
+    async def test_skip_past_eof_yields_nothing(self, tmp_path):
+        """Skip loop exits early when read returns empty before start offset."""
+        p = tmp_path / "f.bin"
+        p.write_bytes(b"ab")
+        chunks = [part async for part in create_file_stream(p, 100, 10, "test file")]
+        assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_open_error_propagates(self, tmp_path):
+        missing = tmp_path / "nope.bin"
+        with pytest.raises(OSError):
+            async for _ in create_file_stream(missing, 0, 1, "missing"):
+                pass
+
+    @pytest.mark.asyncio
+    async def test_read_error_logs_and_propagates(self, tmp_path, caplog):
+        """Exception during read hits logger.exception and re-raises."""
+        import logging
+
+        p = tmp_path / "f.bin"
+        p.write_bytes(b"x" * 100)
+        mock_file = MagicMock()
+        mock_file.read = AsyncMock(side_effect=RuntimeError("read failed"))
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_file)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        caplog.set_level(logging.ERROR, logger="earth2studio.serve.server.utils")
+        with patch(
+            "earth2studio.serve.server.utils.aiofiles.open", return_value=mock_cm
+        ):
+            with pytest.raises(RuntimeError, match="read failed"):
+                async for _ in create_file_stream(p, 0, 10, "desc"):
+                    pass
+        assert "Error streaming desc" in caplog.text
 
 
 class TestRedisKeyFunctions:
