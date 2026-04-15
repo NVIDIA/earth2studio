@@ -31,6 +31,7 @@ from .isd import ISD
 from .jpss import JPSS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
+from .nclimgrid import NClimGrid
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,
