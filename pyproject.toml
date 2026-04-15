@@ -74,6 +74,7 @@ data = [
     "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
     "multi-storage-client[boto3,google-cloud-storage,fsspec]>=0.33.0",
+    "eumdac>=3.1.0",
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
@@ -399,6 +400,7 @@ exclude = []
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
 "serve/server/test/*.py" = ["S101"]
+"recipes/**/test/*.py" = ["S101"]
 
 # ==== Pytest configuration ====
 [tool.pytest.ini_options]
@@ -471,7 +473,7 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 python_version = "3.12"
 packages = ['earth2studio']
 exclude = [
-    'examples', 'test', 'docs', 'serve/test'
+    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test'
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
