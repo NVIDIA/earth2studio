@@ -43,12 +43,10 @@ process.
    - [2.1 Generate Ensemble](#21-generate-ensemble)
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
-     *(coming soon)*
 3. [Visualisation](#3-visualisation) *(coming soon)*
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
    - [5.1 Extract Baseline](#51-extract-baseline-optional)
-     *(coming soon)*
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
    - [5.3 Analyse Tracks](#53-analyse-tracks)
      *(coming soon)*
@@ -91,18 +89,24 @@ therefore building the container might still take around
 
 <!-- markdownlint-enable MD013 -->
 
+> [!Important]
+> Both `torch-harmonics` and `flash-attn` are built without
+> build isolation and need to discover the installed PyTorch
+> version, CUDA version, and include paths at compile time,
+> so PyTorch must be present in the environment before
+> running `uv sync`.
+
 The project contains a `pyproject.toml` and a `uv.lock` file
-for setting up the environment. To install with locked
-dependencies:
+for setting up the environment. First install PyTorch for
+your system, then sync the remaining dependencies:
 
 ```bash
-uv sync --frozen
+uv pip install torch
+uv sync
 ```
 
-This creates a uv environment in the `.venv` directory. The
-`--frozen` flag ensures the exact versions specified in the
-lock file are used. Optionally, activate the virtual
-environment:
+This creates a uv environment in the `.venv` directory.
+Optionally, activate the virtual environment:
 
 ```bash
 source .venv/bin/activate
@@ -154,7 +158,7 @@ The pipeline has three operational modes:
   of interesting tracks. Note: Currently only works with
   FCN3, as AIFS-ENS does not expose a method to set the
   model's internal random state.
-- **`extract_baseline`** *(coming soon)*: Extract tropical
+- **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
 
@@ -423,13 +427,6 @@ members 4, 5, 12, and 13 from the midday ensemble.
 
 ### 2.3 Extract Reference Tracks from ERA5
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive)
 (International Best Track Archive for Climate Stewardship)
 is considered the gold standard for tropical cyclone
@@ -479,18 +476,16 @@ each named storm.
 
 **IBTrACS Data:**
 
-Download the IBTrACS data in CSV format:
+The pipeline requires the IBTrACS dataset in CSV format.
+Specify a local path in the configuration:
 
-<!-- markdownlint-disable MD013 -->
-
-```bash
-wget https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+```yaml
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 ```
 
-<!-- markdownlint-enable MD013 -->
-
-Note: This file is over 300MB and may take several minutes
-to download.
+If the file does not exist at the configured path, it is
+downloaded automatically from NCEI (~300 MB). The download
+only occurs once; subsequent runs use the cached file.
 
 **Reanalysis Data:**
 
@@ -507,7 +502,7 @@ to download.
 
 ```yaml
 store_dir: "./outputs_${project}"
-ibtracs_source_data: "/path/to/ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
     era5_train:
@@ -520,9 +515,6 @@ data_source:
         source:
             _target_: earth2studio.data.CDS
 ```
-
-</details>
-<!-- markdownlint-enable MD033 -->
 
 ## 3. Visualisation
 
@@ -625,22 +617,15 @@ tracks extracted from ERA5 data.
 
 ### 5.1 Extract Baseline (Optional)
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 This step extracts reference tracks from ERA5 reanalysis for
 comparison with forecast predictions. Note that downloading
 the ERA5 field data for Hato and Helene is required and can
 take some time. If it takes too long, you can skip this step
 and use the pre-computed reference tracks provided in
-`./test/aux_data` instead.
+`./aux_data` instead.
 
-First, download the IBTrACS data, then extract the baseline
-tracks:
+The IBTrACS data file is downloaded automatically on first
+use. Extract the baseline tracks:
 
 ```bash
 python tc_hunt.py --config-name=extract_era5.yaml
@@ -652,9 +637,6 @@ files:
 
 - `reference_track_hato_2017_west_pacific.csv`
 - `reference_track_helene_2024_north_atlantic.csv`
-
-</details>
-<!-- markdownlint-enable MD033 -->
 
 ### 5.2 Produce Ensemble Forecasts
 

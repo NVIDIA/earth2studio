@@ -18,6 +18,7 @@ dependencies = [
     "scipy>=1.16.0",
     "setuptools>=80.9.0",
     "tqdm>=4.67.1",
+    "tropycal>=1.4",
     "zarrdump>=0.6.0",
 ]
 
@@ -50,7 +51,7 @@ torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git" }
 earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git" }
 
 [tool.uv]
-no-build-isolation-package = ["torch-harmonics"]
+no-build-isolation-package = ["torch-harmonics", "flash-attn"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/**/*.py"]

@@ -308,3 +308,34 @@ class InstabilityDetection:
         return (torch.abs(comp - self.baseline) < self.thresh.to(xx.device)).all(
             dim=-1
         ), self._output_coords
+
+
+def great_circle_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Compute the great-circle distance between two points on a sphere.
+
+    Uses the Haversine formula with Earth's mean radius of 6371 km.
+
+    Parameters
+    ----------
+    lat1 : float
+        Latitude of the first point in degrees.
+    lon1 : float
+        Longitude of the first point in degrees.
+    lat2 : float
+        Latitude of the second point in degrees.
+    lon2 : float
+        Longitude of the second point in degrees.
+
+    Returns
+    -------
+    float
+        Distance in metres.
+    """
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    aa = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
+
+    return 6371000 * cc
