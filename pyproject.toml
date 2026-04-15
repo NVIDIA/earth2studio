@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14" #<3.14 until PyT adds support for torch.compile with it, blocker for natten
 license = "Apache-2.0"
 dependencies = [
     "cftime",
