@@ -45,7 +45,7 @@ In this example you will learn:
 # We need the following:
 #
 # - Prognostic Model: Use the Atlas model :py:class:`earth2studio.models.px.Atlas`.
-# - Datasource: Pull data from the ARCO data api :py:class:`earth2studio.data.ARCO`.
+# - Datasource: Pull data from the ARCO data source :py:class:`earth2studio.data.ARCO`.
 # - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
 #
 # .. note::
