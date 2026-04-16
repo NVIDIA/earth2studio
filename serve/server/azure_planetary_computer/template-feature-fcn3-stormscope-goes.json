@@ -1,0 +1,54 @@
+{
+  "type": "Feature",
+  "stac_version": "1.1.0",
+  "id": "fcn3-stormscope-goes-{start_time}-{uuid}",
+  "stac_extensions": [],
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -60,
+          20
+        ],
+        [
+          -60,
+          53
+        ],
+        [
+          -135,
+          53
+        ],
+        [
+          -135,
+          20
+        ],
+        [
+          -60,
+          20
+        ]
+      ]
+    ]
+  },
+  "bbox": [
+    -135,
+    20,
+    -60,
+    53
+  ],
+  "properties": {
+    "datetime": "{start_time}",
+    "start_datetime": "{start_time}",
+    "end_datetime": "{end_time}"
+  },
+  "links": [],
+  "assets": {
+    "data": {
+      "href": "{blob_url}",
+      "type": "application/x-netcdf",
+      "title": "StormScope-GOES forecast conditioned on FourCastNet3",
+      "description": "FourCastNet3-conditioned StormScope-GOES forecast from {start_time} to {end_time}.",
+      "roles": []
+    }
+  }
+}
