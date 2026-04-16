@@ -246,14 +246,14 @@ def match_tracks(
     )
     hist_tracks.insert(0, "time", times)
 
-    n_tracks = hist_tracks["track_id"].nunique()
+    unique_track_ids = hist_tracks["track_id"].unique()
 
     matched_track = None
     for time in ib_storm["time"]:
         lat_ib = ib_storm.loc[ib_storm["time"] == time, "lat"].item()
         lon_ib = ib_storm.loc[ib_storm["time"] == time, "lon"].item()
 
-        for track_id in range(n_tracks):
+        for track_id in unique_track_ids:
             track = hist_tracks[hist_tracks["track_id"] == track_id]
             if (track["time"] == time).any():
                 lat_track = track.loc[track["time"] == time, "lat"].item()
@@ -416,6 +416,13 @@ def extract_baseline(
         )
 
         matched_track = match_tracks(ib_storm, hist_tracks, case)
+
+        if matched_track.empty:
+            logger.warning(
+                f"no reanalysis track matched storm {case} within the 300 km "
+                f"threshold — skipping CSV output"
+            )
+            continue
 
         matched_track = add_ibtracs_data(matched_track, ib_storm)
 
