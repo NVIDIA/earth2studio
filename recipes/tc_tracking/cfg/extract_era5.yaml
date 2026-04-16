@@ -14,12 +14,12 @@ cases:
 ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
-    era5_train:
+    era5_ncar:
         years: "1980-2017"
         source:
             _target_: earth2studio.data.NCAR_ERA5
 
-    era5_oos:
+    era5_copernicus:
         years: "2018-2026"
         source:
             _target_: earth2studio.data.CDS

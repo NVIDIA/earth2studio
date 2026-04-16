@@ -14,10 +14,7 @@ cases:
 ibtracs_source_data: "../aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
-    ncar_era5:
-        years: "2017-2024"
-        source:
-            _target_: earth2studio.data.NCAR_ERA5
+    _target_: earth2studio.data.NCAR_ERA5
 
 store_dir: "./outputs_${project}"
 
@@ -36,9 +33,6 @@ cyclone_tracking:
       --out_file_format csv --threshold
       wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10
     orography_path: https://huggingface.co/nvidia/fourcastnet3/blob/main/orography.nc
-    keep_raw_data: False
-    scratch_dir: null
-    print_te_output: False
 
 # hydra logs
 hydra:
