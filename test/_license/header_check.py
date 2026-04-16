@@ -75,17 +75,24 @@ def main():
     ]
     all_exclude_paths = itertools.chain.from_iterable(exclude_paths)
     exclude_filenames = {p for p in all_exclude_paths if p.suffix in exts}
+    exclude_patterns = config.get("exclude-patterns", [])
     filenames = [
         p
         for p in working_path.resolve().rglob("*")
-        if p.suffix in exts and p not in exclude_filenames
+        if p.suffix in exts
+        and p not in exclude_filenames
+        and not any(pattern in p.parts for pattern in exclude_patterns)
     ]
     problematic_files = []
     gpl_files = []
 
     for filename in filenames:
-        with open(str(filename), encoding="utf-8") as original:
-            data = original.readlines()
+        try:
+            with open(str(filename), encoding="utf-8") as original:
+                data = original.readlines()
+        except Exception:
+            logging.error(f"Failed to read file: {filename}")
+            raise
 
         data = get_top_comments(data)
         if data and "# ignore_header_test" in data[0]:
