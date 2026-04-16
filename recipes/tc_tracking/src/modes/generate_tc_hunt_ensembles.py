@@ -30,7 +30,7 @@ from zarr import consolidate_metadata
 
 from earth2studio.data import fetch_data
 from earth2studio.io import NetCDF4Backend, ZarrBackend
-from earth2studio.models.auto import Package
+from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, map_coords
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
@@ -101,7 +101,7 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     if "model" in cfg:
         model_name = cfg.model
 
-    model_cls: type[PrognosticModel]
+    model_cls: type[AutoModelMixin]
     if model_name.lower().startswith("aifs"):
         from earth2studio.models.px import AIFSENS
 
