@@ -1222,8 +1222,8 @@ uv</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-51" name="sd-tab-set-17" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-51">
 Cyclone Trackers</label><div class="sd-tab-content docutils">
-<p>Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
-below support.</p>
+<p>Notes: Additional dependencies for cyclone tracking models <code class="docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code> and <code class="docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code>.
+Only Python 3.12 and below support.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-63" name="sd-tab-set-21" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-63">
@@ -1238,6 +1238,21 @@ pip</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio<span class="o">[</span>cyclone<span class="o">]</span>
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">TempestExtremes</span></code> is not provided as a Python library and must be installed
+separately by the user. Installation instructions can be found on the
+<a class="reference external" href="https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended">TempestExtremes GitHub page</a>.</p>
+<p>When compiling <code class="docutils literal notranslate"><span class="pre">TempestExtremes</span></code> via CMake, executables are placed in a <code class="docutils literal notranslate"><span class="pre">bin</span></code>
+directory inside the <code class="docutils literal notranslate"><span class="pre">TempestExtremes</span></code> source tree by default (i.e.
+<code class="docutils literal notranslate"><span class="pre">/path/to/tempestextremes/bin</span></code>). Because these binaries are not
+automatically added to the system <code class="docutils literal notranslate"><span class="pre">PATH</span></code>, the <code class="docutils literal notranslate"><span class="pre">detect_cmd</span></code> and <code class="docutils literal notranslate"><span class="pre">stitch_cmd</span></code>
+entries in the pipeline configuration must reference the full path to the
+<code class="docutils literal notranslate"><span class="pre">DetectNodes</span></code> and <code class="docutils literal notranslate"><span class="pre">StitchNodes</span></code> executables, e.g.
+<code class="docutils literal notranslate"><span class="pre">/path/to/tempestextremes/bin/DetectNodes</span> <span class="pre">...</span></code>. When using the provided
+Docker container, the binaries are copied to <code class="docutils literal notranslate"><span class="pre">/usr/local/bin</span></code> and are therefore
+available on the <code class="docutils literal notranslate"><span class="pre">PATH</span></code>; in that case only the executable names are needed
+(e.g. <code class="docutils literal notranslate"><span class="pre">DetectNodes</span> <span class="pre">...</span></code>). Examples for both commands are provided in the
+docstring of the <code class="docutils literal notranslate"><span class="pre">TempestExtremes</span></code> class and in the
+<a class="reference internal" href="#../../recipes/tc_tracking/README.md"><span class="xref myst">TC tracking recipe</span></a>.</p>
 </div>
 </div>
 </div>
