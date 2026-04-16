@@ -42,21 +42,6 @@ In this example you will learn:
 # ///
 
 # %%
-# Set Up
-# ------
-# All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, we will use the deterministic workflow
-# :py:meth:`earth2studio.run.deterministic`. Note the model itself is not
-# deterministic, but we use this workflow for simplicity since we're just
-# generating a single ensemble member.
-
-# %%
-# .. literalinclude:: ../../earth2studio/run.py
-#    :language: python
-#    :start-after: # sphinx - deterministic start
-#    :end-before: # sphinx - deterministic end
-
-# %%
 # We need the following:
 #
 # - Prognostic Model: Use the Atlas model :py:class:`earth2studio.models.px.Atlas`.
@@ -68,7 +53,7 @@ In this example you will learn:
 #   The deterministic workflow handles this automatically via the model's
 #   ``input_coords`` definition.
 #
-# .. note::
+# .. warning::
 #   Atlas was trained on ERA5 data and in-filled NaNs in SST over landmasses with a value
 #   of 0 K using the ERA5 land-sea mask. If you are using a different SST dataset, you will
 #   need to in-fill the NaNs using the appropriate land-sea mask.

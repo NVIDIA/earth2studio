@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Open-source deep-learning framework for exploring, building and deploying AI weather/climate workflows."
 readme = "README.md"
-requires-python = ">=3.11,<3.14" #<3.14 until PyT adds support for torch.compile with it, blocker for natten
+requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
     "cftime",
@@ -127,7 +127,7 @@ aifsens = [
     "flash-attn",
 ]
 atlas = [
-    "natten",
+    "natten ; python_version < '3.14'",
     "timm",
     "torch-harmonics",
     "einops",
@@ -205,7 +205,7 @@ stormcast = [
     "pyproj>=3.7.1",
 ]
 stormscope = [
-    "natten",
+    "natten ; python_version < '3.14'",
     "nvidia-physicsnemo>=2.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
