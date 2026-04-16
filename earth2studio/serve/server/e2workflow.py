@@ -20,7 +20,7 @@ import inspect
 import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
-from typing import Any, ClassVar, get_type_hints
+from typing import Any, ClassVar, cast, get_type_hints
 
 import torch
 import zarr
@@ -153,23 +153,23 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
         self.execution_id = execution_id
 
         # Validate and convert parameters
-        parameters = self.validate_parameters(parameters)
+        validated: WorkflowParameters = self.validate_parameters(parameters)
 
         # Output format: API may override server default when the workflow declares
         # ``output_format`` on ``__call__`` (see ``model_fields_set``).
         param_cls = type(self).Parameters
         cfg_output_format = get_config().paths.output_format
         if "output_format" in param_cls.model_fields:
-            if "output_format" in parameters.model_fields_set:
-                output_format = parameters.output_format
+            if "output_format" in validated.model_fields_set:
+                output_format = validated.output_format
             else:
                 output_format = cfg_output_format
-            parameters = parameters.model_copy(update={"output_format": output_format})
+            validated = validated.model_copy(update={"output_format": output_format})
         else:
             output_format = cfg_output_format
 
         # Initialize metadata for tracking
-        metadata = {"parameters": parameters.model_dump()}
+        metadata = {"parameters": validated.model_dump()}
 
         try:
             # Store metadata separately
@@ -196,7 +196,7 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             # Run the forecast!
             progress = WorkflowProgress(progress="Starting workflow")
             self.update_execution_data(execution_id, progress)
-            self(io=results_io, **dict(parameters))
+            self(io=results_io, **validated.model_dump())
 
             # Consolidate zarr metadata for faster remote access
             if output_format == "zarr":
@@ -326,4 +326,4 @@ class BackendProgress:
 
     def __getitem__(self, key: str) -> Any:
         """Allow subscripting to access underlying io object."""
-        return self.io[key]
+        return cast(Any, self.io)[key]
