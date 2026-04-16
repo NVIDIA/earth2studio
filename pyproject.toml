@@ -107,6 +107,11 @@ serve = [
     "python-multipart>=0.0.6",
     "requests>=2.25.0",
     "urllib3>=1.26.0",
+    # Object storage related
+    "cryptography>=41.0.0",
+    "multi-storage-client>=0.44.0",
+    "azure-storage-blob>=12.19.0",
+    "azure-identity>=1.15.0",
 ]
 # PX Models
 ace2 = [
@@ -468,7 +473,8 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 python_version = "3.12"
 packages = ['earth2studio']
 exclude = [
-    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test'
+    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
+    'serve/server/example_workflows',
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
