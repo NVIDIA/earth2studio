@@ -16,13 +16,13 @@
 
 import glob
 import hashlib
+import json
 import os
 import pathlib
 import shutil
 import signal
 import tempfile
 import zipfile
-from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -34,8 +34,7 @@ from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import MTGLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
-# Native resolution (metres) for each non-HR MTG FCI channel.
-# 1 km channels are downsampled to the uniform 2 km grid before return.
+# Native resolution (metres) for each non-HR MTG FCI channel
 _VARIABLE_RESOLUTION: dict[str, int] = {
     "vis_04": 1000,
     "vis_05": 1000,
@@ -51,12 +50,13 @@ _VARIABLE_RESOLUTION: dict[str, int] = {
     "ir_133": 2000,
 }
 
-_DOWNLOAD_TIMEOUT = 300   # seconds before a product download is aborted
-_COPY_BUFSIZE = 16 * 1024 * 1024   # 16 MB streaming buffer
+_DOWNLOAD_TIMEOUT = 1200      # seconds; covers 1 km (~800 MB) on a slow link
+_MAX_DOWNLOAD_ATTEMPTS = 3    # retry transient network errors
+_COPY_BUFSIZE = 16 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
-# Projection helpers
+# Projection
 # ---------------------------------------------------------------------------
 
 def _mtg_fci_scan_to_latlon(
@@ -69,23 +69,18 @@ def _mtg_fci_scan_to_latlon(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert FCI scan angles (radians) to geographic lat/lon (degrees).
 
-    Pixels outside the Earth disk are NaN in both output arrays.
+    Pixels outside the Earth disk are NaN.
     """
     lon0 = np.deg2rad(lon_origin_deg)
     H = persp_point_height + semi_major_axis
     x2d, y2d = np.meshgrid(x_1d, y_1d)
-
     a = (
         np.sin(x2d) ** 2
         + np.cos(x2d) ** 2
-        * (
-            np.cos(y2d) ** 2
-            + (semi_major_axis ** 2 / semi_minor_axis ** 2) * np.sin(y2d) ** 2
-        )
+        * (np.cos(y2d) ** 2 + (semi_major_axis ** 2 / semi_minor_axis ** 2) * np.sin(y2d) ** 2)
     )
     b = -2.0 * H * np.cos(x2d) * np.cos(y2d)
     c = H ** 2 - semi_major_axis ** 2
-
     with np.errstate(invalid="ignore"):
         r_s = (-b - np.sqrt(b ** 2 - 4.0 * a * c)) / (2.0 * a)
         s_x = r_s * np.cos(x2d) * np.cos(y2d)
@@ -98,37 +93,25 @@ def _mtg_fci_scan_to_latlon(
             )
         )
         lon = np.degrees(lon0 - np.arctan(s_y / (H - s_x)))
-
     return lat, lon
 
 
-# ---------------------------------------------------------------------------
-# Downsampling functions (1 km → 2 km, shape (H, W) → (H//2, W//2))
-# ---------------------------------------------------------------------------
-
-def _ds_average(arr: np.ndarray) -> np.ndarray:
-    """2×2 average pooling.  NaN in any pixel propagates to the output block."""
-    return (arr[::2, ::2] + arr[::2, 1::2] + arr[1::2, ::2] + arr[1::2, 1::2]) / 4.0
-
-
-def _ds_nearest(arr: np.ndarray) -> np.ndarray:
-    """Nearest-neighbour (top-left pixel of each 2×2 block)."""
-    return arr[::2, ::2]
-
-
-def _ds_max(arr: np.ndarray) -> np.ndarray:
-    """2×2 max pooling.  NaN in any pixel propagates to the output block."""
-    return np.maximum(
-        np.maximum(arr[::2, ::2], arr[::2, 1::2]),
-        np.maximum(arr[1::2, ::2], arr[1::2, 1::2]),
+def _compute_pixel_roi(
+    lat_min: float, lat_max: float, lon_min: float, lon_max: float,
+    lat_grid: np.ndarray, lon_grid: np.ndarray,
+) -> tuple[slice, slice]:
+    """Return (row_slice, col_slice) bounding box of the ROI in pixel space."""
+    mask = (lat_grid >= lat_min) & (lat_grid <= lat_max) & (lon_grid >= lon_min) & (lon_grid <= lon_max)
+    rows, cols = np.where(mask)
+    if len(rows) == 0:
+        raise ValueError(
+            f"ROI (lat=[{lat_min}, {lat_max}], lon=[{lon_min}, {lon_max}]) "
+            "contains no valid pixels in the MTG FCI full-disk grid."
+        )
+    return (
+        slice(int(rows.min()), int(rows.max()) + 1),
+        slice(int(cols.min()), int(cols.max()) + 1),
     )
-
-
-_DOWNSAMPLING_FNS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
-    "average": _ds_average,
-    "nearest": _ds_nearest,
-    "max":     _ds_max,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -139,17 +122,21 @@ class MTG:
     """Meteosat Third Generation (MTG) FCI Full-Disk data source.
 
     Downloads MTG-I FCI Level-1C Full Disk data from the EUMETSAT Data Store on
-    demand, then reads the extracted NetCDF segments and returns calibrated
-    effective-radiance arrays on the 2 km grid.
+    demand and returns calibrated effective-radiance arrays at the channel's
+    native resolution — no spatial resampling is applied.
 
-    1 km channels (``vis_04``, ``vis_05``, ``vis_08``, ``vis_09``, ``nir_13``,
-    ``nir_16``) are downsampled to 2 km before return. The method is controlled
-    by the *downsampling* argument.
+    **Native resolutions**
 
-    An optional region-of-interest (*roi*) crops the output to a lat/lon
-    bounding box. When *roi* is set, only the BODY segment files that overlap
-    the requested row range are extracted from the downloaded zip archive,
-    reducing disk writes and read time.
+    * 2 km channels (5568 × 5568): ``wv_63``, ``wv_73``, ``ir_87``, ``ir_97``,
+      ``ir_123``, ``ir_133``
+    * 1 km channels (11136 × 11136): ``vis_04``, ``vis_05``, ``vis_08``,
+      ``vis_09``, ``nir_13``, ``nir_16``
+
+    All variables passed in a single :meth:`__call__` must share the same
+    native resolution.  Make separate calls for 1 km and 2 km channels.
+
+    An optional region-of-interest (*roi*) crops the spatial extent and limits
+    which BODY segment files are extracted from the downloaded zip archive.
 
     Parameters
     ----------
@@ -158,16 +145,13 @@ class MTG:
     consumer_secret : str
         EUMETSAT API consumer secret.
     collection_id : str, optional
-        EUMETSAT collection ID.  Defaults to ``"EO:EUM:DAT:0665"``
-        (MTG-I1 FCI Level-1C Full Disk).
+        EUMETSAT collection ID, by default ``"EO:EUM:DAT:0662"``
+        (MTG-I1 FCI Level-1C Full Disk FDHSI).
     roi : tuple[float, float, float, float] | None, optional
         Region of interest as ``(lat_min, lat_max, lon_min, lon_max)`` in
-        degrees.  If *None* (default), the full 5568 × 5568 disk is returned.
-    downsampling : str | Callable, optional
-        Method used to downsample 1 km channels to the 2 km grid.
-        Built-in options: ``"average"`` (default), ``"nearest"``, ``"max"``.
-        A custom callable ``(arr: np.ndarray) -> np.ndarray`` mapping
-        (H, W) → (H//2, W//2) is also accepted.
+        degrees.  When set, the output y × x extent is cropped and only the
+        BODY segment files that overlap the requested row range are extracted
+        from the product archive.
     cache : bool, optional
         Cache downloaded and extracted files locally, by default ``True``.
     verbose : bool, optional
@@ -175,11 +159,11 @@ class MTG:
 
     Note
     ----
-    Requires the ``eumdac`` and ``netcdf4`` packages::
+    Requires ``eumdac`` and ``netcdf4``::
 
         pip install eumdac netcdf4
 
-    EUMETSAT credentials: https://eoportal.eumetsat.int/
+    Credentials: https://eoportal.eumetsat.int/
 
     Badges
     ------
@@ -187,23 +171,26 @@ class MTG:
     """
 
     COLLECTION_ID = "EO:EUM:DAT:0662"
-    SCAN_FREQUENCY = 600   # seconds between full-disk scans (10 minutes)
-    GRID_SIZE = (5568, 5568)   # full disk at 2 km resolution
+    SCAN_FREQUENCY = 600   # seconds (10 minutes)
+
+    GRID_SIZE_2KM = (5568, 5568)
+    GRID_SIZE_1KM = (11136, 11136)
 
     # MTG FCI geostationary projection constants (sub-satellite point 0°E)
-    LON_ORIGIN = 0.0
+    LON_ORIGIN        = 0.0
     PERSP_POINT_HEIGHT = 35786400.0
-    SEMI_MAJOR_AXIS = 6378137.0
-    SEMI_MINOR_AXIS = 6356752.314
+    SEMI_MAJOR_AXIS   = 6378137.0
+    SEMI_MINOR_AXIS   = 6356752.314
 
-    # Angular pixel-coordinate scaling for the 2 km full-disk grid
-    # physical_angle_rad = pixel_index * SCALE + OFFSET
-    X_OFFSET =  0.15561777642350116
-    Y_OFFSET = -0.15561777642350116
-    X_SCALE  = -5.58871526031607e-05
-    Y_SCALE  =  5.58871526031607e-05
+    # Angular coordinate scaling (physical_angle_rad = pixel_index * SCALE + OFFSET)
+    X_OFFSET   =  0.15561777642350116
+    Y_OFFSET   = -0.15561777642350116
+    X_SCALE_2KM = -5.58871526031607e-05
+    Y_SCALE_2KM =  5.58871526031607e-05
+    X_SCALE_1KM = X_SCALE_2KM / 2   # -2.794357630158035e-05
+    Y_SCALE_1KM = Y_SCALE_2KM / 2   # +2.794357630158035e-05
 
-    _OPERATIONAL_START = datetime(2024, 1, 16, tzinfo=timezone.utc)
+    _OPERATIONAL_START = datetime(2024, 10, 1, tzinfo=timezone.utc)
 
     def __init__(
         self,
@@ -211,32 +198,22 @@ class MTG:
         consumer_secret: str,
         collection_id: str = COLLECTION_ID,
         roi: tuple[float, float, float, float] | None = None,
-        downsampling: str | Callable[[np.ndarray], np.ndarray] = "average",
         cache: bool = True,
         verbose: bool = True,
     ):
-        if isinstance(downsampling, str) and downsampling not in _DOWNSAMPLING_FNS:
-            raise ValueError(
-                f"downsampling must be one of {list(_DOWNSAMPLING_FNS)} or a callable, "
-                f"got {downsampling!r}"
-            )
         self._consumer_key = consumer_key
         self._consumer_secret = consumer_secret
         self._collection_id = collection_id
-        self._downsampling = downsampling
+        self._roi = roi
         self._cache = cache
         self._verbose = verbose
 
-        # Build the full lat/lon grid once; used for ROI pixel-bound computation
-        # and attached as non-dimension coordinates on every returned DataArray.
-        self._lat, self._lon = MTG.grid()
-
-        self._roi = roi
-        if roi is not None:
-            self._row_slice, self._col_slice = self._compute_pixel_roi(*roi)
-        else:
-            self._row_slice = slice(None)
-            self._col_slice = slice(None)
+        # Lazy per-resolution cache: populated on first __call__ for each resolution
+        # Keys: "1km" | "2km"
+        self._row_slice: dict[str, slice] = {}
+        self._col_slice: dict[str, slice] = {}
+        self._lat_crop: dict[str, np.ndarray] = {}
+        self._lon_crop: dict[str, np.ndarray] = {}
 
     # ------------------------------------------------------------------
     # Public interface
@@ -252,25 +229,37 @@ class MTG:
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Requested UTC datetimes.  Must be aligned to 10-minute intervals.
+            Requested UTC datetimes aligned to 10-minute intervals.
         variable : str | list[str] | VariableArray
-            Earth2Studio variable IDs (e.g. ``"mtg_vis_04"``).
+            Earth2Studio variable IDs (e.g. ``"mtg_vis_04"``).  All variables
+            must share the same native resolution (1 km or 2 km).
 
         Returns
         -------
         xr.DataArray
-            Array with dimensions ``[time, variable, y, x]`` containing
-            calibrated effective radiance (mW m⁻² sr⁻¹ cm).  When *roi* is
-            set, y and x span only the requested region.
+            Dimensions ``[time, variable, y, x]``.  ``_lat`` and ``_lon``
+            non-dimension coordinates reflect the actual output resolution.
         """
         time, variable = prep_data_inputs(time, variable)
         self._validate_time(time)
 
-        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+        # Determine (and validate) a single resolution for all requested channels
+        res_m = self._resolve_resolution(variable)
+        res_str = "1km" if res_m == 1000 else "2km"
 
-        lat_crop = self._lat[self._row_slice, self._col_slice]
-        lon_crop = self._lon[self._row_slice, self._col_slice]
+        # Lazily compute grid crop for this resolution
+        self._ensure_grid(res_str)
+
+        row_slice = self._row_slice[res_str]
+        col_slice = self._col_slice[res_str]
+        lat_crop  = self._lat_crop[res_str]
+        lon_crop  = self._lon_crop[res_str]
         out_h, out_w = lat_crop.shape
+
+        # 2km row bounds used for segment-level extraction
+        row_start_2km, row_end_2km = self._roi_row_bounds_2km(res_str, row_slice)
+
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         xr_array = xr.DataArray(
             data=np.empty((len(time), len(variable), out_h, out_w), dtype=np.float32),
@@ -280,23 +269,15 @@ class MTG:
 
         datastore = self._authenticate()
 
-        # Row range used for selective BODY segment extraction
-        row_start = (
-            self._row_slice.start if self._row_slice.start is not None else 0
-        )
-        row_end = (
-            (self._row_slice.stop - 1)
-            if self._row_slice.stop is not None
-            else self.GRID_SIZE[0] - 1
-        )
-
         for i, t in enumerate(
             tqdm(time, desc="Fetching MTG data", disable=not self._verbose)
         ):
-            product_dir = self._fetch_product(datastore, t, row_start, row_end)
+            product_dir = self._fetch_product(datastore, t, row_start_2km, row_end_2km)
             for j, v in enumerate(variable):
                 mtg_channel, modifier = MTGLexicon[v]
-                xr_array[i, j] = modifier(self._read_channel(product_dir, mtg_channel))
+                xr_array[i, j] = modifier(
+                    self._read_channel(product_dir, mtg_channel, res_str, row_slice, col_slice)
+                )
 
         if not self._cache:
             shutil.rmtree(self.cache, ignore_errors=True)
@@ -310,8 +291,55 @@ class MTG:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _resolve_resolution(self, variable: list[str]) -> int:
+        """Return the single native resolution (1000 or 2000) for *variable*.
+
+        Raises ``ValueError`` if variables have mixed resolutions.
+        """
+        resolutions = {_VARIABLE_RESOLUTION[MTGLexicon[v][0]] for v in variable}
+        if len(resolutions) > 1:
+            detail = {v: _VARIABLE_RESOLUTION[MTGLexicon[v][0]] for v in variable}
+            raise ValueError(
+                "All variables in a single call must share the same native resolution. "
+                f"Received mixed resolutions: {detail}. "
+                "Make separate calls for 1 km and 2 km channels."
+            )
+        return resolutions.pop()
+
+    def _ensure_grid(self, res_str: str) -> None:
+        """Lazily compute the cropped lat/lon grid for *res_str* if not cached."""
+        if res_str in self._row_slice:
+            return
+
+        logger.debug(f"MTG: computing {res_str} lat/lon grid")
+        lat_full, lon_full = MTG.grid(res_str)
+
+        if self._roi is not None:
+            rs, cs = _compute_pixel_roi(*self._roi, lat_full, lon_full)
+        else:
+            rs = cs = slice(None)
+
+        self._row_slice[res_str] = rs
+        self._col_slice[res_str] = cs
+        self._lat_crop[res_str]  = lat_full[rs, cs].astype(np.float32)
+        self._lon_crop[res_str]  = lon_full[rs, cs].astype(np.float32)
+
+    def _roi_row_bounds_2km(
+        self, res_str: str, row_slice: slice
+    ) -> tuple[int, int]:
+        """Return (row_start, row_end) in 2km pixel coordinates for segment selection."""
+        if self._roi is None:
+            return 0, self.GRID_SIZE_2KM[0] - 1
+        row_start = row_slice.start or 0
+        row_end   = (row_slice.stop - 1) if row_slice.stop else (
+            self.GRID_SIZE_2KM[0] - 1 if res_str == "2km" else self.GRID_SIZE_1KM[0] - 1
+        )
+        if res_str == "1km":
+            row_start //= 2
+            row_end   //= 2
+        return row_start, row_end
+
     def _authenticate(self):
-        """Authenticate with EUMETSAT and return a ``eumdac.DataStore``."""
         try:
             import eumdac
         except ImportError as exc:
@@ -323,15 +351,9 @@ class MTG:
         return eumdac.DataStore(token)
 
     def _fetch_product(
-        self, datastore, time: datetime, row_start: int, row_end: int
+        self, datastore, time: datetime, row_start_2km: int, row_end_2km: int
     ) -> str:
-        """Return the path to a local directory containing extracted NC files.
-
-        Searches ±10 min around *time*, downloads and selectively extracts the
-        closest product (if not already cached), and returns the cache dir.
-        The cache key includes the row range so different ROIs are stored
-        separately.
-        """
+        """Download/extract the closest product and return its cache directory."""
         if time.tzinfo is None:
             time = time.replace(tzinfo=timezone.utc)
 
@@ -349,14 +371,10 @@ class MTG:
             t = p.sensing_start
             return t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t
 
-        product = min(
-            results,
-            key=lambda p: abs((_sensing_start(p) - time).total_seconds()),
-        )
+        product = min(results, key=lambda p: abs((_sensing_start(p) - time).total_seconds()))
 
-        # Include row range in the cache key so ROI caches don't collide
         cache_key = hashlib.sha256(
-            f"{product}_{row_start}_{row_end}".encode()
+            f"{product}_{row_start_2km}_{row_end_2km}".encode()
         ).hexdigest()
         cache_dir = os.path.join(self.cache, cache_key)
 
@@ -367,83 +385,118 @@ class MTG:
             return cache_dir
 
         os.makedirs(cache_dir, exist_ok=True)
-        self._download_product(product, cache_dir, row_start, row_end)
+        self._download_product(product, cache_dir, row_start_2km, row_end_2km)
         return cache_dir
 
     def _download_product(
-        self, product, dest_dir: str, row_start: int, row_end: int
+        self, product, dest_dir: str, row_start_2km: int, row_end_2km: int
     ) -> None:
-        """Download the product zip and extract only the relevant BODY segments.
-
-        BODY files are ordered by row position; segments whose row range does
-        not overlap *[row_start, row_end]* are skipped.  All TRAIL files are
-        always extracted (they carry the metadata needed for calibration).
-        """
+        """Download zip and extract only BODY segments overlapping the 2km row range."""
         logger.debug(f"MTG: downloading product to {dest_dir}")
-
-        tmp_path = None
-        old_handler = signal.signal(
-            signal.SIGALRM,
-            lambda *_: (_ for _ in ()).throw(TimeoutError("MTG download timed out")),
-        )
-        signal.alarm(_DOWNLOAD_TIMEOUT)
+        tmp_path = self._download_zip(product, dest_dir)
         try:
-            # Stream to a temporary file so we can do random-access zip reads
-            fd, tmp_path = tempfile.mkstemp(suffix=".zip", dir=dest_dir)
-            with product.open() as src:
-                with os.fdopen(fd, "wb") as dst:
-                    shutil.copyfileobj(src, dst, length=_COPY_BUFSIZE)
-
             if not zipfile.is_zipfile(tmp_path):
-                raise RuntimeError(
-                    f"Downloaded file is not a valid zip archive: {tmp_path}"
-                )
+                raise RuntimeError(f"Downloaded file is not a valid zip: {tmp_path}")
 
             with zipfile.ZipFile(tmp_path, "r") as zf:
                 all_names = zf.namelist()
-                body_names = sorted(
-                    n for n in all_names if "BODY" in os.path.basename(n)
-                )
-                trail_names = [
-                    n for n in all_names if "TRAIL" in os.path.basename(n)
-                ]
-
+                body_names = sorted(n for n in all_names if "BODY" in os.path.basename(n))
+                trail_names = [n for n in all_names if "TRAIL" in os.path.basename(n)]
                 n_body = len(body_names)
+
                 if n_body > 0:
-                    rows_per_seg = self.GRID_SIZE[0] / n_body
-                    first_seg = max(0, int(row_start / rows_per_seg))
-                    last_seg = min(n_body - 1, int(np.ceil(row_end / rows_per_seg)))
+                    rows_per_seg = self.GRID_SIZE_2KM[0] / n_body
+                    # Add ±1 segment margin to absorb rounding errors
+                    first_seg = max(0, int(row_start_2km / rows_per_seg) - 1)
+                    last_seg  = min(n_body - 1, int(np.ceil(row_end_2km / rows_per_seg)) + 1)
                     to_extract = body_names[first_seg : last_seg + 1] + trail_names
                     logger.debug(
                         f"MTG: extracting BODY segments {first_seg}–{last_seg} "
                         f"of {n_body} ({len(to_extract)} files total)"
                     )
                 else:
+                    first_seg, last_seg = 0, 0
                     to_extract = all_names
 
                 for name in to_extract:
                     zf.extract(name, dest_dir)
+
+            # Persist segment metadata for use in _read_channel
+            with open(os.path.join(dest_dir, "segment_info.json"), "w") as f:
+                json.dump({"first_seg": first_seg, "n_body": n_body}, f)
+
         finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
-            if tmp_path and os.path.exists(tmp_path):
+            if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-    def _read_channel(self, folder: str, channel: str) -> np.ndarray:
-        """Read a single FCI channel from the extracted product folder.
+    def _download_zip(self, product, dest_dir: str) -> str:
+        """Download the product zip with retry and a per-attempt SIGALRM timeout.
 
-        Opens all ``*BODY*.nc`` segment files for the channel group
-        ``/data/{channel}/measured``, applies scale_factor/add_offset to get
-        calibrated radiance, masks fill pixels as NaN, downsamples 1 km
-        channels to 2 km, then crops to the ROI.
+        Returns the path to the downloaded zip file.  Caller is responsible for
+        deleting it.  Retries up to ``_MAX_DOWNLOAD_ATTEMPTS`` times on transient
+        network errors (timeouts, incomplete reads, connection resets).
+        """
+        import time as _time
+
+        last_exc: Exception | None = None
+        for attempt in range(1, _MAX_DOWNLOAD_ATTEMPTS + 1):
+            tmp_path: str | None = None
+            # Install our timeout handler, saving whatever alarm was already armed
+            # (e.g. pytest-timeout's SIGALRM) so we can restore it afterwards.
+            old_handler = signal.signal(
+                signal.SIGALRM,
+                lambda *_: (_ for _ in ()).throw(TimeoutError("MTG download timed out")),
+            )
+            prev_remaining = signal.alarm(_DOWNLOAD_TIMEOUT)
+            try:
+                fd, tmp_path = tempfile.mkstemp(suffix=".zip", dir=dest_dir)
+                with product.open() as src:
+                    with os.fdopen(fd, "wb") as dst:
+                        shutil.copyfileobj(src, dst, length=_COPY_BUFSIZE)
+                return tmp_path   # success
+            except Exception as exc:
+                last_exc = exc
+                if tmp_path and os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                if attempt < _MAX_DOWNLOAD_ATTEMPTS:
+                    wait = 2 ** attempt  # 2 s, 4 s
+                    logger.warning(
+                        f"MTG: download attempt {attempt}/{_MAX_DOWNLOAD_ATTEMPTS} failed "
+                        f"({type(exc).__name__}: {exc}), retrying in {wait} s…"
+                    )
+                    _time.sleep(wait)
+            finally:
+                # Cancel our alarm and reinstate the previous one (if any).
+                signal.alarm(0)
+                if prev_remaining > 0:
+                    signal.alarm(prev_remaining)
+                signal.signal(signal.SIGALRM, old_handler)
+
+        raise RuntimeError(
+            f"MTG: all {_MAX_DOWNLOAD_ATTEMPTS} download attempts failed"
+        ) from last_exc
+
+    def _read_channel(
+        self,
+        folder: str,
+        channel: str,
+        res_str: str,
+        row_slice: slice,
+        col_slice: slice,
+    ) -> np.ndarray:
+        """Read one FCI channel from the extracted product folder.
+
+        Reads ``*BODY*.nc`` segments, applies scale_factor/add_offset, masks
+        fill pixels as NaN, then crops to the ROI.
 
         Returns
         -------
         np.ndarray
-            float32 array of shape ``(out_h, out_w)``.
+            float32, shape ``(out_h, out_w)``.
         """
         body_files = sorted(
-            glob.glob(os.path.join(folder, "**", "*BODY*.nc"), recursive=True)
+            glob.glob(os.path.join(folder, "**", "*BODY*.nc"), recursive=True),
+            key=lambda f: int(os.path.basename(f).rsplit("_", 1)[-1].replace(".nc", "")),
         )
         if not body_files:
             raise FileNotFoundError(f"No *BODY*.nc files found under {folder!r}")
@@ -465,91 +518,31 @@ class MTG:
         if fill_value is not None:
             radiance[raw.values == int(fill_value)] = np.nan
 
-        # Downsample 1 km channels to 2 km
-        if _VARIABLE_RESOLUTION.get(channel, 2000) == 1000:
-            radiance = self._apply_downsampling(radiance)
-
-        # When only a subset of BODY segments was extracted, the array covers
-        # rows [seg_row_start, seg_row_end] of the full disk.  Compute the
-        # local slice that gives exactly the ROI rows within this partial array.
+        # Crop to ROI when only a subset of segments was extracted
         if self._roi is not None:
-            n_body_total = self.GRID_SIZE[0]   # rows in full 2 km disk
-            # Approx row where the loaded data starts (first extracted segment)
-            loaded_rows = radiance.shape[0]
-            full_rows_covered = (
-                self._row_slice.stop - self._row_slice.start
-                if self._row_slice.stop is not None
-                else n_body_total
-            )
-            row_offset = self._row_slice.start - max(
-                0,
-                self._row_slice.start
-                - (radiance.shape[0] - full_rows_covered),
-            )
-            # Simpler: the loaded partial array may be wider than the ROI.
-            # Compute local indices relative to the start of the loaded data.
-            # We know: first_seg * rows_per_seg <= row_slice.start
-            # and the loaded array has shape (loaded_rows, ...).
-            # Use the known rows_per_seg to find the offset.
-            n_body = max(
-                1,
-                round(self.GRID_SIZE[0] / radiance.shape[0])
-                if self._row_slice.stop is not None
-                else 1,
-            )
-            # Recompute first_seg from the actual loaded shape
-            rows_per_seg_approx = self.GRID_SIZE[0] / max(
-                1, round(self.GRID_SIZE[0] / max(radiance.shape[0], 1))
-            )
-            first_seg_row = int(
-                (self._row_slice.start or 0)
-                // rows_per_seg_approx
-                * rows_per_seg_approx
-            )
-            local_row_start = (self._row_slice.start or 0) - first_seg_row
-            local_row_end   = (
-                (self._row_slice.stop or self.GRID_SIZE[0]) - first_seg_row
-            )
-            radiance = radiance[local_row_start:local_row_end, self._col_slice]
-        
+            seg_info_path = os.path.join(folder, "segment_info.json")
+            with open(seg_info_path) as f:
+                seg_info = json.load(f)
+
+            n_body    = seg_info["n_body"]
+            first_seg = seg_info["first_seg"]
+
+            native_size  = self.GRID_SIZE_1KM[0] if res_str == "1km" else self.GRID_SIZE_2KM[0]
+            rows_per_seg = native_size / n_body
+            first_seg_row = round(first_seg * rows_per_seg)
+
+            local_start = (row_slice.start or 0) - first_seg_row
+            local_end   = (row_slice.stop  or native_size) - first_seg_row
+            radiance = radiance[local_start:local_end, col_slice]
+
         return radiance
-
-    def _apply_downsampling(self, arr: np.ndarray) -> np.ndarray:
-        """Apply the configured downsampling method."""
-        if callable(self._downsampling):
-            return self._downsampling(arr)
-        return _DOWNSAMPLING_FNS[self._downsampling](arr)
-
-    def _compute_pixel_roi(
-        self,
-        lat_min: float,
-        lat_max: float,
-        lon_min: float,
-        lon_max: float,
-    ) -> tuple[slice, slice]:
-        """Return (row_slice, col_slice) for the tight bounding box of the ROI."""
-        mask = (
-            (self._lat >= lat_min) & (self._lat <= lat_max) &
-            (self._lon >= lon_min) & (self._lon <= lon_max)
-        )
-        rows, cols = np.where(mask)
-        if len(rows) == 0:
-            raise ValueError(
-                f"ROI (lat=[{lat_min}, {lat_max}], lon=[{lon_min}, {lon_max}]) "
-                "contains no valid pixels in the MTG FCI full-disk grid."
-            )
-        return (
-            slice(int(rows.min()), int(rows.max()) + 1),
-            slice(int(cols.min()), int(cols.max()) + 1),
-        )
 
     def _validate_time(self, times: list[datetime]) -> None:
         for t in times:
-            t_secs = int(np.datetime64(t, "s").astype("int64"))
-            if t_secs % self.SCAN_FREQUENCY != 0:
+            if int(np.datetime64(t, "s").astype("int64")) % self.SCAN_FREQUENCY != 0:
                 raise ValueError(
-                    f"Requested time {t} is not aligned to a 10-minute interval. "
-                    f"MTG FCI full-disk scans occur every {self.SCAN_FREQUENCY} s."
+                    f"Requested time {t} is not aligned to a 10-minute interval "
+                    f"(MTG FCI scans every {self.SCAN_FREQUENCY} s)."
                 )
 
     # ------------------------------------------------------------------
@@ -558,7 +551,6 @@ class MTG:
 
     @property
     def cache(self) -> str:
-        """Local cache directory for downloaded MTG products."""
         cache_location = os.path.join(datasource_cache_root(), "mtg")
         if not self._cache:
             cache_location = os.path.join(cache_location, "tmp_mtg")
@@ -566,45 +558,46 @@ class MTG:
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
-        """Check whether MTG data is likely available for a given time.
+        """Check if *time* falls within the MTG-I1 operational window (≥ 2024-01-16).
 
-        Validates that *time* is within the operational window of MTG-I1
-        (on-orbit since 2024-01-16).  Does **not** query the EUMETSAT catalogue.
-
-        Parameters
-        ----------
-        time : datetime | np.datetime64
-
-        Returns
-        -------
-        bool
+        Does not query the EUMETSAT catalogue.
         """
         if isinstance(time, np.datetime64):
             _unix = np.datetime64(0, "s")
             _ds = np.timedelta64(1, "s")
-            time = datetime.fromtimestamp(
-                float((time - _unix) / _ds), tz=timezone.utc
-            )
+            time = datetime.fromtimestamp(float((time - _unix) / _ds), tz=timezone.utc)
         if time.tzinfo is None:
             time = time.replace(tzinfo=timezone.utc)
         return time >= cls._OPERATIONAL_START
 
     @staticmethod
-    def grid() -> tuple[np.ndarray, np.ndarray]:
-        """Return (lat, lon) coordinate arrays for the full 2 km MTG FCI grid.
+    def grid(resolution: str = "2km") -> tuple[np.ndarray, np.ndarray]:
+        """Return (lat, lon) coordinate arrays for the MTG FCI full-disk grid.
 
-        Pixels outside the Earth disk are NaN.
+        Parameters
+        ----------
+        resolution : str
+            ``"2km"`` (5568 × 5568) or ``"1km"`` (11136 × 11136).
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            ``(lat, lon)`` in degrees, each shape ``(5568, 5568)``.
+            ``(lat, lon)`` in degrees.  Off-disk pixels are NaN.
         """
-        indices = np.arange(MTG.GRID_SIZE[0], dtype=np.float64)
-        x_1d = indices * MTG.X_SCALE + MTG.X_OFFSET
-        y_1d = indices * MTG.Y_SCALE + MTG.Y_OFFSET
+        if resolution == "2km":
+            size    = MTG.GRID_SIZE_2KM[0]
+            x_scale = MTG.X_SCALE_2KM
+            y_scale = MTG.Y_SCALE_2KM
+        elif resolution == "1km":
+            size    = MTG.GRID_SIZE_1KM[0]
+            x_scale = MTG.X_SCALE_1KM
+            y_scale = MTG.Y_SCALE_1KM
+        else:
+            raise ValueError(f"resolution must be '1km' or '2km', got {resolution!r}")
+        indices = np.arange(size, dtype=np.float64)
         return _mtg_fci_scan_to_latlon(
-            x_1d, y_1d,
+            indices * x_scale + MTG.X_OFFSET,
+            indices * y_scale + MTG.Y_OFFSET,
             MTG.LON_ORIGIN,
             MTG.PERSP_POINT_HEIGHT,
             MTG.SEMI_MAJOR_AXIS,
