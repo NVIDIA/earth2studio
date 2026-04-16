@@ -220,6 +220,23 @@ and post-processing workflows.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Deterministic inference using the Atlas prognostic model.">
+
+.. only:: html
+
+  .. image:: /examples/02_medium_range/images/thumb/sphx_glr_06_atlas_inference_thumb.png
+    :alt:
+
+  :doc:`/examples/02_medium_range/06_atlas_inference`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Running Atlas Inference</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
