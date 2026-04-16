@@ -32,7 +32,7 @@ from earth2studio.data import fetch_data
 from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import CoordSystem, map_coords
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
 from src.data.tc_hunt_file_output import (
     initialise_netcdf_output,
@@ -101,6 +101,7 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     if "model" in cfg:
         model_name = cfg.model
 
+    model_cls: type[PrognosticModel]
     if model_name.lower().startswith("aifs"):
         from earth2studio.models.px import AIFSENS
 
@@ -231,12 +232,13 @@ def run_inference(
 
         # set random state or apply perturbation
         if ("model" not in cfg) or (cfg.model == "fcn3"):
-            model.set_rng(seed=seed)
+            if hasattr(model, "set_rng"):
+                model.set_rng(seed=seed)  # type: ignore[attr-defined]
         elif cfg.model.lower().startswith("aifs"):
             # no need for perturbation, but also cannot set internal noise state
             pass
 
-        iterator = model.create_iterator(xx, coords)
+        iterator = model.create_iterator(xx, CoordSystem(coords))
         stab = torch.ones(mini_batch_size)
 
         # roll out the model and record data as desired
@@ -248,7 +250,9 @@ def run_inference(
                 cyclone_tracking.record_state(xx, coords)
 
             if stability_check:
-                yy, coy = map_coords(xx, coords, stability_check.input_coords)
+                yy, coy = map_coords(
+                    xx, CoordSystem(coords), stability_check.input_coords
+                )
                 stab, _ = stability_check(yy, coy)
                 if not stab.all():
                     ic_mems.append((ic, mems, seed + 1))
@@ -272,7 +276,8 @@ def run_inference(
     # Consolidate metadata in zarr files
     if dist.rank == 0 and cfg.store_type == "zarr" and store is not None:
         # TODO add barrier such that rank 0 finishes last
-        consolidate_metadata(store.store)
+        if isinstance(store, ZarrBackend):
+            consolidate_metadata(store.store)
 
     return store
 
