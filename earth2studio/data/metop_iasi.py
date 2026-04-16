@@ -283,7 +283,9 @@ def _compute_mdr_field_offsets(data: bytes, mdr_offset: int) -> dict[str, int]:
 
     References
     ----------
-    https://github.com/stcorp/codadef-eps/blob/master/types/IASI_MDR_L1C_v5.xml
+
+    - https://user.eumetsat.int/s3/eup-strapi-media/pdf_iasi_level_1_pfs_2105bc9ccf.pdf
+    - https://github.com/stcorp/codadef-eps/blob/master/types/IASI_MDR_L1C_v5.xml
 
     Parameters
     ----------
