@@ -33,6 +33,10 @@ pkill -f "rq.*worker.*result_zip"
 echo "Stopping object storage workers..."
 pkill -f "rq.*worker.*object_storage"
 
+# Stop geocatalog ingestion workers
+echo "Stopping geocatalog ingestion workers..."
+pkill -f "rq.*worker.*geocatalog_ingestion"
+
 # Stop finalize metadata workers
 echo "Stopping finalize metadata workers..."
 pkill -f "rq.*worker.*finalize_metadata"

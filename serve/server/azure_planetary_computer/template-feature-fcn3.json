@@ -1,0 +1,54 @@
+{
+  "type": "Feature",
+  "stac_version": "1.1.0",
+  "id": "fcn3-{start_time}-{uuid}",
+  "stac_extensions": [],
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          180,
+          -90
+        ],
+        [
+          180,
+          90
+        ],
+        [
+          -180,
+          90
+        ],
+        [
+          -180,
+          -90
+        ],
+        [
+          180,
+          -90
+        ]
+      ]
+    ]
+  },
+  "bbox": [
+    -180,
+    -90,
+    180,
+    90
+  ],
+  "properties": {
+    "datetime": "{start_time}",
+    "start_datetime": "{start_time}",
+    "end_datetime": "{end_time}"
+  },
+  "links": [],
+  "assets": {
+    "data": {
+      "href": "{blob_url}",
+      "type": "application/x-netcdf",
+      "title": "FourCastNet3 forecast",
+      "description": "FourCastNet3 forecast from {start_time} to {end_time}.",
+      "roles": []
+    }
+  }
+}

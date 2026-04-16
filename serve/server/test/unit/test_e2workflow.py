@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -106,6 +107,18 @@ class ComplexEarth2WorkflowImpl(Earth2Workflow):
         }
 
 
+class OutputFormatWorkflowImpl(Earth2Workflow):
+    """Workflow that declares ``output_format`` for testing config vs API resolution."""
+
+    def __call__(
+        self,
+        io: IOBackend,
+        x: int = 1,
+        output_format: Literal["zarr", "netcdf4"] = "zarr",
+    ) -> None:
+        self.called_with = {"io": io, "x": x, "output_format": output_format}
+
+
 # Test Earth2Workflow base class
 class TestEarth2Workflow:
     """Test Earth2Workflow-specific functionality (base Workflow tests in test_workflow.py)"""
@@ -189,6 +202,64 @@ class TestEarth2Workflow:
                 if "error_message" in call[1]["updates"]
             ]
             assert len(error_calls) > 0
+
+    @patch("earth2studio.serve.server.e2workflow.get_config")
+    def test_run_uses_config_output_format_when_api_omits_it(
+        self, mock_get_config: MagicMock, tmp_path: Path
+    ) -> None:
+        """If workflow has output_format but request omits it, use server config."""
+        mock_config = MagicMock()
+        mock_config.paths.output_format = "netcdf4"
+        mock_get_config.return_value = mock_config
+
+        workflow = OutputFormatWorkflowImpl()
+        workflow.name = "of_test"
+        workflow.set_redis_client(Mock(spec=redis.Redis))
+
+        with (
+            patch.object(workflow, "update_execution_data"),
+            patch.object(workflow, "get_output_path") as mock_get_path,
+            patch("earth2studio.serve.server.e2workflow.NetCDF4Backend") as mock_nc,
+            patch("earth2studio.serve.server.e2workflow.ZarrBackend") as mock_zarr,
+        ):
+            mock_get_path.return_value = tmp_path / "out"
+            mock_io = Mock(spec=IOBackend)
+            mock_nc.return_value = mock_io
+
+            workflow.run({"x": 42}, "exec_of_1")
+
+            mock_nc.assert_called_once()
+            mock_zarr.assert_not_called()
+            assert workflow.called_with["output_format"] == "netcdf4"
+
+    @patch("earth2studio.serve.server.e2workflow.get_config")
+    def test_run_api_output_format_overrides_config(
+        self, mock_get_config: MagicMock, tmp_path: Path
+    ) -> None:
+        """Explicit output_format in request overrides paths.output_format."""
+        mock_config = MagicMock()
+        mock_config.paths.output_format = "zarr"
+        mock_get_config.return_value = mock_config
+
+        workflow = OutputFormatWorkflowImpl()
+        workflow.name = "of_test"
+        workflow.set_redis_client(Mock(spec=redis.Redis))
+
+        with (
+            patch.object(workflow, "update_execution_data"),
+            patch.object(workflow, "get_output_path") as mock_get_path,
+            patch("earth2studio.serve.server.e2workflow.NetCDF4Backend") as mock_nc,
+            patch("earth2studio.serve.server.e2workflow.ZarrBackend") as mock_zarr,
+        ):
+            mock_get_path.return_value = tmp_path / "out"
+            mock_io = Mock(spec=IOBackend)
+            mock_nc.return_value = mock_io
+
+            workflow.run({"x": 1, "output_format": "netcdf4"}, "exec_of_2")
+
+            mock_nc.assert_called_once()
+            mock_zarr.assert_not_called()
+            assert workflow.called_with["output_format"] == "netcdf4"
 
 
 # Test BackendProgress wrapper
