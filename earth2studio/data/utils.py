@@ -1181,3 +1181,101 @@ class AsyncCachingFileSystem(AsyncFileSystem):
         else:
             # attributes of the superclass, while target is being set up
             return super().__getattribute__(item)
+
+
+# -----------------------------------------------------------------------------
+# Physical constants for radiance-to-brightness-temperature conversion
+# -----------------------------------------------------------------------------
+# First radiation constant C1 = 2hc² in mW/(m²·sr·cm⁻⁴)
+# https://physics.nist.gov/cuu/Constants/Table/allascii.txt
+PLANCK_C1: float = 1.191042972e-5  # mW/(m²·sr·cm⁻⁴)   W m^2 sr^-1
+
+# Second radiation constant C2 = hc/k in K·cm
+# https://physics.nist.gov/cuu/Constants/Table/allascii.txt
+PLANCK_C2: float = 1.438776877  # K·cm
+
+
+def radiance_to_bt(
+    radiance: np.ndarray,
+    wavenumber: np.ndarray | float,
+    band_correction: tuple[float, float] | None = None,
+    correction_formula: Literal["additive", "divisive"] = "additive",
+) -> np.ndarray:
+    """Convert spectral radiance to brightness temperature via inverse Planck function.
+
+    Computes brightness temperature from calibrated spectral radiance using:
+
+        T* = C2 * ν / ln(1 + C1 * ν³ / L)
+
+    where C1 and C2 are the first and second radiation constants, ν is the
+    wavenumber, and L is the spectral radiance.
+
+    Optionally applies band correction for microwave/infrared sensors:
+
+    - **Additive** (default): T = A + B * T* (AVHRR, MHS style)
+    - **Divisive**: T = (T* - A) / B (AMSU-A style)
+
+    Parameters
+    ----------
+    radiance : np.ndarray
+        Spectral radiance in mW/(m²·sr·cm⁻¹). Can be 1D (n_obs,), 2D (n_obs, n_channels),
+        or any shape. NaN and non-positive values are preserved as NaN in output.
+    wavenumber : np.ndarray | float
+        Central wavenumber(s) in cm⁻¹. If array, must broadcast with radiance
+        (e.g., shape (n_channels,) for radiance shape (n_obs, n_channels)).
+    band_correction : tuple[float, float] | None, optional
+        Band correction coefficients (A, B). If None, pure Planck inversion is used.
+        For per-channel corrections, call this function per-channel.
+    correction_formula : {"additive", "divisive"}, optional
+        How to apply band correction:
+        - "additive": T = A + B * T* (default, used by AVHRR, MHS)
+        - "divisive": T = (T* - A) / B (used by AMSU-A)
+
+    Returns
+    -------
+    np.ndarray
+        Brightness temperature in Kelvin, same shape as radiance.
+        Invalid radiance values (≤0 or NaN) yield NaN.
+
+    Notes
+    -----
+    Uses NIST CODATA 2018 radiation constants:
+    - C1 = 1.191042953e-5 mW/(m²·sr·cm⁻⁴)
+    - C2 = 1.4387774 K·cm
+
+    Examples
+    --------
+    Pure Planck inversion for hyperspectral sounder (IASI, CrIS):
+
+    >>> wavenumbers = np.array([650.0, 700.0, 750.0])  # cm⁻¹
+    >>> radiance = np.array([[10.0, 12.0, 15.0]])  # mW/(m²·sr·cm⁻¹)
+    >>> bt = radiance_to_bt(radiance, wavenumbers)
+
+    With band correction for microwave sounder (MHS):
+
+    >>> radiance = np.array([5.0, 6.0, 7.0])  # single channel
+    >>> bt = radiance_to_bt(radiance, 18.75, band_correction=(0.5, 0.998))
+    """
+    nu = np.asarray(wavenumber)
+    nu3 = nu * nu * nu
+
+    # Compute inverse Planck, suppressing warnings for invalid radiance
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t_star = PLANCK_C2 * nu / np.log1p(PLANCK_C1 * nu3 / radiance)
+
+    # Mask invalid radiance (≤0 or NaN) → NaN in output
+    invalid = ~(radiance > 0)
+    if np.any(invalid):
+        t_star = np.where(invalid, np.nan, t_star)
+
+    # Apply band correction if provided
+    if band_correction is not None:
+        a, b = band_correction
+        if correction_formula == "additive":
+            bt = a + b * t_star
+        else:  # divisive
+            bt = (t_star - a) / b
+    else:
+        bt = t_star
+
+    return bt

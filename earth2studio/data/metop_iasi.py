@@ -30,7 +30,11 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+    radiance_to_bt,
+)
 from earth2studio.lexicon import MetOpIASILexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -61,11 +65,6 @@ _NUM_EFOVS = 30  # EFOVs per scan line
 _NUM_IFOVS = 4  # IFOVs per EFOV (2×2)
 _NUM_CHANNELS_ALLOC = 8700  # Allocated spectral samples per IFOV
 _NUM_CHANNELS = 8461  # Valid spectral channels (645–2760 cm⁻¹)
-
-# Planck constants for radiance → brightness temperature conversion
-# C1 in mW/(m²·sr·cm⁻⁴), C2 in cm·K
-_C1 = 1.191042e-05
-_C2 = 1.4387752
 
 # EPS epoch: 2000-01-01 00:00:00 UTC
 _EPS_EPOCH = datetime(2000, 1, 1)
@@ -123,34 +122,6 @@ def _decode_eps_datetime(data: bytes, offset: int) -> datetime:
     day = struct.unpack_from(">H", data, offset)[0]
     ms = struct.unpack_from(">I", data, offset + 2)[0]
     return _EPS_EPOCH + timedelta(days=day, milliseconds=ms)
-
-
-def _radiance_to_bt(radiance: np.ndarray, wavenumber_cm: np.ndarray) -> np.ndarray:
-    """Convert calibrated radiance to brightness temperature.
-
-    Uses the inverse Planck function (no band correction for IASI):
-        T_B = C2 * ν / ln(1 + C1 * ν³ / L)
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Calibrated radiance in mW/(m²·sr·cm⁻¹). Shape (n_obs, n_channels).
-    wavenumber_cm : np.ndarray
-        Wavenumbers in cm⁻¹. Shape (n_channels,).
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature in Kelvin, same shape as radiance.
-    """
-    nu = wavenumber_cm[np.newaxis, :]  # (1, n_ch)
-    valid = radiance > 0
-    bt = np.full_like(radiance, np.nan, dtype=np.float64)
-    r = radiance[valid]
-    # Use broadcast: nu values need to match the valid mask
-    nu_bc = np.broadcast_to(nu, radiance.shape)[valid]
-    bt[valid] = _C2 * nu_bc / np.log(1.0 + _C1 * nu_bc**3 / r)
-    return bt
 
 
 def _parse_mphr(data: bytes) -> dict[str, str]:
@@ -671,7 +642,7 @@ def _parse_native_iasi(
         logger.warning("Could not determine wavenumber calibration")
         return pd.DataFrame()
 
-    bt = _radiance_to_bt(radiances, wavenumber_cm)
+    bt = radiance_to_bt(radiances, wavenumber_cm)
 
     # Step 7: Build long-format DataFrame (one row per IFOV × channel)
     n_ch_total = n_ch
