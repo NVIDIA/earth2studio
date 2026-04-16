@@ -576,3 +576,181 @@ class TestConfigManagerDictToConfig:
         assert config.redis.host == "test_host"
         # Other configs should have defaults
         assert config.queue.name == "inference"  # Default value
+
+
+class TestObjectStorageEnvOverrides:
+    """Test object storage and Azure environment variable overrides"""
+
+    def setup_method(self) -> None:
+        self._vars = [
+            "OBJECT_STORAGE_TYPE",
+            "OBJECT_STORAGE_BUCKET",
+            "OBJECT_STORAGE_REGION",
+            "OBJECT_STORAGE_PREFIX",
+            "OBJECT_STORAGE_ACCESS_KEY_ID",
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+            "OBJECT_STORAGE_SESSION_TOKEN",
+            "OBJECT_STORAGE_ENDPOINT_URL",
+            "OBJECT_STORAGE_TRANSFER_ACCELERATION",
+            "OBJECT_STORAGE_MAX_CONCURRENCY",
+            "OBJECT_STORAGE_MULTIPART_CHUNKSIZE",
+            "OBJECT_STORAGE_USE_RUST_CLIENT",
+            "CLOUDFRONT_DOMAIN",
+            "CLOUDFRONT_KEY_PAIR_ID",
+            "CLOUDFRONT_PRIVATE_KEY",
+            "SIGNED_URL_EXPIRES_IN",
+            "EXPOSED_WORKFLOWS",
+            "OUTPUT_FORMAT",
+            "CONFIG_DIR",
+        ]
+        for v in self._vars:
+            os.environ.pop(v, None)
+
+    def teardown_method(self) -> None:
+        for v in self._vars:
+            os.environ.pop(v, None)
+        reset_config()
+
+    def _get_manager(self) -> "ConfigManager":
+        reset_config()
+        return ConfigManager()
+
+    def test_apply_env_overrides_from_environment(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Single pass: set env vars, ``_apply_env_overrides``, assert all mapped fields."""
+        manager = self._get_manager()
+        env = {
+            "OBJECT_STORAGE_TYPE": "s3",
+            "OBJECT_STORAGE_BUCKET": "my-bucket",
+            "OBJECT_STORAGE_REGION": "eu-west-1",
+            "OBJECT_STORAGE_PREFIX": "custom/prefix",
+            "OBJECT_STORAGE_ACCESS_KEY_ID": "AKID",
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY": "SECRET",
+            "OBJECT_STORAGE_SESSION_TOKEN": "TOKEN",
+            "OBJECT_STORAGE_ENDPOINT_URL": "https://s3.local",
+            "OBJECT_STORAGE_TRANSFER_ACCELERATION": "true",
+            "OBJECT_STORAGE_MAX_CONCURRENCY": "32",
+            "OBJECT_STORAGE_MULTIPART_CHUNKSIZE": "8388608",
+            "OBJECT_STORAGE_USE_RUST_CLIENT": "true",
+            "CLOUDFRONT_DOMAIN": "cdn.example.com",
+            "CLOUDFRONT_KEY_PAIR_ID": "KID123",
+            "CLOUDFRONT_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----",
+            "SIGNED_URL_EXPIRES_IN": "3600",
+            "EXPOSED_WORKFLOWS": "workflow_a, workflow_b, workflow_c",
+            "OUTPUT_FORMAT": "netcdf4",
+        }
+        for key, value in env.items():
+            monkeypatch.setenv(key, value)
+        manager._apply_env_overrides()
+
+        obs = manager.config.object_storage
+        assert obs.storage_type == "s3"
+        assert obs.bucket == "my-bucket"
+        assert obs.region == "eu-west-1"
+        assert obs.prefix == "custom/prefix"
+        assert obs.access_key_id == "AKID"
+        assert obs.secret_access_key == "SECRET"  # noqa: S105
+        assert obs.session_token == "TOKEN"  # noqa: S105
+        assert obs.endpoint_url == "https://s3.local"
+        assert obs.use_transfer_acceleration is True
+        assert obs.max_concurrency == 32
+        assert obs.multipart_chunksize == 8388608
+        assert obs.use_rust_client is True
+        assert obs.cloudfront_domain == "cdn.example.com"
+        assert obs.cloudfront_key_pair_id == "KID123"
+        assert obs.cloudfront_private_key == "-----BEGIN RSA PRIVATE KEY-----"
+        assert obs.signed_url_expires_in == 3600
+        assert manager.config.workflow_exposure.exposed_workflows == [
+            "workflow_a",
+            "workflow_b",
+            "workflow_c",
+        ]
+        assert manager.config.paths.output_format == "netcdf4"
+
+        # Boolean false parsing and alternate output format (second apply on same manager)
+        monkeypatch.setenv("OBJECT_STORAGE_TRANSFER_ACCELERATION", "false")
+        monkeypatch.setenv("OBJECT_STORAGE_USE_RUST_CLIENT", "false")
+        monkeypatch.setenv("OUTPUT_FORMAT", "zarr")
+        manager._apply_env_overrides()
+        assert obs.use_transfer_acceleration is False
+        assert obs.use_rust_client is False
+        assert manager.config.paths.output_format == "zarr"
+
+        monkeypatch.setenv("OBJECT_STORAGE_TYPE", "azure")
+        monkeypatch.setenv(
+            "OBJECT_STORAGE_ENDPOINT_URL",
+            "https://myaccount.blob.core.windows.net",
+        )
+        manager._apply_env_overrides()
+        assert obs.storage_type == "azure"
+        assert obs.endpoint_url == "https://myaccount.blob.core.windows.net"
+
+    def test_apply_env_overrides_invalid_storage_type_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manager = self._get_manager()
+        original = manager.config.object_storage.storage_type
+        monkeypatch.setenv("OBJECT_STORAGE_TYPE", "gcs")
+        manager._apply_env_overrides()
+        assert manager.config.object_storage.storage_type == original
+
+    def test_apply_env_overrides_invalid_output_format_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manager = self._get_manager()
+        original = manager.config.paths.output_format
+        monkeypatch.setenv("OUTPUT_FORMAT", "csv")
+        manager._apply_env_overrides()
+        assert manager.config.paths.output_format == original
+
+    def test_apply_env_overrides_no_op_when_config_none(self) -> None:
+        """_apply_env_overrides returns early when _config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        # Should not raise
+        manager._apply_env_overrides()
+
+    def test_ensure_paths_exist_no_op_when_config_none(self) -> None:
+        """_ensure_paths_exist returns early when _config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        # Should not raise
+        manager._ensure_paths_exist()
+
+    def test_config_property_reinitializes_when_none(self) -> None:
+        """config property calls _initialize_config when _config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        cfg = manager.config
+        assert isinstance(cfg, AppConfig)
+
+    def test_workflow_config_property_reinitializes_when_none(self) -> None:
+        """workflow_config property calls _initialize_config when _workflow_config is None"""
+        reset_config()
+        manager = ConfigManager()
+        manager._workflow_config = None
+        expected = {"wf": {"param": 1}}
+        with patch.object(
+            manager,
+            "_initialize_config",
+            side_effect=lambda: setattr(manager, "_workflow_config", expected),
+        ) as mock_init:
+            wf_cfg = manager.workflow_config
+        mock_init.assert_called_once()
+        assert wf_cfg == expected
+
+    def test_initialize_config_uses_config_dir_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_initialize_config uses CONFIG_DIR env var when set (covers lines 203-204)"""
+        reset_config()
+        manager = ConfigManager()
+        manager._config = None
+        manager._workflow_config = None
+        monkeypatch.setenv("CONFIG_DIR", "/custom/conf")
+        manager._initialize_config()
+        assert isinstance(manager._config, AppConfig)
