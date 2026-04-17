@@ -16,6 +16,7 @@
         "../../.earth2studio-cache/",
         "../../.testmon/"
       ],
+    "exclude-patterns": [".venv"],
     "include-ext": [
         ".py"
     ]
