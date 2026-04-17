@@ -522,8 +522,8 @@ uv add earth2studio --extra corrdiff
 ::::
 :::::
 :::::{tab-item} Cyclone Trackers
-Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
-below support.
+Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
+Only Python 3.12 and below support.
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -538,6 +538,23 @@ uv pip install earth2studio --extra cyclone
 ```bash
 pip install earth2studio[cyclone]
 ```
+
+`TempestExtremes` is not provided as a Python library and must be installed
+separately by the user. Installation instructions can be found on the
+[TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
+
+When compiling `TempestExtremes` via CMake, executables are placed in a `bin`
+directory inside the `TempestExtremes` source tree by default (i.e.
+`/path/to/tempestextremes/bin`). Because these binaries are not
+automatically added to the system `PATH`, the `detect_cmd` and `stitch_cmd`
+entries in the pipeline configuration must reference the full path to the
+`DetectNodes` and `StitchNodes` executables, e.g.
+`/path/to/tempestextremes/bin/DetectNodes ...`. When using the provided
+Docker container, the binaries are copied to `/usr/local/bin` and are therefore
+available on the `PATH`; in that case only the executable names are needed
+(e.g. `DetectNodes ...`). Examples for both commands are provided in the
+docstring of the `TempestExtremes` class and in the
+[TC tracking recipe](../../recipes/tc_tracking/README.md).
 
 :::
 ::::
