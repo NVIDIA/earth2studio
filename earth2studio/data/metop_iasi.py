@@ -440,7 +440,7 @@ def _parse_native_iasi(
     data : bytes
         Complete file contents of an IASI L1C .nat file
     channel_indices : np.ndarray | None, optional
-        0-based channel indices to extract (subset of 0..8460).
+        1-based channel numbers to extract (subset of 1..8461).
         If None, all 8461 channels are extracted.
 
     Returns
@@ -507,11 +507,13 @@ def _parse_native_iasi(
         band_first, band_last, band_sf, nsfirst=nsfirst
     )
 
-    # Determine channels to extract
+    # Determine channels to extract (convert 1-based input to 0-based indices)
     if channel_indices is None:
         ch_idx = np.arange(_NUM_CHANNELS, dtype=np.int32)
+        ch_1based = ch_idx + 1
     else:
-        ch_idx = np.asarray(channel_indices, dtype=np.int32)
+        ch_1based = np.asarray(channel_indices, dtype=np.int32)
+        ch_idx = ch_1based - 1
     n_ch = len(ch_idx)
 
     # Step 4: Pre-allocate arrays for all scans × EFOVs × IFOVs
@@ -668,7 +670,6 @@ def _parse_native_iasi(
     total_rows = n_obs * n_ch_total
 
     # Channel indices are 1-based in the output (1..8461)
-    ch_1based = ch_idx + 1
 
     all_times = np.tile(scan_times, n_ch_total)
     all_lats = np.tile(lats, n_ch_total)
@@ -730,11 +731,8 @@ class MetOpIASI:
     Each scan line contains 30 Extended Fields Of View (EFOVs), each
     consisting of a 2x2 array of 4 Instantaneous Fields Of View (IFOVs),
     yielding 120 spectra per scan line. A typical orbit pass contains
-    ~1400 scan lines (~168,000 IFOV spectra).
-
-    To manage memory and processing time, a ``channel_indices`` parameter
-    allows selecting a subset of channels. By default only a representative
-    set of 100 channels spanning the three spectral bands is extracted.
+    ~1400 scan lines (~168,000 IFOV spectra). To manage memory and processing time,
+    a ``channel_indices`` parameter allows selecting a subset of channels.
 
     This data source downloads Level 1C products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -746,9 +744,9 @@ class MetOpIASI:
         Satellite platform filter for product search. One of "metop-a",
         "metop-b", "metop-c", or None (all available). By default None.
     channel_indices : list[int] | np.ndarray | None, optional
-        0-based channel indices to extract (subset of 0..8460). If None,
+        1-based channel numbers to extract (subset of 1..8461). If None,
         the 174 GSI-assimilated channels (matching UFSObsSat) are used. Pass
-        ``np.arange(8461)`` to extract all channels (warning: very large
+        ``np.arange(1, 8462)`` to extract all channels (warning: very large
         output).
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
