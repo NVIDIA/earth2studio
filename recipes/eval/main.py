@@ -14,12 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import hydra
 import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
+from src.data import PredownloadedSource
 from src.distributed import configure_logging
 from src.output import OutputManager, sentinel_path
 from src.pipeline import build_pipeline
@@ -78,7 +81,12 @@ def main(cfg: DictConfig) -> None:
     all_times = np.array(sorted({item.time for item in all_items}))
     output_variables = list(cfg.output.variables)
     total_coords = pipeline.build_total_coords(all_times, cfg.get("ensemble_size", 1))
-    data_source = hydra.utils.instantiate(cfg.data_source)
+    data_store_path = os.path.join(cfg.output.path, "data.zarr")
+    if cfg.get("require_predownload", True) and os.path.exists(data_store_path):
+        data_source = PredownloadedSource(data_store_path)
+        logger.info(f"Using predownloaded data store: {data_store_path}")
+    else:
+        data_source = hydra.utils.instantiate(cfg.data_source)
 
     # --- Run ----------------------------------------------------------------
     with OutputManager(cfg) as output_mgr:

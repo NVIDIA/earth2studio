@@ -24,7 +24,12 @@ import numpy as np
 import pytest
 import torch
 from omegaconf import OmegaConf
-from src.output import OutputManager, build_forecast_coords
+from src.output import (
+    OutputManager,
+    _spatial_dims,
+    build_forecast_coords,
+    build_predownload_coords,
+)
 
 from earth2studio.utils.coords import CoordSystem
 
@@ -181,3 +186,139 @@ class TestOutputManager:
                 assert os.path.exists(mgr._path)
                 assert "t2m" in mgr.io
                 assert "z500" in mgr.io
+
+
+class TestSpatialDims:
+    def test_lat_lon(self):
+        coords = OrderedDict(
+            {
+                "time": np.array([np.datetime64("2024-01-01")]),
+                "lead_time": np.array([np.timedelta64(0, "ns")]),
+                "variable": np.array(["t2m"]),
+                "lat": np.array([90, 0, -90]),
+                "lon": np.array([0, 180]),
+            }
+        )
+        assert _spatial_dims(coords) == ["lat", "lon"]
+
+    def test_non_standard_spatial_dims(self):
+        coords = OrderedDict(
+            {
+                "variable": np.array(["t2m"]),
+                "x": np.arange(10),
+                "y": np.arange(20),
+                "face": np.arange(6),
+            }
+        )
+        assert _spatial_dims(coords) == ["x", "y", "face"]
+
+    def test_no_spatial_dims(self):
+        coords = OrderedDict(
+            {
+                "time": np.array([np.datetime64("2024-01-01")]),
+                "variable": np.array(["t2m"]),
+            }
+        )
+        assert _spatial_dims(coords) == []
+
+    def test_excludes_all_structural_dims(self):
+        coords = OrderedDict(
+            {
+                "batch": np.array([0]),
+                "time": np.array([np.datetime64("2024-01-01")]),
+                "lead_time": np.array([np.timedelta64(0, "ns")]),
+                "variable": np.array(["t2m"]),
+                "ensemble": np.arange(3),
+                "lat": np.array([0.0]),
+            }
+        )
+        assert _spatial_dims(coords) == ["lat"]
+
+
+class TestBuildPredownloadCoords:
+    def test_basic(self):
+        spatial_ref = OrderedDict(
+            {
+                "variable": np.array(["t2m"]),
+                "lat": np.array([90.0, 0.0, -90.0]),
+                "lon": np.array([0.0, 180.0]),
+            }
+        )
+        times = np.array(
+            [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
+            dtype="datetime64[ns]",
+        )
+        coords = build_predownload_coords(spatial_ref, times)
+
+        assert list(coords.keys()) == ["time", "lat", "lon"]
+        assert len(coords["time"]) == 2
+        np.testing.assert_array_equal(coords["lat"], spatial_ref["lat"])
+
+    def test_non_latlon_spatial(self):
+        spatial_ref = OrderedDict(
+            {
+                "lead_time": np.array([np.timedelta64(6, "h")]),
+                "variable": np.array(["t2m"]),
+                "x": np.arange(10),
+                "y": np.arange(20),
+            }
+        )
+        times = np.array([np.datetime64("2024-01-01")], dtype="datetime64[ns]")
+        coords = build_predownload_coords(spatial_ref, times)
+
+        assert list(coords.keys()) == ["time", "x", "y"]
+
+    def test_variable_not_included(self):
+        spatial_ref = OrderedDict(
+            {
+                "variable": np.array(["t2m", "z500"]),
+                "lat": np.array([0.0]),
+                "lon": np.array([0.0]),
+            }
+        )
+        times = np.array([np.datetime64("2024-01-01")], dtype="datetime64[ns]")
+        coords = build_predownload_coords(spatial_ref, times)
+
+        assert "variable" not in coords
+
+
+class TestOutputManagerStoreName:
+    @pytest.fixture()
+    def cfg(self, tmp_path):
+        return OmegaConf.create(
+            {
+                "output": {
+                    "path": str(tmp_path / "out"),
+                    "overwrite": True,
+                    "thread_writers": 0,
+                    "chunks": {"time": 1},
+                },
+            }
+        )
+
+    def test_custom_store_name(self, cfg, tmp_path):
+        predownload_coords = OrderedDict(
+            {
+                "time": np.array([np.datetime64("2024-01-01")], dtype="datetime64[ns]"),
+                "lat": np.array([90.0, 0.0, -90.0]),
+                "lon": np.array([0.0, 180.0]),
+            }
+        )
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                with OutputManager(cfg, store_name="data.zarr") as mgr:
+                    mgr.validate_output_store(predownload_coords, VARIABLES)
+                    assert mgr._path.endswith("data.zarr")
+                    assert os.path.exists(mgr._path)
+
+    def test_overwrite_override(self, cfg, tmp_path):
+        """Constructor overwrite parameter overrides config."""
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            mgr = OutputManager(cfg, overwrite=False)
+            assert mgr._overwrite is False
+
+    def test_resume_override(self, cfg, tmp_path):
+        """Constructor resume parameter overrides config."""
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            mgr = OutputManager(cfg, resume=True)
+            assert mgr._resume is True

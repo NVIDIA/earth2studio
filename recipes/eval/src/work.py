@@ -221,6 +221,193 @@ def clear_progress(cfg: DictConfig) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Predownload progress tracking
+# ---------------------------------------------------------------------------
+
+
+def predownload_progress_dir(cfg: DictConfig, store_name: str) -> Path:
+    """Return the progress-tracking directory for a predownload store.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config with an ``output.path`` key.
+    store_name : str
+        Logical name of the store (e.g. ``"data"``, ``"verification"``).
+
+    Returns
+    -------
+    Path
+        ``<output.path>/.predownload_progress/<store_name>``
+    """
+    return Path(cfg.output.path) / ".predownload_progress" / store_name
+
+
+def _predownload_marker_name(time: np.datetime64) -> str:
+    """Return a filesystem-safe marker filename for a predownload timestamp."""
+    ts = str(time.astype("datetime64[s]")).replace("-", "").replace(":", "")
+    return f"{ts}.done"
+
+
+def write_predownload_marker(
+    time: np.datetime64, cfg: DictConfig, store_name: str
+) -> None:
+    """Write a completion marker for a predownloaded timestamp.
+
+    Parameters
+    ----------
+    time : np.datetime64
+        The completed timestamp.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    store_name : str
+        Logical name of the store.
+    """
+    d = predownload_progress_dir(cfg, store_name)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / _predownload_marker_name(time)).write_text(
+        np.datetime64("now", "s").item().isoformat()
+    )
+
+
+def filter_predownload_completed(
+    times: list[np.datetime64], cfg: DictConfig, store_name: str
+) -> list[np.datetime64]:
+    """Remove timestamps that already have predownload completion markers.
+
+    Parameters
+    ----------
+    times : list[np.datetime64]
+        Full list of timestamps to check.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    store_name : str
+        Logical name of the store.
+
+    Returns
+    -------
+    list[np.datetime64]
+        Timestamps whose markers are absent (still need downloading).
+    """
+    d = predownload_progress_dir(cfg, store_name)
+    if not d.exists():
+        return times
+    existing = {f.name for f in d.iterdir() if f.suffix == ".done"}
+    remaining = [t for t in times if _predownload_marker_name(t) not in existing]
+    skipped = len(times) - len(remaining)
+    if skipped:
+        logger.info(
+            f"Predownload resume ({store_name}): "
+            f"skipping {skipped}/{len(times)} completed times"
+        )
+    return remaining
+
+
+def clear_predownload_progress(cfg: DictConfig) -> None:
+    """Remove all predownload completion markers.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = Path(cfg.output.path) / ".predownload_progress"
+    if d.exists():
+        import shutil
+
+        shutil.rmtree(d)
+        logger.debug(f"Cleared predownload progress directory: {d}")
+
+
+# ---------------------------------------------------------------------------
+# Scoring progress tracking
+# ---------------------------------------------------------------------------
+
+
+def scoring_progress_dir(cfg: DictConfig) -> Path:
+    """Return the progress-tracking directory for scoring.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config with an ``output.path`` key.
+
+    Returns
+    -------
+    Path
+        ``<output.path>/.scoring_progress``
+    """
+    return Path(cfg.output.path) / ".scoring_progress"
+
+
+def _scoring_marker_name(time: np.datetime64) -> str:
+    """Return a filesystem-safe marker filename for a scored timestamp."""
+    ts = str(time.astype("datetime64[s]")).replace("-", "").replace(":", "")
+    return f"{ts}.done"
+
+
+def write_scoring_marker(time: np.datetime64, cfg: DictConfig) -> None:
+    """Write a completion marker for a scored initial-condition time.
+
+    Parameters
+    ----------
+    time : np.datetime64
+        The completed IC time.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = scoring_progress_dir(cfg)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / _scoring_marker_name(time)).write_text(
+        np.datetime64("now", "s").item().isoformat()
+    )
+
+
+def filter_scoring_completed(
+    times: list[np.datetime64], cfg: DictConfig
+) -> list[np.datetime64]:
+    """Remove IC times that already have scoring completion markers.
+
+    Parameters
+    ----------
+    times : list[np.datetime64]
+        Full list of IC times to check.
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+
+    Returns
+    -------
+    list[np.datetime64]
+        Times whose markers are absent (still need scoring).
+    """
+    d = scoring_progress_dir(cfg)
+    if not d.exists():
+        return times
+    existing = {f.name for f in d.iterdir() if f.suffix == ".done"}
+    remaining = [t for t in times if _scoring_marker_name(t) not in existing]
+    skipped = len(times) - len(remaining)
+    if skipped:
+        logger.info(f"Scoring resume: skipping {skipped}/{len(times)} completed times")
+    return remaining
+
+
+def clear_scoring_progress(cfg: DictConfig) -> None:
+    """Remove all scoring completion markers.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config (used to locate the progress directory).
+    """
+    d = scoring_progress_dir(cfg)
+    if d.exists():
+        import shutil
+
+        shutil.rmtree(d)
+        logger.debug(f"Cleared scoring progress directory: {d}")
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
@@ -248,8 +435,8 @@ def _parse_initial_times(cfg: DictConfig) -> list[np.datetime64]:
     ValueError
         If both ``start_times`` and ``ic_block_start`` are provided, or neither.
     """
-    has_list = "start_times" in cfg and cfg.start_times is not None
-    has_block = "ic_block_start" in cfg and cfg.ic_block_start is not None
+    has_list = bool(cfg.get("start_times"))
+    has_block = cfg.get("ic_block_start") is not None
 
     if has_list and has_block:
         raise ValueError(

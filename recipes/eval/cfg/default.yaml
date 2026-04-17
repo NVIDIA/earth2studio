@@ -7,7 +7,8 @@
 
 defaults:
     - model: dlwp
-    - optional campaign: null   # e.g. +campaign=fcn3_2024_full
+    - _self_
+    - optional campaign: null   # e.g. campaign=fcn3_2024_full
 
 # ---------------------------------------------------------------------------
 # Project metadata
@@ -95,28 +96,85 @@ output:
 # ---------------------------------------------------------------------------
 # Pre-download settings (used by predownload.py, ignored by main.py)
 # ---------------------------------------------------------------------------
+# predownload.py writes zarr stores into <output.path>/:
+#   - data.zarr       — IC data (and verification data when using the same
+#                        source).  main.py reads IC data from here.
+#   - verification.zarr — only created when verification.source is explicitly
+#                          set to a different data source.
+# Per-timestamp progress markers enable resume after interruption.
 predownload:
-    cache_dir: null              # override EARTH2STUDIO_DATA_CACHE
+    overwrite: false             # if true, recreate stores from scratch
     verification:
         enabled: false
-        source:
-            _target_: earth2studio.data.ARCO
-            verbose: false
+        source: null             # null = merge into data.zarr using data_source
+                                 # set explicitly for a separate verification.zarr
 
 # ---------------------------------------------------------------------------
-# Scoring (placeholder — not yet implemented)
+# Scoring — compare predictions against verification data
 # ---------------------------------------------------------------------------
-# scoring:
-#     variables: [t2m, z500]
-#     metrics:
-#         rmse:
-#             _target_: earth2studio.statistics.rmse
-#         crps:
-#             _target_: earth2studio.statistics.crps
-#             ensemble_dimension: ensemble
-#             fair: true
-#     temporal_aggregation: null   # e.g. "weekly"
-#     score_path: ${output.path}
+# Run with: python score.py [campaign=...]
+# Requires inference (main.py) and predownload with verification enabled.
+scoring:
+    variables: ${output.variables}     # score the same variables as inference
+    metrics:
+        rmse:
+            _target_: earth2studio.statistics.rmse
+            reduction_dimensions: [lat, lon]
+    lat_weights: true                  # apply cosine latitude weighting
+    lead_time_chunk_size: 8            # lead times per chunk (memory control)
+    output:
+        store_name: scores.zarr
+        overwrite: true
+        chunks:
+            time: 1
+    resume: false
+
+# ---------------------------------------------------------------------------
+# Report — aggregate scores and produce markdown + figures
+# ---------------------------------------------------------------------------
+# Run with: python report.py [campaign=...]
+# Requires scoring (score.py) to have completed.
+report:
+    sections:
+        - type: header_visualization   # hero plot (skipped if data unavailable)
+          variable: z500
+          lead_time: "5 days"
+
+        - type: summary_table
+          lead_times: ["1 days", "3 days", "5 days", "7 days", "10 days", "14 days"]
+          collapsed: false
+
+        - type: lead_time_curves
+          collapsed: true
+
+        - type: ic_heatmap
+          metrics: [rmse]
+          collapsed: true
+
+    figure_format: png
+    # projection: robinson        # optional — map projection for visualization
+                                   # (requires cartopy; null = flat plot)
+
+    # variable_groups:            # optional — group vars with shared scales
+    #     geopotential: [z500, z850]    # variables on the same plot
+    #     temperature: [t500, t850]
+    #     # unlisted vars (e.g. t2m, msl) each get their own plot
+
+    # time_groups:                # optional — seasonal / custom breakdown
+    #     DJF:
+    #         - start: "2024-01-01"
+    #           end: "2024-02-29"
+    #         - start: "2024-12-01"
+    #           end: "2024-12-31"
+    #     MAM:
+    #         - start: "2024-03-01"
+    #           end: "2024-05-31"
+    #     JJA:
+    #         - start: "2024-06-01"
+    #           end: "2024-08-31"
+    #     SON:
+    #         - start: "2024-09-01"
+    #           end: "2024-11-30"
 
 # ---------------------------------------------------------------------------
 # Hydra runtime config

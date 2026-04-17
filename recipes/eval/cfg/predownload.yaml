@@ -7,9 +7,9 @@
 #
 # Usage:
 #   python predownload.py
-#   python predownload.py +campaign=fcn3_2024_full
+#   python predownload.py campaign=fcn3_2024_full
 #   python predownload.py predownload.verification.enabled=true
-#   python predownload.py predownload.cache_dir=/lustre/shared/e2s_cache
+#   python predownload.py predownload.overwrite=true
 # ============================================================================
 
 defaults:

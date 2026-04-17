@@ -38,6 +38,18 @@ from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coord
 
 from .distributed import run_on_rank0_first
 
+_NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
+
+
+def _spatial_dims(coords: CoordSystem) -> list[str]:
+    """Return dimension names from *coords* that are spatial (not structural).
+
+    Structural dimensions (batch, time, lead_time, variable, ensemble) are
+    excluded; everything else is treated as a spatial dimension whose values
+    should be carried through to output stores.
+    """
+    return [d for d in coords if d not in _NON_SPATIAL_DIMS]
+
 
 def build_output_coords(
     spatial_ref: CoordSystem,
@@ -48,22 +60,21 @@ def build_output_coords(
     Parameters
     ----------
     spatial_ref : CoordSystem
-        Reference coordinate system whose ``lat`` / ``lon`` entries (if
-        present) define the output grid.  Typically the output coords of
-        the prognostic or diagnostic model.
+        Reference coordinate system whose spatial entries define the output
+        grid.  Typically the output coords of the prognostic or diagnostic
+        model.
     output_variables : list[str]
         Variable names to extract from the model state at each step.
 
     Returns
     -------
     CoordSystem
-        Filter with ``variable``, and optionally ``lat`` / ``lon`` keys.
+        Filter with ``variable`` and any spatial dimension keys.
     """
     oc: CoordSystem = OrderedDict()
     oc["variable"] = np.array(output_variables)
-    for dim in ("lat", "lon"):
-        if dim in spatial_ref:
-            oc[dim] = spatial_ref[dim]
+    for dim in _spatial_dims(spatial_ref):
+        oc[dim] = spatial_ref[dim]
     return oc
 
 
@@ -139,9 +150,8 @@ def build_forecast_coords(
         ]
     )
 
-    for dim in ("lat", "lon"):
-        if dim in output_c:
-            total[dim] = output_c[dim]
+    for dim in _spatial_dims(output_c):
+        total[dim] = output_c[dim]
 
     return total
 
@@ -161,7 +171,7 @@ def build_diagnostic_coords(
     ----------
     diagnostics : list[DiagnosticModel]
         Diagnostic models that will be run.  The first model's output
-        coordinates define the spatial grid (lat/lon).
+        coordinates define the spatial grid.
     times : np.ndarray
         All initial-condition times that will appear in the output.
     ensemble_size : int
@@ -186,15 +196,82 @@ def build_diagnostic_coords(
     total["time"] = times
     total["lead_time"] = np.array([np.timedelta64(0, "ns")])
 
-    for dim in ("lat", "lon"):
-        if dim in output_c:
-            total[dim] = output_c[dim]
+    for dim in _spatial_dims(output_c):
+        total[dim] = output_c[dim]
 
     return total
 
 
+def build_predownload_coords(
+    spatial_ref: CoordSystem,
+    times: np.ndarray,
+) -> CoordSystem:
+    """Build coords for a predownload zarr store: ``(time, <spatial...>)``.
+
+    The returned coordinate system has a ``time`` dimension followed by
+    whatever spatial dimensions are present in *spatial_ref*.  Variables
+    are not included — they are passed separately as array names to
+    :meth:`OutputManager.validate_output_store`.
+
+    Parameters
+    ----------
+    spatial_ref : CoordSystem
+        Reference coordinate system whose spatial entries define the grid.
+    times : np.ndarray
+        All valid times to be stored (IC-adjusted times, verification
+        times, or the union of both).
+
+    Returns
+    -------
+    CoordSystem
+        ``(time, <spatial...>)`` coordinate system.
+    """
+    coords: CoordSystem = OrderedDict()
+    coords["time"] = times
+    for dim in _spatial_dims(spatial_ref):
+        coords[dim] = spatial_ref[dim]
+    return coords
+
+
+def build_score_coords(
+    metric: Any,
+    times: np.ndarray,
+    input_coords_template: CoordSystem,
+) -> CoordSystem:
+    """Build the output coordinate system for a single metric's score arrays.
+
+    Calls ``metric.output_coords()`` on a template coordinate system (which
+    should mirror the shape of the tensors that will be passed to the metric)
+    to determine which dimensions survive reduction.  A ``time`` axis is
+    prepended since scores are computed per initial-condition time.
+
+    Parameters
+    ----------
+    metric : Metric
+        An ``earth2studio.statistics`` metric instance (or any object with an
+        ``output_coords`` method).
+    times : np.ndarray
+        All initial-condition times that will appear in the score store.
+    input_coords_template : CoordSystem
+        Representative coordinate system matching the tensors that will be
+        passed to the metric (e.g. ``{lead_time, variable, lat, lon}``).
+
+    Returns
+    -------
+    CoordSystem
+        Coordinate system for the score arrays: ``(time, <surviving dims>)``.
+    """
+    score_output = metric.output_coords(input_coords_template)
+    total: CoordSystem = OrderedDict()
+    total["time"] = times
+    for dim, vals in score_output.items():
+        if dim != "time":
+            total[dim] = vals
+    return total
+
+
 class OutputManager:
-    """Distributed-safe lifecycle manager for zarr forecast output.
+    """Distributed-safe lifecycle manager for a zarr store.
 
     Handles the full output lifecycle: store creation (rank 0), validation
     (other ranks), writes (optionally threaded), and metadata consolidation.
@@ -208,16 +285,31 @@ class OutputManager:
     ----------
     cfg : DictConfig
         Hydra config — expects ``output`` section with ``path``,
-        ``overwrite``, ``chunks``, and optionally ``thread_writers``.
+        ``chunks``, and optionally ``thread_writers``.
+    store_name : str
+        Name of the zarr store directory relative to ``output.path``.
+        Defaults to ``"forecast.zarr"``.
+    overwrite : bool | None
+        If provided, overrides ``output.overwrite`` from config.
+    resume : bool | None
+        If provided, overrides the top-level ``resume`` from config.
     """
 
-    def __init__(self, cfg: DictConfig) -> None:
+    def __init__(
+        self,
+        cfg: DictConfig,
+        store_name: str = "forecast.zarr",
+        overwrite: bool | None = None,
+        resume: bool | None = None,
+    ) -> None:
         output_cfg = cfg.output
         self._dist = DistributedManager()
 
-        self._path = os.path.join(output_cfg.path, "forecast.zarr")
-        self._overwrite = output_cfg.get("overwrite", False)
-        self._resume = cfg.get("resume", False)
+        self._path = os.path.join(output_cfg.path, store_name)
+        self._overwrite = (
+            overwrite if overwrite is not None else output_cfg.get("overwrite", False)
+        )
+        self._resume = resume if resume is not None else cfg.get("resume", False)
         self._thread_io = output_cfg.get("thread_writers", 0)
         self._chunks: dict[str, int] = dict(
             output_cfg.get("chunks", {"time": 1, "lead_time": 1})

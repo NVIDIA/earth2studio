@@ -40,6 +40,7 @@ import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
+from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
@@ -265,7 +266,12 @@ class Pipeline(ABC):
         output_coords = build_output_coords(self._spatial_ref, output_variables)
         has_ensemble = "ensemble" in output_mgr.io.coords
 
-        for item in tqdm(work_items, desc="Work items", position=0):
+        # Determine rank to filter progress bar
+        if not DistributedManager.is_initialized():
+            DistributedManager.initialize()
+        rank = DistributedManager().rank
+
+        for item in tqdm(work_items, desc="Work items", position=0, disable=rank != 0):
             for x_step, coords_step in self.run_item(item, data_source, device):
                 x_out, coords_out = map_coords(x_step, coords_step, output_coords)
 
@@ -350,6 +356,8 @@ class ForecastPipeline(Pipeline):
 
         model_iter = self.prognostic.create_iterator(x, coords)
 
+        rank = DistributedManager().rank
+
         for step, (x_step, coords_step) in enumerate(
             tqdm(
                 model_iter,
@@ -357,6 +365,7 @@ class ForecastPipeline(Pipeline):
                 desc=f"IC {item.time}",
                 position=1,
                 leave=False,
+                disable=rank != 0,
             )
         ):
             for dx in self.diagnostics:

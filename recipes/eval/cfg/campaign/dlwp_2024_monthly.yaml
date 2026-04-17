@@ -30,3 +30,39 @@ output:
         - z500
         - z300
         - tcwv
+
+scoring:
+    metrics:
+        mse:
+            _target_: src.metrics.mse
+            reduction_dimensions: [lat, lon]
+
+report:
+    sections:
+        - type: summary_table
+          lead_times: ["1 days", "3 days", "5 days", "7 days", "10 days"]
+          collapsed: false
+
+        - type: lead_time_curves
+          collapsed: true
+
+        - type: ic_heatmap
+          metrics: [mse]
+          variables: [z500, t2m, tcwv]
+          collapsed: true
+
+    time_groups:
+        DJF:
+            - start: "2024-01-01"
+              end: "2024-02-29"
+            - start: "2024-12-01"
+              end: "2024-12-31"
+        MAM:
+            - start: "2024-03-01"
+              end: "2024-05-31"
+        JJA:
+            - start: "2024-06-01"
+              end: "2024-08-31"
+        SON:
+            - start: "2024-09-01"
+              end: "2024-11-30"
