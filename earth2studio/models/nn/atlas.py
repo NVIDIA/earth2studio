@@ -33,15 +33,18 @@ from earth2studio.utils.imports import (
 )
 
 try:
+    from physicsnemo import Module as PhysicsNeMoModule
+except ImportError:
+    PhysicsNeMoModule = object
+
+try:
     import einops
     from natten import NeighborhoodAttention2D
-    from physicsnemo import Module as PhysicsNeMoModule
     from timm.models.vision_transformer import Mlp, PatchEmbed
     from torch_harmonics import InverseRealSHT
 except ImportError:
     OptionalDependencyFailure("atlas")
     einops = None
-    PhysicsNeMoModule = object
 
 
 @cache
