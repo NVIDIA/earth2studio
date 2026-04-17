@@ -440,7 +440,7 @@ def _parse_native_iasi(
     data : bytes
         Complete file contents of an IASI L1C .nat file
     channel_indices : np.ndarray | None, optional
-        1-based channel numbers to extract (subset of 1..8461).
+        0-based channel indices to extract (subset of 0..8460).
         If None, all 8461 channels are extracted.
 
     Returns
@@ -507,13 +507,11 @@ def _parse_native_iasi(
         band_first, band_last, band_sf, nsfirst=nsfirst
     )
 
-    # Determine channels to extract (convert 1-based input to 0-based indices)
+    # Determine channels to extract (0-based indices)
     if channel_indices is None:
         ch_idx = np.arange(_NUM_CHANNELS, dtype=np.int32)
-        ch_1based = ch_idx + 1
     else:
-        ch_1based = np.asarray(channel_indices, dtype=np.int32)
-        ch_idx = ch_1based - 1
+        ch_idx = np.asarray(channel_indices, dtype=np.int32)
     n_ch = len(ch_idx)
 
     # Step 4: Pre-allocate arrays for all scans × EFOVs × IFOVs
@@ -669,7 +667,7 @@ def _parse_native_iasi(
     n_ch_total = n_ch
     total_rows = n_obs * n_ch_total
 
-    # Channel indices are 1-based in the output (1..8461)
+    # Channel indices are 0-based in the output (0..8460)
 
     all_times = np.tile(scan_times, n_ch_total)
     all_lats = np.tile(lats, n_ch_total)
@@ -688,7 +686,7 @@ def _parse_native_iasi(
         start = i * n_obs
         end = start + n_obs
         all_obs[start:end] = bt[:, i].astype(np.float32)
-        all_channel_idx[start:end] = ch_1based[i]
+        all_channel_idx[start:end] = ch_idx[i]
 
     df = pd.DataFrame(
         {
@@ -744,9 +742,9 @@ class MetOpIASI:
         Satellite platform filter for product search. One of "metop-a",
         "metop-b", "metop-c", or None (all available). By default None.
     channel_indices : list[int] | np.ndarray | None, optional
-        1-based channel numbers to extract (subset of 1..8461). If None,
+        0-based channel indices to extract (subset of 0..8460). If None,
         the 174 GSI-assimilated channels (matching UFSObsSat) are used. Pass
-        ``np.arange(1, 8462)`` to extract all channels (warning: very large
+        ``np.arange(8461)`` to extract all channels (warning: very large
         output).
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
