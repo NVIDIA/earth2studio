@@ -723,22 +723,18 @@ class MetOpIASI:
     The Infrared Atmospheric Sounding Interferometer (IASI) is a Fourier
     transform infrared spectrometer aboard the MetOp series of polar-orbiting
     satellites. It measures calibrated spectral radiances across 8461 channels
-    in the thermal infrared (645–2760 cm⁻¹, 3.6–15.5 µm), providing
+    in the thermal infrared (645-2760 cm⁻¹, 3.6-15.5 µm), providing
     atmospheric temperature and humidity profiles, trace gas columns, and
     surface temperature at ~12 km spatial resolution.
 
     Each scan line contains 30 Extended Fields Of View (EFOVs), each
-    consisting of a 2×2 array of 4 Instantaneous Fields Of View (IFOVs),
+    consisting of a 2x2 array of 4 Instantaneous Fields Of View (IFOVs),
     yielding 120 spectra per scan line. A typical orbit pass contains
     ~1400 scan lines (~168,000 IFOV spectra).
 
     To manage memory and processing time, a ``channel_indices`` parameter
     allows selecting a subset of channels. By default only a representative
     set of 100 channels spanning the three spectral bands is extracted.
-
-    The returned :class:`~pandas.DataFrame` has one row per IFOV per channel,
-    following the same convention as :class:`~earth2studio.data.MetOpAMSUA`.
-    The ``channel_index`` column (1–8461) identifies each spectral channel.
 
     This data source downloads Level 1C products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -770,7 +766,7 @@ class MetOpIASI:
     -------
     This is a remote data source and can potentially download a large amount
     of data to your local machine for large requests. IASI L1C files are
-    typically 100–200 MB each, with ~42–45 products per day across 3
+    typically 100-200 MB each, with ~42-45 products per day across 3
     satellites.
 
     Note
