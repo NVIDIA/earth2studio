@@ -557,9 +557,9 @@ def _parse_native_iasi(
             nsfirst_off = field_offsets["IDefNsfirst1b"]
             nsfirst = struct.unpack_from(">i", data, nsfirst_off)[0]
 
-            # Wavenumber of channel n (0-based) = (nsfirst + n) * dwn in m⁻¹
+            # Wavenumber of channel n (0-based) = (nsfirst + n) * dwn in m^-1
             all_wn_m = (nsfirst + np.arange(_NUM_CHANNELS, dtype=np.float64)) * dwn_m
-            all_wn_cm = all_wn_m / 100.0  # Convert m⁻¹ to cm⁻¹
+            all_wn_cm = all_wn_m / 100.0  # Convert m^-1 to cm^-1
             wavenumber_cm = all_wn_cm[ch_idx]
 
         # GEPSDatIasi: EPSdatetime[30] — corrected UTC per EFOV
