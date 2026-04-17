@@ -24,8 +24,6 @@ import pytest
 
 from earth2studio.data import MetOpIASI
 from earth2studio.data.metop_iasi import (
-    _C1,
-    _C2,
     _GIADR_RECORD_CLASS,
     _GIADR_SF_SUBCLASS,
     _GRH_SIZE,
@@ -44,8 +42,8 @@ from earth2studio.data.metop_iasi import (
     _parse_grh,
     _parse_mphr,
     _parse_native_iasi,
-    _radiance_to_bt,
 )
+from earth2studio.data.utils import PLANCK_C1, PLANCK_C2, radiance_to_bt
 from earth2studio.lexicon import MetOpIASILexicon
 
 
@@ -456,19 +454,19 @@ def test_radiance_to_bt():
     # A typical radiance for 280K at 900 cm⁻¹
     # BT = C2 * nu / ln(1 + C1 * nu^3 / L) → solve for L
     bt_expected = 280.0
-    l_expected = _C1 * 900.0**3 / (np.exp(_C2 * 900.0 / bt_expected) - 1.0)
+    l_expected = PLANCK_C1 * 900.0**3 / (np.exp(PLANCK_C2 * 900.0 / bt_expected) - 1.0)
     rad = np.array([[l_expected]], dtype=np.float64)
-    bt = _radiance_to_bt(rad, wn)
+    bt = radiance_to_bt(rad, wn)
     assert np.isfinite(bt[0, 0])
     np.testing.assert_allclose(bt[0, 0], bt_expected, rtol=1e-6)
 
     # Zero/negative radiance → NaN
-    bt_zero = _radiance_to_bt(np.array([[0.0, -1.0]], dtype=np.float64), wn)
+    bt_zero = radiance_to_bt(np.array([[0.0, -1.0]], dtype=np.float64), wn)
     assert np.all(np.isnan(bt_zero))
 
     # Higher radiance → higher BT
     rads = np.array([[0.01, 0.05, 0.1]], dtype=np.float64)
-    bt_multi = _radiance_to_bt(rads, wn)
+    bt_multi = radiance_to_bt(rads, wn)
     assert np.all(np.isfinite(bt_multi))
     assert bt_multi[0, 0] < bt_multi[0, 1] < bt_multi[0, 2]
 
