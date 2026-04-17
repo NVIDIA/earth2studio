@@ -357,6 +357,22 @@ def _compute_mdr_field_offsets(data: bytes, mdr_offset: int) -> dict[str, int]:
     # GQisFlagQual: uint8[30][4][3] = 360 bytes
     pos += 360
     # GQisFlagQualDetailed: uint16[30][4] = 240 bytes
+    # 16-bit bitmask per IFOV (PFS §3.5.1.5 / §5.4.1.3):
+    #   bit 0: hardware failure
+    #   bit 1: Band 1 spike contamination
+    #   bit 2: Band 2 spike contamination
+    #   bit 3: Band 3 spike contamination
+    #   bit 4: NZPD / complex calibration error
+    #   bit 5: on-board general quality (BBofFlagSpectNonQual)
+    #   bit 6: overflow / underflow
+    #   bit 7: spectral calibration error
+    #   bit 8: radiometric post-calibration error
+    #   bit 9: GQisFlagQual summary flag (all bands)
+    #   bit 10: missing sounder data
+    #   bit 11: missing IIS data
+    #   bit 12: missing AVHRR data
+    #   bits 13-15: spare
+    # 0 = clean observation; non-zero = bitwise OR of active flags.
     offsets["GQisFlagQualDetailed"] = pos
     pos += 240
 
@@ -603,7 +619,8 @@ def _parse_native_iasi(
             raw_sun_ang_f[:, :, 1].ravel().astype(np.float32)
         )
 
-        # GQisFlagQualDetailed: uint16[30][4]
+        # GQisFlagQualDetailed: uint16[30][4] — per-IFOV quality bitmask.
+        # See bit definitions in _compute_mdr_field_offsets().
         qual_off = field_offsets["GQisFlagQualDetailed"]
         raw_qual = np.frombuffer(
             data,
