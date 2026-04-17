@@ -14,13 +14,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import os
 import sys
 from pathlib import Path
 
-# Repo root is parent of test/serve/server; ensure project is importable
-_repo_root = Path(__file__).resolve().parent.parent.parent
+_logger = logging.getLogger(__name__)
+
+# Repo root: conftest lives at <repo>/test/serve/server/conftest.py
+_repo_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
+
+# serve/server hosts top-level package azure_planetary_computer (worker GeoCatalog client)
+_serve_server_root = _repo_root / "serve" / "server"
+if str(_serve_server_root) not in sys.path:
+    sys.path.insert(0, str(_serve_server_root))
+
+# Server tests register ad-hoc workflow names (test_workflow, fake_wf, etc.). The
+# EXPOSED_WORKFLOWS environment variable overrides config to a whitelist; any workflow
+# not listed then returns 404 from API routes. Clear it so the default "expose all"
+# behavior applies, and reset any config singleton initialized before this conftest ran.
+os.environ.pop("EXPOSED_WORKFLOWS", None)
+try:
+    from earth2studio.serve.server.config import reset_config
+
+    reset_config()
+except Exception:
+    _logger.debug(
+        "Could not reset serve config at conftest import (optional deps or init order)",
+        exc_info=True,
+    )
 
 # Store original earth2studio.serve.server.config module to restore if mocked
 _original_config_module = None

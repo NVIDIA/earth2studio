@@ -387,3 +387,106 @@ class JPSSATMSLexicon(metaclass=LexiconType):
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in ATMS lexicon")
         return cls.VOCAB[val], lambda x: x
+
+
+class JPSSCrISLexicon(metaclass=LexiconType):
+    """Lexicon for JPSS CrIS (Cross-track Infrared Sounder) FSR data source.
+
+    This lexicon maps the ``crisfsr`` variable to an identity modifier for
+    the raw HDF5 spectral-radiance field.  The data source itself applies
+    optional Hamming apodization (default on) followed by the inverse Planck
+    function to convert radiance into brightness temperature (K), so the
+    ``observation`` column in the returned DataFrame is directly comparable
+    with :class:`~earth2studio.data.UFSObsSat`.  Individual channels are
+    distinguished by the ``channel_index`` column, which uses the GSI
+    ``sensor_chan`` numbering convention.
+
+    The CrIS instrument is a Fourier-transform spectrometer operating in three
+    infrared spectral bands aboard Suomi NPP, NOAA-20 (JPSS-1) and NOAA-21
+    (JPSS-2).  In Full Spectral Resolution (FSR) mode the instrument produces
+    2223 channels:
+
+    - **LWIR** (9.14--15.38 µm, 650--1095 cm^-1): 717 channels at 0.625 cm^-1
+    - **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
+    - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
+
+    When ``apodize=True`` (default in :class:`~earth2studio.data.JPSS_CRIS`),
+    the 2 guard channels at each end of each band (4 per band, 12 total) are
+    trimmed after apodization, yielding 2211 science channels with contiguous
+    ``channel_index`` 1--2211.
+
+    Notes
+    -----
+    CrIS Channel Indexing (GSI ``sensor_chan`` convention):
+
+    The CRTM defines 2211 science channels (713 + 865 + 633) across the three
+    bands.  Each band has 2 guard channels at the low-wavenumber end and 2 at
+    the high-wavenumber end that are excluded from CRTM/GSI.
+
+    - sensor_chan   0       : LWIR guard channels 0--1 (not in GSI)
+    - sensor_chan   1--713  : LWIR band (713 of 717 physical channels)
+    - sensor_chan   0       : LWIR guard channels 715--716 (not in GSI)
+    - sensor_chan   0       : MWIR guard channels 717--718 (not in GSI)
+    - sensor_chan 714--1578 : MWIR band (865 of 869 physical channels)
+    - sensor_chan   0       : MWIR guard channels 1584--1585 (not in GSI)
+    - sensor_chan   0       : SWIR guard channels 1586--1587 (not in GSI)
+    - sensor_chan 1579--2211: SWIR band (633 of 637 physical channels)
+    - sensor_chan   0       : SWIR guard channels 2221--2222 (not in GSI)
+
+    References
+    ----------
+    - NOAA JPSS CrIS SDR:
+      https://www.star.nesdis.noaa.gov/jpss/CrIS.php
+    - AWS NOAA-20 open data:
+      https://registry.opendata.aws/noaa-nesdis-n20-pds/
+    - CrIS SDR documentation:
+      https://ncc.nesdis.noaa.gov/documents/documentation/viirs-users-guide-tech-report-142a-v1.3.pdf
+    """
+
+    # Number of CrIS spectral channels per band (FSR mode)
+    CRIS_NUM_CHANNELS_LW: int = 717
+    CRIS_NUM_CHANNELS_MW: int = 869
+    CRIS_NUM_CHANNELS_SW: int = 637
+    CRIS_NUM_CHANNELS: int = (
+        CRIS_NUM_CHANNELS_LW + CRIS_NUM_CHANNELS_MW + CRIS_NUM_CHANNELS_SW
+    )  # 2223
+
+    # CrIS spatial geometry
+    CRIS_NUM_FOR: int = 30  # Fields of Regard per scan line
+    CRIS_NUM_FOV: int = 9  # Fields of View per FOR (3x3 detector array)
+
+    # CrIS spectral band wavenumber ranges (cm^-1).
+    # These are the *full physical* band extents (including 4 guard channels at
+    # the high end of each band).  CRTM/GSI science channels cover a slightly
+    # narrower range (650--1095, 1210--1750, 2155--2550 cm^-1) because the 4
+    # highest-wavenumber guard channels per band are excluded.
+    CRIS_BAND_RANGES: dict[str, tuple[float, float]] = {
+        "LW": (650.0, 1097.5),
+        "MW": (1210.0, 1752.5),
+        "SW": (2155.0, 2552.5),
+    }
+
+    VOCAB: dict[str, str] = {
+        "crisfsr": "spectralRadiance",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Get CrIS HDF5 dataset key for a standardised variable name.
+
+        Parameters
+        ----------
+        val : str
+            Standardised variable name (``crisfsr``)
+
+        Returns
+        -------
+        tuple[str, Callable]
+            Tuple containing:
+            - HDF5 dataset key for spectral radiance
+            - Modifier function (identity -- radiance is converted to
+              brightness temperature inside the data source)
+        """
+        if val not in cls.VOCAB:
+            raise KeyError(f"Variable {val} not found in CrIS lexicon")
+        return cls.VOCAB[val], lambda x: x
