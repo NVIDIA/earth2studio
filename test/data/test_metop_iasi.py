@@ -613,7 +613,7 @@ def test_parse_native_iasi_skip_non_mdr():
 
 def test_metop_iasi_default_channels():
     assert hasattr(MetOpIASI, "DEFAULT_CHANNELS")
-    assert len(MetOpIASI.DEFAULT_CHANNELS) == 100
+    assert len(MetOpIASI.DEFAULT_CHANNELS) == 174
     assert all(0 <= ch < _NUM_CHANNELS for ch in MetOpIASI.DEFAULT_CHANNELS)
 
 

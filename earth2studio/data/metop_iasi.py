@@ -751,7 +751,7 @@ class MetOpIASI:
         "metop-b", "metop-c", or None (all available). By default None.
     channel_indices : list[int] | np.ndarray | None, optional
         0-based channel indices to extract (subset of 0..8460). If None,
-        a default set of 100 representative channels is used. Pass
+        the 174 GSI-assimilated channels (matching UFSObsSat) are used. Pass
         ``np.arange(8461)`` to extract all channels (warning: very large
         output).
     time_tolerance : TimeTolerance, optional
@@ -800,17 +800,9 @@ class MetOpIASI:
     COLLECTION_ID = "EO:EUM:DAT:METOP:IASIL1C-ALL"
     VALID_SATELLITES = frozenset(["metop-a", "metop-b", "metop-c"])
 
-    # Default representative channels: 100 channels spanning all 3 bands
-    # Band 1 (645–1144 cm⁻¹): channels 1–1997, 40 channels
-    # Band 2 (1210–1990 cm⁻¹): channels 1998–5116, 35 channels
-    # Band 3 (2000–2760 cm⁻¹): channels 5117–8461, 25 channels
-    DEFAULT_CHANNELS = np.concatenate(
-        [
-            np.linspace(0, 1996, 40, dtype=np.int32),
-            np.linspace(1997, 5115, 35, dtype=np.int32),
-            np.linspace(5116, 8460, 25, dtype=np.int32),
-        ]
-    )
+    # Default channels: 174 IASI channels assimilated by NOAA's GSI system,
+    # matching the UFSObsSat ``sensor_chan`` set.  Defined in the lexicon.
+    DEFAULT_CHANNELS = MetOpIASILexicon.IASI_GSI_CHANNELS
 
     SCHEMA = pa.schema(
         [
