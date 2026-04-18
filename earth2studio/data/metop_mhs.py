@@ -30,7 +30,11 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+    radiance_to_bt,
+)
 from earth2studio.lexicon import MetOpMHSLexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -78,10 +82,6 @@ _MDR_SIZE = 4316
 #   https://www.star.nesdis.noaa.gov/mirs/documents/0.0_NOAA_KLM_Users_Guide.pdf
 _SCAN_PERIOD_S = 8.0 / 3.0  # 2.667 s per scan revolution
 _FOV_DWELL_S = _SCAN_PERIOD_S / _NUM_FOVS  # ~29.6 ms per FOV step
-
-# Planck constants for radiance → brightness temperature conversion
-_C1 = 1.191062e-05  # mW/m²/sr/cm⁻⁴
-_C2 = 1.4387863  # cm·K
 
 # MHS central wavenumbers (cm⁻¹) per channel 1–5
 # Frequency → wavenumber: ν(cm⁻¹) = f(GHz) / c(cm/s) × 1e9
@@ -167,51 +167,6 @@ def _parse_giadr_radiance(
         slopes[ch] = slope_raw / 1e6
 
     return wavenumbers, intercepts, slopes
-
-
-def _radiance_to_bt(
-    radiance: np.ndarray,
-    channel_idx: int,
-    wavenumbers: np.ndarray | None = None,
-    band_a: np.ndarray | None = None,
-    band_b: np.ndarray | None = None,
-) -> np.ndarray:
-    """Convert calibrated radiance to brightness temperature.
-
-    Uses the inverse Planck function with band correction:
-        T* = C2 * γ / ln(1 + C1 * γ³ / R)
-        T  = A + T* * B   (intercept + slope * T*)
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Calibrated radiance in mW/m²/sr/cm⁻¹
-    channel_idx : int
-        0-based channel index
-    wavenumbers : np.ndarray | None
-        Central wavenumbers (cm⁻¹) per channel. Falls back to module default.
-    band_a : np.ndarray | None
-        Band correction intercept per channel (K). Falls back to module default.
-    band_b : np.ndarray | None
-        Band correction slope per channel. Falls back to module default.
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature in Kelvin
-    """
-    wn = wavenumbers if wavenumbers is not None else _WAVENUMBERS
-    a = (band_a if band_a is not None else _BAND_A)[channel_idx]
-    b = (band_b if band_b is not None else _BAND_B)[channel_idx]
-    gamma = wn[channel_idx]
-
-    # Guard against zero/negative radiance
-    valid = radiance > 0
-    bt = np.full_like(radiance, np.nan, dtype=np.float64)
-    r = radiance[valid]
-    t_star = _C2 * gamma / np.log(1.0 + _C1 * gamma**3 / r)
-    bt[valid] = a + t_star * b
-    return bt
 
 
 def _parse_mphr(data: bytes) -> dict[str, str]:
@@ -421,10 +376,19 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
     valid_channels = list(range(1, MetOpMHSLexicon.MHS_NUM_CHANNELS + 1))
     n_valid_channels = len(valid_channels)
 
+    # Use channel-specific wavenumber and band correction (additive formula)
+    wn_arr = wn if wn is not None else _WAVENUMBERS
+    a_arr = band_a if band_a is not None else _BAND_A
+    b_arr = band_b if band_b is not None else _BAND_B
+
     bt_arrays: dict[int, np.ndarray] = {}
     for ch_idx in valid_channels:
-        bt_arrays[ch_idx] = _radiance_to_bt(
-            radiances[:, ch_idx - 1], ch_idx - 1, wn, band_a, band_b
+        ch_0 = ch_idx - 1  # 0-based index
+        bt_arrays[ch_idx] = radiance_to_bt(
+            radiances[:, ch_0],
+            wn_arr[ch_0],
+            band_correction=(a_arr[ch_0], b_arr[ch_0]),
+            correction_formula="additive",
         )
 
     # Step 5: Build long-format DataFrame (one row per FOV × channel)

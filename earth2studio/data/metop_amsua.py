@@ -30,7 +30,11 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+    radiance_to_bt,
+)
 from earth2studio.lexicon import MetOpAMSUALexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -77,10 +81,6 @@ _MDR_SIZE = 3464
 # Using 200 ms as representative dwell for per-FOV time interpolation.
 _SCAN_PERIOD_S = 8.0 / 3.0  # 2.667 s per scan revolution
 _FOV_DWELL_S = 0.2  # ~200 ms per FOV step
-
-# Planck constants for radiance → brightness temperature conversion
-_C1 = 1.191062e-05  # mW/m²/sr/cm⁻⁴
-_C2 = 1.4387863  # cm·K
 
 # Metop-B AMSU-A central wavenumbers (cm⁻¹) per channel 1–15
 # From ATOVS L1B Product Guide, Appendix A
@@ -131,38 +131,6 @@ _EUMDAC_SAT_NAME = {
     "metop-c": "Metop-C",
     "metop-sga1": "Metop-SGA1",
 }
-
-
-def _radiance_to_bt(radiance: np.ndarray, channel_idx: int) -> np.ndarray:
-    """Convert calibrated radiance to brightness temperature.
-
-    Uses the inverse Planck function with band correction:
-        T* = C2 * γ / ln(1 + C1 * γ³ / R)
-        T  = (T* - A) / B
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Calibrated radiance in mW/m²/sr/cm⁻¹
-    channel_idx : int
-        0-based channel index
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature in Kelvin
-    """
-    gamma = _WAVENUMBERS[channel_idx]
-    a = _BAND_A[channel_idx]
-    b = _BAND_B[channel_idx]
-
-    # Guard against zero/negative radiance
-    valid = radiance > 0
-    bt = np.full_like(radiance, np.nan, dtype=np.float64)
-    r = radiance[valid]
-    t_star = _C2 * gamma / np.log(1.0 + _C1 * gamma**3 / r)
-    bt[valid] = (t_star - a) / b
-    return bt
 
 
 def _parse_mphr(data: bytes) -> dict[str, str]:
@@ -353,12 +321,19 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
         quality[base : base + _NUM_FOVS] = np.uint16(mdr_qual & 0xFFFF)
 
     # Step 4: Convert radiances to brightness temperatures per channel
+    # AMSU-A uses divisive band correction: T = (T* - A) / B
     valid_channels = list(range(1, MetOpAMSUALexicon.AMSUA_NUM_CHANNELS + 1))
     n_valid_channels = len(valid_channels)
 
     bt_arrays: dict[int, np.ndarray] = {}
     for ch_idx in valid_channels:
-        bt_arrays[ch_idx] = _radiance_to_bt(radiances[:, ch_idx - 1], ch_idx - 1)
+        ch_0 = ch_idx - 1  # 0-based index
+        bt_arrays[ch_idx] = radiance_to_bt(
+            radiances[:, ch_0],
+            _WAVENUMBERS[ch_0],
+            band_correction=(_BAND_A[ch_0], _BAND_B[ch_0]),
+            correction_formula="divisive",
+        )
 
     # Step 5: Build long-format DataFrame (one row per FOV × valid channel)
     rows_per_channel = n_obs
