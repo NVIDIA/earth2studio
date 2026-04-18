@@ -223,6 +223,17 @@ class _UFSObsBase:
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Compile fetched data into a DataFrame."""
+        # Identify schema fields that are per-channel (need Channel_Index lookup)
+        channel_indexed_fields: dict[str, str] = {}
+        for field in schema:
+            if (
+                field.metadata
+                and b"channel_indexed" in field.metadata
+                and b"gsi_name" in field.metadata
+            ):
+                gsi_name = field.metadata[b"gsi_name"].decode("utf-8")
+                channel_indexed_fields[gsi_name] = field.name
+
         frames: list[pd.DataFrame] = []
         for task in async_tasks:
             # Overwrite obs column name (needed for uv)
@@ -235,8 +246,12 @@ class _UFSObsBase:
             try:
                 with h5netcdf.File(local_path, "r") as ds:
                     data: dict[str, np.ndarray] = {}
+                    channel_index_raw: np.ndarray | None = None
                     for name, dset in ds.variables.items():
                         if name not in column_map:
+                            continue
+                        # Skip channel-indexed fields; they are expanded below
+                        if name in channel_indexed_fields:
                             continue
                         values = np.asarray(dset[:])
                         pa_type = self.SCHEMA.field(column_map[name]).type
@@ -249,6 +264,25 @@ class _UFSObsBase:
                         # Apply subclass-specific transformations
                         values = self._transform_column(name, values, task, ds)
                         data[name] = pa.array(values, type=pa_type)
+                        # Stash raw Channel_Index for per-channel expansion
+                        if name == "Channel_Index":
+                            channel_index_raw = np.asarray(dset[:])
+
+                    # Expand channel-indexed fields using Channel_Index as lookup
+                    if channel_index_raw is not None:
+                        idx: np.ndarray = channel_index_raw.astype(np.uint16) - 1
+                        for gsi_name, field_name in channel_indexed_fields.items():
+                            if gsi_name in ds.variables:
+                                lut = np.asarray(
+                                    ds[gsi_name][:],
+                                    dtype=schema.field(
+                                        field_name
+                                    ).type.to_pandas_dtype(),
+                                )
+                                data[gsi_name] = pa.array(
+                                    lut[idx], type=schema.field(field_name).type
+                                )
+
                 df = pd.DataFrame(data)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Failed to read {}: {}", local_path, exc)
@@ -639,6 +673,18 @@ class UFSObsSat(_UFSObsBase):
                 nullable=True,
                 metadata={"gsi_name": "Channel_Index"},
             ),
+            pa.field(
+                "frequency",
+                pa.float64(),
+                nullable=True,
+                metadata={"gsi_name": "frequency", "channel_indexed": "true"},
+            ),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"gsi_name": "wavenumber", "channel_indexed": "true"},
+            ),
             pa.field("solza", pa.float32(), metadata={"gsi_name": "Sol_Zenith_Angle"}),
             pa.field(
                 "solaza", pa.float32(), metadata={"gsi_name": "Sol_Azimuth_Angle"}
@@ -745,12 +791,8 @@ class UFSObsSat(_UFSObsBase):
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Obs_Time":
             values = pd.to_timedelta(values, unit="h") + task.datetime_file
-        # Channel index actually seems to be a pointer to sensor channels
-        if name == "Channel_Index":
-            sensor_chan = ds["sensor_chan"][:].astype(np.uint16)
-            values = sensor_chan[values.astype(np.uint16) - 1]
         return values
 
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
-        """Add satellite column for satellite data."""
+        """Add satellite column."""
         df["satellite"] = task.satellite
