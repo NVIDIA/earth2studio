@@ -32,10 +32,50 @@ from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.io import ZarrBackend
+from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
 
 from .distributed import run_on_rank0_first
+
+_NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
+
+
+def _spatial_dims(coords: CoordSystem) -> list[str]:
+    """Return dimension names from *coords* that are spatial (not structural).
+
+    Structural dimensions (batch, time, lead_time, variable, ensemble) are
+    excluded; everything else is treated as a spatial dimension whose values
+    should be carried through to output stores.
+    """
+    return [d for d in coords if d not in _NON_SPATIAL_DIMS]
+
+
+def build_output_coords(
+    spatial_ref: CoordSystem,
+    output_variables: list[str],
+) -> CoordSystem:
+    """Build the coordinate filter used to sub-select model output before writing.
+
+    Parameters
+    ----------
+    spatial_ref : CoordSystem
+        Reference coordinate system whose spatial entries define the output
+        grid.  Typically the output coords of the prognostic or diagnostic
+        model.
+    output_variables : list[str]
+        Variable names to extract from the model state at each step.
+
+    Returns
+    -------
+    CoordSystem
+        Filter with ``variable`` and any spatial dimension keys.
+    """
+    oc: CoordSystem = OrderedDict()
+    oc["variable"] = np.array(output_variables)
+    for dim in _spatial_dims(spatial_ref):
+        oc[dim] = spatial_ref[dim]
+    return oc
 
 
 def sentinel_path(cfg: DictConfig) -> Path:
@@ -59,50 +99,224 @@ def sentinel_path(cfg: DictConfig) -> Path:
     return Path(cfg.output.path) / ".predownload.done"
 
 
-class OutputManager:
-    """Distributed-safe lifecycle manager for zarr forecast output.
+def build_forecast_coords(
+    prognostic: PrognosticModel,
+    times: np.ndarray,
+    nsteps: int,
+    ensemble_size: int = 1,
+) -> CoordSystem:
+    """Build the full coordinate system for a standard prognostic forecast.
 
-    Handles the full output lifecycle: store creation (rank 0), validation
-    (other ranks), writes (optionally threaded), and metadata consolidation.
-    Use as a context manager to guarantee cleanup.
+    Derives lead-time coordinates from the model's single-step output (the
+    same convention used in ``earth2studio.run.deterministic``), then
+    combines them with time, ensemble, and spatial dimensions.
 
     Parameters
     ----------
-    cfg : DictConfig
-        Hydra config — expects ``output`` section with ``path``, ``variables``,
-        ``overwrite``, ``chunks``, and optionally ``thread_writers``.
     prognostic : PrognosticModel
-        Used to derive the coordinate system for the output arrays.
+        Model whose output coordinates determine lead-time stride and
+        spatial dimensions.
     times : np.ndarray
         All initial-condition times that will appear in the output.
     nsteps : int
         Number of forecast steps.
     ensemble_size : int
-        Total number of ensemble members across all ranks.
+        Total number of ensemble members.  When 1 the ensemble dimension
+        is omitted.
+
+    Returns
+    -------
+    CoordSystem
+        Full coordinate system suitable for passing to
+        :meth:`OutputManager.validate_output_store`.
+    """
+    input_c = prognostic.input_coords()
+    output_c = prognostic.output_coords(input_c)
+
+    total: CoordSystem = OrderedDict()
+    if ensemble_size > 1:
+        total["ensemble"] = np.arange(ensemble_size)
+    total["time"] = times
+
+    zero = np.array([np.timedelta64(0, "ns")])
+    step_lead = output_c["lead_time"]
+    step_stride = step_lead[-1]
+    total["lead_time"] = np.concatenate(
+        [
+            zero,
+            np.asarray([step_lead + step_stride * i for i in range(nsteps)])
+            .flatten()
+            .astype("timedelta64[ns]"),
+        ]
+    )
+
+    for dim in _spatial_dims(output_c):
+        total[dim] = output_c[dim]
+
+    return total
+
+
+def build_diagnostic_coords(
+    diagnostics: list[DiagnosticModel],
+    times: np.ndarray,
+    ensemble_size: int = 1,
+) -> CoordSystem:
+    """Build the full coordinate system for a diagnostic-only pipeline.
+
+    Uses the first diagnostic model to determine the output spatial grid.
+    The time dimension is a single ``lead_time=0`` slice per initial
+    condition (no forecast rollout).
+
+    Parameters
+    ----------
+    diagnostics : list[DiagnosticModel]
+        Diagnostic models that will be run.  The first model's output
+        coordinates define the spatial grid.
+    times : np.ndarray
+        All initial-condition times that will appear in the output.
+    ensemble_size : int
+        Total number of ensemble members.  When 1 the ensemble dimension
+        is omitted.
+
+    Returns
+    -------
+    CoordSystem
+        Full coordinate system suitable for passing to
+        :meth:`OutputManager.validate_output_store`.
+    """
+    if not diagnostics:
+        raise ValueError("At least one diagnostic model is required.")
+
+    dx = diagnostics[0]
+    output_c = dx.output_coords(dx.input_coords())
+
+    total: CoordSystem = OrderedDict()
+    if ensemble_size > 1:
+        total["ensemble"] = np.arange(ensemble_size)
+    total["time"] = times
+    total["lead_time"] = np.array([np.timedelta64(0, "ns")])
+
+    for dim in _spatial_dims(output_c):
+        total[dim] = output_c[dim]
+
+    return total
+
+
+def build_predownload_coords(
+    spatial_ref: CoordSystem,
+    times: np.ndarray,
+) -> CoordSystem:
+    """Build coords for a predownload zarr store: ``(time, <spatial...>)``.
+
+    The returned coordinate system has a ``time`` dimension followed by
+    whatever spatial dimensions are present in *spatial_ref*.  Variables
+    are not included — they are passed separately as array names to
+    :meth:`OutputManager.validate_output_store`.
+
+    Parameters
+    ----------
+    spatial_ref : CoordSystem
+        Reference coordinate system whose spatial entries define the grid.
+    times : np.ndarray
+        All valid times to be stored (IC-adjusted times, verification
+        times, or the union of both).
+
+    Returns
+    -------
+    CoordSystem
+        ``(time, <spatial...>)`` coordinate system.
+    """
+    coords: CoordSystem = OrderedDict()
+    coords["time"] = times
+    for dim in _spatial_dims(spatial_ref):
+        coords[dim] = spatial_ref[dim]
+    return coords
+
+
+def build_score_coords(
+    metric: Any,
+    times: np.ndarray,
+    input_coords_template: CoordSystem,
+) -> CoordSystem:
+    """Build the output coordinate system for a single metric's score arrays.
+
+    Calls ``metric.output_coords()`` on a template coordinate system (which
+    should mirror the shape of the tensors that will be passed to the metric)
+    to determine which dimensions survive reduction.  A ``time`` axis is
+    prepended since scores are computed per initial-condition time.
+
+    Parameters
+    ----------
+    metric : Metric
+        An ``earth2studio.statistics`` metric instance (or any object with an
+        ``output_coords`` method).
+    times : np.ndarray
+        All initial-condition times that will appear in the score store.
+    input_coords_template : CoordSystem
+        Representative coordinate system matching the tensors that will be
+        passed to the metric (e.g. ``{lead_time, variable, lat, lon}``).
+
+    Returns
+    -------
+    CoordSystem
+        Coordinate system for the score arrays: ``(time, <surviving dims>)``.
+    """
+    score_output = metric.output_coords(input_coords_template)
+    total: CoordSystem = OrderedDict()
+    total["time"] = times
+    for dim, vals in score_output.items():
+        if dim != "time":
+            total[dim] = vals
+    return total
+
+
+class OutputManager:
+    """Distributed-safe lifecycle manager for a zarr store.
+
+    Handles the full output lifecycle: store creation (rank 0), validation
+    (other ranks), writes (optionally threaded), and metadata consolidation.
+    Use as a context manager to guarantee safe creation and cleanup.
+
+    The constructor performs only basic config validation.  Call
+    :meth:`validate_output_store` with a pre-built coordinate system and
+    variable list to create or validate the zarr store before writing.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config — expects ``output`` section with ``path``,
+        ``chunks``, and optionally ``thread_writers``.
+    store_name : str
+        Name of the zarr store directory relative to ``output.path``.
+        Defaults to ``"forecast.zarr"``.
+    overwrite : bool | None
+        If provided, overrides ``output.overwrite`` from config.
+    resume : bool | None
+        If provided, overrides the top-level ``resume`` from config.
     """
 
     def __init__(
         self,
         cfg: DictConfig,
-        prognostic: PrognosticModel,
-        times: np.ndarray,
-        nsteps: int,
-        ensemble_size: int = 1,
+        store_name: str = "forecast.zarr",
+        overwrite: bool | None = None,
+        resume: bool | None = None,
     ) -> None:
-        self._cfg = cfg
+        output_cfg = cfg.output
         self._dist = DistributedManager()
 
-        output_cfg = cfg.output
-        self._path = os.path.join(output_cfg.path, "forecast.zarr")
-        self._overwrite = output_cfg.get("overwrite", False)
-        self._variables = list(output_cfg.variables)
-        self._thread_io = output_cfg.get("thread_writers", 0)
-
-        self._total_coords = self._build_total_coords(
-            prognostic, times, nsteps, ensemble_size
+        self._path = os.path.join(output_cfg.path, store_name)
+        self._overwrite = (
+            overwrite if overwrite is not None else output_cfg.get("overwrite", False)
         )
-        self._output_coords = self._build_output_coords(output_cfg)
+        self._resume = resume if resume is not None else cfg.get("resume", False)
+        self._thread_io = output_cfg.get("thread_writers", 0)
+        self._chunks: dict[str, int] = dict(
+            output_cfg.get("chunks", {"time": 1, "lead_time": 1})
+        )
 
+        self._total_coords: CoordSystem | None = None
+        self._variables: list[str] | None = None
         self._io: ZarrBackend | None = None
         self._executor: ThreadPoolExecutor | None = None
         self._futures: list[Future[Any]] = []
@@ -112,7 +326,6 @@ class OutputManager:
     # ------------------------------------------------------------------
 
     def __enter__(self) -> OutputManager:
-        self._io = run_on_rank0_first(self._open_store)
         if self._thread_io > 0:
             self._executor = ThreadPoolExecutor(max_workers=self._thread_io)
         return self
@@ -165,17 +378,41 @@ class OutputManager:
     # Public API
     # ------------------------------------------------------------------
 
-    @property
-    def io(self) -> ZarrBackend:
-        """The underlying IO backend (available after ``__enter__``)."""
-        if self._io is None:
-            raise RuntimeError("OutputManager must be used as a context manager.")
-        return self._io
+    def validate_output_store(
+        self,
+        total_coords: CoordSystem,
+        variables: list[str],
+    ) -> None:
+        """Create or validate the zarr store against the given schema.
+
+        On first call this opens the zarr store using rank-ordered execution
+        (rank 0 creates, others validate).  All ranks in a distributed job
+        **must** call this method so that the internal barriers are satisfied.
+
+        If the store already exists on disk (and ``overwrite`` is false),
+        the existing coordinates are validated against *total_coords*.
+
+        Parameters
+        ----------
+        total_coords : CoordSystem
+            Full coordinate system for the output arrays (e.g. from
+            :func:`build_forecast_coords`).
+        variables : list[str]
+            Variable names to create in the store.
+        """
+        self._total_coords = total_coords
+        self._variables = variables
+        self._io = run_on_rank0_first(self._open_store)
 
     @property
-    def output_coords(self) -> CoordSystem:
-        """Coordinate system used for sub-selecting model output before writing."""
-        return self._output_coords
+    def io(self) -> ZarrBackend:
+        """The underlying IO backend (available after :meth:`validate_output_store`)."""
+        if self._io is None:
+            raise RuntimeError(
+                "Output store not initialized. "
+                "Call validate_output_store() before accessing io."
+            )
+        return self._io
 
     def write(self, x: torch.Tensor, coords: CoordSystem) -> None:
         """Write a chunk of forecast data, optionally using a thread pool.
@@ -194,78 +431,49 @@ class OutputManager:
         else:
             self.io.write(arrays, coord_sets, var_names)
 
+    def flush(self) -> None:
+        """Wait for all pending threaded writes to complete.
+
+        Called between work items during resume runs to guarantee that all
+        zarr writes have landed before a completion marker is written.
+        Raises immediately if any pending write failed.
+        """
+        if self._executor is not None:
+            for f in self._futures:
+                f.result()
+            self._futures.clear()
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_total_coords(
-        self,
-        prognostic: PrognosticModel,
-        times: np.ndarray,
-        nsteps: int,
-        ensemble_size: int,
-    ) -> CoordSystem:
-        """Derive the full coordinate system for the output zarr.
-
-        Follows the same lead-time derivation used in
-        ``earth2studio.run.deterministic``: the model's single-step output
-        lead-times are scaled by step index to produce the full forecast
-        timeline.
-        """
-        input_c = prognostic.input_coords()
-        output_c = prognostic.output_coords(input_c)
-
-        total: CoordSystem = OrderedDict()
-        if ensemble_size > 1:
-            total["ensemble"] = np.arange(ensemble_size)
-        total["time"] = times
-
-        zero = np.array([np.timedelta64(0, "ns")])
-        step_lead = output_c["lead_time"]
-        step_stride = step_lead[-1]
-        total["lead_time"] = np.concatenate(
-            [
-                zero,
-                np.asarray([step_lead + step_stride * i for i in range(nsteps)])
-                .flatten()
-                .astype("timedelta64[ns]"),
-            ]
-        )
-
-        for dim in ("lat", "lon"):
-            if dim in output_c:
-                total[dim] = output_c[dim]
-
-        return total
-
-    def _build_output_coords(self, output_cfg: DictConfig) -> CoordSystem:
-        """Build the coordinate filter applied before each write."""
-        oc: CoordSystem = OrderedDict()
-        oc["variable"] = np.array(self._variables)
-
-        for dim in ("lat", "lon"):
-            if dim in self._total_coords:
-                oc[dim] = self._total_coords[dim]
-
-        return oc
-
     def _open_store(self) -> ZarrBackend:
         """Create or open the zarr store (called inside rank-ordered context)."""
+        if self._total_coords is None or self._variables is None:
+            raise ValueError(
+                "Total coordinates and variables must be set before opening the store"
+            )
         is_rank0 = self._dist.rank == 0 if self._dist.distributed else True
-        output_cfg = self._cfg.output
 
         os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
 
-        if is_rank0 and os.path.exists(self._path):
-            if self._overwrite:
+        store_exists = os.path.exists(self._path)
+
+        if is_rank0 and store_exists:
+            if self._resume:
+                logger.info(f"Resuming into existing store: {self._path}")
+            elif self._overwrite:
                 logger.warning(f"Overwriting existing store: {self._path}")
                 shutil.rmtree(self._path)
+                store_exists = False
             else:
                 raise FileExistsError(
-                    f"{self._path} already exists. Set output.overwrite=true to replace."
+                    f"{self._path} already exists. "
+                    "Set output.overwrite=true to replace, "
+                    "or resume=true to append."
                 )
 
-        chunks = dict(output_cfg.get("chunks", {"time": 1, "lead_time": 1}))
+        chunks = dict(self._chunks)
         if "ensemble" not in chunks and "ensemble" in self._total_coords:
             chunks["ensemble"] = 1
 
@@ -275,7 +483,7 @@ class OutputManager:
             backend_kwargs={"overwrite": False},
         )
 
-        if is_rank0:
+        if is_rank0 and not store_exists:
             write_coords = self._total_coords.copy()
             variables = np.array(self._variables)
             io.add_array(write_coords, variables)
@@ -284,10 +492,14 @@ class OutputManager:
             for v in self._variables:
                 if v not in io:
                     raise ValueError(
-                        f"Variable '{v}' missing from store — rank 0 initialization failed?"
+                        f"Variable '{v}' missing from store — "
+                        "rank 0 initialization failed?"
                     )
             for dim in self._total_coords:
                 handshake_coords(io.coords, self._total_coords, required_dim=dim)
-            logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
+            if is_rank0:
+                logger.info(f"Validated existing store for resume: {self._path}")
+            else:
+                logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
 
         return io
