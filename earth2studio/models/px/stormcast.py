@@ -44,7 +44,6 @@ from earth2studio.utils.type import CoordSystem
 try:
     from omegaconf import OmegaConf
     from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
-    from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.diffusion_unets import StormCastUNet
@@ -52,7 +51,6 @@ except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
     EDMNoiseScheduler = None
-    EDMPreconditioner = None
     EDMPrecond = None
     OmegaConf = None
     sample = None
