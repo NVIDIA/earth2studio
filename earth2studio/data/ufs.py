@@ -38,7 +38,8 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 
 @dataclass
@@ -68,7 +69,7 @@ class _UFSObsBase:
 
     def __init__(
         self,
-        tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         max_workers: int = 24,
         cache: bool = True,
         async_timeout: int = 600,
@@ -88,10 +89,9 @@ class _UFSObsBase:
         except RuntimeError:
             self.fs = None
 
-        if isinstance(tolerance, np.timedelta64):
-            self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
-        else:
-            self.tolerance = tolerance
+        lower, upper = normalize_time_tolerance(time_tolerance)
+        self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
+        self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
@@ -413,9 +413,10 @@ class UFSObsConv(_UFSObsBase):
 
     Parameters
     ----------
-    tolerance : timedelta | np.timedelta64, optional
-        Time tolerance; observations within +/- tolerance of any requested time are
-        returned, by default np.timedelta64(0).
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     max_workers : int, optional
         Max workers in async IO thread pool for concurrent downloads, by default 24.
     cache : bool, optional
@@ -445,6 +446,10 @@ class UFSObsConv(_UFSObsBase):
 
         ds = UFSObsConv(tolerance=timedelta(hours=2))
         df = ds(datetime(2024, 1, 1, 20), ["u"])
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsConv"
@@ -491,13 +496,18 @@ class UFSObsConv(_UFSObsBase):
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
                 gsi_platform, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
-            except KeyError as e:
-                logger.error(f"Variable id {v} not found in GSI conventional lexicon")
-                raise e
+            except KeyError:
+                if v in GSISatelliteLexicon:
+                    logger.warning(
+                        f"Variable id {v} is a UFS satellite variable, skipping in conventional fetch"
+                    )
+                    continue
+                logger.error(f"Variable id {v} not found in GSI lexicon")
+                raise
 
             for t in time_list:
-                tmin = t - self.tolerance
-                tmax = t + self.tolerance
+                tmin = t + self._tolerance_lower
+                tmax = t + self._tolerance_upper
                 day = tmin.replace(minute=0, second=0, microsecond=0)
                 day = day.replace(hour=(day.hour // 6) * 6)
                 while day <= tmax:
@@ -546,9 +556,10 @@ class UFSObsSat(_UFSObsBase):
 
     Parameters
     ----------
-    tolerance : timedelta | np.timedelta64, optional
-        Time tolerance; observations within +/- tolerance of any requested time are
-        returned, by default np.timedelta64(0).
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     satellites : list[str], optional
         List of satellite platforms to include, by default includes all platforms.
     max_workers : int, optional
@@ -585,11 +596,16 @@ class UFSObsSat(_UFSObsBase):
         # Use specific satellite
         ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
         df = ds(datetime(2024, 1, 1, 20), ["atms"])
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:sat
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsSat"
     VALID_SATELLITES = frozenset(
         [
+            "aqua",
             "npp",
             "metop-a",
             "metop-b",
@@ -643,7 +659,7 @@ class UFSObsSat(_UFSObsBase):
 
     def __init__(
         self,
-        tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
         max_workers: int = 24,
         cache: bool = True,
@@ -661,7 +677,7 @@ class UFSObsSat(_UFSObsBase):
                 )
         self.satellites = satellites
         super().__init__(
-            tolerance=tolerance,
+            time_tolerance=time_tolerance,
             max_workers=max_workers,
             cache=cache,
             async_timeout=async_timeout,
@@ -679,14 +695,19 @@ class UFSObsSat(_UFSObsBase):
                 gsi_platforms = [
                     p for p in gsi_platforms0.split(",") if p in self.satellites
                 ]
-            except KeyError as e:
-                logger.error(f"Variable id {v} not found in GSI satellite lexicon")
-                raise e
+            except KeyError:
+                if v in GSIConventionalLexicon:
+                    logger.warning(
+                        f"Variable id {v} is a UFS conventional variable, skipping in satellite fetch"
+                    )
+                    continue
+                logger.error(f"Variable id {v} not found in GSI lexicon")
+                raise
 
             for gsi_platform in gsi_platforms:
                 for t in time_list:
-                    tmin = t - self.tolerance
-                    tmax = t + self.tolerance
+                    tmin = t + self._tolerance_lower
+                    tmax = t + self._tolerance_upper
                     day = tmin.replace(minute=0, second=0, microsecond=0)
                     day = day.replace(hour=(day.hour // 6) * 6)
                     while day <= tmax:

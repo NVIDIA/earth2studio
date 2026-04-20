@@ -17,13 +17,24 @@
 
 set -euo pipefail
 
-# Resolve paths so this works from any clone (not just /workspace/...)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVE_SERVER_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$SERVE_SERVER_DIR/../.." && pwd)"
+# Set EARTH2STUDIO_MODEL_CACHE to use AZUREML_MODEL_DIR if available
+if [ -n "${AZUREML_MODEL_DIR:-}" ]; then
+    echo "AZUREML_MODEL_DIR: $AZUREML_MODEL_DIR"
+    export EARTH2STUDIO_MODEL_CACHE="$AZUREML_MODEL_DIR/${EARTH2STUDIO_MODEL_SUBPATH:-e2s_fcn3_stormscope}"
+    echo "--------------------------------"
+    echo "EARTH2STUDIO_MODEL_CACHE: $EARTH2STUDIO_MODEL_CACHE"
+    ls -la $EARTH2STUDIO_MODEL_CACHE && echo "--------------------------------"
+fi
 
-# Ensure Python can find earth2studio (including earth2studio.serve.server)
-export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
+# Use CONFIG_DIR/SCRIPT_DIR from env if set (e.g. in Docker); else resolve from script location
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+SERVE_SERVER_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+export SCRIPT_DIR
+export CONFIG_DIR="${CONFIG_DIR:-$SCRIPT_DIR/../conf}"
+export WORKFLOW_DIR="${WORKFLOW_DIR:-}"
+
+# PYTHONPATH (repo root + serve/server for azure_planetary_computer.*) is set in
+# scripts/start_api_server.sh before uvicorn and RQ workers start.
 
 cd "$SERVE_SERVER_DIR"
 make start-redis

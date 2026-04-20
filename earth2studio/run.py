@@ -463,9 +463,10 @@ def ensemble(
 
         # Expand x, coords for ensemble
         mini_batch_size = min(batch_size, nensemble - batch_id)
-        coords = {
-            "ensemble": np.arange(batch_id, batch_id + mini_batch_size)
-        } | coords0.copy()
+        coords = (
+            OrderedDict({"ensemble": np.arange(batch_id, batch_id + mini_batch_size)})
+            | coords0.copy()
+        )
 
         # Unsqueeze x for batching ensemble
         x = x.unsqueeze(0).repeat(mini_batch_size, *([1] * x.ndim))

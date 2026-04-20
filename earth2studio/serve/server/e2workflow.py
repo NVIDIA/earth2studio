@@ -14,15 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import inspect
 import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
-from typing import Any, ClassVar, get_type_hints
+from typing import Any, ClassVar, cast, get_type_hints
 
 import torch
 import zarr
-from pydantic import Field, create_model
+
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from pydantic import Field, create_model
+except ImportError:
+    OptionalDependencyFailure("serve")
+    Field = None  # type: ignore[assignment]
+    create_model = None  # type: ignore[assignment]
 
 from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.serve.server.config import get_config
@@ -35,6 +48,7 @@ from earth2studio.serve.server.workflow import (
 from earth2studio.utils.type import CoordSystem
 
 
+@check_optional_dependencies()
 def _convert_param(param: inspect.Parameter, typeinfo: type) -> tuple[type, Field]:
     """Convert parameter to Pydantic Field declaration with validation constraints"""
     field_kwargs = {}
@@ -52,6 +66,7 @@ def _convert_param(param: inspect.Parameter, typeinfo: type) -> tuple[type, Fiel
     return (typeinfo, Field(**field_kwargs))
 
 
+@check_optional_dependencies()
 def func_to_model(
     function: Callable,
     model_name: str = "Parameters",
@@ -102,6 +117,7 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
 
     def __init__(self) -> None:
         super().__init__()
+        self.execution_id: str | None = None
 
     @abstractmethod
     def __call__(self, io: IOBackend) -> None:
@@ -124,13 +140,36 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
     def run(
         self, parameters: dict[str, Any] | WorkflowParameters, execution_id: str
     ) -> dict[str, Any]:
-        """Run custom workflow"""
+        """
+        Run custom workflow.
+
+        Chooses Zarr vs NetCDF output from ``paths.output_format`` in server config.
+        If the workflow's ``__call__`` defines an ``output_format`` parameter, a value
+        sent in the API request overrides the server default; if the client omits it,
+        the server default is used.
+        """
+
+        # Store execution_id for use in update_progress
+        self.execution_id = execution_id
 
         # Validate and convert parameters
-        parameters = self.validate_parameters(parameters)
+        validated: WorkflowParameters = self.validate_parameters(parameters)
+
+        # Output format: API may override server default when the workflow declares
+        # ``output_format`` on ``__call__`` (see ``model_fields_set``).
+        param_cls = type(self).Parameters
+        cfg_output_format = get_config().paths.output_format
+        if "output_format" in param_cls.model_fields:
+            if "output_format" in validated.model_fields_set:
+                output_format = validated.output_format
+            else:
+                output_format = cfg_output_format
+            validated = validated.model_copy(update={"output_format": output_format})
+        else:
+            output_format = cfg_output_format
 
         # Initialize metadata for tracking
-        metadata = {"parameters": parameters.model_dump()}
+        metadata = {"parameters": validated.model_dump()}
 
         try:
             # Store metadata separately
@@ -142,7 +181,6 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
 
             # Configure output
             output_dir = self.get_output_path(execution_id)
-            output_format = get_config().paths.output_format
             if output_format == "zarr":
                 output_path = str(output_dir / "results.zarr")
                 results_io: IOBackend = ZarrBackend(output_path)
@@ -158,11 +196,15 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             # Run the forecast!
             progress = WorkflowProgress(progress="Starting workflow")
             self.update_execution_data(execution_id, progress)
-            self(io=results_io, **dict(parameters))
+            self(io=results_io, **validated.model_dump())
 
             # Consolidate zarr metadata for faster remote access
             if output_format == "zarr":
                 zarr.consolidate_metadata(output_path)
+            elif output_format == "netcdf4":
+                inner = getattr(results_io, "io", results_io)
+                inner.root.sync()
+                inner.close()
 
             # Update final metadata and progress
             progress = WorkflowProgress(progress="Finished workflow successfully")
@@ -188,6 +230,36 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             self.update_execution_data(execution_id, progress)
             raise
 
+    def update_progress(self, progress: WorkflowProgress) -> None:
+        """
+        Update workflow execution progress.
+
+        This method is intended for child workflows to update progress
+        information during execution. It uses the execution_id stored
+        during the run() method.
+
+        If execution_id is not set (e.g., when running outside the API server),
+        this method is a no-op and silently returns without updating progress.
+
+        Parameters
+        ----------
+        progress : WorkflowProgress
+            WorkflowProgress object containing progress information to update.
+
+        Examples
+        --------
+        >>> progress = WorkflowProgress(
+        ...     progress="Processing data...",
+        ...     current_step=5,
+        ...     total_steps=10
+        ... )
+        >>> self.update_progress(progress)
+        """
+        if self.execution_id is None:
+            # No-op when running outside API server context
+            return
+        self.update_execution_data(self.execution_id, progress)
+
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +270,7 @@ class BackendProgress:
     def __init__(
         self,
         io: IOBackend,
-        workflow: Workflow,
+        workflow: Earth2Workflow,
         execution_id: str,
         progress_dim: str = "lead_time",
     ) -> None:
@@ -229,7 +301,7 @@ class BackendProgress:
                 progress = WorkflowProgress(
                     current_step=0, total_steps=len(self.progress_coords)
                 )
-                self.workflow.update_execution_data(self.execution_id, progress)
+                self.workflow.update_progress(progress)
 
     def write(
         self,
@@ -246,8 +318,12 @@ class BackendProgress:
             step_index = self.progress_coords.index(current_coord)
             # Update progress using WorkflowProgress
             progress = WorkflowProgress(current_step=step_index + 1)
-            self.workflow.update_execution_data(self.execution_id, progress)
+            self.workflow.update_progress(progress)
 
     def __getattr__(self, name: str) -> Any:
         """Allow passthrough of unwrapped attributes."""
         return getattr(self.io, name)
+
+    def __getitem__(self, key: str) -> Any:
+        """Allow subscripting to access underlying io object."""
+        return cast(Any, self.io)[key]

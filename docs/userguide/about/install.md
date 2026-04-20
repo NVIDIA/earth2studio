@@ -31,7 +31,7 @@ and it's recommended that users use an uv project for the best install experienc
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 :::{dropdown} uv Install
@@ -163,6 +163,7 @@ can take a long time to compile.
 :::{tab-item} pip
 
 ```bash
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
 pip install earth2studio[atlas]
 ```
 
@@ -267,8 +268,8 @@ for known suggestions/fixes related to this install process.
 
 ```bash
 export FORCE_CUDA_EXTENSION=1
-pip install --no-build-isolation torch-harmonics==0.8.0
-pip install "makani @ git+https://github.com/NVIDIA/makani.git@fd1a62b9f27aebbc793f0cbafd838a3811de43fd"
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
 pip install earth2studio[fcn3]
 ```
 
@@ -277,7 +278,6 @@ pip install earth2studio[fcn3]
 
 ```bash
 export FORCE_CUDA_EXTENSION=1
-uv add torch-harmonics==0.8.0 --no-build-isolation
 uv add earth2studio --extra fcn3
 ```
 
@@ -375,7 +375,8 @@ installed manually.
 :::{tab-item} pip
 
 ```bash
-pip install "makani @ git+https://github.com/NVIDIA/makani.git@fd1a62b9f27aebbc793f0cbafd838a3811de43fd"
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
 pip install earth2studio[sfno]
 ```
 
@@ -465,7 +466,7 @@ prognostic, CBottleInfill diagnostic and CBottleSR diagnostic.
 ```bash
 pip install hatchling
 pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
-pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@1d4435abe730d6b966e983633b466b345d60ac78"
+pip install --no-build-isolation "cbottle @ git+https://github.com/NVlabs/cBottle.git@8b8b358466e6b2f50d1779009790002ceb596e72"
 pip install earth2studio[cbottle]
 ```
 
@@ -521,8 +522,8 @@ uv add earth2studio --extra corrdiff
 ::::
 :::::
 :::::{tab-item} Cyclone Trackers
-Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
-below support.
+Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
+Only Python 3.12 and below support.
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -537,6 +538,23 @@ uv pip install earth2studio --extra cyclone
 ```bash
 pip install earth2studio[cyclone]
 ```
+
+`TempestExtremes` is not provided as a Python library and must be installed
+separately by the user. Installation instructions can be found on the
+[TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
+
+When compiling `TempestExtremes` via CMake, executables are placed in a `bin`
+directory inside the `TempestExtremes` source tree by default (i.e.
+`/path/to/tempestextremes/bin`). Because these binaries are not
+automatically added to the system `PATH`, the `detect_cmd` and `stitch_cmd`
+entries in the pipeline configuration must reference the full path to the
+`DetectNodes` and `StitchNodes` executables, e.g.
+`/path/to/tempestextremes/bin/DetectNodes ...`. When using the provided
+Docker container, the binaries are copied to `/usr/local/bin` and are therefore
+available on the `PATH`; in that case only the executable names are needed
+(e.g. `DetectNodes ...`). Examples for both commands are provided in the
+docstring of the `TempestExtremes` class and in the
+[TC tracking recipe](../../recipes/tc_tracking/README.md).
 
 :::
 ::::
@@ -634,6 +652,83 @@ pip install earth2studio[windgust-afno]
 
 ```bash
 uv add earth2studio --extra windgust-afno
+```
+
+:::
+::::
+:::::
+::::::
+
+#### Data Assimilation
+
+:::{admonition} Warning
+:class: warning
+
+Data assimilation model APIs are currently **in Beta** and may change in future
+releases. Expect possible breaking changes as these APIs mature.
+:::
+
+:::{admonition} Warning
+:class: warning
+
+All data assimilation models require [CuPy](https://docs.cupy.dev/en/stable/) and [cuDF](https://docs.rapids.ai/api/cudf/stable/),
+which are CUDA-dependent libraries.
+The default installation uses CUDA 12 (i.e., `cupy-cuda12x`, `cudf-cu12`).
+If your system uses a different CUDA version, you may need to adjust the dependencies.
+:::
+
+::::::{tab-set}
+:::::{tab-item} HealDA
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install hatchling
+pip install --no-build-isolation "earth2grid @ git+https://github.com/NVlabs/earth2grid@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3"
+pip install earth2studio[da-healda]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-healda
+```
+
+:::
+::::
+:::::
+:::::{tab-item} InterpEquirectangular
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-interp]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-interp
+```
+
+:::
+::::
+:::::
+:::::{tab-item} StormCast SDA
+::::{tab-set}
+:::{tab-item} pip
+
+```bash
+pip install earth2studio[da-stormcast]
+```
+
+:::
+:::{tab-item} uv
+
+```bash
+uv add earth2studio --extra da-stormcast
 ```
 
 :::
@@ -745,14 +840,14 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
 uv venv --python=3.12
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 (pytorch_container_environment)=
@@ -775,7 +870,7 @@ docker run -it -t nvcr.io/nvidia/pytorch:25.12-py3
     libeccodes-tools libeccodes-dev
 >>> unset PIP_CONSTRAINT
 >>> curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
->>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+>>> uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 <!-- markdownlint-disable MD013 -->
@@ -788,7 +883,7 @@ do with pip, for example:
 ```bash
 uv pip install --system \
     --break-system-packages \
-    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+    "earth2studio[aifs,data]@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 :::
@@ -817,7 +912,7 @@ package tooling.
 conda create -n earth2studio python=3.12
 conda activate earth2studio
 
-uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.12.1"
+uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 # System Recommendations

@@ -17,6 +17,7 @@
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO
 from .base import DataSource, ForecastSource
+from .cams import CAMS_FX
 from .cbottle import CBottle3D
 from .cds import CDS
 from .cmip6 import CMIP6, CMIP6MultiRealm
@@ -28,6 +29,12 @@ from .goes import GOES
 from .hrrr import HRRR, HRRR_FX
 from .isd import ISD
 from .jpss import JPSS
+from .jpss_atms import JPSS_ATMS
+from .jpss_cris import JPSS_CRIS
+from .metop_amsua import MetOpAMSUA
+from .metop_avhrr import MetOpAVHRR
+from .metop_iasi import MetOpIASI
+from .metop_mhs import MetOpMHS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .planetary_computer import (

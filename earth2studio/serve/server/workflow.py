@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import importlib.util
 import json
 import logging
@@ -22,10 +24,24 @@ import sys
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
-import redis  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    import redis  # type: ignore[import-untyped]
+    from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+except ImportError:
+    OptionalDependencyFailure("serve")
+    BaseModel = object
+    ConfigDict = None
+    Field = None
+    ValidationInfo = None
+    field_validator = lambda *args, **kwargs: lambda fn: fn  # noqa: E731
+
 
 # Import configuration
 from earth2studio.serve.server.config import (
@@ -34,12 +50,10 @@ from earth2studio.serve.server.config import (
     get_workflow_config,
 )
 
-# Get configuration
 config = get_config()
 config_manager = get_config_manager()
-
-# Configure logging
 config_manager.setup_logging()
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,16 +69,16 @@ class WorkflowStatus:
     EXPIRED = "expired"
 
 
+@check_optional_dependencies()
 class WorkflowArgsBase(BaseModel):
     """Base parameters for workflow execution."""
 
-    # Add strict validation - reject unknown fields
-    model_config = ConfigDict(extra="forbid")
+    if ConfigDict is not None:
+        # Add strict validation - reject unknown fields
+        model_config = ConfigDict(extra="forbid")
 
     @classmethod
-    def validate(
-        cls, data: Union[dict[str, Any], "WorkflowArgsBase"]
-    ) -> "WorkflowArgsBase":
+    def validate(cls, data: dict[str, Any] | WorkflowArgsBase) -> WorkflowArgsBase:
         """
         Validate and convert parameters to the correct type.
 
@@ -110,7 +124,7 @@ class WorkflowParameters(WorkflowArgsBase):
     @field_validator("forecast_times", "start_time", mode="before", check_fields=False)
     @classmethod
     def validate_datetime_list(
-        cls: type["WorkflowParameters"],
+        cls: type[WorkflowParameters],
         v: list[str] | list[datetime] | str | datetime | None,
         info: ValidationInfo,
     ) -> list[str] | list[datetime] | str | datetime | None:
@@ -138,8 +152,6 @@ class WorkflowParameters(WorkflowArgsBase):
         ValueError
             If any value is not in valid ISO 8601 datetime format.
         """
-        from datetime import datetime
-
         # If None or not present, skip validation
         if v is None:
             return v
@@ -249,6 +261,7 @@ class WorkflowProgress(BaseModel):
     error_message: str | None = None
 
 
+@check_optional_dependencies()
 class WorkflowResult(BaseModel):
     """Base result structure for workflow execution."""
 
@@ -263,7 +276,7 @@ class WorkflowResult(BaseModel):
     end_time: str | None = None
     execution_time_seconds: float | None = None
     error_message: str | None = None
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict | None = Field(default_factory=dict) if Field is not None else None
 
     def __init__(
         self, workflow_name: str, execution_id: str, status: str, **kwargs: Any
@@ -604,6 +617,7 @@ def json_serial(obj: Any) -> Any:
     raise TypeError(f"Type {type(obj)} is not serializable")
 
 
+@check_optional_dependencies()
 class WorkflowRegistry:
     """Registry for managing custom workflows."""
 
@@ -738,11 +752,74 @@ class WorkflowRegistry:
 
         return instance
 
-    def list_workflows(self) -> dict[str, str]:
-        """List all registered workflows."""
+    def is_workflow_exposed(self, workflow_name: str) -> bool:
+        """
+        Check if a workflow is exposed via API.
+
+        A workflow is exposed if:
+        - The exposed_workflows list is empty (all workflows exposed by default), OR
+        - The workflow name is in the exposed_workflows list, OR
+        - The workflow name is in the warmup_workflows list (accessible for warmup)
+
+        Parameters
+        ----------
+        workflow_name : str
+            Name of the workflow to check
+
+        Returns
+        -------
+        bool
+            True if workflow should be exposed, False otherwise
+        """
+        config = get_config()
+        exposed_workflows = config.workflow_exposure.exposed_workflows
+        warmup_workflows = config.workflow_exposure.warmup_workflows
+
+        # Empty list means all workflows are exposed
+        if not exposed_workflows:
+            return True
+
+        # Check if in exposed list or warmup list
+        return workflow_name in exposed_workflows or workflow_name in warmup_workflows
+
+    def list_workflows(self, exposed_only: bool = True) -> dict[str, str]:
+        """
+        List registered workflows.
+
+        Parameters
+        ----------
+        exposed_only : bool, optional
+            If True, only return workflows that are in exposed_workflows
+            (warmup-only workflows are excluded from public listing).
+            If False, return all registered workflows.
+
+        Returns
+        -------
+        dict
+            Dictionary mapping workflow names to descriptions
+        """
+        if not exposed_only:
+            return {
+                name: workflow_class.description
+                for name, workflow_class in self._workflows.items()
+            }
+
+        config = get_config()
+        exposed_workflows = config.workflow_exposure.exposed_workflows
+
+        # Empty list means all workflows are exposed (including warmup)
+        if not exposed_workflows:
+            return {
+                name: workflow_class.description
+                for name, workflow_class in self._workflows.items()
+            }
+
+        # Only return workflows in the exposed_workflows list
+        # (warmup-only workflows are excluded from public listing)
         return {
             name: workflow_class.description
             for name, workflow_class in self._workflows.items()
+            if name in exposed_workflows
         }
 
     def discover_and_register_from_directories(
@@ -938,6 +1015,7 @@ workflow_registry = WorkflowRegistry()
 
 
 # Convenience function for backward compatibility and ease of use
+@check_optional_dependencies()
 def register_all_workflows(redis_client: redis.Redis) -> None:
     """
     Register all workflows (built-in and user-provided).

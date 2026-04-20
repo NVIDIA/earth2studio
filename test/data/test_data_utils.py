@@ -37,7 +37,14 @@ from earth2studio.data import (
 )
 from earth2studio.data.utils import (
     AsyncCachingFileSystem,
+    async_retry,
+    cancellable_to_thread,
     datasource_cache_root,
+    ensure_utc,
+    gather_with_concurrency,
+    managed_session,
+    prep_data_inputs,
+    prep_forecast_inputs,
 )
 
 
@@ -119,6 +126,7 @@ def test_prep_dataarray(foo_data_array, dims, device):
 
 
 def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_array):
+    pytest.importorskip("scipy", reason="scipy not installed")
     # Create another curvilinear grid
     y, x = np.mgrid[0:20, 0:24]
     target_lat = 30 + y * 1 + np.cos(x * 0.3) * 0.3
@@ -188,6 +196,48 @@ def test_fetch_data(time, lead_time, device):
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
     assert not torch.isnan(x).any()
+
+
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_fetch_data_legacy_false(device):
+
+    if device == "cuda:0" and torch.cuda.is_available():
+        try:
+            import cupy as cp
+        except ImportError:
+            pytest.skip("cupy not available for CUDA device")
+
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    lead_time = np.array([np.timedelta64(0, "h")])
+    variable = np.array(["a", "b", "c"])
+    domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
+    r = Random(domain)
+
+    da = fetch_data(r, time, variable, lead_time, device=device, legacy=False)
+
+    assert isinstance(da, xr.DataArray)
+    assert da.dims == ("time", "lead_time", "variable", "lat", "lon")
+    assert np.all(da.coords["time"].values == time)
+    assert np.all(da.coords["lead_time"].values == lead_time)
+    assert np.all(da.coords["variable"].values == variable)
+
+    if device == "cuda:0" and torch.cuda.is_available():
+        assert isinstance(da.data, cp.ndarray)
+        assert not cp.all(cp.isnan(da.data))
+    else:
+        assert isinstance(da.data, np.ndarray)
+        assert not np.all(np.isnan(da.data))
 
 
 @pytest.mark.parametrize(
@@ -281,6 +331,7 @@ def test_fetch_dataframe(time, lead_time, device):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_fetch_data_interp(time, lead_time, device):
+    pytest.importorskip("scipy", reason="scipy not installed")
     # Original (source) domain
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict(
@@ -517,6 +568,64 @@ def test_clear_cache(tmp_path):
     assert not os.path.exists(dummy_file)
 
 
+@pytest.mark.parametrize(
+    "time, lead_time, variable",
+    [
+        (datetime.datetime(2020, 1, 1, 12, 0), datetime.timedelta(hours=6), "t2m"),
+        (
+            [
+                datetime.datetime(2020, 1, 1, 12, 0),
+                datetime.datetime(2020, 1, 2, 12, 0),
+            ],
+            [datetime.timedelta(hours=6), datetime.timedelta(hours=12)],
+            ["t2m", "u10m"],
+        ),
+        (
+            np.array(
+                [np.datetime64("2020-01-01T12:00"), np.datetime64("2020-01-02T12:00")]
+            ),
+            np.array([np.timedelta64(6, "h"), np.timedelta64(12, "h")]),
+            np.array(["t2m", "u10m", "v10m"]),
+        ),
+    ],
+)
+def test_prep_forecast_inputs(time, lead_time, variable):
+    time_list, lead_time_list, variable_list = prep_forecast_inputs(
+        time, lead_time, variable
+    )
+
+    assert isinstance(time_list, list)
+    assert all(isinstance(t, datetime.datetime) for t in time_list)
+
+    assert isinstance(lead_time_list, list)
+    assert all(isinstance(lt, datetime.timedelta) for lt in lead_time_list)
+
+    assert isinstance(variable_list, list)
+    assert all(isinstance(v, str) for v in variable_list)
+
+    # Verify correct lengths
+    if isinstance(time, datetime.datetime):
+        assert len(time_list) == 1
+    elif isinstance(time, list):
+        assert len(time_list) == len(time)
+    else:  # np.ndarray
+        assert len(time_list) == len(time)
+
+    if isinstance(lead_time, datetime.timedelta):
+        assert len(lead_time_list) == 1
+    elif isinstance(lead_time, list):
+        assert len(lead_time_list) == len(lead_time)
+    else:  # np.ndarray
+        assert len(lead_time_list) == len(lead_time)
+
+    if isinstance(variable, str):
+        assert len(variable_list) == 1
+    elif isinstance(variable, list):
+        assert len(variable_list) == len(variable)
+    else:  # np.ndarray
+        assert len(variable_list) == len(variable)
+
+
 @pytest.mark.asyncio
 async def test_async_cache_fs_storage_handling(tmp_path):
     fs = HTTPFileSystem()
@@ -564,3 +673,133 @@ async def test_async_cache_fs_cache_operations(tmp_path, expiry_time, wait_time)
     await asyncio.sleep(wait_time)
 
     cache_fs.clear_expired_cache(expiry_time=0.1)
+
+
+@pytest.mark.parametrize(
+    "time, variable",
+    [
+        (datetime.datetime(2020, 1, 1, 12, 0), "t2m"),
+        (
+            [datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 2)],
+            ["t2m", "u10m"],
+        ),
+        (np.datetime64("2020-01-01T12:00"), "t2m"),
+        (
+            np.array([np.datetime64("2020-01-01"), np.datetime64("2020-01-02")]),
+            np.array(["t2m", "u10m"]),
+        ),
+        (pd.Timestamp("2020-01-01 12:00"), ["t2m"]),
+        ([np.datetime64("2020-01-01"), np.datetime64("2020-01-02")], "t2m"),
+    ],
+)
+def test_prep_data_inputs(time, variable):
+    time_list, variable_list = prep_data_inputs(time, variable)
+
+    assert isinstance(time_list, list)
+    assert all(isinstance(t, datetime.datetime) for t in time_list)
+    assert isinstance(variable_list, list)
+    assert all(isinstance(v, str) for v in variable_list)
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime.datetime(2020, 1, 1, 12, 0, tzinfo=datetime.timezone.utc),
+        datetime.datetime(
+            2020, 1, 1, 7, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-5))
+        ),
+        pd.Timestamp("2020-01-01 12:00", tz="UTC"),
+        pd.Timestamp("2020-01-01 07:00", tz="US/Eastern"),
+    ],
+)
+def test_prep_data_inputs_utc_conversion(time):
+    time_list, _ = prep_data_inputs(time, "t2m")
+
+    assert len(time_list) == 1
+    assert time_list[0].tzinfo is None  # Should be naive UTC
+    assert time_list[0].hour == 12  # All should convert to 12:00 UTC
+
+
+def test_ensure_utc():
+    # Naive datetime passes through unchanged
+    naive = datetime.datetime(2020, 1, 1, 12, 0)
+    assert ensure_utc(naive) == naive
+    assert ensure_utc(naive).tzinfo is None
+
+    # UTC-aware converts to naive UTC
+    utc_aware = datetime.datetime(2020, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
+    result = ensure_utc(utc_aware)
+    assert result == datetime.datetime(2020, 1, 1, 12, 0)
+    assert result.tzinfo is None
+
+    # Non-UTC timezone converts correctly
+    est = datetime.timezone(datetime.timedelta(hours=-5))
+    est_time = datetime.datetime(2020, 1, 1, 7, 0, tzinfo=est)  # 7am EST = 12pm UTC
+    result = ensure_utc(est_time)
+    assert result == datetime.datetime(2020, 1, 1, 12, 0)
+    assert result.tzinfo is None
+
+
+@pytest.mark.asyncio
+async def test_async_retry():
+    # Test retry with eventual success
+    call_count = 0
+
+    async def fail_then_succeed():
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise OSError("transient")
+        return "ok"
+
+    result = await async_retry(fail_then_succeed, retries=3, backoff=0.01)
+    assert result == "ok"
+    assert call_count == 3
+
+    # Test exhausted retries
+    async def always_fail():
+        raise OSError("permanent")
+
+    with pytest.raises(IOError, match="permanent"):
+        await async_retry(always_fail, retries=2, backoff=0.01)
+
+
+@pytest.mark.asyncio
+async def test_gather_with_concurrency():
+    async def task(i):
+        await asyncio.sleep(0.01)
+        return i * 2
+
+    coros = [task(i) for i in range(5)]
+    out = await gather_with_concurrency(coros, max_workers=2, verbose=True)
+    assert out == [0, 2, 4, 6, 8]
+
+
+@pytest.mark.asyncio
+async def test_managed_session():
+    class MockFS:
+        def __init__(self):
+            self.session_closed = False
+
+        async def set_session(self, refresh=False):
+            return self
+
+        async def close(self):
+            self.session_closed = True
+
+    # Test cleanup on error
+    fs = MockFS()
+    with pytest.raises(ValueError):
+        async with managed_session(fs):
+            raise ValueError("error")
+
+    assert fs.session_closed
+
+
+@pytest.mark.asyncio
+async def test_cancellable_to_thread():
+    def blocking_func(x, y):
+        return x + y
+
+    result = await cancellable_to_thread(blocking_func, 1, 2, timeout=5.0)
+    assert result == 3

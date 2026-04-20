@@ -7,10 +7,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0a0] - 2026-03-xx
+## [0.14.0a0] - 2026-04-xx
 
 ### Added
 
+- Added GenCast 1 degree Mini model
+- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
+- Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
+- Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
+- Added AMSU-A (channels 1-14) and AVHRR channel variables to `E2STUDIO_VOCAB`
+- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
+- Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
+- Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+- Added `eumdac>=3.1.0` to `data` optional dependency group for EUMETSAT Data Store access
+
+## [0.13.0] - 2026-03-20
+
+### Added
+
+- Added tropical cyclone tracking recipe with async TempestExtremes integration
 - Added NOAA UFS observation dataframe sources for satellite and conventional data
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data
@@ -24,7 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `fetch_dataframe` utility function
 - Added data assimilation model class
 - Added equirectangular interpolation data assimilation model
-- Adding Beta serve utils with inference server and client implementations
+- Added StormCast SDA model
+- Added beta serve utils with inference server and client implementations
+- Added HealPix data assimilation (HealDA) model
+- Added `energy_score` metric for multivariate ensemble forecast verification
 
 ### Changed
 
@@ -32,8 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed ISD data frame return to master schema
 - handshake_coords is now accepting list of dimensions while remaining backwards-compatible
 - Updated CBottle infill to mixture of model checkpoints
-
-### Deprecated
+- Updated GraphCastOperational and GraphCastSmall latitude input / output to be [90,-90]
+- Updated GraphCast models to support multiple time inputs, multiple times will be looped not batched
+- Renamed `tolerance` parameter in ISD data source to `time_tolerance`
 
 ### Removed
 
@@ -41,10 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed timezone bug in `CBottleVideo` that converted UTC time to local system time
 - Bug in cbottle datasource resulting identical samples for multiple samples
 - Bug in StormCast loading out-of-date model package, introduced in `5518edecbabee371c824b34f0f2ec269a4d6094f`
-
-### Security
+- Bug in spherical perturbations which did not use lmax from the SHT transform
 
 ### Dependencies
 

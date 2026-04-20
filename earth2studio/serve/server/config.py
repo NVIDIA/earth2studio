@@ -21,9 +21,21 @@ from logging import LogRecord
 from pathlib import Path
 from typing import Any, Literal, Optional, cast
 
-from hydra import compose, initialize_config_dir
-from hydra.core.global_hydra import GlobalHydra
-from omegaconf import OmegaConf
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
+
+try:
+    from hydra import compose, initialize_config_dir
+    from hydra.core.global_hydra import GlobalHydra
+    from omegaconf import OmegaConf
+except ImportError:
+    OptionalDependencyFailure("serve")
+    compose = None
+    initialize_config_dir = None
+    GlobalHydra = None
+    OmegaConf = None
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +61,7 @@ class QueueConfig:
     name: str = "inference"
     result_zip_queue_name: str = "result_zip"
     object_storage_queue_name: str = "object_storage"
+    geocatalog_ingestion_queue_name: str = "geocatalog_ingestion"
     finalize_metadata_queue_name: str = "finalize_metadata"
     max_size: int = 10
     default_timeout: str = "1h"
@@ -103,9 +116,10 @@ class CORSConfig:
 
 @dataclass
 class ObjectStorageConfig:
-    """Object storage configuration for S3/CloudFront"""
+    """Object storage configuration for S3/CloudFront and Azure Blob Storage"""
 
     enabled: bool = False
+    storage_type: Literal["s3", "azure"] = "s3"  # Storage provider type
     # S3 configuration
     bucket: str | None = None
     region: str = "us-east-1"
@@ -125,6 +139,20 @@ class ObjectStorageConfig:
     cloudfront_private_key: str | None = None  # PEM private key content
     # Signed URL settings
     signed_url_expires_in: int = 86400  # Default 24 hours
+    # Azure: storage account and container come from workflow request ``container_url``;
+    # GeoCatalog base URL from request ``geo_catalog_url`` (see cpu_worker / object storage).
+
+
+@dataclass
+class WorkflowExposureConfig:
+    """Configuration for controlling which workflows are exposed via API endpoints"""
+
+    exposed_workflows: list[str] = field(
+        default_factory=lambda: []
+    )  # Empty list means all workflows are exposed
+    warmup_workflows: list[str] = field(
+        default_factory=lambda: ["example_user_workflow"]
+    )  # Workflows accessible for warmup even if not exposed
 
 
 @dataclass
@@ -138,6 +166,9 @@ class AppConfig:
     server: ServerConfig = field(default_factory=ServerConfig)
     cors: CORSConfig = field(default_factory=CORSConfig)
     object_storage: ObjectStorageConfig = field(default_factory=ObjectStorageConfig)
+    workflow_exposure: WorkflowExposureConfig = field(
+        default_factory=WorkflowExposureConfig
+    )
 
 
 class ConfigManager:
@@ -168,9 +199,13 @@ class ConfigManager:
     def _initialize_config(self) -> None:
         """Initialize configuration from Hydra"""
         try:
-            # Config lives in serve/server/conf (unchanged location in repo)
-            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-            config_dir = _repo_root / "serve" / "server" / "conf"
+            # Prefer CONFIG_DIR env var (required when package is installed without repo layout)
+            config_dir_env = os.environ.get("CONFIG_DIR")
+            if config_dir_env:
+                config_dir = Path(config_dir_env)
+            else:
+                _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+                config_dir = _repo_root / "serve" / "server" / "conf"
 
             # Clear any existing Hydra instance
             GlobalHydra.instance().clear()
@@ -216,6 +251,9 @@ class ConfigManager:
             server=ServerConfig(**cfg_dict.get("server", {})),
             cors=CORSConfig(**cfg_dict.get("cors", {})),
             object_storage=ObjectStorageConfig(**cfg_dict.get("object_storage", {})),
+            workflow_exposure=WorkflowExposureConfig(
+                **cfg_dict.get("workflow_exposure", {})
+            ),
         )
 
     def _create_default_config_object(self) -> AppConfig:
@@ -228,6 +266,7 @@ class ConfigManager:
             server=ServerConfig(),
             cors=CORSConfig(),
             object_storage=ObjectStorageConfig(),
+            workflow_exposure=WorkflowExposureConfig(),
         )
 
     def _apply_env_overrides(self) -> None:
@@ -272,6 +311,12 @@ class ConfigManager:
             self._config.paths.results_zip_dir = os.getenv(
                 "RESULTS_ZIP_DIR", default=self._config.paths.results_zip_dir
             )
+        if os.getenv("OUTPUT_FORMAT"):
+            output_format = os.getenv("OUTPUT_FORMAT", "").lower()
+            if output_format in ["zarr", "netcdf4"]:
+                self._config.paths.output_format = cast(
+                    Literal["zarr", "netcdf4"], output_format
+                )
 
         # Logging overrides
         if os.getenv("LOG_LEVEL"):
@@ -303,6 +348,13 @@ class ConfigManager:
             self._config.object_storage.enabled = (
                 os.getenv("OBJECT_STORAGE_ENABLED", "").lower() == "true"
             )
+        if os.getenv("OBJECT_STORAGE_TYPE"):
+            storage_type = os.getenv("OBJECT_STORAGE_TYPE", "").lower()
+            if storage_type in ["s3", "azure"]:
+                self._config.object_storage.storage_type = cast(
+                    Literal["s3", "azure"], storage_type
+                )
+
         if os.getenv("OBJECT_STORAGE_BUCKET"):
             self._config.object_storage.bucket = os.getenv("OBJECT_STORAGE_BUCKET")
         if os.getenv("OBJECT_STORAGE_REGION"):
@@ -371,6 +423,14 @@ class ConfigManager:
                 )
             )
 
+        # Workflow exposure overrides
+        if os.getenv("EXPOSED_WORKFLOWS"):
+            # Parse comma-separated list of workflow names
+            exposed_workflows_str = os.getenv("EXPOSED_WORKFLOWS", "")
+            self._config.workflow_exposure.exposed_workflows = [
+                w.strip() for w in exposed_workflows_str.split(",") if w.strip()
+            ]
+
         logger.debug("Environment variable overrides applied")
 
     def _ensure_paths_exist(self) -> None:
@@ -434,12 +494,6 @@ def get_config() -> AppConfig:
 
     Returns:
         AppConfig: The application configuration
-
-    Example:
-        >>> from earth2studio.serve.server.config import get_config
-        >>> config = get_config()
-        >>> print(config.redis.host)
-        'localhost'
     """
     return get_config_manager().config
 
@@ -460,6 +514,7 @@ def get_config_manager() -> ConfigManager:
 
 
 # Convenience function to reset config (mainly for testing)
+@check_optional_dependencies()
 def reset_config() -> None:
     """Reset the configuration manager singleton (mainly for testing)."""
     ConfigManager._instance = None
@@ -472,11 +527,5 @@ def get_workflow_config(name: str) -> dict[str, Any]:
 
     Returns:
         dict[str, Any]: The workflow configuration
-
-    Example:
-        >>> from earth2studio.serve.server.config import get_workflow_config
-        >>> config = get_workflow_config("deterministic_earth2_workflow")
-        >>> print(config["model_type"])
-        'fcn'
     """
     return get_config_manager().workflow_config.get(name, {})

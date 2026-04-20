@@ -62,7 +62,7 @@ class InterpEquirectangular(torch.nn.Module):
         grid over CONUS)
     interp_method : str, optional
         Interpolation method to use: 'nearest' or 'smolyak', by default "smolyak"
-    tolerance : TimeTolerance, optional
+    time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for interpolation, by default
         np.timedelta64(10, "m")
@@ -71,6 +71,10 @@ class InterpEquirectangular(torch.nn.Module):
     ------
     ValueError
         If interp_method is not one of the supported methods
+
+    Badges
+    ------
+    region:global region:na class:da product:atmos product:insitu
     """
 
     # Acceptable variables for this model
@@ -81,7 +85,7 @@ class InterpEquirectangular(torch.nn.Module):
         lat: np.ndarray | None = None,
         lon: np.ndarray | None = None,
         interp_method: str = "smolyak",
-        tolerance: TimeTolerance = np.timedelta64(10, "m"),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
     ) -> None:
         if interp_method not in ["nearest", "smolyak"]:
             raise ValueError(
@@ -96,8 +100,12 @@ class InterpEquirectangular(torch.nn.Module):
             lon if lon is not None else np.linspace(235.0, 295.0, 241, dtype=np.float32)
         )
         self.interp_method = interp_method
-        self._tolerance = normalize_time_tolerance(tolerance)
+        self._tolerance = normalize_time_tolerance(time_tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
+
+    def init_coords(self) -> None:
+        """Initialization coords (not required)"""
+        return None
 
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system specifying required DataFrame fields.
@@ -161,13 +169,13 @@ class InterpEquirectangular(torch.nn.Module):
             ),
         )
 
-    def __call__(self, x: pd.DataFrame) -> xr.DataArray:
+    def __call__(self, obs: pd.DataFrame) -> xr.DataArray:
         """Stateless forward pass"""
         input_coords = self.input_coords()
-        (output_coords,) = self.output_coords(input_coords, **x.attrs)
+        (output_coords,) = self.output_coords(input_coords, **obs.attrs)
         # Validate observation types match input_coords
-        validate_observation_fields(x, required_fields=list(input_coords[0].keys()))
-        return self._interpolate_dataframe(x, output_coords)
+        validate_observation_fields(obs, required_fields=list(input_coords[0].keys()))
+        return self._interpolate_dataframe(obs, output_coords)
 
     def create_generator(self) -> Generator[
         xr.DataArray,

@@ -20,20 +20,35 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import redis  # type: ignore[import-untyped]
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
-# Import configuration
+try:
+    import redis  # type: ignore[import-untyped]
+except ImportError:
+    OptionalDependencyFailure("serve")
+    redis = None
+    redis_client = None
+
 from earth2studio.serve.server.config import get_config, get_config_manager
-
-# Import queue_next_stage utility
 from earth2studio.serve.server.utils import queue_next_stage
-
-# Import workflow registry
 from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
 
-# Get configuration
-config = get_config()
 config_manager = get_config_manager()
+config = get_config()
+
+if redis:
+    redis_client = redis.Redis(
+        host=config.redis.host,
+        port=config.redis.port,
+        db=config.redis.db,
+        password=config.redis.password,
+        decode_responses=config.redis.decode_responses,
+        socket_connect_timeout=config.redis.socket_connect_timeout,
+        socket_timeout=config.redis.socket_timeout,
+    )
 
 # Configure logging
 config_manager.setup_logging()
@@ -45,17 +60,6 @@ RESULTS_ZIP_DIR = Path(config.paths.results_zip_dir)
 
 # Model registry for caching loaded models
 model_registry: dict[str, Any] = {}
-
-# Redis client for worker
-redis_client = redis.Redis(
-    host=config.redis.host,
-    port=config.redis.port,
-    db=config.redis.db,
-    password=config.redis.password,
-    decode_responses=config.redis.decode_responses,
-    socket_connect_timeout=config.redis.socket_connect_timeout,
-    socket_timeout=config.redis.socket_timeout,
-)
 
 # Register custom workflows in the worker process
 try:
@@ -106,6 +110,7 @@ def get_output_path(
     return output_dir / f"forecast.{backend_type}"
 
 
+@check_optional_dependencies()
 def run_custom_workflow(
     workflow_name: str, execution_id: str, parameters: dict[str, Any]
 ) -> Any:

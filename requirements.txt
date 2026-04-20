@@ -7,7 +7,7 @@ aiobotocore==3.1.1
     # via s3fs
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.4
     # via
     #   aiobotocore
     #   gcsfs
@@ -227,7 +227,7 @@ partd==1.4.2
     # via dask
 pathspec==1.0.3
     # via hatchling
-pillow==12.1.1
+pillow==12.2.0
     # via bokeh
 pluggy==1.6.0
     # via hatchling
@@ -251,7 +251,7 @@ psutil==7.2.1
     # via distributed
 pyarrow==23.0.0
     # via dask
-pyasn1==0.6.2
+pyasn1==0.6.3
     # via
     #   pyasn1-modules
     #   rsa
@@ -310,9 +310,9 @@ toolz==1.1.0
     #   dask
     #   distributed
     #   partd
-torch==2.8.0
+torch==2.10.0
     # via earth2studio
-tornado==6.5.4
+tornado==6.5.5
     # via
     #   bokeh
     #   distributed

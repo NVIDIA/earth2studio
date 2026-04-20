@@ -105,6 +105,11 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
+
+    Badges
+    ------
+    region:global class:cm product:wind product:precip product:temp product:atmos
+    year:2025 gpu:80gb
     """
 
     output_variables = VARIABLES
@@ -133,19 +138,27 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self.dataset_modality = dataset_modality
         self._core_model = core_model
         self._class_model = classifier_model
-        self.core_model = CBottle3d(core_model, separate_classifier=classifier_model)
+        self.core_model = CBottle3d(
+            core_model,
+            sigma_max=sigma_max,
+            num_steps=sampler_steps,
+            separate_classifier=classifier_model,
+        )
 
         # Set up SST Lat Lon to HPX regridder
+        target_grid = earth2grid.healpix.Grid(
+            HPX_LEVEL, pixel_order=earth2grid.healpix.PixelOrder.NEST
+        )
         lon_center = self.sst.lon.values
         # need to workaround bug where earth2grid fails to interpolate in circular manner
         # if lon[0] > 0
         # hack: rotate both src and target grids by the same amount so that src_lon[0] == 0
         # See https://github.com/NVlabs/earth2grid/issues/21
         src_lon = lon_center - lon_center[0]
-        target_lon = (self.core_model.output_grid.lon - lon_center[0]) % 360
+        target_lon = (target_grid.lon - lon_center[0]) % 360
         grid = earth2grid.latlon.LatLonGrid(self.sst.lat.values, src_lon)
         self.sst_regridder = grid.get_bilinear_regridder_to(
-            self.core_model.output_grid.lat, lon=target_lon
+            target_grid.lat, lon=target_lon
         )
 
         self.register_buffer("lat_grid", torch.tensor(np.linspace(90, -90, 721)))

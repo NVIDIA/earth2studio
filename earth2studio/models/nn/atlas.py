@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from loguru import logger
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from earth2studio.utils.imports import (
@@ -32,20 +33,25 @@ from earth2studio.utils.imports import (
 )
 
 try:
+    from physicsnemo import Module as PhysicsNeMoModule
+except ImportError:
+    PhysicsNeMoModule = object
+
+try:
     import einops
     from natten import NeighborhoodAttention2D
-    from physicsnemo import Module as PhysicsNeMoModule
     from timm.models.vision_transformer import Mlp, PatchEmbed
     from torch_harmonics import InverseRealSHT
 except ImportError:
     OptionalDependencyFailure("atlas")
     einops = None
-    PhysicsNeMoModule = object
 
 
 @cache
 def get_isht(nlat, nlon, grid="equiangular", norm="ortho", device=None):
-    return InverseRealSHT(nlat, nlon, grid=grid, norm=norm).to(device=device)
+    return InverseRealSHT(
+        nlat, nlon, lmax=nlat, mmax=nlon // 2 + 1, grid=grid, norm=norm
+    ).to(device=device)
 
 
 def spherical_white_noise(shape, scale=3.56, device=None, studentt_deg=None):
@@ -55,18 +61,20 @@ def spherical_white_noise(shape, scale=3.56, device=None, studentt_deg=None):
     if len(shape) < 2:
         raise ValueError(f"Shape must have at least 2 dimensions, got {shape}")
 
+    isht = get_isht(shape[-2], shape[-1], device=device)
+    lmax = isht.lmax
+    mmax = isht.mmax
+
     if studentt_deg is None:
-        noise = torch.randn(shape[0:-1] + [(shape[-1] // 2) + 1] + [2], device=device)
+        noise = torch.randn(shape[0:-2] + [lmax, mmax] + [2], device=device)
     else:
         dist = torch.distributions.studentT.StudentT(studentt_deg)
-        noise = dist.sample(shape[0:-1] + [(shape[-1] // 2) + 1] + [2]).to(device)
+        noise = dist.sample(shape[0:-2] + [lmax, mmax] + [2]).to(device)
 
     noise = (1.0 / math.sqrt(float(shape[-1] * shape[-2]))) * scale * noise
     noise = torch.view_as_complex(noise)
 
     noise = torch.tril(noise)
-
-    isht = get_isht(shape[-2], shape[-1], device=device)
 
     with torch.amp.autocast("cuda", enabled=False):
         return isht(noise)
@@ -725,7 +733,9 @@ class StochasticInterpolant(torch.nn.Module):
                     kept_samples += 1
 
             if verbose:
-                print(f"Sampling step: {j+1}. Time: {default_timer() - physical_time}")
+                logger.debug(
+                    f"Sampling step: {j+1}. Time: {default_timer() - physical_time}"
+                )
 
         if keep_every is not None:
             return out
