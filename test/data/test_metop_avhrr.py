@@ -42,9 +42,9 @@ from earth2studio.data.metop_avhrr import (
     _parse_grh,
     _parse_mphr,
     _parse_native_avhrr,
-    _radiance_to_bt,
     _radiance_to_refl,
 )
+from earth2studio.data.utils import radiance_to_bt
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ def test_parse_giadr_radiance():
 def test_radiance_to_bt():
     # Typical ch4 values: wavenumber ~928 cm⁻¹, A~0.34, B~0.9985
     rad = np.array([10.0, 20.0, 0.0, -1.0], dtype=np.float64)
-    bt = _radiance_to_bt(rad, 928.0, 0.34, 0.9985)
+    bt = radiance_to_bt(rad, 928.0, band_correction=(0.34, 0.9985))
     # First two should give reasonable BT (150-350K range)
     assert 150 < bt[0] < 350
     assert 150 < bt[1] < 350

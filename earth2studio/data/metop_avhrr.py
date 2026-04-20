@@ -32,7 +32,11 @@ import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+    radiance_to_bt,
+)
 from earth2studio.lexicon import MetOpAVHRRLexicon
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
@@ -123,10 +127,6 @@ _MDR_FRAME_INDICATOR_OFFSET = _MDR_FRAME_SYNC_OFFSET + 12  # u4
 
 # FRAME_INDICATOR bit 16: 0=channel 3b, 1=channel 3a
 _FRAME_IND_3A_MASK = 1 << 16
-
-# Planck constants for brightness temperature conversion
-_C1 = 1.191062e-05  # mW/(m²·sr·cm⁻⁴)
-_C2 = 1.4387863  # K·cm
 
 # Spacecraft ID mapping (from MPHR)
 _SPACECRAFT_MAP = {
@@ -326,37 +326,6 @@ def _parse_giadr_radiance(data: bytes, offset: int, rec_size: int) -> _AVHRRCali
     )
 
     return cal
-
-
-def _radiance_to_bt(
-    radiance: np.ndarray, wavenumber: float, a: float, b: float
-) -> np.ndarray:
-    """Convert spectral radiance to brightness temperature.
-
-    Uses inverse Planck with band correction: BT = A + B * (C2*ν / ln(1 + C1*ν³/L))
-
-    Parameters
-    ----------
-    radiance : np.ndarray
-        Spectral radiance in mW/(m²·sr·cm⁻¹)
-    wavenumber : float
-        Central wavenumber (cm⁻¹)
-    a : float
-        Band correction intercept (K)
-    b : float
-        Band correction slope (K/K)
-
-    Returns
-    -------
-    np.ndarray
-        Brightness temperature (K)
-    """
-    valid = radiance > 0
-    bt = np.full_like(radiance, np.nan, dtype=np.float64)
-    r = radiance[valid]
-    t_planck = _C2 * wavenumber / np.log(1.0 + _C1 * wavenumber**3 / r)
-    bt[valid] = a + b * t_planck
-    return bt
 
 
 def _radiance_to_refl(radiance: np.ndarray, solar_irrad: float) -> np.ndarray:
@@ -590,7 +559,10 @@ def _parse_native_avhrr(
                 ),
             }
             wn, a, b = ir_cal_map[ch_key]
-            obs = _radiance_to_bt(raw_rad, wn, a, b).astype(np.float32)
+            # AVHRR uses additive band correction: T = A + B * T*
+            obs = radiance_to_bt(
+                raw_rad, wn, band_correction=(a, b), correction_formula="additive"
+            ).astype(np.float32)
 
             # For ch3b: mask out scan lines where 3a is active (bit16=1)
             if ch_key == "3b":

@@ -31,6 +31,17 @@ file(s) before writing or reviewing code:
 - **Formatting** — black; run `/format` or `make format`.
 - **Linting** — ruff + mypy; run `/lint` or `make lint` before opening a PR.
 
+## Skills
+
+Custom skills live in `.claude/skills/`. Invoke the relevant skill before starting
+a matching task:
+
+| Skill | Purpose |
+|---|---|
+| `create-data-source` | Create a new data source wrapper |
+| `create-prognostic-wrapper` | Create a new prognostic model (px) wrapper |
+| `validate-data-source` | Validate a newly implemented data source |
+
 ## Custom Commands
 
 Use these slash commands (defined in `.claude/commands/`) to run common tasks:
