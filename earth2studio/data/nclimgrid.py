@@ -14,41 +14,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import asyncio
 import os
+import pathlib
+import shutil
+import uuid
+from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
+import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import s3fs
 import xarray as xr
+from loguru import logger
 from tqdm.auto import tqdm
 
+from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.nclimgrid import NClimGridLexicon
-
-logger = logging.getLogger("earth2studio.nclimgrid")
-logger.setLevel(logging.INFO)
+from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class NClimGrid:
-    """
-    Earth2Studio NClimGrid gridded datasource.
+    """Earth2Studio NClimGrid gridded datasource.
 
-    Designed for large Zarr datasets on S3.
+    Provides access to NOAA's NClimGrid daily gridded climate dataset from S3.
+    Data is read from monthly NetCDF files and returned as a standardized DataFrame.
 
-    Key features
-    ------------
-    - Canonical variable mapping via NClimGridLexicon
-    - Strong schema validation
-    - Input normalization for datetime, list-like, and slice time requests
-    - Windowed parquet caching per variable × timestep
-    - Chunk-stream DataFrame generation to avoid loading large time windows at once
+    Parameters
+    ----------
+    cache : bool, optional
+        Cache data source on local memory, by default True
+    verbose : bool, optional
+        Print download progress, by default True
+    async_timeout : int, optional
+        Total timeout in seconds for the entire fetch operation, by default 600
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository:
+
+    - https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00332
+    - https://registry.opendata.aws/noaa-nclimgrid/
     """
 
     SOURCE_ID = "earth2studio.data.nclimgrid"
+    NCLIMGRID_BUCKET_NAME = "noaa-nclimgrid-daily-pds"
 
     SCHEMA = pa.schema(
         [
@@ -60,176 +77,164 @@ class NClimGrid:
         ]
     )
 
-    # -------------------------------------------------------
-    # Schema utilities
-    # -------------------------------------------------------
-
-    @classmethod
-    def resolve_fields(cls, fields: Any) -> pa.Schema:
-        """
-        Resolve requested output fields into a validated Arrow schema.
-        """
-        if fields is None:
-            return cls.SCHEMA
-
-        if isinstance(fields, str):
-            fields = [fields]
-
-        if isinstance(fields, pa.Schema):
-            for field in fields:
-                if field.name not in cls.SCHEMA.names:
-                    raise KeyError(
-                        f"Field '{field.name}' not in schema. "
-                        f"Valid fields: {cls.SCHEMA.names}"
-                    )
-                expected = cls.SCHEMA.field(field.name).type
-                if field.type != expected:
-                    raise TypeError(
-                        f"Field '{field.name}' has type {field.type}, expected {expected}"
-                    )
-            return fields
-
-        selected = []
-        for f in fields:
-            if f not in cls.SCHEMA.names:
-                raise KeyError(
-                    f"Field '{f}' not in schema. " f"Valid fields: {cls.SCHEMA.names}"
-                )
-            selected.append(cls.SCHEMA.field(f))
-
-        return pa.schema(selected)
-
-    # -------------------------------------------------------
-    # Input normalization utilities
-    # -------------------------------------------------------
-
-    @staticmethod
-    def _normalize_time(time: Any) -> Any:
-        """
-        Normalize time input into one of:
-        - None
-        - slice(pd.Timestamp, pd.Timestamp, step)
-        - list[pd.Timestamp]
-        """
-        if time is None:
-            return None
-
-        if isinstance(time, slice):
-            start = pd.to_datetime(time.start) if time.start is not None else None
-            stop = pd.to_datetime(time.stop) if time.stop is not None else None
-            return slice(start, stop, time.step)
-
-        if isinstance(time, datetime):
-            return [pd.Timestamp(time)]
-
-        if isinstance(time, (list, tuple, np.ndarray, pd.DatetimeIndex, pd.Index)):
-            return list(pd.to_datetime(time))
-
-        raise TypeError(
-            "Invalid time input. Expected None, datetime, slice, or list-like of datetimes."
-        )
-
-    @staticmethod
-    def _normalize_variable(variable: Any) -> list[str]:
-        """
-        Normalize variable input into list[str].
-        """
-        if isinstance(variable, str):
-            return [variable]
-
-        if isinstance(variable, (list, tuple, np.ndarray, pd.Index)):
-            return [str(v) for v in variable]
-
-        raise TypeError("Invalid variable input. Expected str or list-like of strings.")
-
-    @staticmethod
-    def _resolve_requested_times(times: Any) -> list[pd.Timestamp]:
-        """
-        Resolve requested times from user input rather than from lazy dataset coordinates.
-
-        This avoids forcing .values on a lazily selected DataArray just to enumerate times.
-        """
-        if times is None:
-            raise ValueError(
-                "Explicit time selection is required for NClimGrid streaming access."
-            )
-
-        if isinstance(times, slice):
-            if times.start is None or times.stop is None:
-                raise ValueError(
-                    "Slice time selection must include both start and stop for streaming."
-                )
-            return list(pd.date_range(times.start, times.stop, freq="D"))
-
-        # list-like path
-        resolved = list(pd.to_datetime(times))
-        # stable ordering, unique
-        return sorted(pd.unique(pd.Index(resolved)))
-
-    # -------------------------------------------------------
-    # Constructor
-    # -------------------------------------------------------
-
     def __init__(
         self,
-        bucket: str = "noaa-nclimgrid-daily-pds",
         cache: bool = True,
-        verbose: bool = False,
-        cache_dir: str = "~/.earth2studio-cache/nclimgrid",
+        verbose: bool = True,
+        async_timeout: int = 600,
     ) -> None:
-        self.bucket = bucket
-        self.verbose = verbose
-        self.cache = cache
-        self.cache_dir = Path(os.path.expanduser(cache_dir))
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.fs = s3fs.S3FileSystem(anon=True)
-        self._call_cache: dict[Any, pd.DataFrame] = {}
+        self._cache = cache
+        self._verbose = verbose
+        self._tmp_cache_hash: str | None = None
+        self.async_timeout = async_timeout
 
-    # -------------------------------------------------------
-    # Constructor
-    # -------------------------------------------------------
+        try:
+            nest_asyncio.apply()
+            loop = asyncio.get_running_loop()
+            loop.run_until_complete(self._async_init())
+        except RuntimeError:
+            self.fs = None
 
-    def _monthly_nc_path(self, ts: Any) -> str:
-        ts = pd.Timestamp(ts)
-        return (
-            f"s3://{self.bucket}/access/grids/"
-            f"{ts.year}/ncdd-{ts.year}{ts.month:02d}-grd-scaled.nc"
+    async def _async_init(self) -> None:
+        """Async initialization of filesystem.
+
+        Note
+        ----
+        Async fsspec expects initialization inside of the execution loop.
+        """
+        self.fs = s3fs.S3FileSystem(
+            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
         )
 
-    # -------------------------------------------------------
-    # Internal cache utilities
-    # -------------------------------------------------------
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Fetch NClimGrid data as a standardized DataFrame.
 
-    @staticmethod
-    def _timestamp_cache_key(ts: Any) -> str:
-        """
-        Convert timestamp into stable YYYYMMDD cache key component.
-        """
-        return pd.Timestamp(ts).strftime("%Y%m%d")
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Canonical Earth2Studio variable name(s). Must be in the
+            NClimGridLexicon.
+        fields : str | list[str] | pa.Schema | None, optional
+            Output field subset, by default None (all fields).
 
-    def _cache_file_for_timestep(self, native: str, ts: Any) -> Path:
+        Returns
+        -------
+        pd.DataFrame
+            NClimGrid observation data.
         """
-        One cache file per native variable per timestep.
-        """
-        return self.cache_dir / f"{native}_{self._timestamp_cache_key(ts)}.parquet"
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-    # -------------------------------------------------------
-    # Internal dataframe construction
-    # -------------------------------------------------------
+        if self.fs is None:
+            loop.run_until_complete(self._async_init())
+
+        try:
+            df = loop.run_until_complete(
+                asyncio.wait_for(
+                    self.fetch(time, variable, fields),
+                    timeout=self.async_timeout,
+                )
+            )
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
+
+        return df
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Async function to get NClimGrid data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Timestamps to return data for (UTC).
+        variable : str | list[str] | VariableArray
+            Canonical Earth2Studio variable name(s). Must be in the
+            NClimGridLexicon.
+        fields : str | list[str] | pa.Schema | None, optional
+            Output field subset, by default None (all fields).
+
+        Returns
+        -------
+        pd.DataFrame
+            NClimGrid observation data.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        schema = self.resolve_fields(fields)
+
+        pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+        frames: list[pd.DataFrame] = []
+        for var in variable_list:
+            native, modifier = NClimGridLexicon.get_item(var)
+            df_var = self._fetch_variable_dataframe(var, native, modifier, time_list)
+            frames.append(df_var)
+
+        if frames:
+            out = pd.concat(frames, ignore_index=True)
+        else:
+            out = pd.DataFrame(columns=self.SCHEMA.names)
+
+        out.attrs["source"] = self.SOURCE_ID
+
+        out = out[[f.name for f in schema]]
+        return out
+
+    def _monthly_nc_path(self, ts: pd.Timestamp) -> str:
+        """Build S3 path for a monthly NetCDF file.
+
+        Parameters
+        ----------
+        ts : pd.Timestamp
+            Timestamp within the target month.
+
+        Returns
+        -------
+        str
+            S3 URI to monthly NetCDF file.
+        """
+        return (
+            f"s3://{self.NCLIMGRID_BUCKET_NAME}/access/grids/"
+            f"{ts.year}/ncdd-{ts.year}{ts.month:02d}-grd-scaled.nc"
+        )
 
     def _dataarray_to_dataframe(
         self,
         da_t: xr.DataArray,
         var: str,
-        modifier: Any,
+        modifier: Callable,
     ) -> pd.DataFrame:
-        """
-        Convert one timestep DataArray into standardized DataFrame.
+        """Convert one timestep DataArray into a standardized DataFrame.
 
-        Uses explicit per-timestep materialization to keep memory bounded and
-        avoid giant lazy graphs.
+        Parameters
+        ----------
+        da_t : xr.DataArray
+            Single-timestep data array from the NetCDF file.
+        var : str
+            Earth2Studio variable name.
+        modifier : Callable
+            Lexicon modifier function for unit conversion.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns matching SCHEMA.
         """
-        # Force only the current timestep into memory.
         da_t = da_t.load()
 
         values = modifier(da_t.values)
@@ -247,11 +252,8 @@ class NClimGrid:
         )
 
         df["variable"] = var
-
-        # enforce schema column order
         df = df[self.SCHEMA.names]
 
-        # enforce dtypes
         df["lat"] = df["lat"].astype("float32")
         df["lon"] = df["lon"].astype("float32")
         df["observation"] = df["observation"].astype("float32")
@@ -263,30 +265,44 @@ class NClimGrid:
         self,
         var: str,
         native: str,
-        modifier: Any,
-        times: Any,
+        modifier: Callable,
+        times: list[datetime],
     ) -> pd.DataFrame:
+        """Fetch data for a single variable across the requested times.
 
-        selected_times = self._resolve_requested_times(times)
-        frames = []
+        Parameters
+        ----------
+        var : str
+            Earth2Studio variable name.
+        native : str
+            Native variable name in the NetCDF file.
+        modifier : Callable
+            Lexicon modifier function for unit conversion.
+        times : list[datetime]
+            Timestamps to fetch.
 
-        iterator = selected_times
-        if getattr(self, "verbose", False) and len(selected_times) > 1:
-            iterator = tqdm(iterator, desc=f"NClimGrid {native}", leave=False)
+        Returns
+        -------
+        pd.DataFrame
+            Concatenated DataFrame for all timesteps.
+        """
+        selected_times = sorted({pd.Timestamp(t) for t in times})
+        frames: list[pd.DataFrame] = []
 
-        current_month_ds = None
-        current_month = None
+        iterator: list[pd.Timestamp] | tqdm = selected_times
+        if self._verbose and len(selected_times) > 1:
+            iterator = tqdm(selected_times, desc=f"NClimGrid {native}", leave=False)
+
+        current_month_ds: xr.Dataset | None = None
+        current_month: tuple[int, int] | None = None
 
         for ts in iterator:
-
             ts = pd.Timestamp(ts)
 
-            # open new monthly file only when month changes
             if current_month != (ts.year, ts.month):
-
                 path = self._monthly_nc_path(ts)
 
-                if self.verbose:
+                if self._verbose:
                     logger.info(f"Opening {path}")
 
                 current_month_ds = xr.open_dataset(
@@ -294,7 +310,6 @@ class NClimGrid:
                     engine="h5netcdf",
                     storage_options={"anon": True},
                 )
-
                 current_month = (ts.year, ts.month)
 
             if current_month_ds is None:
@@ -308,12 +323,13 @@ class NClimGrid:
 
             cache_file = self._cache_file_for_timestep(native, ts)
 
-            if self.cache and cache_file.exists():
+            if self._cache and cache_file.exists():
                 df_t = pd.read_parquet(cache_file)
             else:
                 df_t = self._dataarray_to_dataframe(da_t, var, modifier)
 
-                if self.cache:
+                if self._cache:
+                    cache_file.parent.mkdir(parents=True, exist_ok=True)
                     df_t.to_parquet(cache_file)
 
             frames.append(df_t)
@@ -323,65 +339,89 @@ class NClimGrid:
 
         return pd.concat(frames, ignore_index=True)
 
-    # -------------------------------------------------------
-    # Core fetch logic
-    # -------------------------------------------------------
-
-    def __call__(
-        self,
-        time: Any = None,
-        variable: Any = None,
-        fields: Any = None,
-    ) -> pd.DataFrame:
-        """
-        Fetch NClimGrid data as standardized DataFrame.
+    def _cache_file_for_timestep(self, native: str, ts: pd.Timestamp) -> pathlib.Path:
+        """Get cache file path for a single native variable and timestep.
 
         Parameters
         ----------
-        time : None | datetime | slice | list-like of datetime
-            Requested timestep(s).
-        variable : str | list[str]
-            Canonical Earth2Studio variable name(s).
-        fields : None | str | list[str] | pa.Schema
-            Output field subset.
+        native : str
+            Native variable name in the NetCDF file.
+        ts : pd.Timestamp
+            Timestamp for this observation.
 
         Returns
         -------
-        pd.DataFrame
+        pathlib.Path
+            Path to the parquet cache file.
         """
-        if variable is None:
-            raise ValueError("variable must be provided")
-        if time is None:
-            raise ValueError("time must be provided")
+        return pathlib.Path(self.cache) / (f"{native}_{ts.strftime('%Y%m%d')}.parquet")
 
-        times = self._normalize_time(time)
-        variables = self._normalize_variable(variable)
-        schema = self.resolve_fields(fields)
+    @classmethod
+    def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+        """Resolve requested output fields into a validated Arrow schema.
 
-        times_key = tuple(self._resolve_requested_times(times))
-        vars_key = tuple(sorted(variables))
-        fields_key = tuple([f.name for f in schema])
+        Parameters
+        ----------
+        fields : str | list[str] | pa.Schema | None
+            Fields to include in output. None returns all fields.
 
-        cache_key = (times_key, vars_key, fields_key)
+        Returns
+        -------
+        pa.Schema
+            Validated schema for the requested fields.
 
-        if self.cache and cache_key in self._call_cache:
-            return self._call_cache[cache_key].copy()
+        Raises
+        ------
+        KeyError
+            If a requested field is not in the schema.
+        TypeError
+            If a pa.Schema field has a mismatched type.
+        """
+        if fields is None:
+            return cls.SCHEMA
 
-        frames = []
-        for var in variables:
-            native, modifier = NClimGridLexicon.get_item(var)
-            df_var = self._fetch_variable_dataframe(var, native, modifier, times)
-            frames.append(df_var)
+        if isinstance(fields, str):
+            fields = [fields]
 
-        if frames:
-            out = pd.concat(frames, ignore_index=True)
-        else:
-            out = pd.DataFrame(columns=self.SCHEMA.names)
+        if isinstance(fields, pa.Schema):
+            for field in fields:
+                if field.name not in cls.SCHEMA.names:
+                    raise KeyError(
+                        f"Field '{field.name}' not in schema. "
+                        f"Valid fields: {cls.SCHEMA.names}"
+                    )
+                expected = cls.SCHEMA.field(field.name).type
+                if field.type != expected:
+                    raise TypeError(
+                        f"Field '{field.name}' has type {field.type}, "
+                        f"expected {expected}"
+                    )
+            return fields
 
-        out.attrs["source"] = self.SOURCE_ID
+        selected = []
+        for f in fields:
+            if f not in cls.SCHEMA.names:
+                raise KeyError(
+                    f"Field '{f}' not in schema. Valid fields: {cls.SCHEMA.names}"
+                )
+            selected.append(cls.SCHEMA.field(f))
 
-        # field-aware output
-        out = out[[f.name for f in schema]]
-        if self.cache:
-            self._call_cache[cache_key] = out
-        return out
+        return pa.schema(selected)
+
+    @property
+    def cache(self) -> str:
+        """Get the appropriate cache location.
+
+        Returns
+        -------
+        str
+            Path to the cache directory.
+        """
+        cache_location = os.path.join(datasource_cache_root(), "nclimgrid")
+        if not self._cache:
+            if self._tmp_cache_hash is None:
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_nclimgrid_{self._tmp_cache_hash}"
+            )
+        return cache_location
