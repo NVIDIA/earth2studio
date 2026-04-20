@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from collections.abc import Callable
 
 import numpy as np
@@ -21,106 +22,46 @@ from earth2studio.lexicon.base import LexiconType
 
 
 class NClimGridLexicon(metaclass=LexiconType):
-    """
-    NClimGrid gridded dataset lexicon.
+    """Lexicon for NClimGrid daily gridded climate data source.
 
-    Provides canonical → native variable mapping and unit normalization
-    for the CONUS NClimGrid Zarr dataset.
+    Maps Earth2Studio variable names to NClimGrid native variable identifiers
+    and provides unit conversion modifiers.
 
-    Dataset characteristics
-    -----------------------
-    • Spatial coverage: CONUS (~0.0417° grid)
-    • Temporal coverage: daily (1952–present)
-    • Variables are already physically meaningful fields (not station codes)
-    • Missing values may exist (NaN / masked)
-
-    Unit conventions
-    ----------------
-    • Temperature fields stored in °C → converted to Kelvin
-    • Precipitation stored in mm → converted to meters
-    • SPI is dimensionless → unchanged
-
-    Design goals
-    ------------
-    • Future extensibility (new variables / datasets)
-    • Robust unit normalization
-    • Strong validation behaviour
-    • Explicit metadata layer
+    Note
+    ----
+    Variable documentation:
+    https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00332
     """
 
-    # -------------------------------------------------------
-    # Rich variable metadata structure (future-proof)
-    # -------------------------------------------------------
-
-    META: dict[str, dict] = {
-        "t2m_max": {
-            "native": "tmax",
-            "units_native": "degC",
-            "units_e2s": "K",
-            "description": "daily maximum temperature at 2m",
-        },
-        "t2m_min": {
-            "native": "tmin",
-            "units_native": "degC",
-            "units_e2s": "K",
-            "description": "daily minimum temperature at 2m",
-        },
-        "tp": {
-            "native": "prcp",
-            "units_native": "mm",
-            "units_e2s": "m",
-            "description": "daily total precipitation",
-        },
-        "spi": {
-            "native": "spi",
-            "units_native": "dimensionless",
-            "units_e2s": "dimensionless",
-            "description": "standardized precipitation index",
-        },
+    VOCAB = {
+        "t2m_max": "tmax",
+        "t2m_min": "tmin",
+        "tp": "prcp",
+        "spi": "spi",
     }
-
-    # Canonical vocabulary (required by LexiconType)
-    VOCAB: dict[str, str] = {
-        k: f"{v['description']} ({v['units_e2s']})" for k, v in META.items()
-    }
-
-    # -------------------------------------------------------
-    # Strong validation + modifier factory
-    # -------------------------------------------------------
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
-        """
-        Resolve canonical variable.
+        """Return remote key and modifier function for a variable.
+
+        Parameters
+        ----------
+        val : str
+            Variable name (E2S convention).
 
         Returns
         -------
-        native_variable_name, modifier_function
+        tuple[str, Callable]
+            Remote key string and modifier function.
         """
-
-        if val not in cls.META:
-            raise KeyError(
-                f"NClimGridLexicon: unknown variable '{val}'. "
-                f"Valid variables: {list(cls.META.keys())}"
-            )
-
-        meta = cls.META[val]
-        native = meta["native"]
-
-        # ---------------------------------------------------
-        # Robust modifier (handles NaN + dtype normalization)
-        # ---------------------------------------------------
+        native = cls.VOCAB[val]
 
         def modifier(x: np.ndarray) -> np.ndarray:
             x = np.asarray(x, dtype="float32")
-
             if native in ("tmax", "tmin"):
-                return x + 273.15
-
+                return x + 273.15  # °C -> K
             if native == "prcp":
-                return x / 1000.0
-
-            # SPI / future dimensionless variables
-            return x
+                return x / 1000.0  # mm -> m
+            return x  # spi is dimensionless
 
         return native, modifier

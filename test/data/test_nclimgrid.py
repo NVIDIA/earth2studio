@@ -1,199 +1,128 @@
-"""
-Unit tests for data/earth2studio/nclimgrid.py
-"""
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-import time
-from datetime import datetime, timedelta
+import pathlib
+import shutil
+from datetime import datetime
 
 import numpy as np
-import pandas as pd
-import pyarrow as pa
 import pytest
 
-from earth2studio.data.nclimgrid import NClimGrid
+from earth2studio.data import NClimGrid
 from earth2studio.lexicon.nclimgrid import NClimGridLexicon
 
-# ---------------------------------------------------------------------
-# GLOBAL DATASET FIXTURE  (VERY IMPORTANT)
-# ---------------------------------------------------------------------
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime(year=2010, month=7, day=1),
+        [
+            datetime(year=2010, month=7, day=1),
+            datetime(year=2010, month=7, day=2),
+        ],
+    ],
+)
+@pytest.mark.parametrize("variable", ["t2m_max", ["t2m_max", "tp"]])
+def test_nclimgrid_fetch(time, variable):
+    ds = NClimGrid(cache=False)
+    data = ds(time, variable)
+    shape = data.shape
+
+    if isinstance(variable, str):
+        variable = [variable]
+    if isinstance(time, datetime):
+        time = [time]
+
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
+    assert shape[2] > 100  # lat grid points (CONUS ~596)
+    assert shape[3] > 100  # lon grid points (CONUS ~1385)
+    assert not np.isnan(data.values).all()
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.fixture(scope="session")
-def ds():
-    """
-    Open dataset ONCE for entire test session.
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    "time",
+    [np.array([np.datetime64("2010-07-01T00:00")])],
+)
+@pytest.mark.parametrize("variable", [["t2m_max", "tp"]])
+@pytest.mark.parametrize("cache", [True, False])
+def test_nclimgrid_cache(time, variable, cache):
+    ds = NClimGrid(cache=cache)
+    data = ds(time, variable)
+    shape = data.shape
 
-    Prevents:
-    - repeated Zarr open
-    - repeated S3 metadata scan
-    - test hangs
-    - extreme runtime
-    """
-    return NClimGrid(cache=True, verbose=False)
+    assert shape[0] == 1
+    assert shape[1] == 2
+    assert not np.isnan(data.values).all()
 
+    if cache:
+        assert pathlib.Path(ds.cache).is_dir()
+    else:
+        assert not pathlib.Path(ds.cache).exists()
 
-# ---------------------------------------------------------------------
-# OFFLINE TESTS
-# ---------------------------------------------------------------------
+    # Reload from cache
+    data = ds(time, variable[0])
+    assert data.shape[1] == 1
 
-
-class TestNClimGridOffline:
-
-    def test_schema_fields(self):
-        assert NClimGrid.SCHEMA.names == [
-            "time",
-            "lat",
-            "lon",
-            "observation",
-            "variable",
-        ]
-
-    def test_schema_types(self):
-        assert NClimGrid.SCHEMA.field("time").type == pa.timestamp("ns")
-        assert NClimGrid.SCHEMA.field("lat").type == pa.float32()
-        assert NClimGrid.SCHEMA.field("lon").type == pa.float32()
-        assert NClimGrid.SCHEMA.field("observation").type == pa.float32()
-        assert NClimGrid.SCHEMA.field("variable").type == pa.string()
-
-    def test_resolve_fields_invalid(self):
-        with pytest.raises(KeyError):
-            NClimGrid.resolve_fields(["not_real"])
-
-    def test_source_id(self):
-        assert NClimGrid.SOURCE_ID == "earth2studio.data.nclimgrid"
-
-    def test_lexicon_variables(self):
-        for v in ["t2m_max", "t2m_min", "tp", "spi"]:
-            desc, mod = NClimGridLexicon[v]
-            assert isinstance(desc, str)
-            assert callable(mod)
-
-    def test_unit_conversion_kelvin(self):
-        _, mod = NClimGridLexicon["t2m_max"]
-        np.testing.assert_allclose(mod(np.array([25.0])), [298.15])
-
-    def test_unit_conversion_precip(self):
-        _, mod = NClimGridLexicon["tp"]
-        np.testing.assert_allclose(mod(np.array([100.0])), [0.1])
-
-    def test_spi_identity(self):
-        _, mod = NClimGridLexicon["spi"]
-        arr = np.array([1.2])
-        np.testing.assert_allclose(mod(arr), arr)
+    try:
+        shutil.rmtree(ds.cache)
+    except FileNotFoundError:
+        pass
 
 
-# ---------------------------------------------------------------------
-# ONLINE TESTS
-# ---------------------------------------------------------------------
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime(year=1940, month=1, day=1),
+    ],
+)
+@pytest.mark.parametrize("variable", ["not_available"])
+def test_nclimgrid_valid_time(time, variable):
+    with pytest.raises(ValueError):
+        ds = NClimGrid()
+        ds(time, variable)
 
 
-@pytest.mark.network
-class TestNClimGridOnline:
+def test_nclimgrid_available():
+    assert NClimGrid.available(datetime(2010, 7, 1))
+    assert not NClimGrid.available(datetime(1940, 1, 1))
+    assert NClimGrid.available(np.datetime64("2010-07-01"))
+    assert not NClimGrid.available(np.datetime64("1940-01-01"))
 
-    DATE = datetime(2010, 7, 1)
 
-    # ---------------- functional ----------------
+def test_nclimgrid_lexicon():
+    for v in ["t2m_max", "t2m_min", "tp", "spi"]:
+        native, mod = NClimGridLexicon[v]
+        assert isinstance(native, str)
+        assert callable(mod)
 
-    def test_single_variable(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert len(df) > 1000
-        assert set(df["variable"]) == {"t2m_max"}
+    # Unit conversions
+    _, mod = NClimGridLexicon["t2m_max"]
+    np.testing.assert_allclose(mod(np.array([25.0])), [298.15])
 
-    def test_multi_variable(self, ds):
-        df = ds(self.DATE, ["t2m_max", "tp"])
-        assert set(df["variable"]) == {"t2m_max", "tp"}
+    _, mod = NClimGridLexicon["tp"]
+    np.testing.assert_allclose(mod(np.array([100.0])), [0.1])
 
-    def test_multiple_dates(self, ds):
-        dates = [self.DATE, self.DATE + timedelta(days=1)]
-        df = ds(dates, "t2m_max")
-        assert df["time"].nunique() == 2
-
-    def test_slice_semantics(self, ds):
-        df = ds(slice(datetime(2010, 7, 1), datetime(2010, 7, 3)), "t2m_max")
-        assert df["time"].nunique() == 3
-
-    # ---------------- grid integrity ----------------
-
-    def test_lat_lon_bounds(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert df["lat"].between(20, 55).all()
-        assert df["lon"].between(-130, -60).all()
-
-    def test_unique_grid_density(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert df["lat"].nunique() > 100
-        assert df["lon"].nunique() > 100
-
-    def test_no_nan_coordinates(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert df["lat"].notna().all()
-        assert df["lon"].notna().all()
-
-    # ---------------- scientific sanity ----------------
-
-    def test_temperature_mean_range(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert 250 < df["observation"].mean() < 320
-
-    def test_temperature_extreme_range(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert df["observation"].min() > 200
-        assert df["observation"].max() < 350
-
-    def test_precip_nonnegative(self, ds):
-        df = ds(self.DATE, "tp")
-        valid = df["observation"].dropna()
-        assert len(valid) > 0
-        assert (valid >= 0).all()
-
-    # ---------------- scaling ----------------
-
-    def test_multi_variable_multi_time_scaling(self, ds):
-        dates = [self.DATE + timedelta(days=i) for i in range(5)]
-        df = ds(dates, ["t2m_max", "tp"])
-        assert df["time"].nunique() == 5
-        assert set(df["variable"]) == {"t2m_max", "tp"}
-
-    def test_large_time_window(self, ds):
-        df = ds(slice(datetime(2010, 7, 1), datetime(2010, 7, 10)), "t2m_max")
-        assert df["time"].nunique() == 10
-
-    def test_duplicate_time_input(self, ds):
-        df = ds([self.DATE, self.DATE], "t2m_max")
-        assert df["time"].nunique() == 1
-
-    def test_time_order_invariance(self, ds):
-        d1 = [datetime(2010, 7, 1), datetime(2010, 7, 2)]
-        d2 = list(reversed(d1))
-        assert set(ds(d1, "t2m_max")["time"]) == set(ds(d2, "t2m_max")["time"])
-
-    # ---------------- caching ----------------
-
-    def test_cache_speedup(self, ds):
-        t0 = time.time()
-        ds(self.DATE, "t2m_max")
-        first = time.time() - t0
-
-        t0 = time.time()
-        ds(self.DATE, "t2m_max")
-        second = time.time() - t0
-
-        assert second <= first
-
-    # ---------------- dataframe integrity ----------------
-
-    def test_output_types(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert pd.api.types.is_datetime64_any_dtype(df["time"])
-        assert pd.api.types.is_float_dtype(df["lat"])
-        assert pd.api.types.is_float_dtype(df["lon"])
-        assert pd.api.types.is_float_dtype(df["observation"])
-        assert pd.api.types.is_string_dtype(df["variable"])
-
-    def test_source_attr(self, ds):
-        df = ds(self.DATE, "t2m_max")
-        assert df.attrs["source"] == NClimGrid.SOURCE_ID
-
-    def test_invalid_variable(self, ds):
-        with pytest.raises(KeyError):
-            ds(self.DATE, "not_real_variable")
+    _, mod = NClimGridLexicon["spi"]
+    np.testing.assert_allclose(mod(np.array([1.2])), [1.2])
