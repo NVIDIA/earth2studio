@@ -158,7 +158,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
-        sampler_steps: int = 36,
+        sampler_steps: int = 18,
         sampler_args: dict[str, float | int] | None = None,
     ):
         super().__init__()
@@ -283,7 +283,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
-        sampler_steps: int = 36,
+        sampler_steps: int = 18,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -294,7 +294,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
         sampler_steps : int, optional
-            Number of diffusion sampler steps, by default 36
+            Number of diffusion sampler steps, by default 18
 
         Returns
         -------
@@ -386,11 +386,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
-        scheduler = EDMNoiseScheduler(
-            sigma_min=self.sampler_args["sigma_min"],
-            sigma_max=self.sampler_args["sigma_max"],
-            rho=self.sampler_args["rho"],
-        )
         latents = torch.randn_like(x, dtype=torch.float64)
         latents = self.sampler_args["sigma_max"] * latents
 
@@ -399,6 +394,11 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ) -> torch.Tensor:
             return self.diffusion_model(latent_x, t, condition=condition)
 
+        scheduler = EDMNoiseScheduler(
+            sigma_min=self.sampler_args["sigma_min"],
+            sigma_max=self.sampler_args["sigma_max"],
+            rho=self.sampler_args["rho"],
+        )
         denoiser = scheduler.get_denoiser(x0_predictor=_conditional_diffusion)
         edm_out = sample(
             denoiser,
