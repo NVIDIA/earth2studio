@@ -28,9 +28,21 @@ satellite imagery as input.
 In this example you will learn:
 
 - How to instantiate StormScope GOES and NSRDB models
-- Running an autoregressive GOES forecast with GHI estimation at each step
-- Generating ensemble members for probabilistic forecasts
+- How to run an autoregressive GOES forecast with GHI estimation at each step (including t=0 initialization)
+- How to control the number of diffusion steps in GHI post-processing for sharper/realistic results
+- What resolution the results are forecast and saved at
+- How to generate ensemble members for probabilistic forecasts
 - Plotting GHI ensemble mean, spread, and individual members
+
+Notes:
+------
+- **Are we estimating solar also for the first step?**
+  Yes. We also estimate GHI for the initial timestep (context, lead=0) using the initial GOES context, so the output includes a forecast for every step including t=0.
+- **How can I decide the number of diffusion steps?**
+  You can control the number of diffusion refinement (SDEdit) steps for the GHI estimation via the `num_steps` keyword in `estimate_from_goes()`. Fewer steps are faster and smoother; more steps (e.g. 20-30) produce sharper, more stochastic detail, at a compute cost. See below for how to specify.
+- **At what resolution are we saving the results?**
+  Both GOES and GHI are predicted and saved on the 3-km NSRDB grid (`nlat=494`, `nlon=1073`), matching the HRRR/NSRDB grid used in the models, not the raw satellite grid.
+
 """
 # /// script
 # dependencies = [
@@ -140,7 +152,7 @@ x, x_coords = fetch_data(
 # stochastic diffusion sampling in both the GOES and NSRDB models.
 
 # %%
-ensemble_size = 4
+ensemble_size = 1
 if x.dim() == 5:
     x = x.unsqueeze(0)
 x = x.repeat(ensemble_size, 1, 1, 1, 1, 1)
@@ -149,26 +161,31 @@ x_coords.move_to_end("batch", last=False)
 x = x.to(dtype=torch.float32)
 
 # %%
-# Run Forecast Loop
-# -----------------
+# Run Forecast Loop (+GHI for t=0)
+# ---------------------------------
 # At each step, we:
 #
-# 1. Predict future GOES imagery with the GOES model
+# 1. Predict future GOES imagery with the GOES model, starting from the current forecast window
 # 2. Estimate GHI from the predicted GOES using the NSRDB model
 # 3. Advance the GOES sliding window for the next step
 #
-# The NSRDB model uses ``estimate_from_goes()`` which internally:
+# The NSRDB model uses ``estimate_from_goes()`` which supports a `num_steps` argument
+# to control the number of SDEdit/diffusion refinement steps. Increase for more stochastic detail:
+#   - Typical: 10–30 steps (default is 20). Try `num_steps=10` (faster, blurrier) or `num_steps=30` (slower, sharper).
+#   - Example: `nsrdb_model.sampler_args = {"num_steps": 20}`
 #
-# - Runs a regression U-Net for a deterministic GHI estimate
-# - Adds controlled noise (SDEdit) and denoises with a diffusion model
-# - This produces calibrated probabilistic GHI with realistic spatial texture
+# **We also estimate solar for the initial t=0 window for comparability, so ghi_forecasts[0] is the nowcast for the starting time.**
+#
+# The GHI outputs are at NSRDB 3-km resolution: (494, 1073) grid covering CONUS.
 
 # %%
 y, y_coords = x, x_coords
-n_steps = 6
+n_steps = 2
 ghi_forecasts = []
 valid_times = []
 
+num_diffusion_steps = 24  # You can change this to any positive integer
+nsrdb_model.sampler_args = {"num_steps": num_diffusion_steps}
 for step_idx in range(n_steps):
     torch.manual_seed(step_idx)
 
@@ -194,12 +211,22 @@ for step_idx in range(n_steps):
     # Advance GOES sliding window
     y, y_coords = goes_model.next_input(y_pred, y_pred_coords, y, y_coords)
 
+# -- include GHI for initial time (t=0, nowcast) --
+# Model usage: estimate solar also for the initial context
+print("Estimating GHI for t=0 (initial nowcast window)...")
+ghi_init_pred, ghi_init_coords = nsrdb_model.estimate_from_goes(
+    x.clone().float(), x_coords.copy(), num_steps=num_diffusion_steps
+)
+ghi_init_np = ghi_init_pred[:, 0, 0, 0].detach().cpu().numpy()
+ghi_forecasts = [ghi_init_np] + ghi_forecasts
+valid_times = [0] + valid_times
+
 # %%
 # Plot Results
 # ------------
 # We create three figures:
 #
-# 1. Ensemble mean GHI at selected lead times
+# 1. Ensemble mean GHI at selected lead times (including t=0 nowcast)
 # 2. Ensemble spread (standard deviation) showing forecast uncertainty
 # 3. Individual ensemble members at the final step
 
@@ -214,8 +241,8 @@ proj_hrrr = ccrs.LambertConformal(
     globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
 )
 
-# Figure 1: Ensemble mean GHI at three lead times
-steps_to_show = [0, n_steps // 2, n_steps - 1]
+# Figure 1: Ensemble mean GHI at three lead times (includes t=0)
+steps_to_show = [0, n_steps // 2, n_steps]  # n_steps is last forecast, +t=0
 fig, axes = plt.subplots(
     1, len(steps_to_show), figsize=(6 * len(steps_to_show), 5),
     subplot_kw={"projection": proj_hrrr},
@@ -236,7 +263,8 @@ for i, si in enumerate(steps_to_show):
 fig.colorbar(im, ax=axes, shrink=0.6, label="GHI [W/m²]", orientation="horizontal", pad=0.05)
 fig.suptitle(
     f"StormScope Solar — Ensemble Mean GHI\n"
-    f"Init: {start_date[0]} UTC, {ensemble_size} members",
+    f"Init: {start_date[0]} UTC, {ensemble_size} members\n"
+    f"Diffusion steps: {num_diffusion_steps}, Resolution: {lat_nsrdb.shape[0]}x{lon_nsrdb.shape[0]} (NSRDB 3-km)",
     fontsize=13,
 )
 fig.tight_layout(rect=[0, 0.05, 1, 0.95])
@@ -264,7 +292,8 @@ for i, si in enumerate(steps_to_show):
 fig2.colorbar(im2, ax=axes2, shrink=0.6, label="GHI Spread [W/m²]", orientation="horizontal", pad=0.05)
 fig2.suptitle(
     f"StormScope Solar — Ensemble Spread (Std Dev)\n"
-    f"Init: {start_date[0]} UTC, {ensemble_size} members",
+    f"Init: {start_date[0]} UTC, {ensemble_size} members\n"
+    f"Diffusion steps: {num_diffusion_steps}, Resolution: {lat_nsrdb.shape[0]}x{lon_nsrdb.shape[0]} (NSRDB 3-km)",
     fontsize=13,
 )
 fig2.tight_layout(rect=[0, 0.05, 1, 0.95])
@@ -296,7 +325,8 @@ for m in range(ensemble_size):
 fig3.colorbar(im3, ax=axes3, shrink=0.6, label="GHI [W/m²]", orientation="horizontal", pad=0.05)
 fig3.suptitle(
     f"StormScope Solar — Individual Members at +{valid_times[-1]} min\n"
-    f"Init: {start_date[0]} UTC",
+    f"Init: {start_date[0]} UTC\n"
+    f"Diffusion steps: {num_diffusion_steps}, Resolution: {lat_nsrdb.shape[0]}x{lon_nsrdb.shape[0]} (NSRDB 3-km)",
     fontsize=13,
 )
 fig3.tight_layout(rect=[0, 0.05, 1, 0.95])

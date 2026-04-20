@@ -361,6 +361,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_lats: torch.Tensor | ArrayLike,
         conditioning_lons: torch.Tensor | ArrayLike,
         max_dist_km: float | None = None,
+        use_ckdtree: bool = False,
     ) -> nn.Module:
         """Build a module to handle interpolating data on an arbitrary input lat/lon grid
         to the internal lat/lon grid, done via nearest neighbor interpolation.
@@ -375,6 +376,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Maximum great-circle distance (km) to accept a nearest neighbor match.
             Target points farther than this threshold are marked invalid and will
             receive NaNs in the output. By default 6.0.
+        use_ckdtree : bool, optional
+            Use scipy cKDTree (C implementation) instead of KDTree (Python).
+            Set True for StormScopeNSRDB to match its training pipeline which uses
+            cKDTree via KNNS2Interpolator. Default False (matches StormScopeGOES
+            training which used the pure-Python KDTree).
         """
         if max_dist_km is None:
             max_dist_km = self._conditioning_interp_max_dist_km
@@ -384,6 +390,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             target_lats=self.latitudes,
             target_lons=self.longitudes,
             max_dist_km=max_dist_km,
+            use_ckdtree=use_ckdtree,
         ).to(self.latitudes.device)
 
         cinterp = cast(NearestNeighborInterpolator, self.conditioning_interp)
@@ -1826,6 +1833,8 @@ class StormScopeNSRDB(StormScopeBase):
         self.lead_time_steps = int(lead_time_steps)
         self.bootstrap_lead_time_label = int(bootstrap_lead_time_label)
         self.autoregressive_lead_time_label = int(autoregressive_lead_time_label)
+        self.diffusion_model = diffusion_model
+        # Aliases kept for backward compatibility with existing package builds
         self.first_step_diffusion_model = diffusion_model
         self.rollout_diffusion_model = diffusion_model
         self._sigma_min = float(sigma_min)
@@ -1848,38 +1857,11 @@ class StormScopeNSRDB(StormScopeBase):
         model: nn.Module,
         sigma_min: float,
         sigma_max: float,
-        lead_time_label: torch.Tensor | None = None,
     ) -> Generator[None, None, None]:
-        """Temporarily switch active denoiser checkpoint for one forecast step."""
-        if lead_time_label is not None:
-            class _LeadTimeInjectedModel(nn.Module):
-                def __init__(self, base_model: nn.Module, lt_label: torch.Tensor):
-                    super().__init__()
-                    self.base_model = base_model
-                    self.lt_label = lt_label
-
-                def round_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
-                    return self.base_model.round_sigma(sigma)  # type: ignore[attr-defined]
-
-                def forward(
-                    self,
-                    x: torch.Tensor,
-                    sigma: torch.Tensor,
-                    class_labels: torch.Tensor | None = None,
-                    condition: torch.Tensor | None = None,
-                ) -> torch.Tensor:
-                    return self.base_model(
-                        x,
-                        sigma,
-                        class_labels=class_labels,
-                        condition=condition,
-                        lead_time_label=self.lt_label,
-                    )
-
-            active_model: nn.Module = _LeadTimeInjectedModel(model, lead_time_label)
-        else:
-            active_model = model
-
+        """Temporarily replace ``model_spec`` with a single-stage spec wrapping
+        ``model`` and covering ``[sigma_min, sigma_max]``.  This lets the shared
+        ``_edm_sampler`` + ``_select_expert`` code path work with a single
+        checkpoint even when the model was loaded with multi-stage metadata."""
         old_model_spec = self.model_spec
         old_stage_models = self.stage_models
         old_start_sigma = self.start_sigma
@@ -1887,12 +1869,12 @@ class StormScopeNSRDB(StormScopeBase):
         try:
             self.model_spec = [
                 {
-                    "model": active_model,
+                    "model": model,
                     "sigma_min": float(sigma_min),
                     "sigma_max": float(sigma_max),
                 }
             ]
-            self.stage_models = nn.ModuleList([active_model])
+            self.stage_models = nn.ModuleList([model])
             self.start_sigma = float(sigma_min)
             self.end_sigma = float(sigma_max)
             yield
@@ -2134,12 +2116,14 @@ class StormScopeNSRDB(StormScopeBase):
         if conditioning is not None:
             parts.append(conditioning)
 
-        parts.append(self._unitless_insolation(coords, b, x.device, x.dtype))
+        insol = self._unitless_insolation(coords, b, x.device, x.dtype)
+        parts.append(insol)
 
         if self.invariants is not None:
             inv = self.invariants.to(device=x.device, dtype=x.dtype)
             inv = self._sanitize_tensor(inv)
             parts.append(inv.repeat(b * t, 1, 1, 1))
+
         return torch.cat(parts, dim=1)
 
     def _run_regression(
@@ -2204,8 +2188,13 @@ class StormScopeNSRDB(StormScopeBase):
             conditioning_coords=conditioning_coords,
         )
 
+        # Generate latents in _SAMPLER_DTYPE so the noise realization matches
+        # what the debug/training pipeline produces (which uses float64).
+        # Using x.dtype (float32) with the same seed gives different torch.randn
+        # values than float64, causing a ~20 W/m² single-sample mean shift.
+        latent_dtype = getattr(self, "_SAMPLER_DTYPE", x.dtype)
         latents = self._generate_latents(
-            (b * t, *x.shape[3:]), device=x.device, dtype=x.dtype
+            (b * t, *x.shape[3:]), device=x.device, dtype=latent_dtype
         )
 
         # Determine inference mode: regression + SDEdit vs pure diffusion
@@ -2215,42 +2204,43 @@ class StormScopeNSRDB(StormScopeBase):
             and self.sdedit_sigma > 0
         )
 
-        with self._mask_denoiser_outputs():
-            if use_sdedit:
-                reg_condition = self._build_regression_condition(
-                    conditioning_norm=conditioning_norm,
-                    coords=coords,
-                    b=b,
-                    t=t,
-                    lt=lt,
-                    x=x_norm,
-                )
-                reg_pred = self._run_regression(reg_condition)
-                if self.mask_regression:
-                    valid_flat = self.valid_mask.reshape(1, 1, *self.valid_mask.shape[-2:])
-                    reg_pred = reg_pred * valid_flat.to(dtype=reg_pred.dtype)
+        if use_sdedit:
+            reg_condition = self._build_regression_condition(
+                conditioning_norm=conditioning_norm,
+                coords=coords,
+                b=b,
+                t=t,
+                lt=lt,
+                x=x_norm,
+            )
+            reg_pred = self._run_regression(reg_condition)
+            if self.mask_regression:
+                valid_flat = self.valid_mask.reshape(1, 1, *self.valid_mask.shape[-2:])
+                reg_pred = reg_pred * valid_flat.to(dtype=reg_pred.dtype)
 
-                sdedit_sigma_max = self.sdedit_sigma
-                x_init = reg_pred / sdedit_sigma_max + latents
+            sdedit_sigma_max = self.sdedit_sigma
+            x_init = reg_pred / sdedit_sigma_max + latents
 
-                with self._use_forecast_checkpoint(
-                    self.rollout_diffusion_model,
-                    self._sigma_min,
-                    sdedit_sigma_max,
-                ):
-                    out = self._edm_sampler(
-                        latents=x_init,
-                        condition=condition,
-                        sigma_min=self._sigma_min,
-                        sigma_max=sdedit_sigma_max,
-                        **self.sampler_args,
-                    ).to(output_dtype)
-            else:
+            sigma_min_sde = self._sigma_min
+            sigma_max_sde = sdedit_sigma_max
+        else:
+            x_init = latents
+            sigma_min_sde = self._sigma_min
+            sigma_max_sde = self._sigma_max
+
+        # Use a single-stage spec covering the active sampling range, then wrap
+        # the model with _mask_denoiser_outputs so invalid pixels (ocean, out-of-domain)
+        # are zeroed after EVERY denoising step.  Order matters: _mask_denoiser_outputs
+        # must nest INSIDE _use_forecast_checkpoint or the wrapper is silently dropped.
+        with self._use_forecast_checkpoint(
+            self.diffusion_model, sigma_min_sde, sigma_max_sde,
+        ):
+            with self._mask_denoiser_outputs():
                 out = self._edm_sampler(
-                    latents=latents,
+                    latents=x_init,
                     condition=condition,
-                    sigma_min=self._sigma_min,
-                    sigma_max=self._sigma_max,
+                    sigma_min=sigma_min_sde,
+                    sigma_max=sigma_max_sde,
                     **self.sampler_args,
                 ).to(output_dtype)
 
