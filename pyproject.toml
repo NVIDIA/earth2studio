@@ -174,14 +174,14 @@ fuxi = [
 gencast = [
     "graphcast",
     "dm-haiku>=0.0.14",
-    "jax[cuda12]>=0.4.26",
+    "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
 ]
 graphcast = [
     "graphcast",
     "dm-haiku>=0.0.14",
-    "jax[cuda12]>=0.4.26",
+    "jax[cuda13]>=0.4.26",
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
 ]
@@ -228,8 +228,8 @@ corrdiff = [
     "scipy>=1.15.2",
 ]
 cyclone = [
-    "cucim-cu12>=25.4.0",
-    "cupy-cuda12x<14.0.0", # 14.0.0 has some odd issue, thrust needs c++17, need to revisit
+    "cucim-cu13>=25.4.0",
+    "cupy-cuda13x<14.0.0", # 14.0.0 has some odd issue, thrust needs c++17, need to revisit
     "scikit-image>=0.25.2",
 ]
 derived = []
@@ -249,17 +249,17 @@ windgust-afno = [
 da-healda = [
     "earth2grid",
     "nvidia-physicsnemo>=2.0",
-    "cupy-cuda12x<14.0.0",
-    "cudf-cu12==26.2.*",
+    "cupy-cuda13x<14.0.0",
+    "cudf-cu13==26.2.*",
 ]
 da-interp = [
-    "cupy-cuda12x<14.0.0",
-    "cudf-cu12==26.2.*",
+    "cupy-cuda13x<14.0.0",
+    "cudf-cu13==26.2.*",
 ]
 da-stormcast = [
     "earth2studio[stormcast]",
-    "cupy-cuda12x<14.0.0",
-    "cudf-cu12==26.2.*",
+    "cupy-cuda13x<14.0.0",
+    "cudf-cu13==26.2.*",
 ]
 # All, must not have conflicts
 all = [
@@ -314,16 +314,6 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
 
 [exclude.uv.workspace]
 members = ["recipes/*"]
@@ -470,7 +460,7 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 # ==== MyPy configuration ====
 # See: https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 packages = ['earth2studio']
 exclude = [
     'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
