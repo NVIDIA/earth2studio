@@ -386,7 +386,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
-        latents = torch.randn_like(x, dtype=torch.float64)
+        latents = torch.randn_like(x)
         latents = self.sampler_args["sigma_max"] * latents
 
         def _conditional_diffusion(
