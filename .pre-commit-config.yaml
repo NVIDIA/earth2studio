@@ -75,6 +75,7 @@ repos:
               (?x)^(examples|
                 test |
                 serve/test/.* |
+                serve/server/example_workflows/.* |
                 docs |
                 recipes/.*/test/.* |
                 earth2studio/models/nn)

@@ -605,6 +605,7 @@ class UFSObsSat(_UFSObsBase):
     SOURCE_ID = "earth2studio.data.UFSObsSat"
     VALID_SATELLITES = frozenset(
         [
+            "aqua",
             "npp",
             "metop-a",
             "metop-b",

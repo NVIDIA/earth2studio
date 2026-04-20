@@ -26,7 +26,13 @@ from .gfs import GFSLexicon
 from .goes import GOESLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
-from .jpss import JPSSLexicon
+from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
+from .metop import (
+    MetOpAMSUALexicon,
+    MetOpAVHRRLexicon,
+    MetOpIASILexicon,
+    MetOpMHSLexicon,
+)
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
