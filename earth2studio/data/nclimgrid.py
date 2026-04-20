@@ -56,6 +56,8 @@ class NClimGrid:
     on a ~1/24 degree (~0.0417°) latitude/longitude grid. Data spans from
     1951 to the present and is stored as monthly NetCDF files on AWS S3.
 
+    Available variables: t2m_max, t2m_min, t2m (daily avg), tp (precipitation).
+
     Parameters
     ----------
     cache : bool, optional
@@ -176,6 +178,13 @@ class NClimGrid:
         """
         time_list, variable_list = prep_data_inputs(time, variable)
 
+        # NClimGrid is daily data — truncate to day resolution so sub-day
+        # timestamps (e.g. 07:30) map to the correct daily value.
+        # Deduplicate since multiple sub-day times map to the same day.
+        time_list = list(
+            dict.fromkeys(datetime(t.year, t.month, t.day) for t in time_list)
+        )
+
         Path(self.cache).mkdir(parents=True, exist_ok=True)
         self._validate_time(time_list)
 
@@ -237,6 +246,9 @@ class NClimGrid:
                     continue
 
                 nc_uri = self._monthly_nc_uri(t)
+                # NClimGrid is daily data — truncate to day resolution
+                # so that sub-day times (e.g. 07:30) match the file timestamps
+                target_date = np.datetime64(t).astype("datetime64[D]")
                 tasks.append(
                     NClimGridAsyncTask(
                         time_index=i,
@@ -245,7 +257,7 @@ class NClimGrid:
                         native_key=native_key,
                         modifier=modifier,
                         nc_uri=nc_uri,
-                        target_date=np.datetime64(t),
+                        target_date=target_date,
                     )
                 )
         return tasks

@@ -22,7 +22,7 @@ from earth2studio.lexicon import NClimGridLexicon
 
 @pytest.mark.parametrize(
     "variable",
-    [["t2m_max"], ["t2m_min", "tp"], ["t2m_max", "t2m_min", "tp", "spi"]],
+    [["t2m_max"], ["t2m_min", "tp"], ["t2m_max", "t2m_min", "t2m", "tp"]],
 )
 def test_nclimgrid_lexicon(variable):
     input = np.random.randn(len(variable), 8).astype(np.float32)
@@ -41,13 +41,12 @@ def test_nclimgrid_lexicon_modifiers():
     _, mod = NClimGridLexicon["t2m_min"]
     np.testing.assert_allclose(mod(np.array([-10.0])), [263.15])
 
+    _, mod = NClimGridLexicon["t2m"]
+    np.testing.assert_allclose(mod(np.array([20.0])), [293.15])
+
     # Precipitation: mm -> m
     _, mod = NClimGridLexicon["tp"]
     np.testing.assert_allclose(mod(np.array([0.0, 100.0])), [0.0, 0.1])
-
-    # SPI: identity (dimensionless)
-    _, mod = NClimGridLexicon["spi"]
-    np.testing.assert_allclose(mod(np.array([1.2, -0.5])), [1.2, -0.5])
 
 
 def test_nclimgrid_lexicon_invalid_key():

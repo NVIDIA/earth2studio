@@ -36,8 +36,8 @@ class NClimGridLexicon(metaclass=LexiconType):
     VOCAB = {
         "t2m_max": "tmax",
         "t2m_min": "tmin",
+        "t2m": "tavg",
         "tp": "prcp",
-        "spi": "spi",
     }
 
     @classmethod
@@ -58,10 +58,10 @@ class NClimGridLexicon(metaclass=LexiconType):
 
         def modifier(x: np.ndarray) -> np.ndarray:
             x = np.asarray(x, dtype="float32")
-            if native in ("tmax", "tmin"):
+            if native in ("tmax", "tmin", "tavg"):
                 return x + 273.15  # °C -> K
             if native == "prcp":
                 return x / 1000.0  # mm -> m
-            return x  # spi is dimensionless
+            return x
 
         return native, modifier
