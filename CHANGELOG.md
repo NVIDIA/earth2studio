@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `eumdac>=3.1.0` to `data` optional dependency group for EUMETSAT Data Store access
 - Moved package dependencies defaults to CUDA 13.0 following torch
 - Moving suggested Python version to 3.13
+- Pointing physicsnemo to git main source for torch 2.11 compatability
 
 ## [0.13.0] - 2026-03-20
 

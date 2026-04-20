@@ -2086,24 +2086,22 @@ requires-dist = [
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormscope'" },
     { name = "nest-asyncio" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.3.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
@@ -5325,8 +5323,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
-version = "2.0.0"
-source = { registry = "https://pypi.org/simple" }
+version = "2.1.0a0"
+source = { git = "https://github.com/NVIDIA/physicsnemo.git?rev=369a15782b9922d7694d49a00bfaf8960b9be429#369a15782b9922d7694d49a00bfaf8960b9be429" }
 dependencies = [
     { name = "cftime" },
     { name = "einops" },
@@ -5351,9 +5349,6 @@ dependencies = [
     { name = "tqdm" },
     { name = "treelib" },
     { name = "warp-lang" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/bd/72eb242134e355810821d2c42e8ca9f15c6757c309e02389fc6f2bd40f02/nvidia_physicsnemo-2.0.0-py3-none-any.whl", hash = "sha256:fcea6ac198a2925ab81c3f62011225f53b73e1212e5364aac939ab599c0dfd9d", size = 1637877, upload-time = "2026-03-09T16:14:55.312Z" },
 ]
 
 [[package]]

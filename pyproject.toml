@@ -314,6 +314,8 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
+# Remove once update release with torch 2.11 fixable
+nvidia-physicsnemo = { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "369a15782b9922d7694d49a00bfaf8960b9be429" }
 
 [exclude.uv.workspace]
 members = ["recipes/*"]
