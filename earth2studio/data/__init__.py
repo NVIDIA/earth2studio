@@ -26,7 +26,6 @@ from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
 from .goes import GOES
-from .mtg import MTG
 from .hrrr import HRRR, HRRR_FX
 from .isd import ISD
 from .jpss import JPSS
@@ -34,9 +33,13 @@ from .jpss_atms import JPSS_ATMS
 from .jpss_cris import JPSS_CRIS
 from .metop_amsua import MetOpAMSUA
 from .metop_avhrr import MetOpAVHRR
+from .metop_iasi import MetOpIASI
 from .metop_mhs import MetOpMHS
+from .metop_mtg import MetOpMTG
 from .mrms import MRMS
+from .mtg import MTG
 from .ncar import NCAR_ERA5
+from .nclimgrid import NClimGridDaily
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,

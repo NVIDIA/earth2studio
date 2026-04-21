@@ -24,13 +24,20 @@ from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .goes import GOESLexicon
-from .mtg import MTGLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
-from .metop import MetOpAMSUALexicon, MetOpAVHRRLexicon, MetOpMHSLexicon
+from .metop import (
+    MetOpAMSUALexicon,
+    MetOpAVHRRLexicon,
+    MetOpIASILexicon,
+    MetOpMHSLexicon,
+    MetOpMTGLexicon,
+)
 from .mrms import MRMSLexicon
+from .mtg import MTGLexicon
 from .ncar import NCAR_ERA5Lexicon
+from .nclimgrid import NClimGridLexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
     PlanetaryComputerGOESLexicon,

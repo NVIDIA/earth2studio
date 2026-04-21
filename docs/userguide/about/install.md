@@ -15,8 +15,8 @@ model installs and suggested environment set up for the most complete experience
 
 ## Install using Pip
 
-Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); make sure it
-is installed correctly for your system first.
+Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); **make sure it
+is installed correctly for your system first**.
 To get the latest release of Earth2Studio, install from the Python index.
 
 ```bash
@@ -30,7 +30,7 @@ and it's recommended that users use an uv project for the best install experienc
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
-uv init --python=3.12
+uv init --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
@@ -522,8 +522,7 @@ uv add earth2studio --extra corrdiff
 ::::
 :::::
 :::::{tab-item} Cyclone Trackers
-Notes: Additional dependencies for all cyclone tracking models. Only Python 3.12 and
-below support.
+Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -538,6 +537,23 @@ uv pip install earth2studio --extra cyclone
 ```bash
 pip install earth2studio[cyclone]
 ```
+
+`TempestExtremes` is not provided as a Python library and must be installed
+separately by the user. Installation instructions can be found on the
+[TempestExtremes GitHub page](https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended).
+
+When compiling `TempestExtremes` via CMake, executables are placed in a `bin`
+directory inside the `TempestExtremes` source tree by default (i.e.
+`/path/to/tempestextremes/bin`). Because these binaries are not
+automatically added to the system `PATH`, the `detect_cmd` and `stitch_cmd`
+entries in the pipeline configuration must reference the full path to the
+`DetectNodes` and `StitchNodes` executables, e.g.
+`/path/to/tempestextremes/bin/DetectNodes ...`. When using the provided
+Docker container, the binaries are copied to `/usr/local/bin` and are therefore
+available on the `PATH`; in that case only the executable names are needed
+(e.g. `DetectNodes ...`). Examples for both commands are provided in the
+docstring of the `TempestExtremes` class and in the
+[TC tracking recipe](../../recipes/tc_tracking/README.md).
 
 :::
 ::::
@@ -822,14 +838,14 @@ the following commands:
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
-uv init --python=3.12
+uv init --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
-uv venv --python=3.12
+uv venv --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
@@ -892,7 +908,7 @@ However this demonstrates that in principle Earth2Studio can be installed using 
 package tooling.
 
 ```bash
-conda create -n earth2studio python=3.12
+conda create -n earth2studio python=3.13
 conda activate earth2studio
 
 uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
@@ -907,8 +923,8 @@ The following are recommended to closely match development and automation enviro
 minimizing the chance for unexpected incompatibilities:
 
 - OS: Ubuntu 24.04 LTS
-- Python Version: 3.12
-- CUDA Version: 12.8
+- Python Version: 3.13
+- CUDA Version: 13.0
 
 ## Hardware
 
