@@ -1205,7 +1205,7 @@ class StormScopeGOES(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = DiT.from_checkpoint(package.resolve(m["path"]), strict=False)
+            model = DiT.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),
