@@ -22,7 +22,6 @@ import numpy as np
 import pytest
 
 from earth2studio.data import MetOpMTG
-from earth2studio.lexicon import MetOpMTGLexicon
 
 
 @pytest.mark.timeout(15)
@@ -52,17 +51,6 @@ def test_metop_mtg_available():
     assert MetOpMTG.available(datetime(2024, 1, 16, 12, 0))
     assert MetOpMTG.available(datetime(2025, 3, 1, 0, 0))
     assert not MetOpMTG.available(datetime(2023, 12, 31, 0, 0))
-
-
-@pytest.mark.timeout(15)
-def test_metop_mtg_lexicon():
-    assert "fci01" in MetOpMTGLexicon.VOCAB
-    assert "fci12" in MetOpMTGLexicon.VOCAB
-    assert len(MetOpMTGLexicon.VOCAB) == 12
-
-    channel_name, modifier = MetOpMTGLexicon["fci01"]
-    assert channel_name == "vis_04"
-    assert callable(modifier)
 
 
 @pytest.mark.slow

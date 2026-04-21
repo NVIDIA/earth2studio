@@ -37,7 +37,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
 )
-from earth2studio.lexicon.mtg import MetOpMTGLexicon
+from earth2studio.lexicon.metop import MetOpMTGLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
