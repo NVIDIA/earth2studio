@@ -294,12 +294,17 @@ default-groups = ["dev", "build"]
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 override-dependencies = []
 
+[[tool.uv.index]]
+name = "ort-cuda-13-nightly"
+url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/"
+
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
 flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
+onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "8b8b358466e6b2f50d1779009790002ceb596e72" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
