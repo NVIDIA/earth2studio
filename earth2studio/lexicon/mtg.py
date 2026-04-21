@@ -37,18 +37,22 @@ class MetOpMTGLexicon(metaclass=LexiconType):
     """
 
     VOCAB: dict[str, tuple[str, Callable]] = {
-        "mtg_vis_04": ("vis_04", lambda x: np.array(x)),
-        "mtg_vis_05": ("vis_05", lambda x: np.array(x)),
-        "mtg_vis_08": ("vis_08", lambda x: np.array(x)),
-        "mtg_vis_09": ("vis_09", lambda x: np.array(x)),
-        "mtg_nir_13": ("nir_13", lambda x: np.array(x)),
-        "mtg_nir_16": ("nir_16", lambda x: np.array(x)),
-        "mtg_wv_63": ("wv_63", lambda x: np.array(x)),
-        "mtg_wv_73": ("wv_73", lambda x: np.array(x)),
-        "mtg_ir_87": ("ir_87", lambda x: np.array(x)),
-        "mtg_ir_97": ("ir_97", lambda x: np.array(x)),
-        "mtg_ir_123": ("ir_123", lambda x: np.array(x)),
-        "mtg_ir_133": ("ir_133", lambda x: np.array(x)),
+        # VIS bands (1 km resolution)
+        "fci01": ("vis_04", lambda x: np.array(x)),  # VIS 0.44 µm
+        "fci02": ("vis_05", lambda x: np.array(x)),  # VIS 0.51 µm
+        "fci03": ("vis_08", lambda x: np.array(x)),  # VIS 0.86 µm
+        "fci04": ("vis_09", lambda x: np.array(x)),  # VIS 0.91 µm
+        # NIR bands
+        "fci05": ("nir_13", lambda x: np.array(x)),  # NIR 1.38 µm (1 km)
+        "fci06": ("nir_16", lambda x: np.array(x)),  # NIR 1.61 µm (2 km)
+        # WV bands (2 km resolution)
+        "fci07": ("wv_63", lambda x: np.array(x)),  # WV 6.30 µm
+        "fci08": ("wv_73", lambda x: np.array(x)),  # WV 7.35 µm
+        # IR bands (2 km resolution)
+        "fci09": ("ir_87", lambda x: np.array(x)),  # IR 8.70 µm
+        "fci10": ("ir_97", lambda x: np.array(x)),  # IR 9.66 µm
+        "fci11": ("ir_123", lambda x: np.array(x)),  # IR 12.30 µm
+        "fci12": ("ir_133", lambda x: np.array(x)),  # IR 13.30 µm
     }
 
     @classmethod
@@ -58,7 +62,7 @@ class MetOpMTGLexicon(metaclass=LexiconType):
         Parameters
         ----------
         val : str
-            Variable name (e.g. ``'mtg_vis_04'``)
+            Variable name (e.g. ``'fci09'``)
 
         Returns
         -------

@@ -56,11 +56,11 @@ def test_metop_mtg_available():
 
 @pytest.mark.timeout(15)
 def test_metop_mtg_lexicon():
-    assert "mtg_vis_04" in MetOpMTGLexicon.VOCAB
-    assert "mtg_ir_133" in MetOpMTGLexicon.VOCAB
+    assert "fci01" in MetOpMTGLexicon.VOCAB
+    assert "fci12" in MetOpMTGLexicon.VOCAB
     assert len(MetOpMTGLexicon.VOCAB) == 12
 
-    channel_name, modifier = MetOpMTGLexicon["mtg_vis_04"]
+    channel_name, modifier = MetOpMTGLexicon["fci01"]
     assert channel_name == "vis_04"
     assert callable(modifier)
 
@@ -73,7 +73,7 @@ def test_metop_mtg_mixed_resolution_error():
     with pytest.raises(ValueError, match="resolution"):
         ds(
             datetime(2025, 1, 1, 0, 0),
-            ["mtg_vis_04", "mtg_ir_87"],
+            ["fci01", "fci09"],
         )
 
 
@@ -83,7 +83,7 @@ def test_metop_mtg_mixed_resolution_error():
 def test_metop_mtg_fetch():
     ds = MetOpMTG(resolution="2km", cache=False)
     time = datetime(2025, 3, 1, 12, 0)
-    variable = "mtg_ir_87"
+    variable = "fci09"
     data = ds(time, variable)
     shape = data.shape
     assert shape[0] == 1
@@ -102,7 +102,7 @@ def test_metop_mtg_fetch_multistep():
         datetime(2025, 3, 1, 12, 0),
         datetime(2025, 3, 1, 12, 10),
     ]
-    variable = ["mtg_ir_87", "mtg_ir_133"]
+    variable = ["fci09", "fci12"]
     data = ds(time, variable)
     shape = data.shape
     assert shape[0] == 2
@@ -118,7 +118,7 @@ def test_metop_mtg_fetch_multistep():
 def test_metop_mtg_cache(cache):
     ds = MetOpMTG(resolution="2km", cache=cache)
     time = datetime(2025, 3, 1, 12, 0)
-    variable = "mtg_ir_87"
+    variable = "fci09"
     data = ds(time, variable)
     assert data.shape[0] == 1
 
