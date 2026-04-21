@@ -285,8 +285,8 @@ class TestGHCNLexicon:
 
     def test_lexicon_keys(self):
         for var in GHCN_ELEMENT_MAP:
-            desc, mod = GHCNLexicon[var]
-            assert isinstance(desc, str)
+            element, mod = GHCNLexicon[var]
+            assert element == GHCN_ELEMENT_MAP[var]
             assert callable(mod)
 
     @pytest.mark.parametrize(

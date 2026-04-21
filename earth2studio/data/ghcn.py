@@ -260,11 +260,15 @@ class GHCN:
         if self._station_meta is None:
             self._station_meta = await asyncio.to_thread(self.get_station_metadata)
 
-        # Build unique (year, element) pairs needed
+        # Build unique (year, element) pairs needed. Tolerance windows can
+        # span year boundaries, so enumerate every year in [tmin, tmax].
         year_element_pairs: set[tuple[int, str]] = set()
         for dt in time:
+            tmin = dt + self._tolerance_lower
+            tmax = dt + self._tolerance_upper
             for element in elements:
-                year_element_pairs.add((dt.year, element))
+                for yr in range(tmin.year, tmax.year + 1):
+                    year_element_pairs.add((yr, element))
 
         # Fetch all required parquet partitions in parallel
         func_map = []
@@ -295,33 +299,36 @@ class GHCN:
         for dt in time:
             tmin = dt + self._tolerance_lower
             tmax = dt + self._tolerance_upper
+            date_min = tmin.strftime("%Y%m%d")
+            date_max = tmax.strftime("%Y%m%d")
 
             for element in elements:
-                df = partition_map.get((dt.year, element))
-                if df is None or df.empty:
-                    continue
+                # Walk every year the tolerance window touches so cross-year
+                # windows (e.g. Dec 31 +/- 1 day) don't drop data.
+                for yr in range(tmin.year, tmax.year + 1):
+                    df = partition_map.get((yr, element))
+                    if df is None or df.empty:
+                        continue
 
-                # Filter to requested stations
-                mask = df["ID"].isin(station_set)
-                # Filter by date range (DATE is string YYYYMMDD)
-                date_min = tmin.strftime("%Y%m%d")
-                date_max = tmax.strftime("%Y%m%d")
-                mask = mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
-                # Filter by quality flag: None/NaN means passed all QC checks
-                mask = mask & df["Q_FLAG"].isna()
+                    # Filter to requested stations
+                    mask = df["ID"].isin(station_set)
+                    # Filter by date range (DATE is string YYYYMMDD)
+                    mask = mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
+                    # Filter by quality flag: None/NaN means passed all QC checks
+                    mask = mask & df["Q_FLAG"].isna()
 
-                df_window = df.loc[mask, ["ID", "DATE", "DATA_VALUE"]].copy()
-                if df_window.empty:
-                    continue
+                    df_window = df.loc[mask, ["ID", "DATE", "DATA_VALUE"]].copy()
+                    if df_window.empty:
+                        continue
 
-                # Apply unit conversion for this element's variable
-                var_name = element_to_var[element]
-                _, mod = GHCNLexicon[var_name]
-                df_window[var_name] = mod(
-                    pd.to_numeric(df_window["DATA_VALUE"], errors="coerce")
-                )
-                df_window = df_window.drop(columns=["DATA_VALUE"])
-                var_frames[var_name].append(df_window)
+                    # Apply unit conversion for this element's variable
+                    var_name = element_to_var[element]
+                    _, mod = GHCNLexicon[var_name]
+                    df_window[var_name] = mod(
+                        pd.to_numeric(df_window["DATA_VALUE"], errors="coerce")
+                    )
+                    df_window = df_window.drop(columns=["DATA_VALUE"])
+                    var_frames[var_name].append(df_window)
 
         # Concat all rows per variable, then merge across variables
         per_var_dfs: list[pd.DataFrame] = [
@@ -552,7 +559,9 @@ class GHCN:
         ----------
         lat_lon_bbox : tuple[float, float, float, float]
             Latitude/Longitude bounding box [lat_min, lon_min, lat_max, lon_max]
-            (in cardinal directions [lat_south, lon_west, lat_north, lon_east])
+            (in cardinal directions [lat_south, lon_west, lat_north, lon_east]).
+            Accepts bboxes in either [-180, 180) or [0, 360) longitude
+            convention; the latter is auto-detected when ``lon_max >= 180``.
 
         Returns
         -------

@@ -79,7 +79,8 @@ class GHCNLexicon(metaclass=LexiconType):
             - A modifier function that converts raw GHCN integer values to
               Earth2Studio standard units.
         """
-        ghcn_key = cls.VOCAB[val]
+        # Trigger KeyError for variables outside the vocabulary
+        cls.VOCAB[val]
         element = GHCN_ELEMENT_MAP[val]
 
         if element in ("TMAX", "TMIN"):
@@ -106,4 +107,4 @@ class GHCNLexicon(metaclass=LexiconType):
                 """Identity (no conversion)."""
                 return x
 
-        return ghcn_key, mod
+        return element, mod
