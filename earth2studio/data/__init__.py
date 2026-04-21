@@ -37,6 +37,7 @@ from .metop_iasi import MetOpIASI
 from .metop_mhs import MetOpMHS
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
+from .nclimgrid import NClimGridDaily
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,
