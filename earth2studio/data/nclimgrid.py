@@ -77,7 +77,7 @@ class NClimGrid:
     ----
     Additional information on the data repository:
 
-    - https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00332
+    - https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily
     - https://registry.opendata.aws/noaa-nclimgrid/
 
     Badges

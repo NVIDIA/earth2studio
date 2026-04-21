@@ -30,7 +30,7 @@ class NClimGridLexicon(metaclass=LexiconType):
     Note
     ----
     Variable documentation:
-    https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00332
+    https://www.ncei.noaa.gov/data/nclimgrid-daily/doc/nclimgrid-daily_v1-0-0_user-guide.pdf
     """
 
     VOCAB = {
