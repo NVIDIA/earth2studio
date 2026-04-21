@@ -211,7 +211,7 @@ stormcast = [
 ]
 stormscope = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.0",
+    "nvidia-physicsnemo>2.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
 ]
