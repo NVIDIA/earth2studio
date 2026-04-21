@@ -121,7 +121,7 @@ def linkcode_resolve(domain, info):
 
     return (
         f"https://github.com/NVIDIA/earth2studio/blob/{doc_version}/"
-        f"earth2studio/{fn}{linespec}"
+        f"earth2studio/{fn.replace(os.sep, '/')}{linespec}"
     )
 
 
