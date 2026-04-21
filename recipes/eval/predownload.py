@@ -185,6 +185,42 @@ def _download_to_store(
     logger.success(f"Rank {dist.rank}: {store_name} download complete.")
 
 
+def _download_store(
+    cfg: DictConfig,
+    dist: DistributedManager,
+    store_name: str,
+    source: DataSource | ForecastSource,
+    times: list[np.datetime64],
+    variables: list[str],
+    spatial_ref: CoordSystem,
+    overwrite: bool,
+) -> None:
+    """Build coords, open the store, validate, and download.
+
+    ``store_name`` is the progress-marker key (e.g. ``"data"``); the on-disk
+    zarr is ``f"{store_name}.zarr"``.
+    """
+    store_coords = build_predownload_coords(
+        spatial_ref, np.array(times, dtype="datetime64[ns]")
+    )
+    with OutputManager(
+        cfg,
+        store_name=f"{store_name}.zarr",
+        overwrite=overwrite,
+        resume=not overwrite,
+    ) as mgr:
+        mgr.validate_output_store(store_coords, variables)
+        _download_to_store(
+            source=source,
+            times=times,
+            variables=variables,
+            output_mgr=mgr,
+            cfg=cfg,
+            store_name=store_name,
+            dist=dist,
+        )
+
+
 @hydra.main(version_base=None, config_path="cfg", config_name="predownload")
 def main(cfg: DictConfig) -> None:
     """Pre-download data for the eval recipe into zarr stores."""
@@ -231,100 +267,99 @@ def _predownload_forecast(
     pd_overwrite: bool,
 ) -> None:
     """Pre-download data for the forecast pipeline."""
-    # Load model to infer IC requirements (CPU only, no inference).
-    model = load_prognostic(cfg)
-    ic_coords = model.input_coords()
-    ic_variables: list[str] = list(ic_coords["variable"])
-    ic_lead_times: np.ndarray = ic_coords["lead_time"]
+    ic_byo = cfg.get("ic_source") is not None
+    verif_byo = cfg.get("verification_source") is not None
 
-    all_items = build_work_items(cfg)
-    unique_ic_times: list[np.datetime64] = sorted({item.time for item in all_items})
-
-    # Compute all adjusted valid times needed for IC loading.
-    # For a model with lead_times=[-6h, 0h] and IC 2024-01-01T00:00,
-    # this produces 2023-12-31T18:00 and 2024-01-01T00:00.
-    ic_fetch_times: list[np.datetime64] = sorted(
-        {t + lt for t in unique_ic_times for lt in ic_lead_times}
-    )
-
-    logger.info(
-        f"IC requirements: {len(ic_fetch_times)} unique valid times, "
-        f"{len(ic_variables)} variables, "
-        f"lead_times={[int(lt / np.timedelta64(1, 'h')) for lt in ic_lead_times]}h"
-    )
-
-    # Determine verification strategy.
     verif_cfg = pd_cfg.get("verification", {})
     verif_enabled = verif_cfg.get("enabled", False)
     verif_has_separate_source = verif_cfg.get("source") is not None
 
-    if verif_enabled:
+    if ic_byo:
+        logger.info("ic_source provided — skipping IC predownload.")
+    if verif_byo and verif_enabled:
+        logger.info("verification_source provided — skipping verification predownload.")
+
+    do_verif = verif_enabled and not verif_byo
+    do_data_store = not ic_byo
+    # Merge is only possible when we download both sides from the same source.
+    do_merged = do_data_store and do_verif and not verif_has_separate_source
+    do_verif_store = do_verif and (ic_byo or verif_has_separate_source)
+
+    if not do_data_store and not do_verif_store:
+        logger.info("Nothing to predownload — sentinel will still be written.")
+        return
+
+    # Load model to infer IC requirements (CPU only, no inference).
+    model = load_prognostic(cfg)
+    ic_coords = model.input_coords()
+    spatial_ref = model.output_coords(ic_coords)
+
+    all_items = build_work_items(cfg)
+    unique_ic_times: list[np.datetime64] = sorted({item.time for item in all_items})
+
+    if do_data_store:
+        ic_variables: list[str] = list(ic_coords["variable"])
+        ic_lead_times: np.ndarray = ic_coords["lead_time"]
+        # Adjusted valid times needed for IC loading.  For a model with
+        # lead_times=[-6h, 0h] and IC 2024-01-01T00:00, this produces
+        # 2023-12-31T18:00 and 2024-01-01T00:00.
+        ic_fetch_times: list[np.datetime64] = sorted(
+            {t + lt for t in unique_ic_times for lt in ic_lead_times}
+        )
+        logger.info(
+            f"IC requirements: {len(ic_fetch_times)} unique valid times, "
+            f"{len(ic_variables)} variables, "
+            f"lead_times={[int(lt / np.timedelta64(1, 'h')) for lt in ic_lead_times]}h"
+        )
+
+    if do_verif:
         verif_variables: list[str] = list(cfg.output.variables)
         step_hours = _infer_step_hours(model)
         verif_times = _compute_verification_times(
             unique_ic_times, cfg.nsteps, step_hours
         )
 
-    # Spatial reference from model output coords.
-    spatial_ref = model.output_coords(ic_coords)
-
     # --- Primary data store (data.zarr) -----------------------------------
-    if verif_enabled and not verif_has_separate_source:
-        # Merged: IC + verification in one store from the same source.
-        all_times = sorted(set(ic_fetch_times) | set(verif_times))
-        all_variables = _union_variables(ic_variables, verif_variables)
-        logger.info(
-            f"Merged store: {len(all_times)} unique times "
-            f"({len(ic_fetch_times)} IC + {len(verif_times)} verif, "
-            f"{len(all_times) - len(ic_fetch_times)} verif-only), "
-            f"{len(all_variables)} variables"
-        )
-    else:
-        all_times = ic_fetch_times
-        all_variables = ic_variables
+    if do_data_store:
+        if do_merged:
+            all_times = sorted(set(ic_fetch_times) | set(verif_times))
+            all_variables = _union_variables(ic_variables, verif_variables)
+            logger.info(
+                f"Merged store: {len(all_times)} unique times "
+                f"({len(ic_fetch_times)} IC + {len(verif_times)} verif, "
+                f"{len(all_times) - len(ic_fetch_times)} verif-only), "
+                f"{len(all_variables)} variables"
+            )
+        else:
+            all_times = ic_fetch_times
+            all_variables = ic_variables
 
-    store_coords = build_predownload_coords(
-        spatial_ref, np.array(all_times, dtype="datetime64[ns]")
-    )
-    data_source = hydra.utils.instantiate(cfg.data_source)
-
-    with OutputManager(
-        cfg, store_name="data.zarr", overwrite=pd_overwrite, resume=not pd_overwrite
-    ) as data_mgr:
-        data_mgr.validate_output_store(store_coords, all_variables)
-        _download_to_store(
+        data_source = hydra.utils.instantiate(cfg.data_source)
+        _download_store(
+            cfg=cfg,
+            dist=dist,
+            store_name="data",
             source=data_source,
             times=all_times,
             variables=all_variables,
-            output_mgr=data_mgr,
-            cfg=cfg,
-            store_name="data",
-            dist=dist,
-        )
-
-    # --- Separate verification store (only when source differs) -----------
-    if verif_enabled and verif_has_separate_source:
-        verif_store_coords = build_predownload_coords(
-            spatial_ref, np.array(verif_times, dtype="datetime64[ns]")
-        )
-        verif_source = hydra.utils.instantiate(verif_cfg.source)
-
-        with OutputManager(
-            cfg,
-            store_name="verification.zarr",
+            spatial_ref=spatial_ref,
             overwrite=pd_overwrite,
-            resume=not pd_overwrite,
-        ) as verif_mgr:
-            verif_mgr.validate_output_store(verif_store_coords, verif_variables)
-            _download_to_store(
-                source=verif_source,
-                times=verif_times,
-                variables=verif_variables,
-                output_mgr=verif_mgr,
-                cfg=cfg,
-                store_name="verification",
-                dist=dist,
-            )
+        )
+
+    # --- Separate verification store --------------------------------------
+    if do_verif_store:
+        verif_source_cfg = verif_cfg.get("source") or cfg.data_source
+        verif_source = hydra.utils.instantiate(verif_source_cfg)
+        _download_store(
+            cfg=cfg,
+            dist=dist,
+            store_name="verification",
+            source=verif_source,
+            times=verif_times,
+            variables=verif_variables,
+            spatial_ref=spatial_ref,
+            overwrite=pd_overwrite,
+        )
 
 
 def _predownload_diagnostic(
@@ -334,20 +369,33 @@ def _predownload_diagnostic(
     pd_overwrite: bool,
 ) -> None:
     """Pre-download data for the diagnostic-only pipeline."""
+    ic_byo = cfg.get("ic_source") is not None
+    verif_byo = cfg.get("verification_source") is not None
+
+    verif_cfg = pd_cfg.get("verification", {})
+    verif_enabled = verif_cfg.get("enabled", False)
+
+    if ic_byo:
+        logger.info("ic_source provided — skipping IC predownload.")
+    if verif_byo and verif_enabled:
+        logger.info("verification_source provided — skipping verification predownload.")
+
+    do_data_store = not ic_byo
+    do_verif_store = verif_enabled and not verif_byo
+
+    if not do_data_store and not do_verif_store:
+        logger.info("Nothing to predownload — sentinel will still be written.")
+        return
+
     diagnostics = load_diagnostics(cfg)
     if not diagnostics:
         raise ValueError(
             "Diagnostic pipeline requires at least one entry in 'diagnostics'."
         )
 
-    # Build the union of input variables across all diagnostic models.
-    input_variables: list[str] = []
-    seen: set[str] = set()
-    for dx in diagnostics:
-        for v in dx.input_coords()["variable"]:
-            if str(v) not in seen:
-                input_variables.append(str(v))
-                seen.add(str(v))
+    input_variables = _union_variables(
+        *([str(v) for v in dx.input_coords()["variable"]] for dx in diagnostics)
+    )
 
     all_items = build_work_items(cfg)
     unique_times: list[np.datetime64] = sorted({item.time for item in all_items})
@@ -357,58 +405,42 @@ def _predownload_diagnostic(
     spatial_ref = dx0.output_coords(dx0.input_coords())
 
     # --- Primary data store (data.zarr) -----------------------------------
-    store_coords = build_predownload_coords(
-        spatial_ref, np.array(unique_times, dtype="datetime64[ns]")
-    )
-    data_source = hydra.utils.instantiate(cfg.data_source)
-
-    with OutputManager(
-        cfg, store_name="data.zarr", overwrite=pd_overwrite, resume=not pd_overwrite
-    ) as data_mgr:
-        data_mgr.validate_output_store(store_coords, input_variables)
-        _download_to_store(
+    data_source = None
+    if do_data_store:
+        data_source = hydra.utils.instantiate(cfg.data_source)
+        _download_store(
+            cfg=cfg,
+            dist=dist,
+            store_name="data",
             source=data_source,
             times=unique_times,
             variables=input_variables,
-            output_mgr=data_mgr,
-            cfg=cfg,
-            store_name="data",
-            dist=dist,
+            spatial_ref=spatial_ref,
+            overwrite=pd_overwrite,
         )
 
     # --- Verification store (always separate for diagnostic pipelines) ----
-    verif_cfg = pd_cfg.get("verification", {})
-    if verif_cfg.get("enabled", False):
+    # For diagnostics, verification times are the same as input times
+    # (no forecast lead-time expansion).
+    if do_verif_store:
         verif_variables: list[str] = list(cfg.output.variables)
-
-        # For diagnostics, verification times are the same as input times
-        # (no forecast lead-time expansion).
-        verif_store_coords = build_predownload_coords(
-            spatial_ref, np.array(unique_times, dtype="datetime64[ns]")
-        )
-
         verif_source_cfg = verif_cfg.get("source")
         if verif_source_cfg is not None:
             verif_source = hydra.utils.instantiate(verif_source_cfg)
-        else:
+        elif data_source is not None:
             verif_source = data_source
-
-        with OutputManager(
-            cfg,
-            store_name="verification.zarr",
+        else:
+            verif_source = hydra.utils.instantiate(cfg.data_source)
+        _download_store(
+            cfg=cfg,
+            dist=dist,
+            store_name="verification",
+            source=verif_source,
+            times=unique_times,
+            variables=verif_variables,
+            spatial_ref=spatial_ref,
             overwrite=pd_overwrite,
-            resume=not pd_overwrite,
-        ) as verif_mgr:
-            verif_mgr.validate_output_store(verif_store_coords, verif_variables)
-            _download_to_store(
-                source=verif_source,
-                times=unique_times,
-                variables=verif_variables,
-                output_mgr=verif_mgr,
-                cfg=cfg,
-                store_name="verification",
-                dist=dist,
-            )
+        )
 
 
 if __name__ == "__main__":

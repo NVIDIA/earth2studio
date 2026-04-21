@@ -80,6 +80,27 @@ data_source:
     verbose: false
 
 # ---------------------------------------------------------------------------
+# Bring-your-own data (optional)
+# ---------------------------------------------------------------------------
+# Override either side to point at a user-provided DataSource (e.g. a
+# pre-ETL'd zarr store) instead of letting predownload.py cache from
+# data_source.  When set:
+#
+#   * ic_source              — main.py reads ICs directly (skips data.zarr)
+#   * verification_source    — score.py reads verification directly
+#
+# Predownload automatically skips whichever side is BYO.  If both are set,
+# the predownload sentinel check in main.py is skipped — running
+# predownload.py becomes unnecessary.
+#
+# Example — a thin zarr-backed DataSource written alongside your config:
+# ic_source:
+#     _target_: my_pkg.my_data.MyZarrSource
+#     store_path: /data/my_training_set.zarr
+ic_source: null
+verification_source: null
+
+# ---------------------------------------------------------------------------
 # Output configuration
 # ---------------------------------------------------------------------------
 output:

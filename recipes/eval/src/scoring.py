@@ -40,6 +40,7 @@ from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
+from earth2studio.data import DataSource
 from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem
 
@@ -179,26 +180,33 @@ def open_prediction_store(cfg: DictConfig) -> xr.Dataset:
     return xr.open_zarr(store_path)
 
 
-def open_verification_source(cfg: DictConfig) -> PredownloadedSource:
+def open_verification_source(cfg: DictConfig) -> DataSource:
     """Open the verification data source.
 
-    Checks for ``verification.zarr`` first (separate verification store),
-    then falls back to ``data.zarr`` (merged IC + verification store).
+    Resolution order:
+
+    1. ``cfg.verification_source`` — a user-provided ``DataSource`` (BYO).
+    2. ``verification.zarr`` — separate verification store from predownload.
+    3. ``data.zarr`` — merged IC + verification store from predownload.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config with ``output.path``.
+        Hydra config with ``output.path`` and optional ``verification_source``.
 
     Returns
     -------
-    PredownloadedSource
+    DataSource
 
     Raises
     ------
     FileNotFoundError
-        If neither verification nor data store exists.
+        If no override is provided and neither predownload store exists.
     """
+    if cfg.get("verification_source") is not None:
+        logger.info("Using user-provided verification_source (BYO).")
+        return hydra.utils.instantiate(cfg.verification_source)
+
     verif_path = os.path.join(cfg.output.path, "verification.zarr")
     if os.path.exists(verif_path):
         logger.info(f"Using verification store: {verif_path}")
@@ -322,7 +330,7 @@ def load_prediction_chunk(
 
 
 def load_verification_chunk(
-    source: PredownloadedSource,
+    source: DataSource,
     time: np.datetime64,
     lead_times: np.ndarray,
     variables: list[str],
@@ -338,7 +346,7 @@ def load_verification_chunk(
 
     Parameters
     ----------
-    source : PredownloadedSource
+    source : DataSource
         Verification data source.
     time : np.datetime64
         Initial-condition time.
@@ -626,7 +634,7 @@ def validate_lead_time_chunking(
 def run_scoring(
     my_times: list[np.datetime64],
     prediction_ds: xr.Dataset,
-    verif_source: PredownloadedSource,
+    verif_source: DataSource,
     metrics: OrderedDict,
     output_mgr: OutputManager,
     variables: list[str],
@@ -648,7 +656,7 @@ def run_scoring(
         IC times assigned to this rank.
     prediction_ds : xr.Dataset
         Opened prediction zarr store.
-    verif_source : PredownloadedSource
+    verif_source : DataSource
         Verification data source.
     metrics : OrderedDict[str, Metric]
         Metric instances keyed by name.

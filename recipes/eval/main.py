@@ -33,6 +33,27 @@ from src.work import (
     filter_completed_items,
 )
 
+from earth2studio.data import DataSource
+
+
+def _resolve_ic_source(cfg: DictConfig) -> DataSource:
+    """Resolve the initial-condition data source.
+
+    Order: explicit ``ic_source`` override → predownloaded ``data.zarr`` cache
+    → live ``cfg.data_source``.
+    """
+    if cfg.get("ic_source") is not None:
+        logger.info("Using user-provided ic_source (BYO).")
+        return hydra.utils.instantiate(cfg.ic_source)
+
+    cache_path = os.path.join(cfg.output.path, "data.zarr")
+    if os.path.exists(cache_path):
+        logger.info(f"Using predownloaded data store: {cache_path}")
+        return PredownloadedSource(cache_path)
+
+    logger.info("No cache found — instantiating cfg.data_source directly.")
+    return hydra.utils.instantiate(cfg.data_source)
+
 
 @hydra.main(version_base=None, config_path="cfg", config_name="default")
 def main(cfg: DictConfig) -> None:
@@ -44,7 +65,13 @@ def main(cfg: DictConfig) -> None:
     device = dist.device
 
     # --- Pre-download check -------------------------------------------------
-    if cfg.get("require_predownload", True):
+    # Fully BYO (both ic_source and verification_source provided) means there
+    # is nothing for predownload.py to do, so the sentinel check is skipped.
+    fully_byo = (
+        cfg.get("ic_source") is not None
+        and cfg.get("verification_source") is not None
+    )
+    if cfg.get("require_predownload", True) and not fully_byo:
         sp = sentinel_path(cfg)
         if not sp.exists():
             raise RuntimeError(
@@ -81,12 +108,7 @@ def main(cfg: DictConfig) -> None:
     all_times = np.array(sorted({item.time for item in all_items}))
     output_variables = list(cfg.output.variables)
     total_coords = pipeline.build_total_coords(all_times, cfg.get("ensemble_size", 1))
-    data_store_path = os.path.join(cfg.output.path, "data.zarr")
-    if cfg.get("require_predownload", True) and os.path.exists(data_store_path):
-        data_source = PredownloadedSource(data_store_path)
-        logger.info(f"Using predownloaded data store: {data_store_path}")
-    else:
-        data_source = hydra.utils.instantiate(cfg.data_source)
+    data_source = _resolve_ic_source(cfg)
 
     # --- Run ----------------------------------------------------------------
     with OutputManager(cfg) as output_mgr:

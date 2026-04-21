@@ -24,6 +24,7 @@ Key features:
 - [Pre-downloading Data](#pre-downloading-data)
   - [Zarr stores](#zarr-stores)
   - [Resume after interruption](#resume-after-interruption)
+- [Using Your Own Data](#using-your-own-data)
 - [Multi-GPU Execution](#multi-gpu-execution)
 - [Resuming and Multi-Job Runs](#resuming-and-multi-job-runs)
   - [Resuming after a failure](#resuming-after-a-failure)
@@ -116,6 +117,74 @@ python predownload.py campaign=fcn3_2024_monthly
 ```
 
 To recreate stores from scratch, set `predownload.overwrite=true`.
+
+## Using Your Own Data
+
+If you already have initial-condition or verification data on disk (for
+example, a zarr store you ETL'd for training), you can skip predownload
+entirely and point the recipe directly at it.  This avoids doubling disk
+usage by re-caching data that already exists locally.
+
+The two escape hatches are top-level config keys:
+
+| Key | What it overrides | Consumer |
+|---|---|---|
+| `ic_source` | The initial-condition source used during inference | `main.py` |
+| `verification_source` | The verification source used during scoring | `score.py` |
+
+Either key accepts any `_target_` pointing at a class that implements
+Earth2Studio's `DataSource` protocol (`__call__(time, variable) -> xr.DataArray`).
+For a new store layout, write a small wrapper — the
+[`create-data-source`](../../.claude/skills/create-data-source/) skill
+scaffolds one from a reference script.
+
+### Configuration matrix
+
+| ICs | Verification | Config |
+|---|---|---|
+| package | package | defaults — run `predownload.py`, then `main.py`, then `score.py` |
+| **user** | package | set `ic_source`; run `predownload.py predownload.verification.enabled=true` to cache verif |
+| package | **user** | set `verification_source`; run `predownload.py` (caches IC only) |
+| **user** | **user** | set both; skip `predownload.py` entirely — `main.py` drops the sentinel check |
+
+### Example
+
+A minimal user `DataSource` for a `(time, variable, lat, lon)` zarr:
+
+```python
+# my_pkg/my_data.py
+import xarray as xr
+
+class MyZarrSource:
+    def __init__(self, store_path: str) -> None:
+        self._da = (
+            xr.open_zarr(store_path)
+            .to_array("variable")
+            .transpose("time", "variable", ...)
+        )
+
+    def __call__(self, time, variable) -> xr.DataArray:
+        if not isinstance(time, (list, tuple)):
+            time = [time]
+        if not isinstance(variable, (list, tuple)):
+            variable = [variable]
+        return self._da.sel(time=time, variable=variable)
+```
+
+Wire it in via Hydra override or a campaign config:
+
+```bash
+python main.py \
+    ic_source._target_=my_pkg.my_data.MyZarrSource \
+    ic_source.store_path=/data/my_training_set.zarr \
+    require_predownload=false
+```
+
+> **Note on resume:** output-side completion markers are indexed by IC time,
+> not by data source.  If you change `ic_source` or `verification_source`
+> between runs that share the same `output.path`, either start clean with
+> `resume=false` / `output.overwrite=true` or move to a new `run_id` —
+> otherwise stale markers may reference data that no longer matches.
 
 ## Multi-GPU Execution
 
