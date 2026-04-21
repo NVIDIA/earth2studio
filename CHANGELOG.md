@@ -7,9 +7,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0a0] - xxxx-xx-xx
+## [0.14.0a0] - 2026-04-xx
 
 ### Added
+
+- Added GenCast 1 degree Mini model
+- Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
+- Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
+- Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
+- Added AMSU-A (channels 1-14) and AVHRR channel variables to `E2STUDIO_VOCAB`
+- Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
+- Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
+- Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
+- Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
+- Added `NClimGridLexicon` for NClimGrid variable mappings (temperature, precipitation, SPI)
 
 ### Changed
 
@@ -19,14 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed source code links in documentation
+
 ### Security
 
 ### Dependencies
+
+- Added `eumdac>=3.1.0` to `data` optional dependency group for EUMETSAT Data Store access
+- Moved package dependencies defaults to CUDA 13.0 following torch
+- Moving suggested Python version to 3.13
+- Pointing physicsnemo to git main source for torch 2.11 compatibility
 
 ## [0.13.0] - 2026-03-20
 
 ### Added
 
+- Added tropical cyclone tracking recipe with async TempestExtremes integration
 - Added NOAA UFS observation dataframe sources for satellite and conventional data
 - Added Earth2Studio base schema for dataframe sources
 - Added Planetary Computer data source for ECMWF IFS analysis data

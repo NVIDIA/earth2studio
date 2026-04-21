@@ -16,15 +16,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import os
+import random
 import tempfile
 import time
 import typing
 import weakref
 from collections import OrderedDict
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
@@ -42,6 +45,7 @@ from fsspec.implementations.cache_mapper import create_cache_mapper
 from fsspec.implementations.cache_metadata import CacheMetadata
 from fsspec.utils import isfilelike
 from loguru import logger
+from tqdm.asyncio import tqdm
 
 from earth2studio.data.base import (
     DataFrameSource,
@@ -323,6 +327,27 @@ def prep_data_array(
     return out, out_coords
 
 
+def ensure_utc(time: datetime) -> datetime:
+    """Normalize a datetime to naive UTC.
+
+    If timezone-aware, convert to UTC then strip tzinfo.
+    If naive, assume UTC and return unchanged.
+
+    Parameters
+    ----------
+    time : datetime
+        Input datetime (naive or tz-aware)
+
+    Returns
+    -------
+    datetime
+        Naive datetime in UTC
+    """
+    if time.tzinfo is not None:
+        time = time.astimezone(timezone.utc).replace(tzinfo=None)
+    return time
+
+
 def prep_data_inputs(
     time: datetime | list[datetime] | np.datetime64 | TimeArray,
     variable: str | list[str] | VariableArray,
@@ -332,29 +357,38 @@ def prep_data_inputs(
     Parameters
     ----------
     time : datetime | list[datetime] | np.datetime64 | TimeArray
-        Datetime, list of datetimes or array of np.datetime64 to fetch
+        Datetime, list of datetimes or array of np.datetime64 to fetch (UTC)
     variable : str | list[str] | VariableArray
         String, list of strings or array of strings that refer to variables
 
     Returns
     -------
     tuple[list[datetime], list[str]]
-        Time and variable lists
+        Time and variable lists (times normalized to naive UTC)
     """
+
+    def _to_datetime(t: datetime | np.datetime64 | pd.Timestamp) -> datetime:
+        """Convert a single time value to a datetime object."""
+        if isinstance(t, np.datetime64):
+            return pd.Timestamp(t).to_pydatetime()
+        if isinstance(t, pd.Timestamp):
+            return t.to_pydatetime()
+        return t
+
     if isinstance(variable, str):
         variable = [variable]
 
     if isinstance(variable, np.ndarray):
         variable = variable.astype(str).tolist()
 
-    if isinstance(time, datetime):
-        time = [time]
+    if isinstance(time, (datetime, np.datetime64, pd.Timestamp)):
+        time = [ensure_utc(_to_datetime(time))]
 
-    if isinstance(time, np.datetime64):
-        time = [pd.Timestamp(time).to_pydatetime()]
+    elif isinstance(time, np.ndarray):  # np.datetime64 -> datetime
+        time = [ensure_utc(t) for t in timearray_to_datetime(time)]
 
-    if isinstance(time, np.ndarray):  # np.datetime64 -> datetime
-        time = timearray_to_datetime(time)
+    elif isinstance(time, list):
+        time = [ensure_utc(_to_datetime(t)) for t in time]
 
     return time, variable
 
@@ -478,6 +512,232 @@ def datasource_cache_root() -> str:
         raise e
 
     return default_cache
+
+
+# =============================================================================
+# Async Utilities for Data Sources
+# =============================================================================
+# These utilities provide standardized patterns for async data fetching with
+# proper error handling, concurrency control, and resource cleanup.
+# IMPORTANT: Pure async operations are ALWAYS preferred over asyncio.to_thread.
+# Only use to_thread as a last resort when no async alternative exists.
+# =============================================================================
+
+
+async def async_retry(
+    coro_func: Callable[..., Any],
+    *args: Any,
+    retries: int = 3,
+    backoff: float = 1.0,
+    task_timeout: float | None = None,
+    exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
+    **kwargs: Any,
+) -> Any:
+    """Retry an async callable with exponential backoff and jitter.
+
+    Parameters
+    ----------
+    coro_func : Callable[..., Awaitable[T]]
+        Async function to call
+    *args : Any
+        Positional arguments for coro_func
+    retries : int, optional
+        Maximum number of retry attempts, by default 3
+    backoff : float, optional
+        Base delay in seconds (doubled each retry), by default 1.0
+    task_timeout : float | None, optional
+        Timeout in seconds for each attempt, by default None (no timeout)
+    exceptions : tuple, optional
+        Exception types to catch and retry on. Should be scoped to transient
+        I/O errors (OSError, IOError, TimeoutError, ConnectionError), not
+        broad Exception which would mask programming errors.
+    **kwargs : Any
+        Keyword arguments for coro_func
+
+    Returns
+    -------
+    T
+        Return value of coro_func
+
+    Raises
+    ------
+    Exception
+        The last exception if all retries are exhausted
+    asyncio.TimeoutError
+        If task_timeout is exceeded on the final attempt
+    """
+    last_exc: BaseException | None = None
+    for attempt in range(retries + 1):
+        try:
+            coro = coro_func(*args, **kwargs)
+            if task_timeout is not None:
+                return await asyncio.wait_for(coro, timeout=task_timeout)
+            return await coro
+        except asyncio.TimeoutError:
+            # Always re-raise TimeoutError - don't mask it
+            if attempt >= retries:
+                raise
+            last_exc = asyncio.TimeoutError(
+                f"Attempt {attempt + 1}/{retries + 1} timed out after {task_timeout}s"
+            )
+        except exceptions as e:
+            last_exc = e
+        if attempt < retries:
+            delay = backoff * (2**attempt) + random.uniform(0, 0.5)
+            logger.warning(
+                f"Retry {attempt + 1}/{retries} after error: {last_exc}. "
+                f"Waiting {delay:.1f}s"
+            )
+            await asyncio.sleep(delay)
+    raise last_exc  # type: ignore[misc]
+
+
+@asynccontextmanager
+async def managed_session(fs: Any) -> Any:
+    """Context manager for fsspec async sessions.
+
+    Ensures the aiohttp session is properly closed even if an exception or
+    timeout occurs during fetching. Use this instead of bare set_session/close
+    to prevent session leaks.
+
+    Parameters
+    ----------
+    fs : Any
+        An fsspec filesystem instance (s3fs, gcsfs, etc.)
+
+    Yields
+    ------
+    Any
+        The aiohttp client session (or None for non-session fs)
+
+    Example
+    -------
+    .. code-block:: python
+
+        async with managed_session(self.fs) as session:
+            # fetch data here - session will be closed even on error
+            await gather_with_concurrency(coros, ...)
+    """
+    session = None
+    try:
+        if hasattr(fs, "set_session"):
+            session = await fs.set_session(refresh=True)
+        yield session
+    finally:
+        if session is not None:
+            await session.close()
+
+
+async def gather_with_concurrency(
+    coros: list[Any],
+    max_workers: int = 16,
+    task_timeout: float | None = None,
+    desc: str = "Fetching",
+    verbose: bool = False,
+) -> list[Any]:
+    """Run coroutines with bounded concurrency and progress bar.
+
+    This prevents resource exhaustion (connections, memory) when fetching
+    hundreds of items by limiting concurrent tasks via an asyncio.Semaphore.
+
+    Parameters
+    ----------
+    coros : list[Coroutine]
+        Coroutines to execute
+    max_workers : int, optional
+        Maximum concurrent tasks (semaphore bound), by default 16.
+        This limits how many coroutines run simultaneously, NOT thread pool size.
+    task_timeout : float | None, optional
+        Timeout in seconds for each individual task, by default None.
+        If a task exceeds this timeout, it raises asyncio.TimeoutError.
+    desc : str, optional
+        Progress bar description
+    verbose : bool, optional
+        Disable the progress bar
+
+    Returns
+    -------
+    list[Any]
+        Results from all coroutines in the same order as input
+
+    Raises
+    ------
+    asyncio.TimeoutError
+        If any task exceeds task_timeout
+    Exception
+        Any exception raised by a coroutine is propagated
+    """
+    semaphore = asyncio.Semaphore(max_workers)
+
+    async def _bounded(coro: Any) -> Any:
+        async with semaphore:
+            if task_timeout is not None:
+                return await asyncio.wait_for(coro, timeout=task_timeout)
+            return await coro
+
+    bounded = [_bounded(c) for c in coros]
+    return await tqdm.gather(*bounded, desc=desc, disable=verbose)
+
+
+async def cancellable_to_thread(
+    func: Callable[..., T],
+    *args: Any,
+    timeout: float = 30.0,
+    **kwargs: Any,
+) -> T:
+    """Run a blocking function in a thread with timeout support.
+
+    WARNING: This should be a LAST RESORT. Pure async operations are ALWAYS
+    preferred because:
+    1. Threads cannot be forcibly cancelled in Python - when timeout fires,
+       the coroutine is abandoned but the thread continues running
+    2. This causes issues with pytest --timeout where tests hang
+    3. Thread pool exhaustion can occur with many concurrent tasks
+
+    PREFER these async alternatives:
+    - fs._cat_file() for byte-range reads from s3fs/gcsfs
+    - async zarr for zarr stores
+    - httpx.AsyncClient for HTTP requests
+    - aiofiles for file I/O
+
+    Only use this for unavoidably synchronous operations like:
+    - pygrib GRIB parsing (no async alternative)
+    - Legacy libraries without async support
+
+    Parameters
+    ----------
+    func : Callable[..., T]
+        Blocking function to run in thread
+    *args : Any
+        Positional arguments for func
+    timeout : float, optional
+        Timeout in seconds, by default 30.0. After timeout, the coroutine
+        raises TimeoutError but the thread continues (cannot be killed).
+    **kwargs : Any
+        Keyword arguments for func
+
+    Returns
+    -------
+    T
+        Return value of func
+
+    Raises
+    ------
+    asyncio.TimeoutError
+        If the operation exceeds timeout. Note: the underlying thread
+        continues running - it cannot be force-killed in Python.
+    """
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(func, *args, **kwargs),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            f"Blocking operation {func.__name__} timed out after {timeout}s. "
+            "Note: underlying thread may still be running."
+        )
+        raise
 
 
 def get_msc_filesystem() -> filesystem | None:
@@ -921,3 +1181,101 @@ class AsyncCachingFileSystem(AsyncFileSystem):
         else:
             # attributes of the superclass, while target is being set up
             return super().__getattribute__(item)
+
+
+# -----------------------------------------------------------------------------
+# Physical constants for radiance-to-brightness-temperature conversion
+# -----------------------------------------------------------------------------
+# First radiation constant C1 = 2hc² in mW/(m²·sr·cm⁻⁴)
+# https://physics.nist.gov/cuu/Constants/Table/allascii.txt
+PLANCK_C1: float = 1.191042972e-5  # mW/(m²·sr·cm⁻⁴)   W m^2 sr^-1
+
+# Second radiation constant C2 = hc/k in K·cm
+# https://physics.nist.gov/cuu/Constants/Table/allascii.txt
+PLANCK_C2: float = 1.438776877  # K·cm
+
+
+def radiance_to_bt(
+    radiance: np.ndarray,
+    wavenumber: np.ndarray | float,
+    band_correction: tuple[float, float] | None = None,
+    correction_formula: Literal["additive", "divisive"] = "additive",
+) -> np.ndarray:
+    """Convert spectral radiance to brightness temperature via inverse Planck function.
+
+    Computes brightness temperature from calibrated spectral radiance using:
+
+        T* = C2 * ν / ln(1 + C1 * ν³ / L)
+
+    where C1 and C2 are the first and second radiation constants, ν is the
+    wavenumber, and L is the spectral radiance.
+
+    Optionally applies band correction for microwave/infrared sensors:
+
+    - **Additive** (default): T = A + B * T* (AVHRR, MHS style)
+    - **Divisive**: T = (T* - A) / B (AMSU-A style)
+
+    Parameters
+    ----------
+    radiance : np.ndarray
+        Spectral radiance in mW/(m²·sr·cm⁻¹). Can be 1D (n_obs,), 2D (n_obs, n_channels),
+        or any shape. NaN and non-positive values are preserved as NaN in output.
+    wavenumber : np.ndarray | float
+        Central wavenumber(s) in cm⁻¹. If array, must broadcast with radiance
+        (e.g., shape (n_channels,) for radiance shape (n_obs, n_channels)).
+    band_correction : tuple[float, float] | None, optional
+        Band correction coefficients (A, B). If None, pure Planck inversion is used.
+        For per-channel corrections, call this function per-channel.
+    correction_formula : {"additive", "divisive"}, optional
+        How to apply band correction:
+        - "additive": T = A + B * T* (default, used by AVHRR, MHS)
+        - "divisive": T = (T* - A) / B (used by AMSU-A)
+
+    Returns
+    -------
+    np.ndarray
+        Brightness temperature in Kelvin, same shape as radiance.
+        Invalid radiance values (≤0 or NaN) yield NaN.
+
+    Notes
+    -----
+    Uses NIST CODATA 2018 radiation constants:
+    - C1 = 1.191042953e-5 mW/(m²·sr·cm⁻⁴)
+    - C2 = 1.4387774 K·cm
+
+    Examples
+    --------
+    Pure Planck inversion for hyperspectral sounder (IASI, CrIS):
+
+    >>> wavenumbers = np.array([650.0, 700.0, 750.0])  # cm⁻¹
+    >>> radiance = np.array([[10.0, 12.0, 15.0]])  # mW/(m²·sr·cm⁻¹)
+    >>> bt = radiance_to_bt(radiance, wavenumbers)
+
+    With band correction for microwave sounder (MHS):
+
+    >>> radiance = np.array([5.0, 6.0, 7.0])  # single channel
+    >>> bt = radiance_to_bt(radiance, 18.75, band_correction=(0.5, 0.998))
+    """
+    nu = np.asarray(wavenumber)
+    nu3 = nu * nu * nu
+
+    # Compute inverse Planck, suppressing warnings for invalid radiance
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t_star = PLANCK_C2 * nu / np.log1p(PLANCK_C1 * nu3 / radiance)
+
+    # Mask invalid radiance (≤0 or NaN) → NaN in output
+    invalid = ~(radiance > 0)
+    if np.any(invalid):
+        t_star = np.where(invalid, np.nan, t_star)
+
+    # Apply band correction if provided
+    if band_correction is not None:
+        a, b = band_correction
+        if correction_formula == "additive":
+            bt = a + b * t_star
+        else:  # divisive
+            bt = (t_star - a) / b
+    else:
+        bt = t_star
+
+    return bt

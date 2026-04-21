@@ -58,6 +58,7 @@ E2STUDIO_VOCAB = {
     "tpp": "total precipitation probability",
     "tpi": "total precipitation index",
     "tp06": "total precipitation accumulated over past 6 hours (m)",
+    "tp12": "total precipitation accumulated over past 12 hours (m)",
     "cp06": "convective precipitation accumulated over past 6 hours (m)",
     "tpf": "total precipitation flux (kg m-2 s-1)",
     "tcc": "total cloud cover (0 - 1)",
@@ -237,6 +238,14 @@ E2STUDIO_VOCAB = {
     "viirs14m": "VIIRS M14 - LWIR (8.55 µm)",
     "viirs15m": "VIIRS M15 - LWIR (10.76 µm)",
     "viirs16m": "VIIRS M16 - LWIR (12.01 µm)",
+    "atms": "Advanced Technology Microwave Sounder brightness temperature (K)",
+    "avhrr": "AVHRR/3 calibrated observation (reflectance percent or brightness temperature K)",
+    "airs": "Atmospheric Infrared Sounder brightness temperature (K)",
+    "amsua": "Advanced Microwave Sounding Unit-A brightness temperature (K)",
+    "amsub": "Advanced Microwave Sounding Unit-B brightness temperature (K)",
+    "crisfsr": "Cross-track Infrared Sounder Full Spectral Resolution (CrIS-FSR) brightness temperature (K)",
+    "iasi": "Infrared Atmospheric Sounding Interferometer brightness temperature (K)",
+    "mhs": "Microwave Humidity Sounder brightness temperature (K)",
     "s3sy01aod": "Sentinel-3 SYNERGY aerosol optical depth band 01 (440 nm)",
     "s3sy02aod": "Sentinel-3 SYNERGY aerosol optical depth band 02 (550 nm)",
     "s3sy03aod": "Sentinel-3 SYNERGY aerosol optical depth band 03 (670 nm)",
@@ -278,6 +287,16 @@ E2STUDIO_VOCAB = {
     "strd06": "surface long-wave (thermal) radiation downwards (J m-2) past 6 hours",
     "sf": "snowfall water equivalent (kg m-2)",
     "ro": "runoff water equivalent (surface plus subsurface) (kg m-2)",
+    "aod550": "total aerosol optical depth at 550 nm (dimensionless)",
+    "duaod550": "dust aerosol optical depth at 550 nm (dimensionless)",
+    "omaod550": "organic matter aerosol optical depth at 550 nm (dimensionless)",
+    "bcaod550": "black carbon aerosol optical depth at 550 nm (dimensionless)",
+    "ssaod550": "sea salt aerosol optical depth at 550 nm (dimensionless)",
+    "suaod550": "sulphate aerosol optical depth at 550 nm (dimensionless)",
+    "tcco": "total column carbon monoxide (kg m-2)",
+    "tcno2": "total column nitrogen dioxide (kg m-2)",
+    "tco3": "total column ozone (kg m-2)",
+    "tcso2": "total column sulphur dioxide (kg m-2)",
 }
 
 
@@ -351,6 +370,13 @@ E2STUDIO_SCHEMA = pa.schema(
             pa.float32(),
             nullable=True,
             metadata={"description": "Station elevation (m)"},
+        ),
+        # Quality control fields
+        pa.field(
+            "quality",
+            pa.uint16(),
+            nullable=True,
+            metadata={"description": "Quality control marker (0=best, 15=missing)"},
         ),
         # Satellite observation fields
         pa.field(

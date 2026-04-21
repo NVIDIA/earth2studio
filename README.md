@@ -93,20 +93,17 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 
 ## Latest News
 
-- [**StormScope**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.StormScopeGOES.html),
-    NVIDIA's latest regional nowcasting model, is now available in
-    Earth2Studio with a dedicated [inference example](https://nvidia.github.io/earth2studio/examples/20_stormscope_goes_example.html)
-    to demonstrate its use for predicting CONUS satellite and radar data.
-- [**Atlas**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.Atlas.html),
-    NVIDIA's latest medium range model, is now available in Earth2Studio
-    providing *state-of-the-art* accuracy for medium range global forecasts.
-- [**CorrDiff for CMIP6 to ERA5**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.CorrDiffCMIP6.html)
-    is a novel generative downscaling model to generate ERA5 fields from CMIP
-    data enabling users to run ERA5 based prognostic and diagnostic models on future
-    climate simulations.
-- **ECMWF AIFSENS** model wrapper added, an ensemble-based probablistic data driven
-    forecast model developed by the European Centre for Medium-Range Weather Forecasts
-    (ECMWF).
+- [**StormCast SDA**](https://nvidia.github.io/earth2studio/modules/generated/models/da/earth2studio.models.da.StormCastSDA.html),
+    score-based data assimilation (SDA) combined with StormCast for high-resolution
+    regional weather prediction, is now available alongside new data assimilation
+    model utilities.
+- **Data Assimilation Models**, a new model class for data assimilation including
+    equirectangular interpolation and [HealDA](https://nvidia.github.io/earth2studio/examples/05_data_assimilation/02_healda.html).
+- [**NOAA UFS Observation Data Sources**](https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html),
+    for satellite and conventional observation dataframes now available with the new
+    Earth2Studio base schema.
+- [**Planetary Computer Data Sources**](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html)
+    added for ECMWF IFS analysis data and GOES cloud and moisture imagery.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -345,7 +342,7 @@ Earth2Studio is provided under the Apache License 2.0, refer to the
 
 <!-- Badge links -->
 
-[e2studio_python_img]: https://img.shields.io/badge/Python-3.11%20|%203.12%20|%203.13-blue?style=flat-square&logo=python
+[e2studio_python_img]: https://img.shields.io/badge/Python-3.11%20|%203.12%20|%203.13%20|%203.14-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
 [e2studio_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
 [e2studio_mypy_img]: https://img.shields.io/badge/mypy-Checked-blue?style=flat-square&labelColor=grey

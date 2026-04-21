@@ -1,0 +1,21 @@
+# ============================================================================
+# Eval Recipe — pre-download configuration
+# ============================================================================
+# Thin overlay that redirects Hydra logs to a predownload subdirectory.
+# All substantive config (model, ICs, predownload settings) lives in
+# default.yaml and optional campaign configs.
+#
+# Usage:
+#   python predownload.py
+#   python predownload.py campaign=fcn3_2024_full
+#   python predownload.py predownload.verification.enabled=true
+#   python predownload.py predownload.overwrite=true
+# ============================================================================
+
+defaults:
+    - default
+    - _self_
+
+hydra:
+    run:
+        dir: outputs/${project}_${run_id}/predownload

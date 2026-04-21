@@ -18,6 +18,7 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import inspect
 import logging
 import os
 import pathlib
@@ -33,10 +34,11 @@ from sphinx_gallery.sorting import ExplicitOrder, FileNameSortKey
 # Defaults will build API docs for
 dotenv.load_dotenv()
 doc_version = os.getenv("DOC_VERSION", "main")
-plot_gallery = os.getenv("PLOT_GALLERY", False)
-run_stale_examples = os.getenv("RUN_STALE_EXAMPLES", False)
+doc_public_build = os.getenv("DOC_PUBLIC_BUILD", "").lower() in ("1", "true", "yes")
+plot_gallery = os.getenv("PLOT_GALLERY", "").lower() in ("1", "true", "yes")
+run_stale_examples = os.getenv("RUN_STALE_EXAMPLES", "").lower() in ("1", "true", "yes")
 filename_pattern = os.getenv("FILENAME_PATTERN", r"/[0-9]+.*\.py")
-logging.info(doc_version, plot_gallery, run_stale_examples)
+logging.info(doc_version, doc_public_build, plot_gallery, run_stale_examples)
 
 root = pathlib.Path(__file__).parent
 physicsnemo = root.parent / "third_party" / "physicsnemo"
@@ -56,10 +58,77 @@ author = "NVIDIA"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+
+def linkcode_resolve(domain, info):
+    """Determine a GitHub URL corresponding to a Python object.
+
+    Used by sphinx.ext.linkcode to generate [source] links that point directly
+    to the source on GitHub instead of local _modules/ pages.
+
+    Based on the common pattern used by NumPy, SciPy, and scikit-learn.
+    See: https://github.com/scikit-learn/scikit-learn/blob/main/doc/sphinxext/github_link.py
+    """
+    if domain != "py":
+        return None
+
+    modname = info.get("module")
+    fullname = info.get("fullname")
+    if not modname or not fullname:
+        return None
+
+    # Import the module and resolve the object
+    submod = sys.modules.get(modname)
+    if submod is None:
+        return None
+
+    obj = submod
+    for part in fullname.split("."):
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            return None
+
+    # Unwrap decorated objects to get the original source
+    try:
+        obj = inspect.unwrap(obj)
+    except ValueError:
+        pass
+
+    # Get the source file
+    try:
+        fn = inspect.getsourcefile(obj)
+    except TypeError:
+        fn = None
+    if not fn:
+        return None
+
+    # Only link to files within the earth2studio package
+    import earth2studio
+
+    try:
+        fn = os.path.relpath(fn, start=os.path.dirname(earth2studio.__file__))
+    except ValueError:
+        return None
+    if fn.startswith(".."):
+        return None
+
+    # Get line number range
+    try:
+        source, lineno = inspect.getsourcelines(obj)
+        linespec = f"#L{lineno}-L{lineno + len(source) - 1}"
+    except (OSError, TypeError):
+        linespec = ""
+
+    return (
+        f"https://github.com/NVIDIA/earth2studio/blob/{doc_version}/"
+        f"earth2studio/{fn.replace(os.sep, '/')}{linespec}"
+    )
+
+
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",
+    "sphinx.ext.linkcode",
     "sphinx.ext.autosummary",
     "sphinx_favicon",
     "myst_parser",
@@ -84,17 +153,13 @@ html_css_files = [
     "css/custom.css",
 ]
 html_theme_options = {
-    "public_docs_features": False,
+    "public_docs_features": doc_public_build,
     # "logo": {
     #     "text": "Earth2Studio",
     #     "image_light": "_static/NVIDIA-Logo-V-ForScreen-ForLightBG.png",
     #     "image_dark": "_static/NVIDIA-Logo-V-ForScreen-ForDarkBG.png",
     # },
     "navbar_align": "content",
-    # "navbar_start": [
-    #     "navbar-logo",
-    #     "version-switcher",
-    # ],
     "navbar_start": ["navbar-logo", "version-switcher", "navbar-nav"],
     "navbar_center": [],
     "switcher": {

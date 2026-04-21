@@ -23,6 +23,7 @@ Typically used in intercomparison workflows.
       :template: datasource.rst
 
       data.AIFS_FX
+      data.CAMS_FX
       data.AIFS_ENS_FX
       data.GFS_FX
       data.GEFS_FX

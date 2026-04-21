@@ -58,7 +58,7 @@ repos:
     rev: 1.7.0
     hooks:
     - id: interrogate
-      exclude: ^(setup.py|test/|earth2studio/models/nn/)
+      exclude: ^(setup.py|test/|earth2studio/models/nn/|recipes/.*/test/.*)
       args: [--config=pyproject.toml]
 
 -   repo: https://github.com/igorshubovych/markdownlint-cli
@@ -75,7 +75,9 @@ repos:
               (?x)^(examples|
                 test |
                 serve/test/.* |
+                serve/server/example_workflows/.* |
                 docs |
+                recipes/.*/test/.* |
                 earth2studio/models/nn)
         additional_dependencies: ['types-requests']
 

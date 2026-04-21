@@ -1,0 +1,5 @@
+# DLWP (Deep Learning Weather Prediction) model
+# 6-hour time step, 721x1440 lat/lon grid, 7 prognostic variables
+architecture: earth2studio.models.px.DLWP
+# Omit package_path to use the default NGC checkpoint.
+# package_path: /path/to/custom/checkpoint
