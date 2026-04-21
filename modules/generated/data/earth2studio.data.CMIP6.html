@@ -718,7 +718,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">pressure_level_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/cmip6.py#L55-L610"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:simulation" style="background-color:#b451ed;color:#fff;" title="Numerical / AI Simulation"><i class="fa-solid fa-microchip"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:ocean" style="background-color:#1098ad;color:#fff;" title="Ocean"><i class="fa-solid fa-water"></i></span></span><p>CMIP6 data source for Earth2Studio.</p>
 <p>This class provides a thin convenience wrapper around the <cite>intake-esgf</cite> catalog that
 hosts the Coupled Model Inter-comparison Project Phase 6 (CMIP6) archive. This is
@@ -775,7 +775,7 @@ enforce exact time matching if precise timestamps are critical.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.CMIP6.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/cmip6.py#L167-L367"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Function to get data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -805,7 +805,7 @@ enforce exact time matching if precise timestamps are critical.</p>
 <dd><em class="sig-param"><span class="n"><span class="pre">variant_label</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/cmip6.html#CMIP6.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6.available" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/cmip6.py#L369-L431"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.CMIP6.available" title="Link to this definition">#</a></dt>
 <dd><p>Check if the requested <em>exact</em> timestamp exists in the ESGF archive.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

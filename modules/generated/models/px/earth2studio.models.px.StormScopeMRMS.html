@@ -725,7 +725,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_interp_max_dist_km</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12.0</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormscope.html#StormScopeMRMS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1295-L1643"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:nwc" style="background-color:#198754;color:#fff;" title="Nowcasting">NWC</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:radar" style="background-color:#7048e8;color:#fff;" title="Radar"><i class="fa-solid fa-satellite-dish"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="year:2026" style="background-color:#1A1A1A;color:#fff;">2026</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="gpu:80gb" style="background-color:#5aac44;color:#fff;" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)">80 GB</span></span><p>StormScope model forecasting MRMS data on the HRRR grid.</p>
 <dl class="simple">
 <dt>This model supports multiple variants at different temporal resolutions:</dt><dd><ul class="simple">
@@ -782,7 +782,7 @@ so these portions are masked as invalid (set to NaN).</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormScopeMRMS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L812-L864"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -802,7 +802,7 @@ so these portions are masked as invalid (set to NaN).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormScopeMRMS.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.create_iterator" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L943-L961"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates an iterator to perform time-integration of the prognostic model.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -823,7 +823,7 @@ output data tensor and coordinate system dictionary.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.StormScopeMRMS.load_default_package">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_default_package" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L238-L248"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Load a default local package for StormScope models.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -842,7 +842,7 @@ output data tensor and coordinate system dictionary.</p>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormscope.html#StormScopeMRMS.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_model" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/stormscope.py#L1522-L1643"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormScopeMRMS.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load model from package.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

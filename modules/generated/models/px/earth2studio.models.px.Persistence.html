@@ -712,7 +712,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(6,</span> <span class="pre">'h')</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/persistence.html#Persistence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/persistence.py#L29-L214"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence" title="Link to this definition">#</a></dt>
 <dd><p>Persistence model that generates a forecast by applying the identity operator on
 the initial condition and indexing the lead time by 6 hours. Primarily used in
 testing.</p>
@@ -729,7 +729,7 @@ to 1.</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.Persistence.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/persistence.html#Persistence.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/persistence.py#L145-L165"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Runs prognostic model 1 step.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -753,7 +753,7 @@ to 1.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.px.Persistence.create_iterator">
-<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/persistence.html#Persistence.create_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence.create_iterator" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">create_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/persistence.py#L194-L214"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.Persistence.create_iterator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a iterator which can be used to perform time-integration of the
 prognostic model. Will return the initial condition first (0th step).</p>
 <dl class="field-list simple">

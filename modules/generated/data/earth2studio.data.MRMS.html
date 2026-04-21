@@ -713,7 +713,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/mrms.py#L52-L557"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:radar" style="background-color:#7048e8;color:#fff;" title="Radar"><i class="fa-solid fa-satellite-dish"></i></span></span><p>NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.</p>
 <p>This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
 public S3 bucket, decompresses them into the Earth2Studio cache, and opens
@@ -754,7 +754,7 @@ request volume and frequency.</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MRMS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/mrms.py#L136-L179"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Retrieve MRMS data for given times and variables.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -777,7 +777,7 @@ source file.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MRMS.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS.fetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/mrms.py#L181-L294"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -798,7 +798,7 @@ return. Must be in the HRRR lexicon.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MRMS.available">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_offset_minutes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/earth2studio/data/mrms.html#MRMS.available"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.available" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">available</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_offset_minutes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/mrms.py#L485-L557"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MRMS.available" title="Link to this definition">#</a></dt>
 <dd><p>Check if an MRMS file exists for a given time. Only supports exact match.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

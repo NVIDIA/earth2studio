@@ -712,7 +712,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">time_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(10,</span> <span class="pre">'m')</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/da/interp.html#InterpEquirectangular"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.da.InterpEquirectangular" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/da/interp.py#L44-L593"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.da.InterpEquirectangular" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:na" style="background-color:#1565c0;color:#fff;" title="North America"><span class="sphinx-badge-icon"><i class="fa-solid fa-earth-americas"></i></span><span class="sphinx-badge-label">NA</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:da" style="background-color:#d63384;color:#fff;" title="Data Assimilation">DA</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:insitu" style="background-color:#2f9e44;color:#fff;" title="In-Situ Observations"><i class="fa-solid fa-tower-observation"></i></span></span><p>Interpolation assimilation model that interpolates sparse observations to a
 lat-lon grid.</p>
 <p>This is a sample implementation of an AssimilationModel that:
@@ -739,7 +739,7 @@ np.timedelta64(10, “m”)</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.da.InterpEquirectangular.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/da/interp.html#InterpEquirectangular.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.da.InterpEquirectangular.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/da/interp.py#L172-L178"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.da.InterpEquirectangular.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Stateless forward pass</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -753,7 +753,7 @@ np.timedelta64(10, “m”)</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.da.InterpEquirectangular.create_generator">
-<span class="sig-name descname"><span class="pre">create_generator</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/da/interp.html#InterpEquirectangular.create_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.da.InterpEquirectangular.create_generator" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">create_generator</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/da/interp.py#L180-L212"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.da.InterpEquirectangular.create_generator" title="Link to this definition">#</a></dt>
 <dd><p>Creates a generator which accepts collection of input observations and
 outputs a collection of assimilated data.</p>
 <dl class="field-list simple">

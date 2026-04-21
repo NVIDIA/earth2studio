@@ -717,7 +717,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">dataset_modality</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">DatasetModality.ERA5</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/cbottle_tc.py#L63-L614"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="class:cm" style="background-color:#ccff00;color:#000;" title="Climate Model">CM</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:wind" style="background-color:#4dabf7;color:#fff;" title="Surface Winds"><i class="fa-solid fa-wind"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:precip" style="background-color:#339af0;color:#fff;" title="Surface Precipitation"><i class="fa-solid fa-cloud-rain"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:temp" style="background-color:#fd7e14;color:#fff;" title="Surface Temperature"><i class="fa-solid fa-temperature-half"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:atmos" style="background-color:#74c0fc;color:#fff;" title="Atmosphere"><i class="fa-solid fa-cloud"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="year:2025" style="background-color:#4F4F4F;color:#fff;">2025</span><span class="sphinx-badge sphinx-badge-square" data-badge-id="gpu:80gb" style="background-color:#5aac44;color:#fff;" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)">80 GB</span></span><p>Climate in a Bottle tropical cyclone guidance diagnostic.
 This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
 guidance map on a lat-lon grid and synthesis global climate realizations at that
@@ -758,7 +758,7 @@ DatasetModality.ERA5</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/cbottle_tc.py#L428-L519"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Forward pass of diagnostic</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -775,7 +775,7 @@ DatasetModality.ERA5</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.models.dx.CBottleTCGuidance.load_default_package">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.load_default_package"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_default_package" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_default_package</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/cbottle_tc.py#L237-L246"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_default_package" title="Link to this definition">#</a></dt>
 <dd><p>Default pre-trained cBottle model package from Nvidia model registry</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -796,7 +796,7 @@ DatasetModality.ERA5</p></li>
 <dd><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/dx/cbottle_tc.html#CBottleTCGuidance.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_model" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/cbottle_tc.py#L248-L316"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.dx.CBottleTCGuidance.load_model" title="Link to this definition">#</a></dt>
 <dd><p>Load diagnostic from package</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
