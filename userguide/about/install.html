@@ -710,8 +710,8 @@ model installs and suggested environment set up for the most complete experience
 </div>
 <section id="install-using-pip">
 <h2>Install using Pip<a class="headerlink" href="#install-using-pip" title="Link to this heading">#</a></h2>
-<p>Earth2Studio runs on <a class="reference external" href="https://pytorch.org/get-started/locally/">PyTorch</a>; make sure it
-is installed correctly for your system first.
+<p>Earth2Studio runs on <a class="reference external" href="https://pytorch.org/get-started/locally/">PyTorch</a>; <strong>make sure it
+is installed correctly for your system first</strong>.
 To get the latest release of Earth2Studio, install from the Python index.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>earth2studio
 </pre></div>
@@ -722,7 +722,7 @@ To get the latest release of Earth2Studio, install from the Python index.</p>
 <p>This package is developed using <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>
 and it’s recommended that users use an uv project for the best install experience:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
-uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.13
 uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
@@ -1224,8 +1224,7 @@ uv</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-51" name="sd-tab-set-17" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-51">
 Cyclone Trackers</label><div class="sd-tab-content docutils">
-<p>Notes: Additional dependencies for cyclone tracking models <code class="docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code> and <code class="docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code>.
-Only Python 3.12 and below support.</p>
+<p>Notes: Additional dependencies for cyclone tracking models <code class="docutils literal notranslate"><span class="pre">TCTrackerVitart</span></code> and <code class="docutils literal notranslate"><span class="pre">TCTrackerWuDuan</span></code>.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-63" name="sd-tab-set-21" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-63">
@@ -1548,12 +1547,12 @@ For developer environments, refer to the <a class="reference internal" href="../
 Assuming <a class="reference external" href="https://docs.astral.sh/uv/getting-started/installation/">uv is installed</a>, use
 the following commands:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
-uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.13
 uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
 <p>or if you are already inside an existing uv project:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.12
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.13
 uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
 </pre></div>
 </div>
@@ -1605,7 +1604,7 @@ This is because the virtual environments set up by uv makes the system-wide cond
 environments not needed unless some system dependencies are required.
 However this demonstrates that in principle Earth2Studio can be installed using standard
 package tooling.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.12
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.13
 conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
 
 uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="s2">&quot;earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0&quot;</span>
@@ -1622,8 +1621,8 @@ The following are recommended to closely match development and automation enviro
 minimizing the chance for unexpected incompatibilities:</p>
 <ul class="simple">
 <li><p>OS: Ubuntu 24.04 LTS</p></li>
-<li><p>Python Version: 3.12</p></li>
-<li><p>CUDA Version: 12.8</p></li>
+<li><p>Python Version: 3.13</p></li>
+<li><p>CUDA Version: 13.0</p></li>
 </ul>
 </section>
 <section id="hardware">
