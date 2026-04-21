@@ -35,7 +35,6 @@ from .metop import (
     MetOpMTGLexicon,
 )
 from .mrms import MRMSLexicon
-from .mtg import MTGLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
 from .planetary_computer import (

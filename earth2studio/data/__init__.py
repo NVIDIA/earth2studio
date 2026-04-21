@@ -37,7 +37,6 @@ from .metop_iasi import MetOpIASI
 from .metop_mhs import MetOpMHS
 from .metop_mtg import MetOpMTG
 from .mrms import MRMS
-from .mtg import MTG
 from .ncar import NCAR_ERA5
 from .nclimgrid import NClimGridDaily
 from .planetary_computer import (
