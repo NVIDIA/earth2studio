@@ -37,8 +37,8 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 
 @dataclass
-class NClimGridAsyncTask:
-    """Async task for a single NClimGrid fetch operation."""
+class NClimGridDailyAsyncTask:
+    """Async task for a single NClimGridDaily fetch operation."""
 
     time_index: int
     variable_index: int
@@ -49,7 +49,7 @@ class NClimGridAsyncTask:
     target_date: np.datetime64
 
 
-class NClimGrid:
+class NClimGridDaily:
     """NOAA NClimGrid daily gridded climate data source.
 
     NClimGrid provides daily CONUS gridded temperature and precipitation data
@@ -219,7 +219,7 @@ class NClimGrid:
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]
-    ) -> list[NClimGridAsyncTask]:
+    ) -> list[NClimGridDailyAsyncTask]:
         """Create download tasks for parallel execution.
 
         Parameters
@@ -231,10 +231,10 @@ class NClimGrid:
 
         Returns
         -------
-        list[NClimGridAsyncTask]
+        list[NClimGridDailyAsyncTask]
             List of async task requests.
         """
-        tasks: list[NClimGridAsyncTask] = []
+        tasks: list[NClimGridDailyAsyncTask] = []
         for i, t in enumerate(time):
             for j, v in enumerate(variable):
                 try:
@@ -250,7 +250,7 @@ class NClimGrid:
                 # so that sub-day times (e.g. 07:30) match the file timestamps
                 target_date = np.datetime64(t).astype("datetime64[D]")
                 tasks.append(
-                    NClimGridAsyncTask(
+                    NClimGridDailyAsyncTask(
                         time_index=i,
                         variable_index=j,
                         variable_id=v,
@@ -264,13 +264,13 @@ class NClimGrid:
 
     async def fetch_wrapper(
         self,
-        task: NClimGridAsyncTask,
+        task: NClimGridDailyAsyncTask,
     ) -> xr.DataArray:
         """Unpack task, fetch data, and return as a single-element DataArray.
 
         Parameters
         ----------
-        task : NClimGridAsyncTask
+        task : NClimGridDailyAsyncTask
             Task with all fetch metadata.
 
         Returns
@@ -283,13 +283,13 @@ class NClimGrid:
 
     async def fetch_array(
         self,
-        task: NClimGridAsyncTask,
+        task: NClimGridDailyAsyncTask,
     ) -> xr.DataArray:
         """Fetch a single variable/time slice from remote store.
 
         Parameters
         ----------
-        task : NClimGridAsyncTask
+        task : NClimGridDailyAsyncTask
             Task with all fetch metadata.
 
         Returns

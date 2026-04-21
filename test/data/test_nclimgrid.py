@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import NClimGrid
+from earth2studio.data import NClimGridDaily
 
 
 @pytest.mark.slow
@@ -42,7 +42,7 @@ from earth2studio.data import NClimGrid
 @pytest.mark.parametrize("variable", ["t2m_max", ["t2m_max", "tp"]])
 def test_nclimgrid_fetch(time, variable):
 
-    ds = NClimGrid(cache=False)
+    ds = NClimGridDaily(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -71,7 +71,7 @@ def test_nclimgrid_fetch(time, variable):
 @pytest.mark.parametrize("cache", [True, False])
 def test_nclimgrid_cache(time, variable, cache):
 
-    ds = NClimGrid(cache=cache)
+    ds = NClimGridDaily(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
@@ -109,18 +109,18 @@ def test_nclimgrid_cache(time, variable, cache):
 @pytest.mark.parametrize("variable", ["t2m_max"])
 def test_nclimgrid_valid_time(time, variable):
     with pytest.raises(ValueError):
-        ds = NClimGrid()
+        ds = NClimGridDaily()
         ds(time, variable)
 
 
 @pytest.mark.timeout(15)
 def test_nclimgrid_available():
-    assert NClimGrid.available(datetime(2010, 7, 1))
-    assert NClimGrid.available(datetime(1951, 1, 1))
-    assert not NClimGrid.available(datetime(1940, 1, 1))
-    assert not NClimGrid.available(datetime(1950, 12, 31))
-    assert NClimGrid.available(np.datetime64("2010-07-01"))
-    assert not NClimGrid.available(np.datetime64("1940-01-01"))
+    assert NClimGridDaily.available(datetime(2010, 7, 1))
+    assert NClimGridDaily.available(datetime(1951, 1, 1))
+    assert not NClimGridDaily.available(datetime(1940, 1, 1))
+    assert not NClimGridDaily.available(datetime(1950, 12, 31))
+    assert NClimGridDaily.available(np.datetime64("2010-07-01"))
+    assert not NClimGridDaily.available(np.datetime64("1940-01-01"))
 
 
 @pytest.mark.parametrize(
@@ -144,12 +144,12 @@ def test_nclimgrid_available():
     ],
 )
 def test_nclimgrid_monthly_uri(time, expected_uri):
-    ds = NClimGrid()
+    ds = NClimGridDaily()
     assert ds._monthly_nc_uri(time) == expected_uri
 
 
 def test_nclimgrid_create_tasks():
-    ds = NClimGrid()
+    ds = NClimGridDaily()
     times = [datetime(2010, 7, 1), datetime(2010, 7, 2)]
     variables = ["t2m_max", "tp"]
 
@@ -167,13 +167,13 @@ def test_nclimgrid_create_tasks():
 
 
 def test_nclimgrid_create_tasks_invalid_variable():
-    ds = NClimGrid()
+    ds = NClimGridDaily()
     tasks = ds._create_tasks([datetime(2010, 7, 1)], ["nonexistent_var"])
     assert len(tasks) == 0
 
 
 def test_nclimgrid_call_mock(tmp_path: pathlib.Path):
-    """Test NClimGrid __call__ with mocked S3 filesystem (no network)."""
+    """Test NClimGridDaily __call__ with mocked S3 filesystem (no network)."""
     # Create a mock monthly NetCDF with fake CONUS grid
     lat = np.linspace(24.0, 50.0, 10, dtype=np.float32)
     lon = np.linspace(-125.0, -67.0, 15, dtype=np.float32)
@@ -199,8 +199,8 @@ def test_nclimgrid_call_mock(tmp_path: pathlib.Path):
     mock_fs.open.return_value.__enter__ = lambda s: open(nc_path, "rb")
     mock_fs.open.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch.object(NClimGrid, "_async_init", return_value=None):
-        ds = NClimGrid(cache=False)
+    with patch.object(NClimGridDaily, "_async_init", return_value=None):
+        ds = NClimGridDaily(cache=False)
         ds.fs = mock_fs
 
         data = ds(datetime(2010, 7, 1), ["t2m_max", "tp"])

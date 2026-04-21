@@ -43,7 +43,7 @@ Used for fetching initial conditions for inference and validation data for scori
       data.IFS_ENS
       data.JPSS
       data.MRMS
-      data.NClimGrid
+      data.NClimGridDaily
       data.NCAR_ERA5
       data.PlanetaryComputerECMWFOpenDataIFS
       data.PlanetaryComputerGOES
