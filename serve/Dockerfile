@@ -46,10 +46,6 @@ RUN apt-get update && apt-get install -y redis-server && \
     rm -rf /workspace/earth2studio-project/earth2studio /workspace/earth2studio-project/pyproject.toml /workspace/earth2studio-project/README.md
 
 # Security patch: pin packages to versions that fix known critical/high CVEs.
-# The CVE is in the wandb-core Go binary, not the Python code, so we keep the
-# Python package but delete the ELF binary that scanners flag.
-# The uv cache is purged last so cached package archives (which scanners treat as
-# installed) do not inflate the vulnerability report.
 RUN uv pip install --system --break-system-packages \
     "aiohttp>=3.13.4" \
     "black>=26.3.1" \
@@ -66,9 +62,7 @@ RUN uv pip install --system --break-system-packages \
 RUN uv pip install --system --break-system-packages \
     "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@a56b5e8"
 
-# Force-upgrade onnx past the CVE-fixed version (1.21.0). onnxruntime-gpu and
-# onnxscript may declare a tighter upper bound on onnx, so --override is used
-# to bypass those constraints without changing the other packages.
+# Force-upgrade onnx past the CVE-fixed version (1.21.0).
 RUN printf 'onnx>=1.21.0\n' > /tmp/onnx-override.txt && \
     uv pip install --system --break-system-packages \
         --override /tmp/onnx-override.txt \
@@ -76,13 +70,6 @@ RUN printf 'onnx>=1.21.0\n' > /tmp/onnx-override.txt && \
     rm /tmp/onnx-override.txt
 
 # Remove vulnerable binaries and packages not required by the application.
-# wandb-core is deleted (keeping the wandb Python package importable); nic_sampler
-# is part of NsightSystems and unused. linux-libc-dev is a kernel-headers dev
-# package only needed at compile time, not runtime. The uv cache is purged so
-# trivy does not flag archive copies of the same binaries.
-# apt-managed copies of setuptools and python3-protobuf shadow the pip-upgraded
-# versions in a different site-packages path and cause scanners to flag the old
-# versions even after pip upgrade; remove them so only the pip copy is visible.
 RUN rm -f /usr/local/cuda-13.2/NsightSystems-cli-2026.1.2/target-linux-x64/plugins/efa_metrics/nic_sampler && \
     find /usr /root -name "wandb-core" -type f -delete && \
     rm -rf /root/.cache/uv && \
