@@ -168,8 +168,8 @@ def test_nclimgrid_create_tasks():
 
 def test_nclimgrid_create_tasks_invalid_variable():
     ds = NClimGridDaily()
-    tasks = ds._create_tasks([datetime(2010, 7, 1)], ["nonexistent_var"])
-    assert len(tasks) == 0
+    with pytest.raises(KeyError):
+        ds._create_tasks([datetime(2010, 7, 1)], ["nonexistent_var"])
 
 
 def test_nclimgrid_call_mock(tmp_path: pathlib.Path):

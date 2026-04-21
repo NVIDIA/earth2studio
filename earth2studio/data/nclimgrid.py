@@ -239,11 +239,9 @@ class NClimGridDaily:
             for j, v in enumerate(variable):
                 try:
                     native_key, modifier = NClimGridLexicon[v]  # type: ignore[misc]
-                except KeyError:
-                    logger.warning(
-                        f"Variable id {v} not found in NClimGridLexicon, skipping"
-                    )
-                    continue
+                except KeyError as e:
+                    logger.error(f"Variable id {v} not found in NClimGridLexicon")
+                    raise e
 
                 nc_uri = self._monthly_nc_uri(t)
                 # NClimGrid is daily data — truncate to day resolution
