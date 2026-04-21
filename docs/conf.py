@@ -18,6 +18,7 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import inspect
 import logging
 import os
 import pathlib
@@ -57,10 +58,77 @@ author = "NVIDIA"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+
+def linkcode_resolve(domain, info):
+    """Determine a GitHub URL corresponding to a Python object.
+
+    Used by sphinx.ext.linkcode to generate [source] links that point directly
+    to the source on GitHub instead of local _modules/ pages.
+
+    Based on the common pattern used by NumPy, SciPy, and scikit-learn.
+    See: https://github.com/scikit-learn/scikit-learn/blob/main/doc/sphinxext/github_link.py
+    """
+    if domain != "py":
+        return None
+
+    modname = info.get("module")
+    fullname = info.get("fullname")
+    if not modname or not fullname:
+        return None
+
+    # Import the module and resolve the object
+    submod = sys.modules.get(modname)
+    if submod is None:
+        return None
+
+    obj = submod
+    for part in fullname.split("."):
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            return None
+
+    # Unwrap decorated objects to get the original source
+    try:
+        obj = inspect.unwrap(obj)
+    except ValueError:
+        pass
+
+    # Get the source file
+    try:
+        fn = inspect.getsourcefile(obj)
+    except TypeError:
+        fn = None
+    if not fn:
+        return None
+
+    # Only link to files within the earth2studio package
+    import earth2studio
+
+    try:
+        fn = os.path.relpath(fn, start=os.path.dirname(earth2studio.__file__))
+    except ValueError:
+        return None
+    if fn.startswith(".."):
+        return None
+
+    # Get line number range
+    try:
+        source, lineno = inspect.getsourcelines(obj)
+        linespec = f"#L{lineno}-L{lineno + len(source) - 1}"
+    except (OSError, TypeError):
+        linespec = ""
+
+    return (
+        f"https://github.com/NVIDIA/earth2studio/blob/{doc_version}/"
+        f"earth2studio/{fn}{linespec}"
+    )
+
+
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",
+    "sphinx.ext.linkcode",
     "sphinx.ext.autosummary",
     "sphinx_favicon",
     "myst_parser",
