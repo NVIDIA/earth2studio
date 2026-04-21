@@ -68,6 +68,6 @@ for f in "${track_files[@]}"; do
 done
 echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo " >>> all good, yay (: track files have been reproduced successfully"
+echo " >>> all good, yay (: $track_count track files produced successfully"
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""

@@ -132,7 +132,7 @@ aifsens = [
     "flash-attn",
 ]
 atlas = [
-    "natten",
+    "natten ; python_version < '3.14'",
     "timm",
     "torch-harmonics",
     "einops",
@@ -210,7 +210,7 @@ stormcast = [
     "pyproj>=3.7.1",
 ]
 stormscope = [
-    "natten",
+    "natten ; python_version < '3.14'",
     "nvidia-physicsnemo>=2.0",
     "nvtx>=0.2.11",
     "earth2studio[utils]",
