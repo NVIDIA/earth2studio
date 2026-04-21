@@ -717,7 +717,8 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_stds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array(['u10m',</span> <span class="pre">'v10m',</span> <span class="pre">'t2m',</span> <span class="pre">'tcwv',</span> <span class="pre">'sp',</span> <span class="pre">'msl',</span> <span class="pre">'u1000',</span> <span class="pre">'u850',</span> <span class="pre">'u500',</span> <span class="pre">'u250',</span> <span class="pre">'v1000',</span> <span class="pre">'v850',</span> <span class="pre">'v500',</span> <span class="pre">'v250',</span> <span class="pre">'z1000',</span> <span class="pre">'z850',</span> <span class="pre">'z500',</span> <span class="pre">'z250',</span> <span class="pre">'t1000',</span> <span class="pre">'t850',</span> <span class="pre">'t500',</span> <span class="pre">'t250',</span> <span class="pre">'q1000',</span> <span class="pre">'q850',</span> <span class="pre">'q500',</span> <span class="pre">'q250'],</span> <span class="pre">dtype='&lt;U5')</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">sampler_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sampler_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">18</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sampler_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 </dl>
 
 <span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast" title="Link to this definition">#</a></dt>
@@ -756,7 +757,8 @@ United States,, by default (579, 1219)</p></li>
 <li><p><strong>conditioning_stds</strong> (<em>torch.Tensor</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Standard deviations to normalize conditioning data, by default None</p></li>
 <li><p><strong>conditioning_variables</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)</p></li>
 <li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Data Source to use for global conditioning. Required for running in iterator mode, by default None</p></li>
-<li><p><strong>sampler_args</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>  |  </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Arguments to pass to the diffusion sampler, by default {}</p></li>
+<li><p><strong>sampler_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of diffusion sampler steps, by default 36</p></li>
+<li><p><strong>sampler_args</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>  |  </em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Arguments to pass to the diffusion sampler, by default None</p></li>
 </ul>
 </dd>
 </dl>
@@ -823,6 +825,7 @@ output data tensor and coordinate system dictionary.</p>
 <dl>
 <dd><em class="sig-param"><span class="n"><span class="pre">package</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">conditioning_data_source</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;earth2studio.data.gfs.GFS_FX</span> <span class="pre">object&gt;</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sampler_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">18</span></span></em>,</dd>
 </dl>
 
 <span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/earth2studio/models/px/stormcast.html#StormCast.load_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.models.px.StormCast.load_model" title="Link to this definition">#</a></dt>
@@ -832,6 +835,7 @@ output data tensor and coordinate system dictionary.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>package</strong> (<a class="reference internal" href="../earth2studio.models.auto.Package.html#earth2studio.models.auto.Package" title="earth2studio.models.auto.Package"><em>Package</em></a>) – Package to load model from</p></li>
 <li><p><strong>conditioning_data_source</strong> (<em>DataSource</em><em> | </em><em>ForecastSource</em><em>, </em><em>optional</em>) – Data source to use for global conditioning, by default GFS_FX</p></li>
+<li><p><strong>sampler_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of diffusion sampler steps, by default 18</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
