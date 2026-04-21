@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
 - Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
 - Added `NClimGridLexicon` for NClimGrid variable mappings (temperature, precipitation, SPI)
+- Added MTG-I FCI Level-1C Full Disk satellite radiance data source (`MetOpMTG`)
 
 ### Changed
 

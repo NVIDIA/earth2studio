@@ -35,6 +35,7 @@ from .metop_amsua import MetOpAMSUA
 from .metop_avhrr import MetOpAVHRR
 from .metop_iasi import MetOpIASI
 from .metop_mhs import MetOpMHS
+from .metop_mtg import MetOpMTG
 from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .nclimgrid import NClimGridDaily
