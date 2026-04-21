@@ -309,9 +309,7 @@ class NClimGrid:
         cache_path = os.path.join(self.cache, sha.hexdigest())
 
         if os.path.exists(cache_path):
-            ds = await asyncio.to_thread(
-                xr.open_dataarray, cache_path, engine="h5netcdf", cache=False
-            )
+            ds = xr.open_dataarray(cache_path, engine="h5netcdf", cache=False)
         else:
             if self.fs is None:
                 raise ValueError(
@@ -344,7 +342,7 @@ class NClimGrid:
             )
 
             if self._cache:
-                await asyncio.to_thread(ds.to_netcdf, cache_path, engine="h5netcdf")
+                ds.to_netcdf(cache_path, engine="h5netcdf")
 
         return ds
 
