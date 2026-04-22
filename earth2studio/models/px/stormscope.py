@@ -47,12 +47,10 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module
-    from physicsnemo.models import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")
     Module = None  # type: ignore[assignment]
-    DiT = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
 from earth2studio.models.nn.stormscope_util import (
@@ -1207,7 +1205,7 @@ class StormScopeGOES(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = DiT.from_checkpoint(package.resolve(m["path"]))
+            model = Module.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),
@@ -1557,7 +1555,7 @@ class StormScopeMRMS(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = DiT.from_checkpoint(package.resolve(m["path"]))
+            model = Module.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),
