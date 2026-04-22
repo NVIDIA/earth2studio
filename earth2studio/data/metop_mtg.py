@@ -615,7 +615,8 @@ class MetOpMTG:
             FCI channel name (e.g., ``'vis_04'``)
         pixel_roi : tuple[int, int, int, int] | None, optional
             ``(row_start, row_end, col_start, col_end)`` pixel bounds
-            (end-exclusive).  When ``None`` the full disk is returned.
+            in **grid space** (row 0 = north, end-exclusive).  When
+            ``None`` the full disk is returned.
 
         Returns
         -------
@@ -631,6 +632,17 @@ class MetOpMTG:
 
         if not body_files:
             raise FileNotFoundError(f"No BODY segment files found in {product_dir}")
+
+        # FCI BODY segments are numbered south-to-north (chunk 1 = south).
+        # pixel_roi is in grid space (row 0 = north).  Convert the row
+        # bounds to data space (row 0 = south) for segment skipping.
+        nrows = GRID_SIZE_1KM[0] if self._resolution == "1km" else GRID_SIZE_2KM[0]
+        data_roi: tuple[int, int, int, int] | None = None
+        if pixel_roi is not None:
+            r0, r1, c0, c1 = pixel_roi
+            data_r0 = nrows - r1
+            data_r1 = nrows - r0
+            data_roi = (data_r0, data_r1, c0, c1)
 
         # Read and vertically stack segments
         segments: list[np.ndarray] = []
@@ -668,27 +680,29 @@ class MetOpMTG:
                 seg_row_end = row_offset + seg_rows
 
                 # Skip segments that do not overlap the ROI row range
-                if pixel_roi is not None:
-                    r0, r1, _c0, _c1 = pixel_roi
-                    if seg_row_end <= r0 or row_offset >= r1:
+                if data_roi is not None:
+                    dr0, dr1, _c0, _c1 = data_roi
+                    if seg_row_end <= dr0 or row_offset >= dr1:
                         row_offset = seg_row_end
                         continue
 
                 if first_loaded_offset is None:
                     first_loaded_offset = row_offset
 
-                data = var[:].filled(np.nan)
+                # Disable auto scale/offset so we can handle fill values
+                # and apply the transform ourselves exactly once.
+                ds.set_auto_maskandscale(False)
+                raw = var[:]
+                if raw.ndim == 3:
+                    raw = raw[0]
 
-                # Apply scale_factor / add_offset if present but not
-                # auto-applied (mask_and_scale is off by default in raw access)
+                fill = getattr(var, "_FillValue", None)
                 scale = getattr(var, "scale_factor", 1.0)
                 offset = getattr(var, "add_offset", 0.0)
-                if scale != 1.0 or offset != 0.0:
-                    data = data.astype(np.float64) * scale + offset
 
-                # Data may be 3-D (1, rows, cols) — squeeze
-                if data.ndim == 3:
-                    data = data[0]
+                data = raw.astype(np.float64) * scale + offset
+                if fill is not None:
+                    data[raw == fill] = np.nan
                 segments.append(data)
                 row_offset = seg_row_end
             finally:
@@ -702,12 +716,23 @@ class MetOpMTG:
 
         full = np.concatenate(segments, axis=0)
 
-        # Crop to bounding box if requested
+        # FCI BODY segments are numbered south-to-north (chunk 1 = south
+        # edge).  Flip so that row 0 = north, matching the grid convention
+        # used by the rest of Earth2Studio (and GOES).
+        full = np.flipud(full)
+
+        # Crop to bounding box if requested (pixel_roi is in grid space,
+        # which matches the flipped array).
         if pixel_roi is not None and first_loaded_offset is not None:
             r0, r1, c0, c1 = pixel_roi
-            # Adjust row bounds relative to concatenated loaded data
-            adj_r0 = max(0, r0 - first_loaded_offset)
-            adj_r1 = min(full.shape[0], r1 - first_loaded_offset)
+            # first_loaded_offset is in data space (south-to-north).
+            # After flipud, loaded data row 0 maps to the highest grid row.
+            # The loaded block covers data rows [first_loaded_offset, last_loaded_end).
+            # After flip that becomes grid rows [nrows - last_loaded_end, nrows - first_loaded_offset).
+            last_loaded_end = first_loaded_offset + full.shape[0]
+            grid_start = nrows - last_loaded_end
+            adj_r0 = max(0, r0 - grid_start)
+            adj_r1 = min(full.shape[0], r1 - grid_start)
             c1 = min(full.shape[1], c1)
             full = full[adj_r0:adj_r1, c0:c1]
 
@@ -868,3 +893,41 @@ class MetOpMTG:
         res = MetOpMTG._resolve_resolution(resolution)
         cfac, coff, lfac, loff, (nrows, ncols) = _GRID_PARAMS[res]
         return _mtg_fci_scan_to_latlon(cfac, coff, lfac, loff, nrows, ncols)
+
+    @staticmethod
+    def projection_extent(
+        resolution: str = "2km",
+    ) -> tuple[float, float, float, float]:
+        """Return the geostationary projection extent in metres for plotting.
+
+        Computes the ``(x_min, x_max, y_min, y_max)`` extent of the FCI
+        grid in native geostationary projection coordinates.  This is
+        useful for plotting with ``imshow`` on a
+        :class:`cartopy.crs.Geostationary` axis.
+
+        Parameters
+        ----------
+        resolution : str, optional
+            Grid resolution (``'1km'`` or ``'2km'``), by default ``'2km'``
+
+        Returns
+        -------
+        tuple[float, float, float, float]
+            ``(x_min, x_max, y_min, y_max)`` in metres.
+        """
+        res = MetOpMTG._resolve_resolution(resolution)
+        cfac, coff, _lfac, loff, (nrows, ncols) = _GRID_PARAMS[res]
+
+        h = PERSPECTIVE_POINT_HEIGHT
+        # Pixel edges span 0.5 to N+0.5; extent uses outermost edges
+        x_min = (0.5 - coff) * cfac * h
+        x_max = (ncols + 0.5 - coff) * cfac * h
+        y_min = (0.5 - loff) * _lfac * h
+        y_max = (nrows + 0.5 - loff) * _lfac * h
+
+        return (
+            min(x_min, x_max),
+            max(x_min, x_max),
+            min(y_min, y_max),
+            max(y_min, y_max),
+        )
