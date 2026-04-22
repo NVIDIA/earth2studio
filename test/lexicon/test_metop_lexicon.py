@@ -99,4 +99,3 @@ def test_metop_mhs_lexicon(variable, device):
         else:
             with pytest.raises(KeyError):
                 label, modifier = MetOpMHSLexicon[v]
-
