@@ -37,7 +37,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
 )
-from earth2studio.lexicon.metop import MetOpMTGLexicon
+from earth2studio.lexicon.meteosat import MeteosatFCILexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -258,7 +258,7 @@ def _sort_body_key(name: str) -> int:
 
 
 @check_optional_dependencies()
-class MetOpMTG:
+class MeteosatFCI:
     """EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source.
 
     This data source provides access to Meteosat Third Generation (MTG)
@@ -359,7 +359,7 @@ class MetOpMTG:
         time : datetime | list[datetime] | TimeArray
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
-            Variables to return.  Must be in the ``MetOpMTGLexicon``.
+            Variables to return.  Must be in the ``MeteosatFCILexicon``.
 
         Returns
         -------
@@ -469,7 +469,7 @@ class MetOpMTG:
         for i, t in enumerate(time):
             product_dir = product_dir_map[t]
             for j, v in enumerate(variable):
-                channel_name, modifier = MetOpMTGLexicon[v]
+                channel_name, modifier = MeteosatFCILexicon[v]
                 data = self._read_channel(product_dir, channel_name, self._pixel_roi)
                 xr_array[i, j] = modifier(data)
 
@@ -779,7 +779,7 @@ class MetOpMTG:
             If any variable's native resolution differs from self._resolution
         """
         for v in variable:
-            channel_name, _ = MetOpMTGLexicon[v]
+            channel_name, _ = MeteosatFCILexicon[v]
             native_res = _VARIABLE_RESOLUTION.get(channel_name)
             if native_res is not None and native_res != self._resolution:
                 raise ValueError(
@@ -798,7 +798,7 @@ class MetOpMTG:
             (lat, lon) arrays
         """
         if self._grid is None:
-            self._grid = MetOpMTG.grid(resolution=self._resolution)
+            self._grid = MeteosatFCI.grid(resolution=self._resolution)
         return self._grid
 
     @classmethod
@@ -831,18 +831,18 @@ class MetOpMTG:
             ):
                 raise ValueError(
                     f"Requested date time {time} needs to be on a "
-                    f"{cls.SCAN_FREQUENCY}s interval for MetOpMTG"
+                    f"{cls.SCAN_FREQUENCY}s interval for MeteosatFCI"
                 )
 
     @property
     def cache(self) -> str:
         """Return appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "metop_mtg")
+        cache_location = os.path.join(datasource_cache_root(), "meteosat_fci")
         if not self._cache:
             if self._tmp_cache_hash is None:
                 self._tmp_cache_hash = uuid.uuid4().hex[:8]
             cache_location = os.path.join(
-                cache_location, f"tmp_metop_mtg_{self._tmp_cache_hash}"
+                cache_location, f"tmp_meteosat_fci_{self._tmp_cache_hash}"
             )
         return cache_location
 
@@ -890,7 +890,7 @@ class MetOpMTG:
         tuple[np.ndarray, np.ndarray]
             Tuple of (lat, lon) arrays in degrees. Off-Earth pixels are NaN.
         """
-        res = MetOpMTG._resolve_resolution(resolution)
+        res = MeteosatFCI._resolve_resolution(resolution)
         cfac, coff, lfac, loff, (nrows, ncols) = _GRID_PARAMS[res]
         return _mtg_fci_scan_to_latlon(cfac, coff, lfac, loff, nrows, ncols)
 
@@ -915,7 +915,7 @@ class MetOpMTG:
         tuple[float, float, float, float]
             ``(x_min, x_max, y_min, y_max)`` in metres.
         """
-        res = MetOpMTG._resolve_resolution(resolution)
+        res = MeteosatFCI._resolve_resolution(resolution)
         cfac, coff, _lfac, loff, (nrows, ncols) = _GRID_PARAMS[res]
 
         h = PERSPECTIVE_POINT_HEIGHT

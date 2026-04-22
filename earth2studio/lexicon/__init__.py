@@ -28,12 +28,12 @@ from .himawari import HimawariLexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
+from .meteosat import MeteosatFCILexicon
 from .metop import (
     MetOpAMSUALexicon,
     MetOpAVHRRLexicon,
     MetOpIASILexicon,
     MetOpMHSLexicon,
-    MetOpMTGLexicon,
 )
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
