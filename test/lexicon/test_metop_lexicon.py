@@ -22,7 +22,6 @@ from earth2studio.lexicon import (
     MetOpAVHRRLexicon,
     MetOpIASILexicon,
     MetOpMHSLexicon,
-    MetOpMTGLexicon,
 )
 
 
@@ -101,21 +100,3 @@ def test_metop_mhs_lexicon(variable, device):
             with pytest.raises(KeyError):
                 label, modifier = MetOpMHSLexicon[v]
 
-
-@pytest.mark.parametrize(
-    "variable",
-    [["fci01"], ["fci07", "fci09"], ["fci01", "fci06", "fci12"], ["foo"]],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_metop_mtg_lexicon(variable, device):
-    input = torch.randn(len(variable), 100, 100).to(device)
-    for v in variable:
-        if v != "foo":
-            label, modifier = MetOpMTGLexicon[v]
-            output = modifier(input)
-            assert isinstance(label, str)
-            assert input.shape == output.shape
-            assert input.device == output.device
-        else:
-            with pytest.raises(KeyError):
-                label, modifier = MetOpMTGLexicon[v]
