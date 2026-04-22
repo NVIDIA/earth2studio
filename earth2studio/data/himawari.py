@@ -325,7 +325,7 @@ class Himawari:
 
     Badges
     ------
-    region:as dataclass:observation product:sat
+    region:as region:au dataclass:observation product:sat
     """
 
     SCAN_TIME_FREQUENCY = 600  # 10-minute Full Disk cadence
