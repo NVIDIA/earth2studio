@@ -23,7 +23,7 @@ import netCDF4
 import numpy as np
 import pytest
 
-from earth2studio.data import MetOpMTG
+from earth2studio.data import MeteosatFCI
 
 
 @pytest.mark.slow
@@ -39,8 +39,8 @@ from earth2studio.data import MetOpMTG
         ),
     ],
 )
-def test_metop_mtg_fetch(time, variable):
-    ds = MetOpMTG(resolution="2km", cache=False)
+def test_meteosat_fci_fetch(time, variable):
+    ds = MeteosatFCI(resolution="2km", cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -60,8 +60,8 @@ def test_metop_mtg_fetch(time, variable):
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
 @pytest.mark.parametrize("cache", [True, False])
-def test_metop_mtg_cache(cache):
-    ds = MetOpMTG(resolution="2km", cache=cache)
+def test_meteosat_fci_cache(cache):
+    ds = MeteosatFCI(resolution="2km", cache=cache)
     time = datetime(2025, 3, 1, 12, 0)
     variable = "fci09"
     data = ds(time, variable)
@@ -82,9 +82,9 @@ def test_metop_mtg_cache(cache):
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
-def test_metop_mtg_bbox_fetch():
+def test_meteosat_fci_bbox_fetch():
     bbox = (35.0, -10.0, 60.0, 30.0)  # Europe (lat_min, lon_min, lat_max, lon_max)
-    ds = MetOpMTG(resolution="2km", lat_lon_bbox=bbox, cache=False)
+    ds = MeteosatFCI(resolution="2km", lat_lon_bbox=bbox, cache=False)
     time = datetime(2025, 3, 1, 12, 0)
     variable = "fci09"
     data = ds(time, variable)
@@ -107,7 +107,7 @@ def _build_body_nc(path: pathlib.Path, channel: str, rows: int, cols: int) -> No
     ds.close()
 
 
-def test_metop_mtg_call_mock(tmp_path):
+def test_meteosat_fci_call_mock(tmp_path):
     rows, cols = 32, 32
     product_dir = tmp_path / "mtg_mock"
     product_dir.mkdir()
@@ -122,11 +122,11 @@ def test_metop_mtg_call_mock(tmp_path):
     }
 
     with (
-        patch.object(MetOpMTG, "_fetch_product", return_value=str(product_dir)),
-        patch.object(MetOpMTG, "_ensure_grid", return_value=(lat, lon)),
-        patch("earth2studio.data.metop_mtg._GRID_PARAMS", small_grid_params),
+        patch.object(MeteosatFCI, "_fetch_product", return_value=str(product_dir)),
+        patch.object(MeteosatFCI, "_ensure_grid", return_value=(lat, lon)),
+        patch("earth2studio.data.meteosat_fci._GRID_PARAMS", small_grid_params),
     ):
-        ds = MetOpMTG(resolution="2km", cache=False, verbose=False)
+        ds = MeteosatFCI(resolution="2km", cache=False, verbose=False)
         data = ds(datetime(2025, 3, 1, 12, 0), "fci09")
 
         assert data.shape == (1, 1, rows, cols)
@@ -136,8 +136,8 @@ def test_metop_mtg_call_mock(tmp_path):
 
 
 @pytest.mark.timeout(15)
-def test_metop_mtg_grid():
-    lat, lon = MetOpMTG.grid(resolution="2km")
+def test_meteosat_fci_grid():
+    lat, lon = MeteosatFCI.grid(resolution="2km")
     assert lat.shape == (5568, 5568)
     assert lon.shape == (5568, 5568)
     assert not np.all(np.isnan(lat))
@@ -145,24 +145,24 @@ def test_metop_mtg_grid():
 
 
 @pytest.mark.timeout(60)
-def test_metop_mtg_grid_1km():
-    lat, lon = MetOpMTG.grid(resolution="1km")
+def test_meteosat_fci_grid_1km():
+    lat, lon = MeteosatFCI.grid(resolution="1km")
     assert lat.shape == (11136, 11136)
     assert lon.shape == (11136, 11136)
 
 
 @pytest.mark.timeout(15)
-def test_metop_mtg_available():
-    assert MetOpMTG.available(datetime(2024, 1, 16, 12, 0))
-    assert MetOpMTG.available(datetime(2025, 3, 1, 0, 0))
-    assert not MetOpMTG.available(datetime(2023, 12, 31, 0, 0))
+def test_meteosat_fci_available():
+    assert MeteosatFCI.available(datetime(2024, 1, 16, 12, 0))
+    assert MeteosatFCI.available(datetime(2025, 3, 1, 0, 0))
+    assert not MeteosatFCI.available(datetime(2023, 12, 31, 0, 0))
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
-def test_metop_mtg_mixed_resolution_error():
-    ds = MetOpMTG(resolution="2km")
+def test_meteosat_fci_mixed_resolution_error():
+    ds = MeteosatFCI(resolution="2km")
     with pytest.raises(ValueError, match="resolution"):
         ds(
             datetime(2025, 1, 1, 0, 0),
