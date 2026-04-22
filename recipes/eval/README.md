@@ -186,6 +186,63 @@ python main.py \
 > `resume=false` / `output.overwrite=true` or move to a new `run_id` —
 > otherwise stale markers may reference data that no longer matches.
 
+### Multi-source pipelines (StormScope)
+
+StormScope needs two IC sources (GOES satellite + MRMS radar) plus a
+conditioning source (GFS).  A single top-level `ic_source` doesn't fit,
+so the pipeline declares `needs_data_source = False` and resolves its
+own sources from per-component config blocks — `main.py` skips
+top-level source resolution and the predownload sentinel check for
+these pipelines.
+
+BYO is done by overriding the per-component entries in `cfg.model`:
+
+```bash
+python main.py campaign=stormscope_2023_convection \
+    model.goes.ic_source._target_=my_pkg.MyGoesZarrSource \
+    model.goes.ic_source.path=/data/my_goes.zarr \
+    model.goes.ic_grid._target_=my_pkg.my_goes_grid \
+    model.mrms.ic_source._target_=my_pkg.MyMrmsZarrSource \
+    model.mrms.ic_source.path=/data/my_mrms.zarr \
+    model.mrms.ic_grid._target_=my_pkg.my_mrms_grid
+```
+
+`ic_grid` is a Hydra-instantiable callable that returns `(lats, lons)`
+for the source's native grid — the pipeline uses it to build
+StormScope's internal nearest-neighbor interpolator.  If your BYO store
+is already on the HRRR grid, point `ic_grid` at a resolver that returns
+the model's own `y`/`x` — StormScope's `prep_input` detects the match
+and skips interpolation.
+
+#### Predownload with HRRR-aligned storage
+
+Running `predownload.py` for a StormScope campaign writes two zarr
+stores, one per model, already resampled onto the model's HRRR
+sub-region via a nearest-neighbor regridder
+(`src.regrid.NearestNeighborRegridder`):
+
+```bash
+python predownload.py campaign=stormscope_2023_convection
+# → <output.path>/data_goes.zarr   (time, y, x) on HRRR sub-region
+# → <output.path>/data_mrms.zarr   (time, y, x) on HRRR sub-region
+```
+
+At inference time, `main.py` auto-detects these stores under
+`<output.path>` and wires them in with `PredownloadedSource`;
+StormScope's `prep_input` sees the matching `y`/`x` and skips its
+live interpolator, so the predownload is both a disk-size win (raw
+GOES is ~10x the regridded footprint) and an inference-speed win.
+
+Per-model BYO overrides of `ic_source` bypass predownload for that
+model.  To fully skip predownload for both models, either set
+`model.goes.ic_byo=true model.mrms.ic_byo=true` or simply don't run
+`predownload.py` — the pipeline will fall back to the live sources.
+
+Conditioning data (GFS for the GOES model; GOES observations for
+MRMS) is still fetched live by each model's internal conditioning
+source — that path isn't predownloaded because the conditioning
+request shape changes every forecast step.
+
 ## Multi-GPU Execution
 
 Use `torchrun` to distribute forecasts across GPUs:

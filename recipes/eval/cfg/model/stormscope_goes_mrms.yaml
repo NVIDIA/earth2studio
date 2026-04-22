@@ -1,0 +1,44 @@
+# StormScope coupled GOES + MRMS nowcasting (60-min variants)
+# The pipeline runs both models together:
+#   * StormScopeGOES forecasts GOES channels, conditioned on GFS z500.
+#   * StormScopeMRMS forecasts radar reflectivity (refc), conditioned on
+#     GOES (observations at IC, then the GOES model's own predictions).
+# Both operate on the HRRR Lambert-conformal grid (y, x).
+
+goes:
+    architecture: earth2studio.models.px.StormScopeGOES
+    load_args:
+        model_name: 6km_60min_natten_cos_zenith_input_eoe_v2
+        conditioning_data_source:
+            _target_: earth2studio.data.GFS_FX
+    ic_source:
+        _target_: earth2studio.data.GOES
+        satellite: goes16
+        scan_mode: C
+    ic_grid:
+        _target_: src.stormscope.goes_grid
+        satellite: goes16
+        scan_mode: C
+    conditioning_grid:
+        _target_: src.stormscope.gfs_grid
+
+mrms:
+    architecture: earth2studio.models.px.StormScopeMRMS
+    load_args:
+        model_name: 6km_60min_natten_cos_zenith_input_mrms_eoe
+        conditioning_data_source:
+            _target_: earth2studio.data.GOES
+            satellite: goes16
+            scan_mode: C
+    ic_source:
+        _target_: earth2studio.data.MRMS
+    ic_grid:
+        _target_: src.stormscope.mrms_grid
+    conditioning_grid:
+        _target_: src.stormscope.goes_grid
+        satellite: goes16
+        scan_mode: C
+
+# Nearest-neighbor tolerance for the input / conditioning interpolators.
+# Pixels farther than this from any source point become NaN.
+max_dist_km: 30.0

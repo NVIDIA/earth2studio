@@ -64,22 +64,36 @@ def main(cfg: DictConfig) -> None:
     dist = DistributedManager()
     device = dist.device
 
+    # Instantiate the pipeline early (no weights loaded yet) so we can
+    # consult its class-level flags before the pre-download sentinel check
+    # and the primary data-source resolution.
+    pipeline = build_pipeline(cfg)
+
     # --- Pre-download check -------------------------------------------------
-    # Fully BYO (both ic_source and verification_source provided) means there
-    # is nothing for predownload.py to do, so the sentinel check is skipped.
-    fully_byo = (
-        cfg.get("ic_source") is not None
-        and cfg.get("verification_source") is not None
-    )
-    if cfg.get("require_predownload", True) and not fully_byo:
-        sp = sentinel_path(cfg)
-        if not sp.exists():
-            raise RuntimeError(
-                f"Pre-download sentinel not found at '{sp}'.\n"
-                "Run 'python predownload.py' with the same config before inference.\n"
-                "To skip this check, set require_predownload=false."
-            )
-        logger.info(f"Pre-download sentinel found: {sp}")
+    # The top-level sentinel check applies to single-source pipelines, where
+    # `predownload.py` writes a sentinel after caching `cfg.data_source`.
+    # Multi-source pipelines (needs_data_source=False) handle their own
+    # source resolution + BYO via pipeline-specific config blocks, so the
+    # top-level sentinel is not meaningful for them.
+    if pipeline.needs_data_source:
+        fully_byo = (
+            cfg.get("ic_source") is not None
+            and cfg.get("verification_source") is not None
+        )
+        if cfg.get("require_predownload", True) and not fully_byo:
+            sp = sentinel_path(cfg)
+            if not sp.exists():
+                raise RuntimeError(
+                    f"Pre-download sentinel not found at '{sp}'.\n"
+                    "Run 'python predownload.py' with the same config before inference.\n"
+                    "To skip this check, set require_predownload=false."
+                )
+            logger.info(f"Pre-download sentinel found: {sp}")
+    else:
+        logger.info(
+            f"Pipeline '{type(pipeline).__name__}' resolves its own data "
+            "sources; skipping top-level predownload sentinel check."
+        )
 
     # --- Build and distribute work ------------------------------------------
     all_items = build_work_items(cfg)
@@ -100,7 +114,6 @@ def main(cfg: DictConfig) -> None:
     my_items = distribute_work(remaining_items, dist.rank, dist.world_size)
 
     # --- Pipeline setup -----------------------------------------------------
-    pipeline = build_pipeline(cfg)
     pipeline.setup(cfg, device)
 
     # Use all_items for coord building so the zarr schema always covers the
@@ -108,7 +121,14 @@ def main(cfg: DictConfig) -> None:
     all_times = np.array(sorted({item.time for item in all_items}))
     output_variables = list(cfg.output.variables)
     total_coords = pipeline.build_total_coords(all_times, cfg.get("ensemble_size", 1))
-    data_source = _resolve_ic_source(cfg)
+
+    # Single-source pipelines: main.py resolves and passes the primary source.
+    # Multi-source pipelines: pipeline.setup() has already cached its sources
+    # internally, so main.py passes None and the pipeline ignores it.
+    if pipeline.needs_data_source:
+        data_source: DataSource | None = _resolve_ic_source(cfg)
+    else:
+        data_source = None
 
     # --- Run ----------------------------------------------------------------
     with OutputManager(cfg) as output_mgr:

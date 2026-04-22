@@ -1,0 +1,40 @@
+# @package _global_
+# DLESyM seasonal example — 3 ICs, 8 iterator steps = 768h (32 days) per IC.
+# One iterator step = 96h and produces 16 lead times at 6h stride.
+defaults:
+    - override /model: dlesym
+
+pipeline: dlesym
+run_id: dlesym_2021_seasonal
+
+start_times:
+    - "2021-06-15 00:00:00"
+    - "2021-09-15 00:00:00"
+    - "2021-12-15 00:00:00"
+
+# 8 iterator steps × 96h = 32 days of forecast per IC.
+# Output zarr lead_time dim has length 8*16 + 1 = 129.
+nsteps: 8
+
+output:
+    variables:
+        # Atmosphere — valid at every 6h tick
+        - t2m
+        - t850
+        - z500
+        - z1000
+        - tcwv
+        # Ocean — valid only at 48h, 96h within each 96h step;
+        # all other lead times will be NaN in the output zarr.
+        - sst
+
+scoring:
+    # ERA5 / ARCO provides these directly; skip derived vars (ws10m,
+    # tau300-700) in scoring unless you're computing them in post.
+    variables: [t2m, t850, z500, z1000, tcwv, sst]
+    metrics:
+        rmse:
+            _target_: earth2studio.statistics.rmse
+            reduction_dimensions: [lat, lon]
+    lat_weights: true
+    lead_time_chunk_size: 16

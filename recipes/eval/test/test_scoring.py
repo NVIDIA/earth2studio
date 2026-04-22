@@ -40,6 +40,7 @@ from src.scoring import (
     instantiate_metrics,
     load_prediction_chunk,
     load_verification_chunk,
+    open_verification_source,
     run_scoring,
     score_variable_names,
     spatial_coords_from_dataset,
@@ -876,3 +877,482 @@ class TestRunScoring:
         assert "rmse__t2m" in score_ds
         assert score_ds["rmse__t2m"].dims == ("time", "lead_time")
         assert np.all(score_ds["rmse__t2m"].values >= 0)
+
+
+# ---------------------------------------------------------------------------
+# open_verification_source — pipeline hook resolution
+# ---------------------------------------------------------------------------
+
+
+class TestOpenVerificationSourceHook:
+    """``open_verification_source`` consults the pipeline hook after BYO but
+    before falling back to verification.zarr / data.zarr.  A pipeline whose
+    ``verification_source`` returns a DataSource must be honored; one that
+    returns ``None`` must fall through to the default lookup."""
+
+    def _make_cfg(self, tmp_path, pipeline: str):
+        return OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path)},
+                "pipeline": pipeline,
+            }
+        )
+
+    def test_stormscope_hook_wins_over_default_lookup(self, tmp_path):
+        # Write per-model IC zarrs so the StormScope hook returns a
+        # CompositeSource.  Leave verification.zarr / data.zarr absent —
+        # the default lookup would otherwise raise FileNotFoundError.
+        from src.data import CompositeSource
+        from test.test_data import _create_yx_zarr_store
+
+        t = np.array(["2024-01-01"], dtype="datetime64[ns]")
+        _create_yx_zarr_store(
+            tmp_path / "data_goes.zarr", t, ["abi01c"]
+        )
+        _create_yx_zarr_store(
+            tmp_path / "data_mrms.zarr", t, ["refc"]
+        )
+
+        cfg = self._make_cfg(tmp_path, pipeline="stormscope")
+        src = open_verification_source(cfg)
+        assert isinstance(src, CompositeSource)
+
+    def test_forecast_pipeline_falls_through_to_default(self, tmp_path):
+        # Default pipeline (forecast) returns None from the hook; with no
+        # override and no predownloaded stores, the default lookup raises.
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path)},
+                "pipeline": "forecast",
+            }
+        )
+        with pytest.raises(FileNotFoundError, match="No verification data"):
+            open_verification_source(cfg)
+
+
+# ---------------------------------------------------------------------------
+# nan_policy — scoring tolerant of NaN grid points
+# ---------------------------------------------------------------------------
+
+
+class TestNanPolicy:
+    """``scoring.nan_policy`` controls whether NaNs in prediction or
+    verification tensors propagate through metric reductions.
+
+    * ``propagate`` (default) preserves earth2studio's stock behavior
+      so DLESyM-style invalid-lead NaNs surface as NaN in the scores.
+    * ``zero_fill`` replaces NaNs with 0 before the metric runs, so
+      spatial-reduction metrics (e.g. rmse over ``[y, x]``) return a
+      real number rather than collapsing to NaN — matters for
+      StormScope's HRRR-sub-domain invalid-pixel mask.
+    """
+
+    def _build_inputs(self, tmp_path):
+        """Construct minimal objects for ``run_scoring``.
+
+        Uses the same store setup as :class:`TestRunScoring` — superset
+        coords + ``add_score_arrays`` — so the zarr write path matches
+        production.
+        """
+        # One IC, one lead time, single variable.  Prediction is 0 everywhere;
+        # verification is 0 everywhere except one NaN pixel that simulates an
+        # invalid HRRR-subdomain grid point.
+        times = np.array(["2024-01-01"], dtype="datetime64[ns]")
+        lead_times = np.array([60], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
+        y = np.arange(4)
+        x = np.arange(5)
+
+        pred = np.zeros((1, 1, 4, 5), dtype="float32")
+        truth = np.zeros((1, 4, 5), dtype="float32")
+        truth[0, 0, 0] = np.nan
+
+        pred_path = tmp_path / "forecast.zarr"
+        xr.Dataset(
+            {
+                "v": xr.DataArray(
+                    pred,
+                    dims=["time", "lead_time", "y", "x"],
+                    coords={
+                        "time": times,
+                        "lead_time": lead_times,
+                        "y": y,
+                        "x": x,
+                    },
+                )
+            }
+        ).to_zarr(str(pred_path), mode="w")
+        prediction_ds = xr.open_zarr(str(pred_path))
+
+        valid_times = times + lead_times[0]
+        verif_path = tmp_path / "verification.zarr"
+        xr.Dataset(
+            {
+                "v": xr.DataArray(
+                    truth,
+                    dims=["time", "y", "x"],
+                    coords={"time": valid_times, "y": y, "x": x},
+                )
+            }
+        ).to_zarr(str(verif_path), mode="w")
+        verif_source = PredownloadedSource(str(verif_path))
+
+        import earth2studio.statistics
+
+        metrics = OrderedDict(
+            {
+                "rmse": earth2studio.statistics.rmse(
+                    reduction_dimensions=["y", "x"]
+                )
+            }
+        )
+        variables = ["v"]
+        input_template = build_input_coords_template(
+            prediction_ds, lead_times, variables
+        )
+        superset_coords = build_superset_score_coords(
+            metrics, input_template, times
+        )
+        array_groups = group_score_arrays_by_dims(
+            metrics, input_template, times
+        )
+        spatial = OrderedDict([("y", y), ("x", x)])
+
+        return {
+            "times": list(times),
+            "prediction_ds": prediction_ds,
+            "verif_source": verif_source,
+            "metrics": metrics,
+            "variables": variables,
+            "lead_times": lead_times,
+            "lt_chunks": [lead_times],
+            "spatial": spatial,
+            "superset_coords": superset_coords,
+            "array_groups": array_groups,
+        }
+
+    def _cfg(self, tmp_path, nan_policy: str | None):
+        scoring_block: dict = {
+            "output": {"store_name": "scores.zarr", "overwrite": True},
+        }
+        if nan_policy is not None:
+            scoring_block["nan_policy"] = nan_policy
+        return OmegaConf.create(
+            {
+                "output": {
+                    "path": str(tmp_path),
+                    "chunks": {"time": 1, "lead_time": 1},
+                },
+                "scoring": scoring_block,
+            }
+        )
+
+    def _run(self, cfg, inputs):
+        """Execute the standard score-store-setup + run_scoring flow."""
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                    with OutputManager(
+                        cfg, store_name="scores.zarr", overwrite=True
+                    ) as mgr:
+                        mgr.validate_output_store(inputs["superset_coords"], [])
+                        add_score_arrays(mgr.io, inputs["array_groups"])
+                        run_scoring(
+                            inputs["times"],
+                            inputs["prediction_ds"],
+                            inputs["verif_source"],
+                            inputs["metrics"],
+                            mgr,
+                            inputs["variables"],
+                            inputs["lead_times"],
+                            inputs["lt_chunks"],
+                            inputs["spatial"],
+                            torch.device("cpu"),
+                            cfg,
+                        )
+
+    def test_propagate_default_yields_nan_score(self, tmp_path):
+        """Default policy lets NaNs propagate — a single invalid pixel
+        poisons the entire RMSE over ``[y, x]``."""
+        inputs = self._build_inputs(tmp_path)
+        cfg = self._cfg(tmp_path, nan_policy=None)
+        self._run(cfg, inputs)
+
+        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
+        assert np.isnan(score_ds["rmse__v"].values).all()
+
+    def test_zero_fill_produces_finite_score(self, tmp_path):
+        """With ``nan_policy=zero_fill`` the NaN pixel becomes 0 and the
+        RMSE is a real (non-NaN) number."""
+        inputs = self._build_inputs(tmp_path)
+        cfg = self._cfg(tmp_path, nan_policy="zero_fill")
+        self._run(cfg, inputs)
+
+        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
+        vals = score_ds["rmse__v"].values
+        assert not np.isnan(vals).any()
+        # pred=0 everywhere, truth=0 everywhere except one NaN → 0 after
+        # zero_fill.  So sum-of-squares = 0, RMSE = 0.
+        np.testing.assert_allclose(vals, 0.0)
+
+    def test_invalid_nan_policy_raises(self, tmp_path):
+        inputs = self._build_inputs(tmp_path)
+        cfg = self._cfg(tmp_path, nan_policy="bogus")
+        with pytest.raises(ValueError, match="Invalid scoring.nan_policy"):
+            self._run(cfg, inputs)
+
+
+# ---------------------------------------------------------------------------
+# valid_ranges — per-variable clamp to suppress fill-value outliers
+# ---------------------------------------------------------------------------
+
+
+class TestApplyValidRanges:
+    """Unit tests for the private ``_apply_valid_ranges`` helper.
+
+    The helper clamps per-variable tensor slices along the ``variable``
+    axis so that prediction/verification values outside a configured
+    physical range are truncated — the mechanism used to prevent
+    large-magnitude no-data fill values (MRMS ``refc``'s ``-9999``)
+    from dominating RMSE-style reductions.
+    """
+
+    def test_clamps_named_variable_only(self):
+        from src.scoring import _apply_valid_ranges
+
+        coords = OrderedDict(
+            [
+                ("lead_time", np.array([0, 60], dtype="timedelta64[m]")),
+                ("variable", np.array(["refc", "abi01c"])),
+                ("y", np.arange(3)),
+                ("x", np.arange(4)),
+            ]
+        )
+        x = torch.tensor(
+            [
+                [  # lead_time=0
+                    [[-9999.0] * 4] * 3,  # refc: fill values
+                    [[0.5] * 4] * 3,  # abi01c: in-range
+                ],
+                [  # lead_time=60
+                    [[50.0] * 4] * 3,  # refc: in-range
+                    [[2.0] * 4] * 3,  # abi01c: over-range
+                ],
+            ],
+            dtype=torch.float32,
+        )
+        valid_ranges = {"refc": {"min": 0, "max": 75}}
+
+        out = _apply_valid_ranges(x.clone(), coords, valid_ranges)
+        # refc: -9999 → 0 (clamped to min), 50 unchanged
+        assert (out[0, 0] == 0.0).all()
+        assert (out[1, 0] == 50.0).all()
+        # abi01c: untouched (no entry in valid_ranges)
+        assert (out[0, 1] == 0.5).all()
+        assert (out[1, 1] == 2.0).all()
+
+    def test_null_bound_is_one_sided(self):
+        from src.scoring import _apply_valid_ranges
+
+        coords = OrderedDict(
+            [
+                ("variable", np.array(["v"])),
+                ("y", np.arange(2)),
+                ("x", np.arange(2)),
+            ]
+        )
+        x = torch.tensor(
+            [[[-100.0, 50.0], [100.0, -50.0]]],
+            dtype=torch.float32,
+        )
+        # Only a lower bound: negatives clip to 0, large positives pass.
+        out = _apply_valid_ranges(
+            x.clone(), coords, {"v": {"min": 0, "max": None}}
+        )
+        assert out[0, 0, 0].item() == 0.0
+        assert out[0, 0, 1].item() == 50.0
+        assert out[0, 1, 0].item() == 100.0  # unclamped from above
+        assert out[0, 1, 1].item() == 0.0
+
+    def test_both_bounds_none_is_noop(self):
+        from src.scoring import _apply_valid_ranges
+
+        coords = OrderedDict(
+            [
+                ("variable", np.array(["v"])),
+                ("y", np.arange(1)),
+                ("x", np.arange(1)),
+            ]
+        )
+        x = torch.tensor([[[-1e6]]], dtype=torch.float32)
+        out = _apply_valid_ranges(
+            x.clone(), coords, {"v": {"min": None, "max": None}}
+        )
+        assert out[0, 0, 0].item() == -1e6
+
+    def test_unknown_variable_is_skipped(self):
+        from src.scoring import _apply_valid_ranges
+
+        coords = OrderedDict(
+            [
+                ("variable", np.array(["refc"])),
+                ("y", np.arange(1)),
+                ("x", np.arange(1)),
+            ]
+        )
+        x = torch.tensor([[[-9999.0]]], dtype=torch.float32)
+        # No entry for "refc" — nothing should be clamped.
+        out = _apply_valid_ranges(x.clone(), coords, {"other_var": {"min": 0}})
+        assert out[0, 0, 0].item() == -9999.0
+
+
+class TestValidRangesEndToEnd:
+    """``scoring.valid_ranges`` integrated with the full scoring flow.
+
+    Builds a tiny store whose verification tensor has a ``-9999`` fill
+    value at one pixel; asserts the resulting RMSE is ~0 when the
+    valid range is configured, and huge otherwise.
+    """
+
+    def _build_inputs(self, tmp_path, truth_fill_value: float):
+        times = np.array(["2024-01-01"], dtype="datetime64[ns]")
+        lead_times = np.array([60], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
+        y = np.arange(4)
+        x = np.arange(5)
+
+        # Prediction: 0 everywhere (matches the StormScope fill-invalid behavior).
+        pred = np.zeros((1, 1, 4, 5), dtype="float32")
+        # Truth: 0 everywhere except one "invalid" pixel with the fill value.
+        truth = np.zeros((1, 4, 5), dtype="float32")
+        truth[0, 0, 0] = truth_fill_value
+
+        pred_path = tmp_path / "forecast.zarr"
+        xr.Dataset(
+            {
+                "refc": xr.DataArray(
+                    pred,
+                    dims=["time", "lead_time", "y", "x"],
+                    coords={
+                        "time": times,
+                        "lead_time": lead_times,
+                        "y": y,
+                        "x": x,
+                    },
+                )
+            }
+        ).to_zarr(str(pred_path), mode="w")
+        prediction_ds = xr.open_zarr(str(pred_path))
+
+        valid_times = times + lead_times[0]
+        verif_path = tmp_path / "verification.zarr"
+        xr.Dataset(
+            {
+                "refc": xr.DataArray(
+                    truth,
+                    dims=["time", "y", "x"],
+                    coords={"time": valid_times, "y": y, "x": x},
+                )
+            }
+        ).to_zarr(str(verif_path), mode="w")
+        verif_source = PredownloadedSource(str(verif_path))
+
+        import earth2studio.statistics
+
+        metrics = OrderedDict(
+            {
+                "rmse": earth2studio.statistics.rmse(
+                    reduction_dimensions=["y", "x"]
+                )
+            }
+        )
+        variables = ["refc"]
+        input_template = build_input_coords_template(
+            prediction_ds, lead_times, variables
+        )
+        superset_coords = build_superset_score_coords(
+            metrics, input_template, times
+        )
+        array_groups = group_score_arrays_by_dims(
+            metrics, input_template, times
+        )
+        spatial = OrderedDict([("y", y), ("x", x)])
+
+        return {
+            "times": list(times),
+            "prediction_ds": prediction_ds,
+            "verif_source": verif_source,
+            "metrics": metrics,
+            "variables": variables,
+            "lead_times": lead_times,
+            "lt_chunks": [lead_times],
+            "spatial": spatial,
+            "superset_coords": superset_coords,
+            "array_groups": array_groups,
+        }
+
+    def _run(self, cfg, inputs):
+        with patch(_DIST_PATH, return_value=_make_dist_mock()):
+            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
+                with patch(_SCORING_DIST_PATH, return_value=_make_dist_mock()):
+                    with OutputManager(
+                        cfg, store_name="scores.zarr", overwrite=True
+                    ) as mgr:
+                        mgr.validate_output_store(inputs["superset_coords"], [])
+                        add_score_arrays(mgr.io, inputs["array_groups"])
+                        run_scoring(
+                            inputs["times"],
+                            inputs["prediction_ds"],
+                            inputs["verif_source"],
+                            inputs["metrics"],
+                            mgr,
+                            inputs["variables"],
+                            inputs["lead_times"],
+                            inputs["lt_chunks"],
+                            inputs["spatial"],
+                            torch.device("cpu"),
+                            cfg,
+                        )
+
+    def _cfg(self, tmp_path, valid_ranges: dict | None):
+        scoring_block: dict = {
+            "output": {"store_name": "scores.zarr", "overwrite": True},
+            "nan_policy": "zero_fill",
+        }
+        if valid_ranges is not None:
+            scoring_block["valid_ranges"] = valid_ranges
+        return OmegaConf.create(
+            {
+                "output": {
+                    "path": str(tmp_path),
+                    "chunks": {"time": 1, "lead_time": 1},
+                },
+                "scoring": scoring_block,
+            }
+        )
+
+    def test_without_valid_ranges_fill_inflates_rmse(self, tmp_path):
+        """Baseline: without valid_ranges, the -9999 fill value drives the
+        RMSE to ~999 (sqrt of 9999^2 averaged over 20 pixels)."""
+        inputs = self._build_inputs(tmp_path, truth_fill_value=-9999.0)
+        cfg = self._cfg(tmp_path, valid_ranges=None)
+        self._run(cfg, inputs)
+
+        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
+        vals = score_ds["rmse__refc"].values
+        assert float(vals[0, 0]) > 1000.0  # heavily inflated
+
+    def test_with_valid_ranges_fill_is_clamped(self, tmp_path):
+        """With valid_ranges clamping refc to [0, 75], the -9999 pixel
+        becomes 0, pred=0, diff=0, RMSE=0."""
+        inputs = self._build_inputs(tmp_path, truth_fill_value=-9999.0)
+        cfg = self._cfg(
+            tmp_path, valid_ranges={"refc": {"min": 0, "max": 75}}
+        )
+        self._run(cfg, inputs)
+
+        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
+        vals = score_ds["rmse__refc"].values
+        np.testing.assert_allclose(vals, 0.0)

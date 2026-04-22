@@ -1,0 +1,191 @@
+# @package _global_
+# StormScope GOES + MRMS coupled nowcast — 60-minute timestep, 2h rollout.
+# Single IC at a known convective event to keep the smoke test tight.
+
+defaults:
+    - override /model: stormscope_goes_mrms
+
+pipeline: stormscope
+run_id: stormscope_2023_convection
+
+start_times:
+    - "2023-12-05 12:00:00"
+
+nsteps: 2                   # 2 × 60min = 2h forecast
+
+# The StormScope pipeline sets needs_data_source=False, so main.py neither
+# resolves a top-level ic_source/data_source nor enforces the predownload
+# sentinel.  Data sources are resolved inside cfg.model.{goes,mrms}.ic_source.
+#
+# Bring-your-own data: override the per-model ic_source entries below.
+# If your BYO store is already on the HRRR grid, point ic_grid at a resolver
+# that returns the model's own y/x — StormScope's prep_input detects the
+# match and skips interpolation.
+#
+# model:
+#     goes:
+#         ic_source:
+#             _target_: my_pkg.MyGoesZarrSource
+#             path: /data/my_goes.zarr
+#         ic_grid:
+#             _target_: my_pkg.my_goes_grid
+#     mrms:
+#         ic_source:
+#             _target_: my_pkg.MyMrmsZarrSource
+#             path: /data/my_mrms.zarr
+#         ic_grid:
+#             _target_: my_pkg.my_mrms_grid
+#
+# ---------------------------------------------------------------------------
+# Conditioning source extensions
+# ---------------------------------------------------------------------------
+# The GOES model fetches conditioning (default: GFS_FX) once per forecast
+# step.  For longer rollouts or multi-IC campaigns, predownloading the
+# conditioning is a large speedup.  Two knobs are available:
+#
+# 1) Cadence rounding — useful when the source's native resolution is
+#    coarser than the model's step (e.g., hourly GFS with a 10-min
+#    StormScope variant).  Rounds each requested valid time to the
+#    nearest cadence boundary at predownload AND at inference, so the
+#    6x redundant fetches per hour collapse to 1.  Safe default for
+#    synoptic-scale conditioning.
+#
+# model:
+#     goes:
+#         conditioning_cadence: "1h"
+#
+# 2) ERA5 analysis instead of GFS forecast — useful for ablations that
+#    compare skill against a "ground truth" conditioning signal.
+#    ARCO is a DataSource (not a ForecastSource), so no
+#    ValidTimeForecastAdapter is needed in the predownload path.
+#
+# model:
+#     goes:
+#         load_args:
+#             conditioning_data_source:
+#                 _target_: earth2studio.data.ARCO
+#         conditioning_grid:
+#             _target_: src.stormscope.arco_grid
+#         conditioning_cadence: "1h"   # ARCO is hourly too
+#
+#    Note: the GOES model's conditioning_variables are fixed by the
+#    loaded checkpoint (e.g. ``["z500"]``).  Whichever source you wire
+#    in must supply those variables under the same names in the
+#    earth2studio lexicon.
+
+output:
+    variables:
+        - abi01c
+        - abi02c
+        - abi07c
+        - abi13c
+        - refc
+    overwrite: true
+    thread_writers: 0       # conservative while we validate multi-model writes
+    chunks:
+        time: 1
+        lead_time: 1
+
+scoring:
+    variables: ${output.variables}
+    metrics:
+        rmse:
+            _target_: earth2studio.statistics.rmse
+            reduction_dimensions: [y, x]   # HRRR grid — not lat/lon
+    lat_weights: false                      # no cosine(lat) on Lambert-conformal
+    lead_time_chunk_size: null              # small rollout, no chunking needed
+    # StormScope's HRRR sub-region has invalid grid points (outside the
+    # NearestNeighborRegridder's max_dist_km mask) — verification zarrs hold
+    # NaN there while predictions hold 0 (the model's prep_input zero-fills
+    # its valid_mask).  Without this policy, (pred - truth) is NaN at every
+    # invalid pixel and the spatial reduction collapses to NaN everywhere.
+    # zero_fill replaces NaNs in both tensors with 0 before the metric runs,
+    # so invalid points contribute 0 to the sum-of-squares.  The score is
+    # biased low by sqrt(N_valid / N_total) — typically a few percent for
+    # the HRRR CONUS sub-domain.
+    nan_policy: zero_fill
+    # Clamp both prediction and verification to each variable's physical
+    # range before the metric runs.  MRMS encodes no-data pixels as
+    # -9999, which otherwise dominate the sum-of-squares; with a valid
+    # range of [0, 75] dBZ those pixels become 0 (matching the model's
+    # zero-fill at invalid grid points) and contribute 0 to the RMSE.
+    # Leave a bound null for a one-sided clamp.
+    valid_ranges:
+        refc: {min: 0}
+        abi01c: {min: 0, max: 1.0}
+        abi02c: {min: 0, max: 1.0}
+        abi07c: {min: 200, max: 320}
+        abi13c: {min: 200, max: 320}
+
+# ---------------------------------------------------------------------------
+# Report
+# ---------------------------------------------------------------------------
+# HRRR-native projection; prediction/verification zarrs carry y/x in meters.
+# variable_groups keeps GOES channels and MRMS radar in separate plots so
+# the color scales don't collide.
+report:
+    title: "StormScope GOES+MRMS — 2023-12-05 Convection"
+
+    variable_groups:
+        goes_abi: [abi01c, abi02c, abi07c, abi13c]
+        mrms: [refc]
+
+    projection: hrrr_lambert
+
+    # Prediction zeros at HRRR-invalid pixels vs. verification NaNs at the
+    # same pixels make the difference panel dominated by the fill-value
+    # offset, not skill.  Hide it for this campaign.
+    show_diff: false
+
+    # 60-min stride, 2h rollout — days on the x-axis would compress
+    # every tick near zero.  Hours are readable.
+    lead_time_axis_unit: hours
+
+    # Per-variable visualization color ranges.  Omit a key to auto-scale
+    # (nanmin/nanmax).  MRMS refc in particular has large-negative
+    # no-data fill values that otherwise crush the usable range, so we
+    # clamp to the physical 0–75 dBZ window.
+    color_ranges:
+        refc:
+            vmin: 0
+            vmax: 75
+            diff_abs: 40
+        abi01c:                 # visible reflectance — unitless 0..1
+            vmin: 0
+            vmax: 1.0
+            diff_abs: 0.5
+        abi02c:
+            vmin: 0
+            vmax: 1.0
+            diff_abs: 0.5
+        abi07c:                 # IR brightness temperature (K)
+            vmin: 200
+            vmax: 320
+            diff_abs: 30
+        abi13c:
+            vmin: 200
+            vmax: 320
+            diff_abs: 30
+
+    sections:
+        - type: header_visualization
+          variable: refc
+          lead_time: "120 min"
+
+        - type: summary_table
+          lead_times: ["60 min", "120 min"]
+          collapsed: false
+
+        - type: lead_time_curves
+          collapsed: false
+
+        - type: visualization
+          variables: [abi13c, refc]
+          lead_times: ["60 min", "120 min"]
+          collapsed: true
+
+        - type: ic_heatmap
+          metrics: [rmse]
+          collapsed: true
+
+    figure_format: png

@@ -278,7 +278,12 @@ def snapshot_at_lead_times(
         Columns: ``metric, variable, lead_time, value``.
     """
     rows: list[dict[str, Any]] = []
-    target_lts = [np.timedelta64(pd.Timedelta(lt)) for lt in lead_times]
+    # Convert via ``to_timedelta64`` to land on a concrete ns-unit numpy scalar;
+    # ``np.timedelta64(pd.Timedelta(...))`` can return the pandas subclass and
+    # the downstream ``in`` / ``sel`` comparisons then silently miss for short
+    # units like ``"60 min"`` that parse to an object numpy doesn't equate to
+    # the zarr's ``timedelta64[ns]`` values.
+    target_lts = [pd.Timedelta(lt).to_timedelta64() for lt in lead_times]
 
     for metric_name, variables in metric_groups.items():
         for var in variables:
@@ -288,17 +293,23 @@ def snapshot_at_lead_times(
             da = aggregate_over_ensemble(ds[array_name])
             da = aggregate_over_time(da, metric_name)
 
+            if "lead_time" not in da.dims:
+                continue
+            da_lts = np.asarray(da.lead_time.values).astype("timedelta64[ns]")
+
             for lt, lt_str in zip(target_lts, lead_times):
-                if "lead_time" in da.dims and lt in da.lead_time.values:
-                    val = float(da.sel(lead_time=lt).values)
-                    rows.append(
-                        {
-                            "metric": metric_name,
-                            "variable": var,
-                            "lead_time": lt_str,
-                            "value": val,
-                        }
-                    )
+                lt_ns = lt.astype("timedelta64[ns]")
+                if not (da_lts == lt_ns).any():
+                    continue
+                val = float(da.sel(lead_time=lt_ns).values)
+                rows.append(
+                    {
+                        "metric": metric_name,
+                        "variable": var,
+                        "lead_time": lt_str,
+                        "value": val,
+                    }
+                )
 
     return pd.DataFrame(rows)
 
@@ -366,9 +377,46 @@ def build_summary_csv(
 # ---------------------------------------------------------------------------
 
 
+_LEAD_TIME_AXIS_UNITS: dict[str, tuple[np.timedelta64, str]] = {
+    "days": (np.timedelta64(1, "D"), "days"),
+    "hours": (np.timedelta64(1, "h"), "hours"),
+    "minutes": (np.timedelta64(1, "m"), "minutes"),
+    # Aliases
+    "day": (np.timedelta64(1, "D"), "days"),
+    "hour": (np.timedelta64(1, "h"), "hours"),
+    "minute": (np.timedelta64(1, "m"), "minutes"),
+    "min": (np.timedelta64(1, "m"), "minutes"),
+    "h": (np.timedelta64(1, "h"), "hours"),
+    "d": (np.timedelta64(1, "D"), "days"),
+}
+
+
+def _lead_time_axis(
+    lead_times: np.ndarray, unit: str = "days"
+) -> tuple[np.ndarray, str]:
+    """Convert timedelta64 lead times to fractional *unit* for plotting.
+
+    Returns ``(values, axis_label)``.  ``unit`` defaults to ``"days"`` so
+    existing callers retain their behavior when a report config omits
+    ``lead_time_axis_unit``; StormScope-scale campaigns override to
+    ``"hours"`` or ``"minutes"``.  Accepts the canonical names plus
+    short aliases (``h``, ``d``, ``min``) for convenience.
+    """
+    key = unit.lower()
+    if key not in _LEAD_TIME_AXIS_UNITS:
+        logger.warning(
+            f"Unknown lead_time_axis_unit '{unit}'; "
+            f"falling back to 'days'.  Known: {sorted(set(_LEAD_TIME_AXIS_UNITS.values()))}"
+        )
+        key = "days"
+    divisor, label = _LEAD_TIME_AXIS_UNITS[key]
+    return lead_times / divisor, f"Lead time ({label})"
+
+
+# Kept for backwards compatibility — existing tests and any external callers.
 def _lead_time_to_days(lead_times: np.ndarray) -> np.ndarray:
-    """Convert timedelta64 lead times to fractional days for plotting."""
-    return lead_times / np.timedelta64(1, "D")
+    """Convert timedelta64 lead times to fractional days (legacy helper)."""
+    return _lead_time_axis(lead_times, "days")[0]
 
 
 # Line styles cycled for time-group overlays so each group is distinguishable.
@@ -381,6 +429,7 @@ def plot_metric_vs_leadtime(
     variables: list[str],
     variable_group_name: str | None = None,
     time_groups: dict[str, np.ndarray] | None = None,
+    time_unit: str = "days",
 ) -> Figure:
     """Plot a metric as a function of lead time, one line per variable.
 
@@ -397,6 +446,8 @@ def plot_metric_vs_leadtime(
     time_groups : dict[str, np.ndarray] | None
         If provided, plots one set of lines per time group using
         distinct line styles in addition to the "all" line (solid).
+    time_unit : str
+        Lead-time axis unit (``days`` / ``hours`` / ``minutes``).
 
     Returns
     -------
@@ -404,6 +455,7 @@ def plot_metric_vs_leadtime(
     """
     fig, ax = plt.subplots(figsize=(10, 6))
 
+    xlabel = "Lead time"
     for var in variables:
         array_name = f"{metric_name}__{var}"
         if array_name not in ds:
@@ -414,8 +466,8 @@ def plot_metric_vs_leadtime(
         agg = aggregate_over_time(da, metric_name)
         if "lead_time" not in agg.dims:
             continue
-        days = _lead_time_to_days(agg.lead_time.values)
-        line = ax.plot(days, agg.values, label=var, linewidth=1.5)
+        axis_vals, xlabel = _lead_time_axis(agg.lead_time.values, time_unit)
+        line = ax.plot(axis_vals, agg.values, label=var, linewidth=1.5)
         color = line[0].get_color()
 
         # Per-group lines with distinct styles
@@ -425,7 +477,7 @@ def plot_metric_vs_leadtime(
                 agg_sub = aggregate_over_time(da_sub, metric_name)
                 ls = _GROUP_LINESTYLES[i % len(_GROUP_LINESTYLES)]
                 ax.plot(
-                    days,
+                    axis_vals,
                     agg_sub.values,
                     color=color,
                     linestyle=ls,
@@ -439,7 +491,7 @@ def plot_metric_vs_leadtime(
     if variable_group_name:
         title += f" \u2014 {variable_group_name}"
     ax.set_title(title)
-    ax.set_xlabel("Lead time (days)")
+    ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3)
@@ -473,8 +525,14 @@ def _plot_leadtime_on_ax(
     metric_name: str,
     variables: list[str],
     time_groups: dict[str, np.ndarray] | None = None,
-) -> None:
-    """Draw lead-time curves for one variable group on a single axes."""
+    time_unit: str = "days",
+) -> str:
+    """Draw lead-time curves for one variable group on a single axes.
+
+    Returns the x-axis label derived from *time_unit* so the caller can
+    apply it consistently across a grid of axes.
+    """
+    xlabel = "Lead time"
     for var in variables:
         array_name = f"{metric_name}__{var}"
         if array_name not in ds:
@@ -484,8 +542,8 @@ def _plot_leadtime_on_ax(
         agg = aggregate_over_time(da, metric_name)
         if "lead_time" not in agg.dims:
             continue
-        days = _lead_time_to_days(agg.lead_time.values)
-        line = ax.plot(days, agg.values, label=var, linewidth=1.5)
+        axis_vals, xlabel = _lead_time_axis(agg.lead_time.values, time_unit)
+        line = ax.plot(axis_vals, agg.values, label=var, linewidth=1.5)
         color = line[0].get_color()
 
         if time_groups:
@@ -494,7 +552,7 @@ def _plot_leadtime_on_ax(
                 agg_sub = aggregate_over_time(da_sub, metric_name)
                 ls = _GROUP_LINESTYLES[i % len(_GROUP_LINESTYLES)]
                 ax.plot(
-                    days,
+                    axis_vals,
                     agg_sub.values,
                     color=color,
                     linestyle=ls,
@@ -502,6 +560,7 @@ def _plot_leadtime_on_ax(
                     linewidth=1.0,
                     label=f"{var} ({group_name})",
                 )
+    return xlabel
 
 
 def plot_metric_grid(
@@ -509,6 +568,7 @@ def plot_metric_grid(
     metric_name: str,
     variable_groups: OrderedDict[str, list[str]],
     time_groups: dict[str, np.ndarray] | None = None,
+    time_unit: str = "days",
 ) -> Figure:
     """Plot lead-time curves for all variable groups in a subplot grid.
 
@@ -543,16 +603,19 @@ def plot_metric_grid(
 
     group_items = list(variable_groups.items())
 
+    xlabel = "Lead time"
     for idx, (group_name, group_vars) in enumerate(group_items):
         row, col = divmod(idx, ncols)
         ax = axes[row][col]
-        _plot_leadtime_on_ax(ax, ds, metric_name, group_vars, time_groups)
+        xlabel = _plot_leadtime_on_ax(
+            ax, ds, metric_name, group_vars, time_groups, time_unit=time_unit
+        )
         ax.set_title(group_name, fontsize=10)
         ax.legend(fontsize=7, ncol=2)
         ax.grid(True, alpha=0.3)
         # Only label x-axis on the bottom row.
         if row == nrows - 1:
-            ax.set_xlabel("Lead time (days)")
+            ax.set_xlabel(xlabel)
         # Only label y-axis on the left column.
         if col == 0:
             ax.set_ylabel(display_name(metric_name))
@@ -571,6 +634,7 @@ def plot_ic_heatmap(
     ds: xr.Dataset,
     metric_name: str,
     variable: str,
+    time_unit: str = "days",
 ) -> Figure:
     """Plot a time x lead_time heatmap for one metric/variable.
 
@@ -582,6 +646,8 @@ def plot_ic_heatmap(
         Metric name.
     variable : str
         Variable name.
+    time_unit : str
+        Lead-time axis unit (``days`` / ``hours`` / ``minutes``).
 
     Returns
     -------
@@ -602,20 +668,41 @@ def plot_ic_heatmap(
         )
         return fig
 
-    days = _lead_time_to_days(da.lead_time.values)
+    axis_vals, xlabel = _lead_time_axis(da.lead_time.values, time_unit)
     time_labels = [str(t)[:10] for t in pd.DatetimeIndex(da.time.values)]
+
+    # Single-IC runs: a heatmap can't show anything meaningful across time,
+    # and pcolormesh's auto-scaled ylim on a 1-element Y axis often clips
+    # the single cell.  Fall back to a bar chart of metric vs lead time.
+    if len(time_labels) < 2:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        values = np.asarray(da.values).reshape(-1)
+        width = (
+            float(np.median(np.diff(axis_vals))) * 0.7
+            if len(axis_vals) > 1
+            else 0.5
+        )
+        ax.bar(axis_vals, values, width=width, color="C0")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(metric_name.upper())
+        ax.set_title(
+            f"{metric_name.upper()} — {variable}  (IC: {time_labels[0]})"
+        )
+        ax.grid(True, axis="y", alpha=0.3)
+        fig.tight_layout()
+        return fig
 
     fig, ax = plt.subplots(figsize=(12, max(4, len(time_labels) * 0.4)))
     im = ax.pcolormesh(
-        days,
+        axis_vals,
         range(len(time_labels)),
         da.values,
-        shading="auto",
+        shading="nearest",
         cmap="plasma",
     )
     ax.set_yticks(range(len(time_labels)))
     ax.set_yticklabels(time_labels, fontsize=8)
-    ax.set_xlabel("Lead time (days)")
+    ax.set_xlabel(xlabel)
     ax.set_title(f"{metric_name.upper()} \u2014 {variable}")
     fig.colorbar(im, ax=ax, label=metric_name.upper())
     fig.tight_layout()
@@ -778,6 +865,7 @@ def render_lead_time_curves(
             metric_name,
             available_groups,
             time_groups=time_groups,
+            time_unit=str(report_cfg.get("lead_time_axis_unit", "days")),
         )
         fig_name = f"{metric_name}_vs_leadtime"
         if title_suffix:
@@ -844,7 +932,12 @@ def render_ic_heatmap(
             array_name = f"{metric_name}__{var}"
             if array_name not in ds:
                 continue
-            fig = plot_ic_heatmap(ds, metric_name, var)
+            fig = plot_ic_heatmap(
+                ds,
+                metric_name,
+                var,
+                time_unit=str(report_cfg.get("lead_time_axis_unit", "days")),
+            )
             fig_name = f"ic_heatmap_{metric_name}__{var}"
             figures[fig_name] = fig
             md_parts.append(
@@ -870,6 +963,15 @@ def _open_data_stores(
     Returns ``(None, None)`` if either store is missing — visualization
     sections degrade gracefully.
 
+    Verification store resolution order:
+
+    1. ``verification.zarr`` — separate verification store.
+    2. ``data.zarr`` — merged IC + verification store.
+    3. ``data_*.zarr`` — per-model stores (e.g. StormScope's
+       ``data_goes.zarr`` + ``data_mrms.zarr``).  When multiple match,
+       they are merged by variable with ``xr.merge``; all component
+       stores must share ``time`` and spatial coords.
+
     Parameters
     ----------
     cfg : DictConfig
@@ -880,6 +982,8 @@ def _open_data_stores(
     tuple[xr.Dataset | None, xr.Dataset | None]
         ``(prediction_ds, verification_ds)``
     """
+    import glob
+
     pred_path = os.path.join(cfg.output.path, "forecast.zarr")
     pred_ds = None
     if os.path.exists(pred_path):
@@ -898,8 +1002,24 @@ def _open_data_stores(
             break
 
     if verif_ds is None:
+        # Fall back to per-model stores (StormScope layout: data_goes.zarr +
+        # data_mrms.zarr).  xr.merge combines disjoint variable sets over
+        # shared time/spatial coords.
+        paths = sorted(
+            p
+            for p in glob.glob(os.path.join(cfg.output.path, "data_*.zarr"))
+            if os.path.isdir(p)
+        )
+        if paths:
+            logger.info(
+                "Verification: merging per-model stores "
+                f"({', '.join(os.path.basename(p) for p in paths)})"
+            )
+            verif_ds = xr.merge([xr.open_zarr(p) for p in paths])
+
+    if verif_ds is None:
         logger.info(
-            "Verification store not found — " "visualization sections will be skipped."
+            "Verification store not found — visualization sections will be skipped."
         )
 
     return pred_ds, verif_ds
@@ -911,7 +1031,7 @@ def _load_visualization_slice(
     variable: str,
     time: str | None,
     lead_time: str,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, str, str]:
+) -> tuple[np.ndarray, np.ndarray, "OrderedDict[str, np.ndarray]", str, str]:
     """Load a single 2D prediction and truth slice for visualization.
 
     Parameters
@@ -930,7 +1050,13 @@ def _load_visualization_slice(
     Returns
     -------
     tuple
-        ``(pred_2d, truth_2d, lat, lon, time_label, lt_label)``
+        ``(pred_2d, truth_2d, spatial_coords, time_label, lt_label)``
+
+        ``spatial_coords`` is an :class:`OrderedDict` preserving the
+        dataset's dimension order — e.g. ``{"lat": ..., "lon": ...}`` for
+        regular lat/lon grids, or ``{"y": ..., "x": ...}`` for projection-
+        native grids like HRRR.  :func:`plot_prediction_vs_truth`
+        inspects the keys to pick the right cartopy ``transform``.
 
     Raises
     ------
@@ -957,17 +1083,18 @@ def _load_visualization_slice(
         raise KeyError(f"Variable '{variable}' not in verification store.")
     truth_2d = verif_ds[variable].sel(time=valid_time).values
 
-    # Spatial coords
+    # Spatial coords in dataset-dim order (y/x for HRRR, lat/lon for global).
     spatial_dims = [
         d for d in da.dims if d not in {"time", "lead_time", "ensemble", "variable"}
     ]
-    lat = da.coords[spatial_dims[0]].values if spatial_dims else np.array([])
-    lon = da.coords[spatial_dims[1]].values if len(spatial_dims) > 1 else np.array([])
+    spatial_coords: OrderedDict[str, np.ndarray] = OrderedDict()
+    for dim in spatial_dims:
+        spatial_coords[dim] = da.coords[dim].values
 
     time_label = str(ic_time)[:10]
     lt_label = str(pd.Timedelta(lt))
 
-    return pred_2d, truth_2d, lat, lon, time_label, lt_label
+    return pred_2d, truth_2d, spatial_coords, time_label, lt_label
 
 
 _PROJECTIONS = {
@@ -978,13 +1105,40 @@ _PROJECTIONS = {
 }
 
 
+def _hrrr_lambert_projection() -> Any:
+    """Return a cartopy CRS matching HRRR's Lambert-conformal projection.
+
+    Parameters match :meth:`earth2studio.data.HRRR.grid` — single standard
+    parallel at 38.5°N, central longitude 262.5°E, and a spherical globe
+    of radius 6 371 229 m.  Prediction zarrs on the HRRR grid carry
+    ``y`` / ``x`` coordinates in this projection's meter space, so using
+    this CRS as both the map projection *and* the data transform
+    renders them natively with no reprojection.
+    """
+    globe = ccrs.Globe(
+        ellipse=None, semimajor_axis=6371229, semiminor_axis=6371229
+    )
+    return ccrs.LambertConformal(
+        central_longitude=262.5,
+        central_latitude=38.5,
+        standard_parallels=(38.5, 38.5),
+        globe=globe,
+    )
+
+
+_CUSTOM_PROJECTIONS = {
+    "hrrr_lambert": _hrrr_lambert_projection,
+}
+
+
 def _resolve_projection(name: str | None) -> Any:
     """Resolve a projection name to a cartopy CRS instance, or None.
 
     Parameters
     ----------
     name : str | None
-        Projection name (e.g. ``"robinson"``).  ``None`` means flat plot.
+        Projection name (e.g. ``"robinson"``, ``"hrrr_lambert"``).
+        ``None`` means flat plot.
 
     Returns
     -------
@@ -998,11 +1152,14 @@ def _resolve_projection(name: str | None) -> Any:
             "Falling back to flat plot."
         )
         return None
-    cls_name = _PROJECTIONS.get(name.lower())
+    name_lower = name.lower()
+    if name_lower in _CUSTOM_PROJECTIONS:
+        return _CUSTOM_PROJECTIONS[name_lower]()
+    cls_name = _PROJECTIONS.get(name_lower)
     if cls_name is None:
         logger.warning(
             f"Unknown projection '{name}'. "
-            f"Available: {list(_PROJECTIONS.keys())}. "
+            f"Available: {list(_PROJECTIONS.keys()) + list(_CUSTOM_PROJECTIONS.keys())}. "
             "Falling back to flat plot."
         )
         return None
@@ -1012,72 +1169,150 @@ def _resolve_projection(name: str | None) -> Any:
 def plot_prediction_vs_truth(
     pred_2d: np.ndarray,
     truth_2d: np.ndarray,
-    lat: np.ndarray,
-    lon: np.ndarray,
+    spatial_coords: "OrderedDict[str, np.ndarray]",
     variable: str,
     time_label: str,
     lt_label: str,
     cmap: str = "turbo",
     projection: Any = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    diff_abs: float | None = None,
+    show_diff: bool = True,
 ) -> Figure:
     """Plot prediction, truth, and difference side-by-side.
 
     Parameters
     ----------
     pred_2d, truth_2d : np.ndarray
-        2D field arrays (lat x lon).
-    lat, lon : np.ndarray
-        Coordinate arrays.
+        2D field arrays shaped ``(H, W)`` with axes in the same order as
+        ``spatial_coords``.
+    spatial_coords : OrderedDict[str, np.ndarray]
+        Dataset spatial coords in dim order.  The keys determine how the
+        data is projected:
+
+        * ``{"lat": ..., "lon": ...}`` — coordinates in degrees; plotted
+          with ``transform=PlateCarree()``, global extent, coastlines.
+        * ``{"y": ..., "x": ...}`` — coordinates are in the map
+          projection's native meter space (e.g. HRRR Lambert
+          conformal); plotted with ``transform=projection`` and an
+          auto-extent that frames the data.
     variable : str
         Variable name (for titles).
-    time_label : str
-        IC time label.
-    lt_label : str
-        Lead time label.
+    time_label, lt_label : str
+        IC time and lead time labels.
     cmap : str
         Colormap for prediction/truth panels.
     projection : cartopy.crs.Projection | None
-        Map projection.  ``None`` produces a flat (PlateCarree) plot
-        without cartopy.
+        Map projection.  ``None`` produces a flat plot without cartopy.
+    vmin, vmax : float | None
+        Prediction/truth color range.  When ``None`` (default) they are
+        derived from ``nanmin`` / ``nanmax`` of the truth field.  Set
+        explicitly to suppress the effect of fill-value outliers (e.g.
+        MRMS ``refc``'s large-negative no-data pixels, which otherwise
+        crush the usable color range).
+    diff_abs : float | None
+        Symmetric limit for the difference panel (``[-diff_abs,
+        diff_abs]``).  When ``None``, derived from the difference's
+        ``nanmin`` / ``nanmax``.  Ignored when *show_diff* is ``False``.
+    show_diff : bool
+        When ``False``, the third (difference) panel is omitted.  Useful
+        when the prediction and truth use different fill-value
+        conventions (e.g. MRMS ``refc``'s no-data pixels vs. the
+        diffusion model's zero-fill) so the difference would be
+        dominated by that offset rather than real skill signal.
 
     Returns
     -------
     Figure
     """
-    diff = pred_2d - truth_2d
-    vmin = np.nanmin(truth_2d)
-    vmax = np.nanmax(truth_2d)
-    diff_abs = max(abs(np.nanmin(diff)), abs(np.nanmax(diff)))
+    if vmin is None:
+        vmin = float(np.nanmin(truth_2d))
+    if vmax is None:
+        vmax = float(np.nanmax(truth_2d))
+    diff: np.ndarray | None = None
+    if show_diff:
+        diff = pred_2d - truth_2d
+        if diff_abs is None:
+            diff_abs = float(max(abs(np.nanmin(diff)), abs(np.nanmax(diff))))
 
     use_cartopy = projection is not None and _HAS_CARTOPY
     subplot_kw = {"projection": projection} if use_cartopy else {}
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5), subplot_kw=subplot_kw)
+    n_panels = 3 if show_diff else 2
+    fig, axes = plt.subplots(
+        1, n_panels, figsize=(6 * n_panels, 5), subplot_kw=subplot_kw
+    )
 
-    transform = ccrs.PlateCarree() if use_cartopy else None
+    # Determine the coord arrays + data transform + extent strategy.
+    # - lat/lon (degrees): PlateCarree transform, global extent.
+    # - y/x (projection meters): same projection as the map, regional extent.
+    # - anything else: fall back to imshow.
+    dim_keys = tuple(spatial_coords.keys())
+    coord_values = tuple(spatial_coords.values())
+    is_latlon = set(dim_keys) >= {"lat", "lon"}
+    is_yx = set(dim_keys) >= {"y", "x"}
 
-    for ax, data, title, kwargs in [
+    if use_cartopy and (is_latlon or is_yx) and len(coord_values) >= 2:
+        if is_latlon:
+            # coord_values preserves dataset dim order (usually lat, lon).
+            lat_idx = dim_keys.index("lat")
+            lon_idx = dim_keys.index("lon")
+            row_coord = coord_values[lat_idx]
+            col_coord = coord_values[lon_idx]
+            transform = ccrs.PlateCarree()
+            extent_mode: str | None = "global"
+        else:
+            y_idx = dim_keys.index("y")
+            x_idx = dim_keys.index("x")
+            row_coord = coord_values[y_idx]
+            col_coord = coord_values[x_idx]
+            transform = projection  # data already in map's CRS
+            extent_mode = "data"
+    else:
+        row_coord = coord_values[0] if coord_values else np.array([])
+        col_coord = coord_values[1] if len(coord_values) > 1 else np.array([])
+        transform = None
+        extent_mode = None
+
+    panels: list[tuple[Any, np.ndarray, str, dict[str, Any]]] = [
         (axes[0], pred_2d, "Prediction", {"vmin": vmin, "vmax": vmax, "cmap": cmap}),
         (axes[1], truth_2d, "Truth", {"vmin": vmin, "vmax": vmax, "cmap": cmap}),
-        (
-            axes[2],
-            diff,
-            "Difference",
-            {"vmin": -diff_abs, "vmax": diff_abs, "cmap": "RdBu_r"},
-        ),
-    ]:
-        if use_cartopy and lat.size and lon.size:
+    ]
+    if show_diff and diff is not None:
+        panels.append(
+            (
+                axes[2],
+                diff,
+                "Difference",
+                {"vmin": -diff_abs, "vmax": diff_abs, "cmap": "RdBu_r"},
+            )
+        )
+
+    for ax, data, title, kwargs in panels:
+        if use_cartopy and transform is not None and row_coord.size and col_coord.size:
             im = ax.pcolormesh(
-                lon,
-                lat,
+                col_coord,
+                row_coord,
                 data,
                 shading="auto",
                 transform=transform,
                 **kwargs,
             )
             ax.coastlines(linewidth=0.5)
-            ax.set_global()
-        elif lat.size and lon.size:
-            im = ax.pcolormesh(lon, lat, data, shading="auto", **kwargs)
+            if extent_mode == "global":
+                ax.set_global()
+            elif extent_mode == "data":
+                ax.set_extent(
+                    [
+                        float(col_coord.min()),
+                        float(col_coord.max()),
+                        float(row_coord.min()),
+                        float(row_coord.max()),
+                    ],
+                    crs=projection,
+                )
+        elif row_coord.size and col_coord.size:
+            im = ax.pcolormesh(col_coord, row_coord, data, shading="auto", **kwargs)
         else:
             im = ax.imshow(data, origin="lower", aspect="auto", **kwargs)
         fig.colorbar(im, ax=ax, shrink=0.8, extend="both")
@@ -1090,6 +1325,28 @@ def plot_prediction_vs_truth(
     )
     fig.tight_layout()
     return fig
+
+
+def _color_range_for(
+    report_cfg: DictConfig, variable: str
+) -> dict[str, float]:
+    """Pull ``{vmin, vmax, diff_abs}`` for *variable* from the report config.
+
+    Reads ``report_cfg.color_ranges.<variable>`` — a mapping with any of
+    the three keys.  Missing keys default to ``None`` (auto-scale from
+    the data).  Missing variable block returns an empty dict.  Used to
+    override nanmin/nanmax-derived scales when a variable has fill-value
+    outliers (e.g. MRMS ``refc``'s large-negative no-data pixels).
+    """
+    cr = report_cfg.get("color_ranges")
+    if cr is None or variable not in cr:
+        return {}
+    entry = cr[variable]
+    out: dict[str, float] = {}
+    for key in ("vmin", "vmax", "diff_abs"):
+        if key in entry and entry[key] is not None:
+            out[key] = float(entry[key])
+    return out
 
 
 def render_header_visualization(
@@ -1128,12 +1385,14 @@ def render_header_visualization(
     projection = _resolve_projection(report_cfg.get("projection", None))
 
     try:
-        pred_2d, truth_2d, lat, lon, time_label, lt_label = _load_visualization_slice(
-            pred_ds,
-            verif_ds,
-            variable,
-            time,
-            lead_time,
+        pred_2d, truth_2d, spatial_coords, time_label, lt_label = (
+            _load_visualization_slice(
+                pred_ds,
+                verif_ds,
+                variable,
+                time,
+                lead_time,
+            )
         )
     except (KeyError, IndexError) as e:
         logger.warning(f"Sample visualization failed: {e}")
@@ -1144,12 +1403,13 @@ def render_header_visualization(
     fig = plot_prediction_vs_truth(
         pred_2d,
         truth_2d,
-        lat,
-        lon,
+        spatial_coords,
         variable,
         time_label,
         lt_label,
         projection=projection,
+        show_diff=bool(report_cfg.get("show_diff", True)),
+        **_color_range_for(report_cfg, variable),
     )
     fig_name = f"header_{variable}_{lead_time.replace(' ', '')}"
 
@@ -1210,7 +1470,7 @@ def render_visualization(
     for variable in variables:
         for lead_time in lead_times:
             try:
-                pred_2d, truth_2d, lat, lon, time_label, lt_label = (
+                pred_2d, truth_2d, spatial_coords, time_label, lt_label = (
                     _load_visualization_slice(
                         pred_ds,
                         verif_ds,
@@ -1228,12 +1488,13 @@ def render_visualization(
             fig = plot_prediction_vs_truth(
                 pred_2d,
                 truth_2d,
-                lat,
-                lon,
+                spatial_coords,
                 variable,
                 time_label,
                 lt_label,
                 projection=projection,
+                show_diff=bool(report_cfg.get("show_diff", True)),
+                **_color_range_for(report_cfg, variable),
             )
             fig_name = f"vis_{variable}_{lead_time.replace(' ', '')}"
             figures[fig_name] = fig
@@ -1323,6 +1584,7 @@ def plot_spread_skill(
     variable_group_name: str | None = None,
     time_groups: dict[str, np.ndarray] | None = None,
     height_ratios: tuple[int, int] = (3, 1),
+    time_unit: str = "days",
 ) -> Figure:
     """Plot a 2-panel spread-skill figure.
 
@@ -1366,6 +1628,7 @@ def plot_spread_skill(
     # --- "all times" lines ---
     results = compute_spread_skill(ds, mse_metric, variance_metric, variables)
 
+    xlabel = "Lead time"
     for i, var in enumerate(variables):
         if var not in results["rmse"]:
             continue
@@ -1376,10 +1639,10 @@ def plot_spread_skill(
 
         if "lead_time" not in rmse_da.dims:
             continue
-        days = _lead_time_to_days(rmse_da.lead_time.values)
+        axis_vals, xlabel = _lead_time_axis(rmse_da.lead_time.values, time_unit)
 
         ax_top.plot(
-            days,
+            axis_vals,
             rmse_da.values,
             color=color,
             ls="-",
@@ -1387,7 +1650,7 @@ def plot_spread_skill(
             label=f"RMSE {var}",
         )
         ax_top.plot(
-            days,
+            axis_vals,
             spread_da.values,
             color=color,
             ls="--",
@@ -1396,7 +1659,7 @@ def plot_spread_skill(
         )
         ratio_vals = ratio_da.values
         ax_bot.plot(
-            days,
+            axis_vals,
             ratio_vals,
             color=color,
             linewidth=1.5,
@@ -1419,7 +1682,7 @@ def plot_spread_skill(
                 gls = _GROUP_LINESTYLES[gi % len(_GROUP_LINESTYLES)]
                 g_ratio = gres["ratio"][var].values
                 ax_bot.plot(
-                    days,
+                    axis_vals,
                     g_ratio,
                     color=color,
                     linestyle=gls,
@@ -1451,7 +1714,7 @@ def plot_spread_skill(
     # Hide x tick labels on top panel (shared axis, no gap).
     ax_top.tick_params(labelbottom=False)
 
-    ax_bot.set_xlabel("Lead time (days)")
+    ax_bot.set_xlabel(xlabel)
     ax_bot.set_ylabel("Spread / Skill")
     ax_bot.legend(fontsize=8, ncol=2)
     ax_bot.grid(True, alpha=0.3)
@@ -1553,6 +1816,7 @@ def render_spread_skill(
             variable_group_name=group_name,
             time_groups=time_groups,
             height_ratios=height_ratios,
+            time_unit=str(report_cfg.get("lead_time_axis_unit", "days")),
         )
         fig_name = f"spread_skill_{group_name}"
         figures[fig_name] = fig

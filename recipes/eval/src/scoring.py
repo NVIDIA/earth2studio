@@ -186,8 +186,12 @@ def open_verification_source(cfg: DictConfig) -> DataSource:
     Resolution order:
 
     1. ``cfg.verification_source`` — a user-provided ``DataSource`` (BYO).
-    2. ``verification.zarr`` — separate verification store from predownload.
-    3. ``data.zarr`` — merged IC + verification store from predownload.
+    2. Pipeline hook ``Pipeline.verification_source(cfg)`` — used by
+       multi-source pipelines (e.g. StormScope) to return a
+       :class:`~src.data.CompositeSource` over per-model predownloaded
+       stores.  Returning ``None`` falls through.
+    3. ``verification.zarr`` — separate verification store from predownload.
+    4. ``data.zarr`` — merged IC + verification store from predownload.
 
     Parameters
     ----------
@@ -201,11 +205,21 @@ def open_verification_source(cfg: DictConfig) -> DataSource:
     Raises
     ------
     FileNotFoundError
-        If no override is provided and neither predownload store exists.
+        If no override is provided, no pipeline hook applies, and neither
+        predownload store exists.
     """
     if cfg.get("verification_source") is not None:
         logger.info("Using user-provided verification_source (BYO).")
         return hydra.utils.instantiate(cfg.verification_source)
+
+    # Ask the pipeline — multi-source pipelines supply their own verification.
+    # Local import avoids a circular dependency at module import time.
+    from .pipeline import build_pipeline
+
+    pipeline = build_pipeline(cfg)
+    pipeline_verif = pipeline.verification_source(cfg)
+    if pipeline_verif is not None:
+        return pipeline_verif
 
     verif_path = os.path.join(cfg.output.path, "verification.zarr")
     if os.path.exists(verif_path):
@@ -680,6 +694,32 @@ def run_scoring(
         return
 
     resume = cfg.scoring.get("resume", False)
+    nan_policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
+    if nan_policy not in ("propagate", "zero_fill"):
+        raise ValueError(
+            f"Invalid scoring.nan_policy '{nan_policy}'; "
+            "expected 'propagate' or 'zero_fill'."
+        )
+    if nan_policy == "zero_fill":
+        logger.info(
+            "Scoring nan_policy=zero_fill: NaNs in prediction and verification "
+            "chunks will be replaced with 0 before metric evaluation. "
+            "RMSE-style metrics normalize over all grid points, so invalid "
+            "points contribute zero to the sum-of-squares and bias the score "
+            "low by sqrt(N_valid/N_total)."
+        )
+
+    valid_ranges_cfg = cfg.scoring.get("valid_ranges", None)
+    if valid_ranges_cfg is not None:
+        valid_ranges = OmegaConf.to_container(valid_ranges_cfg, resolve=True) or {}
+        if valid_ranges:
+            logger.info(
+                f"Scoring valid_ranges: clamping {sorted(valid_ranges)} in both "
+                "prediction and verification before metric evaluation."
+            )
+    else:
+        valid_ranges = {}
+
     rank = DistributedManager().rank
 
     for time in tqdm(my_times, desc="Scoring", disable=rank != 0):
@@ -700,6 +740,14 @@ def run_scoring(
                 spatial_coords,
                 device,
             )
+
+            if nan_policy == "zero_fill":
+                x = torch.nan_to_num(x, nan=0.0)
+                y = torch.nan_to_num(y, nan=0.0)
+
+            if valid_ranges:
+                x = _apply_valid_ranges(x, x_coords, valid_ranges)
+                y = _apply_valid_ranges(y, y_coords, valid_ranges)
 
             for metric_name, metric in metrics.items():
                 if _is_statistic(metric):
@@ -738,6 +786,60 @@ def run_scoring(
             write_scoring_marker(time, cfg)
 
     logger.success("Scoring complete.")
+
+
+def _apply_valid_ranges(
+    x: torch.Tensor,
+    coords: CoordSystem,
+    valid_ranges: dict,
+) -> torch.Tensor:
+    """Clamp per-variable values in *x* to the configured physical range.
+
+    ``valid_ranges`` maps variable names to ``{min: ..., max: ...}``
+    entries; either bound may be ``None`` / absent for a one-sided
+    clamp.  Variables not listed are left untouched.  The clamp is
+    applied in-place along the ``variable`` axis.
+
+    Use case: verification sources (e.g. MRMS ``refc``) encode
+    no-data pixels as large-magnitude fill values (``-9999``) that
+    otherwise dominate the sum-of-squares in RMSE-style metrics.
+    Clamping to the physical range on both prediction and verification
+    turns those pixels into a shared in-range value (typically 0 for
+    non-negative fields), contributing ~zero to the error.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Tensor with a ``variable`` axis.
+    coords : CoordSystem
+        Matching coord system (used to locate the variable axis and
+        map variable names to axis indices).
+    valid_ranges : dict[str, dict[str, float | None]]
+        Mapping from variable name to ``{min, max}``.
+    """
+    if "variable" not in coords:
+        return x
+    var_axis = list(coords.keys()).index("variable")
+    var_names = [str(v) for v in coords["variable"]]
+
+    for var_name, spec in valid_ranges.items():
+        if var_name not in var_names:
+            continue
+        idx = var_names.index(var_name)
+        vmin = spec.get("min") if isinstance(spec, dict) else None
+        vmax = spec.get("max") if isinstance(spec, dict) else None
+        if vmin is None and vmax is None:
+            continue
+
+        slicer: list[Any] = [slice(None)] * x.ndim
+        slicer[var_axis] = idx
+        key = tuple(slicer)
+        x[key] = torch.clamp(
+            x[key],
+            min=float(vmin) if vmin is not None else None,
+            max=float(vmax) if vmax is not None else None,
+        )
+    return x
 
 
 def _concat_chunks(
