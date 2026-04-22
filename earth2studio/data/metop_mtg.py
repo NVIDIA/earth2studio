@@ -245,7 +245,7 @@ class MetOpMTG:
 
     Badges
     ------
-    region:global dataclass:observation product:sat
+    region:eu region:af dataclass:observation product:sat
     """
 
     COLLECTION_ID = _COLLECTION_ID
