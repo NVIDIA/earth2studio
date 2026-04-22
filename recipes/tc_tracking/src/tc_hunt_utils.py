@@ -63,35 +63,32 @@ def set_initial_times(cfg: DictConfig) -> np.ndarray:
 def remove_duplicates(
     data_list: list[list],
 ) -> list[list]:
-    """Remove duplicate sub-lists while preserving numpy dtype distinctions.
+    """Remove duplicate reproduction work items, preserving order.
 
-    Two arrays with the same values but different dtypes are considered
-    different.
+    Each sub-list is expected to follow the reproduction schema
+    ``[np.datetime64, np.ndarray, int]`` (initial condition, batch member
+    indices, random seed).  Arrays with the same values but different dtypes
+    or shapes are considered different.
 
     Parameters
     ----------
     data_list : list[list]
-        List of sub-lists, each potentially containing numpy arrays or
-        datetime64 objects.
+        List of ``[np.datetime64, np.ndarray, int]`` sub-lists.
 
     Returns
     -------
     list[list]
         De-duplicated list preserving original order.
     """
-
-    def to_hashable(item: object) -> object:
-        if isinstance(item, np.ndarray):
-            return (tuple(item.tolist()), str(item.dtype), item.shape)
-        elif isinstance(item, np.datetime64):
-            return str(item)
-        return item
-
     seen: set[tuple] = set()
     result: list[list] = []
 
     for sublist in data_list:
-        hashable_key = tuple(to_hashable(item) for item in sublist)
+        hashable_key = (
+            sublist[0],
+            (tuple(sublist[1].tolist()), str(sublist[1].dtype), sublist[1].shape),
+            sublist[2],
+        )
         if hashable_key not in seen:
             seen.add(hashable_key)
             result.append(sublist)
