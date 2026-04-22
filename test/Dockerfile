@@ -1,6 +1,6 @@
-FROM nvcr.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+FROM nvcr.io/nvidia/cuda-dl-base:26.03-cuda13.2-devel-ubuntu24.04
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3-dev \
@@ -42,5 +42,5 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
 RUN uv tool install tox --with tox-uv
 
 # Use the build argument
-ARG PYTHON_VERSION=3.12.9
+ARG PYTHON_VERSION=3.13.13
 RUN /usr/bin/uv python install "${PYTHON_VERSION}"
