@@ -229,7 +229,7 @@ corrdiff = [
 ]
 cyclone = [
     "cucim-cu13>=25.4.0",
-    "cupy-cuda13x<14.0.0", # 14.0.0 has some odd issue, thrust needs c++17, need to revisit
+    "cupy-cuda13x",
     "scikit-image>=0.25.2",
 ]
 derived = []
@@ -249,17 +249,17 @@ windgust-afno = [
 da-healda = [
     "earth2grid",
     "nvidia-physicsnemo>=2.0",
-    "cupy-cuda13x<14.0.0",
-    "cudf-cu13==26.2.*",
+    "cupy-cuda13x",
+    "cudf-cu13>=26.2.0",
 ]
 da-interp = [
-    "cupy-cuda13x<14.0.0",
-    "cudf-cu13==26.2.*",
+    "cupy-cuda13x",
+    "cudf-cu13>=26.2.0",
 ]
 da-stormcast = [
     "earth2studio[stormcast]",
-    "cupy-cuda13x<14.0.0",
-    "cudf-cu13==26.2.*",
+    "cupy-cuda13x",
+    "cudf-cu13>=26.2.0",
 ]
 # All, must not have conflicts
 all = [
