@@ -60,6 +60,3 @@ from .xr import (
     DataSetFile,
     InferenceOutputSource,
 )
-
-# Backward-compat alias (deprecated)
-Himawari = HimawariAHI
