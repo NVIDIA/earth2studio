@@ -28,7 +28,7 @@ from earth2studio.data import Himawari
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "satellite,time,variable",
     [
@@ -60,8 +60,14 @@ from earth2studio.data import Himawari
     ],
 )
 def test_himawari_fetch(satellite, time, variable):
-    """Test Himawari data fetching for different satellites and variables."""
-    ds = Himawari(satellite=satellite, cache=False)
+    """Test Himawari data fetching for different satellites and variables.
+
+    Uses a small lat_lon_bbox that overlaps a single tile to minimise
+    download size and test duration.
+    """
+    # Small bbox near sub-satellite point — overlaps only tile 50
+    bbox = (-5.0, 141.0, -2.0, 144.0)
+    ds = Himawari(satellite=satellite, lat_lon_bbox=bbox, cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -72,14 +78,17 @@ def test_himawari_fetch(satellite, time, variable):
 
     assert shape[0] == len(time)
     assert shape[1] == len(variable)
-    assert shape[2] == 5500  # Full Disk y dimension
-    assert shape[3] == 5500  # Full Disk x dimension
+    assert shape[2] < 5500  # Cropped, not full disk
+    assert shape[3] < 5500
+    assert shape[2] > 50  # But still meaningful
+    assert shape[3] > 50
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
+    assert not np.isnan(data.values).all()
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -89,15 +98,19 @@ def test_himawari_fetch(satellite, time, variable):
 @pytest.mark.parametrize("variable", [["ahi13", "ahi14"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_himawari_cache(time, variable, cache):
-    """Test Himawari caching functionality."""
-    ds = Himawari(satellite="himawari9", cache=cache)
+    """Test Himawari caching functionality.
+
+    Uses a small lat_lon_bbox to limit download to a single tile.
+    """
+    bbox = (-5.0, 141.0, -2.0, 144.0)
+    ds = Himawari(satellite="himawari9", lat_lon_bbox=bbox, cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
     assert shape[0] == 1
     assert shape[1] == 2
-    assert shape[2] == 5500
-    assert shape[3] == 5500
+    assert shape[2] < 5500
+    assert shape[3] < 5500
     assert pathlib.Path(ds.cache).is_dir() == cache
 
     # Reload from cache
@@ -375,13 +388,13 @@ def test_himawari_lat_lon_bbox():
 
 @pytest.mark.slow
 @pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(60)
 def test_himawari_fetch_bbox():
     """Test fetching with a lat_lon_bbox (real network)."""
-    # Japan area bbox
+    # Small bbox overlapping a single tile (tile 50)
     ds = Himawari(
         satellite="himawari9",
-        lat_lon_bbox=(25.0, 125.0, 50.0, 150.0),
+        lat_lon_bbox=(-5.0, 141.0, -2.0, 144.0),
         cache=False,
     )
     data = ds(datetime(2024, 6, 15, 0, 0), "ahi13")
