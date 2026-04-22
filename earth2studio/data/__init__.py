@@ -26,6 +26,7 @@ from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
 from .goes import GOES
+from .himawari import Himawari
 from .hrrr import HRRR, HRRR_FX
 from .isd import ISD
 from .jpss import JPSS

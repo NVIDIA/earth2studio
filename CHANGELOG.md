@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
 - Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
 - Added MTG-I FCI Level-1C Full Disk satellite radiance data source (`MetOpMTG`)
+- Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`Himawari`)
+- Added `HimawariLexicon` for AHI channel mappings (ahi01-ahi16)
 
 ### Changed
 
