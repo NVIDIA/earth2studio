@@ -32,6 +32,7 @@ from .metop import (
     MetOpAVHRRLexicon,
     MetOpIASILexicon,
     MetOpMHSLexicon,
+    MetOpMTGLexicon,
 )
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
