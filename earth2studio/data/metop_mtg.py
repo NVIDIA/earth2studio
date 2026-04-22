@@ -99,12 +99,6 @@ _VARIABLE_RESOLUTION: dict[str, str] = {
     "ir_133": "2km",
 }
 
-# EUMETSAT collection identifier
-_COLLECTION_ID = "EO:EUM:DAT:0662"
-
-# Scan frequency in seconds (full disk every 10 minutes)
-_SCAN_FREQUENCY = 600
-
 # Operational start date for MTG-I1 FCI
 _OPERATIONAL_START = datetime(2024, 1, 16, tzinfo=timezone.utc)
 
@@ -319,8 +313,8 @@ class MetOpMTG:
     region:eu region:af dataclass:observation product:sat
     """
 
-    COLLECTION_ID = _COLLECTION_ID
-    SCAN_FREQUENCY = _SCAN_FREQUENCY
+    COLLECTION_ID = "EO:EUM:DAT:0662"
+    SCAN_FREQUENCY = 600
 
     def __init__(
         self,
@@ -807,12 +801,12 @@ class MetOpMTG:
                 )
             if (
                 int((t - datetime(2000, 1, 1, tzinfo=timezone.utc)).total_seconds())
-                % _SCAN_FREQUENCY
+                % cls.SCAN_FREQUENCY
                 != 0
             ):
                 raise ValueError(
                     f"Requested date time {time} needs to be on a "
-                    f"{_SCAN_FREQUENCY}s interval for MetOpMTG"
+                    f"{cls.SCAN_FREQUENCY}s interval for MetOpMTG"
                 )
 
     @property
