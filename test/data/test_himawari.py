@@ -338,6 +338,16 @@ def test_himawari_compute_pixel_roi():
     with pytest.raises(ValueError, match="No grid points"):
         _compute_pixel_roi((50.0, 0.0, 60.0, 10.0), lat, lon)
 
+    # Antimeridian-crossing bbox (wraps from 140°E to 170°W = -170°)
+    lon_am = np.array([[170.0, -170.0], [170.0, -170.0]])
+    lat_am = np.array([[30.0, 30.0], [20.0, 20.0]])
+    r0, r1, c0, c1 = _compute_pixel_roi((15.0, 160.0, 35.0, -160.0), lat_am, lon_am)
+    assert (r0, r1, c0, c1) == (0, 2, 0, 2)
+
+    # Same antimeridian bbox using [0, 360] convention (160°E to 200°E)
+    r0, r1, c0, c1 = _compute_pixel_roi((15.0, 160.0, 35.0, 200.0), lat_am, lon_am)
+    assert (r0, r1, c0, c1) == (0, 2, 0, 2)
+
 
 @pytest.mark.timeout(30)
 def test_himawari_lat_lon_bbox():

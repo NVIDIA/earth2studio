@@ -250,12 +250,14 @@ def _compute_pixel_roi(
     # Normalise the grid longitudes too
     lon_norm = _normalize_lon(lon)
 
-    mask = (
-        (lat >= lat_min)
-        & (lat <= lat_max)
-        & (lon_norm >= lon_min)
-        & (lon_norm <= lon_max)
-    )
+    lat_mask = (lat >= lat_min) & (lat <= lat_max)
+    if lon_min > lon_max:
+        # Bounding box wraps across the antimeridian (e.g. 160°E to -160°E)
+        lon_mask = (lon_norm >= lon_min) | (lon_norm <= lon_max)
+    else:
+        lon_mask = (lon_norm >= lon_min) & (lon_norm <= lon_max)
+
+    mask = lat_mask & lon_mask
     rows, cols = np.where(mask)
     if rows.size == 0:
         raise ValueError(f"No grid points fall within lat_lon_bbox={lat_lon_bbox}")
@@ -390,7 +392,9 @@ class Himawari:
             nest_asyncio.apply()
             loop = asyncio.get_running_loop()
             loop.run_until_complete(self._async_init())
-        except RuntimeError:
+        except RuntimeError as e:
+            if "no running event loop" not in str(e).lower():
+                logger.warning(f"Himawari async init failed: {e}")
             self.fs = None
 
     async def _async_init(self) -> None:
@@ -602,16 +606,22 @@ class Himawari:
                         continue
 
                     # Skip tiles that don't overlap the pixel ROI
-                    if self._pixel_roi is not None and tile_num in TILE_OFFSETS_2KM:
-                        tr, tc = TILE_OFFSETS_2KM[tile_num]
-                        r0, r1, c0, c1 = self._pixel_roi
-                        if (
-                            tr + TILE_SIZE <= r0
-                            or tr >= r1
-                            or tc + TILE_SIZE <= c0
-                            or tc >= c1
-                        ):
-                            continue
+                    if self._pixel_roi is not None:
+                        if tile_num not in TILE_OFFSETS_2KM:
+                            logger.debug(
+                                f"Unknown tile number {tile_num} in {fname}, "
+                                "cannot pre-filter — fetching anyway"
+                            )
+                        else:
+                            tr, tc = TILE_OFFSETS_2KM[tile_num]
+                            r0, r1, c0, c1 = self._pixel_roi
+                            if (
+                                tr + TILE_SIZE <= r0
+                                or tr >= r1
+                                or tc + TILE_SIZE <= c0
+                                or tc >= c1
+                            ):
+                                continue
 
                     downsample = CHANNEL_DOWNSAMPLE.get(channel_id, 1)
 
