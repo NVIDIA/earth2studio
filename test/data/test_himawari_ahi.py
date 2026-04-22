@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import Himawari
+from earth2studio.data import HimawariAHI
 
 
 @pytest.mark.slow
@@ -67,7 +67,7 @@ def test_himawari_fetch(satellite, time, variable):
     """
     # Small bbox near sub-satellite point — overlaps only tile 50
     bbox = (-5.0, 141.0, -2.0, 144.0)
-    ds = Himawari(satellite=satellite, lat_lon_bbox=bbox, cache=False)
+    ds = HimawariAHI(satellite=satellite, lat_lon_bbox=bbox, cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -103,7 +103,7 @@ def test_himawari_cache(time, variable, cache):
     Uses a small lat_lon_bbox to limit download to a single tile.
     """
     bbox = (-5.0, 141.0, -2.0, 144.0)
-    ds = Himawari(satellite="himawari9", lat_lon_bbox=bbox, cache=cache)
+    ds = HimawariAHI(satellite="himawari9", lat_lon_bbox=bbox, cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
@@ -143,7 +143,7 @@ def test_himawari_cache(time, variable, cache):
 )
 def test_himawari_available(satellite, time, expected):
     """Test Himawari availability checks."""
-    assert Himawari.available(time, satellite=satellite) == expected
+    assert HimawariAHI.available(time, satellite=satellite) == expected
 
 
 @pytest.mark.timeout(15)
@@ -159,7 +159,7 @@ def test_himawari_available(satellite, time, expected):
 @pytest.mark.parametrize("variable", ["ahi13"])
 def test_himawari_invalid_time(time, variable):
     """Test that invalid times raise ValueError."""
-    ds = Himawari(satellite="himawari9")
+    ds = HimawariAHI(satellite="himawari9")
     with pytest.raises(ValueError):
         ds(time, variable)
 
@@ -168,13 +168,13 @@ def test_himawari_invalid_time(time, variable):
 def test_himawari_invalid_satellite():
     """Test that invalid satellite raises ValueError."""
     with pytest.raises(ValueError):
-        Himawari(satellite="himawari7")
+        HimawariAHI(satellite="himawari7")
 
 
 @pytest.mark.timeout(30)
 def test_himawari_grid():
     """Test Himawari grid method returns correct lat/lon coordinates."""
-    lat, lon = Himawari.grid()
+    lat, lon = HimawariAHI.grid()
 
     assert lat.shape == (5500, 5500)
     assert lon.shape == (5500, 5500)
@@ -190,28 +190,28 @@ def test_himawari_grid():
 def test_himawari_numpy_datetime_available():
     """Test availability with numpy datetime64."""
     time = np.datetime64("2024-06-15T00:00:00")
-    assert Himawari.available(time, satellite="himawari9")
+    assert HimawariAHI.available(time, satellite="himawari9")
 
     time_invalid = np.datetime64("2014-01-01T00:00:00")
-    assert not Himawari.available(time_invalid, satellite="himawari8")
+    assert not HimawariAHI.available(time_invalid, satellite="himawari8")
 
 
 @pytest.mark.timeout(5)
 def test_himawari_parse_tile_number():
     """Test tile number parsing from ISatSS filenames."""
     assert (
-        Himawari._parse_tile_number("OR_HFD-020-B14-M1C13-T001_GH9_s202406150000.nc")
+        HimawariAHI._parse_tile_number("OR_HFD-020-B14-M1C13-T001_GH9_s202406150000.nc")
         == 1
     )
     assert (
-        Himawari._parse_tile_number("OR_HFD-020-B14-M1C13-T088_GH9_s202406150000.nc")
+        HimawariAHI._parse_tile_number("OR_HFD-020-B14-M1C13-T088_GH9_s202406150000.nc")
         == 88
     )
     assert (
-        Himawari._parse_tile_number("OR_HFD-010-B11-M1C01-T045_GH9_s202406150000.nc")
+        HimawariAHI._parse_tile_number("OR_HFD-010-B11-M1C01-T045_GH9_s202406150000.nc")
         == 45
     )
-    assert Himawari._parse_tile_number("invalid_filename.nc") is None
+    assert HimawariAHI._parse_tile_number("invalid_filename.nc") is None
 
 
 def _make_mock_tile_nc(
@@ -286,26 +286,26 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
             return f.read()
 
     with (
-        patch.object(Himawari, "_async_init", return_value=None),
+        patch.object(HimawariAHI, "_async_init", return_value=None),
         patch.object(
-            Himawari,
+            HimawariAHI,
             "SCAN_DIMENSIONS",
             (small_dim, small_dim),
         ),
         patch.object(
-            Himawari,
+            HimawariAHI,
             "_Y_COORDS",
             np.linspace(0.15, -0.15, small_dim),
         ),
         patch.object(
-            Himawari,
+            HimawariAHI,
             "_X_COORDS",
             np.linspace(-0.15, 0.15, small_dim),
         ),
-        patch("earth2studio.data.himawari.FULL_DISK_PIXELS", small_dim),
-        patch("earth2studio.data.himawari.TILE_SIZE", tile_sz),
+        patch("earth2studio.data.himawari_ahi.FULL_DISK_PIXELS", small_dim),
+        patch("earth2studio.data.himawari_ahi.TILE_SIZE", tile_sz),
     ):
-        ds = Himawari(satellite="himawari9", cache=False)
+        ds = HimawariAHI(satellite="himawari9", cache=False)
         # Inject mock FS with async methods
         mock_fs = AsyncMock()
         mock_fs._ls = mock_ls
@@ -333,7 +333,7 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
 @pytest.mark.timeout(5)
 def test_himawari_compute_pixel_roi():
     """Test _compute_pixel_roi finds correct pixel bounds."""
-    from earth2studio.data.himawari import _compute_pixel_roi
+    from earth2studio.data.himawari_ahi import _compute_pixel_roi
 
     # Create a small synthetic grid
     lat = np.array([[30.0, 30.0], [20.0, 20.0], [10.0, 10.0]])
@@ -366,11 +366,11 @@ def test_himawari_compute_pixel_roi():
 def test_himawari_lat_lon_bbox():
     """Test that lat_lon_bbox computes pixel ROI correctly from real grid."""
     # Use the real Himawari grid to verify ROI computation
-    ds = Himawari(satellite="himawari9", cache=False)
+    ds = HimawariAHI(satellite="himawari9", cache=False)
 
     # Japan bbox: ~25-50°N, 125-150°E
     ds._lat_lon_bbox = (25.0, 125.0, 50.0, 150.0)
-    from earth2studio.data.himawari import _compute_pixel_roi
+    from earth2studio.data.himawari_ahi import _compute_pixel_roi
 
     roi = _compute_pixel_roi(ds._lat_lon_bbox, ds._lat, ds._lon)
     r0, r1, c0, c1 = roi
@@ -392,7 +392,7 @@ def test_himawari_lat_lon_bbox():
 def test_himawari_fetch_bbox():
     """Test fetching with a lat_lon_bbox (real network)."""
     # Small bbox overlapping a single tile (tile 50)
-    ds = Himawari(
+    ds = HimawariAHI(
         satellite="himawari9",
         lat_lon_bbox=(-5.0, 141.0, -2.0, 144.0),
         cache=False,
@@ -415,7 +415,7 @@ def test_himawari_fetch_bbox():
 @pytest.mark.timeout(30)
 def test_himawari_bbox_tile_filtering():
     """Test that tiles outside bbox are filtered in _create_tasks."""
-    from earth2studio.data.himawari import TILE_OFFSETS_2KM
+    from earth2studio.data.himawari_ahi import TILE_OFFSETS_2KM
 
     # Verify tile offset table has 88 entries
     assert len(TILE_OFFSETS_2KM) == 88

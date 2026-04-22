@@ -275,7 +275,7 @@ class HimawariAsyncTask:
     downsample_factor: int = 1
 
 
-class Himawari:
+class HimawariAHI:
     """Himawari-8/9 AHI (Advanced Himawari Imager) data source.
 
     This data source provides access to Himawari-8 and Himawari-9 satellite
@@ -382,7 +382,7 @@ class Himawari:
             )
 
         # Pre-compute grid coordinates
-        self._lat, self._lon = Himawari.grid()
+        self._lat, self._lon = HimawariAHI.grid()
 
         # Pixel ROI bounds (lazily computed on first fetch when bbox is set)
         self._pixel_roi: tuple[int, int, int, int] | None = None
@@ -584,7 +584,7 @@ class Himawari:
 
             for j, v in enumerate(variable):
                 try:
-                    channel_id, modifier = HimawariLexicon[v]
+                    channel_id, modifier = HimawariLexicon[v]  # type: ignore[misc]
                 except KeyError:
                     logger.warning(
                         f"Variable {v} not found in Himawari lexicon, skipping"

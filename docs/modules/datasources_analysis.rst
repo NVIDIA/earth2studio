@@ -38,7 +38,7 @@ Used for fetching initial conditions for inference and validation data for scori
       data.CMIP6MultiRealm
       data.GFS
       data.GOES
-      data.Himawari
+      data.HimawariAHI
       data.HRRR
       data.IFS
       data.IFS_ENS
