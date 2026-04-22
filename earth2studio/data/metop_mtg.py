@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import asyncio
-import functools
+import glob
 import os
 import pathlib
 import re
@@ -180,21 +180,87 @@ def _mtg_fci_scan_to_latlon(
     return lat, lon
 
 
+def _normalize_lon(lon_deg: float) -> float:
+    """Normalise a longitude value into the ``[-180, 180)`` range.
+
+    Accepts any real-valued longitude (e.g. 350 → -10, -200 → 160).
+
+    Parameters
+    ----------
+    lon_deg : float
+        Longitude in degrees.
+
+    Returns
+    -------
+    float
+        Longitude wrapped to ``[-180, 180)``.
+    """
+    return ((lon_deg + 180.0) % 360.0) - 180.0
+
+
+def _compute_pixel_roi(
+    lat_lon_bbox: tuple[float, float, float, float],
+    lat: np.ndarray,
+    lon: np.ndarray,
+) -> tuple[int, int, int, int]:
+    """Convert a lat/lon bounding box to pixel row/column bounds.
+
+    Both ``[-180, 180]`` and ``[0, 360]`` longitude conventions are
+    supported; longitudes are normalised to ``[-180, 180)`` before the
+    grid lookup.
+
+    Parameters
+    ----------
+    lat_lon_bbox : tuple[float, float, float, float]
+        ``(lat_min, lon_min, lat_max, lon_max)`` in degrees.
+    lat : np.ndarray
+        2-D latitude array from the grid (NaN where off-Earth).
+    lon : np.ndarray
+        2-D longitude array from the grid (NaN where off-Earth).
+
+    Returns
+    -------
+    tuple[int, int, int, int]
+        ``(row_start, row_end, col_start, col_end)`` pixel bounds
+        (end-exclusive) suitable for slicing.
+    """
+    lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
+
+    # Normalise longitudes to [-180, 180) so both conventions work
+    lon_min = _normalize_lon(lon_min)
+    lon_max = _normalize_lon(lon_max)
+
+    mask = (lat >= lat_min) & (lat <= lat_max) & (lon >= lon_min) & (lon <= lon_max)
+    rows, cols = np.where(mask)
+    if rows.size == 0:
+        raise ValueError(f"No grid points fall within lat_lon_bbox={lat_lon_bbox}")
+    return int(rows.min()), int(rows.max()) + 1, int(cols.min()), int(cols.max()) + 1
+
+
 def _sort_body_key(name: str) -> int:
-    """Extract numeric chunk index from a BODY segment name for sorting.
+    """Extract numeric chunk index from a BODY segment filename for sorting.
+
+    FCI segment filenames end with a chunk number before the extension,
+    e.g. ``'…_BODY_003.nc'``.  This extracts the trailing integer.
 
     Parameters
     ----------
     name : str
-        Segment name, e.g. ``'BODY_009'``
+        Segment filename (basename), e.g. ``'…_BODY_003.nc'``
 
     Returns
     -------
     int
         Numeric chunk index
     """
-    m = re.search(r"(\d+)", name)
-    return int(m.group(1)) if m else 0
+    stem = name.rsplit(".", 1)[0]  # remove .nc extension
+    parts = stem.rsplit("_", 1)  # split on last underscore
+    try:
+        return int(parts[-1])
+    except (ValueError, IndexError):
+        # Fallback: find any trailing digits
+        m = re.search(r"(\d+)$", stem)
+        return int(m.group(1)) if m else 0
 
 
 @check_optional_dependencies()
@@ -210,6 +276,11 @@ class MetOpMTG:
     ----------
     resolution : str, optional
         Grid resolution, either ``'2km'`` or ``'1km'``, by default ``'2km'``
+    lat_lon_bbox : tuple[float, float, float, float] | None, optional
+        Bounding box ``(lat_min, lon_min, lat_max, lon_max)`` in degrees to
+        crop the full-disk image. Only BODY segments that overlap the requested latitude
+        range are read, saving disk and memory.  When ``None`` the full disk is
+        returned, by default None
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -254,12 +325,14 @@ class MetOpMTG:
     def __init__(
         self,
         resolution: str = "2km",
+        lat_lon_bbox: tuple[float, float, float, float] | None = None,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 1200,
         retries: int = 3,
     ) -> None:
         self._resolution = self._resolve_resolution(resolution)
+        self._lat_lon_bbox = lat_lon_bbox
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
@@ -268,6 +341,8 @@ class MetOpMTG:
 
         # Grid (lazily computed on first access)
         self._grid: tuple[np.ndarray, np.ndarray] | None = None
+        # Pixel ROI bounds (lazily computed on first fetch when bbox is set)
+        self._pixel_roi: tuple[int, int, int, int] | None = None
 
         # Credentials from environment variables
         self._consumer_key = os.environ.get("EUMETSAT_CONSUMER_KEY", "")
@@ -344,9 +419,22 @@ class MetOpMTG:
         # Ensure grid is computed
         lat, lon = self._ensure_grid()
 
-        # Determine output shape
-        grid_size = _GRID_PARAMS[self._resolution][4]
-        ny, nx = grid_size
+        # Compute pixel ROI if bounding box is set
+        if self._lat_lon_bbox is not None and self._pixel_roi is None:
+            self._pixel_roi = _compute_pixel_roi(self._lat_lon_bbox, lat, lon)
+
+        # Determine output shape (cropped if bbox is set)
+        if self._pixel_roi is not None:
+            r0, r1, c0, c1 = self._pixel_roi
+            ny = r1 - r0
+            nx = c1 - c0
+            lat_out = lat[r0:r1, c0:c1]
+            lon_out = lon[r0:r1, c0:c1]
+        else:
+            grid_size = _GRID_PARAMS[self._resolution][4]
+            ny, nx = grid_size
+            lat_out = lat
+            lon_out = lon
 
         # Pre-allocate output
         y_coords = np.arange(ny, dtype=np.float64)
@@ -362,80 +450,41 @@ class MetOpMTG:
             },
         )
 
-        # Build fetch tasks — one per (time, variable) pair
-        async_tasks = []
-        for i, t in enumerate(time):
-            for j, v in enumerate(variable):
-                async_tasks.append((i, j, t, v))
+        # Phase 1: Download products in parallel (one per unique time)
+        unique_times = list(dict.fromkeys(time))  # preserve order, deduplicate
+        download_coros = [
+            async_retry(
+                asyncio.to_thread,
+                self._fetch_product,
+                t,
+                retries=self._retries,
+                backoff=2.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+            )
+            for t in unique_times
+        ]
+        product_dirs_list: list[str] = await tqdm.gather(
+            *download_coros,
+            desc="Downloading MTG products",
+            disable=(not self._verbose),
+        )
+        product_dir_map = dict(zip(unique_times, product_dirs_list))
 
-        func_map = map(
-            functools.partial(self._fetch_wrapper, xr_array=xr_array), async_tasks
-        )
-        await tqdm.gather(
-            *func_map, desc="Fetching MTG data", disable=(not self._verbose)
-        )
+        # Phase 2: Read NetCDF segments sequentially (HDF5/netCDF4 is
+        # not thread-safe — concurrent reads cause segfaults)
+        for i, t in enumerate(time):
+            product_dir = product_dir_map[t]
+            for j, v in enumerate(variable):
+                channel_name, modifier = MetOpMTGLexicon[v]
+                data = self._read_channel(product_dir, channel_name, self._pixel_roi)
+                xr_array[i, j] = modifier(data)
 
         # Attach grid coordinates
         xr_array = xr_array.assign_coords(
-            {"_lat": (("y", "x"), lat), "_lon": (("y", "x"), lon)}
+            {"_lat": (("y", "x"), lat_out), "_lon": (("y", "x"), lon_out)}
         )
 
         return xr_array
-
-    async def _fetch_wrapper(
-        self,
-        task: tuple[int, int, datetime, str],
-        xr_array: xr.DataArray,
-    ) -> None:
-        """Unpack a task tuple and fetch a single (time, variable) slice.
-
-        Parameters
-        ----------
-        task : tuple
-            ``(time_idx, var_idx, time, variable)``
-        xr_array : xr.DataArray
-            Output array to fill in-place
-        """
-        i, j, t, v = task
-        data = await async_retry(
-            asyncio.to_thread,
-            self._fetch_channel,
-            t,
-            v,
-            retries=self._retries,
-            backoff=2.0,
-            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-        )
-        xr_array[i, j] = data
-
-    def _fetch_channel(
-        self,
-        time: datetime,
-        variable: str,
-    ) -> np.ndarray:
-        """Download and read a single channel for one time step.
-
-        Parameters
-        ----------
-        time : datetime
-            UTC timestamp
-        variable : str
-            Variable name in MetOpMTGLexicon
-
-        Returns
-        -------
-        np.ndarray
-            2-D array of shape ``(ny, nx)``
-        """
-        channel_name, modifier = MetOpMTGLexicon[variable]
-
-        # Download product zip from EUMETSAT
-        product_dir = self._fetch_product(time)
-
-        # Read the channel from extracted NetCDF segments
-        data = self._read_channel(product_dir, channel_name)
-
-        return modifier(data)
 
     def _fetch_product(self, time: datetime) -> str:
         """Download the MTG FCI product for the given time.
@@ -454,9 +503,16 @@ class MetOpMTG:
         time_str = time.strftime("%Y%m%dT%H%M%S")
         product_cache = os.path.join(self.cache, f"mtg_{time_str}")
 
+        # Only reuse cache if BODY segment files actually exist
         if os.path.isdir(product_cache):
-            logger.debug("Using cached MTG product: {}", product_cache)
-            return product_cache
+            body_files = glob.glob(
+                os.path.join(product_cache, "**", "*BODY*.nc"), recursive=True
+            )
+            if body_files:
+                logger.debug("Using cached MTG product: {}", product_cache)
+                return product_cache
+            # Empty directory from a previous failed attempt — re-download
+            logger.debug("Cached directory empty, re-downloading: {}", product_cache)
 
         pathlib.Path(product_cache).mkdir(parents=True, exist_ok=True)
 
@@ -500,16 +556,42 @@ class MetOpMTG:
         """
         zip_path = os.path.join(product_cache, "product.zip")
 
+        logger.debug("Downloading MTG product zip to {}", zip_path)
         with product.open() as stream:  # type: ignore[attr-defined]
             with open(zip_path, "wb") as f:
                 shutil.copyfileobj(stream, f)
 
+        zip_size = os.path.getsize(zip_path)
+        logger.debug("Downloaded zip size: {} bytes", zip_size)
+
+        if not zipfile.is_zipfile(zip_path):
+            os.remove(zip_path)
+            raise RuntimeError(
+                f"Downloaded file is not a valid zip archive ({zip_size} bytes)"
+            )
+
         # Extract only BODY NetCDF files
         with zipfile.ZipFile(zip_path, "r") as zf:
+            all_names = zf.namelist()
+            logger.debug("Zip contains {} entries", len(all_names))
+
             body_names = sorted(
-                [n for n in zf.namelist() if "BODY" in n and n.endswith(".nc")],
-                key=_sort_body_key,
+                [
+                    n
+                    for n in all_names
+                    if "BODY" in os.path.basename(n) and n.endswith(".nc")
+                ],
+                key=lambda n: _sort_body_key(os.path.basename(n)),
             )
+
+            if not body_names:
+                # Log all entry names for debugging
+                logger.warning(
+                    "No BODY .nc entries in zip. All entries: {}",
+                    all_names[:20],
+                )
+
+            logger.debug("Extracting {} BODY segment files from zip", len(body_names))
             for name in body_names:
                 zf.extract(name, product_cache)
 
@@ -520,8 +602,16 @@ class MetOpMTG:
         self,
         product_dir: str,
         channel_name: str,
+        pixel_roi: tuple[int, int, int, int] | None = None,
     ) -> np.ndarray:
         """Read a single channel from extracted BODY segments using netCDF4.
+
+        FCI Level-1C products store each channel's radiance data in an HDF5
+        group structure:  ``/data/{channel}/measured/effective_radiance``.
+
+        When *pixel_roi* is provided, only the BODY segments that overlap
+        the requested row range are read and the result is cropped to the
+        bounding box.
 
         Parameters
         ----------
@@ -529,19 +619,19 @@ class MetOpMTG:
             Path to extracted product directory
         channel_name : str
             FCI channel name (e.g., ``'vis_04'``)
+        pixel_roi : tuple[int, int, int, int] | None, optional
+            ``(row_start, row_end, col_start, col_end)`` pixel bounds
+            (end-exclusive).  When ``None`` the full disk is returned.
 
         Returns
         -------
         np.ndarray
-            2-D full disk array
+            2-D array (float32).  Full disk or cropped to *pixel_roi*.
         """
         # Find all BODY segment files
-        body_files = [
-            os.path.join(root, f)
-            for root, _dirs, files in os.walk(product_dir)
-            for f in files
-            if "BODY" in f and f.endswith(".nc")
-        ]
+        body_files = glob.glob(
+            os.path.join(product_dir, "**", "*BODY*.nc"), recursive=True
+        )
 
         body_files.sort(key=lambda p: _sort_body_key(os.path.basename(p)))
 
@@ -550,17 +640,63 @@ class MetOpMTG:
 
         # Read and vertically stack segments
         segments: list[np.ndarray] = []
-        var_key = f"{channel_name}_effective_radiance"
+        group_path = f"/data/{channel_name}/measured"
+
+        # Track running row offset for selective segment loading
+        row_offset = 0
+        first_loaded_offset: int | None = None
 
         for bf in body_files:
             ds = netCDF4.Dataset(bf, "r")
             try:
-                if var_key in ds.variables:
-                    data = ds.variables[var_key][:].filled(np.nan)
-                    # Data may be 3-D (1, rows, cols) — squeeze
-                    if data.ndim == 3:
-                        data = data[0]
-                    segments.append(data)
+                # Navigate to the channel group
+                try:
+                    grp = ds[group_path]
+                except (IndexError, KeyError):
+                    logger.debug(
+                        "Group '{}' not found in {}; skipping",
+                        group_path,
+                        os.path.basename(bf),
+                    )
+                    continue
+
+                if "effective_radiance" not in grp.variables:
+                    logger.debug(
+                        "effective_radiance not in group '{}' of {}; skipping",
+                        group_path,
+                        os.path.basename(bf),
+                    )
+                    continue
+
+                var = grp.variables["effective_radiance"]
+                shape = var.shape
+                seg_rows = shape[-2] if len(shape) >= 2 else shape[0]
+                seg_row_end = row_offset + seg_rows
+
+                # Skip segments that do not overlap the ROI row range
+                if pixel_roi is not None:
+                    r0, r1, _c0, _c1 = pixel_roi
+                    if seg_row_end <= r0 or row_offset >= r1:
+                        row_offset = seg_row_end
+                        continue
+
+                if first_loaded_offset is None:
+                    first_loaded_offset = row_offset
+
+                data = var[:].filled(np.nan)
+
+                # Apply scale_factor / add_offset if present but not
+                # auto-applied (mask_and_scale is off by default in raw access)
+                scale = getattr(var, "scale_factor", 1.0)
+                offset = getattr(var, "add_offset", 0.0)
+                if scale != 1.0 or offset != 0.0:
+                    data = data.astype(np.float64) * scale + offset
+
+                # Data may be 3-D (1, rows, cols) — squeeze
+                if data.ndim == 3:
+                    data = data[0]
+                segments.append(data)
+                row_offset = seg_row_end
             finally:
                 ds.close()
 
@@ -571,6 +707,15 @@ class MetOpMTG:
             )
 
         full = np.concatenate(segments, axis=0)
+
+        # Crop to bounding box if requested
+        if pixel_roi is not None and first_loaded_offset is not None:
+            r0, r1, c0, c1 = pixel_roi
+            # Adjust row bounds relative to concatenated loaded data
+            adj_r0 = max(0, r0 - first_loaded_offset)
+            adj_r1 = min(full.shape[0], r1 - first_loaded_offset)
+            c1 = min(full.shape[1], c1)
+            full = full[adj_r0:adj_r1, c0:c1]
 
         return full.astype(np.float32)
 
