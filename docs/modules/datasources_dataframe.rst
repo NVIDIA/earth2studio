@@ -20,6 +20,7 @@ Data sources that provide tabular data as DataFrames.
       :toctree: generated/data/
       :template: datasource.rst
 
+      data.GHCN
       data.ISD
       data.JPSS_ATMS
       data.JPSS_CRIS
