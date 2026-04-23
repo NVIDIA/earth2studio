@@ -23,8 +23,17 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def _is_aws_s3_transfer_acceleration_endpoint(url: str) -> bool:
+    """Return True if *url* is an AWS S3 Transfer Acceleration REST hostname."""
+    host = (urlparse(url).hostname or "").lower()
+    return host.endswith(".s3-accelerate.dualstack.amazonaws.com") or host.endswith(
+        ".s3-accelerate.amazonaws.com"
+    )
 
 
 @dataclass
@@ -235,6 +244,10 @@ class MSCObjectStorage(ObjectStorage):
         Custom endpoint URL for S3-compatible services (S3 only; not used for Azure).
     use_transfer_acceleration : bool, optional
         Enable S3 Transfer Acceleration (bucket must support it). Default is False.
+        For ``MSCObjectStorage``, the accelerate hostname is not passed to MSC:
+        directory ``sync_from`` uses ``ListObjectsV2``, which requires the standard
+        regional S3 endpoint. ``self.endpoint_url`` still reflects the accelerate URL
+        for reference.
     max_concurrency : int, optional
         Maximum number of concurrent transfers. Default is 16.
     multipart_chunksize : int, optional
@@ -365,9 +378,22 @@ class MSCObjectStorage(ObjectStorage):
                 "max_concurrency": max_concurrency,
             }
 
-            # Add endpoint URL if provided (for S3-compatible services)
-            if self.endpoint_url:
-                s3_storage_provider_options["endpoint_url"] = self.endpoint_url
+            # Transfer Acceleration hostnames are for fast GET/PUT; MSC directory
+            # sync calls ListObjectsV2, which must use the standard regional S3 API.
+            endpoint_for_msc = self.endpoint_url
+            if endpoint_for_msc and _is_aws_s3_transfer_acceleration_endpoint(
+                endpoint_for_msc
+            ):
+                logger.warning(
+                    "MSC S3 ignores Transfer Acceleration endpoint %r for API calls "
+                    "(ListObjectsV2 / sync_from require the default regional endpoint). "
+                    "self.endpoint_url is unchanged; set use_transfer_acceleration=False "
+                    "to avoid this message if acceleration is not required.",
+                    endpoint_for_msc,
+                )
+                endpoint_for_msc = None
+            if endpoint_for_msc:
+                s3_storage_provider_options["endpoint_url"] = endpoint_for_msc
 
             # Enable Rust client for high-performance I/O
             if use_rust_client:
@@ -504,6 +530,24 @@ class MSCObjectStorage(ObjectStorage):
             if self.storage_type == "s3"
             else f"azure://{self.azure_container_name if self.storage_type == 'azure' else self.bucket}"
         )
+        if len(files) == 0:
+            if self.storage_type == "s3":
+                destination = f"s3://{self.bucket}/{remote_prefix}"
+            else:
+                container = (
+                    self.azure_container_name
+                    if self.storage_type == "azure"
+                    else self.bucket
+                )
+                destination = f"azure://{container}/{remote_prefix}"
+            return UploadResult(
+                success=True,
+                files_uploaded=0,
+                total_bytes=0,
+                destination=destination,
+                errors=[],
+            )
+
         logger.info(
             f"[MSC] Syncing {len(files)} files ({total_bytes / (1024 * 1024):.2f} MB) "
             f"from {local_directory} to {storage_prefix}/{remote_prefix}"
@@ -519,7 +563,6 @@ class MSCObjectStorage(ObjectStorage):
                 source_path=source_path,
                 target_path=f"/{remote_prefix}" if remote_prefix else "/",
             )
-
             logger.info(f"[MSC] Sync completed: {result}")
             files_uploaded = len(files)
 

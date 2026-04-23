@@ -154,6 +154,18 @@ class TestMSCObjectStorage:
             assert "s3://b/prefix" in result.destination
             assert result.errors == []
 
+    def test_upload_directory_empty_skips_sync_from(self, mock_msc):
+        """Empty local directory returns success without calling sync_from."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = MSCObjectStorage(bucket="b", region="us-east-1")
+            result = storage.upload_directory(tmpdir, "prefix")
+            assert result.success is True
+            assert result.files_uploaded == 0
+            assert result.total_bytes == 0
+            assert result.destination == "s3://b/prefix"
+            assert result.errors == []
+            storage._storage_client.sync_from.assert_not_called()
+
     def test_upload_directory_failure_appends_errors(self, mock_msc):
         """upload_directory returns success=False and appends error when sync_from raises."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -312,6 +324,14 @@ class TestMSCObjectStorageS3Additional:
         """S3 init with use_transfer_acceleration sets accelerate endpoint URL."""
         storage = MSCObjectStorage(bucket="my-bucket", use_transfer_acceleration=True)
         assert storage.endpoint_url == "https://my-bucket.s3-accelerate.amazonaws.com"
+
+    def test_init_msc_profile_omits_transfer_acceleration_endpoint(self, mock_msc):
+        """MSC S3 options must not use the accelerate hostname (ListObjectsV2)."""
+        MSCObjectStorage(bucket="my-bucket", use_transfer_acceleration=True)
+        first = mock_msc.StorageClientConfig.from_dict.call_args_list[0]
+        cfg = first.kwargs["config_dict"]
+        opts = cfg["profiles"]["e2studio-s3"]["storage_provider"]["options"]
+        assert "endpoint_url" not in opts
 
     def test_init_s3_with_credentials(self, mock_msc):
         """S3 init with credentials sets AWS environment variables."""
