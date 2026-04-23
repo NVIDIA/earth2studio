@@ -38,6 +38,7 @@ Key features:
 - [Architecture](#architecture)
   - [Pipeline interface](#pipeline-interface)
   - [Custom pipelines](#custom-pipelines)
+- [Extending the recipe](./docs/extending.md) — BYO data, custom models, custom pipelines
 - [Testing](#testing)
 
 ## Quick Start
@@ -92,6 +93,15 @@ torchrun --nproc_per_node=8 --standalone predownload.py
 # (variables taken from output.variables — only what will be scored)
 python predownload.py predownload.verification.enabled=true
 ```
+
+> **Note.** `predownload.verification.enabled` is also consulted by
+> `score.py` to decide whether `data.zarr` holds verification data: when
+> it's false (the default), the scorer refuses to treat an IC-only
+> `data.zarr` as a verification store.  Set it in your **campaign
+> config**, not just as a one-shot CLI override to `predownload.py` —
+> otherwise `score.py` will read the default (`false`) and fail with
+> "No verification data found".  The bundled campaigns (`dlwp_*`,
+> `fcn3_*`, `dlesym_*`) set it explicitly.
 
 ### Zarr stores
 
@@ -559,13 +569,22 @@ recipes/eval/
 │       ├── dlwp_2024_monthly.yaml
 │       └── fcn3_2024_monthly.yaml
 ├── src/
-│   ├── pipeline.py      # Pipeline ABC + built-in pipelines
+│   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
+│   │   ├── base.py      #   Pipeline ABC, PredownloadStore, shared run loop
+│   │   ├── forecast.py  #   ForecastPipeline + DiagnosticPipeline
+│   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
+│   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
+│   ├── report/          # Report package — aggregation, plotting, sections
+│   │   ├── aggregation.py #  Score loading, time/ensemble aggregation, spread-skill
+│   │   ├── plotting.py  #   Matplotlib + cartopy primitives
+│   │   ├── sections.py  #   Section renderers (summary, curves, heatmaps, visualization)
+│   │   └── main.py      #   generate_report orchestration
 │   ├── scoring.py       # Scoring logic — metrics, data alignment, score loop
-│   ├── report.py        # Report generation — aggregation, plotting, markdown
 │   ├── work.py          # WorkItem, distribution, resume markers
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
 │   ├── output.py        # OutputManager (zarr lifecycle)
+│   ├── grids.py         # Grid-resolver helpers (goes, mrms, gfs, arco)
 │   └── data.py          # PredownloadedSource (zarr → DataSource)
 └── pyproject.toml
 ```
@@ -574,21 +593,22 @@ Each source module has a specific scoped responsibilities:
 
 | Module | Responsibility |
 |---|---|
-| `pipeline.py` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic) |
+| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, DLESyM, StormScope) |
+| `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 | `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |
-| `report.py` | Score aggregation, matplotlib plotting, markdown report assembly |
 | `work.py` | Define work units; parse ICs from config; distribute across ranks |
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
+| `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `gfs_grid`, `arco_grid`) |
 | `data.py` | `PredownloadedSource` — DataSource wrapper for predownloaded zarr stores |
 
 ### Pipeline interface
 
 All inference logic is driven by a **Pipeline** — an abstract base class
-(`src/pipeline.py`) that separates per-work-item inference from the shared
-scaffolding (work iteration, output filtering, ensemble injection, zarr
-writes).  Subclasses implement three methods:
+(`src/pipelines/base.py`) that separates per-work-item inference from the
+shared scaffolding (work iteration, output filtering, ensemble injection,
+zarr writes).  Subclasses implement three methods:
 
 | Method | Purpose |
 |---|---|
@@ -600,12 +620,18 @@ The base class `Pipeline.run()` handles everything else: iterating work
 items, building the output variable filter, injecting the ensemble dimension,
 and writing to the `OutputManager`.
 
-Two built-in pipelines are provided:
+Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
 
-- **`ForecastPipeline`** (`pipeline=forecast`) — prognostic rollout with
-  optional diagnostic models.  Yields one output per lead-time step.
-- **`DiagnosticPipeline`** (`pipeline=diagnostic`) — diagnostic-only (no
-  prognostic model).  Yields a single output per work item.
+- **`ForecastPipeline`** (`src.pipelines.forecast.ForecastPipeline`, the
+  default) — prognostic rollout with optional diagnostic models.  Yields
+  one output per lead-time step.
+- **`DiagnosticPipeline`** (`src.pipelines.forecast.DiagnosticPipeline`) —
+  diagnostic-only (no prognostic model).  Yields a single output per work
+  item.
+- **`DLESyMPipeline`** (`src.pipelines.dlesym.DLESyMPipeline`) — coupled
+  Earth-system forecast (atmos + ocean on different cadences).
+- **`StormScopePipeline`** (`src.pipelines.stormscope.StormScopePipeline`) —
+  coupled GOES/MRMS nowcasting.
 
 ### Custom pipelines
 
@@ -614,7 +640,7 @@ your Hydra config to the fully-qualified class name:
 
 ```python
 # my_pipeline.py
-from src.pipeline import Pipeline
+from src.pipelines import Pipeline
 
 class MyPipeline(Pipeline):
     def setup(self, cfg, device):

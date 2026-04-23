@@ -14,20 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""StormScope-specific utilities consumed by :class:`StormScopePipeline`.
+"""Hydra-instantiable grid resolvers for Earth2Studio data sources.
 
-StormScope's interpolator API requires the caller to supply source
-lat/lon grids for both IC and conditioning data.  Each data source
-exposes its grid slightly differently — some as class-level constants
-(GFS), some via a classmethod (GOES), some only via a sample fetch
-(MRMS).  Rather than scatter source-specific grid-resolution logic
-across the pipeline, this module offers small Hydra-instantiable
-helpers that each campaign config wires into the model block as
-``_target_`` entries.
+Some pipelines (e.g. StormScope's coupled GOES+MRMS setup) need to
+supply source lat/lon grids at setup time.  Each data source exposes
+its grid slightly differently — some as class-level constants (GFS,
+ARCO), some via a classmethod (GOES), some only via a sample fetch
+(MRMS).  This module centralises that per-source logic behind small
+resolvers each campaign config wires in via ``_target_``::
 
-Kept out of ``src.pipeline`` to avoid a circular import: this module
-imports only from ``earth2studio``, never from the recipe's own
-pipeline module.
+    ic_grid:
+        _target_: src.grids.goes_grid
+        satellite: goes16
+        scan_mode: C
+
+New pipelines that need grid information should either reuse these
+resolvers or add new ones here.
+
+This module intentionally imports only from ``earth2studio`` so that
+any recipe module can depend on it without risk of circular imports.
 """
 
 from __future__ import annotations
@@ -52,7 +57,7 @@ def goes_grid(
     StormScope model config::
 
         ic_grid:
-            _target_: src.stormscope.goes_grid
+            _target_: src.grids.goes_grid
             satellite: goes16
             scan_mode: C
     """

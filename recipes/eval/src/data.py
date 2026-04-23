@@ -18,15 +18,87 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Any
 
+import hydra
 import numpy as np
 import pandas as pd
 import xarray as xr
+from loguru import logger
+from omegaconf import DictConfig
 
 from earth2studio.data import DataSource
 from earth2studio.utils.type import TimeArray, VariableArray
+
+
+def resolve_ic_source(
+    cfg: DictConfig,
+    *,
+    store_name: str = "data.zarr",
+    byo: Any = None,
+    live_source: Any = None,
+) -> DataSource:
+    """Resolve the initial-condition data source for a pipeline.
+
+    Resolution order:
+
+    1. *byo* — explicit user-provided (BYO) override config node.  When
+       provided, Hydra-instantiated and returned directly.
+    2. ``<cfg.output.path>/<store_name>`` — predownloaded zarr cache.
+       When present, wrapped in :class:`PredownloadedSource`.
+    3. *live_source* — live source config node.  Hydra-instantiated
+       fresh.  Required if neither *byo* nor a cache is available.
+
+    Used by :mod:`main` (single-source: ``byo=cfg.get("ic_source")``,
+    ``live_source=cfg.data_source``) and by
+    :class:`~src.pipelines.stormscope.StormScopePipeline` (multi-source:
+    one call per model with ``store_name="data_<side>.zarr"`` and
+    ``live_source=cfg.model.<side>.ic_source``).
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full Hydra config — only ``cfg.output.path`` is consulted.
+    store_name : str
+        Filename of the cached zarr under ``cfg.output.path``.  Defaults
+        to ``"data.zarr"``.
+    byo : Any, optional
+        Explicit BYO override config (DictConfig node).  ``None`` means
+        no BYO override.
+    live_source : Any, optional
+        Live source config (DictConfig node) to fall back to.  Required
+        when there is no BYO override and no cache.
+
+    Returns
+    -------
+    DataSource
+
+    Raises
+    ------
+    ValueError
+        If no cache is present, no BYO override is provided, and
+        *live_source* is ``None``.
+    """
+    if byo is not None:
+        logger.info("Using user-provided ic source (BYO).")
+        return hydra.utils.instantiate(byo)
+
+    cache_path = os.path.join(cfg.output.path, store_name)
+    if os.path.exists(cache_path):
+        logger.info(f"Using predownloaded data store: {cache_path}")
+        return PredownloadedSource(cache_path)
+
+    if live_source is None:
+        raise ValueError(
+            f"resolve_ic_source: no cache at '{cache_path}', no BYO override, "
+            "and no live_source was provided."
+        )
+    logger.info(
+        f"No cache at '{cache_path}' — instantiating live source directly."
+    )
+    return hydra.utils.instantiate(live_source)
 
 
 class PredownloadedSource:

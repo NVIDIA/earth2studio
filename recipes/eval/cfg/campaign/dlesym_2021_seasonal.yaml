@@ -4,7 +4,7 @@
 defaults:
     - override /model: dlesym
 
-pipeline: dlesym
+pipeline: src.pipelines.dlesym.DLESyMPipeline
 run_id: dlesym_2021_seasonal
 
 start_times:
@@ -15,6 +15,14 @@ start_times:
 # 8 iterator steps × 96h = 32 days of forecast per IC.
 # Output zarr lead_time dim has length 8*16 + 1 = 129.
 nsteps: 8
+
+# Cache the full forecast-window valid times into data.zarr so score.py can
+# use it as the verification store.  Must be set here (not just on the
+# predownload.py CLI) because score.py re-reads this block to decide whether
+# data.zarr holds verification data.
+predownload:
+    verification:
+        enabled: true
 
 output:
     variables:

@@ -16,11 +16,11 @@ goes:
         satellite: goes16
         scan_mode: C
     ic_grid:
-        _target_: src.stormscope.goes_grid
+        _target_: src.grids.goes_grid
         satellite: goes16
         scan_mode: C
     conditioning_grid:
-        _target_: src.stormscope.gfs_grid
+        _target_: src.grids.gfs_grid
 
 mrms:
     architecture: earth2studio.models.px.StormScopeMRMS
@@ -33,9 +33,9 @@ mrms:
     ic_source:
         _target_: earth2studio.data.MRMS
     ic_grid:
-        _target_: src.stormscope.mrms_grid
+        _target_: src.grids.mrms_grid
     conditioning_grid:
-        _target_: src.stormscope.goes_grid
+        _target_: src.grids.goes_grid
         satellite: goes16
         scan_mode: C
 

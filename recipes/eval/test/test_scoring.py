@@ -885,10 +885,11 @@ class TestRunScoring:
 
 
 class TestOpenVerificationSourceHook:
-    """``open_verification_source`` consults the pipeline hook after BYO but
-    before falling back to verification.zarr / data.zarr.  A pipeline whose
-    ``verification_source`` returns a DataSource must be honored; one that
-    returns ``None`` must fall through to the default lookup."""
+    """``open_verification_source`` delegates to
+    :meth:`Pipeline.verification_source`.  The base implementation picks
+    up BYO overrides, ``verification.zarr``, ``data.zarr``, or
+    per-model ``data_*.zarr`` (→ CompositeSource) in that order, so the
+    pipeline class selects the correct verification layout."""
 
     def _make_cfg(self, tmp_path, pipeline: str):
         return OmegaConf.create(
@@ -898,10 +899,10 @@ class TestOpenVerificationSourceHook:
             }
         )
 
-    def test_stormscope_hook_wins_over_default_lookup(self, tmp_path):
-        # Write per-model IC zarrs so the StormScope hook returns a
-        # CompositeSource.  Leave verification.zarr / data.zarr absent —
-        # the default lookup would otherwise raise FileNotFoundError.
+    def test_stormscope_picks_up_per_model_stores(self, tmp_path):
+        # Write per-model IC zarrs so the default glob picks them up and
+        # wraps them in a CompositeSource.  Leave verification.zarr /
+        # data.zarr absent so the fallback path is exercised.
         from src.data import CompositeSource
         from test.test_data import _create_yx_zarr_store
 
@@ -913,17 +914,19 @@ class TestOpenVerificationSourceHook:
             tmp_path / "data_mrms.zarr", t, ["refc"]
         )
 
-        cfg = self._make_cfg(tmp_path, pipeline="stormscope")
+        cfg = self._make_cfg(
+            tmp_path,
+            pipeline="src.pipelines.stormscope.StormScopePipeline",
+        )
         src = open_verification_source(cfg)
         assert isinstance(src, CompositeSource)
 
-    def test_forecast_pipeline_falls_through_to_default(self, tmp_path):
-        # Default pipeline (forecast) returns None from the hook; with no
-        # override and no predownloaded stores, the default lookup raises.
+    def test_raises_when_no_verification_data_available(self, tmp_path):
+        # With no override and no predownloaded stores, the hook raises.
         cfg = OmegaConf.create(
             {
                 "output": {"path": str(tmp_path)},
-                "pipeline": "forecast",
+                "pipeline": "src.pipelines.forecast.ForecastPipeline",
             }
         )
         with pytest.raises(FileNotFoundError, match="No verification data"):

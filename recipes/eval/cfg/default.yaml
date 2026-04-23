@@ -29,11 +29,15 @@ start_times:
 # ic_block_step: 24   # hours between ICs
 
 # ---------------------------------------------------------------------------
-# Pipeline type
+# Pipeline
 # ---------------------------------------------------------------------------
-# "forecast"    — prognostic rollout with optional diagnostics (default)
-# "diagnostic"  — diagnostic-only inference (no prognostic model, e.g. CorrDiff)
-pipeline: forecast
+# Fully qualified class path, or a {_target_: ...} block.  Built-in options:
+#   src.pipelines.forecast.ForecastPipeline     — prognostic rollout (default)
+#   src.pipelines.forecast.DiagnosticPipeline   — diagnostic-only (e.g. CorrDiff)
+#   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
+#   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
+# Custom pipelines: point at your own subclass of src.pipelines.Pipeline.
+pipeline: src.pipelines.forecast.ForecastPipeline
 
 # ---------------------------------------------------------------------------
 # Pre-download enforcement
@@ -115,7 +119,7 @@ output:
         lead_time: 1
 
 # ---------------------------------------------------------------------------
-# Pre-download settings (used by predownload.py, ignored by main.py)
+# Pre-download settings (used by predownload.py, consulted by score.py)
 # ---------------------------------------------------------------------------
 # predownload.py writes zarr stores into <output.path>/:
 #   - data.zarr       — IC data (and verification data when using the same
@@ -123,6 +127,14 @@ output:
 #   - verification.zarr — only created when verification.source is explicitly
 #                          set to a different data source.
 # Per-timestamp progress markers enable resume after interruption.
+#
+# `verification.enabled` is the source of truth for whether data.zarr holds
+# verification data.  score.py re-reads this block and falls back to
+# data.zarr only when `enabled=true` AND `source=null` (the merged path);
+# otherwise it raises rather than silently using an IC-only store.
+# If you want scoring, set `enabled=true` in your campaign config so it
+# applies to both predownload.py and score.py — don't pass it only as a
+# one-shot CLI override to predownload.py.
 predownload:
     overwrite: false             # if true, recreate stores from scratch
     verification:

@@ -36,7 +36,8 @@ from typing import Any
 import numpy as np
 import pytest
 import torch
-from src.pipeline import DLESyMPipeline, _unique_forecast_valid_times
+from src.pipelines import DLESyMPipeline
+from src.pipelines.dlesym import _unique_forecast_valid_times
 from src.work import WorkItem
 
 from earth2studio.utils.coords import CoordSystem

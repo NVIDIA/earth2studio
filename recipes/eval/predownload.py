@@ -22,9 +22,9 @@ as ``main.py`` so the two scripts stay in sync automatically.
 
 Architecture
 ------------
-Each :class:`~src.pipeline.Pipeline` subclass declares its predownload
-requirements by returning a list of :class:`~src.pipeline.PredownloadStore`
-entries from :meth:`~src.pipeline.Pipeline.predownload_stores`.  This
+Each :class:`~src.pipelines.Pipeline` subclass declares its predownload
+requirements by returning a list of :class:`~src.pipelines.PredownloadStore`
+entries from :meth:`~src.pipelines.Pipeline.predownload_stores`.  This
 script iterates that list and writes each store; no pipeline-specific
 logic lives here.
 
@@ -62,7 +62,7 @@ from physicsnemo.distributed import DistributedManager
 import hydra
 from src.distributed import configure_logging
 from src.output import OutputManager, build_predownload_coords, sentinel_path
-from src.pipeline import PredownloadStore, build_pipeline
+from src.pipelines import PredownloadStore, build_pipeline
 from src.predownload_utils import (
     compute_verification_times,
     infer_step_hours,

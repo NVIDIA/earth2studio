@@ -44,7 +44,6 @@ from earth2studio.data import DataSource
 from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem
 
-from .data import PredownloadedSource
 from .output import OutputManager
 from .work import write_scoring_marker
 
@@ -181,17 +180,13 @@ def open_prediction_store(cfg: DictConfig) -> xr.Dataset:
 
 
 def open_verification_source(cfg: DictConfig) -> DataSource:
-    """Open the verification data source.
+    """Open the verification data source via the pipeline hook.
 
-    Resolution order:
-
-    1. ``cfg.verification_source`` — a user-provided ``DataSource`` (BYO).
-    2. Pipeline hook ``Pipeline.verification_source(cfg)`` — used by
-       multi-source pipelines (e.g. StormScope) to return a
-       :class:`~src.data.CompositeSource` over per-model predownloaded
-       stores.  Returning ``None`` falls through.
-    3. ``verification.zarr`` — separate verification store from predownload.
-    4. ``data.zarr`` — merged IC + verification store from predownload.
+    Thin wrapper around :meth:`src.pipelines.base.Pipeline.verification_source`.
+    The base hook resolves ``cfg.verification_source`` (BYO) first, then
+    falls back to local predownload zarrs (``verification.zarr``,
+    ``data.zarr``, or per-model ``data_*.zarr`` → :class:`CompositeSource`).
+    Pipelines may override for non-standard layouts.
 
     Parameters
     ----------
@@ -205,36 +200,13 @@ def open_verification_source(cfg: DictConfig) -> DataSource:
     Raises
     ------
     FileNotFoundError
-        If no override is provided, no pipeline hook applies, and neither
-        predownload store exists.
+        If neither a BYO override nor any predownload store is available.
     """
-    if cfg.get("verification_source") is not None:
-        logger.info("Using user-provided verification_source (BYO).")
-        return hydra.utils.instantiate(cfg.verification_source)
-
-    # Ask the pipeline — multi-source pipelines supply their own verification.
     # Local import avoids a circular dependency at module import time.
-    from .pipeline import build_pipeline
+    from .pipelines import build_pipeline
 
     pipeline = build_pipeline(cfg)
-    pipeline_verif = pipeline.verification_source(cfg)
-    if pipeline_verif is not None:
-        return pipeline_verif
-
-    verif_path = os.path.join(cfg.output.path, "verification.zarr")
-    if os.path.exists(verif_path):
-        logger.info(f"Using verification store: {verif_path}")
-        return PredownloadedSource(verif_path)
-
-    data_path = os.path.join(cfg.output.path, "data.zarr")
-    if os.path.exists(data_path):
-        logger.info(f"Using merged data store for verification: {data_path}")
-        return PredownloadedSource(data_path)
-
-    raise FileNotFoundError(
-        f"No verification data found in '{cfg.output.path}'.\n"
-        "Run predownload.py with predownload.verification.enabled=true."
-    )
+    return pipeline.verification_source(cfg)
 
 
 def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:

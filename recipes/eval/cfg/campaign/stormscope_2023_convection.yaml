@@ -5,7 +5,7 @@
 defaults:
     - override /model: stormscope_goes_mrms
 
-pipeline: stormscope
+pipeline: src.pipelines.stormscope.StormScopePipeline
 run_id: stormscope_2023_convection
 
 start_times:
@@ -50,11 +50,11 @@ nsteps: 2                   # 2 × 60min = 2h forecast
 #    6x redundant fetches per hour collapse to 1.  Safe default for
 #    synoptic-scale conditioning.
 #
-# model:
-#     goes:
-#         conditioning_cadence: "1h"
+model:
+    goes:
+        conditioning_cadence: "1h"
 #
-# 2) ERA5 analysis instead of GFS forecast — useful for ablations that
+# 2) ERA5 reanalysis instead of GFS forecast — useful for ablations that
 #    compare skill against a "ground truth" conditioning signal.
 #    ARCO is a DataSource (not a ForecastSource), so no
 #    ValidTimeForecastAdapter is needed in the predownload path.
@@ -65,7 +65,7 @@ nsteps: 2                   # 2 × 60min = 2h forecast
 #             conditioning_data_source:
 #                 _target_: earth2studio.data.ARCO
 #         conditioning_grid:
-#             _target_: src.stormscope.arco_grid
+#             _target_: src.grids.arco_grid
 #         conditioning_cadence: "1h"   # ARCO is hourly too
 #
 #    Note: the GOES model's conditioning_variables are fixed by the

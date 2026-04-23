@@ -938,7 +938,12 @@ class TestRenderHeaderVisualization:
             }
         )
         report_cfg = OmegaConf.create({})
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path / "out")}})
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path / "out")},
+                "predownload": {"verification": {"enabled": True, "source": None}},
+            }
+        )
 
         result = render_header_visualization(
             ds,
@@ -988,7 +993,12 @@ class TestRenderVisualization:
             }
         )
         report_cfg = OmegaConf.create({})
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path / "out")}})
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path / "out")},
+                "predownload": {"verification": {"enabled": True, "source": None}},
+            }
+        )
 
         result = render_visualization(
             ds,
@@ -1042,6 +1052,7 @@ class TestGenerateReportWithVisualization:
                 "run_id": "vis_test",
                 "output": {"path": str(tmp_path / "out")},
                 "scoring": {"output": {"store_name": "scores.zarr"}},
+                "predownload": {"verification": {"enabled": True, "source": None}},
                 "report": {
                     "sections": [
                         {

@@ -24,8 +24,7 @@ the full coupling loop without loading either real checkpoint.
 
 Covers:
 
-* Helper functions — ``_infer_step_delta``, ``_concat_var_lists``,
-  ``_squeeze_batch``.
+* Helper functions — ``_infer_step_delta``, ``_concat_var_lists``.
 * ``StormScopePipeline.build_total_coords`` — shape of the zarr schema.
 * ``StormScopePipeline.run_item`` — coupling-loop call order (GOES
   forward, then MRMS with GOES-state as conditioning, then both
@@ -42,12 +41,11 @@ import pytest
 import torch
 import xarray as xr
 from omegaconf import OmegaConf
-from src.data import CompositeSource, PredownloadedSource
-from src.pipeline import (
-    StormScopePipeline,
+from src.data import CompositeSource, PredownloadedSource, resolve_ic_source
+from src.pipelines import StormScopePipeline
+from src.pipelines.stormscope import (
     _concat_var_lists,
     _infer_step_delta,
-    _squeeze_batch,
 )
 from src.work import WorkItem
 
@@ -73,33 +71,6 @@ class TestConcatVarLists:
             "abi07c",
             "refc",
         ]
-
-
-class TestSqueezeBatch:
-    def test_removes_batch_dim(self):
-        coords = OrderedDict(
-            [
-                ("batch", np.arange(1)),
-                ("time", np.array([np.datetime64("2023-12-05T12")])),
-                ("lead_time", np.array([np.timedelta64(60, "m")])),
-                ("variable", np.array(["abi01c"])),
-                ("y", np.arange(4)),
-                ("x", np.arange(5)),
-            ]
-        )
-        x = torch.zeros(1, 1, 1, 1, 4, 5)
-        out_x, out_coords = _squeeze_batch(x, coords)
-        assert out_x.shape == (1, 1, 1, 4, 5)
-        assert "batch" not in out_coords
-
-    def test_no_op_when_batch_absent(self):
-        coords = OrderedDict(
-            [("time", np.array([np.datetime64("2023-12-05T12")]))]
-        )
-        x = torch.zeros(1)
-        out_x, out_coords = _squeeze_batch(x, coords)
-        assert torch.equal(out_x, x)
-        assert list(out_coords.keys()) == ["time"]
 
 
 # ---------------------------------------------------------------------------
@@ -398,14 +369,23 @@ class TestStormScopeRunItem:
         for _, coords in outputs:
             assert list(coords["variable"]) == expected_vars
 
-    def test_yielded_tensor_has_no_batch_dim(self, pipeline):
+    def test_yielded_tensor_includes_batch_dim(self, pipeline):
+        """run_item yields the raw model output (with a size-1 ``batch`` dim).
+
+        :class:`Pipeline.run` squeezes the ``batch`` axis before output
+        filtering because :attr:`StormScopePipeline._run_item_includes_batch_dim`
+        is ``True``; this test pins the contract at the subclass boundary.
+        """
+        assert pipeline._run_item_includes_batch_dim is True
+
         item = WorkItem(time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0)
         outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
 
         for x, coords in outputs:
-            assert "batch" not in coords
-            # Expect (time=1, lead=1, var=N, y=4, x=5) = 5 dims
-            assert x.ndim == 5
+            assert "batch" in coords
+            # Expect (batch=1, time=1, lead=1, var=N, y=4, x=5) = 6 dims
+            assert x.ndim == 6
+            assert x.shape[0] == 1
             assert x.shape[-2:] == (4, 5)
 
     def test_mrms_conditioning_is_goes_state(self, pipeline):
@@ -423,15 +403,15 @@ class TestStormScopeRunItem:
 
 
 # ---------------------------------------------------------------------------
-# _resolve_ic_source — predownloaded-cache preference
+# resolve_ic_source — predownloaded-cache preference (StormScope call path)
 # ---------------------------------------------------------------------------
 
 
 class TestResolveIcSource:
-    """Verify StormScopePipeline._resolve_ic_source picks the right source.
+    """Verify :func:`src.data.resolve_ic_source` honours StormScope's call path.
 
     The helper decides between:
-    * a :class:`PredownloadedSource` wrapping ``<output.path>/<store>.zarr``
+    * a :class:`PredownloadedSource` wrapping ``<output.path>/<store_name>``
       when the directory exists on disk, and
     * a hydra-instantiated live source otherwise.
     """
@@ -463,9 +443,10 @@ class TestResolveIcSource:
                 },
             }
         )
-        pipeline = StormScopePipeline()
-        src = pipeline._resolve_ic_source(
-            cfg, "data_goes", cfg.model.goes.ic_source
+        src = resolve_ic_source(
+            cfg,
+            store_name="data_goes.zarr",
+            live_source=cfg.model.goes.ic_source,
         )
         assert isinstance(src, PredownloadedSource)
 
@@ -484,9 +465,10 @@ class TestResolveIcSource:
                 },
             }
         )
-        pipeline = StormScopePipeline()
-        src = pipeline._resolve_ic_source(
-            cfg, "data_goes", cfg.model.goes.ic_source
+        src = resolve_ic_source(
+            cfg,
+            store_name="data_goes.zarr",
+            live_source=cfg.model.goes.ic_source,
         )
         assert isinstance(src, OrderedDict)
 
@@ -514,9 +496,9 @@ def _write_yx_zarr(path, variables):
 
 
 class TestVerificationSource:
-    """StormScopePipeline.verification_source returns a CompositeSource
-    over ``data_goes.zarr`` / ``data_mrms.zarr`` when both predownloaded
-    stores are present, and ``None`` otherwise."""
+    """``Pipeline.verification_source`` honours the per-model ``data_*.zarr``
+    layout used by StormScope via its default ``verification_zarr_paths``
+    discovery (the StormScope subclass no longer needs to override)."""
 
     def test_returns_composite_when_both_stores_exist(self, tmp_path):
         _write_yx_zarr(tmp_path / "data_goes.zarr", ["abi01c", "abi02c"])
@@ -532,17 +514,20 @@ class TestVerificationSource:
         result = src(t, ["abi01c", "refc"])
         assert result.sizes["variable"] == 2
 
-    def test_returns_none_when_no_stores_exist(self, tmp_path):
+    def test_raises_when_no_stores_exist(self, tmp_path):
         cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
         pipeline = StormScopePipeline()
-        assert pipeline.verification_source(cfg) is None
+        with pytest.raises(FileNotFoundError):
+            pipeline.verification_source(cfg)
 
-    def test_returns_composite_even_when_only_one_store_exists(self, tmp_path):
+    def test_returns_predownloaded_source_when_only_one_store_exists(
+        self, tmp_path
+    ):
         _write_yx_zarr(tmp_path / "data_goes.zarr", ["abi01c"])
         cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
         pipeline = StormScopePipeline()
         src = pipeline.verification_source(cfg)
-        assert isinstance(src, CompositeSource)
+        assert isinstance(src, PredownloadedSource)
 
 
 # ---------------------------------------------------------------------------

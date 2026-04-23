@@ -14,45 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
 import hydra
 import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-from src.data import PredownloadedSource
+from src.data import resolve_ic_source
 from src.distributed import configure_logging
 from src.output import OutputManager, sentinel_path
-from src.pipeline import build_pipeline
+from src.pipelines import build_pipeline
 from src.work import (
     build_work_items,
     clear_progress,
     distribute_work,
     filter_completed_items,
 )
-
-from earth2studio.data import DataSource
-
-
-def _resolve_ic_source(cfg: DictConfig) -> DataSource:
-    """Resolve the initial-condition data source.
-
-    Order: explicit ``ic_source`` override → predownloaded ``data.zarr`` cache
-    → live ``cfg.data_source``.
-    """
-    if cfg.get("ic_source") is not None:
-        logger.info("Using user-provided ic_source (BYO).")
-        return hydra.utils.instantiate(cfg.ic_source)
-
-    cache_path = os.path.join(cfg.output.path, "data.zarr")
-    if os.path.exists(cache_path):
-        logger.info(f"Using predownloaded data store: {cache_path}")
-        return PredownloadedSource(cache_path)
-
-    logger.info("No cache found — instantiating cfg.data_source directly.")
-    return hydra.utils.instantiate(cfg.data_source)
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="default")
@@ -126,7 +103,11 @@ def main(cfg: DictConfig) -> None:
     # Multi-source pipelines: pipeline.setup() has already cached its sources
     # internally, so main.py passes None and the pipeline ignores it.
     if pipeline.needs_data_source:
-        data_source: DataSource | None = _resolve_ic_source(cfg)
+        data_source = resolve_ic_source(
+            cfg,
+            byo=cfg.get("ic_source"),
+            live_source=cfg.data_source,
+        )
     else:
         data_source = None
 
