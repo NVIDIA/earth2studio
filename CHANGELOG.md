@@ -15,12 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CAMS Global atmospheric composition forecast data source (`CAMS_FX`)
 - Added MetOp AMSU-A Level 1B brightness temperature data source (`MetOpAMSUA`)
 - Added MetOp AVHRR Level 1B radiance/brightness temperature data source (`MetOpAVHRR`)
-- Added AMSU-A (channels 1-14) and AVHRR channel variables to `E2STUDIO_VOCAB`
 - Added JPSS ATMS Level 1 BUFR brightness-temperature data source (`JPSS_ATMS`)
 - Added JPSS CrIS FSR Level 1 spectral radiance data source (`JPSS_CRIS`)
 - Added MetOp IASI Level 1C infrared brightness temperature data source (`MetOpIASI`)
 - Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
-- Added `NClimGridLexicon` for NClimGrid variable mappings (temperature, precipitation, SPI)
+- Added MTG-I FCI Level-1C Full Disk satellite radiance data source (`MeteosatFCI`)
 
 ### Changed
 
