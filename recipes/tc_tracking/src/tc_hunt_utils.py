@@ -21,6 +21,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
@@ -136,6 +137,39 @@ def get_set_of_random_seeds(
         seeds = rng.integers(low=0, high=2**32, size=n_batches * n_ics, dtype=np.uint32)
 
     return seeds
+
+
+def assign_runs_to_rank(items: list[Any]) -> list[Any] | None:
+    """Partition work items across distributed ranks.
+
+    Splits *items* evenly across all ranks via contiguous slicing, which is
+    deterministic for a deterministic input. Returns ``None`` for ranks that
+    receive no work.
+
+    Parameters
+    ----------
+    items : list[Any]
+        List of work items (e.g. ``(initial_condition, member_indices, seed)``
+        tuples or storm names).
+
+    Returns
+    -------
+    list[Any] | None
+        Subset of *items* assigned to this rank, or ``None`` if idle.
+    """
+    dist = DistributedManager()
+
+    items_per_rank = len(items) // dist.world_size
+    if len(items) % dist.world_size != 0:
+        items_per_rank += 1
+
+    items = items[dist.rank * items_per_rank : (dist.rank + 1) * items_per_rank]
+
+    if len(items) == 0:
+        logger.info(f"nothing to do for rank {dist.rank}, exiting")
+        return None
+
+    return items
 
 
 def run_with_rank_ordered_execution(

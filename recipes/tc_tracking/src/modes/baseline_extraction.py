@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import sys
 import urllib.request
 
 import numpy as np
@@ -26,7 +27,11 @@ from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
-from src.tc_hunt_utils import great_circle_distance, run_with_rank_ordered_execution
+from src.tc_hunt_utils import (
+    assign_runs_to_rank,
+    great_circle_distance,
+    run_with_rank_ordered_execution,
+)
 from src.tempest_extremes import TempestExtremes
 
 IBTRACS_URL = (
@@ -94,7 +99,7 @@ def extract_from_historic_data(
     pd.DataFrame
         Extracted TC tracks from the reanalysis data.
     """
-    times = np.arange(np.timedelta64(0, "h"), n_steps * time_step, time_step)
+    times = np.arange(n_steps) * time_step
     data_source = data_source_mngr.select_data_source(ic + times)
 
     xx, coords = fetch_data(
@@ -192,12 +197,9 @@ def extract_from_ibtracs(
     ic = storm.time[0]
 
     # Ensure ic is at 00h, 06h, 12h, or 18h
-    ic_datetime = pd.to_datetime(ic)
-    hour = ic_datetime.hour
-    if hour % 6 != 0:
-        hours_to_subtract = hour % 6
-        ic = ic - np.timedelta64(hours_to_subtract, "h")
-        ic = ic.astype("datetime64[h]")
+    hours = pd.Timestamp(ic).hour % 6
+    if hours:
+        ic = (ic - np.timedelta64(hours, "h")).astype("datetime64[h]")
 
     n_steps = (storm.time[-1] - ic) // time_step
     if (storm.time[-1] - ic) % time_step != 0:
@@ -233,18 +235,9 @@ def match_tracks(
     pd.DataFrame
         The matched track, or an empty DataFrame if no match is found.
     """
-    times = np.array(
-        [
-            pd.to_datetime(
-                f"{hist_tracks['year'].iloc[jj]}-"
-                f"{int(hist_tracks.iloc[jj]['month']):02d}-"
-                f"{int(hist_tracks.iloc[jj]['day']):02d} "
-                f"{int(hist_tracks.iloc[jj]['hour']):02d}:00:00"
-            )
-            for jj in range(len(hist_tracks))
-        ]
+    hist_tracks.insert(
+        0, "time", pd.to_datetime(hist_tracks[["year", "month", "day", "hour"]])
     )
-    hist_tracks.insert(0, "time", times)
 
     unique_track_ids = hist_tracks["track_id"].unique()
 
@@ -363,6 +356,79 @@ def write_track_to_csv(
     matched_track.to_csv(os.path.join(store_dir, csv_name), index=False)
 
 
+def configure_cases(cfg: DictConfig) -> list[str] | None:
+    """Return the subset of case names this rank should process.
+
+    Mirrors :func:`generate_tc_hunt_ensembles.configure_runs` for the simpler
+    baseline setup where each work item is a single named storm. The case
+    list is sorted before partitioning so the rank assignment is fully
+    deterministic.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object containing a ``cases`` mapping.
+
+    Returns
+    -------
+    list[str] | None
+        Storm names assigned to this rank, or ``None`` if idle.
+    """
+    cases = sorted(cfg.cases.keys())
+    if not DistributedManager().distributed:
+        return cases
+    return assign_runs_to_rank(cases)
+
+
+def process_case(
+    case: str,
+    cfg: DictConfig,
+    ibtracs: tropytracks.TrackDataset,
+    data_source_mngr: DataSourceManager,
+    time_step: np.timedelta64,
+    vars: list[str],
+) -> pd.DataFrame | None:
+    """Run the full baseline pipeline for one storm.
+
+    Parameters
+    ----------
+    case : str
+        Storm name (must match an IBTrACS entry).
+    cfg : DictConfig
+        Hydra configuration object.
+    ibtracs : tropytracks.TrackDataset
+        Pre-loaded IBTrACS dataset.
+    data_source_mngr : DataSourceManager
+        Manager providing the correct data source for the time range.
+    time_step : np.timedelta64
+        Time step for the reanalysis extraction.
+    vars : list[str]
+        Variables required by TempestExtremes.
+
+    Returns
+    -------
+    pd.DataFrame | None
+        The merged matched track ready for :func:`write_track_to_csv`, or
+        ``None`` if no reanalysis track matched within the 300 km threshold.
+    """
+    ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
+
+    hist_tracks = extract_from_historic_data(
+        cfg=cfg,
+        ic=ic,
+        n_steps=n_steps,
+        time_step=time_step,
+        vars=vars,
+        data_source_mngr=data_source_mngr,
+    )
+
+    matched_track = match_tracks(ib_storm, hist_tracks, case)
+    if matched_track.empty:
+        return None
+
+    return add_ibtracs_data(matched_track, ib_storm)
+
+
 def extract_baseline(
     cfg: DictConfig,
     time_step: np.timedelta64 = np.timedelta64(6, "h"),
@@ -373,7 +439,9 @@ def extract_baseline(
     For each case defined in the configuration, queries IBTrACS to determine
     when the storm was active, fetches the corresponding reanalysis data,
     runs TempestExtremes to extract all TC tracks, and matches the result
-    against IBTrACS to identify the target storm.
+    against IBTrACS to identify the target storm. Cases are partitioned
+    deterministically across distributed ranks; each rank writes its own
+    per-storm CSV files independently.
 
     Parameters
     ----------
@@ -403,27 +471,19 @@ def extract_baseline(
 
     data_source_mngr = DataSourceManager(cfg)
 
-    for case in cfg.cases:
-        ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
+    cases = configure_cases(cfg)
+    if cases is None:
+        DistributedManager().cleanup()
+        sys.exit()
 
-        hist_tracks = extract_from_historic_data(
-            cfg=cfg,
-            ic=ic,
-            n_steps=n_steps,
-            time_step=time_step,
-            vars=vars,
-            data_source_mngr=data_source_mngr,
+    for case in cases:
+        matched_track = process_case(
+            case, cfg, ibtracs, data_source_mngr, time_step, vars
         )
-
-        matched_track = match_tracks(ib_storm, hist_tracks, case)
-
-        if matched_track.empty:
+        if matched_track is None:
             logger.warning(
                 f"no reanalysis track matched storm {case} within the 300 km "
                 f"threshold — skipping CSV output"
             )
             continue
-
-        matched_track = add_ibtracs_data(matched_track, ib_storm)
-
         write_track_to_csv(matched_track, case, cfg.store_dir, cfg.cases[case].basin)
