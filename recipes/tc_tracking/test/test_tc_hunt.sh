@@ -35,23 +35,15 @@ mapfile -t track_files < <(ls "$baseline_dir"/tracks_*.csv | sort | grep -E 'mem
 seed_mem3=$(printf '%s\n' "${track_files[@]}" | grep 'mem_0003' | grep -oP 'seed_\K\d+')
 seed_mem4=$(printf '%s\n' "${track_files[@]}" | grep 'mem_0004' | grep -oP 'seed_\K\d+')
 
-# Check if seeds in reproduce_helene.yaml match, update if not
-yaml_seed3=$(grep -oP "\['2024-09-24 00:00:00', 3, \K\d+" cfg/reproduce_helene.yaml)
-yaml_seed4=$(grep -oP "\['2024-09-24 00:00:00', 4, \K\d+" cfg/reproduce_helene.yaml)
-
-if [ "$seed_mem3" != "$yaml_seed3" ] || [ "$seed_mem4" != "$yaml_seed4" ]; then
-    echo "WARNING: Updating seeds in cfg/reproduce_helene.yaml (mem3: $yaml_seed3->$seed_mem3, mem4: $yaml_seed4->$seed_mem4)"
-    sed -i "s/\['2024-09-24 00:00:00', 3, [0-9]*\]/['2024-09-24 00:00:00', 3, $seed_mem3]/" cfg/reproduce_helene.yaml
-    sed -i "s/\['2024-09-24 00:00:00', 4, [0-9]*\]/['2024-09-24 00:00:00', 4, $seed_mem4]/" cfg/reproduce_helene.yaml
-fi
-
-# Run reproduce
+# Run reproduce (seeds injected via Hydra overrides so the config stays untouched)
 echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo " >>> reproducing members 2, 3 and 4. might take a couple of minutes..."
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
+python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
+    "reproduce_members.0.2=${seed_mem3}" \
+    "reproduce_members.1.2=${seed_mem4}"
 
 # Compare track files for members 3 and 4, error if any differ
 for f in "${track_files[@]}"; do
@@ -68,6 +60,6 @@ for f in "${track_files[@]}"; do
 done
 echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo " >>> all good, yay (: track files have been reproduced successfully"
+echo " >>> all good, yay (: track files were reproduced successfully"
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""

@@ -8,11 +8,13 @@ authors = [
   { name="NVIDIA Earth-2 Team" },
 ]
 dependencies = [
-    "earth2studio[data,dlwp,perturbation,statistics,utils]",
+    "earth2studio[data,dlwp,fcn3,perturbation,statistics,utils]",
     "hydra-core>=1.3.0",
     "omegaconf",
     "nvidia-physicsnemo>=2.0",
     "zarr>=3.0.0",
+    "matplotlib",
+    "cartopy",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +35,7 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 # ==== UV configuration ====
 [tool.uv]
 override-dependencies = ["onnx; python_full_version < '3.13'"]
+no-build-isolation-package = ["torch-harmonics"]
 
 [tool.uv.sources]
 earth2studio = { path = "../../", editable = true }

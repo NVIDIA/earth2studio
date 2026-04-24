@@ -15,8 +15,8 @@ model installs and suggested environment set up for the most complete experience
 
 ## Install using Pip
 
-Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); make sure it
-is installed correctly for your system first.
+Earth2Studio runs on [PyTorch](https://pytorch.org/get-started/locally/); **make sure it
+is installed correctly for your system first**.
 To get the latest release of Earth2Studio, install from the Python index.
 
 ```bash
@@ -30,7 +30,7 @@ and it's recommended that users use an uv project for the best install experienc
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
-uv init --python=3.12
+uv init --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
@@ -523,7 +523,6 @@ uv add earth2studio --extra corrdiff
 :::::
 :::::{tab-item} Cyclone Trackers
 Notes: Additional dependencies for cyclone tracking models `TCTrackerVitart` and `TCTrackerWuDuan`.
-Only Python 3.12 and below support.
 
 ::::{tab-set}
 :::{tab-item} uv
@@ -839,14 +838,14 @@ the following commands:
 
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
-uv init --python=3.12
+uv init --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
 or if you are already inside an existing uv project:
 
 ```bash
-uv venv --python=3.12
+uv venv --python=3.13
 uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
 ```
 
@@ -909,7 +908,7 @@ However this demonstrates that in principle Earth2Studio can be installed using 
 package tooling.
 
 ```bash
-conda create -n earth2studio python=3.12
+conda create -n earth2studio python=3.13
 conda activate earth2studio
 
 uv pip install --system --break-system-packages "earth2studio@git+https://github.com/NVIDIA/earth2studio.git@0.13.0"
@@ -924,8 +923,8 @@ The following are recommended to closely match development and automation enviro
 minimizing the chance for unexpected incompatibilities:
 
 - OS: Ubuntu 24.04 LTS
-- Python Version: 3.12
-- CUDA Version: 12.8
+- Python Version: 3.13
+- CUDA Version: 13.0
 
 ## Hardware
 

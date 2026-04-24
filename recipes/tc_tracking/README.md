@@ -277,9 +277,10 @@ cyclone_tracking:
     # path to orography data; local NC file or URL
     # (only needed if height is used)
     orography_path: https://huggingface.co/nvidia/fourcastnet3/blob/main/orography.nc
-    # --- optional (shown with defaults) ---
-    keep_raw_data: False        # keep raw field data used for tracking
-    scratch_dir: null           # scratch directory for intermediate files (null = auto-detect /dev/shm, fall back to disk)
+    # keep raw field data used for tracking
+    keep_raw_data: False
+    # scratch directory for intermediate files (null = auto-detect /dev/shm, fall back to disk)
+    scratch_dir: null
     task_timeout_seconds: 120   # timeout for tracking tasks
     print_te_output: False      # print TE output to terminal
     max_workers_per_rank: 8     # max concurrent TE subprocesses per rank

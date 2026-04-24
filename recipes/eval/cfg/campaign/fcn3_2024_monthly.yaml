@@ -1,0 +1,139 @@
+# @package _global_
+# FCN3 monthly 2024 — 4-member ensemble, monthly ICs, 14-day forecasts.
+# 12 ICs x 4 members = 48 work items
+defaults:
+    - override /model: fcn3
+
+run_id: fcn3_2024_monthly
+
+# Every month in 2024 (12 ICs)
+start_times:
+    - "2024-01-01 00:00:00"
+    - "2024-02-01 00:00:00"
+    - "2024-03-01 00:00:00"
+    - "2024-04-01 00:00:00"
+    - "2024-05-01 00:00:00"
+    - "2024-06-01 00:00:00"
+    - "2024-07-01 00:00:00"
+    - "2024-08-01 00:00:00"
+    - "2024-09-01 00:00:00"
+    - "2024-10-01 00:00:00"
+    - "2024-11-01 00:00:00"
+    - "2024-12-01 00:00:00"
+
+nsteps: 56
+ensemble_size: 4
+resume: true
+
+perturbation: null
+
+output:
+    overwrite: false
+    variables:
+        # Surface (7)
+        - u10m
+        - v10m
+        - u100m
+        - v100m
+        - t2m
+        - msl
+        - tcwv
+        # U-wind at 2 pressure levels
+        - u500
+        - u850
+        # V-wind at 2 pressure levels
+        - v500
+        - v850
+        # Geopotential at 2 pressure levels
+        - z500
+        - z850
+        # Temperature at 2 pressure levels
+        - t500
+        - t850
+        # Specific humidity at 2 pressure levels
+        - q500
+        - q850
+
+scoring:
+    metrics:
+        mse:
+            _target_: src.metrics.mse
+            reduction_dimensions: [lat, lon]
+        ensemble_mean_mse:
+            _target_: src.metrics.mse
+            ensemble_dimension: ensemble
+            reduction_dimensions: [lat, lon]
+        ensemble_variance:
+            _target_: src.metrics.ensemble_variance
+            ensemble_dimension: ensemble
+            reduction_dimensions: [lat, lon]
+        crps:
+            _target_: earth2studio.statistics.crps
+            reduction_dimensions: [lat, lon]
+            ensemble_dimension: ensemble
+
+report:
+    title: "FCN3 Ensemble 2024 — 14-day Evaluation"
+
+    sections:
+        - type: header_visualization
+          variable: tcwv
+          lead_time: "3 days"
+
+        - type: summary_table
+          lead_times: ["1 days", "3 days", "5 days", "7 days", "10 days", "14 days"]
+          variables: [t2m, z500, u10m, t850]
+          collapsed: false
+
+        - type: lead_time_curves
+          collapsed: true
+
+        - type: lead_time_curves
+          time_groups: true
+          title_suffix: "Seasonal Breakdown"
+          collapsed: true
+
+        - type: spread_skill
+          mse_metric: ensemble_mean_mse
+          variance_metric: ensemble_variance
+          variables: [t2m, z500, u10m, t850]
+          collapsed: true
+
+        - type: ic_heatmap
+          metrics: [mse, crps]
+          variables: [z500, t2m, msl]
+          collapsed: true
+
+        - type: visualization
+          variables: [z500, t2m, u10m, tcwv]
+          lead_times: ["1 days", "5 days", "10 days"]
+          collapsed: true
+
+    projection: robinson   # global model — use Robinson projection
+
+    # Variables sharing physical scales are grouped on the same plot.
+    # Variables not listed here get their own individual plot.
+    variable_groups:
+        geopotential: [z500, z850]
+        temperature: [t500, t850]
+        u_wind: [u500, u850]
+        v_wind: [v500, v850]
+        humidity: [q500, q850]
+        10m_wind: [u10m, v10m]
+        100m_wind: [u100m, v100m]
+
+    time_groups:
+        DJF:
+            - start: "2024-01-01"
+              end: "2024-02-29"
+            - start: "2024-12-01"
+              end: "2024-12-31"
+        MAM:
+            - start: "2024-03-01"
+              end: "2024-05-31"
+        JJA:
+            - start: "2024-06-01"
+              end: "2024-08-31"
+        SON:
+            - start: "2024-09-01"
+              end: "2024-11-30"

@@ -1,6 +1,6 @@
 # Tests
 
-## Test 1: Reproducibility of Helene Ensemble Members
+## Test 1: Generate Ensemble Forecast with Cyclone Tracking
 
 > [!Note]
 > The test can be done manually following the steps below. Alternatively,
@@ -21,11 +21,15 @@ cd earth2studio/recipes/tc_tracking/test
 python ../tc_hunt.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
 ```
 
+### Expected Result: Generate Ensemble
+
 You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
 The directory should contain five csv files with naming pattern according to
 `tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
 This pattern provides information about initial condition, ensemble member ID
 and batch size.
+
+## Test 2: Reproducibility of Helene Ensemble Members
 
 Next, check if the random seeds for members three and four provided in
 `cfg/reproduce_helene.yaml` are identical to the seeds in the csv file names.
@@ -44,7 +48,7 @@ we need to apply the same batch size in the reproduction run and reproduce the f
 batch that contained the ensemble member in question. For the present case, this means
 that member two will also be reproduced, as it is in the same batch as member three.
 
-### Expected Result — Reproducibility
+### Expected Result: Reproduce Helene
 
 There should now be three track files in `outputs_reproduce_helene/cyclone_tracks_te`,
 with file names identical to the associated files in `outputs_baseline_helene/cyclone_tracks_te`.
