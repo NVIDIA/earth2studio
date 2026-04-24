@@ -104,6 +104,7 @@ def build_forecast_coords(
     times: np.ndarray,
     nsteps: int,
     ensemble_size: int = 1,
+    spatial_ref: CoordSystem | None = None,
 ) -> CoordSystem:
     """Build the full coordinate system for a standard prognostic forecast.
 
@@ -123,6 +124,11 @@ def build_forecast_coords(
     ensemble_size : int
         Total number of ensemble members.  When 1 the ensemble dimension
         is omitted.
+    spatial_ref : CoordSystem | None
+        If provided, the spatial dims of the output store are taken from
+        this coord system instead of the model's output coords.  Used
+        when an output regridder is active so that the zarr schema
+        reflects the *regridded* grid rather than the model's native one.
 
     Returns
     -------
@@ -150,8 +156,9 @@ def build_forecast_coords(
         ]
     )
 
-    for dim in _spatial_dims(output_c):
-        total[dim] = output_c[dim]
+    ref = spatial_ref if spatial_ref is not None else output_c
+    for dim in _spatial_dims(ref):
+        total[dim] = ref[dim]
 
     return total
 
@@ -160,6 +167,7 @@ def build_diagnostic_coords(
     diagnostics: list[DiagnosticModel],
     times: np.ndarray,
     ensemble_size: int = 1,
+    spatial_ref: CoordSystem | None = None,
 ) -> CoordSystem:
     """Build the full coordinate system for a diagnostic-only pipeline.
 
@@ -177,6 +185,9 @@ def build_diagnostic_coords(
     ensemble_size : int
         Total number of ensemble members.  When 1 the ensemble dimension
         is omitted.
+    spatial_ref : CoordSystem | None
+        If provided, the spatial dims of the output store are taken from
+        this coord system instead of the first diagnostic's output coords.
 
     Returns
     -------
@@ -188,7 +199,9 @@ def build_diagnostic_coords(
         raise ValueError("At least one diagnostic model is required.")
 
     dx = diagnostics[0]
-    output_c = dx.output_coords(dx.input_coords())
+    ref = (
+        spatial_ref if spatial_ref is not None else dx.output_coords(dx.input_coords())
+    )
 
     total: CoordSystem = OrderedDict()
     if ensemble_size > 1:
@@ -196,8 +209,8 @@ def build_diagnostic_coords(
     total["time"] = times
     total["lead_time"] = np.array([np.timedelta64(0, "ns")])
 
-    for dim in _spatial_dims(output_c):
-        total[dim] = output_c[dim]
+    for dim in _spatial_dims(ref):
+        total[dim] = ref[dim]
 
     return total
 

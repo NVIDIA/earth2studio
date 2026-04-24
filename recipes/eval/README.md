@@ -24,6 +24,7 @@ Key features:
 - [Pre-downloading Data](#pre-downloading-data)
   - [Zarr stores](#zarr-stores)
   - [Resume after interruption](#resume-after-interruption)
+- [Using Your Own Data](#using-your-own-data)
 - [Multi-GPU Execution](#multi-gpu-execution)
 - [Resuming and Multi-Job Runs](#resuming-and-multi-job-runs)
   - [Resuming after a failure](#resuming-after-a-failure)
@@ -37,6 +38,7 @@ Key features:
 - [Architecture](#architecture)
   - [Pipeline interface](#pipeline-interface)
   - [Custom pipelines](#custom-pipelines)
+- [Extending the recipe](./docs/extending.md) — BYO data, custom models, custom pipelines
 - [Testing](#testing)
 
 ## Quick Start
@@ -92,6 +94,15 @@ torchrun --nproc_per_node=8 --standalone predownload.py
 python predownload.py predownload.verification.enabled=true
 ```
 
+> **Note.** `predownload.verification.enabled` is also consulted by
+> `score.py` to decide whether `data.zarr` holds verification data: when
+> it's false (the default), the scorer refuses to treat an IC-only
+> `data.zarr` as a verification store.  Set it in your **campaign
+> config**, not just as a one-shot CLI override to `predownload.py` —
+> otherwise `score.py` will read the default (`false`) and fail with
+> "No verification data found".  The bundled campaigns (`dlwp_*`,
+> `fcn3_*`, `dlesym_*`) set it explicitly.
+
 ### Zarr stores
 
 Predownload creates the following stores in `<output.path>/`:
@@ -116,6 +127,133 @@ python predownload.py campaign=fcn3_2024_monthly
 ```
 
 To recreate stores from scratch, set `predownload.overwrite=true`.
+
+## Using Your Own Data
+
+If you already have initial-condition or verification data on disk (for
+example, a zarr store you ETL'd for training), you can skip predownload
+entirely and point the recipe directly at it.  This avoids doubling disk
+usage by re-caching data that already exists locally.
+
+The two escape hatches are top-level config keys:
+
+| Key | What it overrides | Consumer |
+|---|---|---|
+| `ic_source` | The initial-condition source used during inference | `main.py` |
+| `verification_source` | The verification source used during scoring | `score.py` |
+
+Either key accepts any `_target_` pointing at a class that implements
+Earth2Studio's `DataSource` protocol (`__call__(time, variable) -> xr.DataArray`).
+For a new store layout, write a small wrapper — the
+[`create-data-source`](../../.claude/skills/create-data-source/) skill
+scaffolds one from a reference script.
+
+### Configuration matrix
+
+<!-- markdownlint-disable MD013 -->
+| ICs | Verification | Config |
+|---|---|---|
+| package | package | defaults — run `predownload.py`, then `main.py`, then `score.py` |
+| **user** | package | set `ic_source`; run `predownload.py predownload.verification.enabled=true` to cache verif |
+| package | **user** | set `verification_source`; run `predownload.py` (caches IC only) |
+| **user** | **user** | set both; skip `predownload.py` entirely — `main.py` drops the sentinel check |
+<!-- markdownlint-enable MD013 -->
+
+### Example
+
+A minimal user `DataSource` for a `(time, variable, lat, lon)` zarr:
+
+```python
+# my_pkg/my_data.py
+import xarray as xr
+
+class MyZarrSource:
+    def __init__(self, store_path: str) -> None:
+        self._da = (
+            xr.open_zarr(store_path)
+            .to_array("variable")
+            .transpose("time", "variable", ...)
+        )
+
+    def __call__(self, time, variable) -> xr.DataArray:
+        if not isinstance(time, (list, tuple)):
+            time = [time]
+        if not isinstance(variable, (list, tuple)):
+            variable = [variable]
+        return self._da.sel(time=time, variable=variable)
+```
+
+Wire it in via Hydra override or a campaign config:
+
+```bash
+python main.py \
+    ic_source._target_=my_pkg.my_data.MyZarrSource \
+    ic_source.store_path=/data/my_training_set.zarr \
+    require_predownload=false
+```
+
+> **Note on resume:** output-side completion markers are indexed by IC time,
+> not by data source.  If you change `ic_source` or `verification_source`
+> between runs that share the same `output.path`, either start clean with
+> `resume=false` / `output.overwrite=true` or move to a new `run_id` —
+> otherwise stale markers may reference data that no longer matches.
+
+### Multi-source pipelines (StormScope)
+
+StormScope needs two IC sources (GOES satellite + MRMS radar) plus a
+conditioning source (GFS).  A single top-level `ic_source` doesn't fit,
+so the pipeline declares `needs_data_source = False` and resolves its
+own sources from per-component config blocks — `main.py` skips
+top-level source resolution and the predownload sentinel check for
+these pipelines.
+
+BYO is done by overriding the per-component entries in `cfg.model`:
+
+```bash
+python main.py campaign=stormscope_2023_convection \
+    model.goes.ic_source._target_=my_pkg.MyGoesZarrSource \
+    model.goes.ic_source.path=/data/my_goes.zarr \
+    model.goes.ic_grid._target_=my_pkg.my_goes_grid \
+    model.mrms.ic_source._target_=my_pkg.MyMrmsZarrSource \
+    model.mrms.ic_source.path=/data/my_mrms.zarr \
+    model.mrms.ic_grid._target_=my_pkg.my_mrms_grid
+```
+
+`ic_grid` is a Hydra-instantiable callable that returns `(lats, lons)`
+for the source's native grid — the pipeline uses it to build
+StormScope's internal nearest-neighbor interpolator.  If your BYO store
+is already on the HRRR grid, point `ic_grid` at a resolver that returns
+the model's own `y`/`x` — StormScope's `prep_input` detects the match
+and skips interpolation.
+
+#### Predownload with HRRR-aligned storage
+
+Running `predownload.py` for a StormScope campaign writes two zarr
+stores, one per model, already resampled onto the model's HRRR
+sub-region via a nearest-neighbor regridder
+(`src.regrid.NearestNeighborRegridder`):
+
+```bash
+python predownload.py campaign=stormscope_2023_convection
+# → <output.path>/data_goes.zarr   (time, y, x) on HRRR sub-region
+# → <output.path>/data_mrms.zarr   (time, y, x) on HRRR sub-region
+```
+
+At inference time, `main.py` auto-detects these stores under
+`<output.path>` and wires them in with `PredownloadedSource`;
+StormScope's `prep_input` sees the matching `y`/`x` and skips its
+live interpolator, so the predownload is both a disk-size win (raw
+GOES is ~10x the regridded footprint) and an inference-speed win.
+
+Per-model BYO overrides of `ic_source` bypass predownload for that
+model.  To fully skip predownload for both models, either set
+`model.goes.ic_byo=true model.mrms.ic_byo=true` or simply don't run
+`predownload.py` — the pipeline will fall back to the live sources.
+
+Conditioning data (GFS for the GOES model; GOES observations for
+MRMS) is still fetched live by each model's internal conditioning
+source — that path isn't predownloaded because the conditioning
+request shape changes every forecast step.
 
 ## Multi-GPU Execution
 
@@ -433,36 +571,48 @@ recipes/eval/
 │       ├── dlwp_2024_monthly.yaml
 │       └── fcn3_2024_monthly.yaml
 ├── src/
-│   ├── pipeline.py      # Pipeline ABC + built-in pipelines
+│   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
+│   │   ├── base.py      #   Pipeline ABC, PredownloadStore, shared run loop
+│   │   ├── forecast.py  #   ForecastPipeline + DiagnosticPipeline
+│   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
+│   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
+│   ├── report/          # Report package — aggregation, plotting, sections
+│   │   ├── aggregation.py #  Score loading, time/ensemble aggregation, spread-skill
+│   │   ├── plotting.py  #   Matplotlib + cartopy primitives
+│   │   ├── sections.py  #   Section renderers (summary, curves, heatmaps, visualization)
+│   │   └── main.py      #   generate_report orchestration
 │   ├── scoring.py       # Scoring logic — metrics, data alignment, score loop
-│   ├── report.py        # Report generation — aggregation, plotting, markdown
 │   ├── work.py          # WorkItem, distribution, resume markers
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
 │   ├── output.py        # OutputManager (zarr lifecycle)
+│   ├── grids.py         # Grid-resolver helpers (goes, mrms, gfs, arco)
 │   └── data.py          # PredownloadedSource (zarr → DataSource)
 └── pyproject.toml
 ```
 
 Each source module has a specific scoped responsibilities:
 
+<!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
 |---|---|
-| `pipeline.py` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic) |
+| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, DLESyM, StormScope) |
+| `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 | `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |
-| `report.py` | Score aggregation, matplotlib plotting, markdown report assembly |
 | `work.py` | Define work units; parse ICs from config; distribute across ranks |
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
+| `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `gfs_grid`, `arco_grid`) |
 | `data.py` | `PredownloadedSource` — DataSource wrapper for predownloaded zarr stores |
+<!-- markdownlint-enable MD013 -->
 
 ### Pipeline interface
 
 All inference logic is driven by a **Pipeline** — an abstract base class
-(`src/pipeline.py`) that separates per-work-item inference from the shared
-scaffolding (work iteration, output filtering, ensemble injection, zarr
-writes).  Subclasses implement three methods:
+(`src/pipelines/base.py`) that separates per-work-item inference from the
+shared scaffolding (work iteration, output filtering, ensemble injection,
+zarr writes).  Subclasses implement three methods:
 
 | Method | Purpose |
 |---|---|
@@ -474,12 +624,18 @@ The base class `Pipeline.run()` handles everything else: iterating work
 items, building the output variable filter, injecting the ensemble dimension,
 and writing to the `OutputManager`.
 
-Two built-in pipelines are provided:
+Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
 
-- **`ForecastPipeline`** (`pipeline=forecast`) — prognostic rollout with
-  optional diagnostic models.  Yields one output per lead-time step.
-- **`DiagnosticPipeline`** (`pipeline=diagnostic`) — diagnostic-only (no
-  prognostic model).  Yields a single output per work item.
+- **`ForecastPipeline`** (`src.pipelines.forecast.ForecastPipeline`, the
+  default) — prognostic rollout with optional diagnostic models.  Yields
+  one output per lead-time step.
+- **`DiagnosticPipeline`** (`src.pipelines.forecast.DiagnosticPipeline`) —
+  diagnostic-only (no prognostic model).  Yields a single output per work
+  item.
+- **`DLESyMPipeline`** (`src.pipelines.dlesym.DLESyMPipeline`) — coupled
+  Earth-system forecast (atmos + ocean on different cadences).
+- **`StormScopePipeline`** (`src.pipelines.stormscope.StormScopePipeline`) —
+  coupled GOES/MRMS nowcasting.
 
 ### Custom pipelines
 
@@ -488,7 +644,7 @@ your Hydra config to the fully-qualified class name:
 
 ```python
 # my_pipeline.py
-from src.pipeline import Pipeline
+from src.pipelines import Pipeline
 
 class MyPipeline(Pipeline):
     def setup(self, cfg, device):

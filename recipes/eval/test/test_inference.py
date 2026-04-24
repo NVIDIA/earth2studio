@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 import torch
 from src.output import OutputManager, build_forecast_coords
-from src.pipeline import ForecastPipeline
+from src.pipelines import ForecastPipeline
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"

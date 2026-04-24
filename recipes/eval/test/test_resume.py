@@ -24,7 +24,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 from src.output import OutputManager, build_forecast_coords
-from src.pipeline import ForecastPipeline
+from src.pipelines import ForecastPipeline
 from src.work import (
     WorkItem,
     clear_progress,
@@ -281,7 +281,7 @@ class TestPipelineResume:
                 "ensemble_size": 1,
                 "random_seed": 42,
                 "resume": True,
-                "pipeline": "forecast",
+                "pipeline": "src.pipelines.forecast.ForecastPipeline",
                 "model": {"architecture": "earth2studio.models.px.Persistence"},
                 "data_source": {"_target_": "earth2studio.data.Random"},
                 "output": {

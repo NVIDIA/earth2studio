@@ -40,10 +40,10 @@ from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
+from earth2studio.data import DataSource
 from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem
 
-from .data import PredownloadedSource
 from .output import OutputManager
 from .work import write_scoring_marker
 
@@ -179,40 +179,34 @@ def open_prediction_store(cfg: DictConfig) -> xr.Dataset:
     return xr.open_zarr(store_path)
 
 
-def open_verification_source(cfg: DictConfig) -> PredownloadedSource:
-    """Open the verification data source.
+def open_verification_source(cfg: DictConfig) -> DataSource:
+    """Open the verification data source via the pipeline hook.
 
-    Checks for ``verification.zarr`` first (separate verification store),
-    then falls back to ``data.zarr`` (merged IC + verification store).
+    Thin wrapper around :meth:`src.pipelines.base.Pipeline.verification_source`.
+    The base hook resolves ``cfg.verification_source`` (BYO) first, then
+    falls back to local predownload zarrs (``verification.zarr``,
+    ``data.zarr``, or per-model ``data_*.zarr`` → :class:`CompositeSource`).
+    Pipelines may override for non-standard layouts.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config with ``output.path``.
+        Hydra config with ``output.path`` and optional ``verification_source``.
 
     Returns
     -------
-    PredownloadedSource
+    DataSource
 
     Raises
     ------
     FileNotFoundError
-        If neither verification nor data store exists.
+        If neither a BYO override nor any predownload store is available.
     """
-    verif_path = os.path.join(cfg.output.path, "verification.zarr")
-    if os.path.exists(verif_path):
-        logger.info(f"Using verification store: {verif_path}")
-        return PredownloadedSource(verif_path)
+    # Local import avoids a circular dependency at module import time.
+    from .pipelines import build_pipeline
 
-    data_path = os.path.join(cfg.output.path, "data.zarr")
-    if os.path.exists(data_path):
-        logger.info(f"Using merged data store for verification: {data_path}")
-        return PredownloadedSource(data_path)
-
-    raise FileNotFoundError(
-        f"No verification data found in '{cfg.output.path}'.\n"
-        "Run predownload.py with predownload.verification.enabled=true."
-    )
+    pipeline = build_pipeline(cfg)
+    return pipeline.verification_source(cfg)
 
 
 def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:
@@ -322,7 +316,7 @@ def load_prediction_chunk(
 
 
 def load_verification_chunk(
-    source: PredownloadedSource,
+    source: DataSource,
     time: np.datetime64,
     lead_times: np.ndarray,
     variables: list[str],
@@ -338,7 +332,7 @@ def load_verification_chunk(
 
     Parameters
     ----------
-    source : PredownloadedSource
+    source : DataSource
         Verification data source.
     time : np.datetime64
         Initial-condition time.
@@ -626,7 +620,7 @@ def validate_lead_time_chunking(
 def run_scoring(
     my_times: list[np.datetime64],
     prediction_ds: xr.Dataset,
-    verif_source: PredownloadedSource,
+    verif_source: DataSource,
     metrics: OrderedDict,
     output_mgr: OutputManager,
     variables: list[str],
@@ -648,7 +642,7 @@ def run_scoring(
         IC times assigned to this rank.
     prediction_ds : xr.Dataset
         Opened prediction zarr store.
-    verif_source : PredownloadedSource
+    verif_source : DataSource
         Verification data source.
     metrics : OrderedDict[str, Metric]
         Metric instances keyed by name.
@@ -672,6 +666,32 @@ def run_scoring(
         return
 
     resume = cfg.scoring.get("resume", False)
+    nan_policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
+    if nan_policy not in ("propagate", "zero_fill"):
+        raise ValueError(
+            f"Invalid scoring.nan_policy '{nan_policy}'; "
+            "expected 'propagate' or 'zero_fill'."
+        )
+    if nan_policy == "zero_fill":
+        logger.info(
+            "Scoring nan_policy=zero_fill: NaNs in prediction and verification "
+            "chunks will be replaced with 0 before metric evaluation. "
+            "RMSE-style metrics normalize over all grid points, so invalid "
+            "points contribute zero to the sum-of-squares and bias the score "
+            "low by sqrt(N_valid/N_total)."
+        )
+
+    valid_ranges_cfg = cfg.scoring.get("valid_ranges", None)
+    if valid_ranges_cfg is not None:
+        valid_ranges = OmegaConf.to_container(valid_ranges_cfg, resolve=True) or {}
+        if valid_ranges:
+            logger.info(
+                f"Scoring valid_ranges: clamping {sorted(valid_ranges)} in both "
+                "prediction and verification before metric evaluation."
+            )
+    else:
+        valid_ranges = {}
+
     rank = DistributedManager().rank
 
     for time in tqdm(my_times, desc="Scoring", disable=rank != 0):
@@ -692,6 +712,14 @@ def run_scoring(
                 spatial_coords,
                 device,
             )
+
+            if nan_policy == "zero_fill":
+                x = torch.nan_to_num(x, nan=0.0)
+                y = torch.nan_to_num(y, nan=0.0)
+
+            if valid_ranges:
+                x = _apply_valid_ranges(x, x_coords, valid_ranges)
+                y = _apply_valid_ranges(y, y_coords, valid_ranges)
 
             for metric_name, metric in metrics.items():
                 if _is_statistic(metric):
@@ -730,6 +758,60 @@ def run_scoring(
             write_scoring_marker(time, cfg)
 
     logger.success("Scoring complete.")
+
+
+def _apply_valid_ranges(
+    x: torch.Tensor,
+    coords: CoordSystem,
+    valid_ranges: dict,
+) -> torch.Tensor:
+    """Clamp per-variable values in *x* to the configured physical range.
+
+    ``valid_ranges`` maps variable names to ``{min: ..., max: ...}``
+    entries; either bound may be ``None`` / absent for a one-sided
+    clamp.  Variables not listed are left untouched.  The clamp is
+    applied in-place along the ``variable`` axis.
+
+    Use case: verification sources (e.g. MRMS ``refc``) encode
+    no-data pixels as large-magnitude fill values (``-9999``) that
+    otherwise dominate the sum-of-squares in RMSE-style metrics.
+    Clamping to the physical range on both prediction and verification
+    turns those pixels into a shared in-range value (typically 0 for
+    non-negative fields), contributing ~zero to the error.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Tensor with a ``variable`` axis.
+    coords : CoordSystem
+        Matching coord system (used to locate the variable axis and
+        map variable names to axis indices).
+    valid_ranges : dict[str, dict[str, float | None]]
+        Mapping from variable name to ``{min, max}``.
+    """
+    if "variable" not in coords:
+        return x
+    var_axis = list(coords.keys()).index("variable")
+    var_names = [str(v) for v in coords["variable"]]
+
+    for var_name, spec in valid_ranges.items():
+        if var_name not in var_names:
+            continue
+        idx = var_names.index(var_name)
+        vmin = spec.get("min") if isinstance(spec, dict) else None
+        vmax = spec.get("max") if isinstance(spec, dict) else None
+        if vmin is None and vmax is None:
+            continue
+
+        slicer: list[Any] = [slice(None)] * x.ndim
+        slicer[var_axis] = idx
+        key = tuple(slicer)
+        x[key] = torch.clamp(
+            x[key],
+            min=float(vmin) if vmin is not None else None,
+            max=float(vmax) if vmax is not None else None,
+        )
+    return x
 
 
 def _concat_chunks(

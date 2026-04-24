@@ -121,7 +121,7 @@ def base_cfg(tmp_path) -> OmegaConf:
             "nsteps": 2,
             "ensemble_size": 1,
             "random_seed": 42,
-            "pipeline": "forecast",
+            "pipeline": "src.pipelines.forecast.ForecastPipeline",
             "model": {"architecture": "earth2studio.models.px.Persistence"},
             "data_source": {"_target_": "earth2studio.data.Random"},
             "output": {
