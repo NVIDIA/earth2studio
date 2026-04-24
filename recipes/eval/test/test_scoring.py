@@ -903,16 +903,13 @@ class TestOpenVerificationSourceHook:
         # Write per-model IC zarrs so the default glob picks them up and
         # wraps them in a CompositeSource.  Leave verification.zarr /
         # data.zarr absent so the fallback path is exercised.
-        from src.data import CompositeSource
         from test.test_data import _create_yx_zarr_store
 
+        from src.data import CompositeSource
+
         t = np.array(["2024-01-01"], dtype="datetime64[ns]")
-        _create_yx_zarr_store(
-            tmp_path / "data_goes.zarr", t, ["abi01c"]
-        )
-        _create_yx_zarr_store(
-            tmp_path / "data_mrms.zarr", t, ["refc"]
-        )
+        _create_yx_zarr_store(tmp_path / "data_goes.zarr", t, ["abi01c"])
+        _create_yx_zarr_store(tmp_path / "data_mrms.zarr", t, ["refc"])
 
         cfg = self._make_cfg(
             tmp_path,
@@ -961,9 +958,7 @@ class TestNanPolicy:
         # verification is 0 everywhere except one NaN pixel that simulates an
         # invalid HRRR-subdomain grid point.
         times = np.array(["2024-01-01"], dtype="datetime64[ns]")
-        lead_times = np.array([60], dtype="timedelta64[m]").astype(
-            "timedelta64[ns]"
-        )
+        lead_times = np.array([60], dtype="timedelta64[m]").astype("timedelta64[ns]")
         y = np.arange(4)
         x = np.arange(5)
 
@@ -1004,22 +999,14 @@ class TestNanPolicy:
         import earth2studio.statistics
 
         metrics = OrderedDict(
-            {
-                "rmse": earth2studio.statistics.rmse(
-                    reduction_dimensions=["y", "x"]
-                )
-            }
+            {"rmse": earth2studio.statistics.rmse(reduction_dimensions=["y", "x"])}
         )
         variables = ["v"]
         input_template = build_input_coords_template(
             prediction_ds, lead_times, variables
         )
-        superset_coords = build_superset_score_coords(
-            metrics, input_template, times
-        )
-        array_groups = group_score_arrays_by_dims(
-            metrics, input_template, times
-        )
+        superset_coords = build_superset_score_coords(metrics, input_template, times)
+        array_groups = group_score_arrays_by_dims(metrics, input_template, times)
         spatial = OrderedDict([("y", y), ("x", x)])
 
         return {
@@ -1170,9 +1157,7 @@ class TestApplyValidRanges:
             dtype=torch.float32,
         )
         # Only a lower bound: negatives clip to 0, large positives pass.
-        out = _apply_valid_ranges(
-            x.clone(), coords, {"v": {"min": 0, "max": None}}
-        )
+        out = _apply_valid_ranges(x.clone(), coords, {"v": {"min": 0, "max": None}})
         assert out[0, 0, 0].item() == 0.0
         assert out[0, 0, 1].item() == 50.0
         assert out[0, 1, 0].item() == 100.0  # unclamped from above
@@ -1189,9 +1174,7 @@ class TestApplyValidRanges:
             ]
         )
         x = torch.tensor([[[-1e6]]], dtype=torch.float32)
-        out = _apply_valid_ranges(
-            x.clone(), coords, {"v": {"min": None, "max": None}}
-        )
+        out = _apply_valid_ranges(x.clone(), coords, {"v": {"min": None, "max": None}})
         assert out[0, 0, 0].item() == -1e6
 
     def test_unknown_variable_is_skipped(self):
@@ -1220,9 +1203,7 @@ class TestValidRangesEndToEnd:
 
     def _build_inputs(self, tmp_path, truth_fill_value: float):
         times = np.array(["2024-01-01"], dtype="datetime64[ns]")
-        lead_times = np.array([60], dtype="timedelta64[m]").astype(
-            "timedelta64[ns]"
-        )
+        lead_times = np.array([60], dtype="timedelta64[m]").astype("timedelta64[ns]")
         y = np.arange(4)
         x = np.arange(5)
 
@@ -1265,22 +1246,14 @@ class TestValidRangesEndToEnd:
         import earth2studio.statistics
 
         metrics = OrderedDict(
-            {
-                "rmse": earth2studio.statistics.rmse(
-                    reduction_dimensions=["y", "x"]
-                )
-            }
+            {"rmse": earth2studio.statistics.rmse(reduction_dimensions=["y", "x"])}
         )
         variables = ["refc"]
         input_template = build_input_coords_template(
             prediction_ds, lead_times, variables
         )
-        superset_coords = build_superset_score_coords(
-            metrics, input_template, times
-        )
-        array_groups = group_score_arrays_by_dims(
-            metrics, input_template, times
-        )
+        superset_coords = build_superset_score_coords(metrics, input_template, times)
+        array_groups = group_score_arrays_by_dims(metrics, input_template, times)
         spatial = OrderedDict([("y", y), ("x", x)])
 
         return {
@@ -1351,9 +1324,7 @@ class TestValidRangesEndToEnd:
         """With valid_ranges clamping refc to [0, 75], the -9999 pixel
         becomes 0, pred=0, diff=0, RMSE=0."""
         inputs = self._build_inputs(tmp_path, truth_fill_value=-9999.0)
-        cfg = self._cfg(
-            tmp_path, valid_ranges={"refc": {"min": 0, "max": 75}}
-        )
+        cfg = self._cfg(tmp_path, valid_ranges={"refc": {"min": 0, "max": 75}})
         self._run(cfg, inputs)
 
         score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))

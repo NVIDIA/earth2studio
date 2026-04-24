@@ -27,6 +27,7 @@ from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
+from earth2studio.models.px.dlesym import DLESyM
 from earth2studio.utils.coords import CoordSystem, map_coords
 
 from ..models import load_prognostic
@@ -206,6 +207,11 @@ class DLESyMPipeline(ForecastPipeline):
         if not self._ocean_variables:
             return x_step
 
+        if not isinstance(self.prognostic, DLESyM):
+            raise ValueError(
+                "DLESyMPipeline expects the loaded prognostic to be a DLESyM model; "
+                f"Got: {type(self.prognostic).__name__}"
+            )
         _, valid_coords = self.prognostic.retrieve_valid_ocean_outputs(
             x_step, coords_step
         )

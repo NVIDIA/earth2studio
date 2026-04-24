@@ -73,9 +73,7 @@ class TestBuildPipeline:
             build_pipeline(cfg)
 
     def test_forecast_by_fqn(self):
-        cfg = OmegaConf.create(
-            {"pipeline": "src.pipelines.forecast.ForecastPipeline"}
-        )
+        cfg = OmegaConf.create({"pipeline": "src.pipelines.forecast.ForecastPipeline"})
         pipeline = build_pipeline(cfg)
         assert isinstance(pipeline, ForecastPipeline)
 
@@ -99,19 +97,13 @@ class TestBuildPipeline:
 
     def test_target_block(self):
         cfg = OmegaConf.create(
-            {
-                "pipeline": {
-                    "_target_": "src.pipelines.forecast.ForecastPipeline"
-                }
-            }
+            {"pipeline": {"_target_": "src.pipelines.forecast.ForecastPipeline"}}
         )
         pipeline = build_pipeline(cfg)
         assert isinstance(pipeline, ForecastPipeline)
 
     def test_target_block_non_pipeline_raises(self):
-        cfg = OmegaConf.create(
-            {"pipeline": {"_target_": "builtins.dict"}}
-        )
+        cfg = OmegaConf.create({"pipeline": {"_target_": "builtins.dict"}})
         with pytest.raises(TypeError, match="not a Pipeline subclass"):
             build_pipeline(cfg)
 

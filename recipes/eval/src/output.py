@@ -199,7 +199,9 @@ def build_diagnostic_coords(
         raise ValueError("At least one diagnostic model is required.")
 
     dx = diagnostics[0]
-    ref = spatial_ref if spatial_ref is not None else dx.output_coords(dx.input_coords())
+    ref = (
+        spatial_ref if spatial_ref is not None else dx.output_coords(dx.input_coords())
+    )
 
     total: CoordSystem = OrderedDict()
     if ensemble_size > 1:

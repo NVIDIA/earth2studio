@@ -150,12 +150,14 @@ scaffolds one from a reference script.
 
 ### Configuration matrix
 
+<!-- markdownlint-disable MD013 -->
 | ICs | Verification | Config |
 |---|---|---|
 | package | package | defaults — run `predownload.py`, then `main.py`, then `score.py` |
 | **user** | package | set `ic_source`; run `predownload.py predownload.verification.enabled=true` to cache verif |
 | package | **user** | set `verification_source`; run `predownload.py` (caches IC only) |
 | **user** | **user** | set both; skip `predownload.py` entirely — `main.py` drops the sentinel check |
+<!-- markdownlint-enable MD013 -->
 
 ### Example
 
@@ -591,6 +593,7 @@ recipes/eval/
 
 Each source module has a specific scoped responsibilities:
 
+<!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
 |---|---|
 | `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, DLESyM, StormScope) |
@@ -602,6 +605,7 @@ Each source module has a specific scoped responsibilities:
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
 | `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `gfs_grid`, `arco_grid`) |
 | `data.py` | `PredownloadedSource` — DataSource wrapper for predownloaded zarr stores |
+<!-- markdownlint-enable MD013 -->
 
 ### Pipeline interface
 

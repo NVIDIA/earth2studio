@@ -41,6 +41,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import cast
 
 import hydra
 import numpy as np
@@ -457,9 +458,7 @@ class Pipeline(ABC):
             "Verification: merging per-model stores "
             f"({', '.join(os.path.basename(p) for p in paths)})"
         )
-        stores = {
-            os.path.basename(p).removesuffix(".zarr"): p for p in paths
-        }
+        stores = {os.path.basename(p).removesuffix(".zarr"): p for p in paths}
         return CompositeSource.from_predownloaded_stores(stores)
 
     def _inject_ensemble(
@@ -495,9 +494,7 @@ class Pipeline(ABC):
         if not has_ensemble:
             return x, coords
         x = x.unsqueeze(0)
-        coords = CoordSystem(
-            {"ensemble": np.array([item.ensemble_id])} | dict(coords)
-        )
+        coords = CoordSystem({"ensemble": np.array([item.ensemble_id])} | dict(coords))
         return x, coords
 
     def effective_spatial_ref(self) -> CoordSystem:
@@ -586,8 +583,11 @@ class Pipeline(ABC):
             DistributedManager.initialize()
         rank = DistributedManager().rank
 
+        # None is only passed when needs_data_source=False, in which case
+        # the subclass's run_item ignores the argument.
+        ds = cast(DataSource, data_source)
         for item in tqdm(work_items, desc="Work items", position=0, disable=rank != 0):
-            for x_step, coords_step in self.run_item(item, data_source, device):
+            for x_step, coords_step in self.run_item(item, ds, device):
                 if self._run_item_includes_batch_dim and "batch" in coords_step:
                     batch_axis = list(coords_step.keys()).index("batch")
                     x_step = x_step.squeeze(batch_axis)

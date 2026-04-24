@@ -142,6 +142,7 @@ construction time.
 The base class provides sensible defaults for everything else.  Override
 these only when your pipeline needs to:
 
+<!-- markdownlint-disable MD013 -->
 | Hook | Default | When to override |
 |---|---|---|
 | `predownload_stores(cfg)` | returns `[]` | declare IC / verification / conditioning zarrs for `predownload.py` — single-source pipelines can reuse [`src.predownload_utils.declare_single_source_stores`](../src/predownload_utils.py) |
@@ -150,6 +151,7 @@ these only when your pipeline needs to:
 | `_inject_ensemble(...)` | prepends an `ensemble` axis | your model already carries ensemble along another dim |
 | `needs_data_source` | `True` | your pipeline resolves its own sources inside `setup` — `main.py` skips the top-level `data_source` instantiation |
 | `_run_item_includes_batch_dim` | `False` | your model output carries a size-1 `batch` axis that should be squeezed before output filtering |
+<!-- markdownlint-enable MD013 -->
 
 ### What the base class does for you
 

@@ -80,7 +80,7 @@ def union_variables(*var_lists: list[str]) -> list[str]:
     return result
 
 
-def single_source_stores_disabled(cfg: "DictConfig") -> bool:
+def single_source_stores_disabled(cfg: DictConfig) -> bool:
     """Return True when no single-source predownload stores are needed.
 
     Lets pipelines short-circuit before doing expensive model inspection:
@@ -96,7 +96,7 @@ def single_source_stores_disabled(cfg: "DictConfig") -> bool:
 
 
 def declare_single_source_stores(
-    cfg: "DictConfig",
+    cfg: DictConfig,
     *,
     ic_variables: list[str],
     ic_times: list[np.datetime64],
@@ -104,7 +104,7 @@ def declare_single_source_stores(
     verif_times: list[np.datetime64],
     spatial_ref: CoordSystem,
     always_separate_verification: bool = False,
-) -> list["PredownloadStore"]:
+) -> list[PredownloadStore]:
     """Declare IC and verification predownload stores for single-source pipelines.
 
     Implements the shared IC/verification store resolution used by

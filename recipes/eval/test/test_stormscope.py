@@ -51,7 +51,6 @@ from src.work import WorkItem
 
 from earth2studio.utils.coords import CoordSystem
 
-
 # ---------------------------------------------------------------------------
 # Helper-function tests
 # ---------------------------------------------------------------------------
@@ -65,7 +64,9 @@ class TestConcatVarLists:
         assert _concat_var_lists(["a", "b"], ["a", "b"]) == ["a", "b"]
 
     def test_partial_overlap_preserves_first_list_order(self):
-        assert _concat_var_lists(["abi01c", "abi02c", "abi07c"], ["abi07c", "refc"]) == [
+        assert _concat_var_lists(
+            ["abi01c", "abi02c", "abi07c"], ["abi07c", "refc"]
+        ) == [
             "abi01c",
             "abi02c",
             "abi07c",
@@ -181,10 +182,10 @@ class _StubStormScope:
 
     # --- misc --------------------------------------------------------------
 
-    def to(self, device: Any) -> "_StubStormScope":
+    def to(self, device: Any) -> _StubStormScope:
         return self
 
-    def eval(self) -> "_StubStormScope":
+    def eval(self) -> _StubStormScope:
         return self
 
 
@@ -344,25 +345,31 @@ class TestStormScopeRunItem:
         return _make_stub_pipeline()
 
     def test_yields_nsteps_outputs(self, pipeline):
-        item = WorkItem(time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0)
+        item = WorkItem(
+            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
+        )
         outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
         assert len(outputs) == pipeline.nsteps
 
     def test_calls_models_nsteps_times(self, pipeline):
-        item = WorkItem(time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0)
+        item = WorkItem(
+            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
+        )
         list(pipeline.run_item(item, None, torch.device("cpu")))
 
-        assert pipeline.model_goes.call_count == pipeline.nsteps, (
-            "GOES.__call__ should be invoked once per step"
-        )
-        assert pipeline.model_mrms.cond_call_count == pipeline.nsteps, (
-            "MRMS.call_with_conditioning should be invoked once per step"
-        )
+        assert (
+            pipeline.model_goes.call_count == pipeline.nsteps
+        ), "GOES.__call__ should be invoked once per step"
+        assert (
+            pipeline.model_mrms.cond_call_count == pipeline.nsteps
+        ), "MRMS.call_with_conditioning should be invoked once per step"
         assert pipeline.model_goes.next_input_calls == pipeline.nsteps
         assert pipeline.model_mrms.next_input_calls == pipeline.nsteps
 
     def test_yielded_variable_axis_is_combined(self, pipeline):
-        item = WorkItem(time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0)
+        item = WorkItem(
+            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
+        )
         outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
 
         expected_vars = pipeline.model_goes.variables + pipeline.model_mrms.variables
@@ -378,7 +385,9 @@ class TestStormScopeRunItem:
         """
         assert pipeline._run_item_includes_batch_dim is True
 
-        item = WorkItem(time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0)
+        item = WorkItem(
+            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
+        )
         outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
 
         for x, coords in outputs:
@@ -390,7 +399,9 @@ class TestStormScopeRunItem:
 
     def test_mrms_conditioning_is_goes_state(self, pipeline):
         """MRMS must receive the GOES state tensor (pre-next_input) as conditioning."""
-        item = WorkItem(time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0)
+        item = WorkItem(
+            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
+        )
         list(pipeline.run_item(item, None, torch.device("cpu")))
 
         # The stub records the last conditioning tensor passed in; its variable
@@ -520,9 +531,7 @@ class TestVerificationSource:
         with pytest.raises(FileNotFoundError):
             pipeline.verification_source(cfg)
 
-    def test_returns_predownloaded_source_when_only_one_store_exists(
-        self, tmp_path
-    ):
+    def test_returns_predownloaded_source_when_only_one_store_exists(self, tmp_path):
         _write_yx_zarr(tmp_path / "data_goes.zarr", ["abi01c"])
         cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
         pipeline = StormScopePipeline()
@@ -691,9 +700,7 @@ def _grid_resolver_registered():
     class _StubForecastSource:
         def __call__(self, time, lead_time, variable):
             times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-            leads = np.atleast_1d(
-                np.asarray(lead_time, dtype="timedelta64[ns]")
-            )
+            leads = np.atleast_1d(np.asarray(lead_time, dtype="timedelta64[ns]"))
             variables = np.atleast_1d(variable)
             data = np.zeros(
                 (len(times), len(leads), len(variables), 2, 2), dtype="float32"
@@ -753,12 +760,8 @@ class TestBuildConditioningStore:
 
         pipeline = StormScopePipeline()
         model = _FakeConditioningModel()
-        model_cfg = self._make_model_cfg(
-            source_target=source_target, cadence=cadence
-        )
-        spatial_ref = OrderedDict(
-            [("y", model.y), ("x", model.x)]
-        )
+        model_cfg = self._make_model_cfg(source_target=source_target, cadence=cadence)
+        spatial_ref = OrderedDict([("y", model.y), ("x", model.x)])
         ic_times = [np.datetime64("2023-12-05T12:00:00", "ns")]
 
         store = pipeline._build_conditioning_store(

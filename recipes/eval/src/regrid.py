@@ -47,6 +47,7 @@ import torch
 import xarray as xr
 from numpy.typing import ArrayLike
 
+from earth2studio.data import DataSource
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -68,7 +69,7 @@ class Regridder(ABC):
     """
 
     @abstractmethod
-    def to(self, device: str | torch.device) -> "Regridder":
+    def to(self, device: str | torch.device) -> Regridder:
         """Move any internal buffers to *device* and return self."""
         ...
 
@@ -222,11 +223,9 @@ class NearestNeighborRegridder(Regridder):
         self._target_x = np.asarray(target_x)
         self._target_dim_names = tuple(target_dim_names)
         if len(self._target_dim_names) != 2:
-            raise ValueError(
-                f"target_dim_names must be a pair, got {target_dim_names}"
-            )
+            raise ValueError(f"target_dim_names must be a pair, got {target_dim_names}")
 
-    def to(self, device: str | torch.device) -> "NearestNeighborRegridder":
+    def to(self, device: str | torch.device) -> NearestNeighborRegridder:
         self._interp = self._interp.to(device)
         return self
 
@@ -276,7 +275,7 @@ class RegriddedSource:
         the output spatial dims.
     """
 
-    def __init__(self, source, regridder: Regridder) -> None:
+    def __init__(self, source: DataSource, regridder: Regridder) -> None:
         self._source = source
         self._regridder = regridder
 
@@ -300,9 +299,7 @@ class RegriddedSource:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-_STRUCTURAL_DIMS = frozenset(
-    {"batch", "time", "lead_time", "variable", "ensemble"}
-)
+_STRUCTURAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
 
 
 def _spatial_dims_of(coords: CoordSystem) -> list[str]:

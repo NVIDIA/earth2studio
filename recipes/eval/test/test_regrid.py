@@ -25,7 +25,6 @@ checkpoint loads.
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from datetime import datetime
 
 import numpy as np
@@ -33,7 +32,6 @@ import pytest
 import torch
 import xarray as xr
 from src.regrid import NearestNeighborRegridder, RegriddedSource
-
 
 # ---------------------------------------------------------------------------
 # Small helper: build a source / target grid pair whose nearest-neighbor
@@ -175,9 +173,7 @@ class TestNearestNeighborRegridderDataArray:
             data,
             dims=("time", "lat", "lon"),
             coords={
-                "time": np.array(
-                    ["2023-01-01", "2023-01-02"], dtype="datetime64[ns]"
-                ),
+                "time": np.array(["2023-01-01", "2023-01-02"], dtype="datetime64[ns]"),
                 "lat": np.arange(4),
                 "lon": np.arange(5),
             },

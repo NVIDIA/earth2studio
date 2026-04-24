@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -95,9 +96,7 @@ def resolve_ic_source(
             f"resolve_ic_source: no cache at '{cache_path}', no BYO override, "
             "and no live_source was provided."
         )
-    logger.info(
-        f"No cache at '{cache_path}' — instantiating live source directly."
-    )
+    logger.info(f"No cache at '{cache_path}' — instantiating live source directly.")
     return hydra.utils.instantiate(live_source)
 
 
@@ -189,21 +188,17 @@ class CompositeSource:
 
     def __init__(
         self,
-        sources: dict[str, DataSource],
+        sources: Mapping[str, DataSource],
         variable_index: dict[str, str],
     ) -> None:
         unknown = sorted(set(variable_index.values()) - set(sources))
         if unknown:
-            raise ValueError(
-                f"variable_index references unknown sources: {unknown}"
-            )
+            raise ValueError(f"variable_index references unknown sources: {unknown}")
         self._sources = dict(sources)
         self._var_index = dict(variable_index)
 
     @classmethod
-    def from_predownloaded_stores(
-        cls, stores: dict[str, str]
-    ) -> "CompositeSource":
+    def from_predownloaded_stores(cls, stores: dict[str, str]) -> CompositeSource:
         """Build a :class:`CompositeSource` by inspecting each zarr's vars.
 
         Parameters
@@ -256,9 +251,7 @@ class CompositeSource:
 
         partial_das: list[xr.DataArray] = []
         for src_name, vars_for_src in per_source.items():
-            partial_das.append(
-                self._sources[src_name](time, vars_for_src)
-            )
+            partial_das.append(self._sources[src_name](time, vars_for_src))
 
         # Concatenate along the variable dim, then reorder to match the
         # caller's requested variable order.
@@ -334,16 +327,12 @@ class CadenceRoundedSource:
         unique_seen: dict[int, np.datetime64] = {}
         for r in rounded:
             unique_seen.setdefault(int(r.astype("int64")), r)
-        unique_rounded = np.array(
-            list(unique_seen.values()), dtype="datetime64[ns]"
-        )
+        unique_rounded = np.array(list(unique_seen.values()), dtype="datetime64[ns]")
 
         da = self._source(unique_rounded, variable)
 
         # Expand back to the caller's requested-time count/order.
-        idx_map = {
-            int(t.astype("int64")): i for i, t in enumerate(unique_rounded)
-        }
+        idx_map = {int(t.astype("int64")): i for i, t in enumerate(unique_rounded)}
         indices = np.array(
             [idx_map[int(r.astype("int64"))] for r in rounded],
             dtype=np.int64,

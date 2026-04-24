@@ -42,7 +42,6 @@ from src.work import WorkItem
 
 from earth2studio.utils.coords import CoordSystem
 
-
 # ---------------------------------------------------------------------------
 # _unique_forecast_valid_times
 # ---------------------------------------------------------------------------
@@ -204,7 +203,7 @@ class _StubDLESyM:
             yield t, new_coords
 
     # DLESyMPipeline never mutates the model, so to() is a no-op.
-    def to(self, device: Any) -> "_StubDLESyM":
+    def to(self, device: Any) -> _StubDLESyM:
         return self
 
 
@@ -356,9 +355,9 @@ class TestMaskInvalidOcean:
             vi = var_names.index(v)
             slicer = [slice(None)] * x.ndim
             slicer[var_idx] = vi
-            assert not torch.any(torch.isnan(masked[tuple(slicer)])), (
-                f"atmos variable {v} must not be masked"
-            )
+            assert not torch.any(
+                torch.isnan(masked[tuple(slicer)])
+            ), f"atmos variable {v} must not be masked"
 
     def test_no_ocean_variables_is_noop(self):
         pipeline = _make_stub_pipeline()

@@ -171,12 +171,16 @@ class StormScopePipeline(Pipeline):
         )
 
         if cfg.model.goes.get("conditioning_grid") is not None:
-            cgoes_lat, cgoes_lon = hydra.utils.instantiate(cfg.model.goes.conditioning_grid)
+            cgoes_lat, cgoes_lon = hydra.utils.instantiate(
+                cfg.model.goes.conditioning_grid
+            )
             self.model_goes.build_conditioning_interpolator(
                 cgoes_lat, cgoes_lon, max_dist_km=max_dist_km
             )
         if cfg.model.mrms.get("conditioning_grid") is not None:
-            cmrms_lat, cmrms_lon = hydra.utils.instantiate(cfg.model.mrms.conditioning_grid)
+            cmrms_lat, cmrms_lon = hydra.utils.instantiate(
+                cfg.model.mrms.conditioning_grid
+            )
             self.model_mrms.build_conditioning_interpolator(
                 cmrms_lat, cmrms_lon, max_dist_km=max_dist_km
             )
@@ -374,9 +378,7 @@ class StormScopePipeline(Pipeline):
         for side, model_cfg_key in (("goes", "goes"), ("mrms", "mrms")):
             model_cfg = cfg.model[model_cfg_key]
             if model_cfg.get("ic_byo", False):
-                logger.info(
-                    f"StormScope {side}: ic_byo=true — skipping predownload"
-                )
+                logger.info(f"StormScope {side}: ic_byo=true — skipping predownload")
                 continue
 
             model = _load_stormscope_model(model_cfg)
@@ -392,9 +394,7 @@ class StormScopePipeline(Pipeline):
                 target_lons=model.longitudes,
                 target_y=_as_np(model.y),
                 target_x=_as_np(model.x),
-                max_dist_km=(
-                    float(max_dist_km) if max_dist_km is not None else 12.0
-                ),
+                max_dist_km=(float(max_dist_km) if max_dist_km is not None else 12.0),
             )
 
             raw_source = hydra.utils.instantiate(model_cfg.ic_source)
@@ -402,12 +402,14 @@ class StormScopePipeline(Pipeline):
 
             # Offsets covering both the IC input window and every forecast
             # valid time.  Cast to ns for datetime64 arithmetic.
-            input_offsets = [
-                np.timedelta64(lt, "ns") for lt in ic_coords["lead_time"]
-            ]
+            input_offsets = [np.timedelta64(lt, "ns") for lt in ic_coords["lead_time"]]
             forecast_offsets = [stride * (k + 1) for k in range(cfg.nsteps)]
             fetch_times = sorted(
-                {t + off for t in unique_ic_times for off in input_offsets + forecast_offsets}
+                {
+                    t + off
+                    for t in unique_ic_times
+                    for off in input_offsets + forecast_offsets
+                }
             )
 
             spatial_ref: CoordSystem = OrderedDict(
@@ -483,9 +485,7 @@ class StormScopePipeline(Pipeline):
         cutting redundant 10-minute fetches from campaigns that use a
         sub-hour-stride model.
         """
-        cond_vars: list[str] = [
-            str(v) for v in (model.conditioning_variables or [])
-        ]
+        cond_vars: list[str] = [str(v) for v in (model.conditioning_variables or [])]
         if not cond_vars:
             return None
         if model_cfg.get("conditioning_grid") is None:
@@ -494,9 +494,7 @@ class StormScopePipeline(Pipeline):
                 "skipping conditioning predownload."
             )
             return None
-        cond_source_cfg = model_cfg.get("load_args", {}).get(
-            "conditioning_data_source"
-        )
+        cond_source_cfg = model_cfg.get("load_args", {}).get("conditioning_data_source")
         if cond_source_cfg is None:
             logger.info(
                 f"StormScope {side}: no conditioning_data_source in load_args — "
@@ -514,9 +512,7 @@ class StormScopePipeline(Pipeline):
             target_lons=model.longitudes,
             target_y=_as_np(model.y),
             target_x=_as_np(model.x),
-            max_dist_km=(
-                float(max_dist_km) if max_dist_km is not None else 26.0
-            ),
+            max_dist_km=(float(max_dist_km) if max_dist_km is not None else 26.0),
         )
 
         # Cadence rounding: optional per-model knob that collapses
@@ -558,9 +554,7 @@ class StormScopePipeline(Pipeline):
         raw_source = hydra.utils.instantiate(cond_source_cfg)
         sig = inspect.signature(raw_source.__call__)
         if "lead_time" in sig.parameters:
-            source_for_predownload: Any = ValidTimeForecastAdapter(
-                raw_source, lookup
-            )
+            source_for_predownload: Any = ValidTimeForecastAdapter(raw_source, lookup)
             logger.info(
                 f"StormScope {side}: wrapping ForecastSource conditioning "
                 "with ValidTimeForecastAdapter for predownload."

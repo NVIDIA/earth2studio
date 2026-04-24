@@ -26,8 +26,8 @@ from matplotlib.figure import Figure
 from omegaconf import DictConfig, OmegaConf
 
 from .aggregation import (
-    SectionOutput,
     _DEFAULT_SUMMARY_LEAD_TIMES,
+    SectionOutput,
     _open_data_stores,
     _resolve_variable_groups,
     display_name,

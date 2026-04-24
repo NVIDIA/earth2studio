@@ -53,13 +53,12 @@ same source)::
 
 from __future__ import annotations
 
+import hydra
 import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
-
-import hydra
 from src.distributed import configure_logging
 from src.output import OutputManager, build_predownload_coords, sentinel_path
 from src.pipelines import PredownloadStore, build_pipeline

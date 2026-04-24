@@ -167,9 +167,7 @@ class TestCompositeSource:
         _ = src(np.array(["2024-01-01"], dtype="datetime64[ns]"), ["abi01c"])
         _ = src(np.array(["2024-01-01"], dtype="datetime64[ns]"), ["refc"])
 
-    def test_mixed_variable_request_dispatches_to_multiple_stores(
-        self, stores, times
-    ):
+    def test_mixed_variable_request_dispatches_to_multiple_stores(self, stores, times):
         src = CompositeSource.from_predownloaded_stores(stores)
         result = src(times[:1], ["abi01c", "refc"])
         assert result.sizes["variable"] == 2
@@ -225,9 +223,7 @@ class _FakeForecastSource:
             else [lead_time]
         )
         variables = (
-            list(variable)
-            if isinstance(variable, (list, np.ndarray))
-            else [variable]
+            list(variable) if isinstance(variable, (list, np.ndarray)) else [variable]
         )
         self.calls.append((times, leads, variables))
 
@@ -242,8 +238,7 @@ class _FakeForecastSource:
                 for vi, _ in enumerate(variables):
                     data[ti, li, vi] = (
                         float(np.datetime64(t, "ns").astype("int64") % 1_000_000)
-                        + float(np.timedelta64(lt, "ns").astype("int64") % 1_000)
-                        * 1e-3
+                        + float(np.timedelta64(lt, "ns").astype("int64") % 1_000) * 1e-3
                         + vi * 1e-6
                     )
         return xr.DataArray(
@@ -319,9 +314,7 @@ class TestValidTimeForecastAdapter:
         adapter = ValidTimeForecastAdapter(src, lookup)
 
         # Query with a datetime64[ns] → should hit the lookup.
-        out = adapter(
-            [np.datetime64("2023-12-05T13:00:00", "ns")], ["refc"]
-        )
+        out = adapter([np.datetime64("2023-12-05T13:00:00", "ns")], ["refc"])
         assert out.sizes["time"] == 1
         assert len(src.calls) == 1
 
@@ -404,7 +397,9 @@ class TestCadenceRoundedSource:
         called_times, _ = src.calls[0]
         # Three unique hours.
         assert len(called_times) == 3
-        called_ints = sorted(int(np.datetime64(t, "ns").astype("int64")) for t in called_times)
+        called_ints = sorted(
+            int(np.datetime64(t, "ns").astype("int64")) for t in called_times
+        )
         expected = sorted(
             int((ic + np.timedelta64(k, "h")).astype("int64")) for k in range(3)
         )
@@ -433,9 +428,7 @@ class TestCadenceRoundedSource:
         # Rounded (nearest 30min): 12:00, 12:30, 12:30, 13:00.
         _ = wrapped(times, ["z500"])
         called_times, _ = src.calls[0]
-        called_sorted = sorted(
-            np.datetime64(t, "ns") for t in called_times
-        )
+        called_sorted = sorted(np.datetime64(t, "ns") for t in called_times)
         assert called_sorted == [
             np.datetime64("2023-12-05T12:00:00", "ns"),
             np.datetime64("2023-12-05T12:30:00", "ns"),

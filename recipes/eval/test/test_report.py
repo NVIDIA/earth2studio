@@ -360,9 +360,9 @@ class TestPlotIcHeatmap:
         import matplotlib.pyplot as plt
 
         # Build a 1-IC, multi-lead score dataset.
-        lead_times = np.array(
-            [60, 120], dtype="timedelta64[m]"
-        ).astype("timedelta64[ns]")
+        lead_times = np.array([60, 120], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
         one_time = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
         ds = xr.Dataset(
             {
@@ -1166,9 +1166,9 @@ class TestSummaryShortLeadTimes:
         from src.report import snapshot_at_lead_times
 
         # Score store with two lead times (60 and 120 min) in ns units.
-        lead_times = np.array(
-            [60, 120], dtype="timedelta64[m]"
-        ).astype("timedelta64[ns]")
+        lead_times = np.array([60, 120], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
         times = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
         ds = xr.Dataset(
             {
@@ -1387,9 +1387,9 @@ class TestGenerateReportStormScope:
             xr.Dataset(
                 {
                     v: xr.DataArray(
-                        rng.standard_normal(
-                            (len(valid_times), len(y), len(x))
-                        ).astype("float32"),
+                        rng.standard_normal((len(valid_times), len(y), len(x))).astype(
+                            "float32"
+                        ),
                         dims=["time", "y", "x"],
                         coords={"time": valid_times, "y": y, "x": x},
                     )

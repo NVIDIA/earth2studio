@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 from collections import OrderedDict
-from typing import Any
+from typing import Any, TypedDict
 
 import matplotlib
 
@@ -47,6 +47,12 @@ try:
     _HAS_CARTOPY = True
 except ImportError:
     _HAS_CARTOPY = False
+
+
+class ColorRange(TypedDict, total=False):
+    vmin: float | None
+    vmax: float | None
+    diff_abs: float | None
 
 
 # ---------------------------------------------------------------------------
@@ -354,16 +360,12 @@ def plot_ic_heatmap(
         fig, ax = plt.subplots(figsize=(10, 4))
         values = np.asarray(da.values).reshape(-1)
         width = (
-            float(np.median(np.diff(axis_vals))) * 0.7
-            if len(axis_vals) > 1
-            else 0.5
+            float(np.median(np.diff(axis_vals))) * 0.7 if len(axis_vals) > 1 else 0.5
         )
         ax.bar(axis_vals, values, width=width, color="C0")
         ax.set_xlabel(xlabel)
         ax.set_ylabel(metric_name.upper())
-        ax.set_title(
-            f"{metric_name.upper()} — {variable}  (IC: {time_labels[0]})"
-        )
+        ax.set_title(f"{metric_name.upper()} — {variable}  (IC: {time_labels[0]})")
         ax.grid(True, axis="y", alpha=0.3)
         fig.tight_layout()
         return fig
@@ -396,7 +398,7 @@ def _load_visualization_slice(
     variable: str,
     time: str | None,
     lead_time: str,
-) -> tuple[np.ndarray, np.ndarray, "OrderedDict[str, np.ndarray]", str, str]:
+) -> tuple[np.ndarray, np.ndarray, OrderedDict[str, np.ndarray], str, str]:
     """Load a single 2D prediction and truth slice for visualization.
 
     Parameters
@@ -480,9 +482,7 @@ def _hrrr_lambert_projection() -> Any:
     this CRS as both the map projection *and* the data transform
     renders them natively with no reprojection.
     """
-    globe = ccrs.Globe(
-        ellipse=None, semimajor_axis=6371229, semiminor_axis=6371229
-    )
+    globe = ccrs.Globe(ellipse=None, semimajor_axis=6371229, semiminor_axis=6371229)
     return ccrs.LambertConformal(
         central_longitude=262.5,
         central_latitude=38.5,
@@ -534,7 +534,7 @@ def _resolve_projection(name: str | None) -> Any:
 def plot_prediction_vs_truth(
     pred_2d: np.ndarray,
     truth_2d: np.ndarray,
-    spatial_coords: "OrderedDict[str, np.ndarray]",
+    spatial_coords: OrderedDict[str, np.ndarray],
     variable: str,
     time_label: str,
     lt_label: str,
@@ -644,6 +644,8 @@ def plot_prediction_vs_truth(
         (axes[1], truth_2d, "Truth", {"vmin": vmin, "vmax": vmax, "cmap": cmap}),
     ]
     if show_diff and diff is not None:
+        if diff_abs is None:
+            raise ValueError("diff_abs is required when show_diff is True")
         panels.append(
             (
                 axes[2],
@@ -692,9 +694,7 @@ def plot_prediction_vs_truth(
     return fig
 
 
-def _color_range_for(
-    report_cfg: DictConfig, variable: str
-) -> dict[str, float]:
+def _color_range_for(report_cfg: DictConfig, variable: str) -> ColorRange:
     """Pull ``{vmin, vmax, diff_abs}`` for *variable* from the report config.
 
     Reads ``report_cfg.color_ranges.<variable>`` — a mapping with any of
@@ -705,12 +705,15 @@ def _color_range_for(
     """
     cr = report_cfg.get("color_ranges")
     if cr is None or variable not in cr:
-        return {}
+        return ColorRange()
     entry = cr[variable]
-    out: dict[str, float] = {}
-    for key in ("vmin", "vmax", "diff_abs"):
-        if key in entry and entry[key] is not None:
-            out[key] = float(entry[key])
+    out: ColorRange = {}
+    if entry.get("vmin") is not None:
+        out["vmin"] = float(entry["vmin"])
+    if entry.get("vmax") is not None:
+        out["vmax"] = float(entry["vmax"])
+    if entry.get("diff_abs") is not None:
+        out["diff_abs"] = float(entry["diff_abs"])
     return out
 
 
