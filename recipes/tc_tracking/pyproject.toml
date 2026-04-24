@@ -8,7 +8,7 @@ authors = [
   { name = "NVIDIA Earth-2 Team" },
 ]
 dependencies = [
-    "earth2studio[data,aifsens,fcn3]>=0.11.0",
+    "earth2studio[data]>=0.11.0",
     "huggingface-hub",
     "hydra-core>=1.3.2",
     "importlib-metadata>=8.7.0",
@@ -22,6 +22,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+aifs = [
+    "earth2studio[aifsens]>=0.11.0",
+]
+fcn3 = [
+    "earth2studio[fcn3]>=0.11.0",
+]
 plot = [
     "cartopy>=0.24.1",
     "ipykernel>=6.30.1",
@@ -34,6 +40,8 @@ dev = [
     "pytest>=8.1.0",
 ]
 all = [
+    "earth2studio.recipe.tc_hunt[aifs]",
+    "earth2studio.recipe.tc_hunt[fcn3]",
     "earth2studio.recipe.tc_hunt[plot]",
     "earth2studio.recipe.tc_hunt[dev]",
 ]

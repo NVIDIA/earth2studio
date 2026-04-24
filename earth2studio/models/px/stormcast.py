@@ -27,7 +27,7 @@ import zarr
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     handshake_coords,
@@ -43,17 +43,17 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from omegaconf import OmegaConf
+    from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
-    from physicsnemo.diffusion.samplers.legacy_deterministic_sampler import (
-        deterministic_sampler,
-    )
+    from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.diffusion_unets import StormCastUNet
 except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
+    EDMNoiseScheduler = None
     EDMPrecond = None
     OmegaConf = None
-    deterministic_sampler = None
+    sample = None
 
 
 # Variables used in StormCastV1 paper
@@ -131,8 +131,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     conditioning_data_source : DataSource | ForecastSource | None, optional
         Data Source to use for global conditioning. Required for running in iterator mode, by default None
+    sampler_steps : int, optional
+        Number of diffusion sampler steps, by default 36
     sampler_args : dict[str, float  |  int], optional
-        Arguments to pass to the diffusion sampler, by default {}
+        Arguments to pass to the diffusion sampler, by default None
 
     Badges
     ------
@@ -154,7 +156,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         conditioning_data_source: DataSource | ForecastSource | None = None,
-        sampler_args: dict[str, float | int] = {},
+        sampler_steps: int = 18,
+        sampler_args: dict[str, float | int] | None = None,
     ):
         super().__init__()
         self.regression_model = regression_model
@@ -162,7 +165,18 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
         self.register_buffer("invariants", invariants)
-        self.sampler_args = sampler_args
+        self.sampler_steps = sampler_steps
+        self.sampler_args: dict[str, float | int] = {
+            "sigma_min": 0.002,
+            "sigma_max": 800,
+            "rho": 7,
+            "S_churn": 0.0,
+            "S_min": 0.0,
+            "S_max": float("inf"),
+            "S_noise": 1,
+        }
+        if sampler_args is not None:
+            self.sampler_args.update(sampler_args)
 
         hrrr_lat, hrrr_lon = HRRR.grid()
         self.lat = hrrr_lat[
@@ -267,7 +281,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
-    ) -> DiagnosticModel:
+        sampler_steps: int = 18,
+    ) -> PrognosticModel:
         """Load prognostic from package
 
         Parameters
@@ -276,6 +291,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Package to load model from
         conditioning_data_source : DataSource | ForecastSource, optional
             Data source to use for global conditioning, by default GFS_FX
+        sampler_steps : int, optional
+            Number of diffusion sampler steps, by default 18
 
         Returns
         -------
@@ -344,6 +361,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning_stds=conditioning_stds,
             conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
+            sampler_steps=sampler_steps,
             sampler_args=sampler_args,
         )
 
@@ -367,13 +385,31 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Concat for diffusion conditioning
         condition = torch.cat((x, out, invariant_tensor), dim=1)
         latents = torch.randn_like(x)
+        latents = self.sampler_args["sigma_max"] * latents
 
-        # Run diffusion model
-        edm_out = deterministic_sampler(
-            self.diffusion_model,
-            latents=latents,
-            img_lr=condition,
-            **self.sampler_args,
+        def _conditional_diffusion(
+            latent_x: torch.Tensor, t: torch.Tensor
+        ) -> torch.Tensor:
+            return self.diffusion_model(latent_x, t, condition=condition)
+
+        scheduler = EDMNoiseScheduler(
+            sigma_min=self.sampler_args["sigma_min"],
+            sigma_max=self.sampler_args["sigma_max"],
+            rho=self.sampler_args["rho"],
+        )
+        denoiser = scheduler.get_denoiser(x0_predictor=_conditional_diffusion)
+        edm_out = sample(
+            denoiser,
+            latents,
+            noise_scheduler=scheduler,
+            num_steps=self.sampler_steps,
+            solver="edm_stochastic_heun",
+            solver_options={
+                "S_churn": self.sampler_args["S_churn"],
+                "S_min": self.sampler_args["S_min"],
+                "S_max": self.sampler_args["S_max"],
+                "S_noise": self.sampler_args["S_noise"],
+            },
         )
 
         out += edm_out

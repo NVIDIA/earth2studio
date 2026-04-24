@@ -23,7 +23,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 from loguru import logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 from zarr import consolidate_metadata
@@ -42,6 +42,7 @@ from src.data.tc_hunt_file_output import (
 from src.tc_hunt_utils import (
     InstabilityDetection,
     get_set_of_random_seeds,
+    remove_duplicates,
     run_with_rank_ordered_execution,
     set_initial_times,
 )
@@ -84,8 +85,8 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object. May contain ``model`` (str) and
-        ``model_package`` (str) keys
+        Hydra configuration object. Must contain ``model`` (str) and may
+        contain ``model_package`` (str)
 
     Returns
     -------
@@ -95,11 +96,14 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     Raises
     ------
     ValueError
-        If the requested model name is not supported
+        If ``cfg.model`` is not set or the requested model name is not
+        supported
     """
-    model_name = "fcn3"
-    if "model" in cfg:
-        model_name = cfg.model
+    if "model" not in cfg:
+        raise ValueError(
+            "cfg.model must be specified in the YAML config (e.g. 'fcn3' or 'aifs')"
+        )
+    model_name = cfg.model
 
     model_cls: type[AutoModelMixin]
     if model_name.lower().startswith("aifs"):
@@ -162,8 +166,10 @@ def run_inference(
     dist = DistributedManager()
     data_source_mngr = DataSourceManager(cfg)
 
-    # iterate over initial conditions
-    ic_prev = None
+    # Per-IC caches: avoid re-creating NetCDF stores or re-fetching data when
+    # the same IC is encountered again (e.g. after stability re-queuing).
+    nc_stores: dict[np.datetime64, NetCDF4Backend] = {}
+    ic_data_cache: dict[np.datetime64, tuple[torch.Tensor, OrderedDict]] = {}
 
     cyclone_tracking = None
     if "cyclone_tracking" in cfg:
@@ -192,10 +198,10 @@ def run_inference(
             static_vars=heights,
             static_coords=height_coords,
             store_dir=cfg.store_dir,
-            keep_raw_data=cfg.cyclone_tracking.keep_raw_data,
-            print_te_output=cfg.cyclone_tracking.print_te_output,
+            keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
+            print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
             scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
-            timeout=cfg.cyclone_tracking.task_timeout_seconds,
+            timeout=cfg.cyclone_tracking.get("task_timeout_seconds", 120),
             max_workers_per_rank=cfg.cyclone_tracking.get("max_workers_per_rank", None),
         )
 
@@ -211,10 +217,12 @@ def run_inference(
 
         data_source = data_source_mngr.select_data_source(ic)
 
-        # if new IC, fetch data, create iterator
-        if ic != ic_prev:
-            if cfg.store_type == "netcdf":
-                store = initialise_netcdf_output(cfg, out_coords, ic, ic_mems)
+        if cfg.store_type == "netcdf" and ic not in nc_stores:
+            nc_stores[ic] = initialise_netcdf_output(cfg, out_coords, ic, ic_mems)
+        if cfg.store_type == "netcdf":
+            store = nc_stores[ic]
+
+        if ic not in ic_data_cache:
             x0, coords0 = fetch_data(
                 data_source,
                 time=[np.datetime64(ic)],
@@ -222,7 +230,9 @@ def run_inference(
                 variable=model.input_coords()["variable"],
                 device=dist.device,
             )
-            ic_prev = ic
+            ic_data_cache[ic] = (x0, coords0)
+        else:
+            x0, coords0 = ic_data_cache[ic]
 
         coords = {"ensemble": np.array(mems)} | coords0.copy()
         xx = x0.unsqueeze(0).repeat(mini_batch_size, *([1] * x0.ndim))
@@ -230,13 +240,11 @@ def run_inference(
         if stability_check:
             stability_check.reset(deepcopy(coords))
 
-        # set random state or apply perturbation
-        if ("model" not in cfg) or (cfg.model == "fcn3"):
-            if hasattr(model, "set_rng"):
-                model.set_rng(seed=seed)  # type: ignore[attr-defined]
-        elif cfg.model.lower().startswith("aifs"):
-            # no need for perturbation, but also cannot set internal noise state
-            pass
+        # Set random state where supported. FCN3 exposes set_rng for seeding
+        # its internal noise generator; AIFS-ENS does not expose its internal
+        # noise state, so seeding is silently skipped.
+        if hasattr(model, "set_rng"):
+            model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
         iterator = model.create_iterator(xx, CoordSystem(coords))
         stab = torch.ones(mini_batch_size)
@@ -282,7 +290,7 @@ def run_inference(
     return store
 
 
-def distribute_runs(
+def assign_runs_to_rank(
     ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
 ) -> list[tuple[np.datetime64, np.ndarray, int]] | None:
     """Partition work items across distributed ranks.
@@ -357,7 +365,7 @@ def configure_runs(
     if not DistributedManager().distributed:
         return ic_mems, ics
 
-    ic_mems_rank = distribute_runs(ic_mems)
+    ic_mems_rank = assign_runs_to_rank(ic_mems)
 
     return ic_mems_rank, ics
 
@@ -377,6 +385,102 @@ def generate_ensemble(cfg: DictConfig) -> None:
     initialise(cfg)
 
     ic_mems, ics = configure_runs(cfg)
+
+    model = load_model(cfg)
+
+    store, out_coords = (
+        run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
+            setup_output,
+            cfg=cfg,
+            model=model,
+            ics=ics,
+            add_arrays=DistributedManager().rank == 0,
+        )
+    )
+
+    if ic_mems is None:
+        DistributedManager().cleanup()
+        sys.exit()
+
+    store = run_inference(model, cfg, store, out_coords, ic_mems)
+
+
+def set_reproduction_configs(
+    cfg: DictConfig,
+) -> tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]:
+    """Build and distribute work items for reproducing specific ensemble members.
+
+    Parses the ``reproduce_members`` config list, expands each requested member
+    to its full batch (since the internal random state can only be set per
+    batch), de-duplicates, and distributes across ranks.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object.  Must contain ``reproduce_members`` (list
+        of ``[ic, member_id, seed]`` triples), ``batch_size``, and
+        ``ensemble_size``.
+
+    Returns
+    -------
+    tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]
+        Tuple of (work items for this rank, list of all initial-condition times)
+    """
+    ic_mems = OmegaConf.to_container(cfg.reproduce_members)
+
+    ics = []
+    for ii in range(len(ic_mems)):
+        ic_mems[ii][0] = np.datetime64(ic_mems[ii][0])
+        ics.append(ic_mems[ii][0])
+
+        # expand to the full batch that contains the requested member
+        batch_id = ic_mems[ii][1] // cfg.batch_size
+        ic_mems[ii][1] = np.arange(
+            batch_id * cfg.batch_size,
+            min((batch_id + 1) * cfg.batch_size, cfg.ensemble_size),
+        )
+
+    ic_mems = remove_duplicates(ic_mems)
+    ic_mems.sort(key=lambda x: x[0])
+    ics = list(set(ics))
+
+    if not DistributedManager().distributed:
+        return ic_mems, ics
+
+    ic_mems_rank = assign_runs_to_rank(ic_mems)
+
+    return ic_mems_rank, ics
+
+
+def reproduce_members(cfg: DictConfig) -> None:
+    """Reproduce specific ensemble members to extract atmospheric fields.
+
+    Entry point that validates the configuration, sets up reproduction work
+    items, loads the model, and re-runs inference for the requested members
+    with the original random seeds so that results are bit-identical.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object
+
+    Raises
+    ------
+    ValueError
+        If ``store_type`` is ``"zarr"`` (not supported for reproduction) or
+        the model is not ``"fcn3"`` (only FCN3 exposes its internal random
+        state).
+    """
+    if cfg.store_type == "zarr":
+        raise ValueError("Zarr output not supported for reproducing ensemble members")
+    if "model" not in cfg:
+        raise ValueError("cfg.model must be specified in the YAML config (e.g. 'fcn3')")
+    if cfg.model != "fcn3":
+        raise ValueError("Currently, reproducibility works for FCN3 only")
+
+    initialise(cfg)
+
+    ic_mems, ics = set_reproduction_configs(cfg)
 
     model = load_model(cfg)
 
