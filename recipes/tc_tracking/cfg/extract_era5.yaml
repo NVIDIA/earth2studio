@@ -26,6 +26,8 @@ data_source:
 
 store_dir: "./outputs_${project}"
 
+num_workers: 2
+
 cyclone_tracking:
     vars: ['msl', 'u10m', 'v10m', 'z300', 'z500']
     detect_cmd: >-

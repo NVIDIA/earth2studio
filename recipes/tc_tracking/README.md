@@ -142,13 +142,6 @@ Runs are configured through YAML files located in
 python tc_hunt.py --config-name=config.yaml
 ```
 
-The script can also be executed in distributed settings
-using Slurm, MPI, or torchrun. For example:
-
-```bash
-torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
-```
-
 The pipeline has three operational modes:
 
 - **`generate_ensemble`**: Generate an ensemble prediction
@@ -161,6 +154,23 @@ The pipeline has three operational modes:
 - **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
+
+**Parallelism:**
+
+The two GPU-bound modes (`generate_ensemble` and
+`reproduce_members`) can be executed in distributed
+settings using Slurm, MPI, or torchrun, e.g.
+
+```bash
+torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
+```
+
+The CPU-bound `extract_baseline` mode does not use
+`torchrun` and does not require a GPU. Instead, individual
+storms are distributed across CPU worker processes via the
+``num_workers`` configuration entry (see
+[Section 2.3](#23-extract-reference-tracks-from-era5)),
+so a plain ``python tc_hunt.py ...`` invocation suffices.
 
 In the following we will explain how to configure the yaml
 files for those three modes. You can find example configs
@@ -517,6 +527,25 @@ data_source:
             _target_: earth2studio.data.CDS
 ```
 
+**Parallel Extraction:**
+
+`extract_baseline` is CPU-bound (no GPU required) and
+distributes individual storms across worker processes via
+a [`ProcessPoolExecutor`][ppe-docs]. Set the desired number
+of workers in the configuration:
+
+```yaml
+num_workers: 2     # 1 = serial; capped at len(cases)
+```
+
+Each worker handles one storm at a time and writes its own
+per-storm CSV file independently, so output is
+deterministic and no inter-process communication is needed.
+Serial runs (`num_workers: 1`) skip the pool entirely and use the
+same code path inline. If `num_workers` exceeds the number
+of configured cases, it is silently capped to `len(cases)`
+and a warning is logged.
+
 ## 3. Visualisation
 
 > [!Note]
@@ -626,7 +655,9 @@ and use the pre-computed reference tracks provided in
 `./aux_data` instead.
 
 The IBTrACS data file is downloaded automatically on first
-use. Extract the baseline tracks:
+use. Extract the baseline tracks (no `torchrun` / GPU
+needed; storms are spread across `num_workers` CPU worker
+processes as configured in the YAML):
 
 ```bash
 python tc_hunt.py --config-name=extract_era5.yaml
@@ -757,5 +788,6 @@ tracks are identical.
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models
 [docker-build]: https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image
+[ppe-docs]: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
 
 <!-- markdownlint-enable MD013 -->

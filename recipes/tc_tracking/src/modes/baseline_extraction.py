@@ -15,8 +15,9 @@
 # limitations under the License.
 
 import os
-import sys
 import urllib.request
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -27,11 +28,7 @@ from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
-from src.tc_hunt_utils import (
-    assign_runs_to_rank,
-    great_circle_distance,
-    run_with_rank_ordered_execution,
-)
+from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
 
 IBTRACS_URL = (
@@ -356,30 +353,6 @@ def write_track_to_csv(
     matched_track.to_csv(os.path.join(store_dir, csv_name), index=False)
 
 
-def configure_cases(cfg: DictConfig) -> list[str] | None:
-    """Return the subset of case names this rank should process.
-
-    Mirrors :func:`generate_tc_hunt_ensembles.configure_runs` for the simpler
-    baseline setup where each work item is a single named storm. The case
-    list is sorted before partitioning so the rank assignment is fully
-    deterministic.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra configuration object containing a ``cases`` mapping.
-
-    Returns
-    -------
-    list[str] | None
-        Storm names assigned to this rank, or ``None`` if idle.
-    """
-    cases = sorted(cfg.cases.keys())
-    if not DistributedManager().distributed:
-        return cases
-    return assign_runs_to_rank(cases)
-
-
 def process_case(
     case: str,
     cfg: DictConfig,
@@ -429,6 +402,54 @@ def process_case(
     return add_ibtracs_data(matched_track, ib_storm)
 
 
+_WORKER: dict = {}
+
+
+def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
+    """Per-worker initialiser: load IBTrACS + the data source manager once.
+
+    Used as the ``initializer`` of :class:`ProcessPoolExecutor` so each worker
+    process pays the IBTrACS load cost a single time, regardless of how many
+    storms it ends up handling. Also called directly in the serial fast path.
+
+    The :class:`DistributedManager` singleton is also marked as initialised
+    here: the ``TempestExtremes`` diagnostic queries ``DistributedManager()``
+    for its rank, and a fresh worker process starts with the singleton
+    uninitialised. Baseline extraction parallelises via
+    :class:`ProcessPoolExecutor` and does not need a real torch process
+    group, so we skip straight to physicsnemo's no-launcher fallback (rank
+    0, single process, CPU device) instead of calling
+    :meth:`DistributedManager.initialize` — the latter would try to bind a
+    CUDA device whenever stale ``RANK`` / ``WORLD_SIZE`` env vars from a
+    previous torchrun invocation are present, crashing on CPU-only systems.
+    """
+    if not DistributedManager.is_initialized():
+        DistributedManager._shared_state["_is_initialized"] = True
+    _WORKER["cfg"] = cfg
+    _WORKER["ibtracs"] = tropytracks.TrackDataset(
+        basin="all",
+        source="ibtracs",
+        ibtracs_mode="jtwc_neumann",
+        ibtracs_url=ibtracs_path,
+    )
+    _WORKER["dsm"] = DataSourceManager(cfg)
+
+
+def _run_case(case: str, time_step: np.timedelta64, vars: list[str]) -> None:
+    """Per-worker entry point: process one storm and write its CSV."""
+    cfg = _WORKER["cfg"]
+    matched = process_case(
+        case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step, vars
+    )
+    if matched is None:
+        logger.warning(
+            f"no reanalysis track matched storm {case} within the 300 km "
+            f"threshold — skipping CSV output"
+        )
+        return
+    write_track_to_csv(matched, case, cfg.store_dir, cfg.cases[case].basin)
+
+
 def extract_baseline(
     cfg: DictConfig,
     time_step: np.timedelta64 = np.timedelta64(6, "h"),
@@ -439,14 +460,14 @@ def extract_baseline(
     For each case defined in the configuration, queries IBTrACS to determine
     when the storm was active, fetches the corresponding reanalysis data,
     runs TempestExtremes to extract all TC tracks, and matches the result
-    against IBTrACS to identify the target storm. Cases are partitioned
-    deterministically across distributed ranks; each rank writes its own
-    per-storm CSV files independently.
+    against IBTrACS to identify the target storm. Cases are processed in
+    parallel across ``cfg.num_workers`` worker processes (defaults to 1 =
+    serial); each worker writes its own per-storm CSV file independently.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object.
+        Hydra configuration object. May define ``num_workers`` (int).
     time_step : np.timedelta64, optional
         Time step for the reanalysis extraction, by default 6 h.
     vars : list[str] | None, optional
@@ -456,34 +477,29 @@ def extract_baseline(
     if vars is None:
         vars = ["msl", "z300", "z500", "u10m", "v10m"]
 
-    DistributedManager.initialize()
-
-    ibtracs_path = run_with_rank_ordered_execution(
-        ensure_ibtracs, cfg.ibtracs_source_data
-    )
-
-    ibtracs = tropytracks.TrackDataset(
-        basin="all",
-        source="ibtracs",
-        ibtracs_mode="jtwc_neumann",
-        ibtracs_url=ibtracs_path,
-    )
-
-    data_source_mngr = DataSourceManager(cfg)
-
-    cases = configure_cases(cfg)
-    if cases is None:
-        DistributedManager().cleanup()
-        sys.exit()
-
-    for case in cases:
-        matched_track = process_case(
-            case, cfg, ibtracs, data_source_mngr, time_step, vars
+    ibtracs_path = ensure_ibtracs(cfg.ibtracs_source_data)
+    cases = sorted(cfg.cases.keys())
+    requested_workers = cfg.get("num_workers", 1)
+    n_workers = min(requested_workers, len(cases))
+    if n_workers < requested_workers:
+        logger.warning(
+            f"num_workers={requested_workers} exceeds the number of cases "
+            f"({len(cases)}); capping to {n_workers} to avoid idle workers"
         )
-        if matched_track is None:
-            logger.warning(
-                f"no reanalysis track matched storm {case} within the 300 km "
-                f"threshold — skipping CSV output"
-            )
-            continue
-        write_track_to_csv(matched_track, case, cfg.store_dir, cfg.cases[case].basin)
+
+    runner = partial(_run_case, time_step=time_step, vars=vars)
+
+    if n_workers <= 1:
+        _init_worker(cfg, ibtracs_path)
+        for case in cases:
+            runner(case)
+        return
+
+    with ProcessPoolExecutor(
+        max_workers=n_workers,
+        initializer=_init_worker,
+        initargs=(cfg, ibtracs_path),
+    ) as pool:
+        # Iterate so exceptions raised inside workers propagate
+        for _ in pool.map(runner, cases):
+            pass
