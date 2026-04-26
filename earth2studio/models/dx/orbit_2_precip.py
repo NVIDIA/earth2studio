@@ -38,8 +38,7 @@ from climate_learn.data.precipmodule import LogTransform
 from climate_learn.data.processing.era5_constants import PRECIP_VARIABLES
 from climate_learn.utils.visualize import TileProcessor, TileCoordinates
 from torchvision.transforms import transforms
-import xesmf as xe
-import xarray as xr
+import earth2grid
 from typing import Tuple, List, Optional, Dict, Any
 
 VARIABLES = [
@@ -152,7 +151,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         normalize_std_highres,
         do_tiling,
         div,
-        overlap
+        overlap,
     ):
         super().__init__()
 
@@ -213,14 +212,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                 "lon": np.linspace(0, 360, OUT_WIDTH, endpoint=False), #1440*4
             }
         )
-        # Validate input coordinates
+        
         target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["variable"] = np.array(OUT_VARIABLES)
+        for i, key in enumerate(target_input_coords):
+            if key != "batch":
+                handshake_dim(input_coords, key, i)
+                handshake_coords(input_coords, target_input_coords, key)
         return output_coords
 
     @classmethod
@@ -378,43 +375,40 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         """Preprocess Earth2Studio data to match ORBIT-2 DATA"""
         device = x.device
 
-        #Regrid Data
-        grid_out = xr.Dataset(
-            {
-                "lat": np.linspace(-90, 90, num=721, endpoint=True),
-                "lon": np.arange(0, 360, 0.25),
-            }
+        src_grid = earth2grid.latlon.LatLonGrid(
+            lat=np.linspace(90, -90, 721),
+            lon=np.linspace(0, 360, 1440, endpoint=False)
         )
 
-        x = x.detach().cpu().numpy()
-        x = xr.DataArray(
-            x,
-            dims=("time", "variables", "lat", "lon"),
-            coords={
-                "time": [1],
-                "variables": ORBIT_VARIABLE_MAPPING,
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False)
-            },
-            name="dummy_data"
+        # Define target grid (lat ascending: -90 -> 90)
+        dst_grid = earth2grid.latlon.LatLonGrid(
+            lat=np.linspace(-90, 90, 721),
+            lon=np.arange(0, 360, 0.25)
         )
-        regridder = xe.Regridder(
-            x, grid_out, "bilinear", periodic=True, reuse_weights=False
-        )
-        x = regridder(x, keep_attrs=True).astype("float32")
+
+        # Build regridder (stays on GPU)
+        regridder = earth2grid.get_regridder(src_grid, dst_grid)
+        regridder = regridder.to(device).float()
+
+        # Regrid — expects (..., lat, lon), handles time+variable dims automatically
+        # x shape: (time, variables, lat, lon)
+        x = regridder(x)
 
         #Remove 90 degree latitude from data to make (720, 1440)
         x = x[:,:,1:,:]
-        x = torch.from_numpy(x.values).to(device)
 
         #Flip latitude (89.75, -90) -> (-90, 89.75)
         x = torch.flip(x, dims=(2,))
 
         #Add static Variables to input tensor
-        land_sea_mask = torch.from_numpy(self.land_sea_mask).to(x.device).to(torch.float32).unsqueeze(0).unsqueeze(0)
-        orography = torch.from_numpy(self.orography).to(x.device).to(torch.float32).unsqueeze(0).unsqueeze(0)
-        lattitude = torch.from_numpy(self.lattitude).to(x.device).to(torch.float32).unsqueeze(0).unsqueeze(0)
-        landcover = torch.from_numpy(self.landcover).to(x.device).to(torch.float32).unsqueeze(0).unsqueeze(0)
+        land_sea_mask = torch.from_numpy(self.land_sea_mask).to(x.device).to(torch.float32).unsqueeze(0)
+        land_sea_mask = land_sea_mask.expand(x.shape[0], *land_sea_mask.shape)
+        orography = torch.from_numpy(self.orography).to(x.device).to(torch.float32).unsqueeze(0)
+        orography = orography.expand(x.shape[0], *orography.shape)
+        lattitude = torch.from_numpy(self.lattitude).to(x.device).to(torch.float32).unsqueeze(0)
+        lattitude = lattitude.expand(x.shape[0], *lattitude.shape)
+        landcover = torch.from_numpy(self.landcover).to(x.device).to(torch.float32).unsqueeze(0)
+        landcover = landcover.expand(x.shape[0], *landcover.shape)
 
         x = torch.cat((x, land_sea_mask, orography, lattitude, landcover),dim=1)
 
@@ -478,13 +472,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     @staticmethod
     def stitch_tiles(
-        tiles: List, tile_coords: List, processor: TileProcessor 
+        tiles: List, tile_coords: List, processor: TileProcessor, batch_size: int 
     ) -> torch.Tensor:
         """Stitch tiles together into complete images.
 
         Reconstructs full image from processed tiles, handling overlap regions.
         """
-        preds = torch.zeros((1,1,processor.yout, processor.xout), dtype=torch.float32, device=tiles[0].device)
+        preds = torch.zeros((batch_size,1,processor.yout, processor.xout), dtype=torch.float32, device=tiles[0].device)
 
         # Place each tile in the correct position
         for i in range(len(tiles)):
@@ -531,7 +525,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                     yhat = torch.flip(yhat, dims=(2,))
                     tile_coords.append(self.adjust_coords_for_flip(coords, processor))
                     tiles.append(yhat)
-            yhat = self.stitch_tiles(tiles, tile_coords, processor)
+            yhat = self.stitch_tiles(tiles, tile_coords, processor, yhat.shape[0])
             yhat = torch.flip(yhat, dims=(2,))
         else:
             x = self.preprocess_input(x)
