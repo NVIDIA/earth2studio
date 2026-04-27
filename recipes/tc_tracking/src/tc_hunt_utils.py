@@ -60,6 +60,42 @@ def set_initial_times(cfg: DictConfig) -> np.ndarray:
     return ics
 
 
+def remove_duplicates(
+    data_list: list[list],
+) -> list[list]:
+    """Remove duplicate reproduction work items, preserving order.
+
+    Each sub-list is expected to follow the reproduction schema
+    ``[np.datetime64, np.ndarray, int]`` (initial condition, batch member
+    indices, random seed).  Arrays with the same values but different dtypes
+    or shapes are considered different.
+
+    Parameters
+    ----------
+    data_list : list[list]
+        List of ``[np.datetime64, np.ndarray, int]`` sub-lists.
+
+    Returns
+    -------
+    list[list]
+        De-duplicated list preserving original order.
+    """
+    seen: set[tuple] = set()
+    result: list[list] = []
+
+    for sublist in data_list:
+        hashable_key = (
+            sublist[0],
+            (tuple(sublist[1].tolist()), str(sublist[1].dtype), sublist[1].shape),
+            sublist[2],
+        )
+        if hashable_key not in seen:
+            seen.add(hashable_key)
+            result.append(sublist)
+
+    return result
+
+
 def get_set_of_random_seeds(
     n_ics: int, ensemble_size: int, batch_size: int, seed: int | None
 ) -> np.ndarray:

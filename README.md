@@ -93,6 +93,9 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 
 ## Latest News
 
+> [!NOTE]
+> As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
+
 - [**StormCast SDA**](https://nvidia.github.io/earth2studio/modules/generated/models/da/earth2studio.models.da.StormCastSDA.html),
     score-based data assimilation (SDA) combined with StormCast for high-resolution
     regional weather prediction, is now available alongside new data assimilation
@@ -342,7 +345,7 @@ Earth2Studio is provided under the Apache License 2.0, refer to the
 
 <!-- Badge links -->
 
-[e2studio_python_img]: https://img.shields.io/badge/Python-3.11%20|%203.12%20|%203.13-blue?style=flat-square&logo=python
+[e2studio_python_img]: https://img.shields.io/badge/Python-3.11%20|%203.12%20|%203.13%20|%203.14-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
 [e2studio_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
 [e2studio_mypy_img]: https://img.shields.io/badge/mypy-Checked-blue?style=flat-square&labelColor=grey
