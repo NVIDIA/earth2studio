@@ -43,12 +43,10 @@ process.
    - [2.1 Generate Ensemble](#21-generate-ensemble)
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
-     *(coming soon)*
 3. [Visualisation](#3-visualisation) *(coming soon)*
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
    - [5.1 Extract Baseline](#51-extract-baseline-optional)
-     *(coming soon)*
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
    - [5.3 Analyse Tracks](#53-analyse-tracks)
      *(coming soon)*
@@ -144,8 +142,24 @@ Runs are configured through YAML files located in
 python tc_hunt.py --config-name=config.yaml
 ```
 
-The script can also be executed in distributed settings
-using Slurm, MPI, or torchrun. For example:
+The pipeline has three operational modes:
+
+- **`generate_ensemble`**: Generate an ensemble prediction
+  and extract tropical cyclones.
+- **`reproduce_members`**: Reproduce
+  individual ensemble members to store atmospheric fields
+  of interesting tracks. Note: Currently only works with
+  FCN3, as AIFS-ENS does not expose a method to set the
+  model's internal random state.
+- **`extract_baseline`**: Extract tropical
+  cyclone tracks from historical reanalysis data (e.g. ERA5)
+  for validation purposes.
+
+**Parallelism:**
+
+The two GPU-bound modes (`generate_ensemble` and
+`reproduce_members`) can be executed in distributed
+settings using Slurm, MPI, or torchrun, e.g.
 
 ```bash
 torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
@@ -160,9 +174,15 @@ The pipeline has three operational modes:
   of interesting tracks. Note: Currently only works with
   FCN3, as AIFS-ENS does not expose a method to set the
   model's internal random state.
-- **`extract_baseline`** *(coming soon)*: Extract tropical
+- **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
+  The CPU-bound `extract_baseline` mode does not use
+  `torchrun` and does not require a GPU. Instead, individual
+  storms are distributed across CPU worker processes via the
+  ``num_workers`` configuration entry (see
+  [Section 2.3](#23-extract-reference-tracks-from-era5)),
+  so a plain ``python tc_hunt.py ...`` invocation suffices.
 
 In the following we will explain how to configure the yaml
 files for those three modes. You can find example configs
@@ -430,13 +450,6 @@ members 4, 5, 12, and 13 from the midday ensemble.
 
 ### 2.3 Extract Reference Tracks from ERA5
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 [IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive)
 (International Best Track Archive for Climate Stewardship)
 is considered the gold standard for tropical cyclone
@@ -486,18 +499,16 @@ each named storm.
 
 **IBTrACS Data:**
 
-Download the IBTrACS data in CSV format:
+The pipeline requires the IBTrACS dataset in CSV format.
+Specify a local path in the configuration:
 
-<!-- markdownlint-disable MD013 -->
-
-```bash
-wget https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv
+```yaml
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 ```
 
-<!-- markdownlint-enable MD013 -->
-
-Note: This file is over 300MB and may take several minutes
-to download.
+If the file does not exist at the configured path, it is
+downloaded automatically from NCEI (~300 MB). The download
+only occurs once; subsequent runs use the cached file.
 
 **Reanalysis Data:**
 
@@ -514,7 +525,7 @@ to download.
 
 ```yaml
 store_dir: "./outputs_${project}"
-ibtracs_source_data: "/path/to/ibtracs.ALL.list.v04r01.csv"
+ibtracs_source_data: "./aux_data/ibtracs.ALL.list.v04r01.csv"
 
 data_source:
     era5_train:
@@ -528,8 +539,24 @@ data_source:
             _target_: earth2studio.data.CDS
 ```
 
-</details>
-<!-- markdownlint-enable MD033 -->
+**Parallel Extraction:**
+
+`extract_baseline` is CPU-bound (no GPU required) and
+distributes individual storms across worker processes via
+a [`ProcessPoolExecutor`][ppe-docs]. Set the desired number
+of workers in the configuration:
+
+```yaml
+num_workers: 2     # 1 = serial; capped at len(cases)
+```
+
+Each worker handles one storm at a time and writes its own
+per-storm CSV file independently, so output is
+deterministic and no inter-process communication is needed.
+Serial runs (`num_workers: 1`) skip the pool entirely and use the
+same code path inline. If `num_workers` exceeds the number
+of configured cases, it is silently capped to `len(cases)`
+and a warning is logged.
 
 ## 3. Visualisation
 
@@ -632,22 +659,17 @@ tracks extracted from ERA5 data.
 
 ### 5.1 Extract Baseline (Optional)
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 This step extracts reference tracks from ERA5 reanalysis for
 comparison with forecast predictions. Note that downloading
 the ERA5 field data for Hato and Helene is required and can
 take some time. If it takes too long, you can skip this step
 and use the pre-computed reference tracks provided in
-`./test/aux_data` instead.
+`./aux_data` instead.
 
-First, download the IBTrACS data, then extract the baseline
-tracks:
+The IBTrACS data file is downloaded automatically on first
+use. Extract the baseline tracks (no `torchrun` / GPU
+needed; storms are spread across `num_workers` CPU worker
+processes as configured in the YAML):
 
 ```bash
 python tc_hunt.py --config-name=extract_era5.yaml
@@ -659,9 +681,6 @@ files:
 
 - `reference_track_hato_2017_west_pacific.csv`
 - `reference_track_helene_2024_north_atlantic.csv`
-
-</details>
-<!-- markdownlint-enable MD033 -->
 
 ### 5.2 Produce Ensemble Forecasts
 
@@ -781,5 +800,6 @@ tracks are identical.
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models
 [docker-build]: https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image
+[ppe-docs]: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
 
 <!-- markdownlint-enable MD013 -->

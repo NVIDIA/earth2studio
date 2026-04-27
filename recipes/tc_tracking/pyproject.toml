@@ -16,8 +16,9 @@ dependencies = [
     "omegaconf>=2.3.0",
     "ruamel-yaml>=0.18.14",
     "scipy>=1.16.0",
-    "setuptools>=80.9.0",
+    "setuptools>=80.9.0,<82",
     "tqdm>=4.67.1",
+    "tropycal>=1.4",
     "zarrdump>=0.6.0",
 ]
 
