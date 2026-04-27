@@ -718,10 +718,9 @@ FAIL : Failed to load library libonnxruntime_providers_cuda.so with error:
 libcublasLt.so.11: cannot open shared object file: No such file or directory.</p>
 </div></blockquote>
 <p>This is an error from ONNX Runtime not being installed correctly.
-If you are using CUDA 12 make sure you manually pip install following the instructions
+If you are using CUDA 13 make sure you manually pip install following the instructions
 on the ONNX <a class="reference external" href="https://onnxruntime.ai/docs/install/#python-installs">documentation</a>.
-You may need to manually link the needed libraries. Refer to this
-<a class="reference external" href="https://github.com/microsoft/onnxruntime/issues/19616">GitHub issue</a> for reference.</p>
+You may need to manually pip install using a specific index.</p>
 </section>
 <section id="importerror-object-is-not-installed-install-manually-or-using-pip">
 <h2>ImportError: object is not installed, install manually or using pip<a class="headerlink" href="#importerror-object-is-not-installed-install-manually-or-using-pip" title="Link to this heading">#</a></h2>
