@@ -93,6 +93,9 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 
 ## Latest News
 
+> [!NOTE]
+> As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
+
 - [**StormCast SDA**](https://nvidia.github.io/earth2studio/modules/generated/models/da/earth2studio.models.da.StormCastSDA.html),
     score-based data assimilation (SDA) combined with StormCast for high-resolution
     regional weather prediction, is now available alongside new data assimilation
