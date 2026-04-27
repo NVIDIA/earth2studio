@@ -165,12 +165,24 @@ settings using Slurm, MPI, or torchrun, e.g.
 torchrun --nproc-per-node=2 tc_hunt.py --config-name=config.yaml
 ```
 
-The CPU-bound `extract_baseline` mode does not use
-`torchrun` and does not require a GPU. Instead, individual
-storms are distributed across CPU worker processes via the
-``num_workers`` configuration entry (see
-[Section 2.3](#23-extract-reference-tracks-from-era5)),
-so a plain ``python tc_hunt.py ...`` invocation suffices.
+The pipeline has three operational modes:
+
+- **`generate_ensemble`**: Generate an ensemble prediction
+  and extract tropical cyclones.
+- **`reproduce_members`**: Reproduce
+  individual ensemble members to store atmospheric fields
+  of interesting tracks. Note: Currently only works with
+  FCN3, as AIFS-ENS does not expose a method to set the
+  model's internal random state.
+- **`extract_baseline`**: Extract tropical
+  cyclone tracks from historical reanalysis data (e.g. ERA5)
+  for validation purposes.
+  The CPU-bound `extract_baseline` mode does not use
+  `torchrun` and does not require a GPU. Instead, individual
+  storms are distributed across CPU worker processes via the
+  ``num_workers`` configuration entry (see
+  [Section 2.3](#23-extract-reference-tracks-from-era5)),
+  so a plain ``python tc_hunt.py ...`` invocation suffices.
 
 In the following we will explain how to configure the yaml
 files for those three modes. You can find example configs
