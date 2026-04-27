@@ -65,7 +65,6 @@ diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_00
 <!-- markdownlint-enable MD013 -->
 
 Repeat the diff call for all reproduced ensemble members, the return should always be empty.
-<<<<<<< HEAD
 
 ## Test 3: Extracting individual storms from historic data
 
@@ -116,5 +115,3 @@ diff outputs_reference_tracks/reference_track_helene_2024_north_atlantic.csv \
 ```
 
 <!-- markdownlint-enable MD013 -->
-=======
->>>>>>> main
