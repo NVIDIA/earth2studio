@@ -285,8 +285,8 @@ uv add earth2studio --extra fcn3
 ::::
 :::::
 :::::{tab-item} FengWu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA and Python version.
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+This might have specific pip installation steps depending on your CUDA version.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -306,8 +306,8 @@ uv add earth2studio --extra fengwu
 ::::
 :::::
 :::::{tab-item} FuXi
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA version.
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+This might have specific pip installation steps depending on your CUDA version.
 
 ::::{tab-set}
 :::{tab-item} pip
@@ -347,8 +347,8 @@ uv add earth2studio --extra graphcast
 ::::
 :::::
 :::::{tab-item} Pangu
-Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/). May need
-manual install depending on CUDA version.
+Notes: Requires [ONNX GPU Runtime](https://onnxruntime.ai/docs/install/#python-installs).
+This might have specific pip installation steps depending on your CUDA version.
 
 ::::{tab-set}
 :::{tab-item} pip
