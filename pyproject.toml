@@ -224,11 +224,17 @@ windgust-afno = [
     "nvidia-physicsnemo>=1.0.1,<2.0",
     "pytz", # Remove on physicsnemo 2.0
 ]
+
+orbit = [
+    "earth2grid",
+    "climate-learn"
+
+]
 # All, must not have conflicts
 all = [
     "earth2studio[data,perturbation,statistics,utils]",
     "earth2studio[ace2,aifs,aifsens,atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,interp-modafno,pangu,sfno,stormcast,stormscope,graphcast]",
-    "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[cbottle,climatenet,corrdiff,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno,orbit]",
 ]
 
 # ==== UV configuration ====
@@ -252,6 +258,7 @@ makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed130
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
+climate-learn = { git = "https://github.com/irlyngaas/ORBIT-2", rev = "a7dd2b65ffadc640a570aa01de472690a6406e86" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
