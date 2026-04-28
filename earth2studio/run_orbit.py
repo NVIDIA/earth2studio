@@ -40,6 +40,13 @@ def run(
         data(time, orbit.input_coords()["variable"]), device=device
     )
 
+    sst, coords = prep_data_array(
+        data(time, "sst"), device=device
+    )
+
+    t2_sst_combined = torch.where(torch.isnan(sst[:,0]), x[:,0], sst[:,0])
+    x[:,0] = t2_sst_combined
+
     for i in range(24):
         time_ = (np.array(time) + np.timedelta64(1, 'h') * (-1 * i)).astype(str)
         time_ = to_time_array(time_)
