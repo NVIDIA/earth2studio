@@ -41,6 +41,7 @@ a matching task:
 | `create-data-source` | Create a new data source wrapper |
 | `create-prognostic-wrapper` | Create a new prognostic model (px) wrapper |
 | `validate-data-source` | Validate a newly implemented data source |
+| `release-rebase` | Prepare a new minor alpha release (rebase, bump, changelog, PR) |
 
 ## Custom Commands
 
@@ -55,4 +56,3 @@ Use these slash commands (defined in `.claude/commands/`) to run common tasks:
 | `/test-full` | Run the full test suite with coverage |
 | `/docs` | Build docs — fast, full (with examples), or targeted single example |
 | `/docs-serve` | Build docs then serve locally at <http://localhost:8000> |
-| `/release` | Bump version, update changelog, strip example tags, open release PR |
