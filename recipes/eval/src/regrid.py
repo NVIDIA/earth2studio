@@ -121,7 +121,7 @@ class Regridder(ABC):
         in the returned ``CoordSystem``; leading dims (batch, time,
         lead_time, ensemble, variable) pass through unchanged.
         """
-        spatial_dims = tuple(_spatial_dims_of(coords))
+        spatial_dims = tuple([d for d in coords if d not in _STRUCTURAL_DIMS])
         y = self.apply(x, spatial_dims=spatial_dims)
 
         out_coords: CoordSystem = OrderedDict()
@@ -300,8 +300,3 @@ class RegriddedSource:
 # ---------------------------------------------------------------------------
 
 _STRUCTURAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
-
-
-def _spatial_dims_of(coords: CoordSystem) -> list[str]:
-    """Return coord dims that are not structural (i.e. candidate spatial dims)."""
-    return [d for d in coords if d not in _STRUCTURAL_DIMS]

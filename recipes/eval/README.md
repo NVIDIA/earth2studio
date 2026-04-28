@@ -23,6 +23,7 @@ Key features:
 - [Quick Start](#quick-start)
 - [Pre-downloading Data](#pre-downloading-data)
   - [Zarr stores](#zarr-stores)
+  - [Disable the per-source cache](#disable-the-per-source-cache)
   - [Resume after interruption](#resume-after-interruption)
 - [Using Your Own Data](#using-your-own-data)
 - [Multi-GPU Execution](#multi-gpu-execution)
@@ -114,6 +115,31 @@ Predownload creates the following stores in `<output.path>/`:
 
 `main.py` automatically detects and reads from `data.zarr` when
 `require_predownload=true` (the default).
+
+### Disable the per-source cache
+
+Earth2Studio's remote data sources (`ARCO`, `GFS_FX`, `GOES`, `MRMS`, …)
+default to `cache=True`, which keeps a copy of every byte they fetch in
+`~/.cache/earth2studio` (or `$EARTH2STUDIO_CACHE`).  Predownload then
+writes its own dedicated zarr under `<output.path>/`, so with the cache
+left on **the same data lands on disk twice** — once in the shared
+cache, once in `data.zarr`.  For the campaign-scale fetches this recipe
+targets, that doubles the disk footprint of every run.
+
+The bundled configs all set `cache: false` on their data sources for
+this reason.  When you add a new source — at the top level via
+`data_source:` or per-component (e.g. StormScope's `ic_source` /
+`conditioning_data_source` blocks) — pass it through as well:
+
+```yaml
+data_source:
+    _target_: earth2studio.data.ARCO
+    cache: false
+```
+
+Leave the cache on only when you have a separate reason to populate the
+shared cache (e.g. another recipe will reuse the same data and you don't
+want to refetch it).
 
 ### Resume after interruption
 

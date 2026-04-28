@@ -5,7 +5,7 @@ model, and add a new pipeline — in that order from lightest to heaviest.
 Each section is self-contained: if the first two are enough for your
 case, you can stop there.
 
-## Bring your own data (BYO)
+## Bring your own (BYO) data
 
 If you already have initial-condition and/or verification data on disk,
 you can bypass `predownload.py` entirely and point the recipe at a
@@ -42,7 +42,7 @@ For the single-source path (most pipelines), the resolution order is
 using a single IC source should call that helper from `setup` so BYO
 works the same way.
 
-## Plug in a different model
+## Bring your own model
 
 For prognostic or diagnostic models that already conform to the
 [earth2studio](https://nvidia.github.io/earth2studio/) protocol (a
@@ -90,7 +90,7 @@ store.  Subclass `src.pipelines.base.Pipeline` when:
 * your predownload requirements don't fit the default IC-plus-optional-
   verification pattern.
 
-### Minimum required surface
+### Pipeline interface
 
 ```python
 # my_pkg/my_pipeline.py
@@ -128,10 +128,12 @@ class MyPipeline(Pipeline):
         ...
 ```
 
-Point your config at the new class:
+Point your config at the new class (either add it to the recipe source tree,
+like below, or import it from an installable package you've added to the
+environment):
 
 ```yaml
-pipeline: my_pkg.my_pipeline.MyPipeline
+pipeline: src.my_pipeline.MyPipeline
 ```
 
 Or with a `{_target_: ...}` block if you need to pass kwargs at

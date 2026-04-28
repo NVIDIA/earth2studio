@@ -79,8 +79,14 @@ resume: false
 # ---------------------------------------------------------------------------
 # Data source — provides initial conditions
 # ---------------------------------------------------------------------------
+# `cache: false` disables the per-source on-disk cache
+# (~/.cache/earth2studio).  Predownload already writes its own dedicated
+# zarr under <output.path>/, so leaving the cache on would store every
+# byte twice.  Disable it here unless you have a reason to populate the
+# shared cache (e.g. other recipes will reuse the same data).
 data_source:
     _target_: earth2studio.data.ARCO
+    cache: false
     verbose: false
 
 # ---------------------------------------------------------------------------

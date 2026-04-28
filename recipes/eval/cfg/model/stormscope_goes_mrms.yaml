@@ -4,6 +4,12 @@
 #   * StormScopeMRMS forecasts radar reflectivity (refc), conditioned on
 #     GOES (observations at IC, then the GOES model's own predictions).
 # Both operate on the HRRR Lambert-conformal grid (y, x).
+#
+# `cache: false` on every data source disables the per-source on-disk
+# cache (~/.cache/earth2studio).  Predownload writes its own dedicated
+# zarr under <output.path>/ (data_goes.zarr / data_mrms.zarr, already
+# regridded to the HRRR sub-region), so leaving the cache on would
+# store the much larger raw GOES/MRMS footprint a second time on disk.
 
 goes:
     architecture: earth2studio.models.px.StormScopeGOES
@@ -11,10 +17,12 @@ goes:
         model_name: 6km_60min_natten_cos_zenith_input_eoe_v2
         conditioning_data_source:
             _target_: earth2studio.data.GFS_FX
+            cache: false
     ic_source:
         _target_: earth2studio.data.GOES
         satellite: goes16
         scan_mode: C
+        cache: false
     ic_grid:
         _target_: src.grids.goes_grid
         satellite: goes16
@@ -30,8 +38,10 @@ mrms:
             _target_: earth2studio.data.GOES
             satellite: goes16
             scan_mode: C
+            cache: false
     ic_source:
         _target_: earth2studio.data.MRMS
+        cache: false
     ic_grid:
         _target_: src.grids.mrms_grid
     conditioning_grid:

@@ -53,26 +53,16 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource
 from earth2studio.utils.coords import CoordSystem, map_coords
-
-from ..data import CompositeSource, PredownloadedSource
-from ..output import OutputManager, build_output_coords
-from ..regrid import Regridder
-from ..work import WorkItem, write_marker
+from src.data import CompositeSource, PredownloadedSource
+from src.output import OutputManager, build_output_coords
+from src.regrid import Regridder
+from src.work import WorkItem, write_marker
 
 _STRUCTURAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
 
 
 def _predownload_merged_verification(cfg: DictConfig) -> bool:
-    """Whether ``data.zarr`` is expected to hold verification data.
-
-    The merged path is taken when predownload was run with verification
-    enabled and no separate verification source — that's the one
-    configuration in which the ``data.zarr`` store contains the full
-    forecast-window times and variables that scoring needs.  In every
-    other configuration ``data.zarr`` only holds IC-adjusted times, and
-    reusing it as verification raises an opaque ``KeyError`` the first
-    time the scorer asks for a valid time that wasn't an IC input.
-    """
+    """Whether ``data.zarr`` is expected to hold verification data."""
     pd_cfg = cfg.get("predownload", {}) or {}
     verif_cfg = pd_cfg.get("verification", {}) or {}
     return bool(verif_cfg.get("enabled", False)) and verif_cfg.get("source") is None
