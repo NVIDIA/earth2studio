@@ -38,7 +38,7 @@ from earth2studio.data.utils import (
     managed_session,
     prep_data_inputs,
 )
-from earth2studio.lexicon.ghcn import GHCN_ELEMENT_MAP, GHCNLexicon
+from earth2studio.lexicon.ghcn import GHCNLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
@@ -257,7 +257,7 @@ class GHCN:
             except KeyError as e:
                 logger.error(f"variable id {v} not found in GHCN lexicon")
                 raise e
-            products.add(GHCN_ELEMENT_MAP[v])
+            products.add(GHCNLexicon.VOCAB[v])
 
         async with managed_session(self.fs) as session:  # noqa: F841
 
@@ -306,7 +306,7 @@ class GHCN:
             # Build reverse map: product code -> E2Studio variable name
             product_to_var: dict[str, str] = {}
             for v in variable:
-                product_to_var[GHCN_ELEMENT_MAP[v]] = v
+                product_to_var[GHCNLexicon.VOCAB[v]] = v
 
             # Filter by station, time tolerance, apply unit conversion per product.
             # Collect per-variable DataFrames separately, then concat within each

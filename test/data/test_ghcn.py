@@ -26,7 +26,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from earth2studio.data import GHCN
-from earth2studio.lexicon.ghcn import GHCN_ELEMENT_MAP, GHCNLexicon
+from earth2studio.lexicon.ghcn import GHCNLexicon
 
 
 @pytest.mark.slow
@@ -296,12 +296,12 @@ class TestGHCNLexicon:
         ],
     )
     def test_element_map(self, var, element):
-        assert GHCN_ELEMENT_MAP[var] == element
+        assert GHCNLexicon.VOCAB[var] == element
 
     def test_lexicon_keys(self):
-        for var in GHCN_ELEMENT_MAP:
+        for var in GHCNLexicon.VOCAB:
             element, mod = GHCNLexicon[var]
-            assert element == GHCN_ELEMENT_MAP[var]
+            assert element == GHCNLexicon.VOCAB[var]
             assert callable(mod)
 
     @pytest.mark.parametrize(

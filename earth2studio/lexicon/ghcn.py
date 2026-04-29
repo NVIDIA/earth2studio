@@ -20,21 +20,6 @@ import numpy as np
 
 from .base import LexiconType
 
-GHCN_ELEMENT_MAP: dict[str, str] = {
-    "t2m_max": "TMAX",
-    "t2m_min": "TMIN",
-    "t2m": "TAVG",
-    "d2m": "ADPT",
-    "r2m": "RHAV",
-    "tp": "PRCP",
-    "sf": "WESF",
-    "sd": "SNWD",
-    "sde": "SNOW",
-    "ws10m": "AWND",
-    "fg10m": "WSF2",
-    "tcc": "ACMH",
-}
-
 
 class GHCNLexicon(metaclass=LexiconType):
     """NOAA's Global Historical Climatology Network Daily (GHCN-D) lexicon.
@@ -62,7 +47,7 @@ class GHCNLexicon(metaclass=LexiconType):
         "t2m_min": "TMIN",  # Daily minimum temperature at 2m (K)
         "t2m": "TAVG",  # Daily average temperature at 2m (K)
         "d2m": "ADPT",  # Average dew point temperature at 2m (K)
-        "r2m": "RHAV",  # Average relative humidity at 2m (%)
+        "r2m": "RHAV",  # Average relative humidity for the day (%)
         "tp": "PRCP",  # Daily total precipitation (m)
         "sf": "WESF",  # Water equivalent of snowfall (m)
         "sd": "SNWD",  # Snow depth on ground (m)
