@@ -13,24 +13,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from collections.abc import Callable
 
 import numpy as np
 
 from .base import LexiconType
 
-# GHCN element codes mapped from Earth2Studio canonical variable names.
-# GHCN raw units:
-#   TMAX/TMIN: tenths of degrees Celsius
-#   PRCP:      tenths of mm
-#   SNOW:      mm
-#   SNWD:      mm
 GHCN_ELEMENT_MAP: dict[str, str] = {
     "t2m_max": "TMAX",
     "t2m_min": "TMIN",
+    "t2m": "TAVG",
+    "d2m": "ADPT",
+    "r2m": "RHAV",
     "tp": "PRCP",
+    "sf": "WESF",
     "sd": "SNWD",
     "sde": "SNOW",
+    "ws10m": "AWND",
+    "fg10m": "WSF2",
+    "tcc": "ACMH",
 }
 
 
@@ -51,16 +53,22 @@ class GHCNLexicon(metaclass=LexiconType):
     Additional resources:
 
     - https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily
-    - https://registry.opendata.aws/noaa-ghcn/
-    - https://docs.opendata.aws/noaa-ghcn-pds/readme.html
+    - https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/GHCND_documentation.pdf
     """
 
     VOCAB: dict[str, str] = {
-        "t2m_max": "daily maximum temperature at 2m (K)",
-        "t2m_min": "daily minimum temperature at 2m (K)",
-        "tp": "daily total precipitation (m)",
-        "sd": "snow depth on ground (m)",
-        "sde": "daily snowfall (m)",
+        "t2m_max": "TMAX",  # Daily maximum temperature at 2m (K)
+        "t2m_min": "TMIN",  # Daily minimum temperature at 2m (K)
+        "t2m": "TAVG",  # Daily average temperature at 2m (K)
+        "d2m": "ADPT",  # Average dew point temperature at 2m (K)
+        "r2m": "RHAV",  # Average relative humidity at 2m (%)
+        "tp": "PRCP",  # Daily total precipitation (m)
+        "sf": "WESF",  # Water equivalent of snowfall (m)
+        "sd": "SNWD",  # Snow depth on ground (m)
+        "sde": "SNOW",  # Daily snowfall (m)
+        "ws10m": "AWND",  # Average daily wind speed at 10m (m/s)
+        "fg10m": "WSF2",  # Fastest 2-minute wind speed at 10m (m/s)
+        "tcc": "ACMH",  # Average cloudiness midnight-midnight (fraction)
     }
 
     @classmethod
@@ -80,16 +88,15 @@ class GHCNLexicon(metaclass=LexiconType):
               Earth2Studio standard units.
         """
         # Trigger KeyError for variables outside the vocabulary
-        cls.VOCAB[val]
-        element = GHCN_ELEMENT_MAP[val]
+        element = cls.VOCAB[val]
 
-        if element in ("TMAX", "TMIN"):
+        if element in ("TMAX", "TMIN", "TAVG", "ADPT"):
 
             def mod(x: np.ndarray) -> np.ndarray:
                 """Convert tenths of degrees Celsius to Kelvin."""
                 return x / 10.0 + 273.15
 
-        elif element == "PRCP":
+        elif element in ("PRCP", "WESF"):
 
             def mod(x: np.ndarray) -> np.ndarray:
                 """Convert tenths of mm to meters."""
@@ -100,6 +107,24 @@ class GHCNLexicon(metaclass=LexiconType):
             def mod(x: np.ndarray) -> np.ndarray:
                 """Convert mm to meters."""
                 return x / 1000.0
+
+        elif element in ("AWND", "WSF2"):
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert tenths of m/s to m/s."""
+                return x / 10.0
+
+        elif element == "ACMH":
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert percent to fraction [0, 1]."""
+                return x / 100.0
+
+        elif element == "RHAV":
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Identity — relative humidity already in percent."""
+                return x
 
         else:
 

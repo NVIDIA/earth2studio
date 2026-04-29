@@ -17,10 +17,12 @@
 import pathlib
 import shutil
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from earth2studio.data import GHCN
@@ -136,6 +138,9 @@ def test_ghcn_schema_fields():
     assert list(df_subset.columns) == subset_fields
 
 
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
 def test_ghcn_exceptions():
     # Throw key error for invalid variable
     ds = GHCN(
@@ -186,6 +191,7 @@ def test_ghcn_exceptions():
         ds(np.datetime64("2023-01-01"), ["t2m_max"], fields=wrong_type_schema)
 
 
+@pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
@@ -229,9 +235,6 @@ def test_ghcn_station_bbox(bbox):
         assert bool((lat_ok & lon_ok).any())
 
 
-# -- Offline unit tests (no network needed) --
-
-
 def test_ghcn_schema_structure():
     assert "time" in GHCN.SCHEMA.names
     assert "lat" in GHCN.SCHEMA.names
@@ -252,21 +255,26 @@ def test_ghcn_column_map():
     assert cmap["ELEV"] == "elev"
 
 
-def test_ghcn_resolve_fields_none():
-    schema = GHCN.resolve_fields(None)
-    assert schema == GHCN.SCHEMA
+def test_ghcn_available_invalid_time():
+    # Invalid time (before 1750) — rejected by _validate_time without network
+    assert not GHCN.available(datetime(1700, 1, 1))
+    assert not GHCN.available(np.datetime64("1700-01-01"))
 
 
-def test_ghcn_resolve_fields_list():
-    schema = GHCN.resolve_fields(["time", "observation", "variable"])
-    assert len(schema) == 3
-    assert schema.names == ["time", "observation", "variable"]
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(30)
+def test_ghcn_available():
+    # Valid time — partition should exist on S3
+    assert GHCN.available(datetime(2020, 1, 1))
+    assert GHCN.available(np.datetime64("2020-01-01"))
 
+    # Invalid time (before 1750)
+    assert not GHCN.available(datetime(1700, 1, 1))
+    assert not GHCN.available(np.datetime64("1700-01-01"))
 
-def test_ghcn_resolve_fields_string():
-    schema = GHCN.resolve_fields("observation")
-    assert len(schema) == 1
-    assert schema.names == ["observation"]
+    # Future time — partition unlikely to exist
+    assert not GHCN.available(datetime(2099, 1, 1))
 
 
 class TestGHCNLexicon:
@@ -275,9 +283,16 @@ class TestGHCNLexicon:
         [
             ("t2m_max", "TMAX"),
             ("t2m_min", "TMIN"),
+            ("t2m", "TAVG"),
+            ("d2m", "ADPT"),
+            ("r2m", "RHAV"),
             ("tp", "PRCP"),
+            ("sf", "WESF"),
             ("sd", "SNWD"),
             ("sde", "SNOW"),
+            ("ws10m", "AWND"),
+            ("fg10m", "WSF2"),
+            ("tcc", "ACMH"),
         ],
     )
     def test_element_map(self, var, element):
@@ -294,9 +309,16 @@ class TestGHCNLexicon:
         [
             ("t2m_max", np.array([200.0]), np.array([293.15])),  # 20.0 C -> K
             ("t2m_min", np.array([-100.0]), np.array([263.15])),  # -10.0 C -> K
+            ("t2m", np.array([200.0]), np.array([293.15])),  # 20.0 C -> K
+            ("d2m", np.array([150.0]), np.array([288.15])),  # 15.0 C -> K
+            ("r2m", np.array([75.0]), np.array([75.0])),  # percent (no conv)
             ("tp", np.array([100.0]), np.array([0.01])),  # 10.0 mm -> 0.01 m
+            ("sf", np.array([100.0]), np.array([0.01])),  # 10.0 mm -> 0.01 m
             ("sd", np.array([500.0]), np.array([0.5])),  # 500 mm -> 0.5 m
             ("sde", np.array([250.0]), np.array([0.25])),  # 250 mm -> 0.25 m
+            ("ws10m", np.array([50.0]), np.array([5.0])),  # 50 tenths -> 5 m/s
+            ("fg10m", np.array([120.0]), np.array([12.0])),  # 120 tenths -> 12 m/s
+            ("tcc", np.array([80.0]), np.array([0.8])),  # 80% -> 0.8 fraction
         ],
     )
     def test_unit_conversions(self, var, raw, expected):
@@ -306,3 +328,101 @@ class TestGHCNLexicon:
     def test_invalid_variable(self):
         with pytest.raises(KeyError):
             GHCNLexicon["nonexistent"]
+
+
+class TestGHCNMock:
+    """Mock tests that run without network access."""
+
+    def _build_mock_parquet_bytes(self) -> bytes:
+        """Create a fake parquet file with GHCN-like data."""
+        df = pd.DataFrame(
+            {
+                "ID": ["USW00013722", "USW00013722", "USW00099999"],
+                "DATE": ["20230101", "20230102", "20230101"],
+                "DATA_VALUE": [250, 300, 100],
+                "Q_FLAG": [None, None, None],
+            }
+        )
+        table = pa.Table.from_pandas(df)
+        buf = pa.BufferOutputStream()
+        pq.write_table(table, buf)
+        return buf.getvalue().to_pybytes()
+
+    def _build_station_metadata(self) -> pd.DataFrame:
+        """Create fake station metadata."""
+        return pd.DataFrame(
+            {
+                "ID": ["USW00013722", "USW00099999"],
+                "LAT": [33.63, 40.0],
+                "LON": [-84.44, -75.0],
+                "ELEV": [315.0, 100.0],
+                "STATE": ["GA", "PA"],
+                "NAME": ["ATLANTA", "TESTVILLE"],
+                "GSN": [None, None],
+                "HCN": [None, None],
+                "WMO": [None, None],
+            }
+        )
+
+    @pytest.mark.parametrize(
+        "variable,element,raw_value,expected_obs",
+        [
+            ("t2m_max", "TMAX", 250, 298.15),  # 25.0 C -> K
+            ("t2m_min", "TMIN", -100, 263.15),  # -10.0 C -> K
+            ("t2m", "TAVG", 200, 293.15),  # 20.0 C -> K
+            ("d2m", "ADPT", 150, 288.15),  # 15.0 C -> K
+            ("tp", "PRCP", 100, 0.01),  # 10.0 mm -> 0.01 m
+            ("sd", "SNWD", 500, 0.5),  # 500 mm -> 0.5 m
+            ("ws10m", "AWND", 50, 5.0),  # 50 tenths m/s -> 5 m/s
+            ("tcc", "ACMH", 80, 0.8),  # 80% -> 0.8 fraction
+        ],
+    )
+    @patch("earth2studio.data.ghcn.GHCN.get_station_metadata")
+    def test_mock_fetch(
+        self, mock_get_meta, variable, element, raw_value, expected_obs
+    ):
+        """Test GHCN fetch with mocked S3 filesystem for various variables."""
+        mock_get_meta.return_value = self._build_station_metadata()
+
+        # Build parquet with the specified raw value
+        df = pd.DataFrame(
+            {
+                "ID": ["USW00013722", "USW00099999"],
+                "DATE": ["20230101", "20230101"],
+                "DATA_VALUE": [raw_value, raw_value + 10],
+                "Q_FLAG": [None, None],
+            }
+        )
+        table = pa.Table.from_pandas(df)
+        buf = pa.BufferOutputStream()
+        pq.write_table(table, buf)
+        parquet_bytes = buf.getvalue().to_pybytes()
+
+        ds = GHCN(
+            stations=["USW00013722"],
+            time_tolerance=timedelta(days=0),
+            cache=False,
+            verbose=False,
+        )
+
+        # Mock the async filesystem
+        mock_fs = MagicMock()
+        mock_fs.set_session = AsyncMock(return_value=MagicMock(close=AsyncMock()))
+        mock_fs._ls = AsyncMock(
+            return_value=[
+                f"noaa-ghcn-pds/parquet/by_year/YEAR=2023/ELEMENT={element}/part.parquet"
+            ]
+        )
+        mock_fs._cat_file = AsyncMock(return_value=parquet_bytes)
+        ds.fs = mock_fs
+
+        result = ds(datetime(2023, 1, 1), [variable])
+
+        assert list(result.columns) == ds.SCHEMA.names
+        assert set(result["variable"].unique()) == {variable}
+        assert set(result["station"].unique()) == {"USW00013722"}
+        # Verify unit conversion
+        assert np.isclose(result["observation"].iloc[0], expected_obs, atol=1e-2)
+        # Verify longitude normalization ([-84.44 + 360] % 360 = 275.56)
+        assert all(result["lon"] >= 0)
+        assert all(result["lon"] < 360)

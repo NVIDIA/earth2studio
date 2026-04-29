@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
+- Added GHCN-Daily global station observation data frame source (`GHCN`)
 
 ### Changed
 

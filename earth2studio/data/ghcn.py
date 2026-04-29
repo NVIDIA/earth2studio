@@ -15,8 +15,8 @@
 # limitations under the License.
 
 import asyncio
-import concurrent.futures
 import hashlib
+import io
 import os
 import pathlib
 import shutil
@@ -30,10 +30,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import s3fs
 from loguru import logger
-from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    async_retry,
     datasource_cache_root,
+    gather_with_concurrency,
+    managed_session,
     prep_data_inputs,
 )
 from earth2studio.lexicon.ghcn import GHCN_ELEMENT_MAP, GHCNLexicon
@@ -54,8 +56,6 @@ class GHCN:
         Time tolerance window for filtering observations. Accepts a single value
         (symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
         by default np.timedelta64(0)
-    max_workers : int, optional
-        Maximum number of threads for async file operations, by default 24
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -63,6 +63,11 @@ class GHCN:
     async_timeout : int, optional
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
+    async_workers : int, optional
+        Maximum number of concurrent async fetch tasks, by default 16
+    retries : int, optional
+        Number of retry attempts per failed fetch task with exponential backoff,
+        by default 3
 
     Warning
     -------
@@ -83,7 +88,6 @@ class GHCN:
 
     - https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily
     - https://registry.opendata.aws/noaa-ghcn/
-    - https://docs.opendata.aws/noaa-ghcn-pds/readme.html
 
     Example
     -------
@@ -97,7 +101,7 @@ class GHCN:
 
     Badges
     ------
-    region:global dataclass:observation product:precip product:temp product:insitu
+    region:global dataclass:observation product:wind product:precip product:temp product:atmos product:solar product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.ghcn"
@@ -114,18 +118,17 @@ class GHCN:
             pa.field("variable", pa.string()),
         ]
     )
-
-    # S3 bucket for GHCN public data
     _S3_BUCKET = "noaa-ghcn-pds"
 
     def __init__(
         self,
         stations: list[str],
         time_tolerance: TimeTolerance = np.timedelta64(0),
-        max_workers: int = 24,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        async_workers: int = 16,
+        retries: int = 3,
     ):
         self.stations = stations
         # Normalize tolerance to (lower, upper) python timedelta bounds
@@ -133,7 +136,8 @@ class GHCN:
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
         self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
         self._cache = cache
-        self._max_workers = max_workers
+        self._async_workers = async_workers
+        self._retries = retries
         self._tmp_cache_hash: str | None = None
         self._verbose = verbose
 
@@ -151,6 +155,12 @@ class GHCN:
         self.async_timeout = async_timeout
 
     async def _async_init(self) -> None:
+        """Async initialization of filesystem.
+
+        Note
+        ----
+        Async fsspec expects initialization inside the execution loop.
+        """
         self.fs = s3fs.S3FileSystem(
             anon=True,
             client_kwargs={},
@@ -188,22 +198,18 @@ class GHCN:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
         if self.fs is None:
             loop.run_until_complete(self._async_init())
 
-        df = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, variable, fields), timeout=self.async_timeout
+        try:
+            df = loop.run_until_complete(
+                asyncio.wait_for(
+                    self.fetch(time, variable, fields), timeout=self.async_timeout
+                )
             )
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return df
 
@@ -237,145 +243,171 @@ class GHCN:
                 "async loop!"
             )
 
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session(refresh=True)
-
         time, variable = prep_data_inputs(time, variable)
         self._validate_time(time)
         schema = self.resolve_fields(fields)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Check variables are valid and collect required GHCN elements
-        elements: set[str] = set()
+        # Check variables are valid and collect required GHCN products
+        products: set[str] = set()
         for v in variable:
             try:
                 GHCNLexicon[v]
             except KeyError as e:
                 logger.error(f"variable id {v} not found in GHCN lexicon")
                 raise e
-            elements.add(GHCN_ELEMENT_MAP[v])
+            products.add(GHCN_ELEMENT_MAP[v])
 
-        # Load station metadata (lat, lon, elev) if not cached
-        if self._station_meta is None:
-            self._station_meta = await asyncio.to_thread(self.get_station_metadata)
+        async with managed_session(self.fs) as session:  # noqa: F841
 
-        # Build unique (year, element) pairs needed. Tolerance windows can
-        # span year boundaries, so enumerate every year in [tmin, tmax].
-        year_element_pairs: set[tuple[int, str]] = set()
-        for dt in time:
-            tmin = dt + self._tolerance_lower
-            tmax = dt + self._tolerance_upper
-            for element in elements:
-                for yr in range(tmin.year, tmax.year + 1):
-                    year_element_pairs.add((yr, element))
+            # Load station metadata (lat, lon, elev) if not cached
+            if self._station_meta is None:
+                self._station_meta = self.get_station_metadata()
 
-        # Fetch all required parquet partitions in parallel
-        func_map = []
-        pair_list = sorted(year_element_pairs)
-        for year, element in pair_list:
-            func_map.append(self._fetch_year_element(year, element))
+            # Build unique (year, product) pairs needed. Tolerance windows can
+            # span year boundaries, so enumerate every year in [tmin, tmax].
+            year_product_pairs: set[tuple[int, str]] = set()
+            for dt in time:
+                tmin = dt + self._tolerance_lower
+                tmax = dt + self._tolerance_upper
+                for product in products:
+                    for yr in range(tmin.year, tmax.year + 1):
+                        year_product_pairs.add((yr, product))
 
-        partition_dfs = await tqdm.gather(
-            *func_map, desc="Fetching NOAA GHCN data", disable=(not self._verbose)
-        )
+            # Fetch all required parquet partitions in parallel
+            pair_list = sorted(year_product_pairs)
+            coros = [
+                async_retry(
+                    self._fetch_year_element,
+                    year,
+                    product,
+                    retries=self._retries,
+                    backoff=1.0,
+                    task_timeout=60.0,
+                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+                )
+                for year, product in pair_list
+            ]
 
-        # Index partitions by (year, element)
-        partition_map: dict[tuple[int, str], pd.DataFrame] = {
-            (year, element): df for (year, element), df in zip(pair_list, partition_dfs)
-        }
+            partition_dfs = await gather_with_concurrency(
+                coros,
+                max_workers=self._async_workers,
+                desc="Fetching NOAA GHCN data",
+                verbose=(not self._verbose),
+            )
 
-        # Build reverse map: element code -> E2Studio variable name
-        element_to_var: dict[str, str] = {}
-        for v in variable:
-            element_to_var[GHCN_ELEMENT_MAP[v]] = v
+            # Index partitions by (year, product)
+            partition_map: dict[tuple[int, str], pd.DataFrame] = {
+                (year, product): df
+                for (year, product), df in zip(pair_list, partition_dfs)
+            }
 
-        # Filter by station, time tolerance, apply unit conversion per element.
-        # Collect per-variable DataFrames separately, then concat within each
-        # variable before merging across variables to avoid column name collisions.
-        station_set = set(self.stations)
-        var_frames: dict[str, list[pd.DataFrame]] = {v: [] for v in variable}
+            # Build reverse map: product code -> E2Studio variable name
+            product_to_var: dict[str, str] = {}
+            for v in variable:
+                product_to_var[GHCN_ELEMENT_MAP[v]] = v
 
-        for dt in time:
-            tmin = dt + self._tolerance_lower
-            tmax = dt + self._tolerance_upper
-            date_min = tmin.strftime("%Y%m%d")
-            date_max = tmax.strftime("%Y%m%d")
+            # Filter by station, time tolerance, apply unit conversion per product.
+            # Collect per-variable DataFrames separately, then concat within each
+            # variable before merging across variables to avoid column name collisions.
+            station_set = set(self.stations)
+            var_frames: dict[str, list[pd.DataFrame]] = {v: [] for v in variable}
 
-            for element in elements:
-                # Walk every year the tolerance window touches so cross-year
-                # windows (e.g. Dec 31 +/- 1 day) don't drop data.
-                for yr in range(tmin.year, tmax.year + 1):
-                    df = partition_map.get((yr, element))
-                    if df is None or df.empty:
-                        continue
+            for dt in time:
+                tmin = dt + self._tolerance_lower
+                tmax = dt + self._tolerance_upper
+                date_min = tmin.strftime("%Y%m%d")
+                date_max = tmax.strftime("%Y%m%d")
 
-                    # Filter to requested stations
-                    mask = df["ID"].isin(station_set)
-                    # Filter by date range (DATE is string YYYYMMDD)
-                    mask = mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
-                    # Filter by quality flag: None/NaN means passed all QC checks
-                    mask = mask & df["Q_FLAG"].isna()
+                for product in products:
+                    # Walk every year the tolerance window touches so cross-year
+                    # windows (e.g. Dec 31 +/- 1 day) don't drop data.
+                    for yr in range(tmin.year, tmax.year + 1):
+                        df = partition_map.get((yr, product))
+                        if df is None or df.empty:
+                            continue
 
-                    df_window = df.loc[mask, ["ID", "DATE", "DATA_VALUE"]].copy()
-                    if df_window.empty:
-                        continue
+                        # Filter to requested stations
+                        mask = df["ID"].isin(station_set)
+                        # Filter by date range (DATE is string YYYYMMDD)
+                        mask = (
+                            mask & (df["DATE"] >= date_min) & (df["DATE"] <= date_max)
+                        )
+                        # Filter by quality flag: None/NaN means passed all QC
+                        mask = mask & df["Q_FLAG"].isna()
 
-                    # Apply unit conversion for this element's variable
-                    var_name = element_to_var[element]
-                    _, mod = GHCNLexicon[var_name]
-                    df_window[var_name] = mod(
-                        pd.to_numeric(df_window["DATA_VALUE"], errors="coerce")
-                    )
-                    df_window = df_window.drop(columns=["DATA_VALUE"])
-                    var_frames[var_name].append(df_window)
+                        df_window = df.loc[mask, ["ID", "DATE", "DATA_VALUE"]].copy()
+                        if df_window.empty:
+                            continue
 
-        # Concat all rows per variable, then merge across variables
-        per_var_dfs: list[pd.DataFrame] = [
-            pd.concat(var_frames[v], ignore_index=True)
-            for v in variable
-            if var_frames[v]
-        ]
+                        # Apply unit conversion for this product's variable
+                        var_name = product_to_var[product]
+                        _, mod = GHCNLexicon[var_name]
+                        df_window[var_name] = mod(
+                            pd.to_numeric(df_window["DATA_VALUE"], errors="coerce")
+                        )
+                        df_window = df_window.drop(columns=["DATA_VALUE"])
+                        var_frames[var_name].append(df_window)
 
-        if len(per_var_dfs) == 0:
-            return pd.DataFrame(columns=schema.names)
+            # Concat all rows per variable, then merge across variables
+            per_var_dfs: list[pd.DataFrame] = [
+                pd.concat(var_frames[v], ignore_index=True)
+                for v in variable
+                if var_frames[v]
+            ]
 
-        df = per_var_dfs[0]
-        for extra in per_var_dfs[1:]:
-            df = df.merge(extra, on=["ID", "DATE"], how="outer")
+            if len(per_var_dfs) == 0:
+                return pd.DataFrame(columns=schema.names)
 
-        # Convert DATE (string YYYYMMDD) to datetime
-        df["DATE"] = pd.to_datetime(df["DATE"], format="%Y%m%d")
+            df = per_var_dfs[0]
+            for extra in per_var_dfs[1:]:
+                df = df.merge(extra, on=["ID", "DATE"], how="outer")
 
-        # Join station metadata (lat, lon, elev)
-        meta = self._station_meta
-        meta_subset = meta[meta["ID"].isin(station_set)][
-            ["ID", "LAT", "LON", "ELEV"]
-        ].drop_duplicates(subset="ID")
-        df = df.merge(meta_subset, on="ID", how="left")
+            # Convert DATE (string YYYYMMDD) to datetime
+            df["DATE"] = pd.to_datetime(df["DATE"], format="%Y%m%d")
 
-        # Rename columns using schema metadata
-        df = df.rename(columns=self.column_map())
-        df["station"] = df["station"].astype(str)
+            # Join station metadata (lat, lon, elev)
+            meta = self._station_meta
+            meta_subset = meta[meta["ID"].isin(station_set)][
+                ["ID", "LAT", "LON", "ELEV"]
+            ].drop_duplicates(subset="ID")
+            df = df.merge(meta_subset, on="ID", how="left")
 
-        # Normalize longitude from [-180, 180) to [0, 360)
-        if "lon" in df.columns:
-            df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
-            df["lon"] = (df["lon"] + 360.0) % 360.0
+            # Rename columns using schema metadata
+            df = df.rename(columns=self.column_map())
+            df["station"] = df["station"].astype(str)
 
-        # Transform to long format (one observation per row)
-        result = self._create_observation_dataframe(df, variable, schema)
-        result.attrs["source"] = self.SOURCE_ID
+            # Normalize longitude from [-180, 180) to [0, 360)
+            if "lon" in df.columns:
+                df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+                df["lon"] = (df["lon"] + 360.0) % 360.0
 
-        # Close aiohttp client if s3fs
-        if session:
-            await session.close()
+            # Transform to long format (one observation per row)
+            result = self._create_observation_dataframe(df, variable, schema)
+            result.attrs["source"] = self.SOURCE_ID
 
         return result
 
     def _create_observation_dataframe(
         self, df: pd.DataFrame, variables: list[str], schema: pa.Schema
     ) -> pd.DataFrame:
+        """Transform wide format DataFrame to long format with observation/variable columns.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Wide format DataFrame with variable columns
+        variables : list[str]
+            List of variable names to include
+        schema : pa.Schema
+            Output schema defining column order
+
+        Returns
+        -------
+        pd.DataFrame
+            Long format DataFrame with observation and variable columns
+        """
         # Metadata columns to keep (fields with ghcn_name metadata)
         id_vars = [field.name for field in schema if field.name in df.columns]
         value_vars = [v for v in variables if v in df.columns]
@@ -390,12 +422,24 @@ class GHCN:
         return df_long[[name for name in schema.names]]
 
     async def _fetch_year_element(self, year: int, element: str) -> pd.DataFrame:
+        """Fetch a single year/element partition from the GHCN S3 bucket.
+
+        Parameters
+        ----------
+        year : int
+            Year partition to fetch
+        element : str
+            GHCN element code (e.g. TMAX, PRCP)
+
+        Returns
+        -------
+        pd.DataFrame
+            Parquet partition data with columns ID, DATE, DATA_VALUE, Q_FLAG
+        """
         if self.fs is None:
             raise ValueError("File system is not initialized")
 
-        s3_path = (
-            f"{self._S3_BUCKET}/parquet/by_year/" f"YEAR={year}/ELEMENT={element}/"
-        )
+        s3_path = f"{self._S3_BUCKET}/parquet/by_year/YEAR={year}/ELEMENT={element}/"
         # Hash the URL for cache file names
         cache_hash = hashlib.sha256(s3_path.encode()).hexdigest()
         parquet_path = os.path.join(self.cache, f"{cache_hash}.parquet")
@@ -405,15 +449,24 @@ class GHCN:
             df = await asyncio.to_thread(pd.read_parquet, parquet_path)
         else:
             try:
+                # List parquet files in the partition directory using async fs
+                files = await self.fs._ls(f"s3://{s3_path}", detail=False)
+                # Read all parquet files using async byte reads
+                frames: list[pd.DataFrame] = []
+                for file_path in files:
+                    if not file_path.endswith(".parquet"):
+                        continue
+                    data = await self.fs._cat_file(file_path)
+                    table = pq.read_table(
+                        io.BytesIO(data),
+                        columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"],
+                    )
+                    frames.append(table.to_pandas())
 
-                def _read_parquet() -> pd.DataFrame:
-                    sync_fs = s3fs.S3FileSystem(anon=True)
-                    files = sync_fs.ls(s3_path)
-                    dataset = pq.ParquetDataset(files, filesystem=sync_fs)
-                    table = dataset.read(columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"])
-                    return table.to_pandas()
+                if not frames:
+                    return pd.DataFrame()
 
-                df = await asyncio.to_thread(_read_parquet)
+                df = pd.concat(frames, ignore_index=True)
                 # Cache locally
                 await asyncio.to_thread(df.to_parquet, parquet_path, index=False)
 
@@ -426,13 +479,57 @@ class GHCN:
 
         return df
 
-    def _validate_time(self, times: list[datetime]) -> None:
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify date times are valid for this data source.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            Date times to validate
+
+        Raises
+        ------
+        ValueError
+            If any time is before 1750-01-01
+        """
         for time in times:
             if time < datetime(1750, 1, 1):
                 raise ValueError(
                     f"Requested date time {time} needs to be after "
                     f"1750-01-01 for GHCN data source"
                 )
+
+    @classmethod
+    def available(cls, time: datetime | np.datetime64) -> bool:
+        """Check if given date time is available by verifying the partition exists on S3.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to check
+
+        Returns
+        -------
+        bool
+            If date time is available
+        """
+        if isinstance(time, np.datetime64):
+            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+
+        # Check if the year partition exists on S3 (using TMAX as representative)
+        s3_path = (
+            f"s3://{cls._S3_BUCKET}/parquet/by_year/" f"YEAR={time.year}/ELEMENT=TMAX/"
+        )
+        try:
+            fs = s3fs.S3FileSystem(anon=True)
+            return fs.exists(s3_path)
+        except OSError:
+            return False
 
     @classmethod
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
