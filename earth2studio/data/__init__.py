@@ -27,6 +27,7 @@ from .gefs import GEFS_FX, GEFS_FX_721x1440
 from .gfs import GFS, GFS_FX
 from .ghcn import GHCN
 from .goes import GOES
+from .himawari_ahi import HimawariAHI
 from .hrrr import HRRR, HRRR_FX
 from .isd import ISD
 from .jpss import JPSS

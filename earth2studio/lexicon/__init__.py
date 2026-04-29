@@ -25,6 +25,7 @@ from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
 from .ghcn import GHCNLexicon
 from .goes import GOESLexicon
+from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
