@@ -25,7 +25,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from earth2studio.data import GHCN
+from earth2studio.data import GHCNDaily
 from earth2studio.lexicon.ghcn import GHCNLexicon
 
 
@@ -58,7 +58,7 @@ from earth2studio.lexicon.ghcn import GHCNLexicon
     ],
 )
 def test_ghcn_fetch(stations, time, variable, tol):
-    ds = GHCN(stations=stations, time_tolerance=tol, cache=False)
+    ds = GHCNDaily(stations=stations, time_tolerance=tol, cache=False)
     df = ds(time, variable)
 
     assert list(df.columns) == ds.SCHEMA.names
@@ -93,7 +93,7 @@ def test_ghcn_fetch(stations, time, variable, tol):
 @pytest.mark.parametrize("variable", [["t2m_max", "tp"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_ghcn_cache(time, variable, cache):
-    ds = GHCN(
+    ds = GHCNDaily(
         stations=["USW00013722"],
         time_tolerance=timedelta(days=0),
         cache=cache,
@@ -126,7 +126,7 @@ def test_ghcn_schema_fields():
     station = "USW00013722"
     time = np.array(["2023-01-01"], dtype=np.datetime64)
 
-    ds = GHCN(stations=[station], time_tolerance=timedelta(days=0))
+    ds = GHCNDaily(stations=[station], time_tolerance=timedelta(days=0))
 
     # Test with default schema (all fields)
     df_full = ds(time, ["t2m_max"], fields=None)
@@ -143,7 +143,7 @@ def test_ghcn_schema_fields():
 @pytest.mark.timeout(30)
 def test_ghcn_exceptions():
     # Throw key error for invalid variable
-    ds = GHCN(
+    ds = GHCNDaily(
         stations=["USW00013722"],
         time_tolerance=timedelta(days=0),
         cache=False,
@@ -153,12 +153,12 @@ def test_ghcn_exceptions():
         ds(np.array([np.datetime64("2023-01-01")]), ["invalid"])
 
     # For an invalid station should return empty
-    ds = GHCN(stations=["INVALID00000"], cache=False, verbose=False)
+    ds = GHCNDaily(stations=["INVALID00000"], cache=False, verbose=False)
     df = ds(np.array(["2023-01-01"], dtype=np.datetime64), ["t2m_max"])
     assert df.empty
 
     # Time that there is no data for should return empty
-    ds = GHCN(stations=["USW00013722"], cache=False, verbose=False)
+    ds = GHCNDaily(stations=["USW00013722"], cache=False, verbose=False)
     df = ds(np.array(["2050-01-01"], dtype=np.datetime64), ["t2m_max"])
     assert df.empty
     assert list(df.columns) == ds.SCHEMA.names
@@ -206,11 +206,11 @@ def test_ghcn_exceptions():
 def test_ghcn_station_bbox(bbox):
     lat_min, lon_min, lat_max, lon_max = bbox
 
-    stations = GHCN.get_stations_bbox((lat_min, lon_min, lat_max, lon_max))
+    stations = GHCNDaily.get_stations_bbox((lat_min, lon_min, lat_max, lon_max))
     assert len(stations) > 0
 
     # Load station metadata to verify coordinates
-    df = GHCN.get_station_metadata()
+    df = GHCNDaily.get_station_metadata()
     df["LAT"] = pd.to_numeric(df["LAT"], errors="coerce")
     df["LON"] = pd.to_numeric(df["LON"], errors="coerce")
     df = df.dropna(subset=["LAT", "LON"])
@@ -236,18 +236,18 @@ def test_ghcn_station_bbox(bbox):
 
 
 def test_ghcn_schema_structure():
-    assert "time" in GHCN.SCHEMA.names
-    assert "lat" in GHCN.SCHEMA.names
-    assert "lon" in GHCN.SCHEMA.names
-    assert "station" in GHCN.SCHEMA.names
-    assert "observation" in GHCN.SCHEMA.names
-    assert "variable" in GHCN.SCHEMA.names
-    assert GHCN.SCHEMA.field("time").type == pa.timestamp("ns")
-    assert GHCN.SCHEMA.field("observation").type == pa.float32()
+    assert "time" in GHCNDaily.SCHEMA.names
+    assert "lat" in GHCNDaily.SCHEMA.names
+    assert "lon" in GHCNDaily.SCHEMA.names
+    assert "station" in GHCNDaily.SCHEMA.names
+    assert "observation" in GHCNDaily.SCHEMA.names
+    assert "variable" in GHCNDaily.SCHEMA.names
+    assert GHCNDaily.SCHEMA.field("time").type == pa.timestamp("ns")
+    assert GHCNDaily.SCHEMA.field("observation").type == pa.float32()
 
 
 def test_ghcn_column_map():
-    cmap = GHCN.column_map()
+    cmap = GHCNDaily.column_map()
     assert cmap["DATE"] == "time"
     assert cmap["LAT"] == "lat"
     assert cmap["LON"] == "lon"
@@ -257,8 +257,8 @@ def test_ghcn_column_map():
 
 def test_ghcn_available_invalid_time():
     # Invalid time (before 1750) — rejected by _validate_time without network
-    assert not GHCN.available(datetime(1700, 1, 1))
-    assert not GHCN.available(np.datetime64("1700-01-01"))
+    assert not GHCNDaily.available(datetime(1700, 1, 1))
+    assert not GHCNDaily.available(np.datetime64("1700-01-01"))
 
 
 @pytest.mark.slow
@@ -266,15 +266,15 @@ def test_ghcn_available_invalid_time():
 @pytest.mark.timeout(30)
 def test_ghcn_available():
     # Valid time — partition should exist on S3
-    assert GHCN.available(datetime(2020, 1, 1))
-    assert GHCN.available(np.datetime64("2020-01-01"))
+    assert GHCNDaily.available(datetime(2020, 1, 1))
+    assert GHCNDaily.available(np.datetime64("2020-01-01"))
 
     # Invalid time (before 1750)
-    assert not GHCN.available(datetime(1700, 1, 1))
-    assert not GHCN.available(np.datetime64("1700-01-01"))
+    assert not GHCNDaily.available(datetime(1700, 1, 1))
+    assert not GHCNDaily.available(np.datetime64("1700-01-01"))
 
     # Future time — partition unlikely to exist
-    assert not GHCN.available(datetime(2099, 1, 1))
+    assert not GHCNDaily.available(datetime(2099, 1, 1))
 
 
 class TestGHCNLexicon:
@@ -377,11 +377,11 @@ class TestGHCNMock:
             ("tcc", "ACMH", 80, 0.8),  # 80% -> 0.8 fraction
         ],
     )
-    @patch("earth2studio.data.ghcn.GHCN.get_station_metadata")
+    @patch("earth2studio.data.ghcn.GHCNDaily.get_station_metadata")
     def test_mock_fetch(
         self, mock_get_meta, variable, element, raw_value, expected_obs
     ):
-        """Test GHCN fetch with mocked S3 filesystem for various variables."""
+        """Test GHCNDaily fetch with mocked S3 filesystem for various variables."""
         mock_get_meta.return_value = self._build_station_metadata()
 
         # Build parquet with the specified raw value
@@ -398,7 +398,7 @@ class TestGHCNMock:
         pq.write_table(table, buf)
         parquet_bytes = buf.getvalue().to_pybytes()
 
-        ds = GHCN(
+        ds = GHCNDaily(
             stations=["USW00013722"],
             time_tolerance=timedelta(days=0),
             cache=False,

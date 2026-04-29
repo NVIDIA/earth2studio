@@ -43,7 +43,7 @@ from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 
-class GHCN:
+class GHCNDaily:
     """NOAA's Global Historical Climatology Network Daily (GHCN-D) is a dataset that
     contains daily climate summaries from land surface stations across the globe.
 
@@ -77,10 +77,10 @@ class GHCN:
     Note
     ----
     To help get a list of possible station IDs, this class includes
-    :py:meth:`GHCN.get_stations_bbox` which accepts a lat-lon bounding box and will
+    :py:meth:`GHCNDaily.get_stations_bbox` which accepts a lat-lon bounding box and will
     return known station IDs. For more information on the stations, users should
     consult the ``ghcnd-stations.txt`` which can be accessed with
-    :py:meth:`GHCN.get_station_metadata`.
+    :py:meth:`GHCNDaily.get_station_metadata`.
 
     Note
     ----
@@ -95,8 +95,8 @@ class GHCN:
     .. code-block:: python
 
         # Southeast US, lat lon bounding box (lat min, lon min, lat max, lon max)
-        stations = GHCN.get_stations_bbox((30, -90, 36, -80))
-        ds = GHCN(stations, time_tolerance=timedelta(days=1))
+        stations = GHCNDaily.get_stations_bbox((30, -90, 36, -80))
+        ds = GHCNDaily(stations, time_tolerance=timedelta(days=1))
         df = ds(datetime(2024, 1, 1), ["t2m_max", "tp"])
 
     Badges
@@ -227,7 +227,7 @@ class GHCN:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables (column
-            ids) to return. Must be in the GHCN lexicon.
+            ids) to return. Must be in the GHCNDaily lexicon.
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
 
@@ -497,7 +497,7 @@ class GHCN:
             if time < datetime(1750, 1, 1):
                 raise ValueError(
                     f"Requested date time {time} needs to be after "
-                    f"1750-01-01 for GHCN data source"
+                    f"1750-01-01 for GHCNDaily data source"
                 )
 
     @classmethod
