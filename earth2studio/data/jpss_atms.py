@@ -353,18 +353,7 @@ class JPSS_ATMS:
                 metadata={"bufr_name": "fieldOfViewNumber (converted to degrees)"},
             ),
             E2STUDIO_SCHEMA.field("channel_index"),
-            pa.field(
-                "frequency",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Channel center frequency (GHz)"},
-            ),
-            pa.field(
-                "wavenumber",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Channel wavenumber (cm^-1)"},
-            ),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -825,7 +814,6 @@ class JPSS_ATMS:
                                     "lon": float(lon[i]) % 360.0,
                                     "scan_angle": _fov_to_scan_angle(fov_index),
                                     "channel_index": ch + 1,
-                                    "frequency": float(_ATMS_CHANNEL_FREQ_GHZ[ch]),
                                     "wavenumber": float(_ATMS_CHANNEL_WAVENUMBER[ch]),
                                     "solza": float(solza[i]),
                                     "solaza": float(solaza[i]),
@@ -852,7 +840,6 @@ class JPSS_ATMS:
         df["lon"] = df["lon"].astype(np.float32)
         df["scan_angle"] = df["scan_angle"].astype(np.float32)
         df["channel_index"] = df["channel_index"].astype(np.uint16)
-        df["frequency"] = df["frequency"].astype(np.float64)
         df["wavenumber"] = df["wavenumber"].astype(np.float64)
         df["solza"] = df["solza"].astype(np.float32)
         df["solaza"] = df["solaza"].astype(np.float32)

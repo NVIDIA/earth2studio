@@ -442,18 +442,7 @@ class JPSS_CRIS:
                 metadata={"description": "SatelliteZenithAngle from CrIS GEO file"},
             ),
             E2STUDIO_SCHEMA.field("channel_index"),
-            pa.field(
-                "wavenumber",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Channel wavenumber (cm^-1)"},
-            ),
-            pa.field(
-                "frequency",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Channel frequency (GHz)"},
-            ),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -887,10 +876,6 @@ class JPSS_CRIS:
         )
         wavenumber = _CRIS_WAVENUMBER_APOD if self._apodize else _CRIS_WAVENUMBER
 
-        # Speed of light in cm/s for wavenumber (cm^-1) → frequency (GHz)
-        _C_CM_S = 2.99792458e10
-        frequency = wavenumber * _C_CM_S / 1e9  # GHz
-
         arrs: dict[str, pa.Array] = {
             "time": pa.array(np.repeat(all_times, n_channels)),
             "class": pa.DictionaryArray.from_arrays(
@@ -907,10 +892,6 @@ class JPSS_CRIS:
             ),
             "wavenumber": pa.array(
                 np.tile(wavenumber, n_total),
-                type=pa.float64(),
-            ),
-            "frequency": pa.array(
-                np.tile(frequency, n_total),
                 type=pa.float64(),
             ),
             "solza": pa.array(np.repeat(all_sol_za, n_channels), type=pa.float32()),

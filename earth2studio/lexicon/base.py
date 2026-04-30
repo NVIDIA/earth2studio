@@ -449,5 +449,11 @@ E2STUDIO_SCHEMA = pa.schema(
             nullable=True,
             metadata={"description": "Satellite azimuth angle (degrees)"},
         ),
+        pa.field(
+            "wavenumber",
+            pa.float64(),
+            nullable=True,
+            metadata={"description": "Channel wavenumber (cm^-1)"},
+        ),
     ]
 )
