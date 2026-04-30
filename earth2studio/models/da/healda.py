@@ -263,7 +263,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "lon": np.empty(0, dtype=np.float32),
                 "observation": np.empty(0, dtype=np.float32),
                 "variable": np.array(list(SAT_SENSORS), dtype=str),
-                "channel_index": np.empty(0, dtype=np.uint16),
+                "sensor_index": np.empty(0, dtype=np.uint16),
                 "satellite": np.empty(0, dtype=str),
                 "scan_angle": np.empty(0, dtype=np.float32),
                 "satellite_za": np.empty(0, dtype=np.float32),
@@ -591,7 +591,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Standardized DataFrame with unified column schema
         """
         stats = self._sensor_stats[sensor]
-        raw_ch = df["channel_index"].values.astype(int)
+        raw_ch = df["sensor_index"].values.astype(int)
         platforms = SENSOR_PLATFORMS.get(sensor, [])
         platform_map = {name: i for i, name in enumerate(platforms)}
 
@@ -603,7 +603,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         out_of_bounds = raw_ch[raw_ch > max_raw]
         if len(out_of_bounds) > 0:
             raise ValueError(
-                f"Sensor {sensor!r}: channel_index values {set(out_of_bounds.tolist())} "
+                f"Sensor {sensor!r}: sensor_index values {set(out_of_bounds.tolist())} "
                 f"exceed max channel {max_raw} in stats table"
             )
 

@@ -420,7 +420,7 @@ E2STUDIO_SCHEMA = pa.schema(
             metadata={"description": "Satellite scan angle (degrees)"},
         ),
         pa.field(
-            "channel_index",
+            "sensor_index",
             pa.uint16(),
             nullable=True,
             metadata={"description": "Satellite sensor channel index"},

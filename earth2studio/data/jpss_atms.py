@@ -210,7 +210,7 @@ class JPSS_ATMS:
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
 
-    ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``channel_index``
+    ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``sensor_index``
     column (1--22) identifies each channel:
 
     .. list-table:: ATMS Channel Specification
@@ -352,7 +352,7 @@ class JPSS_ATMS:
                 nullable=True,
                 metadata={"bufr_name": "fieldOfViewNumber (converted to degrees)"},
             ),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
             E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
@@ -665,7 +665,7 @@ class JPSS_ATMS:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             )
@@ -813,7 +813,7 @@ class JPSS_ATMS:
                                     "lat": float(lat[i]),
                                     "lon": float(lon[i]) % 360.0,
                                     "scan_angle": _fov_to_scan_angle(fov_index),
-                                    "channel_index": ch + 1,
+                                    "sensor_index": ch + 1,
                                     "wavenumber": float(_ATMS_CHANNEL_WAVENUMBER[ch]),
                                     "solza": float(solza[i]),
                                     "solaza": float(solaza[i]),
@@ -839,7 +839,7 @@ class JPSS_ATMS:
         df["lat"] = df["lat"].astype(np.float32)
         df["lon"] = df["lon"].astype(np.float32)
         df["scan_angle"] = df["scan_angle"].astype(np.float32)
-        df["channel_index"] = df["channel_index"].astype(np.uint16)
+        df["sensor_index"] = df["sensor_index"].astype(np.uint16)
         df["wavenumber"] = df["wavenumber"].astype(np.float64)
         df["solza"] = df["solza"].astype(np.float32)
         df["solaza"] = df["solaza"].astype(np.float32)

@@ -327,7 +327,7 @@ class JPSS_CRIS:
     of each band (4 per band, 12 total) are trimmed during apodization,
     yielding 2211 science channels.  Set ``apodize=False`` to retain the full
     2223 unapodized channels (including 12 guard channels with
-    ``channel_index=0``).
+    ``sensor_index=0``).
 
     Each HDF5 granule contains a small number of scan lines, each with 30
     Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
@@ -338,10 +338,10 @@ class JPSS_CRIS:
     - **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
 
     When ``apodize=True`` (default), guard channels are trimmed and the output
-    has 2211 channels with contiguous ``channel_index`` 1--2211.
+    has 2211 channels with contiguous ``sensor_index`` 1--2211.
 
     When ``apodize=False``, the returned :class:`~pandas.DataFrame` has one row
-    per FOV per channel including guard channels.  The ``channel_index`` column
+    per FOV per channel including guard channels.  The ``sensor_index`` column
     uses the GSI ``sensor_chan`` numbering convention:
 
     - **LWIR** channels 0--1 (0-based) → sensor_chan 0 (guard; not in GSI)
@@ -380,7 +380,7 @@ class JPSS_CRIS:
         channels that are directly comparable with
         :class:`~earth2studio.data.UFSObsSat`.  Set to ``False`` to
         retain the unapodized spectra with all 2223 channels (including
-        12 guard channels with ``channel_index=0``).
+        12 guard channels with ``sensor_index=0``).
 
         .. note::
 
@@ -441,7 +441,7 @@ class JPSS_CRIS:
                 nullable=True,
                 metadata={"description": "SatelliteZenithAngle from CrIS GEO file"},
             ),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
             E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
@@ -886,7 +886,7 @@ class JPSS_CRIS:
             "scan_angle": pa.array(
                 np.repeat(all_sat_za, n_channels), type=pa.float32()
             ),
-            "channel_index": pa.array(
+            "sensor_index": pa.array(
                 np.tile(sensor_chan, n_total),
                 type=pa.uint16(),
             ),

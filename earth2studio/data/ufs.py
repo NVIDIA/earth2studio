@@ -674,7 +674,7 @@ class UFSObsSat(_UFSObsBase):
                 metadata={"gsi_name": "Channel_Index"},
             ),
             pa.field(
-                "sensor_chan",
+                "sensor_index",
                 pa.uint16(),
                 nullable=True,
                 metadata={"gsi_name": "sensor_chan", "channel_indexed": "true"},

@@ -426,7 +426,7 @@ def _parse_native_avhrr(
 
     # Step 4: Channel map — always extract all channels.
     # Channel index in SCENE_RADIANCES: 0=ch1, 1=ch2, 2=ch3a/3b, 3=ch4, 4=ch5
-    # channel_index values match MetOpAVHRRLexicon.AVHRR_CHANNEL_INDEX
+    # sensor_index values match MetOpAVHRRLexicon.AVHRR_CHANNEL_INDEX
     channel_map: dict[str, dict] = {
         "1": {"rad_idx": 0, "type": "vis", "ch_num": 1},
         "2": {"rad_idx": 1, "type": "vis", "ch_num": 2},
@@ -591,7 +591,7 @@ def _parse_native_avhrr(
                 "lat": lats,
                 "lon": lons,
                 "scan_angle": satza,
-                "channel_index": np.full(n_pixels, ch_num, dtype=np.uint16),
+                "sensor_index": np.full(n_pixels, ch_num, dtype=np.uint16),
                 "wavenumber": np.full(n_pixels, ch_wn, dtype=np.float64),
                 "solza": solza,
                 "solaza": solazi,
@@ -632,7 +632,7 @@ class MetOpAVHRR:
 
     The returned :class:`~pandas.DataFrame` has one row per pixel per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
-    The ``channel_index`` column (1--6) identifies each channel.  The ``class``
+    The ``sensor_index`` column (1--6) identifies each channel.  The ``class``
     column differentiates observation types: ``"refl"`` for visible/NIR
     channels (1, 2, 3A) and ``"rad"`` for thermal IR channels (3B, 4, 5).
 
@@ -703,7 +703,7 @@ class MetOpAVHRR:
             E2STUDIO_SCHEMA.field("lat"),
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("scan_angle"),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
             E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
@@ -868,7 +868,7 @@ class MetOpAVHRR:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             ]

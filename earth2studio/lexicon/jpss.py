@@ -309,7 +309,7 @@ class JPSSATMSLexicon(metaclass=LexiconType):
 
     This lexicon maps the ``atms`` variable to an identity modifier for brightness
     temperature observations in Kelvin.  Individual channels (1-22) are distinguished
-    by the ``channel_index`` column of the returned DataFrame, following the same
+    by the ``sensor_index`` column of the returned DataFrame, following the same
     convention used by :class:`~earth2studio.data.UFSObsSat`.
 
     The ATMS instrument is a 22-channel cross-track scanning microwave radiometer
@@ -398,7 +398,7 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     function to convert radiance into brightness temperature (K), so the
     ``observation`` column in the returned DataFrame is directly comparable
     with :class:`~earth2studio.data.UFSObsSat`.  Individual channels are
-    distinguished by the ``channel_index`` column, which uses the GSI
+    distinguished by the ``sensor_index`` column, which uses the GSI
     ``sensor_chan`` numbering convention.
 
     The CrIS instrument is a Fourier-transform spectrometer operating in three
@@ -413,7 +413,7 @@ class JPSSCrISLexicon(metaclass=LexiconType):
     When ``apodize=True`` (default in :class:`~earth2studio.data.JPSS_CRIS`),
     the 2 guard channels at each end of each band (4 per band, 12 total) are
     trimmed after apodization, yielding 2211 science channels with contiguous
-    ``channel_index`` 1--2211.
+    ``sensor_index`` 1--2211.
 
     Notes
     -----
