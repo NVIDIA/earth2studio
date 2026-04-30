@@ -235,10 +235,6 @@ class MSCObjectStorage(ObjectStorage):
         Custom endpoint URL for S3-compatible services (S3 only; not used for Azure).
     use_transfer_acceleration : bool, optional
         Enable S3 Transfer Acceleration (bucket must support it). Default is False.
-        For ``MSCObjectStorage``, the accelerate hostname is not passed to MSC:
-        directory ``sync_from`` uses ``ListObjectsV2``, which requires the standard
-        regional S3 endpoint. ``self.endpoint_url`` still reflects the accelerate URL
-        for reference.
     max_concurrency : int, optional
         Maximum number of concurrent transfers. Default is 16.
     multipart_chunksize : int, optional
