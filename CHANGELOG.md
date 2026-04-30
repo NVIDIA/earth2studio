@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Adding frequency and wave number of satellite sensor data sources
+
 ### Deprecated
 
 ### Removed

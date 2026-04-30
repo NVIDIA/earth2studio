@@ -47,12 +47,6 @@ from earth2studio.lexicon.jpss import JPSSCrISLexicon
 from earth2studio.utils.time import TimeTolerance, normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, VariableArray
 
-# ---------------------------------------------------------------------------
-# NOAA CrIS S3 bucket layout
-# s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/<YYYY>/<MM>/<DD>/SCRIF_*.h5
-# s3://noaa-nesdis-n20-pds/CrIS-SDR-GEO/<YYYY>/<MM>/<DD>/GCRSO_*.h5
-# ---------------------------------------------------------------------------
-
 # S3 bucket per satellite short-name
 _SAT_BUCKET_MAP: dict[str, str] = {
     "n20": "noaa-nesdis-n20-pds",
