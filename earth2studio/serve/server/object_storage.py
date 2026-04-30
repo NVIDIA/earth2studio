@@ -23,17 +23,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
-
-
-def _is_aws_s3_transfer_acceleration_endpoint(url: str) -> bool:
-    """Return True if *url* is an AWS S3 Transfer Acceleration REST hostname."""
-    host = (urlparse(url).hostname or "").lower()
-    return host.endswith(".s3-accelerate.dualstack.amazonaws.com") or host.endswith(
-        ".s3-accelerate.amazonaws.com"
-    )
 
 
 @dataclass
@@ -378,22 +369,8 @@ class MSCObjectStorage(ObjectStorage):
                 "max_concurrency": max_concurrency,
             }
 
-            # Transfer Acceleration hostnames are for fast GET/PUT; MSC directory
-            # sync calls ListObjectsV2, which must use the standard regional S3 API.
-            endpoint_for_msc = self.endpoint_url
-            if endpoint_for_msc and _is_aws_s3_transfer_acceleration_endpoint(
-                endpoint_for_msc
-            ):
-                logger.warning(
-                    "MSC S3 ignores Transfer Acceleration endpoint %r for API calls "
-                    "(ListObjectsV2 / sync_from require the default regional endpoint). "
-                    "self.endpoint_url is unchanged; set use_transfer_acceleration=False "
-                    "to avoid this message if acceleration is not required.",
-                    endpoint_for_msc,
-                )
-                endpoint_for_msc = None
-            if endpoint_for_msc:
-                s3_storage_provider_options["endpoint_url"] = endpoint_for_msc
+            if self.endpoint_url and not use_transfer_acceleration:
+                s3_storage_provider_options["endpoint_url"] = self.endpoint_url
 
             # Enable Rust client for high-performance I/O
             if use_rust_client:
