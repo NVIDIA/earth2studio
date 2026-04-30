@@ -184,25 +184,26 @@ class TestCreateResultsZip:
 
     @pytest.fixture
     def inference_request(self):
-        """Sample inference request data"""
-        return {
-            "id": "test_req_123",
-            "type": "deterministic",
-            "status": "completed",
-            "completion_time": "2024-01-01T12:00:00Z",
-            "execution_time_seconds": 45.5,
-            "created_at": "2024-01-01T11:00:00Z",
-            "peak_memory_usage": "2.5GB",
-            "device": "cuda:0",
-            "request": {
-                "workflow_type": "deterministic",
-                "time": "2024-01-01T00:00:00Z",
-                "nsteps": 10,
-                "prognostic": {"model_type": "fcn"},
-                "data": {"source_type": "gfs"},
-                "io": {"backend_type": "zarr"},
+        return WorkflowResult(
+            workflow_name="deterministic",
+            execution_id="test_req_123",
+            status="completed",
+            start_time="2024-01-01T11:00:00Z",
+            end_time="2024-01-01T12:00:00Z",
+            execution_time_seconds=45.5,
+            metadata={
+                "peak_memory_usage": "2.5GB",
+                "device": "cuda:0",
+                "parameters": {
+                    "workflow_type": "deterministic",
+                    "time": "2024-01-01T00:00:00Z",
+                    "nsteps": 10,
+                    "prognostic": {"model_type": "fcn"},
+                    "data": {"source_type": "gfs"},
+                    "io": {"backend_type": "zarr"},
+                },
             },
-        }
+        )
 
     def test_create_results_zip_with_single_file(
         self, mock_redis, inference_request, tmp_path
@@ -267,14 +268,14 @@ class TestCreateResultsZip:
         # Verify metadata structure
         assert metadata["request_id"] == "test_req_123"
         assert metadata["status"] == "completed"
-        assert metadata["workflow_type"] == "deterministic"
+        assert metadata["workflow_name"] == "deterministic"
         assert metadata["execution_time_seconds"] == 45.5
         assert metadata["device"] == "cuda:0"
         assert "zip_created_at" in metadata
 
         # Verify parameters field
         assert "parameters" in metadata
-        assert metadata["parameters"] == inference_request["request"]
+        assert metadata["parameters"] == inference_request.metadata["parameters"]
         assert metadata["parameters"]["workflow_type"] == "deterministic"
         assert metadata["parameters"]["nsteps"] == 10
 
@@ -416,47 +417,48 @@ class TestCreateResultsZip:
         assert len(metadata["output_files"]) == 1  # Only zip entry
         assert metadata["output_files"][0]["path"] == "test_req_789"
 
-    def test_create_results_zip_parameters_validation(
-        self, mock_redis, inference_request, tmp_path
-    ):
-        """Test that parameters are correctly stored in metadata"""
-        # Create a temporary output file
+    def test_create_results_zip_parameters_validation(self, mock_redis, tmp_path):
         output_file = tmp_path / "output.nc"
         output_file.write_text("test")
 
-        # Create results directory
         results_zip_dir = tmp_path / "results"
         results_zip_dir.mkdir()
 
-        # Modify inference request to have specific parameters
-        inference_request["request"] = {
-            "workflow_type": "ensemble",
-            "time": "2024-01-15T00:00:00Z",
-            "nsteps": 20,
-            "nensemble": 10,
-            "prognostic": {"model_type": "graphcast"},
-            "data": {"source_type": "era5"},
-            "io": {"backend_type": "netcdf"},
-            "perturbation": {"method": "spherical_gaussian"},
-        }
+        workflow_result = WorkflowResult(
+            workflow_name="ensemble",
+            execution_id="test_req_params",
+            status="completed",
+            start_time="2024-01-15T00:00:00Z",
+            end_time="2024-01-15T01:00:00Z",
+            execution_time_seconds=60.0,
+            metadata={
+                "parameters": {
+                    "workflow_type": "ensemble",
+                    "time": "2024-01-15T00:00:00Z",
+                    "nsteps": 20,
+                    "nensemble": 10,
+                    "prognostic": {"model_type": "graphcast"},
+                    "data": {"source_type": "era5"},
+                    "io": {"backend_type": "netcdf"},
+                    "perturbation": {"method": "spherical_gaussian"},
+                },
+            },
+        )
 
-        # Call create_results_zip
         result = create_results_zip(
             request_id="test_req_params",
             output_path=output_file,
-            inference_request=inference_request,
+            inference_request=workflow_result,
             results_zip_dir=results_zip_dir,
             redis_client=mock_redis,
         )
         assert result is not None
 
-        # Verify metadata is stored in Redis (not as file)
         assert mock_redis.setex.call_count == 4
         calls = mock_redis.setex.call_args_list
         metadata_json = calls[0][0][2]
         metadata = json.loads(metadata_json)
 
-        # Verify parameters field exists and matches
         assert "parameters" in metadata
         params = metadata["parameters"]
 
@@ -537,41 +539,37 @@ class TestCreateResultsZip:
                 assert entry["size"] == actual_size
 
     def test_create_results_zip_missing_request_parameters(self, mock_redis, tmp_path):
-        """Test handling when request doesn't have parameters field"""
-        # Create inference request without 'request' field
-        inference_request = {
-            "id": "test_req_no_params",
-            "type": "deterministic",
-            "status": "completed",
-        }
+        workflow_result = WorkflowResult(
+            workflow_name="deterministic",
+            execution_id="test_req_no_params",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+            metadata=None,
+        )
 
-        # Create output file
         output_file = tmp_path / "output.nc"
         output_file.write_text("test")
 
-        # Create results directory
         results_zip_dir = tmp_path / "results"
         results_zip_dir.mkdir()
 
-        # Call create_results_zip
         zip_filename = create_results_zip(
             request_id="test_req_no_params",
             output_path=output_file,
-            inference_request=inference_request,
+            inference_request=workflow_result,
             results_zip_dir=results_zip_dir,
             redis_client=mock_redis,
         )
 
-        # Verify zip was created
         assert zip_filename is not None
 
-        # Verify metadata stored in Redis - parameters should be None
         assert mock_redis.setex.call_count == 4
         calls = mock_redis.setex.call_args_list
         metadata_json = calls[0][0][2]
         metadata = json.loads(metadata_json)
 
-        # Parameters should be None or not present
         assert metadata.get("parameters") is None
 
     def test_create_results_zip_redis_failure(
@@ -661,7 +659,7 @@ class TestCreateResultsZip:
             "status",
             "completion_time",
             "execution_time_seconds",
-            "workflow_type",
+            "workflow_name",
             "created_at",
             "peak_memory_usage",
             "device",
@@ -836,7 +834,7 @@ class TestCreateResultsZip:
         result = create_results_zip(
             request_id="req_invalid",
             output_path=output_file,
-            inference_request=[],  # list is not dict or WorkflowResult
+            inference_request=[],  # invalid type, not WorkflowResult
             results_zip_dir=results_zip_dir,
             redis_client=mock_redis,
         )
@@ -952,24 +950,6 @@ class TestResultMetadata:
         assert meta.parameters == {"n": 1}
         assert meta.output_files == manifest
 
-    def test_from_legacy_dict(self):
-        """ResultMetadata.from_legacy_dict sets workflow_type from dict."""
-        req = {
-            "status": "completed",
-            "completion_time": "2024-01-01T11:00:00Z",
-            "execution_time_seconds": 10.0,
-            "type": "deterministic",
-            "created_at": "2024-01-01T10:00:00Z",
-            "request": {"nsteps": 5},
-        }
-        manifest = [FileManifestEntry(path="out.zarr", size=200)]
-        meta = ResultMetadata.from_legacy_dict(
-            req, "req_123", manifest, "2024-01-01T12:00:00Z"
-        )
-        assert meta.request_id == "req_123"
-        assert meta.workflow_type == "deterministic"
-        assert meta.parameters == {"nsteps": 5}
-
     def test_to_dict_includes_workflow_name_and_type(self):
         """to_dict includes workflow_name or workflow_type when set."""
         meta = ResultMetadata(
@@ -1024,11 +1004,14 @@ class TestProcessResultZip:
         results_zip_dir.mkdir()
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "id": "wf:exec_1",
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
         mock_workflow_class._update_execution_data = Mock()
 
         with patch(
@@ -1090,10 +1073,14 @@ class TestProcessResultZip:
         results_zip_dir.mkdir()
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
 
         with patch(
             "earth2studio.serve.server.cpu_worker.workflow_registry"
@@ -1133,10 +1120,14 @@ class TestProcessResultZip:
         results_zip_dir.mkdir()
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
 
         with patch(
             "earth2studio.serve.server.cpu_worker.workflow_registry"
@@ -1165,14 +1156,17 @@ class TestProcessResultZip:
         """When create_results_zip returns None (create_zip=True), fail_workflow and return None."""
         results_zip_dir = tmp_path / "results"
         results_zip_dir.mkdir()
-        # Nonexistent output path so create_results_zip may still build manifest but we can mock return
         output_path_str = str(tmp_path / "nonexistent")
 
         mock_workflow_class = Mock()
-        mock_workflow_class._get_execution_data.return_value = {
-            "type": "deterministic",
-            "status": "completed",
-        }
+        mock_workflow_class._get_execution_data.return_value = WorkflowResult(
+            workflow_name="test_wf",
+            execution_id="exec_1",
+            status="completed",
+            start_time="2024-01-01T10:00:00Z",
+            end_time="2024-01-01T11:00:00Z",
+            execution_time_seconds=60.0,
+        )
 
         with patch(
             "earth2studio.serve.server.cpu_worker.workflow_registry"
