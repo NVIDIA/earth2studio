@@ -113,6 +113,40 @@ _ATMS_SCAN_PERIOD_S: float = 8.0 / 3.0  # 2.667 s
 # The 96 FOVs span ~1.73 s of the 2.667 s scan cycle (~65% duty cycle).
 _ATMS_FOV_DWELL_S: float = 0.018  # 18 ms per FOV
 
+# ATMS channel center frequencies (GHz), 1-indexed → 0-indexed array.
+# Source: JPSS ATMS SDR ATBD, Table 2-1.
+_ATMS_CHANNEL_FREQ_GHZ: np.ndarray = np.array(
+    [
+        23.8,
+        31.4,
+        50.3,
+        51.76,
+        52.8,
+        53.596,
+        54.40,
+        54.94,
+        55.50,
+        57.29,
+        57.29,
+        57.29,
+        57.29,
+        57.29,
+        57.29,
+        88.20,
+        165.5,
+        183.31,
+        183.31,
+        183.31,
+        183.31,
+        183.31,
+    ],
+    dtype=np.float64,
+)
+
+# Speed of light in cm/s for frequency (GHz) → wavenumber (cm^-1) conversion.
+_C_CM_S: float = 2.99792458e10
+_ATMS_CHANNEL_WAVENUMBER: np.ndarray = _ATMS_CHANNEL_FREQ_GHZ * 1e9 / _C_CM_S
+
 
 def _fov_to_scan_angle(fov: float) -> float:
     """Convert a 1-indexed field-of-view number to scan angle in degrees.
@@ -319,6 +353,18 @@ class JPSS_ATMS:
                 metadata={"bufr_name": "fieldOfViewNumber (converted to degrees)"},
             ),
             E2STUDIO_SCHEMA.field("channel_index"),
+            pa.field(
+                "frequency",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel center frequency (GHz)"},
+            ),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel wavenumber (cm^-1)"},
+            ),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -779,6 +825,8 @@ class JPSS_ATMS:
                                     "lon": float(lon[i]) % 360.0,
                                     "scan_angle": _fov_to_scan_angle(fov_index),
                                     "channel_index": ch + 1,
+                                    "frequency": float(_ATMS_CHANNEL_FREQ_GHZ[ch]),
+                                    "wavenumber": float(_ATMS_CHANNEL_WAVENUMBER[ch]),
                                     "solza": float(solza[i]),
                                     "solaza": float(solaza[i]),
                                     "satellite_za": float(sat_za[i]),
@@ -804,6 +852,8 @@ class JPSS_ATMS:
         df["lon"] = df["lon"].astype(np.float32)
         df["scan_angle"] = df["scan_angle"].astype(np.float32)
         df["channel_index"] = df["channel_index"].astype(np.uint16)
+        df["frequency"] = df["frequency"].astype(np.float64)
+        df["wavenumber"] = df["wavenumber"].astype(np.float64)
         df["solza"] = df["solza"].astype(np.float32)
         df["solaza"] = df["solaza"].astype(np.float32)
         df["satellite_za"] = df["satellite_za"].astype(np.float32)
