@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
 - Added GHCN-Daily global station observation data frame source (`GHCNDaily`)
+- Added NNJA conventional (in-situ + GPS RO) observation data source (`NNJAObsConv`)
 
 ### Changed
 
@@ -25,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Added `pybufrkit>=0.2.22` to `data` optional dependency group for NCEP PrepBUFR / GPS RO BUFR decoding (used by `NNJAObsConv`)
 
 ## [0.14.0] - 2026-04-27
 
