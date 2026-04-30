@@ -136,7 +136,7 @@ class ResultMetadata:
     status: str
     completion_time: str | None
     execution_time_seconds: float | None
-    workflow_type: str | None = None
+    workflow_name: str | None = None
     workflow_name: str | None = None
     created_at: str | None = None
     peak_memory_usage: str | None = None
