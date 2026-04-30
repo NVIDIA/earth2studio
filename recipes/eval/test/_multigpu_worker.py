@@ -40,7 +40,7 @@ import torch
 from physicsnemo.distributed import DistributedManager
 from src.distributed import run_on_rank0_first
 from src.output import OutputManager
-from src.pipeline import ForecastPipeline
+from src.pipelines import ForecastPipeline
 from src.work import build_work_items, distribute_work
 
 from earth2studio.data import Random
