@@ -515,6 +515,17 @@ def _parse_native_avhrr(
     # Step 7: Calibrate and build per-channel DataFrames
     frames: list[pd.DataFrame] = []
 
+    # Build wavenumber map per channel key (NaN for visible channels)
+    _c_cm_s = 2.99792458e10
+    wn_map: dict[str, float] = {
+        "1": np.nan,
+        "2": np.nan,
+        "3a": np.nan,
+        "3b": calibration.ch3b_wavenumber,
+        "4": calibration.ch4_wavenumber,
+        "5": calibration.ch5_wavenumber,
+    }
+
     for ch_key, ch_info in all_channels.items():
         rad_idx = ch_info["rad_idx"]
         ch_type = ch_info["type"]
@@ -571,6 +582,10 @@ def _parse_native_avhrr(
                         base_idx = i_scan * _NAV_NUM_POINTS
                         obs[base_idx : base_idx + _NAV_NUM_POINTS] = np.nan
 
+        # Compute per-channel wavenumber and frequency
+        ch_wn = wn_map[ch_key]
+        ch_freq = ch_wn * _c_cm_s / 1e9 if not np.isnan(ch_wn) else np.nan
+
         df = pd.DataFrame(
             {
                 "time": pd.to_datetime(times),
@@ -579,6 +594,8 @@ def _parse_native_avhrr(
                 "lon": lons,
                 "scan_angle": satza,
                 "channel_index": np.full(n_pixels, ch_num, dtype=np.uint16),
+                "wavenumber": np.full(n_pixels, ch_wn, dtype=np.float64),
+                "frequency": np.full(n_pixels, ch_freq, dtype=np.float64),
                 "solza": solza,
                 "solaza": solazi,
                 "satellite_za": satza,
@@ -690,6 +707,18 @@ class MetOpAVHRR:
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("scan_angle"),
             E2STUDIO_SCHEMA.field("channel_index"),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel wavenumber (cm^-1)"},
+            ),
+            pa.field(
+                "frequency",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel center frequency (GHz)"},
+            ),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),

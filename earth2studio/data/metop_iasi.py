@@ -681,12 +681,21 @@ def _parse_native_iasi(
 
     all_obs = np.empty(total_rows, dtype=np.float32)
     all_channel_idx = np.empty(total_rows, dtype=np.uint16)
+    all_wavenumber = np.empty(total_rows, dtype=np.float64)
+    all_frequency = np.empty(total_rows, dtype=np.float64)
+
+    # Derive frequency (GHz) from wavenumber (cm^-1):
+    # frequency_ghz = wavenumber_cm * c_cm_s / 1e9
+    _c_cm_s = 2.99792458e10
+    _freq_ghz = wavenumber_cm * _c_cm_s / 1e9
 
     for i in range(n_ch_total):
         start = i * n_obs
         end = start + n_obs
         all_obs[start:end] = bt[:, i].astype(np.float32)
         all_channel_idx[start:end] = ch_idx[i]
+        all_wavenumber[start:end] = wavenumber_cm[i]
+        all_frequency[start:end] = _freq_ghz[i]
 
     df = pd.DataFrame(
         {
@@ -697,6 +706,8 @@ def _parse_native_iasi(
             "elev": np.float32(0.0),  # Satellite — no terrain elevation
             "scan_angle": all_scan_angle,
             "channel_index": all_channel_idx,
+            "wavenumber": all_wavenumber,
+            "frequency": all_frequency,
             "solza": all_solza,
             "solaza": all_solaza,
             "satellite_za": all_satza,
@@ -805,6 +816,18 @@ class MetOpIASI:
             E2STUDIO_SCHEMA.field("elev"),
             E2STUDIO_SCHEMA.field("scan_angle"),
             E2STUDIO_SCHEMA.field("channel_index"),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel wavenumber (cm^-1)"},
+            ),
+            pa.field(
+                "frequency",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel center frequency (GHz)"},
+            ),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),

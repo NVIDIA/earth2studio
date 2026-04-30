@@ -406,14 +406,23 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
 
     all_obs = np.empty(total_rows, dtype=np.float32)
     all_channel_idx = np.empty(total_rows, dtype=np.uint16)
+    all_wavenumber = np.empty(total_rows, dtype=np.float64)
+    all_frequency = np.empty(total_rows, dtype=np.float64)
     all_scan_angle = np.tile(sat_za, n_valid_channels)  # scan angle ≈ sat zenith
     all_quality = np.tile(quality, n_valid_channels)
+
+    # Derive frequency (GHz) from wavenumber (cm^-1):
+    # frequency_ghz = wavenumber_cm * c_cm_s / 1e9
+    _c_cm_s = 2.99792458e10
+    _freq_ghz = wn_arr * _c_cm_s / 1e9
 
     for i, ch_idx in enumerate(valid_channels):
         start = i * rows_per_channel
         end = start + rows_per_channel
         all_obs[start:end] = bt_arrays[ch_idx].astype(np.float32)
         all_channel_idx[start:end] = ch_idx
+        all_wavenumber[start:end] = wn_arr[ch_idx - 1]
+        all_frequency[start:end] = _freq_ghz[ch_idx - 1]
 
     df = pd.DataFrame(
         {
@@ -424,6 +433,8 @@ def _parse_native_mhs(data: bytes) -> pd.DataFrame:
             "elev": all_elevs,
             "scan_angle": all_scan_angle,
             "channel_index": all_channel_idx,
+            "wavenumber": all_wavenumber,
+            "frequency": all_frequency,
             "solza": all_solza,
             "solaza": all_solaza,
             "satellite_za": all_satza,
@@ -530,6 +541,18 @@ class MetOpMHS:
             E2STUDIO_SCHEMA.field("elev"),
             E2STUDIO_SCHEMA.field("scan_angle"),
             E2STUDIO_SCHEMA.field("channel_index"),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel wavenumber (cm^-1)"},
+            ),
+            pa.field(
+                "frequency",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Channel center frequency (GHz)"},
+            ),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
