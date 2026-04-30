@@ -270,7 +270,7 @@ class _UFSObsBase:
 
                     # Expand channel-indexed fields using Channel_Index as lookup
                     if channel_index_raw is not None:
-                        idx: np.ndarray = channel_index_raw.astype(np.uint16) - 1
+                        idx: np.ndarray = channel_index_raw.astype(np.int32) - 1
                         for gsi_name, field_name in channel_indexed_fields.items():
                             if gsi_name in ds.variables:
                                 lut = np.asarray(
@@ -779,6 +779,18 @@ class UFSObsSat(_UFSObsBase):
     def _handle_missing_file(self, path: str) -> None:
         """Satellite data may have missing platforms, just warn instead of error."""
         logger.warning(f"File {path} not found")
+
+    def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+        """Build column map, always including Channel_Index for channel-indexed fields."""
+        column_map = super()._build_column_map(schema)
+        # Channel_Index is required to expand any channel-indexed fields
+        for field in schema:
+            if field.metadata and b"channel_indexed" in field.metadata:
+                ci_field = self.SCHEMA.field("channel_index")
+                ci_gsi = ci_field.metadata[b"gsi_name"].decode("utf-8")
+                column_map[ci_gsi] = ci_field.name
+                break
+        return column_map
 
     def _transform_column(
         self,
