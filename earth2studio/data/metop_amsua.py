@@ -84,10 +84,9 @@ _FOV_DWELL_S = 0.2  # ~200 ms per FOV step
 
 # Metop-B AMSU-A central wavenumbers (cm⁻¹) per channel 1–15
 # From ATOVS L1B Product Guide, Appendix A
+# https://user.eumetsat.int/s3/eup-strapi-media/pdf_atovsl1b_pg_8bbaa8ba48.pdf
 # NOTE: Inter-satellite wavenumber differences (Metop-A/B/C) are <0.0002 cm⁻¹,
-# producing max BT bias <0.03 K — well below instrument NEdT (~0.2–0.5 K).
-# Band correction coefficients (A, B) are identity (0, 1) for all NOAA-KLM
-# platforms (per PGS §5.1.2.2.5). Using Metop-B values for all satellites.
+# Using Metop-B values for all satellites.
 _WAVENUMBERS = np.array(
     [
         0.793897,
@@ -108,8 +107,6 @@ _WAVENUMBERS = np.array(
     ],
     dtype=np.float64,
 )
-
-# Band correction A, B per channel (identity for all NOAA-KLM platforms)
 _BAND_A = np.zeros(_NUM_CHANNELS, dtype=np.float64)
 _BAND_B = np.ones(_NUM_CHANNELS, dtype=np.float64)
 
