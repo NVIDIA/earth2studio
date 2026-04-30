@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Adding frequency and wave number of satellite sensor data sources
+- Adding frequency and wave number to satellite sensor data source fields
 
 ### Deprecated
 
