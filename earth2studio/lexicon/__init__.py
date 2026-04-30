@@ -23,10 +23,13 @@ from .cmip6 import CMIP6Lexicon
 from .ecmwf import AIFSLexicon, IFSLexicon
 from .gefs import GEFSLexicon, GEFSLexiconSel
 from .gfs import GFSLexicon
+from .ghcn import GHCNLexicon
 from .goes import GOESLexicon
+from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
+from .meteosat import MeteosatFCILexicon
 from .metop import (
     MetOpAMSUALexicon,
     MetOpAVHRRLexicon,
@@ -35,6 +38,7 @@ from .metop import (
 )
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
+from .nclimgrid import NClimGridLexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
     PlanetaryComputerGOESLexicon,

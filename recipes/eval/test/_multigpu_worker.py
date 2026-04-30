@@ -39,8 +39,8 @@ import numpy as np
 import torch
 from physicsnemo.distributed import DistributedManager
 from src.distributed import run_on_rank0_first
-from src.inference import run_inference
 from src.output import OutputManager
+from src.pipeline import ForecastPipeline
 from src.work import build_work_items, distribute_work
 
 from earth2studio.data import Random
@@ -142,20 +142,25 @@ def test_end_to_end_inference(output_dir: str) -> None:
     my_items = distribute_work(all_items, dist.rank, dist.world_size)
     all_times = np.array(sorted({item.time for item in all_items}))
 
-    with OutputManager(
-        cfg,
-        prognostic=prognostic,
-        times=all_times,
-        nsteps=nsteps,
-        ensemble_size=ensemble_size,
-    ) as output_mgr:
-        run_inference(
+    pipeline = ForecastPipeline()
+    pipeline.prognostic = prognostic.to(dist.device)
+    pipeline.diagnostics = []
+    pipeline.perturbation = None
+    pipeline.nsteps = nsteps
+    pipeline._prognostic_ic = prognostic.input_coords()
+    pipeline._spatial_ref = prognostic.output_coords(pipeline._prognostic_ic)
+    pipeline._dx_input_coords = {}
+
+    total_coords = pipeline.build_total_coords(all_times, ensemble_size)
+
+    with OutputManager(cfg) as output_mgr:
+        output_mgr.validate_output_store(total_coords, list(VARIABLES))
+        pipeline.run(
             work_items=my_items,
-            prognostic=prognostic,
             data_source=data_source,
             output_mgr=output_mgr,
-            nsteps=nsteps,
-            device=torch.device(f"cuda:{dist.local_rank}"),
+            output_variables=list(VARIABLES),
+            device=dist.device,
         )
 
     torch.distributed.barrier()
