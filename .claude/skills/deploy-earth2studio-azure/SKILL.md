@@ -82,10 +82,6 @@ All canonical deployment related files live in `serve/server/deployment/azure/`:
   inference request so that results are uploaded to Azure Blob, the managed
   identity must have `Storage Blob Data Contributor` on that target container
   or storage account. Read-only roles are not sufficient for result upload.
-- **Scope assignments at the container level**: Prefer assigning roles at the
-  container scope rather than the storage account scope to follow least-privilege.
-  Only broaden to account scope if multiple containers are needed and managing
-  per-container assignments is impractical.
 - **Role propagation delay**: Azure RBAC changes can take several minutes to
   propagate. If a freshly assigned role appears correct but inference still
   fails with `AuthorizationPermissionMismatch`, wait a few minutes and retry
@@ -99,16 +95,6 @@ All canonical deployment related files live in `serve/server/deployment/azure/`:
   storage accounts with restricted networking will block the deployment's
   outbound requests, causing silent failures or `AuthorizationFailure` errors
   at inference time.
-  - Either allow access from the Azure ML workspace's VNet/subnet, or
-    temporarily set "Allow access from all networks" during initial bring-up
-    and tighten afterward.
-  - If using a private endpoint on the storage account, the Azure ML workspace
-    must be on the same VNet or have a peered VNet with DNS resolution for the
-    private endpoint.
-- **ACR networking**: The ACR holding the inference image must also permit pull
-  access from the Azure ML compute. If ACR has a firewall or private endpoint,
-  add the workspace's managed VNet or the compute subnet to the allowed
-  networks.
 - **Check first**: Before debugging inference failures, verify that the
   deployment's managed identity can reach all storage accounts and ACR —
   networking misconfigurations are the most common cause of deployments that
