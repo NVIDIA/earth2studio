@@ -2,7 +2,8 @@
 
 ## Build And Push
 
-Run image builds from the repo root so `serve/Dockerfile` can copy `serve`, `examples`, `pyproject.toml`, `README.md`, and `earth2studio`.
+Run image builds from the repo root so `serve/Dockerfile` can copy `serve`, `examples`,
+`pyproject.toml`, `README.md`, and `earth2studio`.
 
 Local Docker build and push:
 
@@ -43,7 +44,8 @@ environment_variables:
   EXPOSED_WORKFLOWS: "<single-workflow-name>"
 ```
 
-`EXPOSED_WORKFLOWS` is comma-separated. Use exactly one workflow when Azure ML scoring is configured as `/v1/infer`.
+`EXPOSED_WORKFLOWS` is comma-separated. Use exactly one workflow when Azure ML scoring is
+configured as `/v1/infer`.
 
 ## Useful Checks
 

@@ -24,27 +24,25 @@ Create the endpoint first:
 
 ```bash
 az ml online-endpoint create \
-  -f .claude/skills/deploy-earth2studio-azure/assets/azureml/foundry_fcn3.endpoint.yml
+  -f serve/server/deployment/azure/foundry_fcn3.endpoint.yml
 ```
 
-or:
+The endpoint assets mirror known working endpoint YAML. Patch the endpoint name when deploying a
+new endpoint.
 
-```bash
-az ml online-endpoint create \
-  -f .claude/skills/deploy-earth2studio-azure/assets/azureml/foundry_fcn3_stormscope_goes.endpoint.yml
-```
-
-The endpoint assets mirror known working endpoint YAML. Patch the endpoint name when deploying a new endpoint.
-
-If Azure Blob uploads fail with credential or authorization errors, inspect the managed identity available to the deployment and grant Blob write permissions. Azure Blob upload uses `DefaultAzureCredential`.
+If Azure Blob uploads fail with credential or authorization errors, inspect the managed identity
+available to the deployment and grant Blob write permissions. Azure Blob upload uses
+`DefaultAzureCredential`.
 
 ```bash
 ENDPOINT_NAME="<endpoint-name>"
 STORAGE_ACCOUNT="<storage-account>"
 STORAGE_RESOURCE_GROUP="<storage-resource-group>"
 
-PRINCIPAL_ID="$(az ml online-endpoint show --name "$ENDPOINT_NAME" --query identity.principal_id -o tsv)"
-STORAGE_SCOPE="$(az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$STORAGE_RESOURCE_GROUP" --query id -o tsv)"
+PRINCIPAL_ID="$(az ml online-endpoint show --name "$ENDPOINT_NAME" \
+  --query identity.principal_id -o tsv)"
+STORAGE_SCOPE="$(az storage account show --name "$STORAGE_ACCOUNT" \
+  --resource-group "$STORAGE_RESOURCE_GROUP" --query id -o tsv)"
 
 az role assignment create \
   --assignee "$PRINCIPAL_ID" \
@@ -58,15 +56,7 @@ Start from the deployment asset for the target workflow:
 
 ```bash
 az ml online-deployment create \
-  -f .claude/skills/deploy-earth2studio-azure/assets/azureml/foundry_fcn3.deployment.yml \
-  --all-traffic
-```
-
-or:
-
-```bash
-az ml online-deployment create \
-  -f .claude/skills/deploy-earth2studio-azure/assets/azureml/foundry_fcn3_stormscope_goes.deployment.yml \
+  -f serve/server/deployment/azure/foundry_fcn3.deployment.yml \
   --all-traffic
 ```
 
@@ -82,7 +72,10 @@ scoring_route:
   path: /v1/infer
 ```
 
-This is correct only when `EXPOSED_WORKFLOWS` contains exactly one workflow. Earth2Studio dispatches `POST /v1/infer` to the single exposed workflow. If multiple workflows are exposed, use workflow-specific requests to `/v1/infer/{workflow_name}` or deploy one Azure ML endpoint/deployment per workflow.
+This is correct only when `EXPOSED_WORKFLOWS` contains exactly one workflow. Earth2Studio
+dispatches `POST /v1/infer` to the single exposed workflow. If multiple workflows are exposed,
+use workflow-specific requests to `/v1/infer/{workflow_name}` or deploy one Azure ML
+endpoint/deployment per workflow.
 
 ## Operations
 

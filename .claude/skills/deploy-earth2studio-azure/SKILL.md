@@ -18,18 +18,31 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
   - `foundry_fcn3_workflow`
   - `foundry_fcn3_stormscope_goes_workflow`
 
+## Deployment Assets (source of truth)
+
+All canonical deployment related files live in `serve/server/deployment/azure/`:
+
+| File | Purpose |
+|---|---|
+| `foundry_fcn3.endpoint.yml` | Azure ML endpoint definition |
+| `foundry_fcn3.deployment.yml` | Azure ML deployment definition |
+| `requests/foundry_fcn3_smoke.json` | Canonical smoke-test request |
+| `earth2studio-serving.md` | Build/push and container behavior notes |
+| `azure-ml-managed-online.md` | Endpoint and deployment runbook |
+| `inference-and-results.md` | Testing inference and reading results |
+
 ## Workflow
 
 1. Build and push the image to ACR.
-   - Read `references/earth2studio-serving.md`.
+   - Read `serve/server/deployment/azure/earth2studio-serving.md`.
    - Use `serve/Dockerfile` from the repo root.
    - Tag images with an explicit version, usually a Git SHA or release tag.
 
 2. Create or update the Azure ML endpoint and deployment.
-   - Read `references/azure-ml-managed-online.md`.
+   - Read `serve/server/deployment/azure/azure-ml-managed-online.md`.
    - Start from the canonical templates:
-     - `assets/azureml/foundry_fcn3.endpoint.yml`
-     - `assets/azureml/foundry_fcn3.deployment.yml`
+     - `serve/server/deployment/azure/foundry_fcn3.endpoint.yml`
+     - `serve/server/deployment/azure/foundry_fcn3.deployment.yml`
    - These templates cover all workflows. To target a different workflow, change
      `EXPOSED_WORKFLOWS` (e.g. `foundry_fcn3_stormscope_goes_workflow`), the `endpoint_name`,
      and the image tag. All other fields (instance type, routing, storage config) stay the same.
@@ -37,8 +50,9 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
      exactly one `EXPOSED_WORKFLOWS` value.
 
 3. Test inference.
-   - Read `references/inference-and-results.md`.
-   - Start from `assets/requests/foundry_fcn3_smoke.json` as the canonical smoke request.
+   - Read `serve/server/deployment/azure/inference-and-results.md`.
+   - Start from `serve/server/deployment/azure/requests/foundry_fcn3_smoke.json`
+     as the canonical smoke request.
    - For other workflows, infer the request parameters from the live schema API
      (`GET /v1/infer/workflows/{workflow_name}/schema`) or from the workflow's `__call__` signature
      in `serve/server/example_workflows/`.
@@ -105,6 +119,6 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
 After a real deployment, failed deployment, or changed Azure YAML:
 
 1. Capture the reusable fact, command, or failure mode.
-2. Propose a small patch to this skill.
-3. Do not store credentials, tokens, subscription-private secrets, or one-off logs.
-4. Keep stable workflow rules in `SKILL.md`; move detailed examples to `references/` or `assets/`.
+2. Update the relevant file in `serve/server/deployment/azure/` directly — that is the source of truth.
+3. Propose a patch to `SKILL.md` only when the workflow steps or rules change.
+4. Do not store credentials, tokens, subscription-private secrets, or one-off logs.

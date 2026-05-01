@@ -10,7 +10,7 @@ It cannot target workflow-specific paths. Use it only for single-workflow deploy
 az ml online-endpoint invoke \
   --name "<endpoint-name>" \
   --deployment-name "<deployment-name>" \
-  --request-file .claude/skills/deploy-earth2studio-azure/assets/requests/foundry_fcn3_smoke.json
+  --request-file serve/server/deployment/azure/requests/foundry_fcn3_smoke.json
 ```
 
 `foundry_fcn3_smoke.json` is the canonical smoke request. For named-workflow or multi-workflow
@@ -41,7 +41,7 @@ curl -sS "$API_BASE_URL/v1/infer/workflows/<workflow_name>/schema" \
 curl -sS -X POST "$SCORING_URI" \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
-  --data-binary @.claude/skills/deploy-earth2studio-azure/assets/requests/foundry_fcn3_smoke.json
+  --data-binary @serve/server/deployment/azure/requests/foundry_fcn3_smoke.json
 
 # Workflow-specific (required when targeting a named workflow directly):
 curl -sS -X POST "$API_BASE_URL/v1/infer/<workflow_name>" \
