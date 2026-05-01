@@ -1,0 +1,11 @@
+{
+  "parameters": {
+    "start_time_fcn3": "2025-01-01T18:00:00",
+    "start_time_stormscope": "2025-01-01T18:00:00",
+    "n_steps": 1,
+    "n_samples_fcn3": 1,
+    "n_samples_stormscope": 1,
+    "variables": ["abi01c"],
+    "output_format": "zarr"
+  }
+}

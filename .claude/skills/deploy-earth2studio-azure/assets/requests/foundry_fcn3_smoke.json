@@ -1,0 +1,9 @@
+{
+  "parameters": {
+    "start_time": "2025-01-01T00:00:00",
+    "n_steps": 1,
+    "n_samples": 1,
+    "variables": ["t2m"],
+    "output_format": "zarr"
+  }
+}

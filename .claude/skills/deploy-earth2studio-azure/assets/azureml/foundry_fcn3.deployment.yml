@@ -1,0 +1,24 @@
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+name: e2s-deploy
+endpoint_name: e2s-endpoint-04-23
+environment_variables:
+  SERVER_PORT: 8080
+  OBJECT_STORAGE_ENABLED: true
+  OBJECT_STORAGE_TYPE: azure
+  EXPOSED_WORKFLOWS: "foundry_fcn3_workflow"
+model: azureml:e2s_fcn3_stormscope:1
+environment:
+  name: e2s-env
+  image: e2scontainerregistry.azurecr.io/e2s-scicomp-fixvul:v8
+  inference_config:
+    liveness_route:
+      port: 8080
+      path: /liveness
+    readiness_route:
+      port: 8080
+      path: /readiness
+    scoring_route:
+      port: 8080
+      path: /v1/infer
+instance_type: Standard_NC40ads_H100_v5
+instance_count: 1
