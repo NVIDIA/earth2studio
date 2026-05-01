@@ -19,7 +19,7 @@ Used for fetching initial conditions for inference and validation data for scori
 
 .. currentmodule:: earth2studio
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:eu region:as region:au region:af region:sa
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
@@ -71,7 +71,7 @@ for subsequent predictions.
 
 .. currentmodule:: earth2studio
 
-.. badge-filter:: region:global region:na region:as
+.. badge-filter:: region:global region:na region:eu region:as region:au region:af region:sa
    dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation
    product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu
    :filter-mode: or
