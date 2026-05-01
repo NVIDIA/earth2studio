@@ -96,10 +96,10 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**GenCast Mini**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GenCast.html),
+- [**GenCast Mini**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GenCastMini.html),
     Google DeepMind's 1-degree ensemble diffusion weather model, is now available as a
     prognostic model.
-- [**CAMS Global Forecast**](https://nvidia.github.io/earth2studio/modules/datasources_forecast.html),
+- [**CAMS Global Forecast**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CAMS_FX.html#earth2studio.data.CAMS_FX),
     Copernicus Atmosphere Monitoring Service global atmospheric composition forecasts
     are now accessible via the new `CAMS_FX` forecast data source.
 - **Satellite Level-1 Data Sources**, six new satellite brightness-temperature and
