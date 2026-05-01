@@ -12,7 +12,8 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
 - Dockerfile: `serve/Dockerfile`
 - Built-in workflow directory in the image: `serve/server/example_workflows`
 - Azure startup script honors `SERVER_PORT`; the known Azure ML deployments use `8080`.
-- Custom workflow API supports `POST /v1/infer/{workflow_name}` and also `POST /v1/infer` when exactly one workflow is exposed.
+- Custom workflow API supports `POST /v1/infer/{workflow_name}` and also `POST /v1/infer` when
+  exactly one workflow is exposed.
 - Foundry workflow names:
   - `foundry_fcn3_workflow`
   - `foundry_fcn3_stormscope_goes_workflow`
@@ -31,7 +32,8 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
      - `assets/azureml/foundry_fcn3.deployment.yml`
      - `assets/azureml/foundry_fcn3_stormscope_goes.endpoint.yml`
      - `assets/azureml/foundry_fcn3_stormscope_goes.deployment.yml`
-   - For single-workflow Azure ML deployments, keep `scoring_route.path: /v1/infer` and set exactly one `EXPOSED_WORKFLOWS` value.
+   - For single-workflow Azure ML deployments, keep `scoring_route.path: /v1/infer` and set
+     exactly one `EXPOSED_WORKFLOWS` value.
 
 3. Test inference.
    - Read `references/inference-and-results.md`.
@@ -42,15 +44,59 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
 
 4. Open results with xarray.
    - Prefer `RemoteEarth2Workflow(...).as_dataset()` when using the Earth2Studio client.
-   - Use direct Azure Blob access with `adlfs`, `azure-identity`, and `xarray` when working from `remote_path` or blob URLs.
+   - Use direct Azure Blob access with `adlfs`, `azure-identity`, and `xarray` when working from
+     `remote_path` or blob URLs.
 
 ## Azure Blob Rules
 
 - Server upload uses Azure `DefaultAzureCredential`.
-- The endpoint/deployment managed identity needs `Storage Blob Data Contributor` on the target storage account or container.
+- The endpoint/deployment managed identity needs `Storage Blob Data Contributor` on the target
+  storage account or container.
 - Azure reads do not use server-generated SAS URLs; client-side code must authenticate to Blob Storage.
 - `container_url` is supplied per inference request, not as an environment variable.
 - `geo_catalog_url` requires `container_url` and `output_format: "netcdf4"`.
+
+## IAM / Role Assignment Requirements
+
+- **Model storage (read)**: The endpoint's managed identity must have at minimum
+  `Storage Blob Data Reader` on the storage container (or account) that holds
+  model weights. Without this, the deployment will fail to load the model at
+  startup or at inference time with a permissions error.
+- **Inference result storage (write)**: If `container_url` is provided in the
+  inference request so that results are uploaded to Azure Blob, the managed
+  identity must have `Storage Blob Data Contributor` on that target container
+  or storage account. Read-only roles are not sufficient for result upload.
+- **Scope assignments at the container level**: Prefer assigning roles at the
+  container scope rather than the storage account scope to follow least-privilege.
+  Only broaden to account scope if multiple containers are needed and managing
+  per-container assignments is impractical.
+- **Role propagation delay**: Azure RBAC changes can take several minutes to
+  propagate. If a freshly assigned role appears correct but inference still
+  fails with `AuthorizationPermissionMismatch`, wait a few minutes and retry
+  before deeper debugging.
+
+## Networking Requirements
+
+- **Storage account firewall**: Any storage account accessed by the deployment
+  (model weights, input data, result output) must have its network settings
+  configured to allow access from the Azure ML managed endpoint. By default,
+  storage accounts with restricted networking will block the deployment's
+  outbound requests, causing silent failures or `AuthorizationFailure` errors
+  at inference time.
+  - Either allow access from the Azure ML workspace's VNet/subnet, or
+    temporarily set "Allow access from all networks" during initial bring-up
+    and tighten afterward.
+  - If using a private endpoint on the storage account, the Azure ML workspace
+    must be on the same VNet or have a peered VNet with DNS resolution for the
+    private endpoint.
+- **ACR networking**: The ACR holding the inference image must also permit pull
+  access from the Azure ML compute. If ACR has a firewall or private endpoint,
+  add the workspace's managed VNet or the compute subnet to the allowed
+  networks.
+- **Check first**: Before debugging inference failures, verify that the
+  deployment's managed identity can reach all storage accounts and ACR —
+  networking misconfigurations are the most common cause of deployments that
+  create successfully but fail at runtime.
 
 ## Iterating On This Skill
 

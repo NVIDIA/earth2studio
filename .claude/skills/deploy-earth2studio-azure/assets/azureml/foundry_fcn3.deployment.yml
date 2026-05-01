@@ -9,7 +9,7 @@ environment_variables:
 model: azureml:e2s_fcn3_stormscope:1
 environment:
   name: e2s-env
-  image: e2scontainerregistry.azurecr.io/e2s-scicomp-fixvul:v8
+  image: e2scontainerregistry.azurecr.io/e2s-scicomp:981d7bc2
   inference_config:
     liveness_route:
       port: 8080
