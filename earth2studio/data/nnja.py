@@ -342,8 +342,11 @@ class _NNJAObsBase:
         pd.DataFrame
             Observation DataFrame with columns matching the resolved schema.
         """
+        # ``asyncio.get_event_loop()`` is deprecated in Python 3.10+ when
+        # there is no current loop, so prefer ``get_running_loop`` and
+        # fall back to creating a fresh loop ourselves.
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -355,14 +358,19 @@ class _NNJAObsBase:
         if self.fs is None:
             loop.run_until_complete(self._async_init())
 
-        df = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, variable, fields), timeout=self.async_timeout
+        try:
+            df = loop.run_until_complete(
+                asyncio.wait_for(
+                    self.fetch(time, variable, fields), timeout=self.async_timeout
+                )
             )
-        )
-
-        if not self._cache:
-            shutil.rmtree(self.cache, ignore_errors=True)
+        finally:
+            # Ensure the temporary cache directory is cleaned up even if
+            # ``fetch`` raises (e.g. ``asyncio.TimeoutError`` from
+            # ``wait_for``); otherwise a failed call would leak a tmp
+            # directory under the user's cache root.
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return df
 
@@ -787,7 +795,20 @@ def _register_dx_tables(
 ) -> None:
     """Reset pybufrkit's table cache and (re-)register NCEP DX tables."""
     TableGroupCacheManager.clear_extra_entries()
-    TableGroupCacheManager._TABLE_GROUP_CACHE.invalidate()
+    # ``_TABLE_GROUP_CACHE`` is a private attribute of pybufrkit's
+    # ``TableGroupCacheManager``; reach into it to invalidate any
+    # previously-built TableGroup that captured a stale set of extra
+    # entries. If pybufrkit ever renames or restructures this cache we
+    # log a warning and fall back to ``add_extra_entries`` alone, which
+    # still works for the common case where the cache hasn't been
+    # populated yet in the current process.
+    try:
+        TableGroupCacheManager._TABLE_GROUP_CACHE.invalidate()
+    except AttributeError as exc:
+        logger.warning(
+            f"pybufrkit TableGroupCacheManager._TABLE_GROUP_CACHE not available "
+            f"({exc}); skipping cache invalidation"
+        )
     if table_b or table_d:
         TableGroupCacheManager.add_extra_entries(table_b, table_d)
 
@@ -1188,22 +1209,24 @@ def _emit_level_rows(
         row["observation"] = np.float32(val)
         rows.append(row)
 
-    # Wind decomposition: u from UOB, v from VOB
+    # Wind decomposition: u from UOB, v from VOB. Each component is
+    # emitted independently so a level with only one of UOB/VOB still
+    # yields a row for the requested component (PrepBUFR usually pairs
+    # u/v but unpaired levels do occur).
     if need_wind:
         uob = level.get(_OBS_UOB)
         vob = level.get(_OBS_VOB)
-        if uob is not None and vob is not None:
-            for var_name, key in var_keys:
-                if key == "wind::u":
-                    row = common.copy()
-                    row["variable"] = var_name
-                    row["observation"] = np.float32(uob)
-                    rows.append(row)
-                elif key == "wind::v":
-                    row = common.copy()
-                    row["variable"] = var_name
-                    row["observation"] = np.float32(vob)
-                    rows.append(row)
+        for var_name, key in var_keys:
+            if key == "wind::u" and uob is not None:
+                row = common.copy()
+                row["variable"] = var_name
+                row["observation"] = np.float32(uob)
+                rows.append(row)
+            elif key == "wind::v" and vob is not None:
+                row = common.copy()
+                row["variable"] = var_name
+                row["observation"] = np.float32(vob)
+                rows.append(row)
 
 
 # ─────────────────────────────────────────────────────────────────────
