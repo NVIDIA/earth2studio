@@ -2,7 +2,9 @@
 
 ## Invoke With Azure ML CLI
 
-Submit a smoke request through the deployment's `scoring_route`:
+`az ml online-endpoint invoke` always POSTs to the `scoring_route` (configured as `/v1/infer`).
+It cannot target workflow-specific paths. Use it only for single-workflow deployments or when
+`/v1/infer` is the intended route:
 
 ```bash
 az ml online-endpoint invoke \
@@ -11,7 +13,8 @@ az ml online-endpoint invoke \
   --request-file .claude/skills/deploy-earth2studio-azure/assets/requests/foundry_fcn3_smoke.json
 ```
 
-Use the StormScope request asset for `foundry_fcn3_stormscope_goes_workflow`.
+`foundry_fcn3_smoke.json` is the canonical smoke request. For named-workflow or multi-workflow
+invocations use the Direct HTTP Pattern below.
 
 When Azure Blob output is desired, add this request parameter:
 
@@ -21,19 +24,33 @@ When Azure Blob output is desired, add this request parameter:
 
 ## Direct HTTP Pattern
 
-If using the scoring URI directly:
-
 ```bash
-SCORING_URI="$(az ml online-endpoint show --name "<endpoint-name>" --query scoring_uri -o tsv)"
-KEY="$(az ml online-endpoint get-credentials --name "<endpoint-name>" --query primaryKey -o tsv)"
+SCORING_URI="$(az ml online-endpoint show \
+  --name "<endpoint-name>" --query scoring_uri -o tsv)"
+KEY="$(az ml online-endpoint get-credentials \
+  --name "<endpoint-name>" --query primaryKey -o tsv)"
+API_BASE_URL="${SCORING_URI%/v1/infer}"
 
+# Inspect available workflows and parameter schemas:
+curl -sS "$API_BASE_URL/v1/infer/workflows" \
+  -H "Authorization: Bearer $KEY"
+curl -sS "$API_BASE_URL/v1/infer/workflows/<workflow_name>/schema" \
+  -H "Authorization: Bearer $KEY"
+
+# Single-workflow deployment (scoring_route is /v1/infer):
 curl -sS -X POST "$SCORING_URI" \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   --data-binary @.claude/skills/deploy-earth2studio-azure/assets/requests/foundry_fcn3_smoke.json
+
+# Workflow-specific (required when targeting a named workflow directly):
+curl -sS -X POST "$API_BASE_URL/v1/infer/<workflow_name>" \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  --data-binary @<request.json>
 ```
 
-The submit response contains `workflow_name` and `execution_id`. If the Azure ML ingress exposes the Earth2Studio paths, derive `API_BASE_URL` by removing the `/v1/infer` suffix from the scoring URI and poll:
+The submit response contains `workflow_name` and `execution_id`. Poll status and results:
 
 ```bash
 curl -sS "$API_BASE_URL/v1/infer/$WORKFLOW_NAME/$EXECUTION_ID/status" \
@@ -45,33 +62,17 @@ curl -sS "$API_BASE_URL/v1/infer/$WORKFLOW_NAME/$EXECUTION_ID/results" \
 
 ## Foundry Request Parameters
 
-`foundry_fcn3_workflow` supports:
+Parameters are workflow-specific. Retrieve them from the live schema API (requires
+`API_BASE_URL` and `KEY` from the Direct HTTP Pattern above):
 
-- `start_time`
-- `n_steps`
-- `n_samples`
-- `seeds`
-- `variables`
-- `output_format`: `zarr` or `netcdf4`
-- `container_url`
-- `geo_catalog_url`
-- `collection_id`
+```bash
+curl -sS "$API_BASE_URL/v1/infer/workflows/<workflow_name>/schema" \
+  -H "Authorization: Bearer $KEY"
+```
 
-`foundry_fcn3_stormscope_goes_workflow` supports:
+Or inspect the workflow's `__call__` signature in `serve/server/example_workflows/`.
 
-- `start_time_fcn3`
-- `start_time_stormscope`
-- `n_steps`
-- `n_samples_fcn3`
-- `n_samples_stormscope`
-- `seeds_fcn3`
-- `seeds_stormscope`
-- `variables`
-- `output_format`: `zarr` or `netcdf4`
-- `container_url`
-- `geo_catalog_url`
-- `collection_id`
-
+`foundry_fcn3_smoke.json` shows the minimal set for `foundry_fcn3_workflow` as a starting point.
 Use small smoke values first: `n_steps: 1`, one sample, and one or a few variables.
 
 ## Xarray Via Earth2Studio Client

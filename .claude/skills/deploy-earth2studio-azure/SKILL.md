@@ -27,19 +27,21 @@ Use this skill to deploy the Earth2Studio inference server in this repo to Azure
 
 2. Create or update the Azure ML endpoint and deployment.
    - Read `references/azure-ml-managed-online.md`.
-   - Start from one of:
+   - Start from the canonical templates:
      - `assets/azureml/foundry_fcn3.endpoint.yml`
      - `assets/azureml/foundry_fcn3.deployment.yml`
-     - `assets/azureml/foundry_fcn3_stormscope_goes.endpoint.yml`
-     - `assets/azureml/foundry_fcn3_stormscope_goes.deployment.yml`
+   - These templates cover all workflows. To target a different workflow, change
+     `EXPOSED_WORKFLOWS` (e.g. `foundry_fcn3_stormscope_goes_workflow`), the `endpoint_name`,
+     and the image tag. All other fields (instance type, routing, storage config) stay the same.
    - For single-workflow Azure ML deployments, keep `scoring_route.path: /v1/infer` and set
      exactly one `EXPOSED_WORKFLOWS` value.
 
 3. Test inference.
    - Read `references/inference-and-results.md`.
-   - Start from one of:
-     - `assets/requests/foundry_fcn3_smoke.json`
-     - `assets/requests/foundry_fcn3_stormscope_goes_smoke.json`
+   - Start from `assets/requests/foundry_fcn3_smoke.json` as the canonical smoke request.
+   - For other workflows, infer the request parameters from the live schema API
+     (`GET /v1/infer/workflows/{workflow_name}/schema`) or from the workflow's `__call__` signature
+     in `serve/server/example_workflows/`.
    - Add `container_url` when results should be uploaded to Azure Blob Storage.
 
 4. Open results with xarray.

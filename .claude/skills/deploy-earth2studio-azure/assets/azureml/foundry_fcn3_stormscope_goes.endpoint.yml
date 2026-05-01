@@ -1,3 +1,0 @@
-$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineEndpoint.schema.json
-name: e2s-endpoint-04-10
-auth_mode: key
