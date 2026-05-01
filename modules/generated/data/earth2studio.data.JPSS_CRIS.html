@@ -720,7 +720,7 @@
 <dd><em class="sig-param"><span class="n"><span class="pre">retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_cris.py#L319-L1260"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_CRIS" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_cris.py#L313-L1260"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_CRIS" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>JPSS CrIS (Cross-track Infrared Sounder) Full Spectral Resolution (FSR)
 Level 1 brightness temperature observations served from NOAA Open Data on
 AWS.</p>
@@ -735,7 +735,7 @@ produces brightness temperatures consistent with
 of each band (4 per band, 12 total) are trimmed during apodization,
 yielding 2211 science channels.  Set <code class="docutils literal notranslate"><span class="pre">apodize=False</span></code> to retain the full
 2223 unapodized channels (including 12 guard channels with
-<code class="docutils literal notranslate"><span class="pre">channel_index=0</span></code>).</p>
+<code class="docutils literal notranslate"><span class="pre">sensor_index=0</span></code>).</p>
 <p>Each HDF5 granule contains a small number of scan lines, each with 30
 Fields of Regard (FOR) and 9 Fields of View (FOV) per FOR (3x3 detector
 array).  In FSR mode the instrument produces 2223 spectral channels:</p>
@@ -745,9 +745,9 @@ array).  In FSR mode the instrument produces 2223 spectral channels:</p>
 <li><p><strong>SWIR</strong> (3.92–4.64 µm, 2155–2550 cm^-1): 637 channels at 0.625 cm^-1</p></li>
 </ul>
 <p>When <code class="docutils literal notranslate"><span class="pre">apodize=True</span></code> (default), guard channels are trimmed and the output
-has 2211 channels with contiguous <code class="docutils literal notranslate"><span class="pre">channel_index</span></code> 1–2211.</p>
+has 2211 channels with contiguous <code class="docutils literal notranslate"><span class="pre">sensor_index</span></code> 1–2211.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">apodize=False</span></code>, the returned <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrame</span></code> has one row
-per FOV per channel including guard channels.  The <code class="docutils literal notranslate"><span class="pre">channel_index</span></code> column
+per FOV per channel including guard channels.  The <code class="docutils literal notranslate"><span class="pre">sensor_index</span></code> column
 uses the GSI <code class="docutils literal notranslate"><span class="pre">sensor_chan</span></code> numbering convention:</p>
 <ul class="simple">
 <li><p><strong>LWIR</strong> channels 0–1 (0-based) → sensor_chan 0 (guard; not in GSI)</p></li>
@@ -784,7 +784,7 @@ end of each band are trimmed, yielding 2211 science
 channels that are directly comparable with
 <a class="reference internal" href="earth2studio.data.UFSObsSat.html#earth2studio.data.UFSObsSat" title="earth2studio.data.UFSObsSat"><code class="xref py py-class docutils literal notranslate"><span class="pre">UFSObsSat</span></code></a>.  Set to <code class="docutils literal notranslate"><span class="pre">False</span></code> to
 retain the unapodized spectra with all 2223 channels (including
-12 guard channels with <code class="docutils literal notranslate"><span class="pre">channel_index=0</span></code>).</p>
+12 guard channels with <code class="docutils literal notranslate"><span class="pre">sensor_index=0</span></code>).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The spectral-domain 3-tap kernel matches interferogram-domain
@@ -825,7 +825,7 @@ of data to your local machine for large requests.  Each CrIS granule pair
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.JPSS_CRIS.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_cris.py#L516-L557"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_CRIS.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_cris.py#L511-L552"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_CRIS.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Fetch CrIS FSR brightness temperature observations.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -846,7 +846,7 @@ of data to your local machine for large requests.  Each CrIS granule pair
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.JPSS_CRIS.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_cris.py#L559-L625"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_CRIS.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_cris.py#L554-L620"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.JPSS_CRIS.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async implementation of the data fetch.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

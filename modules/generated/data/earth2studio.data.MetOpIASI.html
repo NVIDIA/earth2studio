@@ -710,14 +710,14 @@
 
 <dl>
 <dd><em class="sig-param"><span class="n"><span class="pre">satellite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
-<dd><em class="sig-param"><span class="n"><span class="pre">channel_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sensor_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">time_tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">numpy.timedelta64(1,</span> <span class="pre">'h')</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
 <dd><em class="sig-param"><span class="n"><span class="pre">async_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>,</dd>
 </dl>
 
-<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/metop_iasi.py#L718-L1156"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MetOpIASI" title="Link to this definition">#</a></dt>
+<span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/metop_iasi.py#L751-L1188"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MetOpIASI" title="Link to this definition">#</a></dt>
 <dd><span class="sphinx-badge-list"><span class="sphinx-badge sphinx-badge-square" data-badge-id="region:global" style="background-color:#0d47a1;color:#fff;"><span class="sphinx-badge-icon"><i class="fa-solid fa-globe"></i></span><span class="sphinx-badge-label">Global</span></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="dataclass:observation" style="background-color:#15803d;color:#fff;" title="Direct Observations"><i class="fa-solid fa-binoculars"></i></span><span class="sphinx-badge sphinx-badge-square" data-badge-id="product:sat" style="background-color:#1c7ed6;color:#fff;" title="Satellite"><i class="fa-solid fa-satellite"></i></span></span><p>EUMETSAT MetOp IASI Level 1C brightness temperature observations.</p>
 <p>The Infrared Atmospheric Sounding Interferometer (IASI) is a Fourier
 transform infrared spectrometer aboard the MetOp series of polar-orbiting
@@ -729,7 +729,7 @@ surface temperature at ~12 km spatial resolution.</p>
 consisting of a 2x2 array of 4 Instantaneous Fields Of View (IFOVs),
 yielding 120 spectra per scan line. A typical orbit pass contains
 ~1400 scan lines (~168,000 IFOV spectra). To manage memory and processing time,
-a <code class="docutils literal notranslate"><span class="pre">channel_indices</span></code> parameter allows selecting a subset of channels.</p>
+a <code class="docutils literal notranslate"><span class="pre">sensor_indices</span></code> parameter allows selecting a subset of channels.</p>
 <p>This data source downloads Level 1C products from the EUMETSAT Data Store
 and parses the EPS native binary format to extract brightness temperatures,
 geolocation, and viewing geometry.</p>
@@ -738,9 +738,9 @@ geolocation, and viewing geometry.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>satellite</strong> (<em>str</em><em>, </em><em>optional</em>) – Satellite platform filter for product search. One of “metop-a”,
 “metop-b”, “metop-c”, or None (all available). By default None.</p></li>
-<li><p><strong>channel_indices</strong> (<em>list</em><em>[</em><em>int</em><em>] </em><em>| </em><em>np.ndarray</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – 0-based channel indices to extract (subset of 0..8460). If None,
+<li><p><strong>sensor_indices</strong> (<em>list</em><em>[</em><em>int</em><em>] </em><em>| </em><em>np.ndarray</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – 1-based sensor indices to extract (subset of 1..8461). If None,
 the 174 GSI-assimilated channels (matching UFSObsSat) are used. Pass
-<code class="docutils literal notranslate"><span class="pre">np.arange(8461)</span></code> to extract all channels (warning: very large
+<code class="docutils literal notranslate"><span class="pre">np.arange(1,</span> <span class="pre">8462)</span></code> to extract all channels (warning: very large
 output).</p></li>
 <li><p><strong>time_tolerance</strong> (<em>TimeTolerance</em><em>, </em><em>optional</em>) – Time tolerance window for filtering observations. Accepts a single
 value (symmetric ± window) or a tuple (lower, upper) for asymmetric
@@ -780,7 +780,7 @@ variables:</p>
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MetOpIASI.__call__">
-<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/metop_iasi.py#L860-L901"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MetOpIASI.__call__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/metop_iasi.py#L892-L933"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MetOpIASI.__call__" title="Link to this definition">#</a></dt>
 <dd><p>Function to get IASI brightness temperature observations.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -803,7 +803,7 @@ per channel.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="earth2studio.data.MetOpIASI.fetch">
-<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/metop_iasi.py#L903-L1003"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MetOpIASI.fetch" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/metop_iasi.py#L935-L1035"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#earth2studio.data.MetOpIASI.fetch" title="Link to this definition">#</a></dt>
 <dd><p>Async function to get IASI data.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
