@@ -73,7 +73,7 @@ fastapi.routing.APIRoute.__init__ = _patched_route_init
 
 
 class TestWorkflowSchemaEndpoint:
-    """Tests for GET /v1/workflows/{workflow_name}/schema endpoint"""
+    """Tests for GET /v1/infer/workflows/{workflow_name}/schema endpoint"""
 
     @pytest.fixture
     def mock_workflow_class(self):
@@ -154,7 +154,7 @@ class TestWorkflowSchemaEndpoint:
         self, client, mock_workflow_class
     ):
         """Test that schema endpoint returns valid JSON Schema"""
-        response = client.get("/v1/workflows/test_workflow/schema")
+        response = client.get("/v1/infer/workflows/test_workflow/schema")
 
         assert response.status_code == 200
         schema = response.json()
@@ -167,7 +167,7 @@ class TestWorkflowSchemaEndpoint:
 
     def test_schema_endpoint_includes_all_parameters(self, client, mock_workflow_class):
         """Test that schema includes all defined parameters"""
-        response = client.get("/v1/workflows/test_workflow/schema")
+        response = client.get("/v1/infer/workflows/test_workflow/schema")
 
         assert response.status_code == 200
         schema = response.json()
@@ -181,7 +181,7 @@ class TestWorkflowSchemaEndpoint:
 
     def test_schema_endpoint_includes_field_metadata(self, client, mock_workflow_class):
         """Test that schema includes field descriptions and constraints"""
-        response = client.get("/v1/workflows/test_workflow/schema")
+        response = client.get("/v1/infer/workflows/test_workflow/schema")
 
         assert response.status_code == 200
         schema = response.json()
@@ -202,7 +202,7 @@ class TestWorkflowSchemaEndpoint:
 
     def test_schema_endpoint_includes_defaults(self, client, mock_workflow_class):
         """Test that schema includes default values"""
-        response = client.get("/v1/workflows/test_workflow/schema")
+        response = client.get("/v1/infer/workflows/test_workflow/schema")
 
         assert response.status_code == 200
         schema = response.json()
@@ -216,7 +216,7 @@ class TestWorkflowSchemaEndpoint:
 
     def test_schema_endpoint_workflow_not_found(self, client):
         """Test that 404 is returned for non-existent workflow"""
-        response = client.get("/v1/workflows/nonexistent_workflow/schema")
+        response = client.get("/v1/infer/workflows/nonexistent_workflow/schema")
 
         assert response.status_code == 404
         error = response.json()
@@ -224,7 +224,7 @@ class TestWorkflowSchemaEndpoint:
 
     def test_schema_endpoint_openapi_compatibility(self, client, mock_workflow_class):
         """Test that returned schema is OpenAPI 3.1 compatible (JSON Schema draft 2020-12)"""
-        response = client.get("/v1/workflows/test_workflow/schema")
+        response = client.get("/v1/infer/workflows/test_workflow/schema")
 
         assert response.status_code == 200
         schema = response.json()
@@ -1297,7 +1297,7 @@ class TestHealthAndProbes:
 
 
 class TestListWorkflows:
-    """Tests for GET /v1/workflows and /v1/infer/workflows."""
+    """Tests for GET /v1/infer/workflows."""
 
     @pytest.fixture
     def client_with_workflows(self):
@@ -1333,20 +1333,13 @@ class TestListWorkflows:
                 del workflow_registry._workflows["fake_wf"]
 
     def test_list_workflows_returns_registry(self, client_with_workflows):
-        """GET /v1/workflows returns workflows dict."""
-        response = client_with_workflows.get("/v1/workflows")
+        """GET /v1/infer/workflows returns workflows dict."""
+        response = client_with_workflows.get("/v1/infer/workflows")
         assert response.status_code == 200
         data = response.json()
         assert "workflows" in data
         assert "fake_wf" in data["workflows"]
         assert data["workflows"]["fake_wf"] == "Fake workflow for list test"
-
-    def test_list_workflows_infer_path(self, client_with_workflows):
-        """GET /v1/infer/workflows returns same structure."""
-        response = client_with_workflows.get("/v1/infer/workflows")
-        assert response.status_code == 200
-        data = response.json()
-        assert "workflows" in data
 
 
 class TestAdmissionControl:
@@ -1693,7 +1686,7 @@ class TestHealthMetricsSchemaExceptions:
                 "model_json_schema",
                 side_effect=RuntimeError("schema error"),
             ):
-                response = client_probes.get("/v1/workflows/bad_schema_wf/schema")
+                response = client_probes.get("/v1/infer/workflows/bad_schema_wf/schema")
             assert response.status_code == 500
             detail = response.json().get("detail", {})
             assert "schema" in str(detail).lower()
@@ -2360,7 +2353,7 @@ class TestNotExposedWorkflowEndpoints:
             return_value=False,
         ):
             response = client_with_workflow.get(
-                "/v1/workflows/test_endpoints_wf/schema"
+                "/v1/infer/workflows/test_endpoints_wf/schema"
             )
         assert response.status_code == 404
         assert "not exposed" in response.json().get("detail", "").lower()

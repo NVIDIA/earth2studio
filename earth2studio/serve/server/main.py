@@ -376,7 +376,6 @@ async def get_metrics() -> Response:
         )
 
 
-@app.get("/v1/workflows")
 @app.get("/v1/infer/workflows")
 async def list_workflows() -> dict[str, dict[str, str]]:
     """
@@ -391,7 +390,6 @@ async def list_workflows() -> dict[str, dict[str, str]]:
     return {"workflows": workflows}
 
 
-@app.get("/v1/workflows/{workflow_name}/schema")
 @app.get("/v1/infer/workflows/{workflow_name}/schema")
 async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
     """
