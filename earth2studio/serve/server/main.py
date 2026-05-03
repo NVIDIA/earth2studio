@@ -24,7 +24,6 @@ with Redis and RQ for job queuing and Prometheus metrics.
 import asyncio
 import json
 import logging
-import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -51,7 +50,11 @@ except ImportError as e:
         "serve", "earth2studio.serve.server.main", e, e.__traceback__
     )
 
-from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.config import (
+    get_config,
+    get_config_manager,
+    resolve_serve_path,
+)
 from earth2studio.serve.server.utils import (
     create_file_stream,
     get_inference_request_output_path_key,
@@ -294,14 +297,8 @@ async def health_check() -> dict[str, str]:
         503 if status is unhealthy; 500 if the check fails.
     """
     try:
-        # Run the status script and check exit code
-        # Prefer SCRIPT_DIR env var (required when package is installed without repo layout)
-        script_dir_env = os.environ.get("SCRIPT_DIR")
-        if script_dir_env:
-            script_path = Path(script_dir_env) / "status.sh"
-        else:
-            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-            script_path = _repo_root / "serve" / "server" / "scripts" / "status.sh"
+        script_dir = resolve_serve_path("SCRIPT_DIR", "serve/server/scripts")
+        script_path = script_dir / "status.sh"
         process = await asyncio.create_subprocess_exec(
             str(script_path),
             stdout=asyncio.subprocess.PIPE,

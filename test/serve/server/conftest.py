@@ -60,8 +60,11 @@ def pytest_configure(config):
 
 
 def pytest_runtest_setup(item):
-    """Restore the real config module before test_config.py tests"""
-    if "test_config" not in str(item.fspath):
+    """Restore the real config module before tests that import from it directly."""
+    needs_real_config = "test_config" in str(item.fspath) or "test_server_main" in str(
+        item.fspath
+    )
+    if not needs_real_config:
         return
     import importlib
 
