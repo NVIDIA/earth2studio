@@ -40,7 +40,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _resolve_repo_root() -> Path:
+def resolve_repo_root() -> Path:
     """Return the repository root by walking up until ``pyproject.toml`` is found.
 
     Falls back gracefully: if no marker is found, the caller should treat the
@@ -72,7 +72,7 @@ def resolve_serve_path(env_var: str, relative_to_root: str) -> Path:
     value = os.environ.get(env_var)
     if value:
         return Path(value)
-    return _resolve_repo_root() / relative_to_root
+    return resolve_repo_root() / relative_to_root
 
 
 @dataclass
