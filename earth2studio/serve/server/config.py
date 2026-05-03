@@ -50,7 +50,7 @@ def resolve_repo_root() -> Path:
     for ancestor in (current, *current.parents):
         if (ancestor / "pyproject.toml").exists():
             return ancestor
-    return current.parent.parent.parent.parent
+    return current.parent.parent.parent
 
 
 def resolve_serve_path(env_var: str, relative_to_root: str) -> Path:
