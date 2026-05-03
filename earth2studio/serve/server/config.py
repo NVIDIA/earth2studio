@@ -376,7 +376,7 @@ class ConfigManager:
 
         for env_var, section, field_name, converter in self._ENV_OVERRIDES:
             raw = os.environ.get(env_var)
-            if raw is None:
+            if not raw:
                 continue
 
             sub_cfg = getattr(self._config, section)
@@ -403,13 +403,13 @@ class ConfigManager:
         if env_var == "OUTPUT_FORMAT":
             fmt = raw.lower()
             if fmt in ("zarr", "netcdf4"):
-                sub_cfg.output_format = cast(Literal["zarr", "netcdf4"], fmt)
+                setattr(sub_cfg, field, cast(Literal["zarr", "netcdf4"], fmt))
         elif env_var == "OBJECT_STORAGE_TYPE":
             st = raw.lower()
             if st in ("s3", "azure"):
-                sub_cfg.storage_type = cast(Literal["s3", "azure"], st)
+                setattr(sub_cfg, field, cast(Literal["s3", "azure"], st))
         elif env_var == "EXPOSED_WORKFLOWS":
-            sub_cfg.exposed_workflows = [w.strip() for w in raw.split(",") if w.strip()]
+            setattr(sub_cfg, field, [w.strip() for w in raw.split(",") if w.strip()])
 
     def _ensure_paths_exist(self) -> None:
         """Ensure all configured paths exist"""
