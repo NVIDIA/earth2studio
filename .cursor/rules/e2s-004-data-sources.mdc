@@ -331,3 +331,19 @@ def _validate_time(cls, times: list[datetime]) -> None:
 - AVOID the use of xarray if possible for loading data in favor of working with files more directly
 - AVOID downloading full files, rather try to download only slices
 - AVOID over complicating constructor parameters
+
+## Satellite Data Source Naming Convention
+
+For satellite observation data sources, use the naming pattern
+`<SatellitePlatform><SensorName>` (PascalCase compound):
+
+- `HimawariAHI` — Himawari-8/9 Advanced Himawari Imager
+- `MeteosatFCI` — Meteosat Third Gen Flexible Combined Imager
+- `MetOpAMSUA` — MetOp Advanced Microwave Sounding Unit-A
+- `MetOpAVHRR` — MetOp Advanced Very High Resolution Radiometer
+- `JPSS_ATMS` — JPSS Advanced Technology Microwave Sounder
+- `JPSS_CRIS` — JPSS Cross-track Infrared Sounder
+
+This distinguishes the sensor when a satellite platform carries multiple
+instruments. Even when the platform currently has only one data source,
+append the sensor name for consistency and future-proofing.

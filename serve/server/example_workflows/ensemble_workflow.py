@@ -60,13 +60,13 @@ class EnsembleWorkflowParameters(WorkflowParameters):
     nensemble: int = Field(
         default=8,
         ge=1,
-        le=64,
+        le=512,
         description="Number of ensemble members",
     )
     batch_size: int = Field(
         default=2,
         ge=1,
-        le=32,
+        le=64,
         description="Number of ensemble members per batch",
     )
 

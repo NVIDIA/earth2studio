@@ -244,11 +244,11 @@ def test_jpss_cris_fetch(time, variable):
     assert set(df["variable"].unique()).issubset({"crisfsr"})
     assert "observation" in df.columns
     assert "satellite" in df.columns
-    assert "channel_index" in df.columns
+    assert "sensor_index" in df.columns
 
     if not df.empty:
         # Apodized (default): contiguous sensor_chan 1..2211
-        assert df["channel_index"].between(1, 2211).all()
+        assert df["sensor_index"].between(1, 2211).all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
         # Brightness temperature values should be finite and in a
@@ -341,7 +341,7 @@ def test_jpss_cris_call_mock(tmp_path):
     assert list(df.columns) == ds.SCHEMA.names
     assert set(df["variable"].unique()) == {"crisfsr"}
     # Apodized: contiguous sensor_chan 1..2211 (no guard channel sentinels)
-    assert df["channel_index"].between(1, 2211).all()
+    assert df["sensor_index"].between(1, 2211).all()
     expected_rows = n_scan * n_for * n_fov * n_channels_apod
     assert len(df) == expected_rows
     assert df["satellite"].iloc[0] == "n20"
@@ -389,11 +389,11 @@ def test_jpss_cris_call_mock_unapodized(tmp_path):
     assert not df.empty
     assert list(df.columns) == ds.SCHEMA.names
     # Unapodized: sensor_chan includes 0 (guard) and 1..2211
-    assert df["channel_index"].between(0, 2211).all()
+    assert df["sensor_index"].between(0, 2211).all()
     expected_rows = n_scan * n_for * n_fov * n_channels_raw
     assert len(df) == expected_rows
     # Guard channels should have sensor_chan 0
-    guard_rows = df[df["channel_index"] == 0]
+    guard_rows = df[df["sensor_index"] == 0]
     assert len(guard_rows) > 0  # 12 guard channels per FOV
 
 

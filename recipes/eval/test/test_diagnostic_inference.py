@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 import torch
 from src.output import OutputManager, build_diagnostic_coords
-from src.pipeline import DiagnosticPipeline
+from src.pipelines import DiagnosticPipeline
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"

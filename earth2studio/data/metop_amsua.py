@@ -84,10 +84,9 @@ _FOV_DWELL_S = 0.2  # ~200 ms per FOV step
 
 # Metop-B AMSU-A central wavenumbers (cm⁻¹) per channel 1–15
 # From ATOVS L1B Product Guide, Appendix A
+# https://user.eumetsat.int/s3/eup-strapi-media/pdf_atovsl1b_pg_8bbaa8ba48.pdf
 # NOTE: Inter-satellite wavenumber differences (Metop-A/B/C) are <0.0002 cm⁻¹,
-# producing max BT bias <0.03 K — well below instrument NEdT (~0.2–0.5 K).
-# Band correction coefficients (A, B) are identity (0, 1) for all NOAA-KLM
-# platforms (per PGS §5.1.2.2.5). Using Metop-B values for all satellites.
+# Using Metop-B values for all satellites.
 _WAVENUMBERS = np.array(
     [
         0.793897,
@@ -108,8 +107,6 @@ _WAVENUMBERS = np.array(
     ],
     dtype=np.float64,
 )
-
-# Band correction A, B per channel (identity for all NOAA-KLM platforms)
 _BAND_A = np.zeros(_NUM_CHANNELS, dtype=np.float64)
 _BAND_B = np.ones(_NUM_CHANNELS, dtype=np.float64)
 
@@ -210,7 +207,7 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     pd.DataFrame
         One row per (scan_line, FOV, channel) observation with columns:
         time, lat, lon, elev, observation, variable, satellite,
-        scan_angle, channel_index, solza, solaza, satellite_za, satellite_aza
+        scan_angle, sensor_index, solza, solaza, satellite_za, satellite_aza
     """
     file_size = len(data)
     offset = 0
@@ -349,7 +346,8 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
     all_sataza = np.tile(sat_azi, n_valid_channels)
 
     all_obs = np.empty(total_rows, dtype=np.float32)
-    all_channel_idx = np.empty(total_rows, dtype=np.uint16)
+    all_sensor_idx = np.empty(total_rows, dtype=np.uint16)
+    all_wavenumber = np.empty(total_rows, dtype=np.float64)
     all_scan_angle = np.tile(sat_za, n_valid_channels)  # scan angle ≈ sat zenith
     all_quality = np.tile(quality, n_valid_channels)
 
@@ -357,7 +355,8 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
         start = i * rows_per_channel
         end = start + rows_per_channel
         all_obs[start:end] = bt_arrays[ch_idx].astype(np.float32)
-        all_channel_idx[start:end] = ch_idx
+        all_sensor_idx[start:end] = ch_idx
+        all_wavenumber[start:end] = _WAVENUMBERS[ch_idx - 1]
 
     df = pd.DataFrame(
         {
@@ -367,7 +366,8 @@ def _parse_native_amsua(data: bytes) -> pd.DataFrame:
             "lon": all_lons,
             "elev": all_elevs,
             "scan_angle": all_scan_angle,
-            "channel_index": all_channel_idx,
+            "sensor_index": all_sensor_idx,
+            "wavenumber": all_wavenumber,
             "solza": all_solza,
             "solaza": all_solaza,
             "satellite_za": all_satza,
@@ -402,7 +402,7 @@ class MetOpAMSUA:
 
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
     following the same convention as :class:`~earth2studio.data.UFSObsSat`.
-    The ``channel_index`` column (1--15) identifies each channel.
+    The ``sensor_index`` column (1--15) identifies each channel.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -467,7 +467,8 @@ class MetOpAMSUA:
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("elev"),
             E2STUDIO_SCHEMA.field("scan_angle"),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -630,7 +631,7 @@ class MetOpAMSUA:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             ]

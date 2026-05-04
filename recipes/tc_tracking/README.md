@@ -42,7 +42,6 @@ process.
 2. [Configure and Execute Runs](#2-configure-and-execute-runs)
    - [2.1 Generate Ensemble](#21-generate-ensemble)
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
-     *(coming soon)*
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
      *(coming soon)*
 3. [Visualisation](#3-visualisation) *(coming soon)*
@@ -54,7 +53,6 @@ process.
    - [5.3 Analyse Tracks](#53-analyse-tracks)
      *(coming soon)*
    - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
-     *(coming soon)*
 
 ## 1. Setting up the Environment
 
@@ -157,7 +155,7 @@ The pipeline has three operational modes:
 
 - **`generate_ensemble`**: Generate an ensemble prediction
   and extract tropical cyclones.
-- **`reproduce_members`** *(coming soon)*: Reproduce
+- **`reproduce_members`**: Reproduce
   individual ensemble members to store atmospheric fields
   of interesting tracks. Note: Currently only works with
   FCN3, as AIFS-ENS does not expose a method to set the
@@ -361,13 +359,6 @@ modify this section.
 
 ### 2.2 Reproduce Individual Ensemble Members
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 A common workflow is to run ensemble forecasts without
 storing atmospheric fields, since track data is approximately
 five orders of magnitude smaller than the associated field
@@ -436,9 +427,6 @@ full batch must always be reproduced. For example, with a
 batch size of 2 in the example above, the run would reproduce
 members 4, 5, 8, and 9 from the midnight ensemble, and
 members 4, 5, 12, and 13 from the midday ensemble.
-
-</details>
-<!-- markdownlint-enable MD033 -->
 
 ### 2.3 Extract Reference Tracks from ERA5
 
@@ -727,13 +715,6 @@ tru_track_dir = '/path/to/outputs_reference_tracks'
 
 ### 5.4 Reproduce Interesting Members to Extract Fields
 
-> [!Note]
-> This feature will be available in a future update.
-
-<!-- markdownlint-disable MD033 -->
-<details>
-<summary>Preview</summary>
-
 Suppose that after conducting the above analysis you want
 to take a closer look at ensemble members 0, 8, 9, and 12
 of the Helene prediction. Since the forecast was produced
@@ -793,9 +774,6 @@ create animated visualisations:
 correctly, point `track_dir` to the original Helene run
 (`outputs_helene/cyclone_tracks_te`) and confirm that the
 tracks are identical.
-
-</details>
-<!-- markdownlint-enable MD033 -->
 
 <!-- markdownlint-disable MD013 -->
 

@@ -428,6 +428,11 @@ skip this gate.
 
 - **Class name**: PascalCase or UPPER_CASE matching existing patterns
   (e.g., `GFS`, `ARCO`, `ISD`, `CAMS_FX`, `GEFS_FX_721x1440`)
+- **Satellite data sources**: Use `<SatellitePlatform><SensorName>`
+  naming (e.g., `HimawariAHI`, `MeteosatFCI`, `MetOpAMSUA`,
+  `JPSS_ATMS`). Always include the sensor/instrument name even when
+  the platform currently has only one data source, for consistency
+  and future-proofing.
 - **File name**: lowercase with underscores (e.g., `gfs.py`,
   `cams.py`, `isd.py`)
 - **File path**: `earth2studio/data/<filename>.py`
@@ -1668,6 +1673,11 @@ Zarr file and mock `fetch_array` or the filesystem layer.
 
 ### 12e. Test guidelines
 
+- **Keep the number of tests low and concise with maximal coverage.**
+  Each test should justify its existence by covering distinct
+  functionality. Avoid redundant or overlapping tests — prefer fewer,
+  well-designed tests that exercise multiple code paths over many
+  narrow single-assertion tests.
 - **No docstrings** on test functions
 - Use **strategic parameterization** — minimize combinations
   while maximizing coverage

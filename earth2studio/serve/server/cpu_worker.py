@@ -136,8 +136,8 @@ class ResultMetadata:
     status: str
     completion_time: str | None
     execution_time_seconds: float | None
-    workflow_type: str | None = None  # For legacy inference requests
-    workflow_name: str | None = None  # For custom workflows
+    workflow_type: str | None = None
+    workflow_name: str | None = None
     created_at: str | None = None
     peak_memory_usage: str | None = None
     device: str | None = None
@@ -157,17 +157,23 @@ class ResultMetadata:
         file_manifest: list[FileManifestEntry],
         zip_created_at: str,
     ) -> "ResultMetadata":
-        """
-        Create ResultMetadata from a WorkflowResult (custom workflows).
+        """Create ResultMetadata from a WorkflowResult.
 
-        Args:
-            workflow_result: WorkflowResult instance from custom workflow
-            request_id: Request ID (execution_id from workflow)
-            file_manifest: List of files in the zip
-            zip_created_at: Timestamp when zip was created
+        Parameters
+        ----------
+        workflow_result : WorkflowResult
+            WorkflowResult instance from workflow execution.
+        request_id : str
+            Fallback request ID (used if execution_id is not set).
+        file_manifest : list[FileManifestEntry]
+            List of files in the zip.
+        zip_created_at : str
+            ISO timestamp when zip was created.
 
-        Returns:
-            ResultMetadata instance
+        Returns
+        -------
+        ResultMetadata
+            Populated metadata instance.
         """
         workflow_metadata = workflow_result.metadata or {}
         return cls(
@@ -181,40 +187,6 @@ class ResultMetadata:
             device=workflow_metadata.get("device"),
             zip_created_at=zip_created_at,
             parameters=workflow_metadata.get("parameters"),
-            output_files=file_manifest,
-        )
-
-    @classmethod
-    def from_legacy_dict(
-        cls,
-        inference_request: dict[str, Any],
-        request_id: str,
-        file_manifest: list[FileManifestEntry],
-        zip_created_at: str,
-    ) -> "ResultMetadata":
-        """
-        Create ResultMetadata from a legacy inference request dict.
-
-        Args:
-            inference_request: Legacy inference request dictionary
-            request_id: Request ID
-            file_manifest: List of files in the zip
-            zip_created_at: Timestamp when zip was created
-
-        Returns:
-            ResultMetadata instance
-        """
-        return cls(
-            request_id=request_id,
-            status=inference_request.get("status", "completed"),
-            completion_time=inference_request.get("completion_time"),
-            execution_time_seconds=inference_request.get("execution_time_seconds"),
-            workflow_type=inference_request.get("type"),
-            created_at=inference_request.get("created_at"),
-            peak_memory_usage=inference_request.get("peak_memory_usage"),
-            device=inference_request.get("device"),
-            zip_created_at=zip_created_at,
-            parameters=inference_request.get("request"),
             output_files=file_manifest,
         )
 
@@ -296,20 +268,27 @@ def build_file_manifest(
 def create_results_zip(
     request_id: str,
     output_path: Path,
-    inference_request: dict[str, Any] | WorkflowResult,
+    inference_request: WorkflowResult,
     results_zip_dir: Path,
     redis_client: redis.Redis,
     create_zip: bool = True,
 ) -> str | None:
-    """Create zip file containing inference results and store it in the results directory
+    """Create zip file containing inference results and store it in the results directory.
 
-    Args:
-        request_id: Request ID (for legacy) or execution_id (for custom workflows)
-        output_path: Path to output files
-        inference_request: Dict containing request data (legacy) or WorkflowResult (for custom workflows)
-        results_zip_dir: Directory to store result zips
-        redis_client: Redis client instance
-        create_zip: If False, only build file manifest without creating zip file
+    Parameters
+    ----------
+    request_id : str
+        Execution ID for the workflow run.
+    output_path : Path
+        Path to output files.
+    inference_request : WorkflowResult
+        WorkflowResult instance from the completed workflow execution.
+    results_zip_dir : Path
+        Directory to store result zips.
+    redis_client : redis.Redis
+        Redis client instance.
+    create_zip : bool, optional
+        If False, only build file manifest without creating zip file, by default True
     """
     # Create logger adapter with execution_id for automatic log prefixing
     log = logging.LoggerAdapter(logger, {"execution_id": request_id})
@@ -370,29 +349,14 @@ def create_results_zip(
             )
             zip_filename = None  # No zip file created
 
-        # Create metadata using factory methods
         zip_created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-        if isinstance(inference_request, WorkflowResult):
-            # Custom workflow (WorkflowResult)
-            metadata = ResultMetadata.from_workflow_result(
-                workflow_result=inference_request,
-                request_id=request_id,
-                file_manifest=file_manifest,
-                zip_created_at=zip_created_at,
-            )
-        elif isinstance(inference_request, dict):
-            # Legacy inference request (dict)
-            metadata = ResultMetadata.from_legacy_dict(
-                inference_request=inference_request,
-                request_id=request_id,
-                file_manifest=file_manifest,
-                zip_created_at=zip_created_at,
-            )
-        else:
-            raise TypeError(
-                f"inference_request must be Dict or WorkflowResult, got {type(inference_request)}"
-            )
+        metadata = ResultMetadata.from_workflow_result(
+            workflow_result=inference_request,
+            request_id=request_id,
+            file_manifest=file_manifest,
+            zip_created_at=zip_created_at,
+        )
 
         # Store metadata in Redis for the object storage worker to finalize
         metadata_key = get_inference_request_metadata_key(request_id)

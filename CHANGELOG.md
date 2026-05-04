@@ -7,7 +7,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0a0] - 2026-04-xx
+## [0.15.0a0] - 2026-05-xx
+
+### Added
+
+- Added Himawari-8/9 AHI ISatSS L2 Full Disk satellite data source (`HimawariAHI`)
+- Added GHCN-Daily global station observation data frame source (`GHCNDaily`)
+
+### Changed
+
+- UFS Satellite Obs source is now the only one that provides the UFS specific
+  `channel_index` and general `sensor_index` fields, all other now provide
+  `sensor_index` only which can be used to consistently map from UFS to L1 products
+- Added `wavenumber` (cm⁻¹) field to all satellite schemas
+- Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed potential `uint16` underflow in UFS channel index expansion
+- S3 upload bug in server utilities
+
+### Security
+
+### Dependencies
+
+## [0.14.0] - 2026-04-27
 
 ### Added
 
@@ -21,17 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added NClimGrid daily CONUS gridded climate data source (`NClimGridDaily`)
 - Added MTG-I FCI Level-1C Full Disk satellite radiance data source (`MeteosatFCI`)
 
-### Changed
-
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Fixed source code links in documentation
-
-### Security
 
 ### Dependencies
 

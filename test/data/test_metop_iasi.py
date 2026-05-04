@@ -313,7 +313,7 @@ def test_metop_iasi_call_mock(tmp_path):
     with patch.object(MetOpIASI, "_download_products") as mock_dl:
         mock_dl.return_value = [str(nat_file)]
         ds = MetOpIASI(
-            channel_indices=np.array([0, 100, 500]),
+            sensor_indices=np.array([1, 101, 501]),
             time_tolerance=timedelta(hours=24),
             cache=False,
             verbose=False,
@@ -339,7 +339,7 @@ def test_metop_iasi_call_mock_fields_subset(tmp_path):
     with patch.object(MetOpIASI, "_download_products") as mock_dl:
         mock_dl.return_value = [str(nat_file)]
         ds = MetOpIASI(
-            channel_indices=np.array([0, 1000]),
+            sensor_indices=np.array([1, 1001]),
             time_tolerance=timedelta(hours=24),
             cache=False,
             verbose=False,
@@ -501,9 +501,9 @@ def test_build_channel_scale_array():
 
 def test_parse_native_iasi():
     # 1 scan → 30 EFOVs × 4 IFOVs = 120 obs, extract 3 channels → 360 rows
-    ch_idx = np.array([0, 100, 500])
+    ch_idx = np.array([1, 101, 501])
     data = _build_native_file(n_scans=1)
-    df = _parse_native_iasi(data, channel_indices=ch_idx)
+    df = _parse_native_iasi(data, sensor_indices=ch_idx)
     expected_rows = _NUM_EFOVS * _NUM_IFOVS * len(ch_idx)
     assert len(df) == expected_rows
     assert set(df["satellite"].unique()) == {"metop-b"}
@@ -512,14 +512,14 @@ def test_parse_native_iasi():
     assert "quality" in df.columns
     assert (df["quality"] == 0).all()
 
-    # Channel indices should be 0-based
-    assert set(df["channel_index"].unique()) == {0, 100, 500}
+    # sensor_indices are 1-based, sensor_index output matches directly
+    assert set(df["sensor_index"].unique()) == {1, 101, 501}
 
 
 def test_parse_native_iasi_multiple_scans():
-    ch_idx = np.array([0, 1000, 4000])
+    ch_idx = np.array([1, 1001, 4001])
     data = _build_native_file(spacecraft_id="M03", n_scans=3)
-    df = _parse_native_iasi(data, channel_indices=ch_idx)
+    df = _parse_native_iasi(data, sensor_indices=ch_idx)
     expected_rows = 3 * _NUM_EFOVS * _NUM_IFOVS * len(ch_idx)
     assert len(df) == expected_rows
     assert set(df["satellite"].unique()) == {"metop-c"}
@@ -540,27 +540,27 @@ def test_parse_native_iasi_empty():
 
 
 def test_parse_native_iasi_quality():
-    ch_idx = np.array([0])
+    ch_idx = np.array([1])
     data = _build_native_file(quality_val=42)
-    df = _parse_native_iasi(data, channel_indices=ch_idx)
+    df = _parse_native_iasi(data, sensor_indices=ch_idx)
     assert not df.empty
     assert (df["quality"] == 42).all()
 
 
 def test_parse_native_iasi_geolocation():
-    ch_idx = np.array([0])
+    ch_idx = np.array([1])
     data = _build_native_file(lat_deg=45.0, lon_deg=10.0)
-    df = _parse_native_iasi(data, channel_indices=ch_idx)
+    df = _parse_native_iasi(data, sensor_indices=ch_idx)
     # All observations should have lat=45, lon=10
     np.testing.assert_allclose(df["lat"].values, 45.0, atol=0.01)
     np.testing.assert_allclose(df["lon"].values, 10.0, atol=0.01)
 
 
 def test_parse_native_iasi_negative_longitude():
-    ch_idx = np.array([0])
+    ch_idx = np.array([1])
     # Negative longitude should be converted to [0, 360]
     data = _build_native_file(lat_deg=45.0, lon_deg=-10.0)
-    df = _parse_native_iasi(data, channel_indices=ch_idx)
+    df = _parse_native_iasi(data, sensor_indices=ch_idx)
     np.testing.assert_allclose(df["lon"].values, 350.0, atol=0.01)
 
 
@@ -604,15 +604,16 @@ def test_parse_native_iasi_skip_non_mdr():
     ipr = _build_grh(3, 0, 1, 27) + bytes(7)  # IPR record
     mdr = _build_mdr()
     data = mphr + giadr + ipr + mdr
-    ch_idx = np.array([0])
-    df = _parse_native_iasi(data, channel_indices=ch_idx)
+    ch_idx = np.array([1])
+    df = _parse_native_iasi(data, sensor_indices=ch_idx)
     assert len(df) == _NUM_EFOVS * _NUM_IFOVS
 
 
 def test_metop_iasi_default_channels():
-    assert hasattr(MetOpIASI, "DEFAULT_CHANNELS")
-    assert len(MetOpIASI.DEFAULT_CHANNELS) == 174
-    assert all(0 <= ch <= _NUM_CHANNELS - 1 for ch in MetOpIASI.DEFAULT_CHANNELS)
+    from earth2studio.data.metop_iasi import _IASI_GSI_CHANNELS
+
+    assert len(_IASI_GSI_CHANNELS) == 174
+    assert all(1 <= ch <= _NUM_CHANNELS for ch in _IASI_GSI_CHANNELS)
 
 
 def test_lexicon_vocab():

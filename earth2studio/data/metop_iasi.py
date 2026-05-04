@@ -66,6 +66,32 @@ _NUM_IFOVS = 4  # IFOVs per EFOV (2×2)
 _NUM_CHANNELS_ALLOC = 8700  # Allocated spectral samples per IFOV
 _NUM_CHANNELS = 8461  # Valid spectral channels (645–2760 cm⁻¹)
 
+# 174 IASI channels assimilated by NOAA's GSI system (1-based sensor indices).
+# Derived from the ``sensor_chan`` variable in GSI diagnostic NetCDF4 files
+# on S3 (e.g. diag_iasi_metop-c_ges).  They span all three IASI bands.
+# fmt: off
+_IASI_GSI_CHANNELS: np.ndarray = np.array([
+      16,   38,   49,   51,   55,   57,   59,   61,   63,   66,
+      70,   72,   74,   79,   81,   83,   85,   87,  104,  106,
+     109,  111,  113,  116,  119,  122,  125,  128,  131,  133,
+     135,  138,  141,  144,  146,  148,  151,  154,  157,  159,
+     161,  163,  167,  170,  173,  176,  180,  185,  187,  193,
+     199,  205,  207,  210,  212,  214,  217,  219,  222,  224,
+     226,  230,  232,  236,  239,  243,  246,  249,  252,  254,
+     260,  262,  265,  267,  275,  282,  294,  296,  299,  303,
+     306,  323,  327,  329,  335,  345,  347,  350,  354,  356,
+     360,  366,  371,  373,  375,  377,  379,  381,  383,  386,
+     389,  398,  401,  404,  407,  410,  414,  416,  426,  428,
+     432,  434,  439,  445,  457,  515,  546,  552,  559,  566,
+     571,  573,  646,  662,  668,  756,  867,  906,  921, 1027,
+    1046, 1121, 1133, 1191, 1194, 1271, 1479, 1509, 1513, 1521,
+    1536, 1574, 1579, 1585, 1587, 1626, 1639, 1643, 1652, 1658,
+    1671, 1786, 1805, 1884, 1991, 2019, 2094, 2119, 2213, 2239,
+    2271, 2321, 2398, 2701, 2889, 2958, 2993, 3002, 3049, 3105,
+    3110, 5381, 5399, 5480,
+], dtype=np.int32)
+# fmt: on
+
 # EPS epoch: 2000-01-01 00:00:00 UTC
 _EPS_EPOCH = datetime(2000, 1, 1)
 
@@ -428,7 +454,7 @@ def _compute_mdr_field_offsets(data: bytes, mdr_offset: int) -> dict[str, int]:
 
 def _parse_native_iasi(
     data: bytes,
-    channel_indices: np.ndarray | None = None,
+    sensor_indices: np.ndarray | None = None,
 ) -> pd.DataFrame:
     """Parse an IASI Level 1C EPS native format file.
 
@@ -439,8 +465,8 @@ def _parse_native_iasi(
     ----------
     data : bytes
         Complete file contents of an IASI L1C .nat file
-    channel_indices : np.ndarray | None, optional
-        0-based channel indices to extract (subset of 0..8460).
+    sensor_indices : np.ndarray | None, optional
+        1-based sensor indices to extract (subset of 1..8461).
         If None, all 8461 channels are extracted.
 
     Returns
@@ -507,11 +533,12 @@ def _parse_native_iasi(
         band_first, band_last, band_sf, nsfirst=nsfirst
     )
 
-    # Determine channels to extract (0-based indices)
-    if channel_indices is None:
-        ch_idx = np.arange(_NUM_CHANNELS, dtype=np.int32)
+    # Convert 1-based sensor_indices to 0-based array indices for spectral data
+    if sensor_indices is None:
+        sensor_idx = np.arange(1, _NUM_CHANNELS + 1, dtype=np.int32)
     else:
-        ch_idx = np.asarray(channel_indices, dtype=np.int32)
+        sensor_idx = np.asarray(sensor_indices, dtype=np.int32)
+    ch_idx = sensor_idx - 1  # 0-based for array indexing
     n_ch = len(ch_idx)
 
     # Step 4: Pre-allocate arrays for all scans × EFOVs × IFOVs
@@ -555,8 +582,11 @@ def _parse_native_iasi(
             nsfirst_off = field_offsets["IDefNsfirst1b"]
             nsfirst = struct.unpack_from(">i", data, nsfirst_off)[0]
 
-            # Wavenumber of channel n (0-based) = (nsfirst + n) * dwn in m^-1
-            all_wn_m = (nsfirst + np.arange(_NUM_CHANNELS, dtype=np.float64)) * dwn_m
+            # Wavenumber of channel n (0-based) = (nsfirst - 1 + n) * dwn in m^-1
+            # nsfirst is the sample number of the first channel (1-based sample grid)
+            all_wn_m = (
+                nsfirst - 1 + np.arange(_NUM_CHANNELS, dtype=np.float64)
+            ) * dwn_m
             all_wn_cm = all_wn_m / 100.0  # Convert m^-1 to cm^-1
             wavenumber_cm = all_wn_cm[ch_idx]
 
@@ -667,7 +697,7 @@ def _parse_native_iasi(
     n_ch_total = n_ch
     total_rows = n_obs * n_ch_total
 
-    # Channel indices are 0-based in the output (0..8460)
+    # Channel indices are 1-based in the output (1..8461)
 
     all_times = np.tile(scan_times, n_ch_total)
     all_lats = np.tile(lats, n_ch_total)
@@ -680,13 +710,15 @@ def _parse_native_iasi(
     all_scan_angle = np.tile(sat_za, n_ch_total)  # scan angle ≈ sat zenith
 
     all_obs = np.empty(total_rows, dtype=np.float32)
-    all_channel_idx = np.empty(total_rows, dtype=np.uint16)
+    all_sensor_idx = np.empty(total_rows, dtype=np.uint16)
+    all_wavenumber = np.empty(total_rows, dtype=np.float64)
 
     for i in range(n_ch_total):
         start = i * n_obs
         end = start + n_obs
         all_obs[start:end] = bt[:, i].astype(np.float32)
-        all_channel_idx[start:end] = ch_idx[i]
+        all_sensor_idx[start:end] = sensor_idx[i]
+        all_wavenumber[start:end] = wavenumber_cm[i]
 
     df = pd.DataFrame(
         {
@@ -696,7 +728,8 @@ def _parse_native_iasi(
             "lon": all_lons,
             "elev": np.float32(0.0),  # Satellite — no terrain elevation
             "scan_angle": all_scan_angle,
-            "channel_index": all_channel_idx,
+            "sensor_index": all_sensor_idx,
+            "wavenumber": all_wavenumber,
             "solza": all_solza,
             "solaza": all_solaza,
             "satellite_za": all_satza,
@@ -730,7 +763,7 @@ class MetOpIASI:
     consisting of a 2x2 array of 4 Instantaneous Fields Of View (IFOVs),
     yielding 120 spectra per scan line. A typical orbit pass contains
     ~1400 scan lines (~168,000 IFOV spectra). To manage memory and processing time,
-    a ``channel_indices`` parameter allows selecting a subset of channels.
+    a ``sensor_indices`` parameter allows selecting a subset of channels.
 
     This data source downloads Level 1C products from the EUMETSAT Data Store
     and parses the EPS native binary format to extract brightness temperatures,
@@ -741,10 +774,10 @@ class MetOpIASI:
     satellite : str, optional
         Satellite platform filter for product search. One of "metop-a",
         "metop-b", "metop-c", or None (all available). By default None.
-    channel_indices : list[int] | np.ndarray | None, optional
-        0-based channel indices to extract (subset of 0..8460). If None,
+    sensor_indices : list[int] | np.ndarray | None, optional
+        1-based sensor indices to extract (subset of 1..8461). If None,
         the 174 GSI-assimilated channels (matching UFSObsSat) are used. Pass
-        ``np.arange(8461)`` to extract all channels (warning: very large
+        ``np.arange(1, 8462)`` to extract all channels (warning: very large
         output).
     time_tolerance : TimeTolerance, optional
         Time tolerance window for filtering observations. Accepts a single
@@ -792,10 +825,6 @@ class MetOpIASI:
     COLLECTION_ID = "EO:EUM:DAT:METOP:IASIL1C-ALL"
     VALID_SATELLITES = frozenset(["metop-a", "metop-b", "metop-c"])
 
-    # Default channels: 174 IASI channels assimilated by NOAA's GSI system,
-    # matching the UFSObsSat ``sensor_chan`` set.  Defined in the lexicon.
-    DEFAULT_CHANNELS = MetOpIASILexicon.IASI_GSI_CHANNELS
-
     SCHEMA = pa.schema(
         [
             E2STUDIO_SCHEMA.field("time"),
@@ -804,7 +833,8 @@ class MetOpIASI:
             E2STUDIO_SCHEMA.field("lon"),
             E2STUDIO_SCHEMA.field("elev"),
             E2STUDIO_SCHEMA.field("scan_angle"),
-            E2STUDIO_SCHEMA.field("channel_index"),
+            E2STUDIO_SCHEMA.field("sensor_index"),
+            E2STUDIO_SCHEMA.field("wavenumber"),
             E2STUDIO_SCHEMA.field("solza"),
             E2STUDIO_SCHEMA.field("solaza"),
             E2STUDIO_SCHEMA.field("satellite_za"),
@@ -819,7 +849,7 @@ class MetOpIASI:
     def __init__(
         self,
         satellite: str | None = None,
-        channel_indices: list[int] | np.ndarray | None = None,
+        sensor_indices: list[int] | np.ndarray | None = None,
         time_tolerance: TimeTolerance = np.timedelta64(1, "h"),
         cache: bool = True,
         verbose: bool = True,
@@ -833,11 +863,13 @@ class MetOpIASI:
         self._satellite = satellite
         self._eumdac_satellite = _EUMDAC_SAT_NAME[satellite] if satellite else None
 
-        # Channel selection
-        if channel_indices is not None:
-            self._channel_indices = np.asarray(channel_indices, dtype=np.int32)
+        # Channel selection (None → 174 GSI-assimilated channels)
+        if sensor_indices is not None:
+            self._sensor_indices: np.ndarray = np.asarray(
+                sensor_indices, dtype=np.int32
+            )
         else:
-            self._channel_indices = self.DEFAULT_CHANNELS.copy()
+            self._sensor_indices = _IASI_GSI_CHANNELS.copy()
 
         self._cache = cache
         self._verbose = verbose
@@ -959,7 +991,7 @@ class MetOpIASI:
         for fpath in product_files:
             with open(fpath, "rb") as f:
                 raw = f.read()
-            df = _parse_native_iasi(raw, channel_indices=self._channel_indices)
+            df = _parse_native_iasi(raw, sensor_indices=self._sensor_indices)
             if not df.empty:
                 frames.append(df)
 
@@ -974,7 +1006,7 @@ class MetOpIASI:
                 "time",
                 "lat",
                 "lon",
-                "channel_index",
+                "sensor_index",
                 "satellite",
                 "variable",
             ]
