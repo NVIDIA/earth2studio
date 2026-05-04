@@ -40,6 +40,41 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def resolve_repo_root() -> Path:
+    """Return the repository root by walking up until ``pyproject.toml`` is found.
+
+    Falls back gracefully: if no marker is found, the caller should treat the
+    result as best-effort and prefer an explicit env-var override.
+    """
+    current = Path(__file__).resolve().parent
+    for ancestor in (current, *current.parents):
+        if (ancestor / "pyproject.toml").exists():
+            return ancestor
+    return current.parent.parent.parent
+
+
+def resolve_serve_path(env_var: str, relative_to_root: str) -> Path:
+    """Resolve a ``serve/`` sub-path, preferring an env-var override.
+
+    Parameters
+    ----------
+    env_var : str
+        Environment variable name (e.g. ``CONFIG_DIR``).
+    relative_to_root : str
+        Path relative to the repository root used when *env_var* is unset
+        (e.g. ``serve/server/conf``).
+
+    Returns
+    -------
+    Path
+        Absolute path to the requested directory/file.
+    """
+    value = os.environ.get(env_var)
+    if value:
+        return Path(value)
+    return resolve_repo_root() / relative_to_root
+
+
 @dataclass
 class RedisConfig:
     """Redis connection configuration"""
@@ -199,13 +234,7 @@ class ConfigManager:
     def _initialize_config(self) -> None:
         """Initialize configuration from Hydra"""
         try:
-            # Prefer CONFIG_DIR env var (required when package is installed without repo layout)
-            config_dir_env = os.environ.get("CONFIG_DIR")
-            if config_dir_env:
-                config_dir = Path(config_dir_env)
-            else:
-                _repo_root = Path(__file__).resolve().parent.parent.parent.parent
-                config_dir = _repo_root / "serve" / "server" / "conf"
+            config_dir = resolve_serve_path("CONFIG_DIR", "serve/server/conf")
 
             # Clear any existing Hydra instance
             GlobalHydra.instance().clear()
@@ -269,169 +298,118 @@ class ConfigManager:
             workflow_exposure=WorkflowExposureConfig(),
         )
 
+    # ------------------------------------------------------------------ #
+    # Env-var override table.  Each entry is:
+    #   (ENV_VAR, config_section, field_name, converter)
+    #
+    # *converter* is one of:
+    #   str   – plain string assignment
+    #   int   – int() conversion
+    #   bool  – case-insensitive "true" check
+    #   None  – handled by custom logic in _apply_env_special()
+    # ------------------------------------------------------------------ #
+    _ENV_OVERRIDES: list[tuple[str, str, str, type | None]] = [
+        # Redis
+        ("REDIS_HOST", "redis", "host", str),
+        ("REDIS_PORT", "redis", "port", int),
+        ("REDIS_DB", "redis", "db", int),
+        ("REDIS_PASSWORD", "redis", "password", str),
+        ("REDIS_RETENTION_TTL", "redis", "retention_ttl", int),
+        # Queue
+        ("MAX_QUEUE_SIZE", "queue", "max_size", int),
+        # Paths
+        ("DEFAULT_OUTPUT_DIR", "paths", "default_output_dir", str),
+        ("RESULTS_ZIP_DIR", "paths", "results_zip_dir", str),
+        ("OUTPUT_FORMAT", "paths", "output_format", None),
+        # Logging
+        ("LOG_LEVEL", "logging", "level", str),
+        # Server
+        ("SERVER_PORT", "server", "port", int),
+        ("RESULTS_TTL_HOURS", "server", "results_ttl_hours", int),
+        ("CLEANUP_WATCHDOG_SEC", "server", "cleanup_watchdog_sec", int),
+        # Object storage – simple types
+        ("OBJECT_STORAGE_ENABLED", "object_storage", "enabled", bool),
+        ("OBJECT_STORAGE_TYPE", "object_storage", "storage_type", None),
+        ("OBJECT_STORAGE_BUCKET", "object_storage", "bucket", str),
+        ("OBJECT_STORAGE_REGION", "object_storage", "region", str),
+        ("OBJECT_STORAGE_PREFIX", "object_storage", "prefix", str),
+        ("OBJECT_STORAGE_ACCESS_KEY_ID", "object_storage", "access_key_id", str),
+        (
+            "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+            "object_storage",
+            "secret_access_key",
+            str,
+        ),
+        ("OBJECT_STORAGE_SESSION_TOKEN", "object_storage", "session_token", str),
+        ("OBJECT_STORAGE_ENDPOINT_URL", "object_storage", "endpoint_url", str),
+        (
+            "OBJECT_STORAGE_TRANSFER_ACCELERATION",
+            "object_storage",
+            "use_transfer_acceleration",
+            bool,
+        ),
+        ("OBJECT_STORAGE_MAX_CONCURRENCY", "object_storage", "max_concurrency", int),
+        (
+            "OBJECT_STORAGE_MULTIPART_CHUNKSIZE",
+            "object_storage",
+            "multipart_chunksize",
+            int,
+        ),
+        ("OBJECT_STORAGE_USE_RUST_CLIENT", "object_storage", "use_rust_client", bool),
+        ("CLOUDFRONT_DOMAIN", "object_storage", "cloudfront_domain", str),
+        ("CLOUDFRONT_KEY_PAIR_ID", "object_storage", "cloudfront_key_pair_id", str),
+        ("CLOUDFRONT_PRIVATE_KEY", "object_storage", "cloudfront_private_key", str),
+        ("SIGNED_URL_EXPIRES_IN", "object_storage", "signed_url_expires_in", int),
+        # Workflow exposure (custom)
+        ("EXPOSED_WORKFLOWS", "workflow_exposure", "exposed_workflows", None),
+    ]
+
     def _apply_env_overrides(self) -> None:
-        """Apply environment variable overrides to configuration"""
+        """Apply environment variable overrides to configuration.
+
+        Iterates the ``_ENV_OVERRIDES`` table and, for each env var that is
+        set, converts the value and assigns it to the matching config field.
+        Entries with ``converter=None`` are routed to ``_apply_env_special``.
+        """
         if not self._config:
             return
 
-        # Redis overrides
-        if os.getenv("REDIS_HOST"):
-            self._config.redis.host = os.getenv(
-                "REDIS_HOST", default=self._config.redis.host
-            )
-        if os.getenv("REDIS_PORT"):
-            self._config.redis.port = int(
-                os.getenv("REDIS_PORT", default=self._config.redis.port)
-            )
-        if os.getenv("REDIS_DB"):
-            self._config.redis.db = int(
-                os.getenv("REDIS_DB", default=self._config.redis.db)
-            )
-        if os.getenv("REDIS_PASSWORD"):
-            self._config.redis.password = os.getenv("REDIS_PASSWORD")
-        if os.getenv("REDIS_RETENTION_TTL"):
-            self._config.redis.retention_ttl = int(
-                os.getenv(
-                    "REDIS_RETENTION_TTL", default=self._config.redis.retention_ttl
-                )
-            )
+        for env_var, section, field_name, converter in self._ENV_OVERRIDES:
+            raw = os.environ.get(env_var)
+            if not raw:
+                continue
 
-        # Queue overrides
-        if os.getenv("MAX_QUEUE_SIZE"):
-            self._config.queue.max_size = int(
-                os.getenv("MAX_QUEUE_SIZE", default=self._config.queue.max_size)
-            )
+            sub_cfg = getattr(self._config, section)
 
-        # Path overrides
-        if os.getenv("DEFAULT_OUTPUT_DIR"):
-            self._config.paths.default_output_dir = os.getenv(
-                "DEFAULT_OUTPUT_DIR", default=self._config.paths.default_output_dir
-            )
-        if os.getenv("RESULTS_ZIP_DIR"):
-            self._config.paths.results_zip_dir = os.getenv(
-                "RESULTS_ZIP_DIR", default=self._config.paths.results_zip_dir
-            )
-        if os.getenv("OUTPUT_FORMAT"):
-            output_format = os.getenv("OUTPUT_FORMAT", "").lower()
-            if output_format in ["zarr", "netcdf4"]:
-                self._config.paths.output_format = cast(
-                    Literal["zarr", "netcdf4"], output_format
-                )
-
-        # Logging overrides
-        if os.getenv("LOG_LEVEL"):
-            self._config.logging.level = os.getenv(
-                "LOG_LEVEL", default=self._config.logging.level
-            )
-
-        # Server overrides
-        if os.getenv("SERVER_PORT"):
-            self._config.server.port = int(
-                os.getenv("SERVER_PORT", default=self._config.server.port)
-            )
-        if os.getenv("RESULTS_TTL_HOURS"):
-            self._config.server.results_ttl_hours = int(
-                os.getenv(
-                    "RESULTS_TTL_HOURS", default=self._config.server.results_ttl_hours
-                )
-            )
-        if os.getenv("CLEANUP_WATCHDOG_SEC"):
-            self._config.server.cleanup_watchdog_sec = int(
-                os.getenv(
-                    "CLEANUP_WATCHDOG_SEC",
-                    default=self._config.server.cleanup_watchdog_sec,
-                )
-            )
-
-        # Object storage overrides
-        if os.getenv("OBJECT_STORAGE_ENABLED"):
-            self._config.object_storage.enabled = (
-                os.getenv("OBJECT_STORAGE_ENABLED", "").lower() == "true"
-            )
-        if os.getenv("OBJECT_STORAGE_TYPE"):
-            storage_type = os.getenv("OBJECT_STORAGE_TYPE", "").lower()
-            if storage_type in ["s3", "azure"]:
-                self._config.object_storage.storage_type = cast(
-                    Literal["s3", "azure"], storage_type
-                )
-
-        if os.getenv("OBJECT_STORAGE_BUCKET"):
-            self._config.object_storage.bucket = os.getenv("OBJECT_STORAGE_BUCKET")
-        if os.getenv("OBJECT_STORAGE_REGION"):
-            self._config.object_storage.region = os.getenv(
-                "OBJECT_STORAGE_REGION", default=self._config.object_storage.region
-            )
-        if os.getenv("OBJECT_STORAGE_PREFIX"):
-            self._config.object_storage.prefix = os.getenv(
-                "OBJECT_STORAGE_PREFIX", default=self._config.object_storage.prefix
-            )
-        if os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID"):
-            self._config.object_storage.access_key_id = os.getenv(
-                "OBJECT_STORAGE_ACCESS_KEY_ID"
-            )
-        if os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY"):
-            self._config.object_storage.secret_access_key = os.getenv(
-                "OBJECT_STORAGE_SECRET_ACCESS_KEY"
-            )
-        if os.getenv("OBJECT_STORAGE_SESSION_TOKEN"):
-            self._config.object_storage.session_token = os.getenv(
-                "OBJECT_STORAGE_SESSION_TOKEN"
-            )
-        if os.getenv("OBJECT_STORAGE_ENDPOINT_URL"):
-            self._config.object_storage.endpoint_url = os.getenv(
-                "OBJECT_STORAGE_ENDPOINT_URL"
-            )
-        if os.getenv("OBJECT_STORAGE_TRANSFER_ACCELERATION"):
-            self._config.object_storage.use_transfer_acceleration = (
-                os.getenv("OBJECT_STORAGE_TRANSFER_ACCELERATION", "").lower() == "true"
-            )
-        if os.getenv("OBJECT_STORAGE_MAX_CONCURRENCY"):
-            self._config.object_storage.max_concurrency = int(
-                os.getenv(
-                    "OBJECT_STORAGE_MAX_CONCURRENCY",
-                    default=self._config.object_storage.max_concurrency,
-                )
-            )
-        if os.getenv("OBJECT_STORAGE_MULTIPART_CHUNKSIZE"):
-            self._config.object_storage.multipart_chunksize = int(
-                os.getenv(
-                    "OBJECT_STORAGE_MULTIPART_CHUNKSIZE",
-                    default=self._config.object_storage.multipart_chunksize,
-                )
-            )
-        if os.getenv("OBJECT_STORAGE_USE_RUST_CLIENT"):
-            self._config.object_storage.use_rust_client = (
-                os.getenv("OBJECT_STORAGE_USE_RUST_CLIENT", "").lower() == "true"
-            )
-        if os.getenv("CLOUDFRONT_DOMAIN"):
-            self._config.object_storage.cloudfront_domain = os.getenv(
-                "CLOUDFRONT_DOMAIN"
-            )
-        if os.getenv("CLOUDFRONT_KEY_PAIR_ID"):
-            self._config.object_storage.cloudfront_key_pair_id = os.getenv(
-                "CLOUDFRONT_KEY_PAIR_ID"
-            )
-        if os.getenv("CLOUDFRONT_PRIVATE_KEY"):
-            self._config.object_storage.cloudfront_private_key = os.getenv(
-                "CLOUDFRONT_PRIVATE_KEY"
-            )
-        if os.getenv("SIGNED_URL_EXPIRES_IN"):
-            self._config.object_storage.signed_url_expires_in = int(
-                os.getenv(
-                    "SIGNED_URL_EXPIRES_IN",
-                    default=self._config.object_storage.signed_url_expires_in,
-                )
-            )
-
-        # Workflow exposure overrides
-        if os.getenv("EXPOSED_WORKFLOWS"):
-            # Parse comma-separated list of workflow names
-            exposed_workflows_str = os.getenv("EXPOSED_WORKFLOWS", "")
-            self._config.workflow_exposure.exposed_workflows = [
-                w.strip() for w in exposed_workflows_str.split(",") if w.strip()
-            ]
+            if converter is None:
+                self._apply_env_special(env_var, raw, sub_cfg, field_name)
+            elif converter is bool:
+                setattr(sub_cfg, field_name, raw.lower() == "true")
+            elif converter is int:
+                try:
+                    setattr(sub_cfg, field_name, int(raw))
+                except ValueError:
+                    logger.warning(
+                        "Ignoring non-integer value %r for env var %s", raw, env_var
+                    )
+            else:
+                setattr(sub_cfg, field_name, raw)
 
         logger.debug("Environment variable overrides applied")
+
+    @staticmethod
+    def _apply_env_special(env_var: str, raw: str, sub_cfg: Any, field: str) -> None:
+        """Handle env-var overrides that need validation beyond a simple cast."""
+        if env_var == "OUTPUT_FORMAT":
+            fmt = raw.lower()
+            if fmt in ("zarr", "netcdf4"):
+                setattr(sub_cfg, field, cast(Literal["zarr", "netcdf4"], fmt))
+        elif env_var == "OBJECT_STORAGE_TYPE":
+            st = raw.lower()
+            if st in ("s3", "azure"):
+                setattr(sub_cfg, field, cast(Literal["s3", "azure"], st))
+        elif env_var == "EXPOSED_WORKFLOWS":
+            setattr(sub_cfg, field, [w.strip() for w in raw.split(",") if w.strip()])
 
     def _ensure_paths_exist(self) -> None:
         """Ensure all configured paths exist"""

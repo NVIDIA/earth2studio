@@ -431,7 +431,7 @@ Once registered, your workflow becomes available via REST API:
 <!-- markdownlint-disable MD013 -->
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `GET` | `/v1/workflows` | List all available workflows |
+| `GET` | `/v1/infer/workflows` | List all available workflows |
 | `POST` | `/v1/infer/{workflow_name}` | Execute a workflow |
 | `GET` | `/v1/infer/{workflow_name}/{execution_id}/status` | Check execution status |
 | `GET` | `/v1/infer/{workflow_name}/{execution_id}/results` | Get results metadata with file manifest |

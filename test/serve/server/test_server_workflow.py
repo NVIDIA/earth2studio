@@ -1612,13 +1612,11 @@ workflow_registry.register(SimpleWorkflow)
             assert successful == 0
             assert failed == 1
 
-    @patch("earth2studio.serve.server.workflow.Path")
-    def test_discover_and_register_with_builtin(self, mock_path):
+    @patch("earth2studio.serve.server.config.resolve_repo_root")
+    def test_discover_and_register_with_builtin(self, mock_repo_root):
         """Test discovering workflows with built-in workflows"""
-        # Mock the builtin workflows directory to not exist
-        mock_builtin_dir = MagicMock()
-        mock_builtin_dir.exists.return_value = False
-        mock_path.return_value.parent.__truediv__.return_value = mock_builtin_dir
+        # Mock repo root so the builtin workflows directory does not exist
+        mock_repo_root.return_value = Path("/nonexistent/repo")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             successful, failed = self.registry.discover_and_register_from_directories(
