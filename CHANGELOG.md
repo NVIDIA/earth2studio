@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-- Removed nested_asyncio for Python 3.14 compatability and updated async data sources
+- Removed nested_asyncio for Python 3.14 compatibility and updated async data sources
 
 ## [0.14.0] - 2026-04-27
 
