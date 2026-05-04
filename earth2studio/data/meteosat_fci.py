@@ -26,13 +26,13 @@ import uuid
 import zipfile
 from datetime import datetime, timedelta, timezone
 
-import nest_asyncio
 import numpy as np
 import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     datasource_cache_root,
     prep_data_inputs,
@@ -366,16 +366,9 @@ class MeteosatFCI:
         xr.DataArray
             Data array with dimensions ``[time, variable, y, x]``.
         """
-        nest_asyncio.apply()
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            xr_array = loop.run_until_complete(
-                asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
