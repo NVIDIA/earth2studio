@@ -24,14 +24,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-import nest_asyncio
 import numpy as np
 import s3fs
 import xarray as xr
 from loguru import logger
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon.nclimgrid import NClimGridLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -97,13 +96,7 @@ class NClimGridDaily:
         self._verbose = verbose
         self._tmp_cache_hash: str | None = None
         self.async_timeout = async_timeout
-
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        self.fs: s3fs.S3FileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of filesystem.
@@ -136,19 +129,9 @@ class NClimGridDaily:
         xr.DataArray
             NClimGrid weather data array with dimensions [time, variable, lat, lon].
         """
-        nest_asyncio.apply()
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            xr_array = loop.run_until_complete(
-                asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -176,6 +159,9 @@ class NClimGridDaily:
         xr.DataArray
             NClimGrid weather data array with dimensions [time, variable, lat, lon].
         """
+        if self.fs is None:
+            await self._async_init()
+
         time_list, variable_list = prep_data_inputs(time, variable)
 
         # NClimGrid is daily data — truncate to day resolution so sub-day
