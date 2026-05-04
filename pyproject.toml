@@ -20,7 +20,6 @@ dependencies = [
     "huggingface-hub>=0.27.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
-    "nest_asyncio",
     "pygrib",
     "python-dotenv",
     "pandas",
