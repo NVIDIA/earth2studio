@@ -16,7 +16,6 @@
 
 import asyncio
 import calendar
-import concurrent.futures
 import hashlib
 import os
 import shutil
@@ -26,7 +25,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import s3fs
@@ -35,6 +33,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
 )
@@ -129,26 +128,14 @@ class NCAR_ERA5:
             ERA5 weather data array from NCAR ERA5
         """
 
-        nest_asyncio.apply()  # Patch asyncio to work in notebooks
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        # Modify the worker amount
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache)
 
         return xr_array
 
