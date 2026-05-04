@@ -242,7 +242,7 @@ class ISD:
                 raise e
 
         # Load dataframes for each station-year (cached parquet if available)
-        func_map: list = []
+        func_map: list[Any] = []
         for station in self.stations:
             for dt in time:
                 func_map.append(  # noqa: PERF401
