@@ -131,7 +131,7 @@ under `[project.dependencies]` (core) or
 
 Current core deps include: `s3fs`, `gcsfs`, `fsspec`, `zarr`,
 `netCDF4`, `h5py`, `h5netcdf`, `pygrib`, `huggingface-hub`,
-`pandas`, `pyarrow`, `nest_asyncio`.
+`pandas`, `pyarrow`.
 
 Current `data` group includes: `cdsapi`, `eccodes`,
 `ecmwf-opendata`, `planetary-computer`, `pystac-client`,
@@ -590,6 +590,7 @@ utilities** instead of implementing their own patterns. Import them:
 
 ```python
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     cancellable_to_thread,
     gather_with_concurrency,
@@ -618,6 +619,19 @@ These functions:
 - Convert numpy arrays to lists (`np.datetime64` → `list[datetime]`)
 - Handle `pd.Timestamp` inputs
 - Normalize timezone-aware datetimes to naive UTC automatically
+
+### 6.5a-bis. `_sync_async` — Run async from synchronous context
+
+The `_sync_async` utility is the standard way to call async `fetch()`
+from the synchronous `__call__` method. It replaces the old
+`nest_asyncio.apply()` + `loop.run_until_complete()` pattern:
+
+```python
+from earth2studio.data.utils import _sync_async
+
+# In __call__:
+xr_array = _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
+```
 
 ### 6.5b. `async_retry` — Retry with exponential backoff
 
@@ -773,13 +787,8 @@ def __init__(
     self._retries = retries
     self._tmp_cache_hash: str | None = None  # Lazy init for temp cache
 
-    # For async sources: attempt sync init of filesystem
-    try:
-        nest_asyncio.apply()
-        loop = asyncio.get_running_loop()
-        loop.run_until_complete(self._async_init())
-    except RuntimeError:
-        self.fs = None  # Will be initialized in __call__/fetch
+    # Filesystem initialized lazily in fetch() on first call
+    self.fs = None
 
     self.async_timeout = async_timeout
 ```
@@ -853,6 +862,12 @@ async def _async_init(self) -> None:
 
 ### 7c. Synchronous `__call__`
 
+The `__call__` method uses `_sync_async` from `earth2studio.data.utils`
+to run the async `fetch()` coroutine from any context (scripts,
+notebooks, existing async loops). This utility uses fsspec's dedicated
+background IO thread (`fsspec.asyn.get_loop()` + `fsspec.asyn.sync()`)
+so it works without `nest_asyncio` and avoids event loop conflicts:
+
 ```python
 def __call__(
     self,
@@ -875,19 +890,8 @@ def __call__(
         Weather data array with dimensions [time, variable, ...].
     """
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    if self.fs is None:
-        loop.run_until_complete(self._async_init())
-
-    try:
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, variable), timeout=self.async_timeout
-            )
+        xr_array = _sync_async(
+            self.fetch, time, variable, timeout=self.async_timeout
         )
     finally:
         if not self._cache:
@@ -911,12 +915,9 @@ async def fetch(
     """Async function to get data.
     ...
     """
+    # Lazy initialization of filesystem inside the async loop
     if self.fs is None:
-        raise ValueError(
-            "File store is not initialized! If you are calling this "
-            "function directly make sure the data source is initialized "
-            "inside the async loop!"
-        )
+        await self._async_init()
 
     time, variable = prep_data_inputs(time, variable)
 
@@ -1161,8 +1162,8 @@ cancellation — never leave orphaned temp directories on disk:
 
 ```python
 try:
-    result = loop.run_until_complete(
-        asyncio.wait_for(self.fetch(...), timeout=self.async_timeout)
+    result = _sync_async(
+        self.fetch, time, variable, timeout=self.async_timeout
     )
 finally:
     if not self._cache:
@@ -1752,7 +1753,10 @@ Present:
 - **DO** use the async task dataclass pattern for parallel fetching
 - **DO** use `prep_data_inputs` / `prep_forecast_inputs` to normalize
   inputs
-- **DO** use `nest_asyncio.apply()` in `__init__` for notebook compat
+- **DO** use `_sync_async` from `earth2studio.data.utils` in `__call__`
+  for running async `fetch()` from synchronous context
+- **DO** lazily initialize the filesystem in `fetch()` with
+  `if self.fs is None: await self._async_init()`
 - **DO** use `datasource_cache_root()` for cache paths
 - **DO** delete temporary cache when `cache=False`
 - **DO** add all new dependencies to the `data` extras group in
