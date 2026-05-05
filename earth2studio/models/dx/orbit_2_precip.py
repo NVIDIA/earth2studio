@@ -306,12 +306,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         )
 
         map_location = "cpu"
-        checkpoint = torch.load(package.resolve(model_type+"-finetune"+"/"+model_type+"_"+model_size+"_"+model_variable+".ckpt"), map_location=map_location)
+        checkpoint = torch.load(package.resolve(model_type+"-finetune"+"/"+model_type+"_"+model_size+"_"+model_variable+".ckpt"), map_location=map_location, weights_only=True)
 
         pretrain_model = checkpoint["model_state_dict"]
         del checkpoint
-
-        state_dict = model.state_dict()
 
         model.load_state_dict(pretrain_model)
 
