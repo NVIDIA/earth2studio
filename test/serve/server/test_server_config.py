@@ -49,6 +49,7 @@ from earth2studio.serve.server.config import (  # noqa: E402
     get_config_manager,
     get_workflow_config,
     reset_config,
+    resolve_serve_path,
 )
 
 
@@ -754,3 +755,28 @@ class TestObjectStorageEnvOverrides:
         monkeypatch.setenv("CONFIG_DIR", "/custom/conf")
         manager._initialize_config()
         assert isinstance(manager._config, AppConfig)
+
+    def test_int_override_ignores_non_integer_value(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-integer env-var value is ignored with a warning."""
+        manager = self._get_manager()
+        original_port = manager.config.redis.port
+        monkeypatch.setenv("REDIS_PORT", "not_a_number")
+        manager._apply_env_overrides()
+        assert manager.config.redis.port == original_port
+
+
+class TestResolveServePath:
+    """Test the resolve_serve_path helper."""
+
+    def test_prefers_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MY_DIR", "/explicit/path")
+        result = resolve_serve_path("MY_DIR", "serve/server/conf")
+        assert result == Path("/explicit/path")
+
+    def test_falls_back_to_repo_relative(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MY_DIR", raising=False)
+        result = resolve_serve_path("MY_DIR", "serve/server/conf")
+        assert result.name == "conf"
+        assert "serve" in str(result)

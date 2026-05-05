@@ -1,13 +1,14 @@
 ---
 name: release-rebase
-description: Prepare a new minor alpha release of Earth2Studio by rebasing the release candidate branch onto main, bumping the version, updating the changelog, stripping example version tags, and pushing for PR. Use this skill whenever the user mentions releasing, cutting a release, preparing a release branch, rebasing a release, bumping the version for a new development cycle, or running the release process. Also trigger when the user references "release-rebase" or asks about the release workflow.
+description: Prepare a new minor alpha release of Earth2Studio by rebasing the release candidate branch onto main, bumping the version, updating the changelog, updating the README latest-news highlights, stripping example version tags, and pushing for PR. Use this skill whenever the user mentions releasing, cutting a release, preparing a release branch, rebasing a release, bumping the version for a new development cycle, or running the release process. Also trigger when the user references "release-rebase" or asks about the release workflow.
 ---
 
 # Release Rebase — Prepare New Minor Alpha Release
 
 Prepare a new minor alpha release of Earth2Studio by rebasing the release
 candidate branch onto main, bumping the version, updating the changelog,
-stripping pinned version tags from examples, and pushing a PR branch.
+updating the README latest-news highlights, stripping pinned version tags
+from examples, and pushing a PR branch.
 
 Follow every step below **in order**. Each step that requires user input is
 marked with a confirmation gate — wait for explicit approval before proceeding.
@@ -149,7 +150,33 @@ look correct.
 
 ---
 
-## Step 6 — Commit and Push
+## Step 6 — Update README Latest News
+
+Update the "Latest News" section in `README.md` with highlights from the
+**released** version's CHANGELOG entry (the section just below the new blank
+development section added in Step 3).
+
+1. Read `CHANGELOG.md` and identify the 3–5 most notable items from the
+   released version's `### Added` subsection. Prefer items that introduce new
+   model classes, new data sources, or significant new capabilities.
+2. Read the current `## Latest News` section in `README.md`.
+3. Replace the existing bullet points (between the `> [!NOTE]` block and the
+   "For a complete list…" line) with new bullets summarising the highlights.
+   Follow the existing style:
+   - Each bullet starts with a bold linked feature name (where a docs link
+     exists) followed by a comma and a short description.
+   - Keep the `> [!NOTE]` version callout and update it to reference the new
+     released version number if it changed.
+4. Show the diff to the user for review.
+
+### **[CONFIRM — README]**
+
+Print the updated Latest News section and ask the user to confirm before
+proceeding.
+
+---
+
+## Step 7 — Commit and Push
 
 Stage only the expected files and commit:
 
@@ -157,6 +184,7 @@ Stage only the expected files and commit:
 git add CHANGELOG.md
 git add earth2studio/__init__.py
 git add examples/
+git add README.md
 git commit -m "Update version to X.(Y+1).0a0"
 ```
 

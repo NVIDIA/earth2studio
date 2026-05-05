@@ -1673,6 +1673,11 @@ Zarr file and mock `fetch_array` or the filesystem layer.
 
 ### 12e. Test guidelines
 
+- **Keep the number of tests low and concise with maximal coverage.**
+  Each test should justify its existence by covering distinct
+  functionality. Avoid redundant or overlapping tests — prefer fewer,
+  well-designed tests that exercise multiple code paths over many
+  narrow single-assertion tests.
 - **No docstrings** on test functions
 - Use **strategic parameterization** — minimize combinations
   while maximizing coverage

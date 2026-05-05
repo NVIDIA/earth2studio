@@ -96,17 +96,20 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**StormCast SDA**](https://nvidia.github.io/earth2studio/modules/generated/models/da/earth2studio.models.da.StormCastSDA.html),
-    score-based data assimilation (SDA) combined with StormCast for high-resolution
-    regional weather prediction, is now available alongside new data assimilation
-    model utilities.
+- [**GenCast Mini**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.GenCastMini.html),
+    Google DeepMind's 1-degree ensemble diffusion weather model, is now available as a
+    prognostic model.
+- [**CAMS Global Forecast**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.CAMS_FX.html#earth2studio.data.CAMS_FX),
+    Copernicus Atmosphere Monitoring Service global atmospheric composition forecasts
+    are now accessible via the new `CAMS_FX` forecast data source.
+- **Satellite Level-1 Data Sources**, six new satellite brightness-temperature and
+    radiance data sources added: MetOp AMSU-A, MetOp AVHRR, JPSS ATMS, JPSS CrIS,
+    MetOp IASI, and [Meteosat FCI](https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html).
+- [**NClimGrid Daily**](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html),
+    NOAA daily gridded climate observations for the contiguous US now available as a
+    data source.
 - **Data Assimilation Models**, a new model class for data assimilation including
     equirectangular interpolation and [HealDA](https://nvidia.github.io/earth2studio/examples/05_data_assimilation/02_healda.html).
-- [**NOAA UFS Observation Data Sources**](https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html),
-    for satellite and conventional observation dataframes now available with the new
-    Earth2Studio base schema.
-- [**Planetary Computer Data Sources**](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html)
-    added for ECMWF IFS analysis data and GOES cloud and moisture imagery.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 

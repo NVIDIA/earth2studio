@@ -263,7 +263,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "lon": np.empty(0, dtype=np.float32),
                 "observation": np.empty(0, dtype=np.float32),
                 "variable": np.array(list(SAT_SENSORS), dtype=str),
-                "channel_index": np.empty(0, dtype=np.uint16),
+                "channel_index": np.empty(0, dtype=np.uint16),  # UFS specific channels
                 "satellite": np.empty(0, dtype=str),
                 "scan_angle": np.empty(0, dtype=np.float32),
                 "satellite_za": np.empty(0, dtype=np.float32),

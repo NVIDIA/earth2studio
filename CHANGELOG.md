@@ -16,12 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- UFS Satellite Obs source is now the only one that provides the UFS specific
+  `channel_index` and general `sensor_index` fields, all other now provide
+  `sensor_index` only which can be used to consistently map from UFS to L1 products
+- Added `wavenumber` (cm⁻¹) field to all satellite schemas
+- Changed `channel_index` to `sensor_index` in `E2STUDIO_SCHEMA`
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
 
+- Fixed potential `uint16` underflow in UFS channel index expansion
 - S3 upload bug in server utilities
 
 ### Security
