@@ -61,6 +61,50 @@ def test_mrms_fetch(time, variable):
 
     # Variables coord matches request
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
+    for v in variable:
+        actual_time_coord = f"actual_time_{v}"
+        assert actual_time_coord in data.coords
+        assert data.coords[actual_time_coord].shape[0] == len(time)
+
+
+@pytest.mark.slow
+@pytest.mark.xfail
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize(
+    "time",
+    [
+        datetime(year=2024, month=7, day=1, hour=0, minute=0, second=0),
+        [
+            datetime(year=2020, month=10, day=31, hour=0, minute=0, second=0),
+            datetime(year=2024, month=7, day=1, hour=0, minute=30, second=0),
+        ],
+    ],
+)
+def test_mrms_fetch_multivar(time):
+    variable = ["refc", "refc_base"]
+    ds = MRMS(cache=False, max_offset_minutes=15)
+    data = ds(time, variable)
+    shape = data.shape
+
+    if isinstance(time, datetime):
+        time = [time]
+
+    # Check basic dims/time/variable
+    assert shape[0] == len(time)
+    assert shape[1] == len(variable)
+
+    # Must include lat/lon coords and dims
+    assert "lat" in data.dims
+    assert "lon" in data.dims
+    assert "lat" in data.coords
+    assert "lon" in data.coords
+
+    # Variables coord matches request
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
+    for v in variable:
+        actual_time_coord = f"actual_time_{v}"
+        assert actual_time_coord in data.coords
+        assert data.coords[actual_time_coord].shape[0] == len(time)
 
 
 @pytest.mark.slow
@@ -125,6 +169,67 @@ def test_mrms_available():
     with pytest.raises(ValueError):
         ds = MRMS(cache=False)
         ds([datetime(2019, 1, 1, 0, 0, 0)], "refc")
+
+
+@pytest.mark.slow
+@pytest.mark.timeout(120)
+def test_mrms_corrupted_nearest_file_fallback():
+    """Corrupted nearest file fallback behavior.
+
+    The nearest MRMS file for refc_base around 2021-01-14T23:59:57 is known to
+    be corrupted/truncated on the NOAA S3 bucket:
+
+        s3://noaa-mrms-pds/CONUS/MergedBaseReflectivityQC_00.50/20210114/
+        MRMS_MergedBaseReflectivityQC_00.50_20210114-235957.grib2.gz
+
+    This file decompresses successfully but pygrib/eccodes cannot read the GRIB
+    message (``RuntimeError: End of resource reached when reading message``).
+    The GRIB2 payload is truncated: actual size 229376 bytes vs declared message
+    length 912765, and it is missing the ``7777`` end-of-message marker.
+
+    Step 1: Very tight tolerance — only the corrupted file matches, so the
+    pipeline raises RuntimeError (no valid grid can be inferred).
+
+    Step 2: Wider tolerance — _resolve_s3_time_candidates lists all nearby
+    files. The corrupted one is tried first (nearest), skipped by _fetch_task,
+    and the next-nearest valid candidate is used as a fallback. The returned
+    data should contain real (non-NaN) values.
+    """
+    # Request the exact timestamp of the corrupted file so it is resolved first.
+    t_corrupted = datetime(2021, 1, 14, 23, 59, 57)
+
+    # --- Step 1: Very tight tolerance (0.1 min = 6 s). Only the corrupted file
+    # matches; no valid fallback candidate exists.  fetch() cannot infer a
+    # lat/lon grid from zero successful results, so it raises RuntimeError
+    # ("All MRMS fetches failed; no data available.").
+    ds_tight = MRMS(cache=False, max_offset_minutes=0.1)
+    with pytest.raises(RuntimeError, match="All MRMS fetches failed"):
+        ds_tight([t_corrupted], "refc_base")
+
+    # --- Step 2: Wider tolerance (10 min). The corrupted file is resolved first
+    # but _fetch_task should skip it and fall back to the next-nearest valid
+    # candidate within the window.
+    ds = MRMS(cache=False, max_offset_minutes=10)
+    data = ds([t_corrupted], "refc_base")
+
+    # Should still return valid shape
+    assert data.shape[0] == 1
+    assert data.shape[1] == 1
+    assert "lat" in data.dims and "lon" in data.dims
+
+    # The fallback candidate should have produced real data, not all NaN.
+    values = data.isel(time=0).values
+    assert not np.isnan(values).all(), (
+        "Expected fallback to next-nearest valid file after skipping corrupted "
+        "MRMS_MergedBaseReflectivityQC_00.50_20210114-235957.grib2.gz, "
+        "but got all-NaN output."
+    )
+
+    # actual_time_refc_base should exist and differ from the corrupted timestamp
+    assert "actual_time_refc_base" in data.coords
+    assert data.coords["actual_time_refc_base"].values != np.datetime64(
+        "1970-01-01T00:00:00"
+    )
 
 
 @pytest.mark.slow

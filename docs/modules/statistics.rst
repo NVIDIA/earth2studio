@@ -17,6 +17,7 @@ Various statistic and metric calculations for analysing inference data.
     statistics.acc
     statistics.brier
     statistics.crps
+    statistics.energy_score
     statistics.fss
     statistics.lsd
     statistics.mae

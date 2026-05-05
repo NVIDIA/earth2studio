@@ -104,7 +104,7 @@ def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
     return vec_convert(cftime_array)
 
 
-@check_optional_dependencies("ace2")
+@check_optional_dependencies()
 class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ACE2-ERA5 prognostic model wrapper.
 
@@ -132,10 +132,15 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - ACE2 code: https://github.com/ai2cm/ace
 
     Warning
-    ----------
+    -------
     This model may only be used with input data on the GPU device that the model was
     loaded on. Specifically, the data must be on the same device as whatever
     ``torch.cuda.current_device()`` was set to when the model package was loaded.
+
+    Badges
+    ------
+    region:global class:cm product:wind product:precip product:temp product:atmos
+    product:ocean product:land year:2024 gpu:40gb
     """
 
     def __init__(

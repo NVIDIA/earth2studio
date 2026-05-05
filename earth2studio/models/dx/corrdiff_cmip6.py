@@ -37,14 +37,20 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import CoordSystem, LeadTimeArray
 
 try:
-    from physicsnemo.models import Module as PhysicsNemoModule
-    from physicsnemo.utils.corrdiff import diffusion_step, regression_step
+    from physicsnemo.diffusion.generate.legacy_generate import (
+        diffusion_step,
+        regression_step,
+    )
+    from physicsnemo.diffusion.preconditioners.legacy import EDMPrecondSuperResolution
+    from physicsnemo.models.diffusion_unets import UNet
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:  # pragma: no cover
     OptionalDependencyFailure("corrdiff")
     diffusion_step = None  # type: ignore[assignment]
     regression_step = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
+    UNet = None  # type: ignore[assignment]
+    EDMPrecondSuperResolution = None  # type: ignore[assignment]
 
 
 class CorrDiffCMIP6(CorrDiff):
@@ -157,6 +163,10 @@ class CorrDiffCMIP6(CorrDiff):
     >>> out, out_coords = model(x, coords)
     >>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
 
+    Badges
+    ------
+    region:global class:ds class:cm product:wind product:precip product:temp
+    product:atmos year:2026 gpu:80gb
     """
 
     # Variables that must be non-negative (clipped to min=0 during postprocessing)
@@ -430,16 +440,14 @@ class CorrDiffCMIP6(CorrDiff):
 
         # Load the base CorrDiff model from the package.
         residual = (
-            PhysicsNemoModule.from_checkpoint(
+            EDMPrecondSuperResolution.from_checkpoint(
                 package.resolve("diffusion.mdlus"), strict=False
             )
             .eval()
             .to(device)
         )
         regression = (
-            PhysicsNemoModule.from_checkpoint(
-                package.resolve("regression.mdlus"), strict=False
-            )
+            UNet.from_checkpoint(package.resolve("regression.mdlus"), strict=False)
             .eval()
             .to(device)
         )

@@ -32,7 +32,7 @@ coords = OrderedDict(
 
 Other coordinates can have a value of {py:obj}`np.empty(0)` to denote an additional
 dynamic axis but imply a required data type.
-In this case, this model supports a batch but must have a `time` axis needs to be a
+In this case, this model supports a batch but the `time` axis must be a
 Numpy array of type {py:obj}`np.datetime64`. See [data movement](coordinates_userguide)
 section for expected types.
 
@@ -182,7 +182,7 @@ Output: torch.Size([4]) OrderedDict([('dim2', array([0, 1, 2, 3]))])
 
 The IO backends require users to pre-define the output coordinate system on which the
 data will be exported.
-Typically. a good way to do this is to look at the output coordinate system of the model,
+Typically, a good way to do this is to review the output coordinate system of the model,
 which will typically include a `batch` dimension.
 But the model won't actually return a batch dimension, thus it's a common pattern to
 replace this batch dimension with whatever leading coordinate the input will have.

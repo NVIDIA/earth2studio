@@ -20,6 +20,7 @@ import concurrent.futures
 import hashlib
 import os
 import shutil
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -87,6 +88,10 @@ class NCAR_ERA5:
     ----
     Additional resources:
     https://registry.opendata.aws/nsf-ncar-era5/
+
+    Badges
+    ------
+    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
     """
 
     NCAR_EAR5_LAT = np.linspace(90, -90, 721)
@@ -103,6 +108,7 @@ class NCAR_ERA5:
         self._cache = cache
         self._verbose = verbose
         self.async_timeout = async_timeout
+        self._tmp_cache_hash: str | None = None
 
     def __call__(
         self,
@@ -505,7 +511,10 @@ class NCAR_ERA5:
         """Return appropriate cache location."""
         cache_location = os.path.join(datasource_cache_root(), "ncar_era5")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_ncar_era5")
-        if not os.path.exists(cache_location):
-            os.makedirs(cache_location, exist_ok=True)
+            if self._tmp_cache_hash is None:
+                # First access for temp cache: create a random suffix to avoid collisions
+                self._tmp_cache_hash = uuid.uuid4().hex[:8]
+            cache_location = os.path.join(
+                cache_location, f"tmp_ncar_{self._tmp_cache_hash}"
+            )
         return cache_location

@@ -36,7 +36,7 @@ from earth2studio.utils.type import CoordSystem
 try:
     import earth2grid
     from omegaconf import OmegaConf
-    from physicsnemo.models import Module
+    from physicsnemo import Module
     from physicsnemo.utils.insolation import insolation
 except ImportError:
     OptionalDependencyFailure("dlesym")
@@ -145,6 +145,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
                 ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
                 ...
+
+    Badges
+    ------
+    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2025
+    gpu:40gb
     """
 
     def __init__(
@@ -950,6 +955,11 @@ class DLESyMLatLon(DLESyM):
         Arguments for :class:`DLESyM`
     **kwargs
         Keyword arguments for :class:`DLESyM`
+
+    Badges
+    ------
+    region:global class:s2s product:wind product:temp product:atmos product:ocean year:2025
+    gpu:40gb
     """
 
     @check_optional_dependencies()

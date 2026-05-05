@@ -22,10 +22,11 @@ import numpy as np
 import pytest
 
 from earth2studio.lexicon import (
-    ECMWFOpenDataIFSLexicon,
-    MODISFireLexicon,
-    OISSTLexicon,
-    Sentinel3AODLexicon,
+    PlanetaryComputerECMWFOpenDataIFSLexicon,
+    PlanetaryComputerGOESLexicon,
+    PlanetaryComputerMODISFireLexicon,
+    PlanetaryComputerOISSTLexicon,
+    PlanetaryComputerSentinel3AODLexicon,
 )
 
 
@@ -40,7 +41,7 @@ from earth2studio.lexicon import (
 )
 def test_planetary_computer_oisst_lexicon(variable: str, expected: float) -> None:
     """Check OISST modifiers and labels."""
-    label, modifier = OISSTLexicon[variable]
+    label, modifier = PlanetaryComputerOISSTLexicon[variable]
     assert isinstance(label, str)
 
     sample = np.array([1.0, 2.0], dtype=np.float32)
@@ -69,7 +70,7 @@ def test_planetary_computer_oisst_lexicon(variable: str, expected: float) -> Non
 )
 def test_planetary_computer_sentinel3_aod_lexicon(variable: str) -> None:
     """Ensure Sentinel-3 SYNERGY lexicon entries map cleanly."""
-    label, modifier = Sentinel3AODLexicon[variable]
+    label, modifier = PlanetaryComputerSentinel3AODLexicon[variable]
     assert isinstance(label, str)
 
     sample = np.random.rand(4, 4).astype(np.float32)
@@ -80,7 +81,7 @@ def test_planetary_computer_sentinel3_aod_lexicon(variable: str) -> None:
 @pytest.mark.parametrize("variable", ["fmask", "mfrp", "qa"])
 def test_planetary_computer_modis_fire_lexicon(variable: str) -> None:
     """Check MODIS Fire lexicon mappings."""
-    label, modifier = MODISFireLexicon[variable]
+    label, modifier = PlanetaryComputerMODISFireLexicon[variable]
     assert isinstance(label, str)
 
     sample = np.random.rand(3, 3).astype(np.float32)
@@ -94,7 +95,7 @@ def test_planetary_computer_modis_fire_lexicon(variable: str) -> None:
 )
 def test_planetary_computer_ifs_lexicon(variable: str) -> None:
     """Ensure IFS lexicon entries other than geopotential map cleanly."""
-    label, modifier = ECMWFOpenDataIFSLexicon[variable]
+    label, modifier = PlanetaryComputerECMWFOpenDataIFSLexicon[variable]
     assert isinstance(label, str)
 
     sample = np.random.rand(4, 4).astype(np.float32)
@@ -103,3 +104,14 @@ def test_planetary_computer_ifs_lexicon(variable: str) -> None:
         assert np.allclose(out, sample * 9.81)
     else:
         assert np.allclose(out, sample)
+
+
+@pytest.mark.parametrize("variable", ["abi01c", "abi05c", "abi16c"])
+def test_planetary_computer_goes_lexicon(variable: str) -> None:
+    """Check GOES lexicon mappings."""
+    label, modifier = PlanetaryComputerGOESLexicon[variable]
+    assert isinstance(label, str)
+
+    sample = np.random.rand(3, 3).astype(np.float32)
+    out = modifier(sample.copy())
+    assert np.allclose(out, sample)

@@ -34,12 +34,12 @@ default value is provided by adding ", by default [default value]" to the end of
 doc string.
 
 - Periods should be used at the end of complete sentences, but are not required at the
-end of "by default [default value]" or incomplete sentences
+end of "by default [default value]" or incomplete sentences.
 
 For VSCode users, the
 [autoDocstring extension](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring)
 is highly encouraged.
-See the following doc-string samples for guidance.
+Refer to the following doc-string samples for guidance:
 
 ```python
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
@@ -91,7 +91,7 @@ class CorrelatedSphericalGaussian:
 ## Example Documentation
 
 Examples in Earth2Studio are created with the intent to teach or demonstrate a specific
-feature/workflow/concept/use case to users.
+feature, workflow, concept, or use case to users.
 If you are interested in contributing an example, reach out to us in a Github
 issue to discuss further.
 The example scripts used to populate the documentation are placed in the
@@ -102,24 +102,24 @@ generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.h
 ### Definition
 
 Examples demonstrate how to use Earth2Studio APIs.
-Examples should be short and concise, designed to be ran in a short wall-clock time of
+Examples should be short and concise, designed to be run in a short wall-clock time of
 under 10 minutes on a typical data-center level GPU.
-The script must be runnable on a single 32Gb A100 GPU using minimal extra dependencies.
-Additional requirements may be required for running the example inside the CD pipeline,
+The script must be runnable on a single 80Gb H100 GPU using minimal extra dependencies.
+Additional requirements might be required for running the example inside the CD pipeline,
 which will be addressed on a case-by-case basis.
 
 ### Creating a New Example
 
-In Earth2Studio, vanilla Jupyter lab notebooks are not used to avoid bloat in the commit
+In Earth2Studio, Jupyter lab notebooks are not used to avoid bloat in the commit
 history.
 Instead, [Sphinx Gallery](https://sphinx-gallery.github.io/stable/index.html) is used to
 represent notebooks as code.
 Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
 These comments are automatically rendered as formatted text on the documentation web
 pages and as markdown cells in the converted Jupyter notebooks.
-For more details on the syntax, see the [embedded reST documentation](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files).
+For more details on the syntax, refer to the [embedded reST documentation](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files).
 
-To specify required dependencies, use [uv inline metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>)
+To specify required dependencies, use [uv inline metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>),
 which allows each example to use different dependency groups or packages not shipped
 with Earth2Studio.
 To create an example, the best method is to copy an existing example and follow the
@@ -131,10 +131,10 @@ structure:
 Example Title
 ==============
 
-Brief one-liner of what this will do (used on hover of thumbnail in docs)
+Brief one-liner of what this will do (used on hover of thumbnail in docs).
 
 Then add a more verbose description on a new line here.
-This can be multiply lines with references if needed
+This can be multiply lines with references if needed.
 Include a list of the specific unique items this example includes, for example:
 
 In this example you will learn:
@@ -202,6 +202,8 @@ Examples should always have at least one or more graphics.
 The first will always be the thumbnail.
 Animations are not supported.
 
+(building_documentation)=
+
 ## Building Documentation
 
 To build the core documentation without executing examples use:
@@ -214,7 +216,7 @@ make docs
 SPHINXBUILD="python -m sphinx.cmd.build" make docs
 ```
 
-For full docs, where all examples are ran, use:
+For full docs, where all examples are run, use:
 
 ```bash
 make docs-full
@@ -232,7 +234,7 @@ make docs-dev FILENAME=<example filename .py>
 ```
 
 Build files will always be in `docs/_build/html`.
-Since the docs are static, Python can be used to host them [locally](http://localhost:8000):
+Because the docs are static, Python can be used to host them [locally](http://localhost:8000):
 
 ```bash
 cd docs/_build/html

@@ -1,0 +1,103 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+
+openapi: 3.0.3
+info:
+  title: Earth2Studio REST API
+  description: |
+    REST API for running Earth2Studio workflows including deterministic, diagnostic, ensemble,
+    and custom inference workflows. Supports weather forecasting, downscaling, and other
+    atmospheric modeling tasks.
+  version: 1.0.0
+  contact:
+    name: NVIDIA Scicomp Team
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is running and healthy
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T00:00:00Z"
+
+  /metrics:
+    get:
+      summary: Get Prometheus metrics
+      description: Get Prometheus metrics for monitoring the API server
+      responses:
+        '200':
+          description: Prometheus metrics returned successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP python_gc_objects_collected_total Objects collected during gc
+                  # TYPE python_gc_objects_collected_total counter
+                  python_gc_objects_collected_total{generation="0"} 123.0
+                  # HELP python_gc_objects_uncollectable_total Uncollectable object found during GC
+                  # TYPE python_gc_objects_uncollectable_total counter
+                  python_gc_objects_uncollectable_total{generation="0"} 0.0
+        '500':
+          description: Internal server error - failed to generate metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to generate metrics"
+                  details:
+                    type: string
+                    example: "Prometheus client encountered an internal error"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: Service unavailable - metrics collection temporarily unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Metrics service unavailable"
+                  details:
+                    type: string
+                    example: "Metrics collection is temporarily disabled or overloaded"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  schemas: {}
+  responses: {}
+
+tags:
+  - name: Workflows
+    description: Custom workflow execution and management

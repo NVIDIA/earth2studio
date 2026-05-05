@@ -76,7 +76,6 @@ venv.bak/
 
 # VsCode
 .vscode/
-.cursor/
 
 # VIM
 *.swp
@@ -103,3 +102,6 @@ docs/examples
 
 # Pytestmon
 .testmondata*
+
+.claude/agent-memory
+.claude/agents

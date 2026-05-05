@@ -86,6 +86,10 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         Model center normalization tensor of size [17,1,1]
     scale : torch.Tensor
         Model scale normalization tensor of size [17,1,1]
+
+    Badges
+    ------
+    region:global class:mrf product:wind year:2024 gpu:40gb
     """
 
     def __init__(

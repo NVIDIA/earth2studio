@@ -24,6 +24,8 @@ import xarray as xr
 
 try:
     import cbottle
+    from cbottle.datasets import base
+    from cbottle.inference import MixtureOfExpertsDenoiser
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
@@ -41,7 +43,12 @@ def mock_core_model() -> torch.nn.Module:
     model_config.out_channels = 45
     model_config.condition_channels = 1
     model_config.level = 2
-    return cbottle.models.get_model(model_config)
+    model1 = cbottle.models.get_model(model_config)
+    return MixtureOfExpertsDenoiser(
+        [model1],
+        (),
+        batch_info=base.BatchInfo(CBottleInfill.output_variables),
+    )
 
 
 @pytest.fixture(scope="class")
@@ -244,14 +251,16 @@ class TestCBottleMock:
             }
         )
         torch.manual_seed(0)
-        dx.set_seed(0)
+        torch.cuda.manual_seed_all(0)
+        np.random.seed(0)
         out0, out_coords = dx(x, coords)
 
         # Adjust time and lead time dim so data is at same timestamp
         coords["time"] = np.array([datetime(1995, 8, 2, 9, 12)])
         coords["lead_time"] = np.array([timedelta(hours=0)])
         torch.manual_seed(0)
-        dx.set_seed(0)
+        torch.cuda.manual_seed_all(0)
+        np.random.seed(0)
         out1, out_coords = dx(x, coords)
 
         # Permute variables
@@ -262,7 +271,8 @@ class TestCBottleMock:
         coords["variable"] = input_variables
         x = torch.flip(x, dims=[-3])
         torch.manual_seed(0)
-        dx.set_seed(0)
+        torch.cuda.manual_seed_all(0)
+        np.random.seed(0)
         out2, out_coords = dx(x, coords)
 
         assert torch.allclose(out0, out1)

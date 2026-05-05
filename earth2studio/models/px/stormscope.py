@@ -46,11 +46,11 @@ from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordSystem
 
 try:
-    from physicsnemo.models import Module
+    from physicsnemo.models import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:
     OptionalDependencyFailure("stormscope")
-    Module = None  # type: ignore[assignment]
+    DiT = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
 
 from earth2studio.models.nn.stormscope_util import (
@@ -59,7 +59,7 @@ from earth2studio.models.nn.stormscope_util import (
 )
 
 
-def model_wrap(model: Module) -> nn.Module:
+def model_wrap(model: DiT) -> nn.Module:
     """Wrap a physicsnemo Module so it is compatible with the preconditioning
     and sampler used by StormScope.
     TODO: Remove once core EDMPrecond architecture is fully upstreamed
@@ -1027,6 +1027,10 @@ class StormScopeGOES(StormScopeBase):
     To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
     As a result, there are portions of the domain which go beyond the extent of the GOES-East data,
     so these portions are masked as invalid (set to NaN).
+
+    Badges
+    ------
+    region:na class:nwc product:sat year:2026 gpu:80gb
     """
 
     def __init__(
@@ -1201,7 +1205,7 @@ class StormScopeGOES(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = Module.from_checkpoint(package.resolve(m["path"]))
+            model = DiT.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),
@@ -1355,6 +1359,10 @@ class StormScopeMRMS(StormScopeBase):
     To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
     As a result, there are portions of the domain which go beyond the extent of the MRMS data,
     so these portions are masked as invalid (set to NaN).
+
+    Badges
+    ------
+    region:na class:nwc product:radar year:2026 gpu:80gb
     """
 
     _STATE_FIRST = False
@@ -1547,7 +1555,7 @@ class StormScopeMRMS(StormScopeBase):
 
         model_spec = []
         for m in pkg["checkpoints"]:
-            model = Module.from_checkpoint(package.resolve(m["path"]))
+            model = DiT.from_checkpoint(package.resolve(m["path"]))
             model_spec.append(
                 {
                     "model": model_wrap(model),

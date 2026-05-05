@@ -92,6 +92,9 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
 
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos product:land product:solar year:2025 gpu:40gb
     """
 
     VARIABLES = [

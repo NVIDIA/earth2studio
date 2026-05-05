@@ -38,7 +38,8 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.utils.time import normalize_time_tolerance
+from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 
 @dataclass
@@ -68,7 +69,7 @@ class _UFSObsBase:
 
     def __init__(
         self,
-        tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         max_workers: int = 24,
         cache: bool = True,
         async_timeout: int = 600,
@@ -88,10 +89,9 @@ class _UFSObsBase:
         except RuntimeError:
             self.fs = None
 
-        if isinstance(tolerance, np.timedelta64):
-            self.tolerance = pd.to_timedelta(tolerance).to_pytimedelta()
-        else:
-            self.tolerance = tolerance
+        lower, upper = normalize_time_tolerance(time_tolerance)
+        self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
+        self._tolerance_upper = pd.to_timedelta(upper).to_pytimedelta()
 
     async def _async_init(self) -> None:
         """Async initialization of S3 filesystem"""
@@ -223,6 +223,17 @@ class _UFSObsBase:
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Compile fetched data into a DataFrame."""
+        # Identify schema fields that are per-channel (need Channel_Index lookup)
+        channel_indexed_fields: dict[str, str] = {}
+        for field in schema:
+            if (
+                field.metadata
+                and b"channel_indexed" in field.metadata
+                and b"gsi_name" in field.metadata
+            ):
+                gsi_name = field.metadata[b"gsi_name"].decode("utf-8")
+                channel_indexed_fields[gsi_name] = field.name
+
         frames: list[pd.DataFrame] = []
         for task in async_tasks:
             # Overwrite obs column name (needed for uv)
@@ -235,8 +246,12 @@ class _UFSObsBase:
             try:
                 with h5netcdf.File(local_path, "r") as ds:
                     data: dict[str, np.ndarray] = {}
+                    channel_index_raw: np.ndarray | None = None
                     for name, dset in ds.variables.items():
                         if name not in column_map:
+                            continue
+                        # Skip channel-indexed fields; they are expanded below
+                        if name in channel_indexed_fields:
                             continue
                         values = np.asarray(dset[:])
                         pa_type = self.SCHEMA.field(column_map[name]).type
@@ -249,6 +264,25 @@ class _UFSObsBase:
                         # Apply subclass-specific transformations
                         values = self._transform_column(name, values, task, ds)
                         data[name] = pa.array(values, type=pa_type)
+                        # Stash raw Channel_Index for per-channel expansion
+                        if name == "Channel_Index":
+                            channel_index_raw = np.asarray(dset[:])
+
+                    # Expand channel-indexed fields using Channel_Index as lookup
+                    if channel_index_raw is not None:
+                        idx: np.ndarray = channel_index_raw.astype(np.int32) - 1
+                        for gsi_name, field_name in channel_indexed_fields.items():
+                            if gsi_name in ds.variables:
+                                lut = np.asarray(
+                                    ds[gsi_name][:],
+                                    dtype=schema.field(
+                                        field_name
+                                    ).type.to_pandas_dtype(),
+                                )
+                                data[gsi_name] = pa.array(
+                                    lut[idx], type=schema.field(field_name).type
+                                )
+
                 df = pd.DataFrame(data)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Failed to read {}: {}", local_path, exc)
@@ -413,9 +447,10 @@ class UFSObsConv(_UFSObsBase):
 
     Parameters
     ----------
-    tolerance : timedelta | np.timedelta64, optional
-        Time tolerance; observations within +/- tolerance of any requested time are
-        returned, by default np.timedelta64(0).
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     max_workers : int, optional
         Max workers in async IO thread pool for concurrent downloads, by default 24.
     cache : bool, optional
@@ -445,6 +480,10 @@ class UFSObsConv(_UFSObsBase):
 
         ds = UFSObsConv(tolerance=timedelta(hours=2))
         df = ds(datetime(2024, 1, 1, 20), ["u"])
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsConv"
@@ -491,13 +530,18 @@ class UFSObsConv(_UFSObsBase):
             try:
                 gsi_name, modifier = GSIConventionalLexicon[v]  # type: ignore
                 gsi_platform, gsi_sensor, gsi_product, gsi_name = gsi_name.split("::")
-            except KeyError as e:
-                logger.error(f"Variable id {v} not found in GSI conventional lexicon")
-                raise e
+            except KeyError:
+                if v in GSISatelliteLexicon:
+                    logger.warning(
+                        f"Variable id {v} is a UFS satellite variable, skipping in conventional fetch"
+                    )
+                    continue
+                logger.error(f"Variable id {v} not found in GSI lexicon")
+                raise
 
             for t in time_list:
-                tmin = t - self.tolerance
-                tmax = t + self.tolerance
+                tmin = t + self._tolerance_lower
+                tmax = t + self._tolerance_upper
                 day = tmin.replace(minute=0, second=0, microsecond=0)
                 day = day.replace(hour=(day.hour // 6) * 6)
                 while day <= tmax:
@@ -546,9 +590,10 @@ class UFSObsSat(_UFSObsBase):
 
     Parameters
     ----------
-    tolerance : timedelta | np.timedelta64, optional
-        Time tolerance; observations within +/- tolerance of any requested time are
-        returned, by default np.timedelta64(0).
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single value
+        (symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+        by default, np.timedelta64(10, 'm').
     satellites : list[str], optional
         List of satellite platforms to include, by default includes all platforms.
     max_workers : int, optional
@@ -585,11 +630,16 @@ class UFSObsSat(_UFSObsBase):
         # Use specific satellite
         ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
         df = ds(datetime(2024, 1, 1, 20), ["atms"])
+
+    Badges
+    ------
+    region:global dataclass:observation product:atmos product:sat
     """
 
     SOURCE_ID = "earth2studio.data.UFSObsSat"
     VALID_SATELLITES = frozenset(
         [
+            "aqua",
             "npp",
             "metop-a",
             "metop-b",
@@ -623,6 +673,18 @@ class UFSObsSat(_UFSObsBase):
                 nullable=True,
                 metadata={"gsi_name": "Channel_Index"},
             ),
+            pa.field(
+                "sensor_index",
+                pa.uint16(),
+                nullable=True,
+                metadata={"gsi_name": "sensor_chan", "channel_indexed": "true"},
+            ),
+            pa.field(
+                "wavenumber",
+                pa.float64(),
+                nullable=True,
+                metadata={"gsi_name": "wavenumber", "channel_indexed": "true"},
+            ),
             pa.field("solza", pa.float32(), metadata={"gsi_name": "Sol_Zenith_Angle"}),
             pa.field(
                 "solaza", pa.float32(), metadata={"gsi_name": "Sol_Azimuth_Angle"}
@@ -643,7 +705,7 @@ class UFSObsSat(_UFSObsBase):
 
     def __init__(
         self,
-        tolerance: timedelta | np.timedelta64 = np.timedelta64(0),
+        time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         satellites: list[str] | None = None,
         max_workers: int = 24,
         cache: bool = True,
@@ -661,7 +723,7 @@ class UFSObsSat(_UFSObsBase):
                 )
         self.satellites = satellites
         super().__init__(
-            tolerance=tolerance,
+            time_tolerance=time_tolerance,
             max_workers=max_workers,
             cache=cache,
             async_timeout=async_timeout,
@@ -679,14 +741,19 @@ class UFSObsSat(_UFSObsBase):
                 gsi_platforms = [
                     p for p in gsi_platforms0.split(",") if p in self.satellites
                 ]
-            except KeyError as e:
-                logger.error(f"Variable id {v} not found in GSI satellite lexicon")
-                raise e
+            except KeyError:
+                if v in GSIConventionalLexicon:
+                    logger.warning(
+                        f"Variable id {v} is a UFS conventional variable, skipping in satellite fetch"
+                    )
+                    continue
+                logger.error(f"Variable id {v} not found in GSI lexicon")
+                raise
 
             for gsi_platform in gsi_platforms:
                 for t in time_list:
-                    tmin = t - self.tolerance
-                    tmax = t + self.tolerance
+                    tmin = t + self._tolerance_lower
+                    tmax = t + self._tolerance_upper
                     day = tmin.replace(minute=0, second=0, microsecond=0)
                     day = day.replace(hour=(day.hour // 6) * 6)
                     while day <= tmax:
@@ -713,6 +780,18 @@ class UFSObsSat(_UFSObsBase):
         """Satellite data may have missing platforms, just warn instead of error."""
         logger.warning(f"File {path} not found")
 
+    def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
+        """Build column map, always including Channel_Index for channel-indexed fields."""
+        column_map = super()._build_column_map(schema)
+        # Channel_Index is required to expand any channel-indexed fields
+        for field in schema:
+            if field.metadata and b"channel_indexed" in field.metadata:
+                ci_field = self.SCHEMA.field("channel_index")
+                ci_gsi = ci_field.metadata[b"gsi_name"].decode("utf-8")
+                column_map[ci_gsi] = ci_field.name
+                break
+        return column_map
+
     def _transform_column(
         self,
         name: str,
@@ -724,19 +803,8 @@ class UFSObsSat(_UFSObsBase):
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Obs_Time":
             values = pd.to_timedelta(values, unit="h") + task.datetime_file
-        # Channel index actually seems to be a pointer to sensor channels
-        if name == "Channel_Index":
-            sensor_chan = ds["sensor_chan"][:].astype(np.uint16)
-            values = sensor_chan[values.astype(np.uint16) - 1]
         return values
 
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
-        """Add satellite column for satellite data."""
+        """Add satellite column."""
         df["satellite"] = task.satellite
-
-
-if __name__ == "__main__":
-
-    ds = UFSObsSat(satellites=["npp"], tolerance=timedelta(hours=6))
-    df = ds(datetime(2024, 2, 1), ["atms"], ["lon", "variable"])
-    print(df)

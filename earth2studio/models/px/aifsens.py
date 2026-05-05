@@ -202,6 +202,10 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
 
+    Badges
+    ------
+    region:global class:mrf product:wind product:precip product:temp product:atmos
+    product:land product:solar year:2025 gpu:48gb
     """
 
     VARIABLE_INVARIANTS = ["lsm", "sdor", "slor", "z"]
@@ -818,8 +822,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         batch, time, lead, _, height, width = x.shape
 
-        # Prepare empty output tensor with VARIABLE dimension
-        out = torch.empty(
+        # Prepare output tensor with VARIABLE dimension (zeros to avoid uninitialised memory)
+        out = torch.zeros(
             (batch, time, lead, len(VARIABLES), height, width),
             device=x.device,
         )
@@ -848,6 +852,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         keep = torch.isin(
             all_indices, self.model.data_indices.data.output.forcing, invert=True
         )
+
         out = out[:, :, :, keep, ...]
 
         # Update coordinates with remaining variable names

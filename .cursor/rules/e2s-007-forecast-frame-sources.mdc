@@ -1,0 +1,267 @@
+---
+globs: earth2studio/data/*.py
+description: Earth2Studio forecast frame source implementation guidelines for pandas DataFrame sources with lead_time and PyArrow schemas
+---
+
+# Earth2Studio Forecast Frame Sources
+
+This rule enforces forecast frame source implementation standards for Earth2Studio. Forecast frame sources are similar to DataFrame sources but include a `lead_time` parameter. **Most patterns from [e2s-006-dataframe-sources.mdc](mdc:.cursor/rules/e2s-006-dataframe-sources.mdc) still apply** - this rule highlights the key differences.
+
+## Forecast Frame Source Protocol
+
+Forecast frame sources must implement the `ForecastFrameSource` Protocol from [base.py](mdc:earth2studio/data/base.py):
+
+- `__call__(time, lead_time, variable, fields=None) -> pd.DataFrame` - Synchronous interface
+- `async fetch(time, lead_time, variable, fields=None) -> pd.DataFrame` - Async interface
+
+Both methods have the same API:
+- `time: datetime | list[datetime] | TimeArray`
+- `lead_time: timedelta | list[timedelta] | LeadTimeArray`
+- `variable: str | list[str] | VariableArray`
+- `fields: str | list[str] | pa.Schema | None, optional` - Fields/columns to return
+- Returns: `pd.DataFrame` with columns matching the requested fields
+
+## Key Differences from DataFrame Sources
+
+### 1. API Signature Includes `lead_time`
+
+The main difference is the addition of the `lead_time` parameter:
+
+```python
+def __call__(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Fetch forecast observations for a set of timestamps and lead times.
+
+    Parameters
+    ----------
+    time : datetime | list[datetime] | TimeArray
+        Timestamps to return data for (UTC).
+    lead_time: timedelta | list[timedelta] | LeadTimeArray
+        Forecast lead times to fetch.
+    variable : str | list[str] | VariableArray
+        DataFrame column names to return.
+    fields : str | list[str] | pa.Schema | None, optional
+        Fields to include in output, by default None (all fields).
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame with the requested columns
+    """
+```
+
+### 2. Use `prep_forecast_inputs` Instead of `prep_data_inputs`
+
+Forecast frame sources must use `prep_forecast_inputs` to normalize all three inputs:
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    # Normalize all three inputs
+    time_list, lead_time_list, variable_list = prep_forecast_inputs(time, lead_time, variable)
+    schema = self.resolve_fields(fields)
+    # ... rest of implementation
+```
+
+### 3. Task Creation Includes `lead_time`
+
+The `_create_tasks` method must iterate over lead times as well:
+
+```python
+def _create_tasks(
+    self,
+    time_list: list[datetime],
+    lead_time: list[timedelta],
+    variable: list[str],
+) -> list[TaskType]:
+    """Create async tasks for fetching forecast data."""
+    tasks: list[TaskType] = []
+    for v in variable:
+        source_key, modifier = MyForecastFrameLexicon[v]
+        # Parse source_key
+        parts = source_key.split("::")
+
+        # Create tasks for each time/lead_time/variable combination
+        for t in time_list:
+            for lt in lead_time:
+                tasks.append(
+                    TaskType(
+                        time=t,
+                        lead_time=lt,
+                        source_key=source_key,
+                        modifier=modifier,
+                        e2s_obs_name=v,
+                    )
+                )
+    return tasks
+```
+
+### 4. Lead Time Validation
+
+Implement `_validate_leadtime` classmethod to validate lead time inputs:
+
+```python
+@classmethod
+def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:
+    """Verify if lead time is valid for forecast frame source.
+
+    Parameters
+    ----------
+    lead_times : list[timedelta]
+        list of lead times to fetch data
+    """
+    for delta in lead_times:
+        # Check lead time interval (e.g., hourly)
+        if not delta.total_seconds() % INTERVAL == 0:
+            raise ValueError(
+                f"Requested lead time {delta} needs to be {INTERVAL} hour interval"
+            )
+
+        # Check lead time range
+        hours = int(delta.total_seconds() // 3600)
+        if hours > MAX_HOURS or hours < 0:
+            raise ValueError(
+                f"Requested lead time {delta} can only be a max of {MAX_HOURS} hours"
+            )
+```
+
+### 5. Complete Async Fetch Example
+
+```python
+async def fetch(
+    self,
+    time: datetime | list[datetime] | TimeArray,
+    lead_time: timedelta | list[timedelta] | LeadTimeArray,
+    variable: str | list[str] | VariableArray,
+    fields: str | list[str] | pa.Schema | None = None,
+) -> pd.DataFrame:
+    """Async function to get forecast frame data."""
+    if self.fs is None:
+        raise ValueError(
+            "File store is not initialized! If you are calling this "
+            "function directly make sure the data source is initialized inside the async loop!"
+        )
+
+    # Set session for s3fs
+    session = await self.fs.set_session(refresh=True)
+
+    # Use prep_forecast_inputs for all three inputs
+    time_list, lead_time_list, variable_list = prep_forecast_inputs(time, lead_time, variable)
+    self._validate_time(time_list)
+    self._validate_leadtime(lead_time_list)
+    schema = self.resolve_fields(fields)
+    pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
+
+    # Create async tasks including lead_time
+    async_tasks = self._create_tasks(time_list, lead_time_list, variable_list)
+
+    # Fetch unique files (deduplicate by URI)
+    file_uri_set = {task.file_uri for task in async_tasks}
+    fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
+    await tqdm.gather(
+        *fetch_jobs, desc="Fetching forecast files", disable=(not self._verbose)
+    )
+
+    # Close session
+    if session:
+        await session.close()
+
+    # Compile DataFrame from fetched files
+    df = self._compile_dataframe(async_tasks, variable_list, schema)
+
+    return df
+```
+
+### 6. DataFrame Compilation with Lead Time
+
+The `_compile_dataframe` method should handle lead time in task filtering:
+
+```python
+def _compile_dataframe(
+    self,
+    async_tasks: list[TaskType],
+    variables: list[str],
+    schema: pa.Schema,
+) -> pd.DataFrame:
+    """Compile fetched forecast data into a DataFrame."""
+    frames: list[pd.DataFrame] = []
+    for task in async_tasks:
+        # Build column mapping
+        column_map = self._build_column_map(schema)
+
+        # Load data from cached file
+        local_path = self.cache_path(task.file_uri)
+        if not pathlib.Path(local_path).is_file():
+            logger.warning("Cached file missing for {}", task.file_uri)
+            continue
+
+        # Read data
+        with h5netcdf.File(local_path, "r") as ds:
+            data: dict[str, np.ndarray] = {}
+            for name, dset in ds.variables.items():
+                if name not in column_map:
+                    continue
+                values = np.asarray(dset[:])
+                pa_type = schema.field(column_map[name]).type
+                values = self._transform_column(name, values, task, ds)
+                data[name] = pa.array(values, type=pa_type)
+
+        df = pd.DataFrame(data)
+        df.rename(columns=column_map, inplace=True)
+
+        # Add Earth2Studio columns
+        df["variable"] = task.e2s_obs_name
+        df["lead_time"] = task.lead_time  # Add lead_time column
+        df.attrs["source"] = self.SOURCE_ID
+
+        # Filter by time range and lead_time
+        mask = (df["time"] >= task.datetime_min) & (df["time"] <= task.datetime_max)
+        # Additional filtering for lead_time if needed
+        df = df.loc[mask]
+
+        frames.append(task.modifier(df))
+
+    result = pd.concat(frames, ignore_index=True)
+    # Return only requested fields
+    return result[[name for name in schema.names if name in result.columns]]
+```
+
+## Shared Patterns with DataFrame Sources
+
+All other patterns from [e2s-006-dataframe-sources.mdc](mdc:.cursor/rules/e2s-006-dataframe-sources.mdc) still apply:
+
+- ✅ PyArrow Schema Definition (`SCHEMA` class attribute)
+- ✅ `resolve_fields` method implementation
+- ✅ Column mapping pattern with metadata
+- ✅ DataFrame compilation pattern
+- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`)
+- ✅ Cache property implementation
+- ✅ Async initialization pattern with `_async_init`
+- ✅ Synchronous `__call__` method pattern
+- ✅ S3FS configuration (`skip_instance_cache=True`)
+- ✅ Session management for s3fs (set before fetch, close after)
+- ✅ Use of `nest_asyncio.apply()` for notebook compatibility
+- ✅ Progress bars with `tqdm.gather`
+- ✅ Time validation with `_validate_time`
+- ✅ Required abstract methods (`_create_tasks`, `_transform_column`, `_add_task_columns`)
+
+## Reminders
+
+- **Key difference**: Use `prep_forecast_inputs(time, lead_time, variable)` instead of `prep_data_inputs`
+- **API signature**: Includes `lead_time: timedelta | list[timedelta] | LeadTimeArray`
+- **Task creation**: Iterate over time, lead_time, and variable (three nested loops)
+- **Validation**: Implement both `_validate_time` and `_validate_leadtime`
+- **DataFrame compilation**: Add `lead_time` column to DataFrame and filter by lead_time if needed
+- **All other patterns**: From DataFrame sources rule apply
+
+- **Documentation**: Add the forecast frame source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "DataFrame Sources" section (forecast frame sources are listed alongside DataFrame sources), maintaining alphabetical order
