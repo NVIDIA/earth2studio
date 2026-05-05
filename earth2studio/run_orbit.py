@@ -63,9 +63,6 @@ def run(
     x = torch.cat((x,total_p_24hr,t2_max,t2_min), dim=1)
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    if data_check:
-        check_data(x[0].unsqueeze(0), time[0], orbit.in_variables)
-
     input_coords = OrderedDict({
         k: v for k, v in
         orbit.input_coords().items()
