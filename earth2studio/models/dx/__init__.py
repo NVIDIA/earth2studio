@@ -57,5 +57,5 @@ __all__ = [
     "SolarRadiationAFNO1H",
     "SolarRadiationAFNO6H",
     "WindgustAFNO",
-    "OrbitGlobalPrecip9_5M",
+    "OrbitGlobalPrecip",
 ]
