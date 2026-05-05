@@ -22,7 +22,7 @@ io = ZarrBackend(file_name)
 data_check = True
 inference_check = True
 inference_check_file = '/lustre/orion/stf006/proj-shared/irl1/earth2studio/ORBIT-2-e2s/examples/0_preds.npy'
+check_metrics = True
 plot_inference = True
 
-#run([time], orbit, data, io, file_name, data_check, inference_check, inference_check_file, plot_inference)
-run(time, orbit, data, io, file_name, data_check, inference_check, inference_check_file, plot_inference)
+run(time, orbit, data, io, file_name, data_check, inference_check, inference_check_file, check_metrics, plot_inference)

@@ -16,6 +16,7 @@ import xarray as xr
 from matplotlib import pyplot as plt
 import os
 import earth2grid
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 def run(
     time: list[str] | list[datetime] | list[np.datetime64],
@@ -26,6 +27,7 @@ def run(
     data_check: bool,
     inference_check: bool,
     inference_check_file: str,
+    check_metrics: bool,
     plot_inference: bool,
 ) -> IOBackend:
 
@@ -106,6 +108,10 @@ def run(
         ae = np.absolute(data[total_coords["variable"][0]].values[0]-gt)
         mae = ae.mean()
         print ("MAE: ", mae)
+
+    if check_metrics:
+        for i in range(len(time)):
+            check_metrics_fn(x[i], time[i], total_coords["variable"][0])
 
     #PLOT_OUTPUT
     if plot_inference:
@@ -234,6 +240,61 @@ def check_data(x, time, in_variables):
         plt.savefig(os.path.join("error_plots","ae_"+str(indexer)+".png"), bbox_inches='tight', dpi=200)
         
         indexer = indexer+1
+
+def check_metrics_fn(x, time, variable):
+    year = int(time.astype(str)[0:4])
+    if year < 2019:
+        data_folder = '/lustre/orion/lrn036/world-shared/data/superres/IMERG/0.0625_deg/train'
+    elif year == 2020:
+        data_folder = '/lustre/orion/lrn036/world-shared/data/superres/IMERG/0.0625_deg/val'
+    month = int(time.astype(str)[5:7])
+    day = int(time.astype(str)[8:10])
+    day = day-1
+    hour = int(time.astype(str)[11:13])
+
+    if hour == 0:
+        #Calulate absolute day
+        absolute_day = 0
+        for i in range(month):
+            if i+1 == month:
+                break
+            if i == 0 or i == 2 or i == 4 or i == 6 or i == 7 or i == 9 or i == 11:
+                absolute_day = absolute_day + 31
+            elif i == 3 or i == 5 or i==8 or i==10:
+                absolute_day = absolute_day + 30
+            else:
+                absolute_day = absolute_day + 28
+        absolute_day = absolute_day + day
+
+        #IMERG
+        file_number = absolute_day // 5
+        index = absolute_day % 5
+        ##Make index 0 based
+        index = index-1
+        data_path = os.path.join(data_folder, str(year)+"_"+str(file_number)+".npz")
+        data = np.load(data_path)
+        data = data[variable][index]
+
+        plt.clf()
+        img_min = np.min(x.detach().cpu().numpy())
+        img_max = np.max(x.detach().cpu().numpy())
+        plt.figure(
+            figsize=(
+                data.shape[-1] / 100,
+                data.shape[-2] / 100,
+            )
+        )
+        plt.imshow(np.squeeze(data), cmap="coolwarm", vmin=img_min, vmax=img_max)
+        plt.colorbar()
+        plt.savefig(os.path.join("imerg_GT.png"))
+        plt.close()
+
+        data_range = data.max() - data.min()
+        print("TIME: ", time)
+        print("SSIM: ", structural_similarity(np.flip(np.squeeze(data),0), torch.squeeze(x).detach().cpu().numpy(), data_range=data_range))
+        print("PSNR: ", peak_signal_noise_ratio(np.flip(np.squeeze(data),0), torch.squeeze(x).detach().cpu().numpy(), data_range=data_range))
+    else:
+        print("Can only check SSIM and PSNR on hour 00 of a day")
 
 
 
