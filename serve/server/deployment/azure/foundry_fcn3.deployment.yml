@@ -1,15 +1,15 @@
 $schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
 name: e2s-deploy
-endpoint_name: e2s-endpoint-04-23
+endpoint_name: <your-endpoint-name>
 environment_variables:
   SERVER_PORT: 8080
   OBJECT_STORAGE_ENABLED: true
   OBJECT_STORAGE_TYPE: azure
   EXPOSED_WORKFLOWS: "foundry_fcn3_workflow"
-model: azureml:e2s_fcn3_stormscope:1
+model: azureml:<your-model-name>:<version>
 environment:
   name: e2s-env
-  image: e2scontainerregistry.azurecr.io/e2s-scicomp:981d7bc2
+  image: <acr-login-server>/e2s-scicomp:<git-sha>
   inference_config:
     liveness_route:
       port: 8080
