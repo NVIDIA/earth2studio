@@ -85,3 +85,5 @@ def run(
     io.write(x, output_coords, total_coords["variable"][0])
     logger.success("Inference complete")
 
+    return io
+
