@@ -258,7 +258,7 @@ makani = { git = "https://github.com/NVIDIA/makani.git", rev = "28f38e3e929ed130
 graphcast = { git = "https://github.com/google-deepmind/graphcast.git", rev = "7077d40a36db6541e3ed72ccaed1c0d202fa6014" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "a40f16bb4d985cdcd3234b1a540b4dd764b933db" }
-climate-learn = { git = "https://github.com/irlyngaas/ORBIT-2", rev = "a1169565e1b85bbac69bef645ae0af35dee6b578" }
+climate-learn = { git = "https://github.com/irlyngaas/ORBIT-2", rev = "557fe5f09b1526fea6903d833572b38758c1d867" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
