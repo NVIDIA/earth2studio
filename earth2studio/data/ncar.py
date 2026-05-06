@@ -44,8 +44,6 @@ from earth2studio.utils.type import TimeArray, VariableArray
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-import pandas as pd
-
 
 @dataclass
 class NCARAsyncTask:
