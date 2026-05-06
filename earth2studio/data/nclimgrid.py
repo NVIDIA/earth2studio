@@ -300,12 +300,9 @@ class NClimGridDaily:
                     "File store is not initialized! If calling fetch directly "
                     "make sure the data source is initialized inside the async loop."
                 )
-            with self.fs.open(task.nc_uri, "rb") as f:
-                dataset = await asyncio.to_thread(
-                    xr.open_dataset, f, engine="h5netcdf", cache=False
-                )
-                da = dataset[task.native_key].sel(time=str(task.target_date))
-                da = await asyncio.to_thread(da.load)
+            da = await asyncio.to_thread(
+                self._read_s3_variable, task.nc_uri, task.native_key, task.target_date
+            )
 
             # Apply lexicon modifier (unit conversion)
             values = task.modifier(da.values)
@@ -329,6 +326,23 @@ class NClimGridDaily:
                 ds.to_netcdf(cache_path, engine="h5netcdf")
 
         return ds
+
+    def _read_s3_variable(
+        self, nc_uri: str, native_key: str, target_date: datetime
+    ) -> xr.DataArray:
+        """Read a variable from an S3-hosted NetCDF file synchronously.
+
+        This must run in a worker thread (via ``asyncio.to_thread``) because
+        ``self.fs`` is a synchronous S3FileSystem whose ``open()`` call
+        internally uses ``fsspec.asyn.sync()`` — incompatible with being called
+        from fsspec's own IO loop.
+        """
+        assert self.fs is not None  # noqa: S101  # Guaranteed by caller check
+        with self.fs.open(nc_uri, "rb") as f:
+            dataset = xr.open_dataset(f, engine="h5netcdf", cache=False)
+            da = dataset[native_key].sel(time=str(target_date))
+            da = da.load()
+        return da
 
     def _monthly_nc_uri(self, t: datetime) -> str:
         """Build S3 URI for a monthly NetCDF file.
