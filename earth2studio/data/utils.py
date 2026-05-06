@@ -34,7 +34,6 @@ from pathlib import Path
 from shutil import rmtree
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
-import fsspec.asyn
 import numpy as np
 import pandas as pd
 import torch
@@ -531,12 +530,14 @@ def _sync_async(
     timeout: float | None = None,
     **kwargs: Any,
 ) -> Any:
-    """Run an async function synchronously using fsspec's background IO loop.
+    """Run an async function synchronously, safe from any calling context.
 
-    This works from any calling context -- scripts, Jupyter notebooks with a
-    running event loop, or existing async contexts -- because it dispatches
-    to fsspec's dedicated background IO thread rather than nesting into the
-    caller's loop.
+    This works from scripts, Jupyter notebooks with a running event loop, or
+    existing async contexts.  The coroutine is executed on a fresh event loop
+    in a dedicated daemon thread.  This guarantees that synchronous fsspec/s3fs
+    operations inside the coroutine can safely call ``fsspec.asyn.sync()``
+    targeting fsspec's background IO loop without re-entrance conflicts (the
+    coroutine itself is never on that loop).
 
     Parameters
     ----------
@@ -554,8 +555,39 @@ def _sync_async(
     Any
         The return value of the coroutine.
     """
-    loop = fsspec.asyn.get_loop()
-    return fsspec.asyn.sync(loop, coro, *args, timeout=timeout, **kwargs)
+    import threading
+
+    # Always run on a fresh event loop in a dedicated thread.  This guarantees
+    # that synchronous fsspec/s3fs operations inside the coroutine can safely
+    # call ``fsspec.asyn.sync(loop, ...)`` targeting fsspec's background loop
+    # without re-entrance conflicts (the coroutine is NOT on that loop).
+    # It also naturally handles the Jupyter case where the caller's thread
+    # already has a running loop (you cannot call run_until_complete there).
+    result: list[Any] = [None]
+    exception: list[BaseException | None] = [None]
+
+    def _run_in_thread() -> None:
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                if timeout is not None:
+                    future = asyncio.wait_for(coro(*args, **kwargs), timeout=timeout)
+                else:
+                    future = coro(*args, **kwargs)
+                result[0] = loop.run_until_complete(future)
+            finally:
+                loop.close()
+        except BaseException as e:
+            exception[0] = e
+
+    thread = threading.Thread(target=_run_in_thread, daemon=True)
+    thread.start()
+    thread.join()
+
+    if exception[0] is not None:
+        raise exception[0]
+    return result[0]
 
 
 async def async_retry(
