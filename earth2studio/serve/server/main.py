@@ -184,6 +184,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     queue, and registers custom workflows. On shutdown: closes Redis connections.
     """
     # Startup
+    async_client = None
+    sync_client = None
     try:
         async_client = create_async_redis_client()
         await async_client.ping()
@@ -222,6 +224,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     except Exception:
         logger.exception("Failed to connect to Redis or initialize RQ")
+        if async_client:
+            await async_client.close()
+        if sync_client:
+            sync_client.close()
         raise
 
     # Application is running
