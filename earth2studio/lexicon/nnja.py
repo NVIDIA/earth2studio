@@ -79,7 +79,7 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
     }
 
     @classmethod
-    def get_item(cls, val: str) -> tuple[str, Callable[..., pd.DataFrame]]:
+    def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from the NNJA conventional vocabulary.
 
         Parameters

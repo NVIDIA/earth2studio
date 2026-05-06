@@ -29,7 +29,6 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import contextlib
 import hashlib
 import os
@@ -40,7 +39,6 @@ import sys
 import time
 import uuid
 from collections.abc import Callable, Iterator
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -51,10 +49,16 @@ import pandas as pd
 import pyarrow as pa
 import s3fs
 from loguru import logger
-from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    async_retry,
+    datasource_cache_root,
+    gather_with_concurrency,
+    managed_session,
+    prep_data_inputs,
+)
 from earth2studio.lexicon import NNJAObsConvLexicon
+from earth2studio.lexicon.base import E2STUDIO_SCHEMA
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -191,47 +195,18 @@ _GPSRO_OBS_DESCRS: set[int] = {_GPSRO_BNDA, _GPSRO_TEMP, _GPSRO_SPFH}
 
 _NNJA_CONV_SCHEMA = pa.schema(
     [
-        pa.field("time", pa.timestamp("ns"), metadata={"nnja_name": "Time"}),
-        pa.field(
-            "pres",
-            pa.float32(),
-            nullable=True,
-            metadata={"nnja_name": "Pressure"},
-        ),
-        pa.field(
-            "elev",
-            pa.float32(),
-            nullable=True,
-            metadata={"nnja_name": "Height"},
-        ),
-        pa.field(
-            "type",
-            pa.uint16(),
-            nullable=True,
-            metadata={"nnja_name": "Observation_Type"},
-        ),
-        pa.field(
-            "class",
-            pa.string(),
-            nullable=True,
-            metadata={"nnja_name": "Observation_Class"},
-        ),
-        pa.field("lat", pa.float32(), metadata={"nnja_name": "Latitude"}),
-        pa.field("lon", pa.float32(), metadata={"nnja_name": "Longitude"}),
-        pa.field(
-            "station",
-            pa.string(),
-            nullable=True,
-            metadata={"nnja_name": "Station_ID"},
-        ),
-        pa.field(
-            "station_elev",
-            pa.float32(),
-            nullable=True,
-            metadata={"nnja_name": "Station_Elevation"},
-        ),
-        pa.field("observation", pa.float32()),
-        pa.field("variable", pa.string()),
+        E2STUDIO_SCHEMA.field("time"),
+        E2STUDIO_SCHEMA.field("pres"),
+        E2STUDIO_SCHEMA.field("elev"),
+        # NNJA stores PrepBUFR report-type code as uint16 (numeric)
+        pa.field("type", pa.uint16(), nullable=True),
+        E2STUDIO_SCHEMA.field("class"),
+        E2STUDIO_SCHEMA.field("lat"),
+        E2STUDIO_SCHEMA.field("lon"),
+        E2STUDIO_SCHEMA.field("station"),
+        E2STUDIO_SCHEMA.field("station_elev"),
+        E2STUDIO_SCHEMA.field("observation"),
+        E2STUDIO_SCHEMA.field("variable"),
     ]
 )
 
@@ -285,14 +260,16 @@ class _NNJAObsBase:
     def __init__(
         self,
         time_tolerance: TimeTolerance = np.timedelta64(0, "m"),
-        max_workers: int = 24,
         cache: bool = True,
-        async_timeout: int = 600,
         verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 16,
+        retries: int = 3,
     ) -> None:
         self._verbose = verbose
         self._cache = cache
-        self._max_workers = max_workers
+        self._async_workers = async_workers
+        self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
@@ -342,18 +319,11 @@ class _NNJAObsBase:
         pd.DataFrame
             Observation DataFrame with columns matching the resolved schema.
         """
-        # ``asyncio.get_event_loop()`` is deprecated in Python 3.10+ when
-        # there is no current loop, so prefer ``get_running_loop`` and
-        # fall back to creating a fresh loop ourselves.
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
 
         if self.fs is None:
             loop.run_until_complete(self._async_init())
@@ -365,10 +335,6 @@ class _NNJAObsBase:
                 )
             )
         finally:
-            # Ensure the temporary cache directory is cleaned up even if
-            # ``fetch`` raises (e.g. ``asyncio.TimeoutError`` from
-            # ``wait_for``); otherwise a failed call would leak a tmp
-            # directory under the user's cache root.
             if not self._cache:
                 shutil.rmtree(self.cache, ignore_errors=True)
 
@@ -391,22 +357,32 @@ class _NNJAObsBase:
                 "the async loop."
             )
 
-        session = await self.fs.set_session(refresh=True)
-
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
         async_tasks = self._create_tasks(time_list, variable_list)
-        file_uri_set = {task.s3_uri for task in async_tasks}
-        fetch_jobs = [self._fetch_remote_file(uri) for uri in file_uri_set]
-        await tqdm.gather(
-            *fetch_jobs, desc="Fetching NNJA files", disable=(not self._verbose)
-        )
+        file_uri_set = list({task.s3_uri for task in async_tasks})
 
-        if session:
-            await session.close()
+        async with managed_session(self.fs):
+            coros = [
+                async_retry(
+                    self._fetch_remote_file,
+                    uri,
+                    retries=self._retries,
+                    backoff=1.0,
+                    task_timeout=120.0,
+                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+                )
+                for uri in file_uri_set
+            ]
+            await gather_with_concurrency(
+                coros,
+                max_workers=self._async_workers,
+                desc="Fetching NNJA files",
+                verbose=(not self._verbose),
+            )
 
         df = self._compile_dataframe(async_tasks, variable_list, schema)
         return df
@@ -454,9 +430,7 @@ class _NNJAObsBase:
                 logger.warning(f"Cached file missing for {task.s3_uri}, skipping")
                 continue
             short_uri = task.s3_uri.rsplit("/", 1)[-1]
-            logger.info(
-                f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} start: {short_uri}"
-            )
+            logger.info(f"[{self.SOURCE_ID}] decode {idx}/{n_tasks} start: {short_uri}")
             t0 = time.perf_counter()
             try:
                 df = self._decode_file(local_path, task)
@@ -552,6 +526,28 @@ class _NNJAObsBase:
                     f"Requested datetime {t} is earlier than {cls.__name__}.MIN_DATE "
                     f"({cls.MIN_DATE.isoformat()})."
                 )
+
+    @classmethod
+    def available(cls, time: datetime | np.datetime64) -> bool:
+        """Check if given date time is available.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date time to check
+
+        Returns
+        -------
+        bool
+            If date time is available
+        """
+        if isinstance(time, np.datetime64):
+            time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+        return True
 
     def _cache_path(self, s3_uri: str) -> str:
         """Deterministic cache path for an S3 URI."""
@@ -785,10 +781,6 @@ def _extract_dx_tables(
             table_d[seq_id] = (seq_mnemonic, members)
 
 
-# Worker globals (set per-process by _init_worker)
-_worker_decoder: Any = None
-
-
 def _register_dx_tables(
     table_b: dict[int, tuple[Any, ...]],
     table_d: dict[int, tuple[Any, ...]],
@@ -811,70 +803,6 @@ def _register_dx_tables(
         )
     if table_b or table_d:
         TableGroupCacheManager.add_extra_entries(table_b, table_d)
-
-
-def _init_worker(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """ProcessPoolExecutor initializer: register NCEP DX tables, create a
-    per-process pybufrkit decoder, and redirect the worker's stderr to
-    /dev/null (the worker only decodes BUFR; real errors come back
-    through exceptions, not stderr)."""
-    global _worker_decoder  # noqa: PLW0603
-    try:
-        sys.stderr.flush()
-        devnull_fd = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull_fd, 2)
-        os.close(devnull_fd)
-    except OSError:
-        pass
-    _register_dx_tables(table_b, table_d)
-    _worker_decoder = BufrDecoder()
-
-
-def _decode_message_worker(
-    msg_bytes: bytes,
-    obs_class: str,
-    var_keys: list[tuple[str, str]],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single PrepBUFR message in a worker process."""
-    return _decode_message(_worker_decoder, msg_bytes, obs_class, var_keys, dt_min, dt_max)
-
-
-def _decode_gpsro_message_worker(
-    msg_bytes: bytes,
-    wanted_descrs: dict[int, str],
-    dt_min: datetime,
-    dt_max: datetime,
-) -> list[dict[str, Any]]:
-    """Decode a single GPS-RO BUFR message in a worker process.
-
-    Each NNJA gpsro message contains one occultation with several
-    hundred delayed-replication levels; pybufrkit's pure-Python
-    bitstream decoder is the bottleneck, so we parallelize across
-    messages with a ProcessPoolExecutor (same pattern as PrepBUFR).
-    """
-    try:
-        msg = _worker_decoder.process(msg_bytes)
-        n_subsets = msg.n_subsets.value
-    except Exception:
-        return []
-    if not n_subsets:
-        return []
-    td = msg.template_data.value
-    ddas = td.decoded_descriptors_all_subsets
-    dvas = td.decoded_values_all_subsets
-    rows: list[dict[str, Any]] = []
-    for s_idx in range(n_subsets):
-        rows.extend(
-            _extract_gpsro_subset(
-                ddas[s_idx], dvas[s_idx], wanted_descrs, dt_min, dt_max
-            )
-        )
-    return rows
 
 
 def _decode_message(
@@ -1194,7 +1122,9 @@ def _emit_level_rows(
 ) -> None:
     """Append one row per requested variable for the current pressure level."""
     pob = level.get(_OBS_POB)
-    pres_val = np.float32(pob) if pob is not None else None  # PrepBUFR mb (lexicon mod converts to Pa for `pres`)
+    pres_val = (
+        np.float32(pob) if pob is not None else None
+    )  # PrepBUFR mb (lexicon mod converts to Pa for `pres`)
 
     common = base_row.copy()
     common["pres"] = pres_val
@@ -1261,16 +1191,18 @@ class NNJAObsConv(_NNJAObsBase):
         Time tolerance window for filtering observations. Accepts a single
         value (symmetric ± window) or a tuple ``(lower, upper)`` for
         asymmetric windows, by default ``np.timedelta64(0, 'm')``.
-    max_workers : int, optional
-        Max workers in async IO thread pool for concurrent S3 downloads,
-        by default 24.
     cache : bool, optional
         Cache downloaded files in the local filesystem cache, by default
         ``True``.
-    async_timeout : int, optional
-        Total timeout in seconds for the async fetch, by default 600.
     verbose : bool, optional
         Show progress bars, by default ``True``.
+    async_timeout : int, optional
+        Total timeout in seconds for the async fetch, by default 600.
+    async_workers : int, optional
+        Maximum number of concurrent async fetch tasks, by default 16.
+    retries : int, optional
+        Number of retry attempts per failed fetch task with exponential
+        backoff, by default 3.
 
     Warning
     -------
@@ -1318,10 +1250,11 @@ class NNJAObsConv(_NNJAObsBase):
         self,
         source: str = "prepbufr",
         time_tolerance: TimeTolerance = np.timedelta64(0, "m"),
-        max_workers: int = 24,
         cache: bool = True,
-        async_timeout: int = 600,
         verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 16,
+        retries: int = 3,
     ) -> None:
         if source not in self.VALID_SOURCES:
             raise ValueError(
@@ -1330,22 +1263,23 @@ class NNJAObsConv(_NNJAObsBase):
         self._source = source
         super().__init__(
             time_tolerance=time_tolerance,
-            max_workers=max_workers,
             cache=cache,
-            async_timeout=async_timeout,
             verbose=verbose,
+            async_timeout=async_timeout,
+            async_workers=async_workers,
+            retries=retries,
         )
 
     # ------------------------------------------------------------------
     # Task creation
     # ------------------------------------------------------------------
-    def _create_tasks(
-        self, time_list: list[datetime], variable: list[str]
-    ) -> list:
+    def _create_tasks(self, time_list: list[datetime], variable: list[str]) -> list:
         # Partition variables by lexicon route prefix:
         #   "prepbufr::..." -> conv/prepbufr/ tasks (PrepBUFR decoder)
         #   "gpsro::..."    -> gps/gpsro/ tasks (GPS RO BUFR decoder)
-        prepbufr_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
+        prepbufr_plan: dict[str, tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]] = (
+            {}
+        )
         gpsro_plan: dict[str, tuple[int, Callable[[pd.DataFrame], pd.DataFrame]]] = {}
 
         for v in variable:
@@ -1375,9 +1309,7 @@ class NNJAObsConv(_NNJAObsBase):
         # Build one task per unique cycle file; when multiple requested
         # times map to the same cycle the task's window is the union of
         # those time windows (see ``_NNJAObsBase._cycle_windows``).
-        windows = (
-            self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
-        )
+        windows = self._cycle_windows(time_list) if prepbufr_plan or gpsro_plan else {}
         tasks: list = []
         for cycle_dt, (tmin, tmax) in windows.items():
             if prepbufr_plan:
@@ -1497,14 +1429,14 @@ class NNJAObsConv(_NNJAObsBase):
     # ------------------------------------------------------------------
     # File decode (dispatch by task type)
     # ------------------------------------------------------------------
-    def _decode_file(self, local_path: str, task) -> pd.DataFrame:
+    def _decode_file(
+        self, local_path: str, task: _NNJAConvTask | _NNJAGpsRoTask
+    ) -> pd.DataFrame:
         if isinstance(task, _NNJAGpsRoTask):
             return self._decode_gpsro_file(local_path, task)
         return self._decode_prepbufr_file(local_path, task)
 
-    # Threshold above which to spin up a multiprocess decoder. Pool
-    # startup costs a few hundred ms; for small files (and tests) we
-    # decode in-process.
+    # Threshold for logging decode timing
     _PREPBUFR_POOL_MIN_MESSAGES = 32
 
     def _decode_prepbufr_file(
@@ -1528,56 +1460,26 @@ class NNJAObsConv(_NNJAObsBase):
             return pd.DataFrame()
 
         all_rows: list[dict[str, Any]] = []
-        use_pool = (
-            self._max_workers > 1
-            and len(work_items) >= self._PREPBUFR_POOL_MIN_MESSAGES
-        )
         logger.info(
             f"[NNJAObsConv prepbufr] cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
             f"messages={len(work_items)} (parsed {len(messages)}, "
-            f"DX-table entries: B={len(table_b)} D={len(table_d)}) "
-            f"strategy={'pool' if use_pool else 'sequential'}"
+            f"DX-table entries: B={len(table_b)} D={len(table_d)})"
         )
         decode_t0 = time.perf_counter()
-        if use_pool:
-            with ProcessPoolExecutor(
-                max_workers=self._max_workers,
-                initializer=_init_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _decode_message_worker,
+        with _silence_bufr_noise():
+            _register_dx_tables(table_b, table_d)
+            decoder = BufrDecoder()
+            for msg_bytes, obs_class in work_items:
+                all_rows.extend(
+                    _decode_message(
+                        decoder,
                         msg_bytes,
                         obs_class,
                         var_keys,
                         task.datetime_min,
                         task.datetime_max,
                     )
-                    for msg_bytes, obs_class in work_items
-                ]
-                for future in futures:
-                    try:
-                        rows = future.result()
-                        if rows:
-                            all_rows.extend(rows)
-                    except Exception:
-                        logger.debug("NNJA worker failed to decode a BUFR message")
-        else:
-            with _silence_bufr_noise():
-                _register_dx_tables(table_b, table_d)
-                decoder = BufrDecoder()
-                for msg_bytes, obs_class in work_items:
-                    all_rows.extend(
-                        _decode_message(
-                            decoder,
-                            msg_bytes,
-                            obs_class,
-                            var_keys,
-                            task.datetime_min,
-                            task.datetime_max,
-                        )
-                    )
+                )
 
         logger.info(
             f"[NNJAObsConv prepbufr] cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
@@ -1588,26 +1490,8 @@ class NNJAObsConv(_NNJAObsBase):
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
 
-    # Threshold above which to spin up a multiprocess gpsro decoder.
-    # NNJA gpsro cycle files contain thousands of occultation messages,
-    # each with hundreds of delayed-replication levels — pybufrkit's
-    # pure-Python decoder is the bottleneck, so we parallelize.
-    _GPSRO_POOL_MIN_MESSAGES = 16
-
-    def _decode_gpsro_file(
-        self, local_path: str, task: _NNJAGpsRoTask
-    ) -> pd.DataFrame:
-        """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame.
-
-        The NNJA gpsro files use NCEP-local BUFR descriptors that the
-        standard ECMWF eccodes tables do not include, so we decode them
-        with pybufrkit using the DX tables embedded at the start of the
-        file. Each occultation profile is one message with several
-        hundred delayed-replication levels; we parallelize across
-        messages via ``ProcessPoolExecutor`` (same pattern as the
-        PrepBUFR decoder) since pybufrkit's pure-Python bitstream
-        reader is too slow for sequential decode.
-        """
+    def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
+        """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame."""
         with open(local_path, "rb") as fh:
             file_data = fh.read()
 
@@ -1620,64 +1504,35 @@ class NNJAObsConv(_NNJAObsBase):
         }
 
         all_rows: list[dict[str, Any]] = []
-        use_pool = (
-            self._max_workers > 1
-            and len(messages) >= self._GPSRO_POOL_MIN_MESSAGES
-        )
         logger.info(
             f"[NNJAObsConv gpsro]    cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
-            f"messages={len(messages)} "
-            f"strategy={'pool' if use_pool else 'sequential'}"
+            f"messages={len(messages)}"
         )
         decode_t0 = time.perf_counter()
-        if use_pool:
-            with ProcessPoolExecutor(
-                max_workers=self._max_workers,
-                initializer=_init_worker,
-                initargs=(table_b, table_d),
-            ) as pool:
-                futures = [
-                    pool.submit(
-                        _decode_gpsro_message_worker,
-                        msg_bytes,
-                        wanted_descrs,
-                        task.datetime_min,
-                        task.datetime_max,
-                    )
-                    for msg_bytes, _data_cat in messages
-                ]
-                for future in futures:
-                    try:
-                        rows = future.result()
-                        if rows:
-                            all_rows.extend(rows)
-                    except Exception:
-                        logger.debug("NNJA worker failed to decode a gpsro message")
-        else:
-            with _silence_bufr_noise():
-                _register_dx_tables(table_b, table_d)
-                decoder = BufrDecoder()
-                for msg_bytes, _data_cat in messages:
-                    try:
-                        msg = decoder.process(msg_bytes)
-                        n_subsets = msg.n_subsets.value
-                    except Exception:  # noqa: S112
-                        continue
-                    if not n_subsets:
-                        continue
-                    td = msg.template_data.value
-                    ddas = td.decoded_descriptors_all_subsets
-                    dvas = td.decoded_values_all_subsets
-                    for s_idx in range(n_subsets):
-                        all_rows.extend(
-                            _extract_gpsro_subset(
-                                ddas[s_idx],
-                                dvas[s_idx],
-                                wanted_descrs,
-                                task.datetime_min,
-                                task.datetime_max,
-                            )
+        with _silence_bufr_noise():
+            _register_dx_tables(table_b, table_d)
+            decoder = BufrDecoder()
+            for msg_bytes, _data_cat in messages:
+                try:
+                    msg = decoder.process(msg_bytes)
+                    n_subsets = msg.n_subsets.value
+                except Exception:  # noqa: S112
+                    continue
+                if not n_subsets:
+                    continue
+                td = msg.template_data.value
+                ddas = td.decoded_descriptors_all_subsets
+                dvas = td.decoded_values_all_subsets
+                for s_idx in range(n_subsets):
+                    all_rows.extend(
+                        _extract_gpsro_subset(
+                            ddas[s_idx],
+                            dvas[s_idx],
+                            wanted_descrs,
+                            task.datetime_min,
+                            task.datetime_max,
                         )
+                    )
 
         logger.info(
             f"[NNJAObsConv gpsro]    cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "

@@ -88,7 +88,8 @@ def _bare_conv(source: str = "prepbufr") -> NNJAObsConv:
     obj._tolerance_upper = timedelta(0)
     obj._verbose = False
     obj._cache = False
-    obj._max_workers = 1
+    obj._async_workers = 16
+    obj._retries = 3
     obj.async_timeout = 60
     obj._tmp_cache_hash = None
     obj.fs = None
@@ -232,6 +233,7 @@ def test_nnja_obs_conv_resolve_fields():
 
 
 def test_nnja_obs_conv_invalid_source():
+    pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
     with pytest.raises(ValueError):
         NNJAObsConv(source="not_a_source", cache=False, verbose=False)
 
@@ -242,9 +244,8 @@ def test_nnja_obs_conv_invalid_source():
 
 
 def test_nnja_obs_conv_tolerance_conversion():
-    ds = NNJAObsConv(
-        time_tolerance=timedelta(hours=1), cache=False, verbose=False
-    )
+    pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
+    ds = NNJAObsConv(time_tolerance=timedelta(hours=1), cache=False, verbose=False)
     assert ds._tolerance_lower == timedelta(hours=-1)
     assert ds._tolerance_upper == timedelta(hours=1)
 
@@ -322,4 +323,3 @@ def test_nnja_obs_conv_schema_fields():
     subset = ["time", "lat", "lon", "observation", "variable"]
     df_sub = ds(datetime(2024, 1, 1, 0), ["t"], fields=subset)
     assert list(df_sub.columns) == subset
-
