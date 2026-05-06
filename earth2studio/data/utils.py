@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
 import inspect
 import os
 import random
@@ -35,6 +34,7 @@ from pathlib import Path
 from shutil import rmtree
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
+import fsspec.asyn
 import numpy as np
 import pandas as pd
 import torch
@@ -531,53 +531,31 @@ def _sync_async(
     timeout: float | None = None,
     **kwargs: Any,
 ) -> Any:
-    """Run an async coroutine synchronously using fsspec's background IO loop.
+    """Run an async function synchronously using fsspec's background IO loop.
 
-    This uses the same pattern as fsspec itself: dispatch to the fsspec IO loop
-    via ``run_coroutine_threadsafe`` and block until completion.  This works from
-    any context (scripts, Jupyter notebooks, existing async contexts) because the
-    call is submitted from the current thread and runs on fsspec's dedicated IO
-    thread.
-
-    .. important::
-        Coroutines dispatched here run ON fsspec's loop.  They must NOT use
-        synchronous fsspec/s3fs operations (e.g. ``S3FileSystem(asynchronous=False)``)
-        that internally call ``fsspec.asyn.sync(loop, ...)`` targeting the same
-        loop — that would cause ``NotImplementedError``.  Use async filesystem
-        operations or ``asyncio.to_thread()`` for unavoidable sync IO.
+    This works from any calling context -- scripts, Jupyter notebooks with a
+    running event loop, or existing async contexts -- because it dispatches
+    to fsspec's dedicated background IO thread rather than nesting into the
+    caller's loop.
 
     Parameters
     ----------
-    coro : coroutine function
-        Async callable to execute.
+    coro : coroutine function or coroutine
+        Async callable (or already-awaitable coroutine) to execute.
     *args : Any
-        Positional arguments forwarded to *coro*.
+        Positional arguments forwarded to coro (if callable).
     timeout : float | None, optional
         Timeout in seconds, by default None (no timeout).
     **kwargs : Any
-        Keyword arguments forwarded to *coro*.
+        Keyword arguments forwarded to coro (if callable).
 
     Returns
     -------
     Any
         The return value of the coroutine.
     """
-    import fsspec.asyn
-
     loop = fsspec.asyn.get_loop()
-
-    if timeout is not None:
-        awaitable = asyncio.wait_for(coro(*args, **kwargs), timeout=timeout)
-    else:
-        awaitable = coro(*args, **kwargs)
-
-    future = asyncio.run_coroutine_threadsafe(awaitable, loop)
-
-    try:
-        return future.result(timeout=timeout + 10 if timeout is not None else None)
-    except concurrent.futures.TimeoutError:
-        future.cancel()
-        raise asyncio.TimeoutError(f"_sync_async timed out after {timeout}s") from None
+    return fsspec.asyn.sync(loop, coro, *args, timeout=timeout, **kwargs)
 
 
 async def async_retry(
