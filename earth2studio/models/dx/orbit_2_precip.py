@@ -172,6 +172,20 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.div = div
         self.overlap = overlap
 
+        src_grid = earth2grid.latlon.LatLonGrid(
+            lat=np.linspace(90, -90, 721),
+            lon=np.linspace(0, 360, 1440, endpoint=False)
+        )
+
+        # Define target grid (lat ascending: -90 -> 90)
+        dst_grid = earth2grid.latlon.LatLonGrid(
+            lat=np.linspace(-90, 90, 721),
+            lon=np.arange(0, 360, 0.25)
+        )
+
+        # Build regridder (stays on GPU)
+        self._regridder = earth2grid.get_regridder(src_grid, dst_grid).float()
+
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
 
@@ -373,20 +387,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         """Preprocess Earth2Studio data to match ORBIT-2 DATA"""
         device = x.device
 
-        src_grid = earth2grid.latlon.LatLonGrid(
-            lat=np.linspace(90, -90, 721),
-            lon=np.linspace(0, 360, 1440, endpoint=False)
-        )
-
-        # Define target grid (lat ascending: -90 -> 90)
-        dst_grid = earth2grid.latlon.LatLonGrid(
-            lat=np.linspace(-90, 90, 721),
-            lon=np.arange(0, 360, 0.25)
-        )
-
-        # Build regridder (stays on GPU)
-        regridder = earth2grid.get_regridder(src_grid, dst_grid)
-        regridder = regridder.to(device).float()
+        regridder = self._regridder.to(device)
 
         # Regrid — expects (..., lat, lon), handles time+variable dims automatically
         # x shape: (time, variables, lat, lon)
