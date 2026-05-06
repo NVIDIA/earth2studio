@@ -129,7 +129,7 @@ def check_admission_control(sync_redis: redis_sync.Redis) -> None:
             )
 
 
-def get_queue_position(queue: Queue, job_id: str) -> int | None:
+def get_queue_position(queue: Queue | None, job_id: str) -> int | None:
     """
     Get the position of a job in the queue.
 
@@ -138,8 +138,8 @@ def get_queue_position(queue: Queue, job_id: str) -> int | None:
 
     Parameters
     ----------
-    queue : Queue
-        The RQ inference queue.
+    queue : Queue | None
+        The RQ inference queue, or None if unavailable.
     job_id : str
         The ID of the job to find.
 
@@ -148,6 +148,8 @@ def get_queue_position(queue: Queue, job_id: str) -> int | None:
     int or None
         Position in queue (0-indexed), or None if not found (e.g. picked up by worker).
     """
+    if queue is None:
+        return None
     try:
         job_ids = queue.job_ids
 

@@ -326,10 +326,14 @@ class TestWorkflowParameterValidation:
         mock_queue.__len__ = MagicMock(return_value=0)
         mock_queue.max_size = 100
 
+        orig_sync = getattr(app.state, "redis_sync_client", None)
+        orig_queue = getattr(app.state, "inference_queue", None)
         app.state.redis_sync_client = mock_redis
         app.state.inference_queue = mock_queue
         test_client = TestClient(app)
         yield test_client, mock_queue, mock_redis
+        app.state.redis_sync_client = orig_sync
+        app.state.inference_queue = orig_queue
 
     def test_valid_deterministic_workflow_parameters(self, client):
         """Test that valid parameters for deterministic workflow are accepted"""
@@ -968,9 +972,13 @@ class TestWorkflowExecutionWithQueuePosition:
             workflow_registry._workflows["test_workflow"] = mock_workflow_class
 
             with TestClient(app, raise_server_exceptions=False) as client:
+                orig_sync = getattr(app.state, "redis_sync_client", None)
+                orig_queue = getattr(app.state, "inference_queue", None)
                 app.state.redis_sync_client = mock_sync_instance
                 app.state.inference_queue = mock_queue
                 yield client, mock_queue, mock_sync_instance
+                app.state.redis_sync_client = orig_sync
+                app.state.inference_queue = orig_queue
 
             # Cleanup
             if "test_workflow" in workflow_registry._workflows:
@@ -1360,7 +1368,13 @@ class TestAdmissionControl:
             workflow_registry._workflows["admit_wf"] = AdmitWorkflow
 
             with TestClient(app, raise_server_exceptions=False) as c:
+                orig_sync = getattr(app.state, "redis_sync_client", None)
+                orig_queue = getattr(app.state, "inference_queue", None)
+                app.state.redis_sync_client = mock_sync_instance
+                app.state.inference_queue = mock_queue
                 yield c, mock_sync_instance, mock_queue
+                app.state.redis_sync_client = orig_sync
+                app.state.inference_queue = orig_queue
 
             if "admit_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["admit_wf"]
@@ -1463,9 +1477,13 @@ class TestExecuteWorkflowBranches:
 
             workflow_registry._workflows["exec_wf"] = ExecWorkflow
             with TestClient(app, raise_server_exceptions=False) as c:
+                orig_sync = getattr(app.state, "redis_sync_client", None)
+                orig_queue = getattr(app.state, "inference_queue", None)
                 app.state.redis_sync_client = mock_sync_instance
                 app.state.inference_queue = mock_queue
                 yield c, mock_sync_instance, mock_queue
+                app.state.redis_sync_client = orig_sync
+                app.state.inference_queue = orig_queue
             if "exec_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["exec_wf"]
 
@@ -1964,7 +1982,13 @@ class TestGetWorkflowResultFileBranches:
 
             workflow_registry._workflows["file_wf"] = FileWorkflow
             with TestClient(app, raise_server_exceptions=False) as c:
+                orig_async = getattr(app.state, "redis_client", None)
+                orig_sync = getattr(app.state, "redis_sync_client", None)
+                app.state.redis_client = mock_async_instance
+                app.state.redis_sync_client = mock_sync_instance
                 yield c, mock_async_instance, mock_sync_instance, tmp_path, WorkflowStatus
+                app.state.redis_client = orig_async
+                app.state.redis_sync_client = orig_sync
             if "file_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["file_wf"]
 
@@ -2428,7 +2452,13 @@ class TestExecuteWorkflowAdditionalBranches:
 
             workflow_registry._workflows["exec2_wf"] = Exec2Workflow
             with TestClient(app, raise_server_exceptions=False) as c:
+                orig_sync = getattr(app.state, "redis_sync_client", None)
+                orig_queue = getattr(app.state, "inference_queue", None)
+                app.state.redis_sync_client = mock_sync_instance
+                app.state.inference_queue = mock_queue
                 yield c, mock_sync_instance, mock_queue, Exec2Workflow
+                app.state.redis_sync_client = orig_sync
+                app.state.inference_queue = orig_queue
             if "exec2_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["exec2_wf"]
 
@@ -2507,7 +2537,10 @@ class TestGetWorkflowResultFileAdditionalBranches:
 
             workflow_registry._workflows["file2_wf"] = File2Workflow
             with TestClient(app, raise_server_exceptions=False) as c:
+                orig_async = getattr(app.state, "redis_client", None)
+                app.state.redis_client = mock_async_instance
                 yield c, mock_async_instance, tmp_path, WorkflowStatus
+                app.state.redis_client = orig_async
             if "file2_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["file2_wf"]
 
