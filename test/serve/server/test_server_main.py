@@ -245,7 +245,7 @@ class TestWorkflowParameterValidation:
     def client(self):
         """Create test client"""
         from typing import Any, Literal
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from pydantic import Field
 
@@ -326,10 +326,10 @@ class TestWorkflowParameterValidation:
         mock_queue.__len__ = MagicMock(return_value=0)
         mock_queue.max_size = 100
 
-        with patch("earth2studio.serve.server.main.redis_sync_client", mock_redis):
-            with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-                test_client = TestClient(app)
-                yield test_client, mock_queue, mock_redis
+        app.state.redis_sync_client = mock_redis
+        app.state.inference_queue = mock_queue
+        test_client = TestClient(app)
+        yield test_client, mock_queue, mock_redis
 
     def test_valid_deterministic_workflow_parameters(self, client):
         """Test that valid parameters for deterministic workflow are accepted"""
@@ -845,70 +845,54 @@ class TestQueuePosition:
 
     def test_get_queue_position_first_in_queue(self, mock_queue):
         """Test getting position for first job in queue"""
-        from unittest.mock import patch
-
         from earth2studio.serve.server.main import get_queue_position
 
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            position = get_queue_position("workflow1_exec_001")
-            assert position == 0  # 0-indexed: first job is at position 0
+        position = get_queue_position(mock_queue, "workflow1_exec_001")
+        assert position == 0  # 0-indexed: first job is at position 0
 
     def test_get_queue_position_middle_of_queue(self, mock_queue):
         """Test getting position for job in middle of queue"""
-        from unittest.mock import patch
-
         from earth2studio.serve.server.main import get_queue_position
 
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            position = get_queue_position("workflow1_exec_003")
-            assert position == 2  # 0-indexed: third job is at position 2
+        position = get_queue_position(mock_queue, "workflow1_exec_003")
+        assert position == 2  # 0-indexed: third job is at position 2
 
     def test_get_queue_position_last_in_queue(self, mock_queue):
         """Test getting position for last job in queue"""
-        from unittest.mock import patch
-
         from earth2studio.serve.server.main import get_queue_position
 
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            position = get_queue_position("workflow3_exec_004")
-            assert position == 3  # 0-indexed: fourth job is at position 3
+        position = get_queue_position(mock_queue, "workflow3_exec_004")
+        assert position == 3  # 0-indexed: fourth job is at position 3
 
     def test_get_queue_position_not_in_queue(self, mock_queue):
         """Test getting position for job not in queue returns None"""
-        from unittest.mock import patch
-
         from earth2studio.serve.server.main import get_queue_position
 
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            position = get_queue_position("nonexistent_job")
-            assert position is None
+        position = get_queue_position(mock_queue, "nonexistent_job")
+        assert position is None
 
     def test_get_queue_position_no_queue(self):
         """Test getting position when queue is not initialized returns None"""
-        from unittest.mock import patch
-
         from earth2studio.serve.server.main import get_queue_position
 
-        with patch("earth2studio.serve.server.main.inference_queue", None):
-            position = get_queue_position("any_job")
-            assert position is None
+        position = get_queue_position(None, "any_job")
+        assert position is None
 
     def test_get_queue_position_empty_queue(self):
         """Test getting position when queue is empty"""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from earth2studio.serve.server.main import get_queue_position
 
         empty_queue = MagicMock()
         empty_queue.job_ids = []
 
-        with patch("earth2studio.serve.server.main.inference_queue", empty_queue):
-            position = get_queue_position("any_job")
-            assert position is None
+        position = get_queue_position(empty_queue, "any_job")
+        assert position is None
 
     def test_get_queue_position_exception_handling(self):
         """Test that exceptions in get_queue_position are handled gracefully"""
-        from unittest.mock import MagicMock, PropertyMock, patch
+        from unittest.mock import MagicMock, PropertyMock
 
         from earth2studio.serve.server.main import get_queue_position
 
@@ -917,9 +901,8 @@ class TestQueuePosition:
             side_effect=Exception("Queue connection error")
         )
 
-        with patch("earth2studio.serve.server.main.inference_queue", queue_with_error):
-            position = get_queue_position("any_job")
-            assert position is None
+        position = get_queue_position(queue_with_error, "any_job")
+        assert position is None
 
 
 class TestWorkflowExecutionWithQueuePosition:
@@ -985,6 +968,8 @@ class TestWorkflowExecutionWithQueuePosition:
             workflow_registry._workflows["test_workflow"] = mock_workflow_class
 
             with TestClient(app, raise_server_exceptions=False) as client:
+                app.state.redis_sync_client = mock_sync_instance
+                app.state.inference_queue = mock_queue
                 yield client, mock_queue, mock_sync_instance
 
             # Cleanup
@@ -993,8 +978,6 @@ class TestWorkflowExecutionWithQueuePosition:
 
     def test_execute_workflow_includes_queue_position(self, client):
         """Test that POST /v1/infer/{workflow_name} includes queue position"""
-        from unittest.mock import patch
-
         test_client, mock_queue, mock_redis = client
 
         # Setup mock job
@@ -1008,11 +991,9 @@ class TestWorkflowExecutionWithQueuePosition:
         # Redis llen returns 0 (the queue size before the job is fully committed)
         mock_redis.llen = MagicMock(return_value=0)
 
-        # Patch the inference_queue at module level
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = test_client.post(
-                "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
-            )
+        response = test_client.post(
+            "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -1024,8 +1005,6 @@ class TestWorkflowExecutionWithQueuePosition:
 
     def test_execute_workflow_position_with_existing_jobs(self, client):
         """Test that position is correct when there are existing jobs in queue"""
-        from unittest.mock import patch
-
         test_client, mock_queue, mock_redis = client
 
         # Setup mock job
@@ -1039,11 +1018,9 @@ class TestWorkflowExecutionWithQueuePosition:
         # Redis llen returns 2 (the queue size before the job is fully committed)
         mock_redis.llen = MagicMock(return_value=2)
 
-        # Patch the inference_queue at module level
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = test_client.post(
-                "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
-            )
+        response = test_client.post(
+            "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -1055,8 +1032,6 @@ class TestWorkflowExecutionWithQueuePosition:
 
     def test_execute_workflow_position_with_five_existing_jobs(self, client):
         """Test that position is correct with multiple existing jobs in queue"""
-        from unittest.mock import patch
-
         test_client, mock_queue, mock_redis = client
 
         # Setup mock job
@@ -1070,11 +1045,9 @@ class TestWorkflowExecutionWithQueuePosition:
         # Redis llen returns 5 (the queue size before the job is fully committed)
         mock_redis.llen = MagicMock(return_value=5)
 
-        # Patch the inference_queue at module level
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = test_client.post(
-                "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
-            )
+        response = test_client.post(
+            "/v1/infer/test_workflow", json={"parameters": {"test_param": "value"}}
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -1098,7 +1071,6 @@ class TestWorkflowExecutionWithQueuePosition:
         # Mock Redis response for queued execution
         import json
         from datetime import datetime, timezone
-        from unittest.mock import patch
 
         execution_data = {
             "workflow_name": "test_workflow",
@@ -1109,9 +1081,7 @@ class TestWorkflowExecutionWithQueuePosition:
         }
         mock_redis.get = MagicMock(return_value=json.dumps(execution_data).encode())
 
-        # Patch the inference_queue for get_queue_position to use
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = test_client.get(f"/v1/infer/test_workflow/{execution_id}/status")
+        response = test_client.get(f"/v1/infer/test_workflow/{execution_id}/status")
 
         assert response.status_code == 200
         data = response.json()
@@ -1133,7 +1103,6 @@ class TestWorkflowExecutionWithQueuePosition:
         # Mock Redis response with QUEUED status (worker hasn't updated it yet)
         import json
         from datetime import datetime, timezone
-        from unittest.mock import patch
 
         execution_data = {
             "workflow_name": "test_workflow",
@@ -1144,9 +1113,7 @@ class TestWorkflowExecutionWithQueuePosition:
         }
         mock_redis.get = MagicMock(return_value=json.dumps(execution_data).encode())
 
-        # Patch the inference_queue for get_queue_position to use
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = test_client.get(f"/v1/infer/test_workflow/{execution_id}/status")
+        response = test_client.get(f"/v1/infer/test_workflow/{execution_id}/status")
 
         assert response.status_code == 200
         data = response.json()
@@ -1401,11 +1368,13 @@ class TestAdmissionControl:
     def test_admission_control_redis_none_returns_503(self, client_for_admission):
         """When redis_sync_client is None, execute returns 503."""
         client, mock_sync_redis, mock_queue = client_for_admission
-        with patch("earth2studio.serve.server.main.redis_sync_client", None):
-            response = client.post(
-                "/v1/infer/admit_wf",
-                json={"parameters": {}},
-            )
+        from earth2studio.serve.server.main import app
+
+        app.state.redis_sync_client = None
+        response = client.post(
+            "/v1/infer/admit_wf",
+            json={"parameters": {}},
+        )
         assert response.status_code == 503
         assert "Redis" in response.json().get("detail", "")
 
@@ -1494,6 +1463,8 @@ class TestExecuteWorkflowBranches:
 
             workflow_registry._workflows["exec_wf"] = ExecWorkflow
             with TestClient(app, raise_server_exceptions=False) as c:
+                app.state.redis_sync_client = mock_sync_instance
+                app.state.inference_queue = mock_queue
                 yield c, mock_sync_instance, mock_queue
             if "exec_wf" in workflow_registry._workflows:
                 del workflow_registry._workflows["exec_wf"]
@@ -1527,11 +1498,13 @@ class TestExecuteWorkflowBranches:
     def test_execute_workflow_inference_queue_none_503(self, client_exec):
         """When inference_queue is None, returns 503."""
         client, mock_redis, mock_queue = client_exec
-        with patch("earth2studio.serve.server.main.inference_queue", None):
-            response = client.post(
-                "/v1/infer/exec_wf",
-                json={"parameters": {}},
-            )
+        from earth2studio.serve.server.main import app
+
+        app.state.inference_queue = None
+        response = client.post(
+            "/v1/infer/exec_wf",
+            json={"parameters": {}},
+        )
         assert response.status_code == 503
         assert "queue" in response.json().get("detail", "").lower()
 
@@ -1540,11 +1513,10 @@ class TestExecuteWorkflowBranches:
         client, mock_redis, mock_queue = client_exec
         # 5 queue checks in admission control + 1 for queue position lookup
         mock_redis.llen.side_effect = [0, 0, 0, 0, 0, RuntimeError("redis error")]
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = client.post(
-                "/v1/infer/exec_wf",
-                json={"parameters": {}},
-            )
+        response = client.post(
+            "/v1/infer/exec_wf",
+            json={"parameters": {}},
+        )
         assert response.status_code == 500
         assert "queue position" in response.json().get(
             "detail", ""
@@ -1554,11 +1526,10 @@ class TestExecuteWorkflowBranches:
         """When enqueue raises, returns 500."""
         client, mock_redis, mock_queue = client_exec
         mock_queue.enqueue.side_effect = RuntimeError("RQ enqueue failed")
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = client.post(
-                "/v1/infer/exec_wf",
-                json={"parameters": {}},
-            )
+        response = client.post(
+            "/v1/infer/exec_wf",
+            json={"parameters": {}},
+        )
         assert response.status_code == 500
         assert "enqueue" in response.json().get("detail", "").lower()
 
@@ -1598,14 +1569,13 @@ class TestExecuteWorkflowBranches:
         mock_queue.enqueue = MagicMock(return_value=mock_job)
         mock_redis.llen = MagicMock(return_value=0)
         # Registry may contain other workflows from app init; isolate to one exposed name.
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            with patch.object(
-                workflow_registry,
-                "list_workflows",
-                return_value={"exec_wf": "For execute tests"},
-            ):
-                r_default = client.post("/v1/infer", json={"parameters": {}})
-            r_named = client.post("/v1/infer/exec_wf", json={"parameters": {}})
+        with patch.object(
+            workflow_registry,
+            "list_workflows",
+            return_value={"exec_wf": "For execute tests"},
+        ):
+            r_default = client.post("/v1/infer", json={"parameters": {}})
+        r_named = client.post("/v1/infer/exec_wf", json={"parameters": {}})
         assert r_default.status_code == 200
         assert r_named.status_code == 200
         assert r_default.json()["status"] == r_named.json()["status"] == "queued"
@@ -2039,12 +2009,14 @@ class TestGetWorkflowResultFileBranches:
         """When redis_client (async) is None for file request, returns 503."""
         client, mock_async, mock_sync, _, WorkflowStatus = client_file
         exec_data = self._exec_data()
+        from earth2studio.serve.server.main import app
+
+        app.state.redis_client = None
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", None):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get("/v1/infer/file_wf/exec_1/results/out.nc")
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file_wf/exec_1/results/out.nc")
         assert response.status_code == 503
 
     def test_get_workflow_result_file_zip_not_in_redis_404(self, client_file):
@@ -2053,14 +2025,11 @@ class TestGetWorkflowResultFileBranches:
         exec_data = self._exec_data()
         mock_async.get = AsyncMock(return_value=None)
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
-                    mock_wf = MagicMock()
-                    mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                    mock_reg.get_workflow_class.return_value = mock_wf
-                    response = client.get(
-                        "/v1/infer/file_wf/exec_1/results/file_wf:exec_1"
-                    )
+            with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                response = client.get("/v1/infer/file_wf/exec_1/results/file_wf:exec_1")
         assert response.status_code == 404
         assert "Zip" in response.json().get("detail", {}).get("error", "")
 
@@ -2070,11 +2039,10 @@ class TestGetWorkflowResultFileBranches:
         exec_data = self._exec_data()
         mock_async.get = AsyncMock(return_value=None)
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get("/v1/infer/file_wf/exec_1/results/somefile.txt")
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file_wf/exec_1/results/somefile.txt")
         assert response.status_code == 404
         assert "Output directory" in response.json().get("detail", {}).get("error", "")
 
@@ -2089,15 +2057,14 @@ class TestGetWorkflowResultFileBranches:
         inner.write_text("data")
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                # Path ../output/inner.txt from output_dir resolves to output_dir/inner.txt
-                # Use path that clearly escapes: .. with resolved path outside
-                response = client.get(
-                    "/v1/infer/file_wf/exec_1/results/..%2F..%2F..%2Fetc%2Fpasswd"
-                )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            # Path ../output/inner.txt from output_dir resolves to output_dir/inner.txt
+            # Use path that clearly escapes: .. with resolved path outside
+            response = client.get(
+                "/v1/infer/file_wf/exec_1/results/..%2F..%2F..%2Fetc%2Fpasswd"
+            )
         # Path traversal must not succeed: either 403 (access denied) or 404
         assert response.status_code in (403, 404)
         if response.status_code == 403:
@@ -2111,13 +2078,10 @@ class TestGetWorkflowResultFileBranches:
         output_dir.mkdir()
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get(
-                    "/v1/infer/file_wf/exec_1/results/nonexistent.txt"
-                )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file_wf/exec_1/results/nonexistent.txt")
         assert response.status_code == 404
         assert "File not found" in response.json().get("detail", {}).get("error", "")
 
@@ -2131,11 +2095,10 @@ class TestGetWorkflowResultFileBranches:
         subdir.mkdir()
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get("/v1/infer/file_wf/exec_1/results/subdir")
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file_wf/exec_1/results/subdir")
         assert response.status_code == 400
         assert "Not a file" in response.json().get("detail", {}).get("error", "")
 
@@ -2149,11 +2112,10 @@ class TestGetWorkflowResultFileBranches:
         out_file.write_text("hello world")
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get("/v1/infer/file_wf/exec_1/results/data.txt")
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file_wf/exec_1/results/data.txt")
         assert response.status_code == 200
         assert response.text == "hello world"
         accept_ranges = response.headers.get("accept-ranges") or response.headers.get(
@@ -2171,14 +2133,13 @@ class TestGetWorkflowResultFileBranches:
         out_file.write_text("hello world")
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get(
-                    "/v1/infer/file_wf/exec_1/results/data.txt",
-                    headers={"Range": "bytes=0-4"},
-                )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get(
+                "/v1/infer/file_wf/exec_1/results/data.txt",
+                headers={"Range": "bytes=0-4"},
+            )
         assert response.status_code == 206
         assert response.content == b"hello"
         accept_ranges = response.headers.get("accept-ranges") or response.headers.get(
@@ -2476,26 +2437,24 @@ class TestExecuteWorkflowAdditionalBranches:
         client, mock_redis, mock_queue, _ = client_exec2
         # 5 queue checks in admission control + 1 for queue position lookup
         mock_redis.llen.side_effect = [0, 0, 0, 0, 0, RuntimeError("redis error")]
-        with patch("earth2studio.serve.server.main.inference_queue", mock_queue):
-            response = client.post(
-                "/v1/infer/exec2_wf",
-                json={"parameters": {}},
-            )
+        response = client.post(
+            "/v1/infer/exec2_wf",
+            json={"parameters": {}},
+        )
         assert response.status_code == 500
 
     def test_execute_redis_none_during_queue_position_503(self, client_exec2):
         """When redis_sync_client is None at queue position check, returns 503."""
         client, mock_redis, mock_queue, wf_class = client_exec2
+        from earth2studio.serve.server.main import app
+
+        app.state.redis_sync_client = None
         with patch("earth2studio.serve.server.main.check_admission_control"):
             with patch.object(wf_class, "_save_execution_data"):
-                with patch("earth2studio.serve.server.main.redis_sync_client", None):
-                    with patch(
-                        "earth2studio.serve.server.main.inference_queue", mock_queue
-                    ):
-                        response = client.post(
-                            "/v1/infer/exec2_wf",
-                            json={"parameters": {}},
-                        )
+                response = client.post(
+                    "/v1/infer/exec2_wf",
+                    json={"parameters": {}},
+                )
         assert response.status_code == 503
         assert "Redis" in response.json().get("detail", "")
 
@@ -2580,14 +2539,14 @@ class TestGetWorkflowResultFileAdditionalBranches:
         """When filepath == request_id but redis_client is None, returns 503."""
         client, mock_async, tmp_path, _ = client_file2
         exec_data = self._completed_exec_data()
+        from earth2studio.serve.server.main import app
+
+        app.state.redis_client = None
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", None):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get(
-                    "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
-                )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1")
         assert response.status_code == 503
 
     def test_get_result_file_zip_not_on_disk_404(self, client_file2):
@@ -2596,14 +2555,13 @@ class TestGetWorkflowResultFileAdditionalBranches:
         exec_data = self._completed_exec_data()
         mock_async.get = AsyncMock(return_value="missing_zip.zip")
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
-                    mock_wf = MagicMock()
-                    mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                    mock_reg.get_workflow_class.return_value = mock_wf
-                    response = client.get(
-                        "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
-                    )
+            with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                response = client.get(
+                    "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
+                )
         assert response.status_code == 404
         assert "disk" in response.json().get("detail", {}).get("error", "").lower()
 
@@ -2615,14 +2573,13 @@ class TestGetWorkflowResultFileAdditionalBranches:
         zip_file.write_bytes(b"PK\x03\x04fake_zip_content")
         mock_async.get = AsyncMock(return_value="results.zip")
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
-                    mock_wf = MagicMock()
-                    mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                    mock_reg.get_workflow_class.return_value = mock_wf
-                    response = client.get(
-                        "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
-                    )
+            with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
+                mock_wf = MagicMock()
+                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+                mock_reg.get_workflow_class.return_value = mock_wf
+                response = client.get(
+                    "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
+                )
         assert response.status_code == 200
         assert 'results.zip"' in response.headers.get("content-disposition", "")
 
@@ -2636,14 +2593,11 @@ class TestGetWorkflowResultFileAdditionalBranches:
         data_file.write_text("contents")
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                # filepath starts with output dir name (exec_1/data.txt)
-                response = client.get(
-                    "/v1/infer/file2_wf/exec_1/results/exec_1/data.txt"
-                )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            # filepath starts with output dir name (exec_1/data.txt)
+            response = client.get("/v1/infer/file2_wf/exec_1/results/exec_1/data.txt")
         assert response.status_code == 200
         assert response.text == "contents"
 
@@ -2657,14 +2611,13 @@ class TestGetWorkflowResultFileAdditionalBranches:
         unknown_file.write_bytes(b"\x00\x01\x02\x03")
         mock_async.get = AsyncMock(return_value=str(output_dir))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                with patch("mimetypes.guess_type", return_value=(None, None)):
-                    response = client.get(
-                        "/v1/infer/file2_wf/exec_1/results/data.unknownext99999"
-                    )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            with patch("mimetypes.guess_type", return_value=(None, None)):
+                response = client.get(
+                    "/v1/infer/file2_wf/exec_1/results/data.unknownext99999"
+                )
         assert response.status_code == 200
         assert "octet-stream" in response.headers.get("content-type", "")
 
@@ -2674,13 +2627,10 @@ class TestGetWorkflowResultFileAdditionalBranches:
         exec_data = self._completed_exec_data()
         mock_async.get = AsyncMock(side_effect=RuntimeError("unexpected redis error"))
         with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
-            with patch("earth2studio.serve.server.main.redis_client", mock_async):
-                mock_wf = MagicMock()
-                mock_wf._get_execution_data = MagicMock(return_value=exec_data)
-                mock_reg.get_workflow_class.return_value = mock_wf
-                response = client.get(
-                    "/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1"
-                )
+            mock_wf = MagicMock()
+            mock_wf._get_execution_data = MagicMock(return_value=exec_data)
+            mock_reg.get_workflow_class.return_value = mock_wf
+            response = client.get("/v1/infer/file2_wf/exec_1/results/file2_wf:exec_1")
         assert response.status_code == 500
         assert "Failed to retrieve file" in response.json().get("detail", {}).get(
             "error", ""
