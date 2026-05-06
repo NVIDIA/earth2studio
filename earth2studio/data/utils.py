@@ -17,10 +17,12 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import inspect
 import os
 import random
 import tempfile
+import threading as _threading
 import time
 import typing
 import weakref
@@ -523,6 +525,27 @@ def datasource_cache_root() -> str:
 # Only use to_thread as a last resort when no async alternative exists.
 # =============================================================================
 
+# Module-level persistent background event loop for _sync_async.
+# Unlike fsspec's loop, this one is dedicated to earth2studio coroutines.
+# Keeping it long-lived ensures aiobotocore/aiohttp sessions are properly
+# initialised with stable connectors (ephemeral loops cause 400 errors).
+_E2S_LOOP: asyncio.AbstractEventLoop | None = None
+_E2S_LOOP_LOCK = _threading.Lock()
+
+
+def _get_e2s_loop() -> asyncio.AbstractEventLoop:
+    """Get or create the earth2studio background event loop."""
+    global _E2S_LOOP  # noqa: PLW0603
+    if _E2S_LOOP is None or _E2S_LOOP.is_closed():
+        with _E2S_LOOP_LOCK:
+            if _E2S_LOOP is None or _E2S_LOOP.is_closed():
+                _E2S_LOOP = asyncio.new_event_loop()
+                th = _threading.Thread(
+                    target=_E2S_LOOP.run_forever, name="e2studioIO", daemon=True
+                )
+                th.start()
+    return _E2S_LOOP
+
 
 def _sync_async(
     coro: Any,
@@ -533,11 +556,18 @@ def _sync_async(
     """Run an async function synchronously, safe from any calling context.
 
     This works from scripts, Jupyter notebooks with a running event loop, or
-    existing async contexts.  The coroutine is executed on a fresh event loop
-    in a dedicated daemon thread.  This guarantees that synchronous fsspec/s3fs
-    operations inside the coroutine can safely call ``fsspec.asyn.sync()``
-    targeting fsspec's background IO loop without re-entrance conflicts (the
-    coroutine itself is never on that loop).
+    existing async contexts.  The coroutine is dispatched to a persistent
+    earth2studio background loop via ``run_coroutine_threadsafe`` and the calling
+    thread blocks until it completes.
+
+    Using a persistent loop (rather than a fresh ephemeral loop) is critical
+    because aiobotocore/aiohttp sessions must live on a long-running loop with
+    properly initialised connectors.  Ephemeral loops cause ``400 Bad Request``
+    or empty error responses from S3 in certain environments (Jupyter notebooks).
+
+    The earth2studio loop is separate from fsspec's loop, so synchronous
+    fsspec/s3fs operations (which dispatch to fsspec's loop) do not trigger
+    re-entrance errors.
 
     Parameters
     ----------
@@ -555,43 +585,23 @@ def _sync_async(
     Any
         The return value of the coroutine.
     """
-    import threading
+    loop = _get_e2s_loop()
 
-    # Run on a fresh event loop in a dedicated thread.  This guarantees that:
-    # 1. Synchronous fsspec/s3fs operations inside the coroutine can safely
-    #    call ``fsspec.asyn.sync(loop, ...)`` targeting fsspec's background loop
-    #    without re-entrance conflicts (the coroutine is NOT on that loop).
-    # 2. Works from Jupyter/async contexts where the caller's thread already
-    #    has a running loop (cannot call run_until_complete there).
-    #
-    # IMPORTANT: We do NOT call asyncio.set_event_loop() so that the thread has
-    # no "current" event loop.  This ensures S3FileSystem(asynchronous=False)
-    # correctly uses fsspec's global background loop for its async operations,
-    # avoiding cross-loop session issues with aiobotocore.
-    result: list[Any] = [None]
-    exception: list[BaseException | None] = [None]
+    if timeout is not None:
+        awaitable = asyncio.wait_for(coro(*args, **kwargs), timeout=timeout)
+    else:
+        awaitable = coro(*args, **kwargs)
 
-    def _run_in_thread() -> None:
-        try:
-            loop = asyncio.new_event_loop()
-            try:
-                if timeout is not None:
-                    future = asyncio.wait_for(coro(*args, **kwargs), timeout=timeout)
-                else:
-                    future = coro(*args, **kwargs)
-                result[0] = loop.run_until_complete(future)
-            finally:
-                loop.close()
-        except BaseException as e:
-            exception[0] = e
+    # Submit coroutine to our persistent background loop.
+    future = asyncio.run_coroutine_threadsafe(awaitable, loop)
 
-    thread = threading.Thread(target=_run_in_thread, daemon=True)
-    thread.start()
-    thread.join()
-
-    if exception[0] is not None:
-        raise exception[0]
-    return result[0]
+    # Block until done.  Use timeout + margin so the asyncio.wait_for inside
+    # can fire first and produce a proper TimeoutError.
+    try:
+        return future.result(timeout=timeout + 10 if timeout is not None else None)
+    except concurrent.futures.TimeoutError:
+        future.cancel()
+        raise asyncio.TimeoutError(f"_sync_async timed out after {timeout}s") from None
 
 
 async def async_retry(
