@@ -557,19 +557,23 @@ def _sync_async(
     """
     import threading
 
-    # Always run on a fresh event loop in a dedicated thread.  This guarantees
-    # that synchronous fsspec/s3fs operations inside the coroutine can safely
-    # call ``fsspec.asyn.sync(loop, ...)`` targeting fsspec's background loop
-    # without re-entrance conflicts (the coroutine is NOT on that loop).
-    # It also naturally handles the Jupyter case where the caller's thread
-    # already has a running loop (you cannot call run_until_complete there).
+    # Run on a fresh event loop in a dedicated thread.  This guarantees that:
+    # 1. Synchronous fsspec/s3fs operations inside the coroutine can safely
+    #    call ``fsspec.asyn.sync(loop, ...)`` targeting fsspec's background loop
+    #    without re-entrance conflicts (the coroutine is NOT on that loop).
+    # 2. Works from Jupyter/async contexts where the caller's thread already
+    #    has a running loop (cannot call run_until_complete there).
+    #
+    # IMPORTANT: We do NOT call asyncio.set_event_loop() so that the thread has
+    # no "current" event loop.  This ensures S3FileSystem(asynchronous=False)
+    # correctly uses fsspec's global background loop for its async operations,
+    # avoiding cross-loop session issues with aiobotocore.
     result: list[Any] = [None]
     exception: list[BaseException | None] = [None]
 
     def _run_in_thread() -> None:
         try:
             loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             try:
                 if timeout is not None:
                     future = asyncio.wait_for(coro(*args, **kwargs), timeout=timeout)
