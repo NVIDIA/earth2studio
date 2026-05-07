@@ -240,11 +240,6 @@ class _NNJAGpsRoTask:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Base class
-# ─────────────────────────────────────────────────────────────────────
-
-
 class _NNJAObsBase:
     """Shared infrastructure for NNJA DataFrame data sources.
 
@@ -263,7 +258,7 @@ class _NNJAObsBase:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
     ) -> None:
@@ -942,7 +937,7 @@ def _extract_gpsro_subset(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, Any]]:  # pragma: no cover - GPS RO not yet in lexicon
     """Extract observation rows from one GPS RO occultation subset.
 
     ``wanted_descrs`` maps BUFR descriptor id -> Earth2Studio variable
@@ -1193,6 +1188,57 @@ def _decode_message_worker(
         )
 
 
+def _decode_gpsro_message_worker(
+    msg_bytes: bytes,
+    wanted_descrs: dict[int, str],
+    dt_min: datetime,
+    dt_max: datetime,
+) -> list[dict[str, Any]]:  # pragma: no cover - GPS RO not yet in lexicon
+    """Decode a single GPS RO BUFR message in a worker process.
+
+    Uses the decoder created by :func:`_init_decode_worker`.
+
+    Parameters
+    ----------
+    msg_bytes : bytes
+        Raw BUFR message bytes.
+    wanted_descrs : dict[int, str]
+        Map of BUFR descriptor ID to variable name.
+    dt_min : datetime
+        Minimum observation time.
+    dt_max : datetime
+        Maximum observation time.
+
+    Returns
+    -------
+    list[dict]
+        Observation rows for this message.
+    """
+    rows: list[dict[str, Any]] = []
+    with _silence_bufr_noise():
+        try:
+            msg = _worker_decoder.process(msg_bytes)
+            n_subsets = msg.n_subsets.value
+        except Exception:
+            return rows
+        if not n_subsets:
+            return rows
+        td = msg.template_data.value
+        ddas = td.decoded_descriptors_all_subsets
+        dvas = td.decoded_values_all_subsets
+        for s_idx in range(n_subsets):
+            rows.extend(
+                _extract_gpsro_subset(
+                    ddas[s_idx],
+                    dvas[s_idx],
+                    wanted_descrs,
+                    dt_min,
+                    dt_max,
+                )
+            )
+    return rows
+
+
 @check_optional_dependencies()
 class NNJAObsConv(_NNJAObsBase):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
@@ -1217,7 +1263,7 @@ class NNJAObsConv(_NNJAObsBase):
     async_timeout : int, optional
         Total timeout in seconds for the async fetch, by default 600.
     async_workers : int, optional
-        Maximum number of concurrent async fetch tasks, by default 16.
+        Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
         Number of parallel processes for BUFR message decoding. Higher values
         speed up decoding of large PrepBUFR files at the cost of more memory.
@@ -1258,7 +1304,7 @@ class NNJAObsConv(_NNJAObsBase):
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
-        async_workers: int = 16,
+        async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
     ) -> None:
@@ -1298,7 +1344,7 @@ class NNJAObsConv(_NNJAObsBase):
             route, _, rest = source_key.partition("::")
             if route == "prepbufr":
                 prepbufr_plan[v] = (rest, modifier)
-            elif route == "gpsro":
+            elif route == "gpsro":  # pragma: no cover - GPS RO not yet in lexicon
                 try:
                     desc_id = int(rest)
                 except ValueError as exc:
@@ -1329,7 +1375,7 @@ class NNJAObsConv(_NNJAObsBase):
                         var_plan=prepbufr_plan,
                     )
                 )
-            if gpsro_plan:
+            if gpsro_plan:  # pragma: no cover - GPS RO not yet in lexicon
                 tasks.append(
                     _NNJAGpsRoTask(
                         s3_uri=self._build_gpsro_uri(cycle_dt),
@@ -1535,8 +1581,15 @@ class NNJAObsConv(_NNJAObsBase):
             all_rows, task.var_plan, convert_pres_mb_to_pa=True
         )
 
-    def _decode_gpsro_file(self, local_path: str, task: _NNJAGpsRoTask) -> pd.DataFrame:
-        """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame."""
+    def _decode_gpsro_file(  # pragma: no cover - GPS RO not yet in lexicon
+        self, local_path: str, task: _NNJAGpsRoTask
+    ) -> pd.DataFrame:
+        """Decode a single NNJA gps/gpsro cycle BUFR file into a DataFrame.
+
+        Messages are decoded in parallel using a process pool when
+        ``decode_workers > 1`` and the message count exceeds the
+        threshold.
+        """
         with open(local_path, "rb") as fh:
             file_data = fh.read()
 
@@ -1548,36 +1601,70 @@ class NNJAObsConv(_NNJAObsBase):
             desc_id: var for var, (desc_id, _mod) in task.var_plan.items()
         }
 
+        work_items: list[bytes] = [msg_bytes for msg_bytes, _data_cat in messages]
+
         all_rows: list[dict[str, Any]] = []
+        use_parallel = (
+            self._decode_workers > 1
+            and len(work_items) >= self._PREPBUFR_POOL_MIN_MESSAGES
+        )
         logger.info(
             f"[NNJAObsConv gpsro]    cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
-            f"messages={len(messages)}"
+            f"messages={len(messages)} "
+            f"[parallel={use_parallel}, workers={self._decode_workers}]"
         )
         decode_t0 = time.perf_counter()
-        with _silence_bufr_noise():
-            _register_dx_tables(table_b, table_d)
-            decoder = BufrDecoder()
-            for msg_bytes, _data_cat in messages:
-                try:
-                    msg = decoder.process(msg_bytes)
-                    n_subsets = msg.n_subsets.value
-                except Exception:  # noqa: S112
-                    continue
-                if not n_subsets:
-                    continue
-                td = msg.template_data.value
-                ddas = td.decoded_descriptors_all_subsets
-                dvas = td.decoded_values_all_subsets
-                for s_idx in range(n_subsets):
-                    all_rows.extend(
-                        _extract_gpsro_subset(
-                            ddas[s_idx],
-                            dvas[s_idx],
-                            wanted_descrs,
-                            task.datetime_min,
-                            task.datetime_max,
-                        )
+
+        if use_parallel:
+            # Parallel decode using process pool
+            with ProcessPoolExecutor(
+                max_workers=self._decode_workers,
+                initializer=_init_decode_worker,
+                initargs=(table_b, table_d),
+            ) as pool:
+                futures = [
+                    pool.submit(
+                        _decode_gpsro_message_worker,
+                        msg_bytes,
+                        wanted_descrs,
+                        task.datetime_min,
+                        task.datetime_max,
                     )
+                    for msg_bytes in work_items
+                ]
+                for future in futures:
+                    try:
+                        rows = future.result()
+                        if rows:
+                            all_rows.extend(rows)
+                    except Exception:
+                        logger.debug("Worker failed to decode a GPS RO BUFR message")
+        else:
+            # Sequential decode (single worker or few messages)
+            with _silence_bufr_noise():
+                _register_dx_tables(table_b, table_d)
+                decoder = BufrDecoder()
+                for msg_bytes in work_items:
+                    try:
+                        msg = decoder.process(msg_bytes)
+                        n_subsets = msg.n_subsets.value
+                    except Exception:  # noqa: S112
+                        continue
+                    if not n_subsets:
+                        continue
+                    td = msg.template_data.value
+                    ddas = td.decoded_descriptors_all_subsets
+                    dvas = td.decoded_values_all_subsets
+                    for s_idx in range(n_subsets):
+                        all_rows.extend(
+                            _extract_gpsro_subset(
+                                ddas[s_idx],
+                                dvas[s_idx],
+                                wanted_descrs,
+                                task.datetime_min,
+                                task.datetime_max,
+                            )
+                        )
 
         logger.info(
             f"[NNJAObsConv gpsro]    cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
