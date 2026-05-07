@@ -46,19 +46,16 @@ def test_nnja_obs_conv_lexicon_modifiers():
     df = mod(pd.DataFrame({"observation": [1.0]}))
     assert df["observation"].iloc[0] == pytest.approx(100.0)
 
-    # u, v, gps, gps_t, gps_q: identity (already SI)
-    for var in ("u", "v", "gps", "gps_t", "gps_q"):
+    # u, v: identity (already SI)
+    for var in ("u", "v"):
         _, mod = NNJAObsConvLexicon[var]
         df = mod(pd.DataFrame({"observation": [3.14]}))
         assert df["observation"].iloc[0] == pytest.approx(3.14)
 
 
 def test_nnja_obs_conv_lexicon_routes():
-    """Conv lexicon entries are route-prefixed with 'prepbufr::' or 'gpsro::'."""
+    """Conv lexicon entries are route-prefixed with 'prepbufr::'."""
     for var, vocab in NNJAObsConvLexicon.VOCAB.items():
         route, _, rest = vocab.partition("::")
-        assert route in ("prepbufr", "gpsro"), f"{var}: unexpected route '{route}'"
+        assert route == "prepbufr", f"{var}: unexpected route '{route}'"
         assert rest, f"{var}: empty payload after route prefix"
-        if route == "gpsro":
-            # rest must parse as an int BUFR descriptor id
-            int(rest)
