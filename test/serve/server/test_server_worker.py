@@ -137,8 +137,8 @@ class TestRunCustomWorkflow:
                     "earth2studio.serve.server.worker.workflow_registry"
                 ) as mock_registry,
                 patch(
-                    "earth2studio.serve.server.worker.redis_client",
-                    MagicMock(),
+                    "earth2studio.serve.server.worker.get_worker_redis_client",
+                    return_value=MagicMock(),
                 ),
                 patch(
                     "earth2studio.serve.server.worker.queue_next_stage",
@@ -181,8 +181,8 @@ class TestRunCustomWorkflow:
                     "earth2studio.serve.server.worker.workflow_registry"
                 ) as mock_registry,
                 patch(
-                    "earth2studio.serve.server.worker.redis_client",
-                    MagicMock(),
+                    "earth2studio.serve.server.worker.get_worker_redis_client",
+                    return_value=MagicMock(),
                 ),
                 patch(
                     "earth2studio.serve.server.worker.queue_next_stage",
@@ -221,8 +221,8 @@ class TestRunCustomWorkflow:
                 "earth2studio.serve.server.worker.workflow_registry"
             ) as mock_registry,
             patch(
-                "earth2studio.serve.server.worker.redis_client",
-                MagicMock(),
+                "earth2studio.serve.server.worker.get_worker_redis_client",
+                return_value=MagicMock(),
             ),
         ):
             mock_registry.get_workflow_class.return_value = mock_workflow_class

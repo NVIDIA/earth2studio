@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import json
 import logging
 import zipfile
@@ -35,6 +37,7 @@ except ImportError:
 
 # Import configuration
 from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
@@ -58,22 +61,11 @@ config_manager = get_config_manager()
 config_manager.setup_logging()
 logger = logging.getLogger(__name__)
 
-# Redis client for CPU worker
-redis_client = redis.Redis(
-    host=config.redis.host,
-    port=config.redis.port,
-    db=config.redis.db,
-    password=config.redis.password,
-    decode_responses=config.redis.decode_responses,
-    socket_connect_timeout=config.redis.socket_connect_timeout,
-    socket_timeout=config.redis.socket_timeout,
-)
-
 # Register custom workflows in the CPU worker process
 try:
     from earth2studio.serve.server.workflow import register_all_workflows
 
-    register_all_workflows(redis_client)
+    register_all_workflows(get_worker_redis_client())
     logger.info("Custom workflows registered successfully in CPU worker process")
 except ImportError:
     logger.warning(
@@ -81,7 +73,6 @@ except ImportError:
     )
 except Exception as e:
     logger.error(f"Failed to register custom workflows in CPU worker: {e}")
-    # Don't raise - worker can still handle other tasks
 
 
 def fail_workflow(
@@ -113,7 +104,7 @@ def fail_workflow(
                 "error_message": error_message,
             }
             workflow_class._update_execution_data(
-                redis_client, workflow_name, execution_id, updates
+                get_worker_redis_client(), workflow_name, execution_id, updates
             )
     except Exception:
         logger.exception("Failed to update workflow status")
@@ -156,7 +147,7 @@ class ResultMetadata:
         request_id: str,
         file_manifest: list[FileManifestEntry],
         zip_created_at: str,
-    ) -> "ResultMetadata":
+    ) -> ResultMetadata:
         """Create ResultMetadata from a WorkflowResult.
 
         Parameters
@@ -427,8 +418,9 @@ def process_result_zip(
             raise ValueError(f"Workflow '{workflow_name}' not found in registry")
 
         # Get execution data from Redis for metadata
+        rc = get_worker_redis_client()
         execution_data = workflow_class._get_execution_data(
-            redis_client, workflow_name, execution_id
+            rc, workflow_name, execution_id
         )
 
         # Create the zip file (or just build manifest if create_zip=False)
@@ -437,7 +429,7 @@ def process_result_zip(
             output_path,
             execution_data,
             results_zip_dir,
-            redis_client,
+            rc,
             create_zip=create_zip,
         )
 
@@ -454,7 +446,7 @@ def process_result_zip(
 
             # Queue next pipeline stage
             job_id = queue_next_stage(
-                redis_client=redis_client,
+                redis_client=rc,
                 current_stage="result_zip",
                 workflow_name=workflow_name,
                 execution_id=execution_id,
@@ -539,6 +531,7 @@ def process_object_storage_upload(
     """
     output_path = Path(output_path_str)
     request_id = f"{workflow_name}:{execution_id}"
+    rc = get_worker_redis_client()
 
     logger.info(f"Processing object storage worker for {request_id}")
 
@@ -567,7 +560,7 @@ def process_object_storage_upload(
         # Request parameters from pending metadata (written at result_zip)
         request_parameters: dict[str, Any] = {}
         metadata_key = get_inference_request_metadata_key(request_id)
-        pending_metadata_json = redis_client.get(metadata_key)
+        pending_metadata_json = rc.get(metadata_key)
         if pending_metadata_json:
             try:
                 pending = json.loads(pending_metadata_json)
@@ -749,7 +742,7 @@ def process_object_storage_upload(
 
                         # Store signed URL in Redis
                         signed_url_key = get_signed_url_key(request_id)
-                        redis_client.setex(
+                        rc.setex(
                             signed_url_key,
                             config.object_storage.signed_url_expires_in,
                             signed_url,
@@ -799,7 +792,7 @@ def process_object_storage_upload(
             storage_info["signed_url"] = signed_url
 
         storage_info_key = f"inference_request:{request_id}:storage_info"
-        redis_client.setex(
+        rc.setex(
             storage_info_key,
             config.redis.retention_ttl,
             json.dumps(storage_info),
@@ -807,7 +800,7 @@ def process_object_storage_upload(
 
         # Queue next pipeline stage (finalize metadata)
         job_id = queue_next_stage(
-            redis_client=redis_client,
+            redis_client=rc,
             current_stage="object_storage",
             workflow_name=workflow_name,
             execution_id=execution_id,
@@ -871,6 +864,7 @@ def process_finalize_metadata(
     """
 
     request_id = f"{workflow_name}:{execution_id}"
+    rc = get_worker_redis_client()
     logger.info(f"Processing finalize metadata for {request_id}")
 
     # Retrieve pending metadata and storage info from Redis
@@ -878,9 +872,9 @@ def process_finalize_metadata(
     results_zip_dir_key = get_results_zip_dir_key(request_id)
     storage_info_key = f"inference_request:{request_id}:storage_info"
 
-    pending_metadata_json = redis_client.get(metadata_key)
-    results_zip_dir_str = redis_client.get(results_zip_dir_key)
-    storage_info_json = redis_client.get(storage_info_key)
+    pending_metadata_json = rc.get(metadata_key)
+    results_zip_dir_str = rc.get(results_zip_dir_key)
+    storage_info_json = rc.get(storage_info_key)
 
     if not pending_metadata_json or not results_zip_dir_str:
         logger.error(f"Pending metadata not found in Redis for {request_id}")
@@ -942,18 +936,16 @@ def process_finalize_metadata(
             "status": WorkflowStatus.COMPLETED,
             "end_time": datetime.now(timezone.utc).isoformat(),
         }
-        workflow_class._update_execution_data(
-            redis_client, workflow_name, execution_id, updates
-        )
+        workflow_class._update_execution_data(rc, workflow_name, execution_id, updates)
         logger.info(
             f"Workflow {workflow_name} execution {execution_id} status set to COMPLETED"
         )
 
         # Clean up Redis keys
-        redis_client.delete(metadata_key)
-        redis_client.delete(results_zip_dir_key)
+        rc.delete(metadata_key)
+        rc.delete(results_zip_dir_key)
         if storage_info_json:
-            redis_client.delete(storage_info_key)
+            rc.delete(storage_info_key)
 
         logger.info(f"Finalize metadata completed for {request_id}")
         return {

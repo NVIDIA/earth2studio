@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import logging
 import time
 from datetime import datetime, timezone
@@ -30,25 +32,14 @@ try:
 except ImportError:
     OptionalDependencyFailure("serve")
     redis = None
-    redis_client = None
 
 from earth2studio.serve.server.config import get_config, get_config_manager
+from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import queue_next_stage
 from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
 
 config_manager = get_config_manager()
 config = get_config()
-
-if redis:
-    redis_client = redis.Redis(
-        host=config.redis.host,
-        port=config.redis.port,
-        db=config.redis.db,
-        password=config.redis.password,
-        decode_responses=config.redis.decode_responses,
-        socket_connect_timeout=config.redis.socket_connect_timeout,
-        socket_timeout=config.redis.socket_timeout,
-    )
 
 # Configure logging
 config_manager.setup_logging()
@@ -65,7 +56,7 @@ model_registry: dict[str, Any] = {}
 try:
     from earth2studio.serve.server.workflow import register_all_workflows
 
-    register_all_workflows(redis_client)
+    register_all_workflows(get_worker_redis_client())
     logger.info("Custom workflows registered successfully in worker process")
 except ImportError:
     logger.warning(
@@ -73,7 +64,6 @@ except ImportError:
     )
 except Exception as e:
     logger.error(f"Failed to register custom workflows in worker: {e}")
-    # Don't raise - worker can still handle other tasks
 
 
 def get_output_path(
@@ -141,17 +131,15 @@ def run_custom_workflow(
     RuntimeError
         If queuing the next pipeline stage fails.
     """
-    # Create logger adapter with execution_id for automatic log prefixing
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
+    redis_client = get_worker_redis_client()
 
     log.info(f"Starting custom workflow {workflow_name}")
 
-    # Get workflow class from registry
     workflow_class = workflow_registry.get_workflow_class(workflow_name)
     if not workflow_class:
         raise ValueError(f"Custom workflow '{workflow_name}' not found in registry")
 
-    # Create workflow instance for execution
     custom_workflow = workflow_registry.get(workflow_name, redis_client=redis_client)
     if custom_workflow is None:
         raise ValueError(f"Custom workflow '{workflow_name}' could not be instantiated")
@@ -170,7 +158,6 @@ def run_custom_workflow(
 
         result = custom_workflow.run(parameters, execution_id)
 
-        # Update status to PENDING_RESULTS and record execution time so far
         execution_time_seconds = time.time() - start_timestamp
         updates = {
             "status": WorkflowStatus.PENDING_RESULTS,
@@ -181,7 +168,6 @@ def run_custom_workflow(
         )
         log.info(f"Workflow {workflow_name} execution {execution_id} pending results")
 
-        # Queue next pipeline stage (determined by configuration)
         output_path = custom_workflow.get_output_path(execution_id)
         job_id = queue_next_stage(
             redis_client=redis_client,
@@ -216,7 +202,6 @@ def run_custom_workflow(
         log.exception(
             f"Custom workflow {workflow_name} execution {execution_id} failed"
         )
-        # Update workflow status to failed if possible
         try:
             updates = {
                 "status": WorkflowStatus.FAILED,
