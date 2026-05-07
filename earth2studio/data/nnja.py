@@ -598,11 +598,6 @@ class _NNJAObsBase:
         return pa.schema(selected)
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Self-contained PrepBUFR decoder (used by NNJAObsConv)
-# ─────────────────────────────────────────────────────────────────────
-
-
 def _safe_int(v: Any) -> int:
     if isinstance(v, (int, float)):
         return int(v)
@@ -1159,28 +1154,13 @@ def _emit_level_rows(
                 rows.append(row)
 
 
-# ─────────────────────────────────────────────────────────────────────
-# NNJAObsConv
-# ─────────────────────────────────────────────────────────────────────
-
-
 @check_optional_dependencies()
 class NNJAObsConv(_NNJAObsBase):
-    """NNJA conventional (in-situ + GPS RO) observations data source.
-
-    Reads observations from two complementary NNJA archives based on
-    the requested variable's lexicon route:
-
-    - ``u, v, q, t, pres`` -> ``conv/<source>/`` PrepBUFR cycle files
-      (default ``source="prepbufr"``).
-    - ``gps, gps_t, gps_q`` -> ``gps/gpsro/`` BUFR cycle files
-      (bending angle and 1D-Var retrieval temperature / specific
-      humidity profiles).
-
-    Returns a :class:`pandas.DataFrame` with one row per (cycle,
-    observation level, requested variable). Variable routing is
-    handled automatically through
-    :py:class:`earth2studio.lexicon.NNJAObsConvLexicon`.
+    """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
+    Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
+    developing observation-driven weather forecasting tools, as it includes a wide
+    cross-section of data from a plethora of sensing platforms (satellites, surface
+    stations, weather balloons, and more) and features data from 1979 to the present.
 
     Parameters
     ----------
@@ -1192,10 +1172,9 @@ class NNJAObsConv(_NNJAObsBase):
         value (symmetric ± window) or a tuple ``(lower, upper)`` for
         asymmetric windows, by default ``np.timedelta64(0, 'm')``.
     cache : bool, optional
-        Cache downloaded files in the local filesystem cache, by default
-        ``True``.
+        Cache downloaded files in the local filesystem cache, by default True.
     verbose : bool, optional
-        Show progress bars, by default ``True``.
+        Show progress bars, by default True.
     async_timeout : int, optional
         Total timeout in seconds for the async fetch, by default 600.
     async_workers : int, optional
@@ -1206,38 +1185,21 @@ class NNJAObsConv(_NNJAObsBase):
 
     Warning
     -------
-    This is a remote data source and may download a large amount of data
-    for large requests. A single PrepBUFR cycle file is approximately
-    100 MB.
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
 
     Note
     ----
-    NNJA observation data is distributed under CC BY 4.0; please cite
-    https://psl.noaa.gov/data/nnja_obs/ when using this data.
+    Additional information on the data repository can be referenced here:
 
-    Additional resources:
-
+    - https://www.brightband.com/data/nnja-ai/
     - https://psl.noaa.gov/data/nnja_obs/
     - https://registry.opendata.aws/noaa-reanalyses-obs/
     - https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm
 
-    Example
-    -------
-    .. highlight:: python
-    .. code-block:: python
-
-        from datetime import datetime, timedelta
-        from earth2studio.data import NNJAObsConv
-
-        ds = NNJAObsConv(time_tolerance=timedelta(hours=1))
-        df = ds(datetime(2024, 1, 1, 0), ["t", "u", "v"])
-
-        # GPS RO bending angle + 1D-Var retrieval profiles
-        df_gps = ds(datetime(2024, 1, 1, 0), ["gps", "gps_t", "gps_q"])
-
     Badges
     ------
-    region:global dataclass:observation product:atmos product:insitu
+    region:global dataclass:observation product:wind product:temp product:atmos product:insitu
     """
 
     SOURCE_ID = "earth2studio.data.NNJAObsConv"
