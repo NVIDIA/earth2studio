@@ -34,6 +34,7 @@ from pathlib import Path
 from shutil import rmtree
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar
 
+import fsspec.asyn
 import numpy as np
 import pandas as pd
 import torch
@@ -522,6 +523,39 @@ def datasource_cache_root() -> str:
 # IMPORTANT: Pure async operations are ALWAYS preferred over asyncio.to_thread.
 # Only use to_thread as a last resort when no async alternative exists.
 # =============================================================================
+
+
+def _sync_async(
+    coro: Any,
+    *args: Any,
+    timeout: float | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Run an async function synchronously using fsspec's background IO loop.
+
+    This works from any calling context -- scripts, Jupyter notebooks with a
+    running event loop, or existing async contexts -- because it dispatches
+    to fsspec's dedicated background IO thread rather than nesting into the
+    caller's loop.
+
+    Parameters
+    ----------
+    coro : coroutine function or coroutine
+        Async callable (or already-awaitable coroutine) to execute.
+    *args : Any
+        Positional arguments forwarded to coro (if callable).
+    timeout : float | None, optional
+        Timeout in seconds, by default None (no timeout).
+    **kwargs : Any
+        Keyword arguments forwarded to coro (if callable).
+
+    Returns
+    -------
+    Any
+        The return value of the coroutine.
+    """
+    loop = fsspec.asyn.get_loop()
+    return fsspec.asyn.sync(loop, coro, *args, timeout=timeout, **kwargs)
 
 
 async def async_retry(
