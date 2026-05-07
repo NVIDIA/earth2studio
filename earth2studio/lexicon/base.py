@@ -420,7 +420,7 @@ E2STUDIO_SCHEMA = pa.schema(
             metadata={"description": "Satellite scan angle (degrees)"},
         ),
         pa.field(
-            "channel_index",
+            "sensor_index",
             pa.uint16(),
             nullable=True,
             metadata={"description": "Satellite sensor channel index"},
@@ -448,6 +448,12 @@ E2STUDIO_SCHEMA = pa.schema(
             pa.float32(),
             nullable=True,
             metadata={"description": "Satellite azimuth angle (degrees)"},
+        ),
+        pa.field(
+            "wavenumber",
+            pa.float64(),
+            nullable=True,
+            metadata={"description": "Channel wavenumber (cm^-1)"},
         ),
     ]
 )

@@ -842,9 +842,10 @@ class WorkflowRegistry:
         """
         # Always include built-in workflows if requested (serve/server/example_workflows)
         if include_builtin:
-            _repo_root = Path(__file__).resolve().parent.parent.parent.parent
+            from earth2studio.serve.server.config import resolve_repo_root
+
             builtin_workflows_dir = (
-                _repo_root / "serve" / "server" / "example_workflows"
+                resolve_repo_root() / "serve" / "server" / "example_workflows"
             )
             already_included = builtin_workflows_dir in {Path(d) for d in workflow_dirs}
             if builtin_workflows_dir.exists() and not already_included:

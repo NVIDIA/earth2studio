@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 import torch
 from omegaconf import OmegaConf
-from src.pipeline import (
+from src.pipelines import (
     DiagnosticPipeline,
     ForecastPipeline,
     Pipeline,
@@ -67,35 +67,44 @@ class _StubPipeline(Pipeline):
 
 
 class TestBuildPipeline:
-    def test_default_is_forecast(self):
+    def test_missing_pipeline_raises(self):
         cfg = OmegaConf.create({})
+        with pytest.raises(ValueError, match="cfg.pipeline is required"):
+            build_pipeline(cfg)
+
+    def test_forecast_by_fqn(self):
+        cfg = OmegaConf.create({"pipeline": "src.pipelines.forecast.ForecastPipeline"})
         pipeline = build_pipeline(cfg)
         assert isinstance(pipeline, ForecastPipeline)
 
-    def test_forecast_by_name(self):
-        cfg = OmegaConf.create({"pipeline": "forecast"})
-        pipeline = build_pipeline(cfg)
-        assert isinstance(pipeline, ForecastPipeline)
-
-    def test_diagnostic_by_name(self):
-        cfg = OmegaConf.create({"pipeline": "diagnostic"})
+    def test_diagnostic_by_fqn(self):
+        cfg = OmegaConf.create(
+            {"pipeline": "src.pipelines.forecast.DiagnosticPipeline"}
+        )
         pipeline = build_pipeline(cfg)
         assert isinstance(pipeline, DiagnosticPipeline)
 
-    def test_unknown_name_raises(self):
-        cfg = OmegaConf.create({"pipeline": "nonexistent"})
-        with pytest.raises(ValueError, match="Unknown pipeline"):
-            build_pipeline(cfg)
-
     def test_custom_pipeline_by_fqn(self):
         cfg = OmegaConf.create({"pipeline": "my_custom.module.MyPipeline"})
-        with patch("src.pipeline.hydra.utils.get_class", return_value=_StubPipeline):
+        with patch("src.pipelines.hydra.utils.get_class", return_value=_StubPipeline):
             pipeline = build_pipeline(cfg)
         assert isinstance(pipeline, _StubPipeline)
 
     def test_non_pipeline_class_raises(self):
         cfg = OmegaConf.create({"pipeline": "builtins.dict"})
         with pytest.raises(TypeError, match="subclass of Pipeline"):
+            build_pipeline(cfg)
+
+    def test_target_block(self):
+        cfg = OmegaConf.create(
+            {"pipeline": {"_target_": "src.pipelines.forecast.ForecastPipeline"}}
+        )
+        pipeline = build_pipeline(cfg)
+        assert isinstance(pipeline, ForecastPipeline)
+
+    def test_target_block_non_pipeline_raises(self):
+        cfg = OmegaConf.create({"pipeline": {"_target_": "builtins.dict"}})
+        with pytest.raises(TypeError, match="not a Pipeline subclass"):
             build_pipeline(cfg)
 
 

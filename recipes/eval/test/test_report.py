@@ -353,6 +353,55 @@ class TestPlotIcHeatmap:
 
         plt.close(fig)
 
+    def test_single_ic_falls_back_to_bar_chart(self):
+        """With one IC time a heatmap is degenerate and pcolormesh's
+        autoscale often clips the single row.  The renderer falls back
+        to a bar chart of metric vs lead time."""
+        import matplotlib.pyplot as plt
+
+        # Build a 1-IC, multi-lead score dataset.
+        lead_times = np.array([60, 120], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
+        one_time = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
+        ds = xr.Dataset(
+            {
+                "rmse__refc": xr.DataArray(
+                    np.array([[0.5, 1.0]], dtype="float32"),
+                    dims=["time", "lead_time"],
+                    coords={"time": one_time, "lead_time": lead_times},
+                )
+            }
+        )
+        fig = plot_ic_heatmap(ds, "rmse", "refc", time_unit="hours")
+        ax = fig.axes[0]
+        # No colorbar axis in the fallback.
+        assert len(fig.axes) == 1
+        # Bar patches (one per lead time) rather than a QuadMesh collection.
+        bars = [p for p in ax.patches if p.get_height() > 0]
+        assert len(bars) == 2
+        # IC label should appear in the title.
+        assert "2023-12-05" in ax.get_title()
+        plt.close(fig)
+
+    def test_multi_ic_still_renders_quadmesh(self):
+        """With multiple ICs the heatmap renders a QuadMesh (not the
+        single-IC bar fallback).  We don't probe the internal ``_shading``
+        attribute because matplotlib normalizes ``"nearest"`` into a
+        padded-coords ``"flat"`` internally, and the attribute isn't a
+        stable cross-version invariant."""
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import QuadMesh
+
+        ds = _create_score_dataset()  # 4 ICs, 5 lead times
+        fig = plot_ic_heatmap(ds, "rmse", "t2m")
+        ax = fig.axes[0]
+        meshes = [c for c in ax.collections if isinstance(c, QuadMesh)]
+        assert len(meshes) == 1
+        # Colorbar axis is present (bar-chart fallback has only 1 axis).
+        assert len(fig.axes) >= 2
+        plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # Section renderers
@@ -757,12 +806,15 @@ def _create_verif_zarr(path):
 
 
 class TestPlotPredictionVsTruth:
+    def _latlon_coords(self):
+        return OrderedDict([("lat", SMALL_LAT), ("lon", SMALL_LON)])
+
     def test_basic(self):
         rng = np.random.default_rng(0)
         pred = rng.standard_normal((8, 16)).astype("float32")
         truth = rng.standard_normal((8, 16)).astype("float32")
         fig = plot_prediction_vs_truth(
-            pred, truth, SMALL_LAT, SMALL_LON, "z500", "2024-01-01", "5 days"
+            pred, truth, self._latlon_coords(), "z500", "2024-01-01", "5 days"
         )
         # 3 plot axes + 3 colorbar axes = 6
         assert len(fig.axes) == 6
@@ -775,11 +827,98 @@ class TestPlotPredictionVsTruth:
         pred = rng.standard_normal((8, 16)).astype("float32")
         truth = rng.standard_normal((8, 16)).astype("float32")
         fig = plot_prediction_vs_truth(
-            pred, truth, SMALL_LAT, SMALL_LON, "z500", "2024-01-01", "5 days"
+            pred, truth, self._latlon_coords(), "z500", "2024-01-01", "5 days"
         )
         suptitle = fig._suptitle.get_text()
         assert "z500" in suptitle
         assert "2024-01-01" in suptitle
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_explicit_color_range_overrides_auto(self):
+        """vmin/vmax/diff_abs kwargs override the nanmin/nanmax defaults.
+
+        This is the mechanism that suppresses MRMS refc's large-negative
+        fill values from crushing the color scale.
+        """
+        # Truth contains an outlier fill-value that would normally pull
+        # nanmin down to -9999.  With an explicit vmin=0, the colormap is
+        # clamped to the physical range.
+        truth = np.zeros((8, 16), dtype="float32")
+        truth[0, 0] = -9999.0  # fill-value outlier
+        pred = np.zeros((8, 16), dtype="float32")
+        fig = plot_prediction_vs_truth(
+            pred,
+            truth,
+            self._latlon_coords(),
+            "refc",
+            "2024-01-01",
+            "60 min",
+            vmin=0.0,
+            vmax=75.0,
+            diff_abs=40.0,
+        )
+        # The prediction pcolormesh should have vmin=0 (not nanmin=-9999).
+        pred_ax = fig.axes[0]
+        # Find the QuadMesh (pcolormesh output) in the axes' collections.
+        mesh = next(c for c in pred_ax.collections if hasattr(c, "get_clim"))
+        vmin_actual, vmax_actual = mesh.get_clim()
+        assert vmin_actual == pytest.approx(0.0)
+        assert vmax_actual == pytest.approx(75.0)
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_show_diff_false_drops_third_panel(self):
+        """``show_diff=False`` produces a 2-panel figure (pred, truth)
+        instead of the default 3-panel (pred, truth, diff)."""
+        pred = np.zeros((8, 16), dtype="float32")
+        truth = np.zeros((8, 16), dtype="float32")
+        fig = plot_prediction_vs_truth(
+            pred,
+            truth,
+            self._latlon_coords(),
+            "z500",
+            "2024-01-01",
+            "5 days",
+            show_diff=False,
+        )
+        # 2 panels + 2 colorbars = 4 axes; default is 6.
+        assert len(fig.axes) == 4
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_yx_coords_with_lambert_projection(self):
+        """HRRR-style ``(y, x)`` coords in meters plot without reprojection
+        when the data's CRS matches the map projection."""
+        pytest.importorskip("cartopy")
+        from src.report import _resolve_projection
+
+        projection = _resolve_projection("hrrr_lambert")
+        if projection is None:
+            pytest.skip("cartopy/LambertConformal unavailable")
+
+        rng = np.random.default_rng(0)
+        # HRRR-meter scale y/x values; sizes match pred/truth.
+        y = np.linspace(-1.5e6, 1.5e6, 6, dtype="float32")
+        x = np.linspace(-2.5e6, 2.5e6, 8, dtype="float32")
+        pred = rng.standard_normal((6, 8)).astype("float32")
+        truth = rng.standard_normal((6, 8)).astype("float32")
+        spatial = OrderedDict([("y", y), ("x", x)])
+
+        fig = plot_prediction_vs_truth(
+            pred,
+            truth,
+            spatial,
+            "refc",
+            "2023-12-05",
+            "60 min",
+            projection=projection,
+        )
+        # 3 pcolormesh axes + 3 colorbars = 6
+        assert len(fig.axes) == 6
         import matplotlib.pyplot as plt
 
         plt.close(fig)
@@ -799,7 +938,12 @@ class TestRenderHeaderVisualization:
             }
         )
         report_cfg = OmegaConf.create({})
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path / "out")}})
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path / "out")},
+                "predownload": {"verification": {"enabled": True, "source": None}},
+            }
+        )
 
         result = render_header_visualization(
             ds,
@@ -849,7 +993,12 @@ class TestRenderVisualization:
             }
         )
         report_cfg = OmegaConf.create({})
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path / "out")}})
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(tmp_path / "out")},
+                "predownload": {"verification": {"enabled": True, "source": None}},
+            }
+        )
 
         result = render_visualization(
             ds,
@@ -903,6 +1052,7 @@ class TestGenerateReportWithVisualization:
                 "run_id": "vis_test",
                 "output": {"path": str(tmp_path / "out")},
                 "scoring": {"output": {"store_name": "scores.zarr"}},
+                "predownload": {"verification": {"enabled": True, "source": None}},
                 "report": {
                     "sections": [
                         {
@@ -938,3 +1088,365 @@ class TestGenerateReportWithVisualization:
         assert len(header_figs) == 1
         vis_figs = list(fig_dir.glob("vis_*"))
         assert len(vis_figs) == 4  # 2 vars × 2 lead times
+
+
+# ---------------------------------------------------------------------------
+# HRRR / Lambert Conformal & per-model store support
+# ---------------------------------------------------------------------------
+
+
+class TestLeadTimeAxis:
+    """``_lead_time_axis`` converts timedelta64 lead times to fractional
+    values in the chosen unit and returns a matching axis label.  Used
+    to render short-horizon campaigns (StormScope: 60 min, 120 min) in
+    hours or minutes instead of the days-compressed default."""
+
+    def test_days_default_unchanged(self):
+        from src.report import _lead_time_axis
+
+        lts = np.array(
+            [np.timedelta64(1, "D"), np.timedelta64(3, "D")],
+            dtype="timedelta64[ns]",
+        )
+        vals, label = _lead_time_axis(lts, "days")
+        np.testing.assert_allclose(vals, [1.0, 3.0])
+        assert "days" in label
+
+    def test_hours(self):
+        from src.report import _lead_time_axis
+
+        lts = np.array(
+            [np.timedelta64(60, "m"), np.timedelta64(120, "m")],
+            dtype="timedelta64[ns]",
+        )
+        vals, label = _lead_time_axis(lts, "hours")
+        np.testing.assert_allclose(vals, [1.0, 2.0])
+        assert "hours" in label
+
+    def test_minutes(self):
+        from src.report import _lead_time_axis
+
+        lts = np.array(
+            [np.timedelta64(30, "m"), np.timedelta64(60, "m")],
+            dtype="timedelta64[ns]",
+        )
+        vals, label = _lead_time_axis(lts, "minutes")
+        np.testing.assert_allclose(vals, [30.0, 60.0])
+        assert "minutes" in label
+
+    def test_aliases(self):
+        from src.report import _lead_time_axis
+
+        lts = np.array([np.timedelta64(60, "m")], dtype="timedelta64[ns]")
+        for alias in ("h", "hour", "HOURS"):
+            vals, _ = _lead_time_axis(lts, alias)
+            np.testing.assert_allclose(vals, [1.0])
+
+    def test_unknown_unit_falls_back_to_days(self):
+        from src.report import _lead_time_axis
+
+        lts = np.array([np.timedelta64(1, "D")], dtype="timedelta64[ns]")
+        vals, label = _lead_time_axis(lts, "fortnights")
+        np.testing.assert_allclose(vals, [1.0])
+        assert "days" in label
+
+
+class TestSummaryShortLeadTimes:
+    """``snapshot_at_lead_times`` must match the configured lead-time
+    strings against the score store's ``timedelta64[ns]`` values even
+    when the caller uses short units (``"60 min"``, ``"2 h"``).
+
+    Regression: previously ``np.timedelta64(pd.Timedelta("60 min"))``
+    could return a pandas subclass that the downstream membership
+    check failed to equate with the store's ns-unit values, leaving
+    the summary table empty for StormScope-style campaigns.
+    """
+
+    def test_60min_lead_time_lookup(self):
+        from src.report import snapshot_at_lead_times
+
+        # Score store with two lead times (60 and 120 min) in ns units.
+        lead_times = np.array([60, 120], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
+        times = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
+        ds = xr.Dataset(
+            {
+                "rmse__refc": xr.DataArray(
+                    np.array([[0.5, 1.0]], dtype="float32"),
+                    dims=["time", "lead_time"],
+                    coords={"time": times, "lead_time": lead_times},
+                )
+            }
+        )
+        df = snapshot_at_lead_times(ds, {"rmse": ["refc"]}, ["60 min", "120 min"])
+        assert not df.empty
+        assert set(df["lead_time"]) == {"60 min", "120 min"}
+        # Values should round-trip after the rmse quadratic time aggregation
+        # (single time in the store so the time axis is a no-op).
+        vals = dict(zip(df["lead_time"], df["value"]))
+        np.testing.assert_allclose(vals["60 min"], 0.5)
+        np.testing.assert_allclose(vals["120 min"], 1.0)
+
+
+class TestColorRangeFor:
+    """``_color_range_for`` pulls per-variable color range overrides from
+    the report config.  Unset or missing entries fall back to an empty
+    dict so the plotting call auto-scales from the data."""
+
+    def test_returns_empty_when_no_color_ranges(self):
+        from src.report import _color_range_for
+
+        report_cfg = OmegaConf.create({})
+        assert _color_range_for(report_cfg, "refc") == {}
+
+    def test_returns_empty_when_variable_absent(self):
+        from src.report import _color_range_for
+
+        report_cfg = OmegaConf.create(
+            {"color_ranges": {"other_var": {"vmin": 0, "vmax": 1}}}
+        )
+        assert _color_range_for(report_cfg, "refc") == {}
+
+    def test_returns_defined_keys(self):
+        from src.report import _color_range_for
+
+        report_cfg = OmegaConf.create(
+            {
+                "color_ranges": {
+                    "refc": {"vmin": 0, "vmax": 75, "diff_abs": 40},
+                }
+            }
+        )
+        out = _color_range_for(report_cfg, "refc")
+        assert out == {"vmin": 0.0, "vmax": 75.0, "diff_abs": 40.0}
+
+    def test_omits_null_keys(self):
+        """A null/None value in config means 'fall back to auto' — the
+        key should be dropped from the kwargs so the plotting default
+        (nanmin/nanmax) wins."""
+        from src.report import _color_range_for
+
+        report_cfg = OmegaConf.create(
+            {
+                "color_ranges": {
+                    "refc": {"vmin": 0, "vmax": None, "diff_abs": 40},
+                }
+            }
+        )
+        out = _color_range_for(report_cfg, "refc")
+        assert out == {"vmin": 0.0, "diff_abs": 40.0}
+
+
+class TestResolveProjection:
+    """The report's projection resolver accepts a custom ``hrrr_lambert``
+    alias for HRRR's Lambert-conformal CRS alongside the standard cartopy
+    names.  Falls back gracefully when cartopy is missing or the name
+    is unrecognised."""
+
+    def test_known_name_returns_crs(self):
+        pytest.importorskip("cartopy")
+        from src.report import _resolve_projection
+
+        proj = _resolve_projection("robinson")
+        assert proj is not None
+
+    def test_hrrr_lambert_returns_lambert_conformal(self):
+        pytest.importorskip("cartopy")
+        from src.report import _resolve_projection
+
+        proj = _resolve_projection("hrrr_lambert")
+        assert proj is not None
+        # Identify by class name to avoid importing cartopy at module scope.
+        assert type(proj).__name__ == "LambertConformal"
+
+    def test_none_returns_none(self):
+        from src.report import _resolve_projection
+
+        assert _resolve_projection(None) is None
+
+    def test_unknown_name_returns_none(self):
+        pytest.importorskip("cartopy")
+        from src.report import _resolve_projection
+
+        assert _resolve_projection("nonexistent_projection") is None
+
+
+class TestOpenDataStoresMultiStore:
+    """``_open_data_stores`` falls back to merging ``data_*.zarr`` stores
+    when neither ``verification.zarr`` nor ``data.zarr`` is present —
+    the layout StormScope's predownload writes."""
+
+    def _write_yx_zarr(self, path, variables):
+        t = np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[ns]")
+        y = np.arange(4)
+        x = np.arange(5)
+        ds = xr.Dataset()
+        for v in variables:
+            ds[v] = xr.DataArray(
+                np.zeros((2, 4, 5), dtype="float32"),
+                dims=["time", "y", "x"],
+                coords={"time": t, "y": y, "x": x},
+            )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        ds.to_zarr(str(path), mode="w")
+
+    def test_merges_per_model_stores(self, tmp_path):
+        from src.report import _open_data_stores
+
+        out = tmp_path / "out"
+        out.mkdir()
+        # No verification.zarr / data.zarr — just per-model stores.
+        self._write_yx_zarr(out / "data_goes.zarr", ["abi01c", "abi02c"])
+        self._write_yx_zarr(out / "data_mrms.zarr", ["refc"])
+        # Prediction store (forecast.zarr) is optional; omit here to
+        # focus the test on verification resolution.
+        cfg = OmegaConf.create({"output": {"path": str(out)}})
+
+        _, verif_ds = _open_data_stores(cfg)
+        assert verif_ds is not None
+        # Merged dataset has variables from both stores.
+        assert "abi01c" in verif_ds
+        assert "abi02c" in verif_ds
+        assert "refc" in verif_ds
+
+    def test_prefers_verification_zarr_when_present(self, tmp_path):
+        """When ``verification.zarr`` exists, the per-model fallback is
+        not consulted — the legacy path wins."""
+        from src.report import _open_data_stores
+
+        out = tmp_path / "out"
+        out.mkdir()
+        self._write_yx_zarr(out / "verification.zarr", ["legacy_var"])
+        self._write_yx_zarr(out / "data_goes.zarr", ["abi01c"])
+        cfg = OmegaConf.create({"output": {"path": str(out)}})
+
+        _, verif_ds = _open_data_stores(cfg)
+        assert verif_ds is not None
+        assert "legacy_var" in verif_ds
+        assert "abi01c" not in verif_ds
+
+    def test_returns_none_when_no_stores(self, tmp_path):
+        from src.report import _open_data_stores
+
+        out = tmp_path / "out"
+        out.mkdir()
+        cfg = OmegaConf.create({"output": {"path": str(out)}})
+
+        _, verif_ds = _open_data_stores(cfg)
+        assert verif_ds is None
+
+
+class TestGenerateReportStormScope:
+    """Smoke-level end-to-end generator run with a StormScope-shaped
+    layout: prediction zarr on ``(y, x)`` HRRR meters, per-model
+    verification zarrs, ``hrrr_lambert`` projection, and multi-group
+    variable layout."""
+
+    def test_end_to_end_hrrr_layout(self, tmp_path):
+        pytest.importorskip("cartopy")
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        # --- Prediction zarr: (time, lead_time, variable, y, x) ---
+        ic_times = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
+        lead_times = np.array([60, 120], dtype="timedelta64[m]").astype(
+            "timedelta64[ns]"
+        )
+        y = np.linspace(-1.5e6, 1.5e6, 6, dtype="float32")
+        x = np.linspace(-2.5e6, 2.5e6, 8, dtype="float32")
+
+        rng = np.random.default_rng(0)
+        pred_ds = xr.Dataset(
+            {
+                v: xr.DataArray(
+                    rng.standard_normal(
+                        (len(ic_times), len(lead_times), len(y), len(x))
+                    ).astype("float32"),
+                    dims=["time", "lead_time", "y", "x"],
+                    coords={
+                        "time": ic_times,
+                        "lead_time": lead_times,
+                        "y": y,
+                        "x": x,
+                    },
+                )
+                for v in ["abi01c", "refc"]
+            }
+        )
+        pred_ds.to_zarr(str(out / "forecast.zarr"), mode="w")
+
+        # --- Per-model verification zarrs keyed by valid time ---
+        valid_times = ic_times + lead_times[-1]  # simple case
+        valid_times = np.concatenate([ic_times + lt for lt in lead_times])
+        for fname, vs in [
+            ("data_goes.zarr", ["abi01c"]),
+            ("data_mrms.zarr", ["refc"]),
+        ]:
+            xr.Dataset(
+                {
+                    v: xr.DataArray(
+                        rng.standard_normal((len(valid_times), len(y), len(x))).astype(
+                            "float32"
+                        ),
+                        dims=["time", "y", "x"],
+                        coords={"time": valid_times, "y": y, "x": x},
+                    )
+                    for v in vs
+                }
+            ).to_zarr(str(out / fname), mode="w")
+
+        # --- Minimal score zarr ---
+        score_ds = xr.Dataset(
+            {
+                f"rmse__{v}": xr.DataArray(
+                    rng.uniform(0.1, 1.0, (len(ic_times), len(lead_times))).astype(
+                        "float32"
+                    ),
+                    dims=["time", "lead_time"],
+                    coords={"time": ic_times, "lead_time": lead_times},
+                )
+                for v in ["abi01c", "refc"]
+            }
+        )
+        score_ds.to_zarr(str(out / "scores.zarr"), mode="w")
+
+        cfg = OmegaConf.create(
+            {
+                "run_id": "stormscope_test",
+                "output": {"path": str(out)},
+                "scoring": {"output": {"store_name": "scores.zarr"}},
+                "report": {
+                    "projection": "hrrr_lambert",
+                    "variable_groups": {
+                        "goes_abi": ["abi01c"],
+                        "mrms": ["refc"],
+                    },
+                    "sections": [
+                        {
+                            "type": "header_visualization",
+                            "variable": "refc",
+                            "lead_time": "120 min",
+                        },
+                        {
+                            "type": "visualization",
+                            "variables": ["abi01c", "refc"],
+                            "lead_times": ["60 min", "120 min"],
+                            "collapsed": True,
+                        },
+                    ],
+                    "figure_format": "png",
+                },
+            }
+        )
+
+        report_path = generate_report(cfg)
+        assert report_path.exists()
+
+        fig_dir = out / "report" / "figures"
+        # Header figure for refc.
+        assert any(p.name.startswith("header_refc") for p in fig_dir.iterdir())
+        # 2 variables × 2 lead times = 4 vis_* figures.
+        vis_figs = list(fig_dir.glob("vis_*"))
+        assert len(vis_figs) == 4

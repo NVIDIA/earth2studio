@@ -23,7 +23,6 @@ import shutil
 import uuid
 from datetime import datetime
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -32,6 +31,7 @@ import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
@@ -144,13 +144,7 @@ class GHCNDaily:
         # Station metadata (lat, lon, elev) loaded lazily
         self._station_meta: pd.DataFrame | None = None
 
-        # Check to see if there is a running loop (initialized in async)
-        try:
-            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        self.fs: s3fs.S3FileSystem | None = None
 
         self.async_timeout = async_timeout
 
@@ -193,19 +187,8 @@ class GHCNDaily:
         """
         # Run async path synchronously
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -237,11 +220,7 @@ class GHCNDaily:
             GHCN data frame
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this "
-                "function directly make sure the data source is initialized inside the "
-                "async loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         self._validate_time(time)

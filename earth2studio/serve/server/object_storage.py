@@ -365,8 +365,7 @@ class MSCObjectStorage(ObjectStorage):
                 "max_concurrency": max_concurrency,
             }
 
-            # Add endpoint URL if provided (for S3-compatible services)
-            if self.endpoint_url:
+            if self.endpoint_url and not use_transfer_acceleration:
                 s3_storage_provider_options["endpoint_url"] = self.endpoint_url
 
             # Enable Rust client for high-performance I/O
@@ -504,30 +503,31 @@ class MSCObjectStorage(ObjectStorage):
             if self.storage_type == "s3"
             else f"azure://{self.azure_container_name if self.storage_type == 'azure' else self.bucket}"
         )
+
         logger.info(
             f"[MSC] Syncing {len(files)} files ({total_bytes / (1024 * 1024):.2f} MB) "
             f"from {local_directory} to {storage_prefix}/{remote_prefix}"
         )
-
         errors: list[str] = []
         start_time = time.time()
+        files_uploaded = 0
 
-        try:
-            # Use sync_from for efficient parallel directory upload
-            result = self._storage_client.sync_from(
-                source_client=self._local_client,
-                source_path=source_path,
-                target_path=f"/{remote_prefix}" if remote_prefix else "/",
-            )
+        if len(files) > 0:
+            try:
+                # Use sync_from for efficient parallel directory upload
+                result = self._storage_client.sync_from(
+                    source_client=self._local_client,
+                    source_path=source_path,
+                    target_path=f"/{remote_prefix}" if remote_prefix else "/",
+                )
+                logger.info(f"[MSC] Sync completed: {result}")
+                files_uploaded = len(files)
 
-            logger.info(f"[MSC] Sync completed: {result}")
-            files_uploaded = len(files)
-
-        except Exception as e:
-            error_msg = f"MSC sync_from failed: {str(e)}"
-            errors.append(error_msg)
-            logger.error(error_msg)
-            files_uploaded = 0
+            except Exception as e:
+                error_msg = f"MSC sync_from failed: {str(e)}"
+                errors.append(error_msg)
+                logger.error(error_msg)
+                files_uploaded = 0
 
         elapsed_time = time.time() - start_time
         success = len(errors) == 0

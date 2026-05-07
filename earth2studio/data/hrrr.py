@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import asyncio
-import concurrent.futures
 import functools
 import hashlib
 import os
@@ -26,7 +25,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import gcsfs
-import nest_asyncio
 import numpy as np
 import pygrib
 import s3fs
@@ -36,6 +34,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _sync_async,
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
@@ -197,14 +196,8 @@ class HRRR:
         else:
             raise ValueError(f"Invalid HRRR source { self._source}")
 
-        try:
-            nest_asyncio.apply()  # Monkey patch asyncio to work in notebooks
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            # Else we assume that async calls will be used which in that case
-            # we will init the group in the call function when we have the loop
-            self.fs = None
+        # Filesystem is lazily initialized on first call
+        self.fs: s3fs.S3FileSystem | gcsfs.GCSFileSystem | HTTPFileSystem | None = None
 
     async def _async_init(self) -> None:
         """Async initialization of fsspec file stores
@@ -260,27 +253,13 @@ class HRRR:
             HRRR weather data array
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        # Modify the worker amount
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(self.fetch(time, variable), timeout=self.async_timeout)
-        )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
+            xr_array = _sync_async(
+                self.fetch, time, variable, timeout=self.async_timeout
+            )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -305,11 +284,7 @@ class HRRR:
             HRRR weather data array
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this \
-            function directly make sure the data source is initialized inside the async \
-            loop!"
-            )
+            await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
         # Create cache dir if doesnt exist
@@ -815,25 +790,13 @@ class HRRR_FX(HRRR):
             HRRR forecast data array
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # If no event loop exists, create one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        # Modify the worker amount
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
-        )
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        xr_array = loop.run_until_complete(
-            asyncio.wait_for(
-                self.fetch(time, lead_time, variable), timeout=self.async_timeout
+            xr_array = _sync_async(
+                self.fetch, time, lead_time, variable, timeout=self.async_timeout
             )
-        )
+        finally:
+            # Delete cache if needed
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
 
         return xr_array
 
@@ -860,6 +823,9 @@ class HRRR_FX(HRRR):
         xr.DataArray
             HRRR forecast data array
         """
+        if self.fs is None:
+            await self._async_init()
+
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -912,10 +878,6 @@ class HRRR_FX(HRRR):
         await tqdm.gather(
             *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
         )
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
 
         if session:
             await session.close()
