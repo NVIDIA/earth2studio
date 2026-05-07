@@ -28,7 +28,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import hashlib
 import os
@@ -39,11 +38,11 @@ import sys
 import time
 import uuid
 from collections.abc import Callable, Iterator
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -51,6 +50,7 @@ import s3fs
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
@@ -264,21 +264,17 @@ class _NNJAObsBase:
         verbose: bool = True,
         async_timeout: int = 600,
         async_workers: int = 16,
+        decode_workers: int = 8,
         retries: int = 3,
     ) -> None:
         self._verbose = verbose
         self._cache = cache
         self._async_workers = async_workers
+        self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
-
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None
+        self.fs: s3fs.S3FileSystem | None = None
 
         lower, upper = normalize_time_tolerance(time_tolerance)
         self._tolerance_lower = pd.to_timedelta(lower).to_pytimedelta()
@@ -320,19 +316,8 @@ class _NNJAObsBase:
             Observation DataFrame with columns matching the resolved schema.
         """
         try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields), timeout=self.async_timeout
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -351,11 +336,7 @@ class _NNJAObsBase:
     ) -> pd.DataFrame:
         """Async function to get data."""
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If calling this function "
-                "directly make sure the data source is initialized inside "
-                "the async loop."
-            )
+            await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
@@ -1154,6 +1135,64 @@ def _emit_level_rows(
                 rows.append(row)
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Module-level worker functions for multiprocessing
+# ─────────────────────────────────────────────────────────────────────
+
+# Module-level decoder for worker processes, set by _init_decode_worker.
+_worker_decoder: Any = None
+
+
+def _init_decode_worker(
+    table_b: dict[int, tuple[Any, ...]],
+    table_d: dict[int, tuple[Any, ...]],
+) -> None:
+    """Initializer for process pool workers.
+
+    Registers NCEP-local descriptor tables with pybufrkit in each
+    worker process and creates a reusable decoder instance stored
+    as a module-level global.
+    """
+    global _worker_decoder  # noqa: PLW0603
+    _register_dx_tables(table_b, table_d)
+    _worker_decoder = BufrDecoder()
+
+
+def _decode_message_worker(
+    msg_bytes: bytes,
+    obs_class: str,
+    var_keys: list[tuple[str, str]],
+    dt_min: datetime,
+    dt_max: datetime,
+) -> list[dict[str, Any]]:
+    """Decode a single BUFR message in a worker process.
+
+    Uses the decoder created by :func:`_init_decode_worker`.
+
+    Parameters
+    ----------
+    msg_bytes : bytes
+        Raw BUFR message bytes.
+    obs_class : str
+        Observation class string (e.g. ``"ADPSFC"``).
+    var_keys : list[tuple[str, str]]
+        List of (var_name, lexicon_key) pairs.
+    dt_min : datetime
+        Minimum observation time.
+    dt_max : datetime
+        Maximum observation time.
+
+    Returns
+    -------
+    list[dict]
+        Observation rows for this message.
+    """
+    with _silence_bufr_noise():
+        return _decode_message(
+            _worker_decoder, msg_bytes, obs_class, var_keys, dt_min, dt_max
+        )
+
+
 @check_optional_dependencies()
 class NNJAObsConv(_NNJAObsBase):
     """NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
@@ -1179,6 +1218,10 @@ class NNJAObsConv(_NNJAObsBase):
         Total timeout in seconds for the async fetch, by default 600.
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 16.
+    decode_workers : int, optional
+        Number of parallel processes for BUFR message decoding. Higher values
+        speed up decoding of large PrepBUFR files at the cost of more memory.
+        Set to 1 to disable multiprocessing, by default 8.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -1216,6 +1259,7 @@ class NNJAObsConv(_NNJAObsBase):
         verbose: bool = True,
         async_timeout: int = 600,
         async_workers: int = 16,
+        decode_workers: int = 8,
         retries: int = 3,
     ) -> None:
         if source not in self.VALID_SOURCES:
@@ -1229,6 +1273,7 @@ class NNJAObsConv(_NNJAObsBase):
             verbose=verbose,
             async_timeout=async_timeout,
             async_workers=async_workers,
+            decode_workers=decode_workers,
             retries=retries,
         )
 
@@ -1404,7 +1449,12 @@ class NNJAObsConv(_NNJAObsBase):
     def _decode_prepbufr_file(
         self, local_path: str, task: _NNJAConvTask
     ) -> pd.DataFrame:
-        """Decode a PrepBUFR cycle file into a DataFrame."""
+        """Decode a PrepBUFR cycle file into a DataFrame.
+
+        Messages are decoded in parallel using a process pool when
+        ``decode_workers > 1`` and the message count exceeds the
+        threshold.
+        """
         with open(local_path, "rb") as fh:
             file_data = fh.read()
 
@@ -1422,26 +1472,59 @@ class NNJAObsConv(_NNJAObsBase):
             return pd.DataFrame()
 
         all_rows: list[dict[str, Any]] = []
+        use_parallel = (
+            self._decode_workers > 1
+            and len(work_items) >= self._PREPBUFR_POOL_MIN_MESSAGES
+        )
         logger.info(
             f"[NNJAObsConv prepbufr] cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
             f"messages={len(work_items)} (parsed {len(messages)}, "
-            f"DX-table entries: B={len(table_b)} D={len(table_d)})"
+            f"DX-table entries: B={len(table_b)} D={len(table_d)}) "
+            f"[parallel={use_parallel}, workers={self._decode_workers}]"
         )
         decode_t0 = time.perf_counter()
-        with _silence_bufr_noise():
-            _register_dx_tables(table_b, table_d)
-            decoder = BufrDecoder()
-            for msg_bytes, obs_class in work_items:
-                all_rows.extend(
-                    _decode_message(
-                        decoder,
+
+        if use_parallel:
+            # Parallel decode using process pool
+            with ProcessPoolExecutor(
+                max_workers=self._decode_workers,
+                initializer=_init_decode_worker,
+                initargs=(table_b, table_d),
+            ) as pool:
+                futures = [
+                    pool.submit(
+                        _decode_message_worker,
                         msg_bytes,
                         obs_class,
                         var_keys,
                         task.datetime_min,
                         task.datetime_max,
                     )
-                )
+                    for msg_bytes, obs_class in work_items
+                ]
+                for future in futures:
+                    try:
+                        rows = future.result()
+                        if rows:
+                            all_rows.extend(rows)
+                    except Exception:
+                        logger.debug("Worker failed to decode a BUFR message")
+        else:
+            # Sequential decode (single worker or few messages)
+            with _silence_bufr_noise():
+                _register_dx_tables(table_b, table_d)
+                decoder = BufrDecoder()
+                for msg_bytes, obs_class in work_items:
+                    all_rows.extend(
+                        _decode_message(
+                            decoder,
+                            msg_bytes,
+                            obs_class,
+                            var_keys,
+                            task.datetime_min,
+                            task.datetime_max,
+                        )
+                    )
 
         logger.info(
             f"[NNJAObsConv prepbufr] cycle={task.datetime_file:%Y-%m-%d %H:%MZ} "
