@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import json
 import logging
 import zipfile
@@ -35,7 +37,7 @@ except ImportError:
 
 # Import configuration
 from earth2studio.serve.server.config import get_config, get_config_manager
-from earth2studio.serve.server.redis_factory import create_sync_redis_client
+from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     get_inference_request_output_path_key,
@@ -59,23 +61,11 @@ config_manager = get_config_manager()
 config_manager.setup_logging()
 logger = logging.getLogger(__name__)
 
-# Lazily-initialized module-level Redis client for the CPU worker process.
-_redis_client: redis.Redis | None = None
-
-
-def _get_redis_client() -> redis.Redis:
-    """Return the CPU worker-process Redis client, creating it on first call."""
-    global _redis_client
-    if _redis_client is None:
-        _redis_client = create_sync_redis_client()
-    return _redis_client
-
-
 # Register custom workflows in the CPU worker process
 try:
     from earth2studio.serve.server.workflow import register_all_workflows
 
-    register_all_workflows(_get_redis_client())
+    register_all_workflows(get_worker_redis_client())
     logger.info("Custom workflows registered successfully in CPU worker process")
 except ImportError:
     logger.warning(
@@ -114,7 +104,7 @@ def fail_workflow(
                 "error_message": error_message,
             }
             workflow_class._update_execution_data(
-                _get_redis_client(), workflow_name, execution_id, updates
+                get_worker_redis_client(), workflow_name, execution_id, updates
             )
     except Exception:
         logger.exception("Failed to update workflow status")
@@ -157,7 +147,7 @@ class ResultMetadata:
         request_id: str,
         file_manifest: list[FileManifestEntry],
         zip_created_at: str,
-    ) -> "ResultMetadata":
+    ) -> ResultMetadata:
         """Create ResultMetadata from a WorkflowResult.
 
         Parameters
@@ -428,7 +418,7 @@ def process_result_zip(
             raise ValueError(f"Workflow '{workflow_name}' not found in registry")
 
         # Get execution data from Redis for metadata
-        rc = _get_redis_client()
+        rc = get_worker_redis_client()
         execution_data = workflow_class._get_execution_data(
             rc, workflow_name, execution_id
         )
@@ -541,7 +531,7 @@ def process_object_storage_upload(
     """
     output_path = Path(output_path_str)
     request_id = f"{workflow_name}:{execution_id}"
-    rc = _get_redis_client()
+    rc = get_worker_redis_client()
 
     logger.info(f"Processing object storage worker for {request_id}")
 
@@ -874,7 +864,7 @@ def process_finalize_metadata(
     """
 
     request_id = f"{workflow_name}:{execution_id}"
-    rc = _get_redis_client()
+    rc = get_worker_redis_client()
     logger.info(f"Processing finalize metadata for {request_id}")
 
     # Retrieve pending metadata and storage info from Redis
@@ -946,9 +936,7 @@ def process_finalize_metadata(
             "status": WorkflowStatus.COMPLETED,
             "end_time": datetime.now(timezone.utc).isoformat(),
         }
-        workflow_class._update_execution_data(
-            rc, workflow_name, execution_id, updates
-        )
+        workflow_class._update_execution_data(rc, workflow_name, execution_id, updates)
         logger.info(
             f"Workflow {workflow_name} execution {execution_id} status set to COMPLETED"
         )

@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import logging
 import time
 from datetime import datetime, timezone
@@ -32,7 +34,7 @@ except ImportError:
     redis = None
 
 from earth2studio.serve.server.config import get_config, get_config_manager
-from earth2studio.serve.server.redis_factory import create_sync_redis_client
+from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import queue_next_stage
 from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
 
@@ -50,23 +52,11 @@ RESULTS_ZIP_DIR = Path(config.paths.results_zip_dir)
 # Model registry for caching loaded models
 model_registry: dict[str, Any] = {}
 
-# Lazily-initialized module-level Redis client for the worker process.
-_redis_client: redis.Redis | None = None
-
-
-def _get_redis_client() -> redis.Redis:
-    """Return the worker-process Redis client, creating it on first call."""
-    global _redis_client
-    if _redis_client is None:
-        _redis_client = create_sync_redis_client()
-    return _redis_client
-
-
 # Register custom workflows in the worker process
 try:
     from earth2studio.serve.server.workflow import register_all_workflows
 
-    register_all_workflows(_get_redis_client())
+    register_all_workflows(get_worker_redis_client())
     logger.info("Custom workflows registered successfully in worker process")
 except ImportError:
     logger.warning(
@@ -142,7 +132,7 @@ def run_custom_workflow(
         If queuing the next pipeline stage fails.
     """
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
-    redis_client = _get_redis_client()
+    redis_client = get_worker_redis_client()
 
     log.info(f"Starting custom workflow {workflow_name}")
 

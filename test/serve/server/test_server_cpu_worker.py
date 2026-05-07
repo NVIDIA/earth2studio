@@ -860,7 +860,7 @@ class TestFailWorkflow:
             "earth2studio.serve.server.cpu_worker.workflow_registry"
         ) as mock_registry:
             mock_registry.get_workflow_class.return_value = mock_workflow_class
-            with patch("earth2studio.serve.server.cpu_worker._get_redis_client"):
+            with patch("earth2studio.serve.server.cpu_worker.get_worker_redis_client"):
                 out = fail_workflow("my_wf", "exec_1", "Failed")
 
         assert out["success"] is False
@@ -1018,7 +1018,7 @@ class TestProcessResultZip:
             "earth2studio.serve.server.cpu_worker.workflow_registry"
         ) as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client"
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
                 mock_redis = mock_get_redis.return_value
                 with patch(
@@ -1087,7 +1087,7 @@ class TestProcessResultZip:
             "earth2studio.serve.server.cpu_worker.workflow_registry"
         ) as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client"
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
                 mock_redis = mock_get_redis.return_value
                 with patch(
@@ -1135,7 +1135,7 @@ class TestProcessResultZip:
             "earth2studio.serve.server.cpu_worker.workflow_registry"
         ) as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client"
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
                 mock_redis = mock_get_redis.return_value
                 with patch(
@@ -1175,7 +1175,7 @@ class TestProcessResultZip:
             "earth2studio.serve.server.cpu_worker.workflow_registry"
         ) as mock_registry:
             with patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client"
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
                 mock_redis = mock_get_redis.return_value
                 with patch("earth2studio.serve.server.cpu_worker.queue_next_stage"):
@@ -1227,7 +1227,7 @@ class TestProcessFinalizeMetadata:
         mock_workflow_class._update_execution_data = Mock()
 
         with patch(
-            "earth2studio.serve.server.cpu_worker._get_redis_client"
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
             with patch(
@@ -1257,7 +1257,7 @@ class TestProcessFinalizeMetadata:
     def test_process_finalize_metadata_missing_pending_metadata_returns_failure(self):
         """When pending metadata or results_zip_dir is missing in Redis, returns fail_workflow dict."""
         with patch(
-            "earth2studio.serve.server.cpu_worker._get_redis_client"
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
             with patch(
@@ -1289,7 +1289,7 @@ class TestProcessFinalizeMetadata:
         results_zip_dir_key = f"inference_request:{request_id}:results_zip_dir"
 
         with patch(
-            "earth2studio.serve.server.cpu_worker._get_redis_client"
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
             with patch(
@@ -1334,7 +1334,7 @@ class TestProcessFinalizeMetadata:
         mock_workflow_class._update_execution_data = Mock()
 
         with patch(
-            "earth2studio.serve.server.cpu_worker._get_redis_client"
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
             with patch(
@@ -1375,7 +1375,7 @@ class TestProcessObjectStorageUpload:
         (output_dir / "f.nc").write_text("data")
 
         with patch(
-            "earth2studio.serve.server.cpu_worker._get_redis_client"
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
             with patch("earth2studio.serve.server.cpu_worker.config") as mock_config:
@@ -1493,7 +1493,7 @@ class TestProcessObjectStorageUploadEnabled:
         return (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1524,7 +1524,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1562,7 +1562,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1594,7 +1594,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
@@ -1629,7 +1629,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
@@ -1665,7 +1665,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
@@ -1713,7 +1713,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1765,7 +1765,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.fail_workflow") as mock_fail,
@@ -1815,7 +1815,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1873,7 +1873,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1926,7 +1926,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -1967,7 +1967,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -2009,7 +2009,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -2065,7 +2065,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -2110,7 +2110,7 @@ class TestProcessObjectStorageUploadEnabled:
         with (
             patch("earth2studio.serve.server.cpu_worker.config", mock_config),
             patch(
-                "earth2studio.serve.server.cpu_worker._get_redis_client",
+                "earth2studio.serve.server.cpu_worker.get_worker_redis_client",
                 return_value=mock_redis,
             ),
             patch("earth2studio.serve.server.cpu_worker.queue_next_stage", mock_queue),
@@ -2144,7 +2144,7 @@ class TestProcessFinalizeMetadataEdgeCases:
         results_zip_dir_key = f"inference_request:{request_id}:results_zip_dir"
 
         with patch(
-            "earth2studio.serve.server.cpu_worker._get_redis_client"
+            "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
             # Return non-JSON for metadata to trigger json.loads to raise

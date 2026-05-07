@@ -62,3 +62,19 @@ def create_async_redis_client() -> redis_async.Redis:
         socket_connect_timeout=config.redis.socket_connect_timeout,
         socket_timeout=config.redis.socket_timeout,
     )
+
+
+_worker_redis_instance: redis.Redis | None = None
+
+
+def get_worker_redis_client() -> redis.Redis:
+    """Singleton Redis client for RQ worker processes.
+
+    Returns the same client instance on every call within a single OS process.
+    Used by both GPU and CPU worker modules to avoid duplicating the singleton
+    pattern.
+    """
+    global _worker_redis_instance
+    if _worker_redis_instance is None:
+        _worker_redis_instance = create_sync_redis_client()
+    return _worker_redis_instance

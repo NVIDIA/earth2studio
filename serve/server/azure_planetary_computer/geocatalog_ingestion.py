@@ -23,10 +23,8 @@ from azure_planetary_computer.pc_client import (
     PlanetaryComputerClient,
 )
 from earth2studio.serve.server.config import get_config
-from earth2studio.serve.server.cpu_worker import (
-    fail_workflow,
-    redis_client,
-)
+from earth2studio.serve.server.cpu_worker import fail_workflow
+from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     queue_next_stage,
@@ -41,8 +39,9 @@ def _merge_geocatalog_ids_into_storage_info(
     stac_feature_id: str,
 ) -> None:
     """Persist GeoCatalog collection and STAC feature IDs into Redis ``storage_info`` for finalize."""
+    rc = get_worker_redis_client()
     key = f"inference_request:{request_id}:storage_info"
-    raw = redis_client.get(key)
+    raw = rc.get(key)
     if not raw:
         logger.warning(
             "storage_info missing for %s; cannot attach GeoCatalog IDs", request_id
@@ -56,7 +55,7 @@ def _merge_geocatalog_ids_into_storage_info(
     info["geocatalog_collection_id"] = collection_id
     info["geocatalog_stac_feature_id"] = stac_feature_id
     config = get_config()
-    redis_client.setex(key, config.redis.retention_ttl, json.dumps(info))
+    rc.setex(key, config.redis.retention_ttl, json.dumps(info))
 
 
 def process_geocatalog_ingestion(
@@ -86,19 +85,20 @@ def process_geocatalog_ingestion(
     """
     request_id = f"{workflow_name}:{execution_id}"
     logger.info(f"Processing geocatalog ingestion for {request_id}")
+    rc = get_worker_redis_client()
 
     try:
         storage_info_key = f"inference_request:{request_id}:storage_info"
         metadata_key = get_inference_request_metadata_key(request_id)
-        storage_info_json = redis_client.get(storage_info_key)
-        pending_metadata_json = redis_client.get(metadata_key)
+        storage_info_json = rc.get(storage_info_key)
+        pending_metadata_json = rc.get(metadata_key)
 
         if not storage_info_json or not pending_metadata_json:
             logger.warning(
                 f"Storage info or pending metadata missing for {request_id}, skipping geocatalog ingestion"
             )
             job_id = queue_next_stage(
-                redis_client=redis_client,
+                redis_client=rc,
                 current_stage="geocatalog_ingestion",
                 workflow_name=workflow_name,
                 execution_id=execution_id,
@@ -127,7 +127,7 @@ def process_geocatalog_ingestion(
                 f"geo_catalog_url missing for {request_id}, skipping geocatalog ingestion"
             )
             job_id = queue_next_stage(
-                redis_client=redis_client,
+                redis_client=rc,
                 current_stage="geocatalog_ingestion",
                 workflow_name=workflow_name,
                 execution_id=execution_id,
@@ -153,7 +153,7 @@ def process_geocatalog_ingestion(
                 f"dataset), skipping geocatalog ingestion"
             )
             job_id = queue_next_stage(
-                redis_client=redis_client,
+                redis_client=rc,
                 current_stage="geocatalog_ingestion",
                 workflow_name=workflow_name,
                 execution_id=execution_id,
@@ -173,7 +173,7 @@ def process_geocatalog_ingestion(
                 f"Workflow {workflow_name} not supported by Planetary Computer client, skipping ingestion for {request_id}"
             )
             job_id = queue_next_stage(
-                redis_client=redis_client,
+                redis_client=rc,
                 current_stage="geocatalog_ingestion",
                 workflow_name=workflow_name,
                 execution_id=execution_id,
@@ -220,7 +220,7 @@ def process_geocatalog_ingestion(
             )
 
         job_id = queue_next_stage(
-            redis_client=redis_client,
+            redis_client=rc,
             current_stage="geocatalog_ingestion",
             workflow_name=workflow_name,
             execution_id=execution_id,

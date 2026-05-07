@@ -20,19 +20,24 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from earth2studio.utils.imports import OptionalDependencyError
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 
 try:
     import redis as redis_sync  # type: ignore[import-untyped]
     import redis.asyncio as redis_async  # type: ignore[import-untyped]
     from fastapi import Depends, HTTPException, Request
     from rq import Queue
-except ImportError as e:
-    raise OptionalDependencyError(
-        "serve", "earth2studio.serve.server.dependencies", e, e.__traceback__
-    )
+except ImportError:
+    OptionalDependencyFailure("serve")
+    redis_sync = None
+    redis_async = None
+    Queue = None
 
 
+@check_optional_dependencies()
 def _get_async_redis(request: Request) -> redis_async.Redis:
     """Retrieve the async Redis client from app.state."""
     client: redis_async.Redis | None = getattr(request.app.state, "redis_client", None)
@@ -41,6 +46,7 @@ def _get_async_redis(request: Request) -> redis_async.Redis:
     return client
 
 
+@check_optional_dependencies()
 def _get_sync_redis(request: Request) -> redis_sync.Redis:
     """Retrieve the synchronous Redis client from app.state."""
     client: redis_sync.Redis | None = getattr(
@@ -51,13 +57,12 @@ def _get_sync_redis(request: Request) -> redis_sync.Redis:
     return client
 
 
+@check_optional_dependencies()
 def _get_inference_queue(request: Request) -> Queue:
     """Retrieve the RQ inference queue from app.state."""
     queue: Queue | None = getattr(request.app.state, "inference_queue", None)
     if queue is None:
-        raise HTTPException(
-            status_code=503, detail="Inference queue not initialized"
-        )
+        raise HTTPException(status_code=503, detail="Inference queue not initialized")
     return queue
 
 
