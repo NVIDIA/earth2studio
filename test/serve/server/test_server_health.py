@@ -84,7 +84,7 @@ class TestCheckAllServices:
         result = check_all_services(redis_client=None)
 
         assert result.healthy
-        assert "connection" not in result.redis.details
+        assert result.redis.details["connection"] == "skipped"
 
     @patch("earth2studio.serve.server.health._pgrep")
     def test_queue_depth_reported(self, mock_pgrep):

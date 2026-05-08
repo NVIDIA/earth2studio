@@ -34,6 +34,8 @@ RQ_QUEUES = [
 
 @dataclass
 class ServiceStatus:
+    """Status of an individual service (process presence and connectivity)."""
+
     running: bool = False
     pids: list[int] = field(default_factory=list)
     details: dict[str, Any] = field(default_factory=dict)
@@ -41,6 +43,8 @@ class ServiceStatus:
 
 @dataclass
 class HealthResult:
+    """Aggregated health status across all monitored services."""
+
     redis: ServiceStatus = field(default_factory=ServiceStatus)
     api_workers: ServiceStatus = field(default_factory=ServiceStatus)
     rq_workers: dict[str, ServiceStatus] = field(default_factory=dict)
@@ -86,6 +90,8 @@ def _check_redis(redis_client: Any | None) -> ServiceStatus:
         except Exception:
             status.details["connection"] = "failed"
             status.running = False
+    else:
+        status.details["connection"] = "skipped"
     return status
 
 
@@ -142,10 +148,17 @@ def _print_status(result: HealthResult) -> None:
     print("\nRedis:")
     if result.redis.running:
         print(f"  Status: Running (PIDs: {result.redis.pids})")
-        conn = result.redis.details.get("connection", "unknown")
-        print(f"  Connection: {conn.upper()}")
+        conn = result.redis.details.get("connection", "skipped")
+        if conn == "skipped":
+            print("  Connection: not verified (no client available)")
+        else:
+            print(f"  Connection: {conn.upper()}")
     else:
-        print("  Status: Not running")
+        conn = result.redis.details.get("connection")
+        if conn == "failed":
+            print("  Status: Process running but connection failed")
+        else:
+            print("  Status: Not running")
 
     print("\nAPI Workers:")
     if result.api_workers.running:
@@ -191,6 +204,13 @@ def _print_status(result: HealthResult) -> None:
 
 
 if __name__ == "__main__":
-    result = check_all_services()
+    redis_client = None
+    try:
+        from earth2studio.serve.server.redis_factory import create_sync_redis_client
+
+        redis_client = create_sync_redis_client()
+    except Exception:  # noqa: S110
+        pass
+    result = check_all_services(redis_client=redis_client)
     _print_status(result)
     sys.exit(0 if result.healthy else 1)
