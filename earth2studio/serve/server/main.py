@@ -21,6 +21,7 @@ Provides FastAPI endpoints for workflow execution, status, and result retrieval,
 with Redis and RQ for job queuing and Prometheus metrics.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -284,7 +285,7 @@ async def health_check(sync_redis: SyncRedis) -> dict[str, str]:
     try:
         from earth2studio.serve.server.health import check_all_services
 
-        result = check_all_services(redis_client=sync_redis)
+        result = await asyncio.to_thread(check_all_services, redis_client=sync_redis)
         overall_status = "healthy" if result.healthy else "unhealthy"
 
         response_data = {
