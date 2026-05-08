@@ -101,11 +101,11 @@ Implement the **`Workflow`** base class and assign the parameter class to its `P
 attribute:
 
 ```python
-from earth2studio.serve.server.workflow import Workflow, WorkflowProgress, workflow_registry
+from earth2studio.serve.server.workflow import Workflow, WorkflowProgress, WorkflowRegistry
 from typing import Any, Dict, Union
 import json
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class MyCustomWorkflow(Workflow):
     """My custom text processing workflow"""
 

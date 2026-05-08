@@ -36,7 +36,7 @@ except ImportError:
 from earth2studio.serve.server.config import get_config, get_config_manager
 from earth2studio.serve.server.redis_factory import get_worker_redis_client
 from earth2studio.serve.server.utils import queue_next_stage
-from earth2studio.serve.server.workflow import WorkflowStatus, workflow_registry
+from earth2studio.serve.server.workflow import WorkflowRegistry, WorkflowStatus
 
 config_manager = get_config_manager()
 config = get_config()
@@ -136,11 +136,13 @@ def run_custom_workflow(
 
     log.info(f"Starting custom workflow {workflow_name}")
 
-    workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
     if not workflow_class:
         raise ValueError(f"Custom workflow '{workflow_name}' not found in registry")
 
-    custom_workflow = workflow_registry.get(workflow_name, redis_client=redis_client)
+    custom_workflow = WorkflowRegistry.instance().get(
+        workflow_name, redis_client=redis_client
+    )
     if custom_workflow is None:
         raise ValueError(f"Custom workflow '{workflow_name}' could not be instantiated")
 

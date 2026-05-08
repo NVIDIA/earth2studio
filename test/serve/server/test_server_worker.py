@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from earth2studio.serve.server.worker import get_output_path, run_custom_workflow
+from earth2studio.serve.server.workflow import WorkflowRegistry
 
 
 class TestGetOutputPath:
@@ -95,9 +96,7 @@ class TestRunCustomWorkflow:
 
     def test_raises_value_error_when_workflow_not_in_registry(self):
         """Raises ValueError when workflow name is not registered."""
-        with patch(
-            "earth2studio.serve.server.worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_registry.get_workflow_class.return_value = None
 
             with pytest.raises(ValueError, match="not found in registry"):
@@ -109,9 +108,7 @@ class TestRunCustomWorkflow:
 
     def test_raises_value_error_when_workflow_cannot_be_instantiated(self):
         """Raises ValueError when registry.get returns None (instantiation failed)."""
-        with patch(
-            "earth2studio.serve.server.worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_registry.get_workflow_class.return_value = MagicMock()
             mock_registry.get.return_value = None
 
@@ -133,9 +130,7 @@ class TestRunCustomWorkflow:
             mock_workflow.get_output_path.return_value = safe_out
 
             with (
-                patch(
-                    "earth2studio.serve.server.worker.workflow_registry"
-                ) as mock_registry,
+                patch.object(WorkflowRegistry, "_instance") as mock_registry,
                 patch(
                     "earth2studio.serve.server.worker.get_worker_redis_client",
                     return_value=MagicMock(),
@@ -177,9 +172,7 @@ class TestRunCustomWorkflow:
             mock_workflow.get_output_path.return_value = safe_out
 
             with (
-                patch(
-                    "earth2studio.serve.server.worker.workflow_registry"
-                ) as mock_registry,
+                patch.object(WorkflowRegistry, "_instance") as mock_registry,
                 patch(
                     "earth2studio.serve.server.worker.get_worker_redis_client",
                     return_value=MagicMock(),
@@ -217,9 +210,7 @@ class TestRunCustomWorkflow:
         mock_workflow.run.side_effect = ValueError("run failed")
 
         with (
-            patch(
-                "earth2studio.serve.server.worker.workflow_registry"
-            ) as mock_registry,
+            patch.object(WorkflowRegistry, "_instance") as mock_registry,
             patch(
                 "earth2studio.serve.server.worker.get_worker_redis_client",
                 return_value=MagicMock(),

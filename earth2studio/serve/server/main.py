@@ -21,7 +21,6 @@ Provides FastAPI endpoints for workflow execution, status, and result retrieval,
 with Redis and RQ for job queuing and Prometheus metrics.
 """
 
-import asyncio
 import json
 import logging
 import time
@@ -52,7 +51,6 @@ except ImportError as e:
 from earth2studio.serve.server.config import (
     get_config,
     get_config_manager,
-    resolve_serve_path,
 )
 from earth2studio.serve.server.dependencies import (
     AsyncRedis,
@@ -70,9 +68,9 @@ from earth2studio.serve.server.utils import (
     parse_range_header,
 )
 from earth2studio.serve.server.workflow import (
+    WorkflowRegistry,
     WorkflowResult,
     WorkflowStatus,
-    workflow_registry,
 )
 
 # Get configuration
@@ -267,11 +265,11 @@ app.add_middleware(
 
 @app.get("/health")
 @app.get("/readiness")
-async def health_check() -> dict[str, str]:
+async def health_check(sync_redis: SyncRedis) -> dict[str, str]:
     """
     Health and readiness check endpoint.
 
-    Runs the status script and returns overall health based on its exit code.
+    Runs in-process health checks for all services and returns overall health.
 
     Returns
     -------
@@ -284,20 +282,10 @@ async def health_check() -> dict[str, str]:
         503 if status is unhealthy; 500 if the check fails.
     """
     try:
-        script_dir = resolve_serve_path("SCRIPT_DIR", "serve/server/scripts")
-        script_path = script_dir / "status.sh"
-        process = await asyncio.create_subprocess_exec(
-            str(script_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await process.communicate()
+        from earth2studio.serve.server.health import check_all_services
 
-        # Determine overall status based on exit code
-        if process.returncode == 0:
-            overall_status = "healthy"
-        else:
-            overall_status = "unhealthy"
+        result = check_all_services(redis_client=sync_redis)
+        overall_status = "healthy" if result.healthy else "unhealthy"
 
         response_data = {
             "status": overall_status,
@@ -370,7 +358,7 @@ async def list_workflows() -> dict[str, dict[str, str]]:
     dict
         Single key ``workflows`` mapping workflow name to description.
     """
-    workflows = workflow_registry.list_workflows(exposed_only=True)
+    workflows = WorkflowRegistry.instance().list_workflows(exposed_only=True)
     return {"workflows": workflows}
 
 
@@ -399,12 +387,12 @@ async def get_workflow_schema(workflow_name: str) -> dict[str, Any]:
         404 if workflow not found; 500 if schema generation fails.
     """
     # Check if workflow exists and is exposed
-    workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
     if not workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
         )
-    if not workflow_registry.is_workflow_exposed(workflow_name):
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
@@ -515,7 +503,7 @@ async def execute_default_workflow(
         503 if no exposed workflows are registered; 409 if more than one exposed
         workflow; otherwise same status codes as ``POST /v1/infer/{workflow_name}``.
     """
-    exposed = workflow_registry.list_workflows(exposed_only=True)
+    exposed = WorkflowRegistry.instance().list_workflows(exposed_only=True)
     n_exposed = len(exposed)
     if n_exposed == 0:
         raise HTTPException(
@@ -571,12 +559,14 @@ async def execute_workflow(
         503 if Redis/queue not initialized; 500 on enqueue failure.
     """
     # Check if workflow exists and is exposed
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' not found"
         )
-    if not workflow_registry.is_workflow_exposed(workflow_name):
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
@@ -695,12 +685,14 @@ async def get_workflow_status(
     """
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
         )
-    if not workflow_registry.is_workflow_exposed(workflow_name):
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
@@ -765,12 +757,14 @@ async def get_workflow_results(
     log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
 
     # Check if workflow exists and is exposed
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
         )
-    if not workflow_registry.is_workflow_exposed(workflow_name):
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )
@@ -902,12 +896,14 @@ async def get_workflow_result_file(
         not found or results not completed; 500 on error.
     """
     # Check if workflow exists and is exposed
-    custom_workflow_class = workflow_registry.get_workflow_class(workflow_name)
+    custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
+        workflow_name
+    )
     if not custom_workflow_class:
         raise HTTPException(
             status_code=404, detail=f"Custom workflow '{workflow_name}' not found"
         )
-    if not workflow_registry.is_workflow_exposed(workflow_name):
+    if not WorkflowRegistry.instance().is_workflow_exposed(workflow_name):
         raise HTTPException(
             status_code=404, detail=f"Workflow '{workflow_name}' is not exposed"
         )

@@ -48,9 +48,9 @@ from earth2studio.serve.server.utils import (
     queue_next_stage,
 )
 from earth2studio.serve.server.workflow import (
+    WorkflowRegistry,
     WorkflowResult,
     WorkflowStatus,
-    workflow_registry,
 )
 
 # Get configuration
@@ -96,7 +96,7 @@ def fail_workflow(
     """
     logger.error(error_message)
     try:
-        workflow_class = workflow_registry.get_workflow_class(workflow_name)
+        workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
         if workflow_class:
             updates = {
                 "status": WorkflowStatus.FAILED,
@@ -413,7 +413,7 @@ def process_result_zip(
 
     try:
         # Get workflow class from registry
-        workflow_class = workflow_registry.get_workflow_class(workflow_name)
+        workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
         if not workflow_class:
             raise ValueError(f"Workflow '{workflow_name}' not found in registry")
 
@@ -924,7 +924,7 @@ def process_finalize_metadata(
         logger.info(f"Created final metadata file: {metadata_path}")
 
         # Update workflow status to COMPLETED
-        workflow_class = workflow_registry.get_workflow_class(workflow_name)
+        workflow_class = WorkflowRegistry.instance().get_workflow_class(workflow_name)
         if not workflow_class:
             return fail_workflow(
                 workflow_name,

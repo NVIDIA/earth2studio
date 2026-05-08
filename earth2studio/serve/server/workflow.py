@@ -621,6 +621,20 @@ def json_serial(obj: Any) -> Any:
 class WorkflowRegistry:
     """Registry for managing custom workflows."""
 
+    _instance: WorkflowRegistry | None = None
+
+    @classmethod
+    def instance(cls) -> WorkflowRegistry:
+        """Return the singleton WorkflowRegistry, creating it on first call."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset the singleton (for testing)."""
+        cls._instance = None
+
     def __init__(self, **config: Any) -> None:
         self._workflows: dict[str, type[Workflow]] = {}
         self._workflow_instances: dict[str, Workflow] = {}
@@ -1011,10 +1025,6 @@ def parse_workflow_directories_from_env() -> list[str]:
     return workflow_dirs
 
 
-# Global workflow registry instance
-workflow_registry = WorkflowRegistry()
-
-
 # Convenience function for backward compatibility and ease of use
 @check_optional_dependencies()
 def register_all_workflows(redis_client: redis.Redis) -> None:
@@ -1038,4 +1048,4 @@ def register_all_workflows(redis_client: redis.Redis) -> None:
     >>> redis_client = redis.Redis(host='localhost', port=6379)
     >>> register_all_workflows(redis_client)
     """
-    workflow_registry.auto_register_workflows(redis_client)
+    WorkflowRegistry.instance().auto_register_workflows(redis_client)

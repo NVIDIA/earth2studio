@@ -24,6 +24,8 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import Field
 
+from earth2studio.serve.server.workflow import WorkflowRegistry
+
 # Set API environment variable before importing main (DANGER!!! REMOVE THIS)
 os.environ["EARTH2STUDIO_API_ACTIVE"] = "1"
 # test/serve/server/conftest.py clears EXPOSED_WORKFLOWS; keep parity if this file is
@@ -138,7 +140,8 @@ class TestWorkflowSchemaEndpoint:
             mock_sync_redis.return_value = mock_sync_instance
 
             from earth2studio.serve.server.main import app
-            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry = WorkflowRegistry.instance()
 
             # Register the test workflow
             workflow_registry._workflows["test_workflow"] = mock_workflow_class
@@ -253,8 +256,9 @@ class TestWorkflowParameterValidation:
         from earth2studio.serve.server.workflow import (
             Workflow,
             WorkflowParameters,
-            workflow_registry,
         )
+
+        workflow_registry = WorkflowRegistry.instance()
 
         # Create test workflow parameter classes with Literal validation
         class TestDeterministicParams(WorkflowParameters):
@@ -966,7 +970,8 @@ class TestWorkflowExecutionWithQueuePosition:
             mock_queue_class.return_value = mock_queue
 
             from earth2studio.serve.server.main import app
-            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry = WorkflowRegistry.instance()
 
             # Register the test workflow
             workflow_registry._workflows["test_workflow"] = mock_workflow_class
@@ -1226,16 +1231,14 @@ class TestHealthAndProbes:
         assert response.status_code == 200
         assert response.json() == {"status": "alive"}
 
-    def test_health_healthy_when_script_returns_zero(self, client_with_mocks):
-        """GET /health and /readiness return healthy when status script exits 0."""
+    def test_health_healthy_when_all_services_up(self, client_with_mocks):
+        """GET /health and /readiness return healthy when all services are running."""
+        mock_result = MagicMock()
+        mock_result.healthy = True
         with patch(
-            "earth2studio.serve.server.main.asyncio.create_subprocess_exec"
-        ) as mock_exec:
-            mock_proc = MagicMock()
-            mock_proc.returncode = 0
-            mock_proc.communicate = AsyncMock(return_value=(b"", b""))
-            mock_exec.return_value = mock_proc
-
+            "earth2studio.serve.server.health.check_all_services",
+            return_value=mock_result,
+        ):
             for path in ("/health", "/readiness"):
                 response = client_with_mocks.get(path)
                 assert response.status_code == 200
@@ -1243,16 +1246,14 @@ class TestHealthAndProbes:
                 assert data["status"] == "healthy"
                 assert "timestamp" in data
 
-    def test_health_unhealthy_when_script_returns_nonzero(self, client_with_mocks):
-        """GET /health returns 503 when status script exits non-zero."""
+    def test_health_unhealthy_when_service_down(self, client_with_mocks):
+        """GET /health returns 503 when a service is down."""
+        mock_result = MagicMock()
+        mock_result.healthy = False
         with patch(
-            "earth2studio.serve.server.main.asyncio.create_subprocess_exec"
-        ) as mock_exec:
-            mock_proc = MagicMock()
-            mock_proc.returncode = 1
-            mock_proc.communicate = AsyncMock(return_value=(b"", b"stderr"))
-            mock_exec.return_value = mock_proc
-
+            "earth2studio.serve.server.health.check_all_services",
+            return_value=mock_result,
+        ):
             response = client_with_mocks.get("/health")
             assert response.status_code == 503
             data = response.json()
@@ -1293,7 +1294,8 @@ class TestListWorkflows:
             mock_sync_redis.return_value = mock_sync_instance
 
             from earth2studio.serve.server.main import app
-            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry = WorkflowRegistry.instance()
 
             class FakeWorkflow:
                 name = "fake_wf"
@@ -1363,7 +1365,8 @@ class TestAdmissionControl:
                     return {"status": "ok"}
 
             from earth2studio.serve.server.main import app
-            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry = WorkflowRegistry.instance()
 
             workflow_registry._workflows["admit_wf"] = AdmitWorkflow
 
@@ -1473,7 +1476,8 @@ class TestExecuteWorkflowBranches:
                     return {"status": "ok"}
 
             from earth2studio.serve.server.main import app
-            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry = WorkflowRegistry.instance()
 
             workflow_registry._workflows["exec_wf"] = ExecWorkflow
             with TestClient(app, raise_server_exceptions=False) as c:
@@ -1502,7 +1506,7 @@ class TestExecuteWorkflowBranches:
     ):
         """When validate_parameters raises non-ValueError, returns 400."""
         client, _, _ = client_exec
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_wf = MagicMock()
             mock_wf.validate_parameters.side_effect = AttributeError("no model_dump")
             mock_registry.get_workflow_class.return_value = mock_wf
@@ -1554,7 +1558,7 @@ class TestExecuteWorkflowBranches:
     def test_default_infer_no_exposed_503(self, client_exec):
         """POST /v1/infer returns 503 when no workflows are exposed."""
         client, _, _ = client_exec
-        from earth2studio.serve.server.workflow import workflow_registry
+        workflow_registry = WorkflowRegistry.instance()
 
         with patch.object(workflow_registry, "list_workflows", return_value={}):
             r = client.post("/v1/infer", json={"parameters": {}})
@@ -1564,7 +1568,7 @@ class TestExecuteWorkflowBranches:
     def test_default_infer_multiple_exposed_409(self, client_exec):
         """POST /v1/infer returns 409 when more than one workflow is exposed."""
         client, _, _ = client_exec
-        from earth2studio.serve.server.workflow import workflow_registry
+        workflow_registry = WorkflowRegistry.instance()
 
         with patch.object(
             workflow_registry,
@@ -1580,7 +1584,7 @@ class TestExecuteWorkflowBranches:
     def test_default_infer_delegates_to_named_route(self, client_exec):
         """POST /v1/infer matches POST /v1/infer/exec_wf when exactly one workflow is exposed."""
         client, mock_redis, mock_queue = client_exec
-        from earth2studio.serve.server.workflow import workflow_registry
+        workflow_registry = WorkflowRegistry.instance()
 
         mock_job = MagicMock()
         mock_job.id = "solo_job"
@@ -1624,12 +1628,12 @@ class TestHealthMetricsSchemaExceptions:
             with TestClient(app, raise_server_exceptions=False) as c:
                 yield c
 
-    def test_health_check_subprocess_exception_500(self, client_probes):
-        """When create_subprocess_exec raises, health returns 500."""
+    def test_health_check_exception_500(self, client_probes):
+        """When check_all_services raises, health returns 500."""
         with patch(
-            "earth2studio.serve.server.main.asyncio.create_subprocess_exec"
-        ) as mock_exec:
-            mock_exec.side_effect = FileNotFoundError("status.sh not found")
+            "earth2studio.serve.server.health.check_all_services",
+            side_effect=RuntimeError("check failed"),
+        ):
             response = client_probes.get("/health")
         assert response.status_code == 500
         assert "Health check failed" in response.json().get("detail", "")
@@ -1665,7 +1669,7 @@ class TestHealthMetricsSchemaExceptions:
             def run(self, parameters, execution_id):
                 return {"status": "ok"}
 
-        from earth2studio.serve.server.workflow import workflow_registry
+        workflow_registry = WorkflowRegistry.instance()
 
         workflow_registry._workflows["bad_schema_wf"] = BadSchemaWorkflow
         try:
@@ -1710,8 +1714,9 @@ class TestGetWorkflowStatusBranches:
             from earth2studio.serve.server.workflow import (
                 Workflow,
                 WorkflowParameters,
-                workflow_registry,
             )
+
+            workflow_registry = WorkflowRegistry.instance()
 
             class StatusParams(WorkflowParameters):
                 x: int = Field(default=1)
@@ -1737,7 +1742,7 @@ class TestGetWorkflowStatusBranches:
     def test_get_workflow_status_value_error_404(self, client_status):
         """When _get_execution_data raises ValueError, returns 404."""
         client, mock_redis = client_status
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(
                 side_effect=ValueError("Execution not found")
@@ -1749,7 +1754,7 @@ class TestGetWorkflowStatusBranches:
     def test_get_workflow_status_exception_500(self, client_status):
         """When _get_execution_data raises Exception, returns 500."""
         client, mock_redis = client_status
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(
                 side_effect=RuntimeError("Redis error")
@@ -1788,8 +1793,9 @@ class TestGetWorkflowResultsBranches:
                 Workflow,
                 WorkflowParameters,
                 WorkflowStatus,
-                workflow_registry,
             )
+
+            workflow_registry = WorkflowRegistry.instance()
 
             class ResultsParams(WorkflowParameters):
                 x: int = Field(default=1)
@@ -1833,7 +1839,7 @@ class TestGetWorkflowResultsBranches:
         client, mock_redis, _, WorkflowStatus = client_results
         exec_data = self._make_execution_data(WorkflowStatus.EXPIRED)
         mock_redis.get.return_value = json.dumps(exec_data.model_dump()).encode()
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -1845,7 +1851,7 @@ class TestGetWorkflowResultsBranches:
         """When status is RUNNING, returns 202."""
         client, mock_redis, _, WorkflowStatus = client_results
         exec_data = self._make_execution_data(WorkflowStatus.RUNNING)
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -1857,7 +1863,7 @@ class TestGetWorkflowResultsBranches:
         client, mock_redis, _, WorkflowStatus = client_results
         exec_data = self._make_execution_data(WorkflowStatus.FAILED)
         exec_data.error_message = "Something failed"
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -1869,7 +1875,7 @@ class TestGetWorkflowResultsBranches:
         """When status is CANCELLED, returns 404."""
         client, mock_redis, _, WorkflowStatus = client_results
         exec_data = self._make_execution_data(WorkflowStatus.CANCELLED)
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -1881,7 +1887,7 @@ class TestGetWorkflowResultsBranches:
         """When status is COMPLETED but metadata file missing, returns 404."""
         client, mock_redis, tmp_path, WorkflowStatus = client_results
         exec_data = self._make_execution_data(WorkflowStatus.COMPLETED)
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
                 mock_wf = MagicMock()
                 mock_wf._get_execution_data = MagicMock(return_value=exec_data)
@@ -1898,7 +1904,7 @@ class TestGetWorkflowResultsBranches:
         metadata_path.write_text(
             json.dumps({"request_id": "results_wf:exec_1", "status": "completed"})
         )
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
                 mock_wf = MagicMock()
                 mock_wf._get_execution_data = MagicMock(return_value=exec_data)
@@ -1910,7 +1916,7 @@ class TestGetWorkflowResultsBranches:
     def test_get_workflow_results_value_error_400(self, client_results):
         """When _get_execution_data raises ValueError, returns 400."""
         client, _, _, _ = client_results
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(
                 side_effect=ValueError("Invalid key")
@@ -1925,7 +1931,7 @@ class TestGetWorkflowResultsBranches:
         exec_data = self._make_execution_data(WorkflowStatus.COMPLETED)
         metadata_path = tmp_path / "metadata_results_wf:exec_1.json"
         metadata_path.write_text("not valid json {{")
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
                 mock_wf = MagicMock()
                 mock_wf._get_execution_data = MagicMock(return_value=exec_data)
@@ -1962,8 +1968,9 @@ class TestGetWorkflowResultFileBranches:
                 Workflow,
                 WorkflowParameters,
                 WorkflowStatus,
-                workflow_registry,
             )
+
+            workflow_registry = WorkflowRegistry.instance()
 
             class FileParams(WorkflowParameters):
                 x: int = Field(default=1)
@@ -2018,7 +2025,7 @@ class TestGetWorkflowResultFileBranches:
         """When status is not COMPLETED, returns 404."""
         client, mock_async, mock_sync, _, WorkflowStatus = client_file
         exec_data = self._exec_data(WorkflowStatus.RUNNING)
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2036,7 +2043,7 @@ class TestGetWorkflowResultFileBranches:
         from earth2studio.serve.server.main import app
 
         app.state.redis_client = None
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2048,7 +2055,7 @@ class TestGetWorkflowResultFileBranches:
         client, mock_async, mock_sync, tmp_path, WorkflowStatus = client_file
         exec_data = self._exec_data()
         mock_async.get = AsyncMock(return_value=None)
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
                 mock_wf = MagicMock()
                 mock_wf._get_execution_data = MagicMock(return_value=exec_data)
@@ -2062,7 +2069,7 @@ class TestGetWorkflowResultFileBranches:
         client, mock_async, mock_sync, tmp_path, WorkflowStatus = client_file
         exec_data = self._exec_data()
         mock_async.get = AsyncMock(return_value=None)
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2080,7 +2087,7 @@ class TestGetWorkflowResultFileBranches:
         inner = output_dir / "inner.txt"
         inner.write_text("data")
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2101,7 +2108,7 @@ class TestGetWorkflowResultFileBranches:
         output_dir = tmp_path / "output"
         output_dir.mkdir()
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2118,7 +2125,7 @@ class TestGetWorkflowResultFileBranches:
         subdir = output_dir / "subdir"
         subdir.mkdir()
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2135,7 +2142,7 @@ class TestGetWorkflowResultFileBranches:
         out_file = output_dir / "data.txt"
         out_file.write_text("hello world")
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2156,7 +2163,7 @@ class TestGetWorkflowResultFileBranches:
         out_file = output_dir / "data.txt"
         out_file.write_text("hello world")
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2262,19 +2269,15 @@ class TestHealthCheckWithoutScriptDir:
             with TestClient(app, raise_server_exceptions=False) as c:
                 yield c
 
-    def test_health_follows_repo_relative_path_when_script_dir_empty(
-        self, client_probes
-    ):
-        """Health check uses repo-relative script path when SCRIPT_DIR is empty/unset."""
+    def test_health_works_regardless_of_script_dir_env(self, client_probes):
+        """Health check works regardless of SCRIPT_DIR env since it's now in-process."""
+        mock_result = MagicMock()
+        mock_result.healthy = True
         with patch.dict(os.environ, {"SCRIPT_DIR": ""}):
             with patch(
-                "earth2studio.serve.server.main.asyncio.create_subprocess_exec"
-            ) as mock_exec:
-                mock_proc = MagicMock()
-                mock_proc.returncode = 0
-                mock_proc.communicate = AsyncMock(return_value=(b"", b""))
-                mock_exec.return_value = mock_proc
-
+                "earth2studio.serve.server.health.check_all_services",
+                return_value=mock_result,
+            ):
                 response = client_probes.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
@@ -2305,8 +2308,9 @@ class TestNotExposedWorkflowEndpoints:
             from earth2studio.serve.server.workflow import (
                 Workflow,
                 WorkflowParameters,
-                workflow_registry,
             )
+
+            workflow_registry = WorkflowRegistry.instance()
 
             class TestEndpointsParams(WorkflowParameters):
                 x: int = Field(default=1)
@@ -2334,7 +2338,7 @@ class TestNotExposedWorkflowEndpoints:
     def test_schema_not_exposed_404(self, client_with_workflow):
         """get_workflow_schema returns 404 when workflow is not exposed."""
         with patch(
-            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            "earth2studio.serve.server.workflow.WorkflowRegistry.is_workflow_exposed",
             return_value=False,
         ):
             response = client_with_workflow.get(
@@ -2346,7 +2350,7 @@ class TestNotExposedWorkflowEndpoints:
     def test_execute_not_exposed_404(self, client_with_workflow):
         """execute_workflow returns 404 when workflow is not exposed."""
         with patch(
-            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            "earth2studio.serve.server.workflow.WorkflowRegistry.is_workflow_exposed",
             return_value=False,
         ):
             response = client_with_workflow.post(
@@ -2363,7 +2367,7 @@ class TestNotExposedWorkflowEndpoints:
     def test_get_status_not_exposed_404(self, client_with_workflow):
         """get_workflow_status returns 404 when workflow is not exposed."""
         with patch(
-            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            "earth2studio.serve.server.workflow.WorkflowRegistry.is_workflow_exposed",
             return_value=False,
         ):
             response = client_with_workflow.get(
@@ -2379,7 +2383,7 @@ class TestNotExposedWorkflowEndpoints:
     def test_get_results_not_exposed_404(self, client_with_workflow):
         """get_workflow_results returns 404 when workflow is not exposed."""
         with patch(
-            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            "earth2studio.serve.server.workflow.WorkflowRegistry.is_workflow_exposed",
             return_value=False,
         ):
             response = client_with_workflow.get(
@@ -2390,7 +2394,7 @@ class TestNotExposedWorkflowEndpoints:
     def test_get_result_file_not_exposed_404(self, client_with_workflow):
         """get_workflow_result_file returns 404 when workflow is not exposed."""
         with patch(
-            "earth2studio.serve.server.main.workflow_registry.is_workflow_exposed",
+            "earth2studio.serve.server.workflow.WorkflowRegistry.is_workflow_exposed",
             return_value=False,
         ):
             response = client_with_workflow.get(
@@ -2448,7 +2452,8 @@ class TestExecuteWorkflowAdditionalBranches:
                     return {"status": "ok"}
 
             from earth2studio.serve.server.main import app
-            from earth2studio.serve.server.workflow import workflow_registry
+
+            workflow_registry = WorkflowRegistry.instance()
 
             workflow_registry._workflows["exec2_wf"] = Exec2Workflow
             with TestClient(app, raise_server_exceptions=False) as c:
@@ -2517,8 +2522,9 @@ class TestGetWorkflowResultFileAdditionalBranches:
                 Workflow,
                 WorkflowParameters,
                 WorkflowStatus,
-                workflow_registry,
             )
+
+            workflow_registry = WorkflowRegistry.instance()
 
             class File2Params(WorkflowParameters):
                 x: int = Field(default=1)
@@ -2558,7 +2564,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
     def test_get_result_file_value_error_in_exec_data_404(self, client_file2):
         """When _get_execution_data raises ValueError, returns 404."""
         client, *_ = client_file2
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(
                 side_effect=ValueError("Execution not found")
@@ -2575,7 +2581,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         from earth2studio.serve.server.main import app
 
         app.state.redis_client = None
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2587,7 +2593,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         client, mock_async, tmp_path, _ = client_file2
         exec_data = self._completed_exec_data()
         mock_async.get = AsyncMock(return_value="missing_zip.zip")
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
                 mock_wf = MagicMock()
                 mock_wf._get_execution_data = MagicMock(return_value=exec_data)
@@ -2605,7 +2611,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         zip_file = tmp_path / "results.zip"
         zip_file.write_bytes(b"PK\x03\x04fake_zip_content")
         mock_async.get = AsyncMock(return_value="results.zip")
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             with patch("earth2studio.serve.server.main.RESULTS_ZIP_DIR", tmp_path):
                 mock_wf = MagicMock()
                 mock_wf._get_execution_data = MagicMock(return_value=exec_data)
@@ -2625,7 +2631,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         data_file = output_dir / "data.txt"
         data_file.write_text("contents")
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2643,7 +2649,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         unknown_file = output_dir / "data.unknownext99999"
         unknown_file.write_bytes(b"\x00\x01\x02\x03")
         mock_async.get = AsyncMock(return_value=str(output_dir))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf
@@ -2659,7 +2665,7 @@ class TestGetWorkflowResultFileAdditionalBranches:
         client, mock_async, tmp_path, _ = client_file2
         exec_data = self._completed_exec_data()
         mock_async.get = AsyncMock(side_effect=RuntimeError("unexpected redis error"))
-        with patch("earth2studio.serve.server.main.workflow_registry") as mock_reg:
+        with patch.object(WorkflowRegistry, "_instance") as mock_reg:
             mock_wf = MagicMock()
             mock_wf._get_execution_data = MagicMock(return_value=exec_data)
             mock_reg.get_workflow_class.return_value = mock_wf

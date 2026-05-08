@@ -26,6 +26,8 @@ from unittest.mock import Mock, patch
 import pytest
 import redis
 
+from earth2studio.serve.server.workflow import WorkflowRegistry
+
 
 # Create mock config classes before importing cpu_worker
 @dataclass
@@ -856,9 +858,7 @@ class TestFailWorkflow:
         mock_workflow_class = Mock()
         mock_workflow_class._update_execution_data = Mock()
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_registry.get_workflow_class.return_value = mock_workflow_class
             with patch("earth2studio.serve.server.cpu_worker.get_worker_redis_client"):
                 out = fail_workflow("my_wf", "exec_1", "Failed")
@@ -876,9 +876,7 @@ class TestFailWorkflow:
         mock_workflow_class = Mock()
         mock_workflow_class._update_execution_data.side_effect = Exception("Redis down")
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             mock_registry.get_workflow_class.return_value = mock_workflow_class
             out = fail_workflow("w", "e1", "Err")
 
@@ -1014,9 +1012,7 @@ class TestProcessResultZip:
         )
         mock_workflow_class._update_execution_data = Mock()
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
                 "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
@@ -1049,9 +1045,7 @@ class TestProcessResultZip:
 
     def test_process_result_zip_workflow_not_found_raises(self, tmp_path):
         """process_result_zip when workflow not in registry raises after fail_workflow."""
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
                 "earth2studio.serve.server.cpu_worker.fail_workflow"
             ) as mock_fail:
@@ -1083,9 +1077,7 @@ class TestProcessResultZip:
             execution_time_seconds=60.0,
         )
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
                 "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
@@ -1131,9 +1123,7 @@ class TestProcessResultZip:
             execution_time_seconds=60.0,
         )
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
                 "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
@@ -1171,9 +1161,7 @@ class TestProcessResultZip:
             execution_time_seconds=60.0,
         )
 
-        with patch(
-            "earth2studio.serve.server.cpu_worker.workflow_registry"
-        ) as mock_registry:
+        with patch.object(WorkflowRegistry, "_instance") as mock_registry:
             with patch(
                 "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
             ) as mock_get_redis:
@@ -1230,9 +1218,7 @@ class TestProcessFinalizeMetadata:
             "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
-            with patch(
-                "earth2studio.serve.server.cpu_worker.workflow_registry"
-            ) as mock_registry:
+            with patch.object(WorkflowRegistry, "_instance") as mock_registry:
                 mock_redis.get.side_effect = lambda k: {
                     metadata_key: json.dumps(pending_metadata),
                     results_zip_dir_key: str(results_zip_dir),
@@ -1292,9 +1278,7 @@ class TestProcessFinalizeMetadata:
             "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
-            with patch(
-                "earth2studio.serve.server.cpu_worker.workflow_registry"
-            ) as mock_registry:
+            with patch.object(WorkflowRegistry, "_instance") as mock_registry:
                 with patch(
                     "earth2studio.serve.server.cpu_worker.fail_workflow"
                 ) as mock_fail:
@@ -1337,9 +1321,7 @@ class TestProcessFinalizeMetadata:
             "earth2studio.serve.server.cpu_worker.get_worker_redis_client"
         ) as mock_get_redis:
             mock_redis = mock_get_redis.return_value
-            with patch(
-                "earth2studio.serve.server.cpu_worker.workflow_registry"
-            ) as mock_registry:
+            with patch.object(WorkflowRegistry, "_instance") as mock_registry:
                 mock_redis.get.side_effect = lambda k: {
                     f"inference_request:{request_id}:pending_metadata": json.dumps(
                         pending_metadata
