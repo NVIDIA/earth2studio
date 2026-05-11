@@ -1884,7 +1884,7 @@ class TestWorkflowRegistrySingleton:
 
     def test_reset_instance_creates_new_object(self):
         a = WorkflowRegistry.instance()
-        WorkflowRegistry.reset_instance()
+        WorkflowRegistry._reset_instance()
         b = WorkflowRegistry.instance()
         assert a is not b
 

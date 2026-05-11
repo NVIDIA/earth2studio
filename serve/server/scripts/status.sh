@@ -17,4 +17,4 @@
 
 # Delegate to the Python health module for consistent behavior
 # between the API endpoint and this CLI script.
-exec python -m earth2studio.serve.server.health "$@"
+exec python -m earth2studio.serve.server.health

@@ -19,9 +19,10 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from typing import Any
+
+from loguru import logger
 
 RQ_QUEUES = [
     "inference",
@@ -141,69 +142,73 @@ def check_all_services(redis_client: Any | None = None) -> HealthResult:
 
 
 def _print_status(result: HealthResult) -> None:
-    """Print human-readable status output (mirrors original status.sh format)."""
-    print("Services Status")
-    print("============================")
+    """Log human-readable status output (mirrors original status.sh format)."""
+    logger.info("Services Status")
+    logger.info("============================")
 
-    print("\nRedis:")
+    logger.info("Redis:")
     if result.redis.running:
-        print(f"  Status: Running (PIDs: {result.redis.pids})")
+        logger.info(f"  Status: Running (PIDs: {result.redis.pids})")
         conn = result.redis.details.get("connection", "skipped")
         if conn == "skipped":
-            print("  Connection: not verified (no client available)")
+            logger.info("  Connection: not verified (no client available)")
         else:
-            print(f"  Connection: {conn.upper()}")
+            logger.info(f"  Connection: {conn.upper()}")
     else:
         conn = result.redis.details.get("connection")
         if conn == "failed":
-            print("  Status: Process running but connection failed")
+            logger.warning("  Status: Process running but connection failed")
         else:
-            print("  Status: Not running")
+            logger.warning("  Status: Not running")
 
-    print("\nAPI Workers:")
+    logger.info("API Workers:")
     if result.api_workers.running:
         count = result.api_workers.details.get("worker_count", 0)
-        print(f"  Status: Running ({count} workers)")
-        print(f"  PIDs: {result.api_workers.pids}")
+        logger.info(f"  Status: Running ({count} workers)")
+        logger.info(f"  PIDs: {result.api_workers.pids}")
     else:
-        print("  Status: Not running")
+        logger.warning("  Status: Not running")
 
-    print("\nRQ Workers:")
+    logger.info("RQ Workers:")
     for queue_name, status in result.rq_workers.items():
-        print(f"  {queue_name}:")
+        logger.info(f"  {queue_name}:")
         if status.running:
             count = status.details.get("worker_count", 0)
-            print(f"    Workers: {count} (PIDs: {status.pids})")
+            logger.info(f"    Workers: {count} (PIDs: {status.pids})")
             if "queue_depth" in status.details:
-                print(f"    Queue depth: {status.details['queue_depth']} jobs pending")
+                logger.info(
+                    f"    Queue depth: {status.details['queue_depth']} jobs pending"
+                )
         else:
-            print("    Workers: Not running")
+            logger.warning("    Workers: Not running")
 
-    print("\nCleanup Daemon:")
+    logger.info("Cleanup Daemon:")
     if result.cleanup_daemon.running:
-        print(f"  Status: Running (PIDs: {result.cleanup_daemon.pids})")
+        logger.info(f"  Status: Running (PIDs: {result.cleanup_daemon.pids})")
     else:
-        print("  Status: Not running")
+        logger.warning("  Status: Not running")
 
-    print("\nSummary:")
-    print("========")
+    logger.info("Summary:")
+    logger.info("========")
 
     def _icon(ok: bool) -> str:
         return "+" if ok else "x"
 
-    print(f"  [{_icon(result.redis.running)}] Redis")
-    print(f"  [{_icon(result.api_workers.running)}] API Workers")
+    logger.info(f"  [{_icon(result.redis.running)}] Redis")
+    logger.info(f"  [{_icon(result.api_workers.running)}] API Workers")
     rq_ok = all(s.running for s in result.rq_workers.values())
-    print(f"  [{_icon(rq_ok)}] RQ Workers")
-    print(f"  [{_icon(result.cleanup_daemon.running)}] Cleanup Daemon")
-    print()
+    logger.info(f"  [{_icon(rq_ok)}] RQ Workers")
+    logger.info(f"  [{_icon(result.cleanup_daemon.running)}] Cleanup Daemon")
+
     if result.healthy:
-        print("Overall Status: All services running")
+        logger.info("Overall Status: All services running")
     else:
-        print("Overall Status: One or more services failed")
+        logger.warning("Overall Status: One or more services failed")
 
 
 if __name__ == "__main__":
+    import sys
+
     redis_client = None
     try:
         from earth2studio.serve.server.redis_factory import create_sync_redis_client

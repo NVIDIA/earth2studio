@@ -1236,7 +1236,7 @@ class TestHealthAndProbes:
         mock_result = MagicMock()
         mock_result.healthy = True
         with patch(
-            "earth2studio.serve.server.health.check_all_services",
+            "earth2studio.serve.server.main.check_all_services",
             return_value=mock_result,
         ):
             for path in ("/health", "/readiness"):
@@ -1251,7 +1251,7 @@ class TestHealthAndProbes:
         mock_result = MagicMock()
         mock_result.healthy = False
         with patch(
-            "earth2studio.serve.server.health.check_all_services",
+            "earth2studio.serve.server.main.check_all_services",
             return_value=mock_result,
         ):
             response = client_with_mocks.get("/health")
@@ -1631,7 +1631,7 @@ class TestHealthMetricsSchemaExceptions:
     def test_health_check_exception_500(self, client_probes):
         """When check_all_services raises, health returns 500."""
         with patch(
-            "earth2studio.serve.server.health.check_all_services",
+            "earth2studio.serve.server.main.check_all_services",
             side_effect=RuntimeError("check failed"),
         ):
             response = client_probes.get("/health")
@@ -2275,7 +2275,7 @@ class TestHealthCheckWithoutScriptDir:
         mock_result.healthy = True
         with patch.dict(os.environ, {"SCRIPT_DIR": ""}):
             with patch(
-                "earth2studio.serve.server.health.check_all_services",
+                "earth2studio.serve.server.main.check_all_services",
                 return_value=mock_result,
             ):
                 response = client_probes.get("/health")

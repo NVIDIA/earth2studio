@@ -631,7 +631,7 @@ class WorkflowRegistry:
         return cls._instance
 
     @classmethod
-    def reset_instance(cls) -> None:
+    def _reset_instance(cls) -> None:
         """Reset the singleton (for testing)."""
         cls._instance = None
 

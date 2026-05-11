@@ -58,6 +58,7 @@ from earth2studio.serve.server.dependencies import (
     InferenceQueue,
     SyncRedis,
 )
+from earth2studio.serve.server.health import check_all_services
 from earth2studio.serve.server.redis_factory import (
     create_async_redis_client,
     create_sync_redis_client,
@@ -283,8 +284,6 @@ async def health_check(sync_redis: SyncRedis) -> dict[str, str]:
         503 if status is unhealthy; 500 if the check fails.
     """
     try:
-        from earth2studio.serve.server.health import check_all_services
-
         result = await asyncio.to_thread(check_all_services, redis_client=sync_redis)
         overall_status = "healthy" if result.healthy else "unhealthy"
 
