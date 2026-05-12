@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import logging
 import os
 import sys
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -53,8 +54,6 @@ from earth2studio.serve.server.config import (
 config = get_config()
 config_manager = get_config_manager()
 config_manager.setup_logging()
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowStatus:

@@ -23,12 +23,12 @@ as a custom pipeline that can be invoked via the REST API.
 """
 
 import json
-import logging
 from collections import OrderedDict
 from typing import Any, Literal
 
 import numpy as np
 import zarr
+from loguru import logger
 from pydantic import Field
 
 from earth2studio.serve.server.workflow import (
@@ -37,10 +37,6 @@ from earth2studio.serve.server.workflow import (
     WorkflowProgress,
     workflow_registry,
 )
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class EnsembleWorkflowParameters(WorkflowParameters):

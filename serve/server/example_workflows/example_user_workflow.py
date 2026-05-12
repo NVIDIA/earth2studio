@@ -31,11 +31,11 @@ This file serves as both documentation and a working example.
 """
 
 import json
-import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
 
+from loguru import logger
 from pydantic import Field
 
 from earth2studio.serve.server.workflow import (
@@ -44,10 +44,6 @@ from earth2studio.serve.server.workflow import (
     WorkflowProgress,
     workflow_registry,
 )
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ExampleUserWorkflowParameters(WorkflowParameters):

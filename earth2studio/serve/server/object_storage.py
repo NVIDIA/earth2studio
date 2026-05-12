@@ -16,7 +16,6 @@
 
 import base64
 import datetime
-import logging
 import os
 import time
 from abc import ABC, abstractmethod
@@ -24,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass

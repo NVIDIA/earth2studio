@@ -16,11 +16,12 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -43,7 +44,6 @@ config = get_config()
 
 # Configure logging
 config_manager.setup_logging()
-logger = logging.getLogger(__name__)
 
 # Path configuration from config
 DEFAULT_OUTPUT_DIR = Path(config.paths.default_output_dir)
@@ -131,7 +131,7 @@ def run_custom_workflow(
     RuntimeError
         If queuing the next pipeline stage fails.
     """
-    log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
+    log = logger.bind(execution_id=execution_id)
     redis_client = get_worker_redis_client()
 
     log.info(f"Starting custom workflow {workflow_name}")

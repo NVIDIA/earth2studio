@@ -15,8 +15,9 @@
 # limitations under the License.
 
 import json
-import logging
 from typing import Any
+
+from loguru import logger
 
 from azure_planetary_computer.pc_client import (
     PLANETARY_COMPUTER_CLIENT_WORKFLOWS,
@@ -29,8 +30,6 @@ from earth2studio.serve.server.utils import (
     get_inference_request_metadata_key,
     queue_next_stage,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def _merge_geocatalog_ids_into_storage_info(

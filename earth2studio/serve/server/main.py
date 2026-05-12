@@ -23,7 +23,6 @@ with Redis and RQ for job queuing and Prometheus metrics.
 
 import asyncio
 import json
-import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -31,6 +30,8 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from earth2studio.utils.imports import OptionalDependencyError
 
@@ -81,7 +82,6 @@ config_manager = get_config_manager()
 
 # Configure logging
 config_manager.setup_logging()
-logger = logging.getLogger(__name__)
 
 
 def check_admission_control(sync_redis: redis_sync.Redis) -> None:
@@ -683,7 +683,7 @@ async def get_workflow_status(
     HTTPException
         404 if workflow or execution not found; 500 on server error.
     """
-    log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
+    log = logger.bind(execution_id=execution_id)
 
     custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(
         workflow_name
@@ -753,8 +753,7 @@ async def get_workflow_results(
         202 if still queued/running/pending; 400 if expired or bad request;
         404 if workflow, execution, or metadata file not found, or if execution failed/cancelled.
     """
-    # Create logger adapter with execution_id
-    log = logging.LoggerAdapter(logger, {"execution_id": execution_id})
+    log = logger.bind(execution_id=execution_id)
 
     # Check if workflow exists and is exposed
     custom_workflow_class = WorkflowRegistry.instance().get_workflow_class(

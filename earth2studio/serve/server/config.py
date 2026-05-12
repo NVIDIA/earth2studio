@@ -16,10 +16,12 @@
 
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
-from logging import LogRecord
 from pathlib import Path
 from typing import Any, Literal, Optional, cast
+
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -37,7 +39,24 @@ except ImportError:
     GlobalHydra = None
     OmegaConf = None
 
-logger = logging.getLogger(__name__)
+
+class _InterceptHandler(logging.Handler):
+    """Forward stdlib log records to loguru so uvicorn/FastAPI logs are unified."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno  # type: ignore[assignment]
+
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back  # type: ignore[assignment]
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
 
 
 def resolve_repo_root() -> Path:
@@ -108,7 +127,7 @@ class PathsConfig:
     """File system paths configuration"""
 
     default_output_dir: str = "/outputs"
-    results_zip_dir: str = "/workspace/earth2studio-project/examples/outputs"
+    results_zip_dir: str = "/outputs"
     output_format: Literal["zarr", "netcdf4"] = "zarr"
     result_zip_enabled: bool = (
         False  # because output_format is defaulted to zarr, default zip creation to False
@@ -120,7 +139,10 @@ class LoggingConfig:
     """Logging configuration"""
 
     level: str = "INFO"
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format: str = (
+        "{time:YYYY-MM-DD HH:mm:ss.SSS} - [{extra[execution_id]}] "
+        "{name} - {level} - {message}"
+    )
 
 
 @dataclass
@@ -438,25 +460,17 @@ class ConfigManager:
         return f"redis://{password_part}{cfg.host}:{cfg.port}/{cfg.db}"
 
     def setup_logging(self) -> None:
-        """Configure logging based on settings"""
-        logging.basicConfig(
-            level=getattr(logging, self.config.logging.level.upper()),
+        """Configure logging using loguru."""
+        logger.remove()
+        logger.configure(extra={"execution_id": ""})
+        logger.add(
+            sys.stderr,
             format=self.config.logging.format,
+            level=self.config.logging.level.upper(),
         )
 
-        # Add filter to set default execution_id if not present
-        class ExecutionIdFilter(logging.Filter):
-            """Add default execution_id to records that don't have one"""
-
-            def filter(self, record: LogRecord) -> bool:
-                if not hasattr(record, "execution_id"):
-                    record.execution_id = ""
-                return True
-
-        # Add the filter to all handlers
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers:
-            handler.addFilter(ExecutionIdFilter())
+        # Intercept stdlib loggers (uvicorn, FastAPI, etc.) into loguru
+        logging.basicConfig(handlers=[_InterceptHandler()], level=0, force=True)
 
     @property
     def workflow_config(self) -> dict[str, Any]:

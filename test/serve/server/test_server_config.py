@@ -469,40 +469,29 @@ class TestGetRedisUrl:
 class TestSetupLogging:
     """Test setup_logging method"""
 
-    def test_setup_logging_configures_logging(self) -> None:
-        """Test that setup_logging configures logging correctly"""
+    def test_setup_logging_configures_loguru(self) -> None:
+        """Test that setup_logging configures loguru correctly"""
+        from loguru import logger
+
         reset_config()
         manager = ConfigManager()
         manager._config.logging.level = "DEBUG"
-        manager._config.logging.format = "%(levelname)s - %(message)s"
-
-        # Clear existing handlers to test fresh setup
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
-        root_logger.setLevel(logging.WARNING)  # Set to different level first
 
         manager.setup_logging()
 
-        # Verify logging was configured (may have been set by basicConfig)
-        # The exact level depends on when basicConfig was called, but we verify
-        # the method doesn't raise an error
-        assert root_logger is not None
+        # Verify loguru has a handler configured
+        assert len(logger._core.handlers) > 0
 
-    def test_setup_logging_adds_execution_id_filter(self) -> None:
-        """Test that setup_logging adds ExecutionIdFilter"""
+    def test_setup_logging_intercepts_stdlib(self) -> None:
+        """Test that setup_logging installs InterceptHandler on stdlib root logger"""
+        from earth2studio.serve.server.config import _InterceptHandler
+
         reset_config()
         manager = ConfigManager()
         manager.setup_logging()
 
         root_logger = logging.getLogger()
-        # Check that at least one handler has the filter
-        for handler in root_logger.handlers:
-            for filter_obj in handler.filters:
-                if "ExecutionIdFilter" in str(type(filter_obj)):
-                    # Filter found, test passes
-                    return
-        # Note: This may not always be true depending on when logging is initialized
-        # But we test that the method doesn't raise an error
+        assert any(isinstance(h, _InterceptHandler) for h in root_logger.handlers)
 
 
 class TestGetWorkflowConfig:

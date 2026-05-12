@@ -1,7 +1,6 @@
 FROM nvcr.io/nvidia/pytorch:26.01-py3
 
 RUN apt-get update && apt-get install -y git make && rm -rf /var/lib/apt/lists/*
-RUN python -m pip install --no-cache-dir --upgrade pip
 
 ENV NGC_CLI_ORG=no-org
 ENV NGC_CLI_TEAM=no-team
@@ -25,8 +24,6 @@ RUN uv pip install --system --break-system-packages cartopy xskillscore matplotl
 
 # Copy the serve collateral (scripts, config, etc.) and setup env.
 COPY serve /workspace/earth2studio-project/serve
-COPY examples /workspace/earth2studio-project/examples
-RUN ln -s /outputs /workspace/earth2studio-project/examples/outputs
 # Config and scripts live under serve/server/ after COPY serve
 ENV SCRIPT_DIR=/workspace/earth2studio-project/serve/server/scripts
 ENV CONFIG_DIR=/workspace/earth2studio-project/serve/server/conf
@@ -36,11 +33,9 @@ ENV WORKFLOW_DIR=/workspace/earth2studio-project/serve/server/example_workflows
 # Copy project root files needed for pip install (pyproject.toml is at repo root, not inside earth2studio).
 COPY pyproject.toml README.md /workspace/earth2studio-project/
 COPY earth2studio /workspace/earth2studio-project/earth2studio
-RUN apt-get update && apt-get install -y redis-server && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env && \
+RUN apt-get update && apt-get install -y redis-server && rm -rf /var/lib/apt/lists/* && \
     cd /workspace/earth2studio-project && \
     uv pip install --system --break-system-packages ".[dlwp,dlesym,pangu,sfno,stormcast,fcn3,serve,cbottle,corrdiff,cyclone,data,perturbation,statistics]" && \
-    uv pip install --system --break-system-packages -r serve/server/requirements.txt && \
     rm -rf /workspace/earth2studio-project/earth2studio /workspace/earth2studio-project/pyproject.toml /workspace/earth2studio-project/README.md
 
 # Critical CVEs
@@ -88,7 +83,6 @@ RUN uv pip install --system --break-system-packages \
     "nbconvert>=7.17.0" \
     "protobuf>=6.33.5" \
     "tornado>=6.5.5" \
-    "black>=26.3.1" \
     && find /usr/lib /usr/local/lib -name "wheel-0.45*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # CVE-2024-7254: the PyTorch base image vendors protobuf 3.13.0 source at

@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import asyncio
-import logging
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Literal
@@ -23,6 +22,7 @@ from urllib.parse import urlparse
 
 import aiofiles  # type: ignore[import-untyped]
 from fastapi import HTTPException
+from loguru import logger
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -38,9 +38,6 @@ except ImportError:
     Queue = None
 
 from earth2studio.serve.server.config import get_config
-
-logger = logging.getLogger(__name__)
-
 
 # =============================================================================
 # Redis Key Functions

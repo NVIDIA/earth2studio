@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Literal
@@ -23,6 +22,7 @@ import numpy as np
 import torch
 import zarr
 from cftime import date2num
+from loguru import logger
 
 from earth2studio.data import PlanetaryComputerECMWFOpenDataIFS, fetch_data
 from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
@@ -35,9 +35,6 @@ from earth2studio.serve.server import (
 )
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import timearray_to_datetime, to_time_array
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("foundry_fcn3_workflow")
 
 _MAX_FORECAST_STEPS = 400
 _MAX_ENSEMBLE_SAMPLES = 32
