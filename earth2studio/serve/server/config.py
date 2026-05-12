@@ -461,16 +461,23 @@ class ConfigManager:
 
     def setup_logging(self) -> None:
         """Configure logging using loguru."""
+        from tqdm import tqdm
+
         logger.remove()
         logger.configure(extra={"execution_id": ""})
         logger.add(
-            sys.stderr,
+            lambda msg: tqdm.write(msg, end="", file=sys.stderr),
             format=self.config.logging.format,
             level=self.config.logging.level.upper(),
+            colorize=False,
         )
 
         # Intercept stdlib loggers (uvicorn, FastAPI, etc.) into loguru
-        logging.basicConfig(handlers=[_InterceptHandler()], level=0, force=True)
+        logging.basicConfig(
+            handlers=[_InterceptHandler()],
+            level=logging.getLevelName(self.config.logging.level.upper()),
+            force=True,
+        )
 
     @property
     def workflow_config(self) -> dict[str, Any]:
