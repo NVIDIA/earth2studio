@@ -195,7 +195,7 @@ def run_custom_workflow(
                 log.exception("Failed to update workflow status after queue failure")
             raise RuntimeError(error_msg)
 
-        logger.info(
+        log.info(
             f"Queued next stage for {workflow_name}:{execution_id} with RQ job ID: {job_id}"
         )
         return result
