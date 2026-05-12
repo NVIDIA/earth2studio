@@ -35,7 +35,7 @@ from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
 
 
@@ -109,7 +109,7 @@ class EnsembleWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class EnsembleWorkflow(Workflow):
     """
     Ensemble workflow that runs Earth2Studio ensemble forecasts.

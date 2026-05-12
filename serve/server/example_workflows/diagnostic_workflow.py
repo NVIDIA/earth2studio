@@ -32,7 +32,7 @@ from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
 
 
@@ -87,7 +87,7 @@ class DiagnosticWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class DiagnosticWorkflow(Workflow):
     """
     Diagnostic workflow that runs Earth2Studio diagnostic forecasts.

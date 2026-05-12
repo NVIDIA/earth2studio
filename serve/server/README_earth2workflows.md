@@ -17,7 +17,7 @@ This is a simplified example demonstrating the key concepts. For complete workin
 `example_workflows` directory.
 
 ```python
-from earth2studio.serve.server import workflow_registry, Earth2Workflow
+from earth2studio.serve.server import WorkflowRegistry, Earth2Workflow
 from earth2studio.io import IOBackend
 from datetime import datetime
 from earth2studio.data import GFS
@@ -25,7 +25,7 @@ from earth2studio.models.px import FCN
 from earth2studio import run
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class ExampleEarth2Workflow(Earth2Workflow):
     name = "example_earth2_workflow"
     description = "example workflow"
@@ -117,10 +117,12 @@ class. In this case, `__init__` has no arguments, so this model is empty.
 
 ## Registration
 
-The `@workflow_registry.register` decorator causes the workflow to be automatically added into the
-API registry when run under the API server. The class-level `name` and `description` attributes are
-used for registration. As with any `Workflow`, your `Earth2Workflow` must be in the directory
-indicated by the `WORKFLOW_DIR` environment variable in order to be discovered by the API server.
+The `@WorkflowRegistry.instance().register` decorator causes the workflow to be
+automatically added into the API registry when run under the API server. The
+class-level `name` and `description` attributes are used for registration. As
+with any `Workflow`, your `Earth2Workflow` must be in the directory indicated by
+the `WORKFLOW_DIR` environment variable in order to be discovered by the API
+server.
 
 ## REST API Usage
 

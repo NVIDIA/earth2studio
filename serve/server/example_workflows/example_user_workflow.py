@@ -42,7 +42,7 @@ from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
 
 
@@ -77,7 +77,7 @@ class ExampleUserWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class ExampleUserWorkflow(Workflow):
     """
     Example user workflow demonstrating the workflow pattern.

@@ -33,7 +33,7 @@ from earth2studio.serve.server.workflow import (
     Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
 
 
@@ -82,7 +82,7 @@ class DeterministicWorkflowParameters(WorkflowParameters):
     )
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class DeterministicWorkflow(Workflow):
     """
     Deterministic workflow that runs Earth2Studio deterministic forecasts.

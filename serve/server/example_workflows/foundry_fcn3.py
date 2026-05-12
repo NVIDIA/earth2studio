@@ -31,7 +31,7 @@ from earth2studio.serve.server import (
     Earth2Workflow,
     WorkflowParameters,
     WorkflowProgress,
-    workflow_registry,
+    WorkflowRegistry,
 )
 from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
 from earth2studio.utils.time import timearray_to_datetime, to_time_array
@@ -40,7 +40,7 @@ _MAX_FORECAST_STEPS = 400
 _MAX_ENSEMBLE_SAMPLES = 32
 
 
-@workflow_registry.register
+@WorkflowRegistry.instance().register
 class FoundryFCN3Workflow(Earth2Workflow):
     """FCN3 ensemble inference workflow for Foundry using ECMWF IFS initial conditions."""
 
