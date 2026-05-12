@@ -38,6 +38,10 @@ RUN apt-get update && apt-get install -y redis-server && rm -rf /var/lib/apt/lis
     uv pip install --system --break-system-packages ".[dlwp,dlesym,pangu,sfno,stormcast,fcn3,serve,cbottle,corrdiff,cyclone,data,perturbation,statistics]" && \
     rm -rf /workspace/earth2studio-project/earth2studio /workspace/earth2studio-project/pyproject.toml /workspace/earth2studio-project/README.md
 
+# Pin warp-lang below 1.12.0 — physicsnemo uses wp.context.Device which was
+# removed/changed in 1.12.0+, causing import failures at runtime.
+RUN uv pip install --system --break-system-packages "warp-lang<1.12.0"
+
 # Critical CVEs
 # Libtasn1: CVEs
 RUN apt-get update && apt-get install -y --only-upgrade libtasn1-6 && rm -rf /var/lib/apt/lists/*
