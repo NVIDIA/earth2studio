@@ -72,12 +72,22 @@ class EnsembleWorkflowParameters(WorkflowParameters):
         description="Prognostic model type (ensemble workflow currently supports fcn)",
     )
 
-    # Perturbation configuration (SphericalGaussian)
+    # Perturbation configuration
+    perturbation: Literal["spherical_gaussian", "gaussian"] = Field(
+        default="spherical_gaussian",
+        description="Perturbation method: 'spherical_gaussian' (correlated on sphere) "
+        "or 'gaussian' (independent per grid point)",
+    )
     noise_amplitude: float = Field(
         default=0.15,
         ge=0.0,
         le=1.0,
-        description="Noise amplitude for SphericalGaussian perturbation",
+        description="Noise amplitude for the perturbation method",
+    )
+    seed_base: int | None = Field(
+        default=None,
+        description="RNG seed for reproducible perturbations. "
+        "If None, results are non-deterministic.",
     )
 
     # Data source configuration
@@ -159,11 +169,13 @@ class EnsembleWorkflow(Workflow):
             )
             self.update_execution_data(execution_id, progress)
 
+            import torch
+
             from earth2studio import run
             from earth2studio.data import GFS
             from earth2studio.io import ZarrBackend
             from earth2studio.models.px import FCN
-            from earth2studio.perturbation import SphericalGaussian
+            from earth2studio.perturbation import Gaussian, SphericalGaussian
 
             # Load prognostic model
             progress = WorkflowProgress(
@@ -186,7 +198,14 @@ class EnsembleWorkflow(Workflow):
                 total_steps=6,
             )
             self.update_execution_data(execution_id, progress)
-            sg = SphericalGaussian(noise_amplitude=parameters.noise_amplitude)
+
+            if parameters.seed_base is not None:
+                torch.manual_seed(parameters.seed_base)
+
+            if parameters.perturbation == "gaussian":
+                sg = Gaussian(noise_amplitude=parameters.noise_amplitude)
+            else:
+                sg = SphericalGaussian(noise_amplitude=parameters.noise_amplitude)
 
             # Data source
             if parameters.data_source.lower() == "gfs":
@@ -240,7 +259,9 @@ class EnsembleWorkflow(Workflow):
                 "nensemble": parameters.nensemble,
                 "batch_size": parameters.batch_size,
                 "model_type": parameters.model_type,
+                "perturbation": parameters.perturbation,
                 "noise_amplitude": parameters.noise_amplitude,
+                "seed_base": parameters.seed_base,
                 "data_source": parameters.data_source,
                 "output_format": parameters.output_format,
             }
