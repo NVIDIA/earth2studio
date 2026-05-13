@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 from collections import OrderedDict
 
 import numpy as np
@@ -65,6 +66,9 @@ from src.data_loading import (
 from earth2studio.data import GFS
 from earth2studio.statistics import crps
 from earth2studio.statistics.weights import lat_weight
+
+warnings.filterwarnings("ignore", message="Unclosed client session")
+warnings.filterwarnings("ignore", message="Unclosed connector")
 
 
 def parse_args() -> argparse.Namespace:
