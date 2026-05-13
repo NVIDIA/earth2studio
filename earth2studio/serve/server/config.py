@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Literal, Optional, cast
 
 from loguru import logger
+from tqdm import tqdm
 
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -461,8 +462,6 @@ class ConfigManager:
 
     def setup_logging(self) -> None:
         """Configure logging using loguru."""
-        from tqdm import tqdm
-
         logger.remove()
         logger.configure(extra={"execution_id": ""})
         logger.add(
