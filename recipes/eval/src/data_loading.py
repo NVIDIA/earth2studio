@@ -171,7 +171,16 @@ def load_verification_chunk(
     valid_times = time + lead_times
     da = source(list(valid_times), list(variables))
 
+    # Align verification grid to the prediction's spatial coordinates.
     spatial_dims = [d for d in da.dims if d not in {"time", "variable"}]
+    sel_kwargs = {
+        dim: xr.DataArray(spatial_coords[dim], dims=[dim])
+        for dim in spatial_dims
+        if dim in spatial_coords
+    }
+    if sel_kwargs:
+        da = da.sel(**sel_kwargs, method="nearest")
+
     dim_order = ["time", "variable"] + spatial_dims
     da = da.transpose(*dim_order)
 
