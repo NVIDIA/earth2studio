@@ -104,7 +104,7 @@ def parse_args() -> argparse.Namespace:
         "--lead-time-chunk-size",
         type=int,
         default=None,
-        help="Chunk lead times for memory control (default: no chunking)",
+        help="Chunk lead times for memory control (default: all at once)",
     )
     parser.add_argument(
         "--cache",
@@ -297,7 +297,7 @@ def main() -> None:
     lead_time_chunks = build_lead_time_chunks(lead_times, args.lead_time_chunk_size)
     spatial_coords = spatial_coords_from_dataset(ds_a)
 
-    print(f"Variables: {variables}")
+    print(f"Variables: {variables} ({len(variables)} total, scored one at a time)")
     print(f"IC times: {len(common_times)}")
     print(f"Lead times: {len(lead_times)} steps")
     print(f"Ensemble dim: {args.ensemble_dim}")
@@ -306,29 +306,40 @@ def main() -> None:
     metric = build_metric(args.ensemble_dim, spatial_coords)
     gfs = GFS(cache=args.cache)
 
-    print("\nScoring forecast A...")
-    crps_a = score_forecast(
-        ds_a,
-        gfs,
-        variables,
-        lead_times,
-        lead_time_chunks,
-        spatial_coords,
-        device,
-        metric,
-    )
+    n_times = len(common_times)
+    n_lead_times = len(lead_times)
+    n_vars = len(variables)
+    crps_a = np.full((n_times, n_lead_times, n_vars), np.nan, dtype=np.float32)
+    crps_b = np.full((n_times, n_lead_times, n_vars), np.nan, dtype=np.float32)
 
-    print("\nScoring forecast B...")
-    crps_b = score_forecast(
-        ds_b,
-        gfs,
-        variables,
-        lead_times,
-        lead_time_chunks,
-        spatial_coords,
-        device,
-        metric,
-    )
+    for v_idx, var in enumerate(variables):
+        print(f"\n[{v_idx + 1}/{n_vars}] Scoring variable: {var}")
+
+        print("  Forecast A...")
+        var_scores_a = score_forecast(
+            ds_a,
+            gfs,
+            [var],
+            lead_times,
+            lead_time_chunks,
+            spatial_coords,
+            device,
+            metric,
+        )
+        crps_a[:, :, v_idx] = var_scores_a[:, :, 0]
+
+        print("  Forecast B...")
+        var_scores_b = score_forecast(
+            ds_b,
+            gfs,
+            [var],
+            lead_times,
+            lead_time_chunks,
+            spatial_coords,
+            device,
+            metric,
+        )
+        crps_b[:, :, v_idx] = var_scores_b[:, :, 0]
 
     all_pass = report_results(crps_a, crps_b, variables, lead_times, args.threshold)
 
