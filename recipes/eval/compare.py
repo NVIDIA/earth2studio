@@ -103,19 +103,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--lead-time-chunk-size",
         type=int,
-        default=None,
-        help="Chunk lead times for memory control (default: all at once)",
+        default=1,
+        help="Number of lead times per CRPS batch (default: 1)",
     )
     parser.add_argument(
         "--cache",
         action="store_true",
-        default=False,
-        help="Cache GFS downloads locally (default: no cache)",
+        default=True,
+        help="Cache GFS downloads locally (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_false",
+        dest="cache",
+        help="Disable GFS download caching",
     )
     parser.add_argument(
         "--device",
-        default="cpu",
-        help="Torch device for computation (default: cpu)",
+        default="cuda",
+        help="Torch device for computation (default: cuda)",
     )
     return parser.parse_args()
 
