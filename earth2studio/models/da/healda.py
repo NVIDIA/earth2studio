@@ -645,11 +645,16 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         if unknown_vars:
             raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")
 
-        # Earth2Studio default to always providing pressure in Pa, HealDA was trained on
-        # UFS data which by default is in mb/hPa. So we need to convert.
+        # HealDA expects pressure-like values in hPa. Earth2Studio/UFS feeds may
+        # provide Pa or hPa, so convert only values that are clearly in Pa.
         obs_hpa = df["observation"].values.astype(np.float64)
-        obs_hpa[df["variable"].values == "pres"] /= 100.0
-        pressure_hpa = (df["pres"].values.astype(np.float32) / 100.0).astype(np.float32)
+        is_pres_obs = df["variable"].values == "pres"
+        obs_pa_mask = is_pres_obs & np.isfinite(obs_hpa) & (obs_hpa > 2000.0)
+        obs_hpa[obs_pa_mask] /= 100.0
+
+        pressure_hpa = df["pres"].values.astype(np.float32)
+        pressure_pa_mask = np.isfinite(pressure_hpa) & (pressure_hpa > 2000.0)
+        pressure_hpa[pressure_pa_mask] /= 100.0
 
         return pd.DataFrame(
             {
@@ -855,21 +860,21 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             obs = pd.concat(ordered_parts, ignore_index=True)
         else:
             obs = pd.DataFrame(
-                columns=[
-                    "lat",
-                    "lon",
-                    "obs_time_ns",
-                    "observation",
-                    "local_channel",
-                    "local_platform",
-                    "sensor",
-                    "obs_type",
-                    "height",
-                    "pressure",
-                    "scan_angle",
-                    "sat_zenith_angle",
-                    "sol_zenith_angle",
-                ]
+                {
+                    "lat": np.empty(0, dtype=np.float32),
+                    "lon": np.empty(0, dtype=np.float32),
+                    "obs_time_ns": np.empty(0, dtype="datetime64[ns]"),
+                    "observation": np.empty(0, dtype=np.float32),
+                    "local_channel": np.empty(0, dtype=np.int32),
+                    "local_platform": np.empty(0, dtype=np.int64),
+                    "sensor": np.empty(0, dtype=str),
+                    "obs_type": np.empty(0, dtype=np.int32),
+                    "height": np.empty(0, dtype=np.float32),
+                    "pressure": np.empty(0, dtype=np.float32),
+                    "scan_angle": np.empty(0, dtype=np.float32),
+                    "sat_zenith_angle": np.empty(0, dtype=np.float32),
+                    "sol_zenith_angle": np.empty(0, dtype=np.float32),
+                }
             )
 
         def to_dev(col: str) -> torch.Tensor:
