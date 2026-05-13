@@ -27,7 +27,7 @@ Usage
     python compare.py --forecast-a /path/to/ferroflux/forecast.zarr \\
                       --forecast-b /path/to/python_serve/forecast.zarr \\
                       --variables t2m,z500,tcwv \\
-                      --threshold 0.5
+                      --threshold 0.01
 
 Expected zarr layout
 --------------------
@@ -43,7 +43,7 @@ Run from the recipes/eval/ directory::
 
     python compare.py --forecast-a tests/data/forecast_a.zarr \\
                       --forecast-b tests/data/forecast_b.zarr \\
-                      --variables t2m --threshold 1.0
+                      --variables t2m --threshold 0.05
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import xarray as xr
-from src.scoring import (
+from src.data_loading import (
     build_lead_time_chunks,
     load_prediction_chunk,
     load_verification_chunk,
@@ -91,8 +91,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.5,
-        help="Max allowable absolute CRPS difference (default: 0.5)",
+        default=0.01,
+        help="Max allowable relative CRPS difference as a fraction "
+        "(default: 0.01 = 1%%)",
     )
     parser.add_argument(
         "--ensemble-dim",
@@ -212,20 +213,20 @@ def report_results(
     lead_times: np.ndarray,
     threshold: float,
 ) -> bool:
-    """Print comparison table and return True if all diffs are within threshold."""
+    """Print comparison table and return True if all relative diffs are within threshold."""
     mean_a = np.nanmean(crps_a, axis=0)  # (n_lead_times, n_vars)
     mean_b = np.nanmean(crps_b, axis=0)
-    diff = np.abs(mean_a - mean_b)
 
     all_pass = True
-    max_diff = 0.0
+    max_rel_diff = 0.0
+    _EPS = 1e-12
 
     print("\n" + "=" * 80)
     print("CRPS COMPARISON REPORT")
     print("=" * 80)
     print(
         f"{'Variable':<12} {'Lead Time':<14} {'CRPS A':>10} {'CRPS B':>10} "
-        f"{'|Diff|':>10} {'Status':>8}"
+        f"{'Rel Diff%':>10} {'Status':>8}"
     )
     print("-" * 80)
 
@@ -233,21 +234,26 @@ def report_results(
         for lt_idx, lt in enumerate(lead_times):
             a_val = mean_a[lt_idx, v_idx]
             b_val = mean_b[lt_idx, v_idx]
-            d_val = diff[lt_idx, v_idx]
-            max_diff = max(max_diff, d_val)
-            status = "PASS" if d_val <= threshold else "FAIL"
-            if d_val > threshold:
+            denom = max(float(a_val), float(b_val))
+            if denom < _EPS:
+                rel_diff = 0.0
+            else:
+                rel_diff = abs(float(a_val) - float(b_val)) / denom
+
+            max_rel_diff = max(max_rel_diff, rel_diff)
+            status = "PASS" if rel_diff <= threshold else "FAIL"
+            if rel_diff > threshold:
                 all_pass = False
 
             lt_hours = lt / np.timedelta64(1, "h")
             print(
                 f"{var:<12} {lt_hours:>6.0f}h       "
-                f"{a_val:>10.4f} {b_val:>10.4f} {d_val:>10.4f} {status:>8}"
+                f"{a_val:>10.4f} {b_val:>10.4f} {rel_diff * 100:>9.4f}% {status:>8}"
             )
 
     print("-" * 80)
-    print(f"Max absolute CRPS difference: {max_diff:.6f}")
-    print(f"Threshold:                    {threshold:.6f}")
+    print(f"Max relative CRPS difference: {max_rel_diff * 100:.4f}%")
+    print(f"Threshold:                    {threshold * 100:.4f}%")
     print(f"Result:                       {'PASS' if all_pass else 'FAIL'}")
     print("=" * 80)
 
@@ -295,7 +301,7 @@ def main() -> None:
     print(f"IC times: {len(common_times)}")
     print(f"Lead times: {len(lead_times)} steps")
     print(f"Ensemble dim: {args.ensemble_dim}")
-    print(f"Threshold: {args.threshold}")
+    print(f"Threshold: {args.threshold * 100:.2f}%")
 
     metric = build_metric(args.ensemble_dim, spatial_coords)
     gfs = GFS(cache=args.cache)
