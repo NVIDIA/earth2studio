@@ -645,12 +645,18 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         if unknown_vars:
             raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")
 
+        # Earth2Studio default to always providing pressure in Pa, HealDA was trained on
+        # UFS data which by default is in mb/hPa. So we need to convert.
+        obs_hpa = df["observation"].values.astype(np.float64)
+        obs_hpa[df["variable"].values == "pres"] /= 100.0
+        pressure_hpa = (df["pres"].values.astype(np.float32) / 100.0).astype(np.float32)
+
         return pd.DataFrame(
             {
                 "lat": df["lat"].values.astype(np.float32),
                 "lon": df["lon"].values.astype(np.float32),
                 "obs_time_ns": df["time"].values.astype("datetime64[ns]"),
-                "observation": df["observation"].values.astype(np.float64),
+                "observation": obs_hpa,
                 "local_channel": df["variable"]
                 .map(CONV_VAR_CHANNEL)
                 .values.astype(np.int32),
@@ -658,7 +664,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "sensor": "conv",
                 "obs_type": df["type"].fillna(0).values.astype(np.int32),
                 "height": df["elev"].values.astype(np.float32),
-                "pressure": df["pres"].values.astype(np.float32),
+                "pressure": pressure_hpa,
                 "scan_angle": np.float32(np.nan),
                 "sat_zenith_angle": np.float32(np.nan),
                 "sol_zenith_angle": np.float32(np.nan),
