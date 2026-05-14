@@ -246,9 +246,7 @@ def test_cfs_call_mock(tmp_path, monkeypatch):
     with (
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(
-            ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file
-        ),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
         patch(
             "earth2studio.data.cfs._decode_cfs_grib",
             return_value=fake_grid,
@@ -262,9 +260,7 @@ def test_cfs_call_mock(tmp_path, monkeypatch):
     # MSL is identity, z500 multiplies HGT by 9.81 — both records used the
     # same mock grid, so msl matches the grid and z500 = grid * 9.81.
     np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
-    np.testing.assert_allclose(
-        data.sel(variable="z500").values[0, 0], fake_grid * 9.81
-    )
+    np.testing.assert_allclose(data.sel(variable="z500").values[0, 0], fake_grid * 9.81)
 
 
 # ----------------------------------------------------------------------

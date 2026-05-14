@@ -361,9 +361,7 @@ class CFS_FX:
         # Fetch every required .idx in parallel up front.  Most CFS variable
         # records live in the same grib file (one file per IC x lead_time), so
         # we cache them in a dict keyed by URI.
-        idx_uris = [
-            self._grib_index_uri(t, lt) for t in time for lt in lead_time
-        ]
+        idx_uris = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
         idx_results = await tqdm.gather(
             *(self._fetch_index(uri) for uri in idx_uris),
             desc="Fetching CFS index files",
@@ -513,18 +511,14 @@ class CFS_FX:
             if delta.total_seconds() < 0:
                 raise ValueError(f"Lead time {delta} must be non-negative for CFS")
             if not delta.total_seconds() % 21600 == 0:
-                raise ValueError(
-                    f"Lead time {delta} must be a 6-hour multiple for CFS"
-                )
+                raise ValueError(f"Lead time {delta} must be a 6-hour multiple for CFS")
             if delta.total_seconds() // 3600 > _MAX_LEAD_HOURS:
                 raise ValueError(
                     f"Lead time {delta} exceeds the CFS data source cap of "
                     f"{_MAX_LEAD_HOURS // 24} days."
                 )
 
-    async def _fetch_index(
-        self, index_uri: str
-    ) -> dict[str, tuple[int, int, int]]:
+    async def _fetch_index(self, index_uri: str) -> dict[str, tuple[int, int, int]]:
         """Fetch a CFS grib `.idx` file and parse it into a byte-range lookup.
 
         The CFS pgbf product packs `UGRD`/`VGRD` into a single vector grib
@@ -654,12 +648,8 @@ class CFS_FX:
         ic_stamp = f"{time:%Y%m%d%H}"
         valid_stamp = f"{valid:%Y%m%d%H}"
         member = f"{self._member:02d}"
-        filename = (
-            f"{self.CFS_PRODUCT}{valid_stamp}.{member}.{ic_stamp}.grb2"
-        )
-        cycle_dir = (
-            f"cfs.{time:%Y%m%d}/{time:%H}/6hrly_grib_{member}/{filename}"
-        )
+        filename = f"{self.CFS_PRODUCT}{valid_stamp}.{member}.{ic_stamp}.grb2"
+        cycle_dir = f"cfs.{time:%Y%m%d}/{time:%H}/6hrly_grib_{member}/{filename}"
         return self._join_uri(cycle_dir)
 
     def _grib_index_uri(self, time: datetime, lead_time: timedelta) -> str:
@@ -730,7 +720,7 @@ class CFS_FX:
         fs = s3fs.S3FileSystem(anon=True)
         try:
             return fs.exists(cycle_uri)
-        except (OSError, IOError):
+        except OSError:
             return False
 
 
