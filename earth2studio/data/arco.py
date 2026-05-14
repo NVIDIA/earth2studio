@@ -240,9 +240,9 @@ class ARCO:
             },
         )
 
-        groups: dict[
-            tuple[str, bool], list[tuple[str, int, str, Callable]]
-        ] = defaultdict(list)
+        groups: dict[tuple[str, bool], list[tuple[str, int, str, Callable]]] = (
+            defaultdict(list)
+        )
         for j, v in enumerate(variable):
             try:
                 arco_name, modifier = ARCOLexicon[v]
@@ -322,7 +322,9 @@ class ARCO:
             # Fetch all levels in a single chunk read
             all_levels_data = await zarr_array.getitem(time_index)
             for k, (var_name, var_idx, level, modifier) in enumerate(var_entries):
-                xr_array[time_idx, var_idx] = modifier(all_levels_data[level_indices[k]])
+                xr_array[time_idx, var_idx] = modifier(
+                    all_levels_data[level_indices[k]]
+                )
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
