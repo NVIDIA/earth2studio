@@ -199,9 +199,6 @@ class EnsembleWorkflow(Workflow):
             )
             self.update_execution_data(execution_id, progress)
 
-            if parameters.seed_base is not None:
-                torch.manual_seed(parameters.seed_base)
-
             if parameters.perturbation == "gaussian":
                 sg = Gaussian(noise_amplitude=parameters.noise_amplitude)
             else:
@@ -237,17 +234,27 @@ class EnsembleWorkflow(Workflow):
             )
             self.update_execution_data(execution_id, progress)
 
-            io_result = run.ensemble(  # type: ignore[assignment]
-                parameters.forecast_times,
-                parameters.nsteps,
-                parameters.nensemble,
-                model,
-                data,
-                io,
-                sg,
-                batch_size=parameters.batch_size,
-                output_coords=output_coords,
-            )
+            def _run_ensemble() -> Any:
+                return run.ensemble(  # type: ignore[assignment]
+                    parameters.forecast_times,
+                    parameters.nsteps,
+                    parameters.nensemble,
+                    model,
+                    data,
+                    io,
+                    sg,
+                    batch_size=parameters.batch_size,
+                    output_coords=output_coords,
+                )
+
+            if parameters.seed_base is not None:
+                devices = [torch.device("cuda")] if torch.cuda.is_available() else []
+                with torch.random.fork_rng(devices=devices):
+                    torch.manual_seed(parameters.seed_base)
+                    io_result = _run_ensemble()
+            else:
+                io_result = _run_ensemble()
+
             io = io_result  # type: ignore[assignment]
 
             # Consolidate zarr metadata

@@ -111,16 +111,11 @@ def parse_args() -> argparse.Namespace:
         help="Number of lead times per CRPS batch (default: 1)",
     )
     parser.add_argument(
-        "--cache",
-        action="store_true",
-        default=True,
-        help="Cache GFS downloads locally (default: enabled)",
-    )
-    parser.add_argument(
         "--no-cache",
         action="store_false",
         dest="cache",
-        help="Disable GFS download caching",
+        default=True,
+        help="Disable GFS download caching (caching is enabled by default)",
     )
     parser.add_argument(
         "--device",
@@ -242,20 +237,29 @@ def report_results(
 
     for v_idx, var in enumerate(variables):
         for lt_idx, lt in enumerate(lead_times):
-            a_val = mean_a[lt_idx, v_idx]
-            b_val = mean_b[lt_idx, v_idx]
-            denom = max(float(a_val), float(b_val))
+            a_val = float(mean_a[lt_idx, v_idx])
+            b_val = float(mean_b[lt_idx, v_idx])
+            lt_hours = lt / np.timedelta64(1, "h")
+
+            if np.isnan(a_val) or np.isnan(b_val):
+                all_pass = False
+                print(
+                    f"{var:<12} {lt_hours:>6.0f}h       "
+                    f"{a_val:>10.4f} {b_val:>10.4f}       NaN     FAIL"
+                )
+                continue
+
+            denom = max(a_val, b_val)
             if denom < _EPS:
                 rel_diff = 0.0
             else:
-                rel_diff = abs(float(a_val) - float(b_val)) / denom
+                rel_diff = abs(a_val - b_val) / denom
 
             max_rel_diff = max(max_rel_diff, rel_diff)
             status = "PASS" if rel_diff <= threshold else "FAIL"
             if rel_diff > threshold:
                 all_pass = False
 
-            lt_hours = lt / np.timedelta64(1, "h")
             print(
                 f"{var:<12} {lt_hours:>6.0f}h       "
                 f"{a_val:>10.4f} {b_val:>10.4f} {rel_diff * 100:>9.4f}% {status:>8}"
