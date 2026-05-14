@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import os
 import pathlib
@@ -28,13 +27,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import nest_asyncio
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
 from earth2studio.data.utils import (
+    _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
@@ -223,13 +222,7 @@ class NomadsGDASObsConv:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self._tmp_cache_hash: str | None = None
-
-        try:
-            nest_asyncio.apply()
-            loop = asyncio.get_running_loop()
-            loop.run_until_complete(self._async_init())
-        except RuntimeError:
-            self.fs = None  # type: ignore[assignment]
+        self.fs: Any = None
 
     async def _async_init(self) -> None:
         """Initialize async HTTP filesystem.
@@ -273,20 +266,8 @@ class NomadsGDASObsConv:
             If requested time is out of valid range.
         """
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if self.fs is None:
-            loop.run_until_complete(self._async_init())
-
-        try:
-            df = loop.run_until_complete(
-                asyncio.wait_for(
-                    self.fetch(time, variable, fields),
-                    timeout=self.async_timeout,
-                )
+            df = _sync_async(
+                self.fetch, time, variable, fields, timeout=self.async_timeout
             )
         finally:
             if not self._cache:
@@ -317,11 +298,7 @@ class NomadsGDASObsConv:
             Observation data.
         """
         if self.fs is None:
-            raise ValueError(
-                "File store is not initialized! If you are calling this "
-                "function directly make sure the data source is initialized "
-                "inside the async loop!"
-            )
+            await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
         output_fields = self.resolve_fields(fields)
