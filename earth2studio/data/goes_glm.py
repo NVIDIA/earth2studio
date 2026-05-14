@@ -384,8 +384,10 @@ class GOESGLM:
             windows.append((tmin, tmax, sat))
             # Cover any hours overlapping the window, including the one
             # containing tmin even when tmax falls back into the prior
-            # bin (negative tolerance).
-            hr = tmin.replace(minute=0, second=0, microsecond=0)
+            # bin (negative tolerance). Start one file duration before
+            # tmin so the prefix listing matches the widened file-start
+            # acceptance bound used below.
+            hr = (tmin - _GLM_FILE_DURATION).replace(minute=0, second=0, microsecond=0)
             stop = tmax if tmax >= tmin else tmin
             while hr <= stop:
                 prefix_jobs[(sat, self._hour_prefix(sat, hr))] = None
