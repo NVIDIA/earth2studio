@@ -168,6 +168,41 @@ def test_cfs_invalid_variable():
         ds(_TEST_CYCLE, timedelta(hours=6), "t2m")
 
 
+@pytest.mark.timeout(5)
+def test_cfs_nomads_history_range():
+    # NOMADS rolling window: anything more than 8 days in the past raises.
+    ds = CFS_FX(source="nomads", cache=False)
+    old_time = datetime(year=2020, month=1, day=1)
+    with pytest.raises(ValueError, match="NOMADS"):
+        ds(old_time, timedelta(hours=6), "msl")
+
+
+@pytest.mark.timeout(5)
+def test_cfs_uri_construction():
+    # Exercise both URI branches (NOMADS HTTPS + AWS bucket-path) so the
+    # _join_uri helper is covered for both sources.
+    t = datetime(2024, 6, 1, 6)
+    lt = timedelta(hours=12)
+
+    ds_nomads = CFS_FX(source="nomads", cache=False)
+    uri = ds_nomads._grib_uri(t, lt)
+    assert uri.startswith("https://nomads.ncep.noaa.gov/")
+    assert uri.endswith(
+        "cfs.20240601/06/6hrly_grib_01/pgbf2024060118.01.2024060106.grb2"
+    )
+
+    ds_aws = CFS_FX(source="aws", cache=False)
+    uri = ds_aws._grib_uri(t, lt)
+    assert uri.startswith("noaa-cfs-pds/")
+
+
+@pytest.mark.timeout(5)
+def test_cfs_available_numpy_datetime():
+    # Cover the np.datetime64 conversion branch in available().
+    assert not CFS_FX.available(np.datetime64("2023-04-21T00:00"))  # pre-archive
+    assert not CFS_FX.available(np.datetime64("2024-01-01T03:00"))  # off-cycle
+
+
 # ----------------------------------------------------------------------
 # Index parser (offline, no network)
 # ----------------------------------------------------------------------

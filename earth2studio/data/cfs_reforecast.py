@@ -375,9 +375,7 @@ class CFS_Reforecast_FX:
             try:
                 cfs_name_str, modifier = self.LEXICON[v]
             except KeyError as e:
-                logger.error(
-                    f"Variable id {v} not found in {self.LEXICON.__name__}"
-                )
+                logger.error(f"Variable id {v} not found in {self.LEXICON.__name__}")
                 raise e
             _, param_ncep, level_desc = cfs_name_str.split("::", 2)
             if param_ncep not in _NCEP_TO_PARAM_NAME:
@@ -494,9 +492,7 @@ class CFS_Reforecast_FX:
             if delta.total_seconds() < 0:
                 raise ValueError(f"Lead time {delta} must be non-negative for CFS")
             if not delta.total_seconds() % 21600 == 0:
-                raise ValueError(
-                    f"Lead time {delta} must be a 6-hour multiple for CFS"
-                )
+                raise ValueError(f"Lead time {delta} must be a 6-hour multiple for CFS")
             if delta.total_seconds() // 3600 > _MAX_LEAD_HOURS:
                 raise ValueError(
                     f"Lead time {delta} exceeds the CFS reforecast 9-month cap"
@@ -518,9 +514,7 @@ class CFS_Reforecast_FX:
         if self.fs is None:
             raise ValueError("File system is not initialised")
 
-        cache_path = os.path.join(
-            self.cache, hashlib.sha256(uri.encode()).hexdigest()
-        )
+        cache_path = os.path.join(self.cache, hashlib.sha256(uri.encode()).hexdigest())
         if pathlib.Path(cache_path).is_file():
             return cache_path
 

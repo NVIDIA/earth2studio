@@ -74,9 +74,9 @@ def test_translator_covers_lexicons():
     for vocab in (CFSLexicon.VOCAB, CFSFluxLexicon.VOCAB):
         for entry in vocab.values():
             _, param_ncep, level_desc = entry.split("::", 2)
-            assert param_ncep in _NCEP_TO_PARAM_NAME, (
-                f"Missing pygrib translation for NCEP param {param_ncep!r}"
-            )
+            assert (
+                param_ncep in _NCEP_TO_PARAM_NAME
+            ), f"Missing pygrib translation for NCEP param {param_ncep!r}"
             # Will raise KeyError if level description is unparseable.
             _resolve_pygrib_filter(level_desc)
 
@@ -149,9 +149,7 @@ def test_cfs_reforecast_available():
     # After archive end.
     assert not CFS_Reforecast_FX.available(datetime(year=2012, month=1, day=1))
     # Off 6-h cycle.
-    assert not CFS_Reforecast_FX.available(
-        datetime(year=2010, month=6, day=15, hour=3)
-    )
+    assert not CFS_Reforecast_FX.available(datetime(year=2010, month=6, day=15, hour=3))
     # np.datetime64 input path.
     assert CFS_Reforecast_FX.available(np.datetime64("2010-06-15T00:00"))
 
@@ -202,9 +200,7 @@ def test_cfs_reforecast_call_mock(tmp_path, monkeypatch):
     assert data.shape == (1, 1, 2, 181, 360)
     np.testing.assert_allclose(data.sel(variable="msl").values[0, 0], fake_grid)
     # z500 picks up the HGT geopotential modifier (* 9.81).
-    np.testing.assert_allclose(
-        data.sel(variable="z500").values[0, 0], fake_grid * 9.81
-    )
+    np.testing.assert_allclose(data.sel(variable="z500").values[0, 0], fake_grid * 9.81)
 
 
 # ----------------------------------------------------------------------
